@@ -23,12 +23,15 @@ for (const file of [
   'src/lib/reports/download-verification.ts',
   'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/score/api/admin/reports/[reportId]/download/route.ts',
-  'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql'
+  'supabase/migrations/20260708193238_phase10_report_engine_additions.sql',
+  'supabase/migrations/20260708193318_phase9_phase10_private_storage_buckets.sql',
+  'supabase/migrations/20260708194834_phase10_v2_report_engine_content.sql',
+  'supabase/migrations/20260709033522_phase10_v2_report_template_seed.sql'
 ]) assert(exists(file), `${file} must exist`);
 
 const pkg = JSON.parse(read('package.json'));
 assert(pkg.engines?.node === '24.x', 'Node 24 must be explicit after the controlled compatibility spike');
-assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next must remain on 14.x');
+assert(/^[^0-9]*15\./.test(pkg.dependencies?.next ?? ''), 'Next must remain on the patched 15.x release line');
 assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain on 18.x');
 assert(pkg.dependencies?.['@sparticuz/chromium'], 'Chromium package must remain installed');
 assert(pkg.dependencies?.['puppeteer-core'], 'puppeteer-core must remain installed');
@@ -51,10 +54,11 @@ excludes(assemble, "'verified'", 'Legacy verified status must not enable generat
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate overall score');
 
 const entitlement = 'src/lib/reports/report-entitlement.ts';
-includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report generation must remain restricted to the R5,000 product');
+includes(entitlement, 'validateOrderPriceEntitlement', 'Report generation price entitlement must resolve through the versioned price contract');
 includes(entitlement, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report generation must remain payment gated');
-includes(entitlement, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report generation must remain restricted to the essential product');
-includes(entitlement, 'mk_validated_assessment', 'R50,000 personalised engagement must be explicitly rejected');
+includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE', 'Report generation must remain restricted to the authoritative Essential product code');
+includes(entitlement, "tierForProductCode(assembled.productCode) !== 'essential'", 'Report generation must reject any tier other than Essential');
+includes(entitlement, 'COMPREHENSIVE_PRODUCT_CODE', 'A Comprehensive order must be explicitly rejected by Essential report generation');
 includes(entitlement, 'Free products are not eligible', 'Free products must be explicitly rejected');
 
 const fallback = 'src/lib/reports/fallback-content.ts';
@@ -113,9 +117,34 @@ includes('src/lib/reports/phase1-report-access.ts', "createHash('sha256')", 'Dow
 includes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Downloads must issue only short-lived access');
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
+// Checkpoint F controller review blocker 4 restructured the report into an executive core +
+// Bounded Essential contract: the PDF is the prioritised advisory layer (L2) and the complete
+// analytical universe lives in the L3 supporting register, so the legacy A1-A7 full-register
+// appendix no longer exists. These markers verify the same substantive content still renders --
+// false-comfort narrative, the one roadmap, the bounded appendix, the definitions/score basis that
+// was formerly A7, the L3 disclosure, and report version metadata.
 const template = read('src/lib/reports/templates/report-template.ts');
-for (const heading of ['False Comfort', '30/60/90-Day Roadmap', 'Leadership Agenda', 'Version Record']) {
-  assert(template.includes(heading), `Template must include ${heading}`);
+for (const marker of [
+  'content.falseComfort',
+  '30/60/90-day roadmap',
+  'Appendix: supporting material',
+  'E1. Supporting control actions',
+  'E2. Definitions and score basis',
+  'Complete supporting detail',
+  'data.reportReference'
+]) {
+  assert(template.includes(marker), `Template must include ${marker}`);
+}
+// Anti-regression: the full L1 registers must never return to the Essential PDF.
+for (const legacy of [
+  'A1. Complete material findings register',
+  'A2. Complete risk register',
+  'A3. Complete control improvement register',
+  'A4. Complete evidence checklist',
+  'A5. Functional agenda',
+  'A6. Methodology question-code mapping'
+]) {
+  assert(!template.includes(legacy), `Template must not reintroduce the legacy full register ${legacy}`);
 }
 assert(!/benchmark|peer average/i.test(template), 'Template must not claim unsupported benchmarks');
 assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose internal phase labels');

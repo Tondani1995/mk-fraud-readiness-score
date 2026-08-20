@@ -244,6 +244,10 @@ export function AssessmentEngine(props: AssessmentEngineProps) {
     const response = await fetch(`/score/api/assessments/${props.assessmentReference}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: props.token }) });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) { interactionLockRef.current = false; setMessages(body.errors ?? ['Assessment could not be submitted.']); setSubmitState('idle'); return; }
+    if (typeof body.snapshotUrl === 'string' && body.snapshotUrl.length > 0) {
+      window.location.assign(body.snapshotUrl);
+      return;
+    }
     interactionLockRef.current = false;
     setSnapshot(body.snapshot ?? null); setSnapshotUrl(body.snapshotUrl ?? null); setSubmitState('submitted'); setSaveState('saved');
   }

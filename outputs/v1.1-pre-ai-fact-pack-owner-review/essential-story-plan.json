@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "mk-reporting-bible-1.1-story-plan-v1",
+  "bibleVersion": "1.1",
+  "productTier": "essential",
+  "executiveStoryObjective": "Diagnose the self-assessed fraud-control environment, explain its most material patterns and set the first 90-day response.",
+  "movements": [
+    {
+      "id": "diagnosis",
+      "order": 1,
+      "title": "Executive diagnosis",
+      "objective": "Explain where the organisation stands and what the recorded result means.",
+      "sectionIds": [
+        "EXECUTIVE-DIAGNOSIS",
+        "READINESS-PROFILE"
+      ],
+      "transitionPurpose": "Show why the score requires a closer look at the few patterns driving it.",
+      "requiredManagementTakeaway": "Management should understand the result, its uncertainty and immediate priority."
+    },
+    {
+      "id": "drivers",
+      "order": 2,
+      "title": "What is driving the result",
+      "objective": "Synthesise deterministic finding clusters into management themes.",
+      "sectionIds": [
+        "SYSTEMIC-THEMES"
+      ],
+      "transitionPurpose": "Move from broad pattern to the findings that matter most.",
+      "requiredManagementTakeaway": "Leadership should focus on the small number of patterns with the greatest fraud-risk consequence."
+    },
+    {
+      "id": "findings",
+      "order": 3,
+      "title": "The findings that matter most",
+      "objective": "Explain priority weaknesses as advisory observations.",
+      "sectionIds": [
+        "PRIORITY-FINDINGS"
+      ],
+      "transitionPurpose": "Show how linked weaknesses could become plausible fraud pathways.",
+      "requiredManagementTakeaway": "Each priority weakness needs an owned treatment, not only a description."
+    },
+    {
+      "id": "exposure",
+      "order": 4,
+      "title": "How exposure could materialise",
+      "objective": "Narrate the approved conditional fraud pathways.",
+      "sectionIds": [
+        "FRAUD-SCENARIOS"
+      ],
+      "transitionPurpose": "Translate plausible pathways into the first control responses.",
+      "requiredManagementTakeaway": "Scenarios are conditional pathways that help management test prevention, detection and containment."
+    },
+    {
+      "id": "response",
+      "order": 5,
+      "title": "What management should do first",
+      "objective": "Set first-priority controls and a readable 30/60/90 response.",
+      "sectionIds": [
+        "MANAGEMENT-PRIORITIES",
+        "RESPONSE-30-60-90"
+      ],
+      "transitionPurpose": "Close by defining what success should look like after the first response period.",
+      "requiredManagementTakeaway": "Management should know the first controls, owners, timing and success measures."
+    },
+    {
+      "id": "conclusion",
+      "order": 6,
+      "title": "Management conclusion",
+      "objective": "Close the diagnosis with a practical next step.",
+      "sectionIds": [
+        "CONCLUSION"
+      ],
+      "transitionPurpose": "End with the management implication and route forward.",
+      "requiredManagementTakeaway": "Within 90 days the organisation should have accountable ownership, priority controls and a repeatable first operating cycle."
+    }
+  ],
+  "themeOrder": [
+    "THEME-001",
+    "THEME-002",
+    "THEME-003",
+    "THEME-004",
+    "THEME-005"
+  ],
+  "findingOrder": [
+    "FINDING-001",
+    "FINDING-002",
+    "FINDING-003",
+    "FINDING-004",
+    "FINDING-005",
+    "FINDING-006",
+    "FINDING-007",
+    "FINDING-008"
+  ],
+  "scenarioOrder": [
+    "SCENARIO-001",
+    "SCENARIO-002",
+    "SCENARIO-003"
+  ],
+  "riskOrder": [
+    "RISK-001",
+    "RISK-002",
+    "RISK-003",
+    "RISK-004",
+    "RISK-005",
+    "RISK-006"
+  ],
+  "controlOrder": [
+    "CONTROL-001",
+    "CONTROL-002",
+    "CONTROL-003",
+    "CONTROL-004",
+    "CONTROL-005",
+    "CONTROL-006"
+  ],
+  "decisionOrder": [
+    "DECISION-001",
+    "DECISION-002",
+    "DECISION-003",
+    "DECISION-004",
+    "DECISION-005",
+    "DECISION-006"
+  ],
+  "roadmapOrder": [
+    "ROADMAP-001",
+    "ROADMAP-002",
+    "ROADMAP-003",
+    "ROADMAP-004",
+    "ROADMAP-005",
+    "ROADMAP-006"
+  ],
+  "standaloneFindingReasons": {
+    "FINDING-001": "Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.",
+    "FINDING-007": "Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit."
+  },
+  "narrativeBounds": {
+    "themeCount": 5,
+    "findingCount": 8,
+    "scenarioCount": 3,
+    "controlCount": 6,
+    "decisionCount": 6,
+    "managementResponseCount": 6
+  },
+  "requiredConclusion": "Explain what management should recognise, which few changes matter most, what should be true within 90 days and the sensible next step.",
+  "prohibitedClaims": [
+    "independent operating effectiveness",
+    "evidence validation",
+    "confirmed fraud event",
+    "invented incident, loss, customer, supplier, system or interview",
+    "unsupported Rand amount",
+    "legal, regulatory, benchmark, certification or guarantee conclusion",
+    "management motive or competence allegation"
+  ]
+}

@@ -54,9 +54,12 @@ export type Phase14WorkerLease = {
 };
 
 export class Phase14AuthorizationError extends Error {
-  constructor(public readonly reason: string, message = reason) {
+  readonly reason: string;
+
+  constructor(reason: string, message = reason) {
     super(message);
     this.name = 'Phase14AuthorizationError';
+    this.reason = reason;
   }
 }
 

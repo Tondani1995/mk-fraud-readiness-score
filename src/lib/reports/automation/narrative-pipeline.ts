@@ -1,42 +1,110 @@
 import { aiPlanToNarrative, buildDeterministicNarrative, narrativeToSelectedContent } from './content';
-import { buildPremiumReportEvidencePack, evidenceChecksum, scanForPromptInjection } from './evidence';
+import { buildPremiumReportEvidencePack, evidenceChecksum, scanForPromptInjection, validatePremiumReportEvidencePack } from './evidence';
+import {
+  COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE,
+  ReportCommercialQualityError
+} from '../commercial-quality';
 import { validatePremiumReportNarrative } from './validation';
-import { createDurablePremiumReportNarrativeGenerator } from './durable-ai-attempts';
 import { validatePremiumReportAiEditorialPlan } from './ai-plan-validation';
+import {
+  assertPremiumReportNarrativeBrief,
+  buildPremiumReportNarrativeBrief
+} from './narrative-brief';
+import {
+  buildPremiumReportRepairScope,
+  mergePremiumReportRepairOutput,
+  validatePremiumReportRepairPreservation
+} from './repair-scope';
+import { checkQualityGates } from '../evidence-model';
 import type {
   BuildPremiumReportNarrativeInput,
   NarrativeGenerationResult,
-  PreparedPremiumReportNarrative
+  PreparedPremiumReportNarrative,
+  PremiumReportNarrativeGenerator
 } from './types';
+import { logPremiumReportPhase } from './phase-timing';
+import { PremiumReportAiBudgetError } from './durable-ai-attempts';
+import { NarrativeManuscriptFirstBoundaryError } from '../narrative/release-gate';
+
+export interface NarrativePipelineDependencies {
+  buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
+}
+
+/**
+ * Maps a narrative grounding rule onto a closed-vocabulary diagnostic code.
+ *
+ * The rule identifiers emitted by validatePremiumReportNarrative are already a fixed vocabulary of
+ * lowercase snake_case codes, so the safe form is a deterministic upper-cased projection behind a
+ * stage prefix. Anything unrecognised degrades to the stage-level code rather than leaking text.
+ */
+export function narrativeGroundingDiagnosticCode(ruleCode: unknown): `QG_NARRATIVE_${string}` {
+  const raw = typeof ruleCode === 'string' ? ruleCode.trim() : '';
+  if (!/^[a-z][a-z0-9_]{2,48}$/.test(raw)) return 'QG_NARRATIVE_GROUNDING_FAILED';
+  const code = `QG_NARRATIVE_${raw.toUpperCase()}` as const;
+  return /^[A-Z][A-Z0-9_]{2,63}$/.test(code) ? code : 'QG_NARRATIVE_GROUNDING_FAILED';
+}
 
 function fallbackResult(
   input: BuildPremiumReportNarrativeInput,
   reason: string,
   evidenceOverride?: ReturnType<typeof buildPremiumReportEvidencePack>,
-  checksumOverride?: string
+  checksumOverride?: string,
+  aiBudgetDiagnostics?: import('./phase-timing').PremiumReportAiBudgetDiagnostics | null
 ): PreparedPremiumReportNarrative {
+  throw new NarrativeManuscriptFirstBoundaryError();
+  /* The former deterministic fallback is intentionally unreachable under Reporting Bible v1.1.
+   * It remains below this boundary only as historical code until the new manuscript composer
+   * replaces this legacy pipeline completely. */
+  /* istanbul ignore next */
   const evidence = evidenceOverride ?? buildPremiumReportEvidencePack(
     input.assembled,
-    input.roadmap,
-    input.flags.schemaVersion
+    input.advisoryModel ?? input.roadmap,
+    input.flags.schemaVersion,
+    input.essentialProjection
   );
   const checksum = checksumOverride ?? evidenceChecksum(evidence);
-  const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent);
+  const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent, input.essentialProjection);
   const validation = validatePremiumReportNarrative(narrative, evidence);
 
   if (!validation.ok) {
-    const detail = validation.issues.map((item) => `${item.path}:${item.code}`).join(', ');
-    throw new Error(`Approved deterministic report content failed Phase 14 validation: ${detail}`);
+    console.error('commercial_report_narrative_grounding_failure', {
+      source: 'deterministic_fallback',
+      assessmentReference: evidence.assessmentReference,
+      issueCount: validation.issues.length,
+      numericClaims: validation.issues
+        .filter((item) => item.code === 'unsupported_numeric_claim')
+        .map((item) => ({
+          path: item.path,
+          token: item.message.match(/Numeric claim "([^"]+)"/)?.[1] ?? null
+        }))
+    });
+    throw new ReportCommercialQualityError(
+      // Preserve the real validation code. Collapsing every grounding failure into the generic
+      // evaluator-exception code made a genuine, specific failure indistinguishable from an
+      // evaluator crash, and the persisted diagnostic carried no usable detail at all. The code is
+      // a closed-vocabulary identifier from validatePremiumReportNarrative and the path is a
+      // structural JSON pointer -- neither contains report prose or organisation data.
+      validation.issues.map((item) => ({
+        code: narrativeGroundingDiagnosticCode(item.code),
+        severity: 'violation',
+        message: `Approved deterministic narrative failed grounding validation (${item.code}).`,
+        entityId: item.path,
+        source: 'narrative-grounding'
+      })),
+      [],
+      COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
+    );
   }
 
   return {
     narrative,
-    selectedContent: narrativeToSelectedContent(input.assembled, narrative, true),
+    selectedContent: narrativeToSelectedContent(input.assembled, narrative, true, input.essentialProjection),
     mode: 'deterministic_fallback',
     evidence,
     evidenceChecksum: checksum,
     validation,
-    fallbackReason: reason
+    fallbackReason: reason,
+    aiBudgetDiagnostics: aiBudgetDiagnostics ?? null
   };
 }
 
@@ -59,7 +127,7 @@ function buildAndValidateAiNarrative(
   return { narrative, validation };
 }
 
-type GeneratorHandle = ReturnType<typeof createDurablePremiumReportNarrativeGenerator>;
+type GeneratorHandle = PremiumReportNarrativeGenerator;
 
 /**
  * The one-and-only repair attempt (Phase 14 policy: at most one repair per generation, enforced
@@ -75,72 +143,149 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
   generator: GeneratorHandle;
   baseGenerationInput: Parameters<GeneratorHandle['repair']>[0];
   generation: NarrativeGenerationResult;
-  planValidation: ReturnType<typeof validatePremiumReportAiEditorialPlan>;
+  /**
+   * The FIRST BLOCKING validation result -- the one that actually caused this repair. When the
+   * structural plan check fails it is that check; when the plan passes and the full narrative
+   * fact-check fails it is the narrative check. V6 recorded the passing plan check here while the
+   * narrative check had failed with adaptive_exposure_unsupported, so the audit row read ok:true
+   * for a generation that was repaired and ultimately fell back. A successful structural check must
+   * not masquerade as the repair-triggering validation.
+   */
+  initialValidation: ReturnType<typeof validatePremiumReportNarrative>
+    | ReturnType<typeof validatePremiumReportAiEditorialPlan>;
   priorValidationIssues: ReturnType<typeof validatePremiumReportNarrative>['issues'];
 }): Promise<PreparedPremiumReportNarrative> {
-  const { evidence, checksum, generator, baseGenerationInput, generation, planValidation } = params;
+  const { evidence, checksum, generator, baseGenerationInput, generation, initialValidation } = params;
   try {
-    const repairGeneration = await generator.repair({
-      ...baseGenerationInput,
+    const repairScope = buildPremiumReportRepairScope({
+      narrativeBrief: baseGenerationInput.narrativeBrief,
       previousOutput: generation.output,
       validationIssues: params.priorValidationIssues
     });
-    const repairPlanValidation = validatePremiumReportAiEditorialPlan(repairGeneration.output, evidence);
-    if (!repairPlanValidation.ok) {
+    const repairGeneration = await generator.repair({
+      ...baseGenerationInput,
+      previousOutput: generation.output,
+      validationIssues: params.priorValidationIssues,
+      repairScope
+    });
+    const merged = mergePremiumReportRepairOutput(
+      generation.output,
+      repairGeneration.output,
+      repairScope
+    );
+    const preservationValidation = validatePremiumReportRepairPreservation(
+      generation.output,
+      merged.output,
+      repairScope,
+      evidence.schemaVersion
+    );
+    const effectivePlanValidation = validatePremiumReportAiEditorialPlan(
+      merged.output,
+      evidence,
+      baseGenerationInput.narrativeBrief
+    );
+    const repairContractValidation = {
+      ...effectivePlanValidation,
+      ok: effectivePlanValidation.ok && preservationValidation.ok,
+      issues: [...preservationValidation.issues, ...effectivePlanValidation.issues]
+    };
+    if (!repairContractValidation.ok) {
       return {
-        ...fallbackResult(input, 'ai_repair_plan_validation_failed', evidence, checksum),
-        initialValidation: planValidation,
-        repairValidation: repairPlanValidation,
+        ...fallbackResult(
+          input,
+          preservationValidation.ok ? 'ai_repair_plan_validation_failed' : 'ai_repair_preservation_failed',
+          evidence,
+          checksum
+        ),
+        initialValidation,
+        repairValidation: repairContractValidation,
         generation,
-        repairGeneration
+        repairGeneration,
+        effectiveRepairOutput: merged.output,
+        discardedCompliantRepairSectionIds: merged.discardedCompliantRepairSectionIds
       };
     }
 
-    const repaired = buildAndValidateAiNarrative(input, evidence, repairGeneration.output);
+    const repaired = buildAndValidateAiNarrative(input, evidence, merged.output);
     if (repaired.validation.ok) {
       return {
         narrative: repaired.narrative,
-        selectedContent: narrativeToSelectedContent(input.assembled, repaired.narrative, false),
+        selectedContent: narrativeToSelectedContent(input.assembled, repaired.narrative, false, input.essentialProjection),
         mode: 'ai_repair',
         evidence,
         evidenceChecksum: checksum,
         validation: repaired.validation,
-        initialValidation: planValidation,
-        repairValidation: repairPlanValidation,
+        initialValidation,
+        repairValidation: repairContractValidation,
         generation,
-        repairGeneration
+        repairGeneration,
+        effectiveRepairOutput: merged.output,
+        discardedCompliantRepairSectionIds: merged.discardedCompliantRepairSectionIds
       };
     }
     return {
       ...fallbackResult(input, 'ai_repair_narrative_validation_failed', evidence, checksum),
-      initialValidation: planValidation,
+      initialValidation,
       repairValidation: repaired.validation,
       generation,
-      repairGeneration
+      repairGeneration,
+      effectiveRepairOutput: merged.output,
+      discardedCompliantRepairSectionIds: merged.discardedCompliantRepairSectionIds
     };
   } catch (repairError) {
     const reason = repairError instanceof Error ? repairError.message : 'repair_generation_failed';
     return {
       ...fallbackResult(input, `ai_repair_failed:${reason}`, evidence, checksum),
-      initialValidation: planValidation,
+      initialValidation,
       generation
     };
   }
 }
 
 export async function preparePremiumReportNarrative(
-  input: BuildPremiumReportNarrativeInput
+  input: BuildPremiumReportNarrativeInput,
+  dependencies: NarrativePipelineDependencies = {}
 ): Promise<PreparedPremiumReportNarrative> {
-  if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled');
-  if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable');
-  if (!input.generationIdentity) return fallbackResult(input, 'ai_generation_identity_missing');
-
+  // Deliberately runtime-evaluated rather than a syntactic top-level throw: this keeps the legacy
+  // function's type graph checkable while making the v1.1 release boundary unconditional.
+  const manuscriptFirstBoundaryEnabled: boolean = true;
+  if (manuscriptFirstBoundaryEnabled) throw new NarrativeManuscriptFirstBoundaryError();
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
-    input.roadmap,
-    input.flags.schemaVersion
+    input.advisoryModel ?? input.roadmap,
+    input.flags.schemaVersion,
+    input.essentialProjection
   );
+  const evidenceIssues = validatePremiumReportEvidencePack(
+    evidence,
+    [input.assembled.customerEmail, input.assembled.respondentName]
+  );
+  if (evidenceIssues.length > 0) {
+    throw new ReportCommercialQualityError(
+      evidenceIssues,
+      [],
+      COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
+    );
+  }
   const checksum = evidenceChecksum(evidence);
+  const narrativeBrief = assertPremiumReportNarrativeBrief(
+    evidence,
+    (dependencies.buildNarrativeBrief ?? buildPremiumReportNarrativeBrief)(evidence, input.essentialProjection)
+  );
+  if (input.advisoryModel) {
+    const quality = checkQualityGates(input.advisoryModel, input.assembled);
+    if (quality.violations.length > 0) {
+      throw new ReportCommercialQualityError(
+        quality.violations,
+        quality.warnings,
+        COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
+      );
+    }
+  }
+
+  if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled', evidence, checksum);
+  if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable', evidence, checksum);
+  if (!input.generationIdentity) return fallbackResult(input, 'ai_generation_identity_missing', evidence, checksum);
 
   // M4 defense-in-depth: organisationName is the one field in the evidence pack that traces back
   // to customer-entered free text. If it looks like a prompt-injection attempt, skip the AI call
@@ -151,26 +296,36 @@ export async function preparePremiumReportNarrative(
     return fallbackResult(input, `organisation_name_injection_suspected:${injectionScan.matchedPattern}`, evidence, checksum);
   }
 
+  if (input.authorizeAiRoute) {
+    const routeDecision = await input.authorizeAiRoute();
+    if (!routeDecision.allowed) {
+      return fallbackResult(input, `ai_route_policy_denied:${routeDecision.reason ?? 'unspecified'}`, evidence, checksum);
+    }
+  }
+
+  const { createDurablePremiumReportNarrativeGenerator } = await import('./durable-ai-attempts');
   const generator = createDurablePremiumReportNarrativeGenerator({
     generator: input.generator,
     generationIdentity: input.generationIdentity,
     fulfilmentId: input.fulfilmentId,
     workerCapabilityId: input.workerCapabilityId,
-    authorizeAction: input.authorizeAiAction
+    authorizeAction: input.authorizeAiAction,
+    attemptStore: input.attemptStore
   });
 
   const baseGenerationInput = {
     evidence,
     evidenceChecksum: checksum,
-    deterministicContent: input.deterministicContent,
-    roadmap: input.roadmap,
+    narrativeBrief,
     promptVersion: input.flags.promptVersion,
     schemaVersion: input.flags.schemaVersion
   };
 
   try {
     const generation = await generator.generate(baseGenerationInput);
-    const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence);
+    const validationStartedAt = Date.now();
+    logPremiumReportPhase({ phase: 'narrative_validation_started', status: 'started', startedAt: validationStartedAt, provider: generation.provider, model: generation.model, gatewayGenerationId: generation.gateway?.generationId ?? null });
+    const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence, narrativeBrief);
 
     if (!planValidation.ok) {
       return attemptRepair(input, {
@@ -179,16 +334,17 @@ export async function preparePremiumReportNarrative(
         generator,
         baseGenerationInput,
         generation,
-        planValidation,
+        initialValidation: planValidation,
         priorValidationIssues: planValidation.issues
       });
     }
 
     const { narrative, validation } = buildAndValidateAiNarrative(input, evidence, generation.output);
     if (validation.ok) {
+      logPremiumReportPhase({ phase: 'narrative_validation_completed', status: 'completed', startedAt: validationStartedAt, provider: generation.provider, model: generation.model, gatewayGenerationId: generation.gateway?.generationId ?? null });
       return {
         narrative,
-        selectedContent: narrativeToSelectedContent(input.assembled, narrative, false),
+        selectedContent: narrativeToSelectedContent(input.assembled, narrative, false, input.essentialProjection),
         mode: 'ai',
         evidence,
         evidenceChecksum: checksum,
@@ -204,11 +360,17 @@ export async function preparePremiumReportNarrative(
       generator,
       baseGenerationInput,
       generation,
-      planValidation,
+      initialValidation: validation,
       priorValidationIssues: validation.issues
     });
   } catch (generationError) {
     const reason = generationError instanceof Error ? generationError.message : 'ai_generation_failed';
-    return fallbackResult(input, `ai_generation_failed:${reason}`, evidence, checksum);
+    return fallbackResult(
+      input,
+      `ai_generation_failed:${reason}`,
+      evidence,
+      checksum,
+      generationError instanceof PremiumReportAiBudgetError ? generationError.diagnostics : null
+    );
   }
 }

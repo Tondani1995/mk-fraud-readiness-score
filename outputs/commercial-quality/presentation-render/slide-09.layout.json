@@ -1,0 +1,1948 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/ijzpym",
+    "id": "ijzpym",
+    "slide": 9,
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FBF9F5",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jit4vmp8",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 09",
+      "textPreview": "COMPREHENSIVE REVIEW · 09",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 09"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 09",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 09",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kj25orqd",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Every action needs an owner, an effectiveness measure and a board checkpoint.",
+      "textPreview": "Every action needs an owner, an effectiveness measure and a board checkpoint.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Every action needs an owner, an effectiveness measure"
+          },
+          {
+            "index": 2,
+            "text": "and a board checkpoint."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Every action needs an owner, an effectiveness measure and a board checkpoint.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Every action needs an owner, an effectiveness measure and a board checkpoint.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkvmxw7y",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Accountability is the mechanism that turns advisory judgement into operating change.",
+      "textPreview": "Accountability is the mechanism that turns advisory judgement into operating change.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Accountability is the mechanism that turns advisory judgement into operating change."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Accountability is the mechanism that turns advisory judgement into operating change.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Accountability is the mechanism that turns advisory judgement into operating change.",
+              "fontSize": 18,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/654nq18j",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/76d4z6p4",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/87m5sbqp",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "09 / 10",
+      "textPreview": "09 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "09 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "09 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "09 / 10",
+              "fontSize": 13,
+              "color": "#5A6B7C",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t8vm1g7a",
+      "id": "7",
+      "bbox": [
+        88,
+        262,
+        1000,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m903ex8f",
+      "id": "8",
+      "bbox": [
+        88,
+        208,
+        340,
+        44
+      ],
+      "geometry": "rect",
+      "text": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners,…",
+      "textPreview": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners,…",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The CEO and audit-committee chair must"
+          },
+          {
+            "index": 2,
+            "text": "approve a RACI that assigns control"
+          },
+          {
+            "index": 3,
+            "text": "operation to management and risk"
+          },
+          {
+            "index": 4,
+            "text": "owners,…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners,…",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners,…",
+              "fontSize": 15,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/na94n2p0",
+      "id": "9",
+      "bbox": [
+        450,
+        208,
+        190,
+        42
+      ],
+      "geometry": "rect",
+      "text": "CEO / Managing Director",
+      "textPreview": "CEO / Managing Director",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CEO / Managing"
+          },
+          {
+            "index": 2,
+            "text": "Director"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CEO / Managing Director",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CEO / Managing Director",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jelcz6hc",
+      "id": "10",
+      "bbox": [
+        665,
+        208,
+        100,
+        42
+      ],
+      "geometry": "rect",
+      "text": "30 days",
+      "textPreview": "30 days",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "30 days",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "30 days",
+              "fontSize": 16,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/idcb6lgr",
+      "id": "11",
+      "bbox": [
+        790,
+        208,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "text": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "textPreview": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "No key fraud control is both operated and"
+          },
+          {
+            "index": 2,
+            "text": "independently certified by the same"
+          },
+          {
+            "index": 3,
+            "text": "accountable function."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "No key fraud control is both operated and independently certified by the same accountable function.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "No key fraud control is both operated and independently certified by the same accountable function.",
+              "fontSize": 15,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5g3u1gz2",
+      "id": "12",
+      "bbox": [
+        88,
+        334,
+        1000,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4fut8byh",
+      "id": "13",
+      "bbox": [
+        88,
+        280,
+        340,
+        44
+      ],
+      "geometry": "rect",
+      "text": "The Head of Risk must publish escalation criteria defining what must be escalated, to whom and within what…",
+      "textPreview": "The Head of Risk must publish escalation criteria defining what must be escalated, to whom and within what…",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The Head of Risk must publish escalation"
+          },
+          {
+            "index": 2,
+            "text": "criteria defining what must be escalated, to"
+          },
+          {
+            "index": 3,
+            "text": "whom and within what…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The Head of Risk must publish escalation criteria defining what must be escalated, to whom and within what…",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The Head of Risk must publish escalation criteria defining what must be escalated, to whom and within what…",
+              "fontSize": 15,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/va1cv6h0",
+      "id": "14",
+      "bbox": [
+        450,
+        280,
+        190,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Head of Risk",
+      "textPreview": "Head of Risk",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Head of Risk"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Head of Risk",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Head of Risk",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u9sb210f",
+      "id": "15",
+      "bbox": [
+        665,
+        280,
+        100,
+        42
+      ],
+      "geometry": "rect",
+      "text": "30 days",
+      "textPreview": "30 days",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "30 days",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "30 days",
+              "fontSize": 16,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hc3uxgz6",
+      "id": "16",
+      "bbox": [
+        790,
+        280,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "text": "100% of qualifying matters escalated within the stated timeframe, with an available conflict-free route.",
+      "textPreview": "100% of qualifying matters escalated within the stated timeframe, with an available conflict-free route.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "100% of qualifying matters escalated"
+          },
+          {
+            "index": 2,
+            "text": "within the stated timeframe, with an"
+          },
+          {
+            "index": 3,
+            "text": "available conflict-free route."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "100% of qualifying matters escalated within the stated timeframe, with an available conflict-free route.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "100% of qualifying matters escalated within the stated timeframe, with an available conflict-free route.",
+              "fontSize": 15,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wbat4byl",
+      "id": "17",
+      "bbox": [
+        88,
+        406,
+        1000,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/761srmh4",
+      "id": "18",
+      "bbox": [
+        88,
+        352,
+        340,
+        44
+      ],
+      "geometry": "rect",
+      "text": "The ethics owner must publish reporting routes in plain language across the channels the workforce actually uses —…",
+      "textPreview": "The ethics owner must publish reporting routes in plain language across the channels the workforce actually uses —…",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The ethics owner must publish reporting"
+          },
+          {
+            "index": 2,
+            "text": "routes in plain language across the channels"
+          },
+          {
+            "index": 3,
+            "text": "the workforce actually uses —…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The ethics owner must publish reporting routes in plain language across the channels the workforce actually uses —…",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The ethics owner must publish reporting routes in plain language across the channels the workforce actually uses —…",
+              "fontSize": 15,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mlsby10j",
+      "id": "19",
+      "bbox": [
+        450,
+        352,
+        190,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Chief People Officer / COO",
+      "textPreview": "Chief People Officer / COO",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Chief People Officer /"
+          },
+          {
+            "index": 2,
+            "text": "COO"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Chief People Officer / COO",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Chief People Officer / COO",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ah8vahkb",
+      "id": "20",
+      "bbox": [
+        665,
+        352,
+        100,
+        42
+      ],
+      "geometry": "rect",
+      "text": "30 days",
+      "textPreview": "30 days",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "30 days",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "30 days",
+              "fontSize": 16,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bihc3m1w",
+      "id": "21",
+      "bbox": [
+        790,
+        352,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "text": "At least 90% of surveyed staff can correctly identify a fraud reporting route, across all sites and worker types.",
+      "textPreview": "At least 90% of surveyed staff can correctly identify a fraud reporting route, across all sites and worker types.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "At least 90% of surveyed staff can"
+          },
+          {
+            "index": 2,
+            "text": "correctly identify a fraud reporting route,"
+          },
+          {
+            "index": 3,
+            "text": "across all sites and worker types."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "At least 90% of surveyed staff can correctly identify a fraud reporting route, across all sites and worker types.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "At least 90% of surveyed staff can correctly identify a fraud reporting route, across all sites and worker types.",
+              "fontSize": 15,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cjqdcr2h",
+      "id": "22",
+      "bbox": [
+        88,
+        478,
+        1000,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x4zu5wj2",
+      "id": "23",
+      "bbox": [
+        88,
+        424,
+        340,
+        44
+      ],
+      "geometry": "rect",
+      "text": "IT Security maintains a complete privileged-account register, links each human and service account to an owner and approved…",
+      "textPreview": "IT Security maintains a complete privileged-account register, links each human and service account to an owner and approved…",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "IT Security maintains a complete"
+          },
+          {
+            "index": 2,
+            "text": "privileged-account register, links each"
+          },
+          {
+            "index": 3,
+            "text": "human and service account to an owner and"
+          },
+          {
+            "index": 4,
+            "text": "approved…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "IT Security maintains a complete privileged-account register, links each human and service account to an owner and approved…",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "IT Security maintains a complete privileged-account register, links each human and service account to an owner and approved…",
+              "fontSize": 15,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y5sve1kn",
+      "id": "24",
+      "bbox": [
+        450,
+        424,
+        190,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Chief Technology Officer",
+      "textPreview": "Chief Technology Officer",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Chief Technology"
+          },
+          {
+            "index": 2,
+            "text": "Officer"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Chief Technology Officer",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Chief Technology Officer",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z61c761s",
+      "id": "25",
+      "bbox": [
+        665,
+        424,
+        100,
+        42
+      ],
+      "geometry": "rect",
+      "text": "60 days",
+      "textPreview": "60 days",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "60 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "60 days",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "60 days",
+              "fontSize": 16,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/k7adgb2d",
+      "id": "26",
+      "bbox": [
+        790,
+        424,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "text": "100% privileged accounts recertified quarterly; leaver access removed within 24 hours; zero unjustified shared admin accounts.",
+      "textPreview": "100% privileged accounts recertified quarterly; leaver access removed within 24 hours; zero unjustified shared admin accounts.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "100% privileged accounts recertified"
+          },
+          {
+            "index": 2,
+            "text": "quarterly; leaver access removed within"
+          },
+          {
+            "index": 3,
+            "text": "24 hours; zero unjustified shared admin"
+          },
+          {
+            "index": 4,
+            "text": "accounts."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "100% privileged accounts recertified quarterly; leaver access removed within 24 hours; zero unjustified shared admin accounts.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "100% privileged accounts recertified quarterly; leaver access removed within 24 hours; zero unjustified shared admin accounts.",
+              "fontSize": 15,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l8ju9gjy",
+      "id": "27",
+      "bbox": [
+        88,
+        550,
+        1000,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 28,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m9svi1kj",
+      "id": "28",
+      "bbox": [
+        88,
+        496,
+        340,
+        44
+      ],
+      "geometry": "rect",
+      "text": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier…",
+      "textPreview": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier…",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The process owner must define the risk"
+          },
+          {
+            "index": 2,
+            "text": "points requiring verification — customer or"
+          },
+          {
+            "index": 3,
+            "text": "beneficiary enrolment, employee"
+          },
+          {
+            "index": 4,
+            "text": "onboarding, supplier…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier…",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier…",
+              "fontSize": 15,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 29,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7a1cb614",
+      "id": "29",
+      "bbox": [
+        450,
+        496,
+        190,
+        42
+      ],
+      "geometry": "rect",
+      "text": "COO / CFO",
+      "textPreview": "COO / CFO",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COO / CFO"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COO / CFO",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COO / CFO",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 30,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hgn6x47i",
+      "id": "30",
+      "bbox": [
+        665,
+        496,
+        100,
+        42
+      ],
+      "geometry": "rect",
+      "text": "60 days",
+      "textPreview": "60 days",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "60 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "60 days",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "60 days",
+              "fontSize": 16,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 31,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gfe5ozqx",
+      "id": "31",
+      "bbox": [
+        790,
+        496,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "text": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "textPreview": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "100% of in-scope enrolments and"
+          },
+          {
+            "index": 2,
+            "text": "activations carry completed verification"
+          },
+          {
+            "index": 3,
+            "text": "before activation, with all exceptions"
+          },
+          {
+            "index": 4,
+            "text": "approved."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+              "fontSize": 15,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 32,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ve5ovupc",
+      "id": "32",
+      "bbox": [
+        450,
+        178,
+        190,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Owner",
+      "textPreview": "Owner",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Owner"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Owner",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#5A6B7C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Owner",
+              "fontSize": 14,
+              "color": "#5A6B7C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 33,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/udwnmp8r",
+      "id": "33",
+      "bbox": [
+        665,
+        178,
+        100,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Timing",
+      "textPreview": "Timing",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Timing"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Timing",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#5A6B7C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Timing",
+              "fontSize": 14,
+              "color": "#5A6B7C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 34,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5k76147e",
+      "id": "34",
+      "bbox": [
+        790,
+        178,
+        240,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Effectiveness measure",
+      "textPreview": "Effectiveness measure",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Effectiveness measure"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Effectiveness measure",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#5A6B7C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Effectiveness measure",
+              "fontSize": 14,
+              "color": "#5A6B7C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

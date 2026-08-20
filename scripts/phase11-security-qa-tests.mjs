@@ -94,8 +94,8 @@ function runStaticChecks() {
   assert(exists('src/lib/reports/report-entitlement.ts'), 'Shared premium report entitlement guard must exist.');
 
   const packageJson = JSON.parse(read('package.json'));
-  assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Next must remain on 14.x in the Phase 11 security patch.');
-  assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'eslint-config-next must remain on 14.x in the Phase 11 security patch.');
+  assert(/^[^0-9]*15\./.test(String(packageJson.dependencies?.next ?? '')), 'Next must remain on the patched 15.x release line in the Phase 11 security patch.');
+  assert(/^[^0-9]*15\./.test(String(packageJson.devDependencies?.['eslint-config-next'] ?? '')), 'eslint-config-next must remain on the patched 15.x release line in the Phase 11 security patch.');
   assertIncludes('next.config.mjs', 'experimental', 'Next 14 config must keep experimental config block');
   assertIncludes('next.config.mjs', 'outputFileTracingIncludes', 'Next 14 config must keep experimental outputFileTracingIncludes');
   assertIncludes('src/lib/auth/session-cookies.ts', 'export function getAdminAccessTokenFromCookies(): string | null', 'Next 14 cookie helper must remain synchronous');
@@ -141,8 +141,9 @@ function runStaticChecks() {
   assertIncludes(generateRoute, 'generateManualPhase1Report', 'Generate-report route delegates to the controlled manual service after authentication');
   assertSourceOrder(generateRoute, 'const admin = await getAdminSession()', 'await generateManualPhase1Report', 'Generate-report route must authenticate before calling shared generation service');
   assertIncludes(entitlementGuard, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report entitlement guard must require payment_received only');
-  assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report entitlement guard must require the paid R5,000 product');
-  assertIncludes(entitlementGuard, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report entitlement guard must require the essential self-assessment product');
+  assertIncludes(entitlementGuard, 'validateOrderPriceEntitlement', 'Report entitlement guard must resolve price through the versioned contract, not a literal amount');
+  assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE', 'Report entitlement guard must require the authoritative Essential product code');
+  assertIncludes(entitlementGuard, "tierForProductCode(assembled.productCode) !== 'essential'", 'Report entitlement guard must reject any tier other than Essential');
   assertNotIncludes('src/lib/reports/assemble-report-data.ts', "'verified'", 'Legacy verified status must not be report-generation eligible');
   assertIncludes('src/app/score/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 
@@ -173,7 +174,7 @@ function runStaticChecks() {
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
   assertIncludes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Shared access service must expire signed access quickly');
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
-  assertIncludes('supabase/migrations/0011_phase10_pdf_report_engine_additions.sql', "values ('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
+  assertIncludes('supabase/migrations/20260708193318_phase9_phase10_private_storage_buckets.sql', "('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
 
   assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', 'validateSnapshotToken', 'Snapshot route must validate private snapshot token');
   assertIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'Private snapshot link required', 'Legacy result route must not render snapshots by reference only');

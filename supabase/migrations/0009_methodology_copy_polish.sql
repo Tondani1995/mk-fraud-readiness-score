@@ -1,3 +1,9 @@
+-- CANONICAL REPLAY REPAIR — EXACT HISTORICAL CLOUD SQL PRESERVED SEPARATELY
+-- Production happened to allocate the MFRS-V1.1 UUID randomly, but a later applied migration
+-- hardcoded that identity. Canonical replay therefore allocates the same identity deterministically.
+-- This is not represented as byte-identical historical execution; the exact historical SQL is
+-- preserved in supabase/applied-history/0009_methodology_copy_polish.cloud.sql.
+
 -- MK Fraud Readiness Score V1 - versioned methodology copy polish
 -- Purpose: create MFRS-V1.1 from MFRS-V1.0, apply respondent-facing copy polish to V1.1 only, and activate V1.1 for fresh assessments.
 -- This preserves the MFRS-V1.0 audit trail for existing assessments and does not change scoring weights, flags, N/A rules, response scale scores, exposure max points or scoring logic.
@@ -23,8 +29,8 @@ begin
   where version_code = 'MFRS-V1.1';
 
   if new_mv_id is null then
-    insert into public.methodology_versions (version_code, title, status, effective_from, approved_at)
-    select 'MFRS-V1.1', title || ' - Copy Polish', 'draft'::public.methodology_status, now(), now()
+    insert into public.methodology_versions (id, version_code, title, status, effective_from, approved_at)
+    select 'df96e242-9625-4b2a-bc62-615ae402483a'::uuid, 'MFRS-V1.1', title || ' - Copy Polish', 'draft'::public.methodology_status, now(), now()
     from public.methodology_versions
     where id = old_mv_id
     returning id into new_mv_id;

@@ -1,0 +1,1654 @@
+{
+  "manifestVersion": 1,
+  "lockedParentSha": "7a7cb535aa71b3fcd83fcdcd48373a2f62786b0c",
+  "migrationCountBefore": 45,
+  "migrationCountAfter": 49,
+  "newestMigration": "20260810140000_final_pre_staging_comprehensive_closure.sql",
+  "operationVocabulary": {
+    "S": "SELECT",
+    "I": "INSERT",
+    "U": "UPDATE",
+    "D": "DELETE"
+  },
+  "aclEncoding": "SIUD booleans in that order; 1 means effective privilege and 0 means denied",
+  "tables": [
+    {
+      "schema": "public",
+      "table": "assessment_answer_history",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE HISTORY READ",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:363 S"
+      ],
+      "justification": "Adaptive scoring reads assessment answer history; writes remain RPC-owned."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_integrity_signals",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE INTEGRITY READ",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:364 S"
+      ],
+      "justification": "Adaptive scoring reads integrity signals; mutation remains behind existing server controls."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_control_responses",
+      "required": "S",
+      "stagingCurrent": "1111",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE CONTROL STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:116 S",
+        "src/lib/scoring/adaptive-scoring.ts:362 S"
+      ],
+      "justification": "Adaptive customer control-state persistence is Staging-only and remains absent from Production grants."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_gateway_answers",
+      "required": "S",
+      "stagingCurrent": "1111",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GATEWAY STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:115 S",
+        "src/lib/scoring/adaptive-scoring.ts:361 S"
+      ],
+      "justification": "Adaptive gateway answer persistence is Staging-only and remains absent from Production grants."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_graph_versions",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GRAPH READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:113 S",
+        "src/lib/adaptive/server.ts:70 S",
+        "src/lib/scoring/adaptive-scoring.ts:360 S"
+      ],
+      "justification": "Adaptive graph selection is read-only; graph content and activation remain environment scoped."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_activation_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE ACTIVATION READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:47 S"
+      ],
+      "justification": "Adaptive customer starts read the exact Staging activation binding; activation changes remain service-role RPC-owned."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_evidence_guidance",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GUIDANCE READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:117 S"
+      ],
+      "justification": "Adaptive evidence guidance is read-only for the customer state loader and remains Staging-only."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_navigation_states",
+      "required": "SI",
+      "stagingCurrent": "1110",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE NAVIGATION STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:114 SI",
+        "src/lib/adaptive/server.ts:178 SI"
+      ],
+      "justification": "Adaptive navigation state is created and updated through the existing server-side journey operations only."
+    },
+    {
+      "schema": "public",
+      "table": "admin_profiles",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/admin/login/route.ts:60 S",
+        "src/app/score/api/internal/uat-start-check/route.ts:22 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:22 S",
+        "src/lib/auth/admin-route.ts:23 S",
+        "src/lib/rc1/control-plane.ts:76 S",
+        "src/lib/reports/assemble-report-data.ts:162 S"
+      ],
+      "justification": "Server-side admin login and session resolution require active-profile lookup; no service-role write is justified."
+    },
+    {
+      "schema": "public",
+      "table": "app_settings",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:35 S",
+        "src/lib/admin/assessment-review.ts:198 S",
+        "src/lib/assessment-experience/resume-capability.ts:10 S",
+        "src/lib/orders/manual-eft-orders.ts:84 S",
+        "src/lib/payments/payment-capability.ts:21 S",
+        "src/lib/reports/automation/feature-flags.ts:61 S",
+        "src/lib/reports/phase1-schema-capability.ts:44 S"
+      ],
+      "justification": "Runtime capability and feature-state reads."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_answers",
+      "required": "SIUD",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:92 SIUD",
+        "src/lib/respondent/assessment-methodology.ts:168 SIUD",
+        "src/lib/respondent/assessment-save.ts:152 SIUD",
+        "src/lib/respondent/assessment-save.ts:162 SIUD",
+        "src/lib/scoring/score-assessment.ts:78 SIUD"
+      ],
+      "justification": "Draft replacement/upsert, journey load and scoring."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_events",
+      "required": "SIU",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/analytics/assessment-events.ts:113 SIU",
+        "src/lib/analytics/assessment-events.ts:125 SIU",
+        "src/lib/analytics/assessment-events.ts:146 SIU",
+        "src/lib/analytics/assessment-events.ts:85 SIU"
+      ],
+      "justification": "Idempotent customer journey event recording; DELETE is not required and is not newly granted."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_tokens",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:55 SIU",
+        "src/app/score/api/readiness-runtime-check/route.ts:48 SIU",
+        "src/lib/adaptive/server.ts:181 SIU",
+        "src/lib/adaptive/server.ts:90 SIU",
+        "src/lib/respondent/assessment-save.ts:361 SIU",
+        "src/lib/respondent/start-assessment.ts:84 SIU",
+        "src/lib/respondent/tokens.ts:114 SIU",
+        "src/lib/respondent/tokens.ts:178 SIU",
+        "src/lib/respondent/tokens.ts:42 SIU",
+        "src/lib/respondent/tokens.ts:52 SIU"
+      ],
+      "justification": "Resume/snapshot token creation, validation and consumption."
+    },
+    {
+      "schema": "public",
+      "table": "assessments",
+      "required": "SIUD",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/adaptive/[assessmentRef]/submit/route.ts:22 SIUD",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:72 SIUD",
+        "src/app/score/api/internal/uat-start-check/route.ts:54 SIUD",
+        "src/app/score/api/payments/[orderReference]/session/route.ts:25 SIUD",
+        "src/app/score/api/readiness-runtime-check/route.ts:47 SIUD",
+        "src/app/score/assessment/[assessmentRef]/page.tsx:125 SIUD",
+        "src/lib/adaptive/server.ts:171 SIUD",
+        "src/lib/adaptive/server.ts:187 SIUD",
+        "src/lib/adaptive/server.ts:98 SIUD",
+        "src/lib/admin/assessment-review.ts:26 SIUD",
+        "src/lib/admin/assessment-review.ts:65 SIUD",
+        "src/lib/admin/dashboard.ts:7 SIUD",
+        "src/lib/reports/assemble-report-data.ts:81 SIUD",
+        "src/lib/reports/assemble-report-data.ts:89 SIUD",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:249 SIUD",
+        "src/lib/reports/email/premium-report-preview-development.ts:163 SIUD",
+        "src/lib/respondent/assessment-save.ts:316 SIUD",
+        "src/lib/respondent/assessment-save.ts:334 SIUD",
+        "src/lib/respondent/start-assessment.ts:145 SIUD",
+        "src/lib/respondent/start-assessment.ts:62 SIUD",
+        "src/lib/respondent/tokens.ts:131 SIUD",
+        "src/lib/respondent/tokens.ts:192 SIUD",
+        "src/lib/scoring/adaptive-scoring.ts:350 SIUD",
+        "src/lib/scoring/score-assessment.ts:64 SIUD",
+        "src/lib/snapshot/free-snapshot.ts:49 SIUD"
+      ],
+      "justification": "Assessment creation, journey state, submission and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "audit_logs",
+      "required": "SI",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/admin/login/route.ts:71 SI",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:248 SI",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:94 SI",
+        "src/app/score/api/internal/uat-start-check/route.ts:57 SI",
+        "src/app/score/api/readiness-runtime-check/route.ts:50 SI",
+        "src/lib/admin/assessment-review.ts:122 SI",
+        "src/lib/admin/assessment-review.ts:134 SI",
+        "src/lib/admin/assessment-review.ts:215 SI",
+        "src/lib/admin/dashboard.ts:12 SI",
+        "src/lib/admin/personalised-enquiries.ts:89 SI",
+        "src/lib/orders/manual-eft-orders.ts:284 SI",
+        "src/lib/orders/manual-eft-orders.ts:353 SI",
+        "src/lib/orders/manual-eft-orders.ts:430 SI",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:122 SI",
+        "src/lib/reports/phase1-report-access.ts:76 SI",
+        "src/lib/respondent/assessment-save.ts:213 SI",
+        "src/lib/respondent/assessment-save.ts:367 SI",
+        "src/lib/respondent/start-assessment.ts:103 SI",
+        "src/lib/respondent/tokens.ts:156 SI",
+        "src/lib/respondent/tokens.ts:219 SI",
+        "src/lib/respondent/tokens.ts:64 SI"
+      ],
+      "justification": "Append-only audit recording and authorised admin review; UPDATE/DELETE are not required."
+    },
+    {
+      "schema": "public",
+      "table": "customer_report_access_tokens",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "ABSENT",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:131 S",
+        "src/lib/reports/delivery-recovery-service.ts:166 S",
+        "src/lib/reports/delivery-recovery-service.ts:303 S"
+      ],
+      "justification": "Token validation/consumption and recovery-state inspection."
+    },
+    {
+      "schema": "public",
+      "table": "data_requests",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:132 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:77 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:92 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:42 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:54 SIU",
+        "src/lib/admin/assessment-review.ts:116 SIU",
+        "src/lib/admin/dashboard.ts:10 SIU",
+        "src/lib/admin/personalised-enquiries.ts:47 SIU",
+        "src/lib/admin/personalised-enquiries.ts:72 SIU"
+      ],
+      "justification": "Personalised/report request creation, deduplication and status progression."
+    },
+    {
+      "schema": "public",
+      "table": "domains",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:19 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:19 S",
+        "src/lib/admin/assessment-review.ts:170 S",
+        "src/lib/reports/assemble-report-data.ts:252 S",
+        "src/lib/respondent/assessment-methodology.ts:72 S",
+        "src/lib/snapshot/free-snapshot.ts:107 S"
+      ],
+      "justification": "Read-only methodology and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "eft_settings",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:199 S",
+        "src/lib/orders/manual-eft-orders.ts:62 S"
+      ],
+      "justification": "Read-only EFT configuration."
+    },
+    {
+      "schema": "public",
+      "table": "email_events",
+      "required": "SIU",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/operational-alerts/page.tsx:49 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:86 SIU",
+        "src/app/score/api/internal/uat-start-check/route.ts:56 SIU",
+        "src/app/score/api/readiness-runtime-check/route.ts:49 SIU",
+        "src/lib/notifications/internal-notifications.ts:118 SIU",
+        "src/lib/notifications/internal-notifications.ts:83 SIU",
+        "src/lib/notifications/internal-notifications.ts:95 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:153 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:172 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:198 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:249 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:276 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:295 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:318 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:599 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:602 SIU",
+        "src/lib/reports/delivery-recovery-service.ts:295 SIU",
+        "src/lib/reports/email/report-delivery-service-core.ts:356 SIU",
+        "src/lib/reports/phase1-operations.ts:98 SIU",
+        "src/lib/respondent/start-assessment.ts:115 SIU"
+      ],
+      "justification": "Durable notification creation, provider state and reconciliation."
+    },
+    {
+      "schema": "public",
+      "table": "exposure_answers",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:97 SIU",
+        "src/lib/reports/assemble-report-data.ts:346 SIU",
+        "src/lib/respondent/assessment-methodology.ts:172 SIU",
+        "src/lib/respondent/assessment-save.ts:198 SIU",
+        "src/lib/scoring/score-assessment.ts:82 SIU"
+      ],
+      "justification": "Exposure answer load, upsert and scoring."
+    },
+    {
+      "schema": "public",
+      "table": "exposure_factors",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:21 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:21 S",
+        "src/lib/admin/assessment-review.ts:178 S",
+        "src/lib/respondent/assessment-methodology.ts:83 S"
+      ],
+      "justification": "Read-only methodology configuration."
+    },
+    {
+      "schema": "public",
+      "table": "manual_report_delivery_attempts",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-operations.ts:95 S"
+      ],
+      "justification": "Admin operational history only."
+    },
+    {
+      "schema": "public",
+      "table": "manual_report_generation_attempts",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:245 S",
+        "src/lib/reports/phase1-operations.ts:134 S",
+        "src/lib/reports/phase1-operations.ts:92 S"
+      ],
+      "justification": "Admin operational history only."
+    },
+    {
+      "schema": "public",
+      "table": "maturity_cap_events",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:110 S",
+        "src/lib/reports/assemble-report-data.ts:324 S"
+      ],
+      "justification": "Score evidence and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "methodology_versions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/methodology/page.tsx:10 S",
+        "src/lib/admin/assessment-review.ts:163 S",
+        "src/lib/respondent/start-assessment.ts:12 S"
+      ],
+      "justification": "Assessment start and read-only admin methodology view; historical Production writes are deliberately not copied."
+    },
+    {
+      "schema": "public",
+      "table": "order_events",
+      "required": "SI",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/notifications/phase1-order-notifications.ts:211 SI",
+        "src/lib/notifications/phase1-order-notifications.ts:267 SI",
+        "src/lib/notifications/phase1-order-notifications.ts:342 SI",
+        "src/lib/orders/manual-eft-orders.ts:258 SI",
+        "src/lib/orders/manual-eft-orders.ts:352 SI",
+        "src/lib/orders/manual-eft-orders.ts:428 SI",
+        "src/lib/reports/delivery-recovery-service.ts:174 SI",
+        "src/lib/reports/phase1-report-access.ts:69 SI"
+      ],
+      "justification": "Append-only order timeline and recovery reads."
+    },
+    {
+      "schema": "public",
+      "table": "orders",
+      "required": "SU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/admin/orders/[orderReference]/delivery/correct-recipient/route.ts:31 SIU",
+        "src/app/score/api/admin/orders/[orderReference]/delivery/reissue-token/route.ts:33 SIU",
+        "src/app/score/api/internal/fulfilment-worker/route.ts:184 SIU",
+        "src/app/score/api/payments/[orderReference]/session/route.ts:21 SIU",
+        "src/lib/admin/dashboard.ts:8 SIU",
+        "src/lib/fulfilment/delivery-worker.ts:132 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:490 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:540 SIU",
+        "src/lib/orders/manual-eft-orders.ts:232 SIU",
+        "src/lib/orders/manual-eft-orders.ts:315 SIU",
+        "src/lib/orders/manual-eft-orders.ts:339 SIU",
+        "src/lib/orders/manual-eft-orders.ts:379 SIU",
+        "src/lib/payments/payment-service.ts:150 SIU",
+        "src/lib/payments/payment-service.ts:53 SIU",
+        "src/lib/reports/assemble-report-data.ts:99 SIU",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:92 SIU",
+        "src/lib/reports/email/premium-report-preview-development.ts:83 SIU"
+      ],
+      "justification": "Order creation, admin/payment state and fulfilment binding. JOINT LAUNCH: order creation moved into the transactional create_paid_order() RPC, so the application no longer performs this INSERT directly. The RPC is SECURITY INVOKER and runs as service_role, so the underlying grant must remain -- only the direct application call site is gone. That is a reduction in the application's blast radius, not in what the database permits."
+    },
+    {
+      "schema": "public",
+      "table": "organisations",
+      "required": "SID",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:52 SID",
+        "src/app/score/api/readiness-runtime-check/route.ts:45 SID",
+        "src/lib/adaptive/server.ts:105 SID",
+        "src/lib/adaptive/server.ts:158 SID",
+        "src/lib/adaptive/server.ts:189 SID",
+        "src/lib/respondent/start-assessment.ts:147 SID",
+        "src/lib/respondent/start-assessment.ts:23 SID",
+        "src/lib/respondent/tokens.ts:143 SID",
+        "src/lib/respondent/tokens.ts:206 SID",
+        "src/lib/snapshot/free-snapshot.ts:73 SID"
+      ],
+      "justification": "Accountless assessment creation, validation and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "payment_automation_records",
+      "required": "SU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/payments/[orderReference]/status/route.ts:22 SU",
+        "src/lib/payments/payment-operations.ts:25 SU",
+        "src/lib/payments/payment-operations.ts:35 SU",
+        "src/lib/payments/payment-service.ts:95 SU"
+      ],
+      "justification": "Payment state lookup and post-transition annotation; INSERT is RPC-owned."
+    },
+    {
+      "schema": "public",
+      "table": "payment_sessions",
+      "required": "SI",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/payments/[orderReference]/session/route.ts:35 SI",
+        "src/app/score/api/payments/[orderReference]/status/route.ts:18 SI"
+      ],
+      "justification": "Payment return-session creation and lookup."
+    },
+    {
+      "schema": "public",
+      "table": "payment_transition_events",
+      "required": "S",
+      "stagingCurrent": "1100",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/payments/payment-operations.ts:26 S",
+        "src/lib/reports/assemble-report-data.ts:139 S",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:234 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:153 S"
+      ],
+      "justification": "Admin payment timeline; writes remain inside the transition RPC."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_ai_route_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:34 S"
+      ],
+      "justification": "Read-only operational state."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_feature_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:33 S",
+        "src/lib/reports/automation/feature-flags.ts:69 S"
+      ],
+      "justification": "Read-only operational state."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_operational_alerts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/operational-alerts/page.tsx:106 S",
+        "src/app/score/admin/operational-alerts/page.tsx:117 S",
+        "src/app/score/admin/operational-alerts/page.tsx:118 S",
+        "src/app/score/admin/operational-alerts/page.tsx:119 S",
+        "src/components/admin/AdminShell.tsx:37 S"
+      ],
+      "justification": "Server-rendered critical-alert count; transitions remain authenticated RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_security_gates",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:32 S",
+        "src/lib/reports/automation/feature-flags.ts:65 S"
+      ],
+      "justification": "Read-only security-gate status."
+    },
+    {
+      "schema": "public",
+      "table": "products",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:197 S",
+        "src/lib/admin/dashboard.ts:11 S",
+        "src/lib/orders/manual-eft-orders.ts:118 S"
+      ],
+      "justification": "Read-only product selection and admin counts."
+    },
+    {
+      "schema": "public",
+      "table": "questions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:20 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:20 S",
+        "src/lib/admin/assessment-review.ts:174 S",
+        "src/lib/reports/assemble-report-data.ts:256 S",
+        "src/lib/respondent/assessment-methodology.ts:77 S"
+      ],
+      "justification": "Read-only methodology and report evidence."
+    },
+    {
+      "schema": "public",
+      "table": "recommendation_rules",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/assemble-report-data.ts:367 S"
+      ],
+      "justification": "Read-only report recommendation assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_ai_attempts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/durable-ai-attempts.ts:134 S",
+        "src/lib/reports/automation/durable-ai-attempts.ts:152 S",
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:26 S",
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:43 S"
+      ],
+      "justification": "Idempotency/accounting reads; mutations remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_content_blocks",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:182 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:453 S",
+        "src/lib/reports/premium-report-service-core.ts:466 S"
+      ],
+      "justification": "Read-only report content assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_delivery_authorizations",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/delivery-recovery-service.ts:163 S",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:140 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:119 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:213 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:363 S",
+        "src/lib/reports/phase1-operations.ts:141 S"
+      ],
+      "justification": "Delivery state and reconciliation lookup; mutations remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_events",
+      "required": "I",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-report-access.ts:62 I"
+      ],
+      "justification": "Append-only access audit. Direct SELECT/UPDATE/DELETE are not required."
+    },
+    {
+      "schema": "public",
+      "table": "report_fulfilments",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/fulfilment.ts:109 S",
+        "src/lib/reports/automation/fulfilment.ts:147 S",
+        "src/lib/reports/automation/processor.ts:14 S",
+        "src/workflows/premium-report-fulfilment.ts:38 S",
+        "src/workflows/premium-report-fulfilment.ts:77 S"
+      ],
+      "justification": "Worker and workflow state validation; transitions remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_generation_runs",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/processor.ts:35 S",
+        "src/lib/reports/premium-report-service-core.ts:126 S",
+        "src/lib/reports/premium-report-service-core.ts:205 S"
+      ],
+      "justification": "Worker idempotency and generated-report metadata; writes remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_templates",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:441 S",
+        "src/lib/reports/premium-report-service-core.ts:464 S"
+      ],
+      "justification": "Read-only template selection."
+    },
+    {
+      "schema": "public",
+      "table": "reports",
+      "required": "SU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/operational-alerts/page.tsx:46 SU",
+        "src/app/score/admin/orders/[orderReference]/page.tsx:56 SU",
+        "src/app/score/admin/orders/[orderReference]/page.tsx:65 SU",
+        "src/app/score/admin/reports/page.tsx:19 SU",
+        "src/lib/admin/dashboard.ts:9 SU",
+        "src/lib/fulfilment/delivery-worker.ts:127 SU",
+        "src/lib/reports/automation/processor.ts:27 SU",
+        "src/lib/reports/customer-report-access.ts:194 SU",
+        "src/lib/reports/customer-report-access.ts:236 SU",
+        "src/lib/reports/customer-report-access.ts:245 SU",
+        "src/lib/reports/delivery-recovery-service.ts:181 SU",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:107 SU",
+        "src/lib/reports/email/premium-report-preview-development.ts:96 SU",
+        "src/lib/reports/email/report-delivery-service-core.ts:98 SU",
+        "src/lib/reports/phase1-manual-delivery.ts:51 SU",
+        "src/lib/reports/phase1-manual-delivery.ts:60 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:259 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:376 SU",
+        "src/lib/reports/phase1-operations.ts:132 SU",
+        "src/lib/reports/phase1-report-access.ts:119 SU",
+        "src/lib/reports/phase1-report-access.ts:181 SU",
+        "src/lib/reports/phase1-report-access.ts:191 SU",
+        "src/lib/reports/phase1-report-access.ts:197 SU",
+        "src/lib/reports/premium-report-service-core.ts:198 SU",
+        "src/lib/reports/report-access-eligibility.ts:113 SU",
+        "src/workflows/premium-report-fulfilment.ts:85 SU"
+      ],
+      "justification": "Report lookup, Storage-state correction and delivery verification; creation remains controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "respondents",
+      "required": "SID",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:205 SID",
+        "src/app/score/api/internal/uat-start-check/route.ts:53 SID",
+        "src/app/score/api/readiness-runtime-check/route.ts:46 SID",
+        "src/lib/adaptive/server.ts:106 SID",
+        "src/lib/adaptive/server.ts:165 SID",
+        "src/lib/adaptive/server.ts:188 SID",
+        "src/lib/respondent/start-assessment.ts:146 SID",
+        "src/lib/respondent/start-assessment.ts:41 SID",
+        "src/lib/respondent/tokens.ts:145 SID",
+        "src/lib/respondent/tokens.ts:208 SID",
+        "src/lib/snapshot/free-snapshot.ts:75 SID"
+      ],
+      "justification": "Accountless assessment creation, validation and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "response_scale",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/response-labels.ts:313 S",
+        "src/lib/respondent/assessment-methodology.ts:67 S"
+      ],
+      "justification": "Read-only official response labels."
+    },
+    {
+      "schema": "public",
+      "table": "score_domain_results",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:86 S",
+        "src/lib/reports/assemble-report-data.ts:254 S",
+        "src/lib/reports/assemble-report-data.ts:265 S",
+        "src/lib/snapshot/free-snapshot.ts:98 S"
+      ],
+      "justification": "Read-only score evidence and snapshot/report output."
+    },
+    {
+      "schema": "public",
+      "table": "score_question_traces",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:103 S",
+        "src/lib/reports/assemble-report-data.ts:258 S",
+        "src/lib/reports/assemble-report-data.ts:288 S"
+      ],
+      "justification": "Read-only scoring trace evidence."
+    },
+    {
+      "schema": "public",
+      "table": "score_runs",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:44 S",
+        "src/lib/admin/assessment-review.ts:78 S",
+        "src/lib/notifications/phase1-order-notifications.ts:372 S",
+        "src/lib/reports/assemble-report-data.ts:113 S",
+        "src/lib/reports/assemble-report-data.ts:127 S",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:253 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:164 S",
+        "src/lib/snapshot/free-snapshot.ts:65 S",
+        "src/lib/snapshot/free-snapshot.ts:82 S"
+      ],
+      "justification": "Read-only score result, snapshot and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_artifacts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:265 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:273 S",
+        "src/lib/reports/supporting-register-delivery.ts:143 S"
+      ],
+      "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
+    },
+    {
+      "schema": "public",
+      "table": "product_price_versions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMMERCIAL PRICE CONTRACT (READ ONLY)",
+      "sources": [
+        "src/lib/commercial/order-service.ts S",
+        "src/lib/reports/assemble-report-data.ts S"
+      ],
+      "justification": "Order creation and report entitlement read the price version an order was sold under. Price versions are minted by migration only, so the server needs SELECT and nothing else; the migration grants exactly SELECT."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_engagements",
+      "required": "SU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT STATE",
+      "sources": [
+        "src/lib/comprehensive/engagement-service.ts SU",
+        "src/lib/comprehensive/evidence-service.ts S"
+      ],
+      "justification": "Reviewer assignment and lifecycle transitions update the engagement (UPDATE); every read model selects it. The engagement INSERT now happens inside create_paid_order(), in the same transaction as its order, so the application no longer inserts it directly. DELETE is withheld: an engagement is never removed, it is cancelled, and cancellation is a state transition the database trigger governs."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_engagement_events",
+      "required": "I",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT AUDIT (APPEND ONLY)",
+      "sources": [
+        "src/lib/comprehensive/engagement-service.ts I",
+        "src/lib/comprehensive/evidence-service.ts I"
+      ],
+      "justification": "Append-only audit trail of reviewer assignment, state transitions and sign-off. The creation event is written inside create_paid_order(). The grant is INSERT only and a trigger rejects UPDATE and DELETE, so the trail cannot be rewritten even by the service role."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_evidence_items",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE EVIDENCE INTAKE",
+      "sources": [
+        "src/lib/comprehensive/engagement-service.ts S",
+        "src/lib/comprehensive/evidence-service.ts SIU"
+      ],
+      "justification": "Client evidence intake writes the row (INSERT), reviewers record validation status and observations (UPDATE), and reviewer surfaces list it (SELECT). DELETE is withheld pending an approved retention/erasure policy; the retention seam exists but no deletion path is authorised."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_evidence_events",
+      "required": "I",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE EVIDENCE AUDIT (APPEND ONLY)",
+      "sources": [
+        "src/lib/comprehensive/evidence-service.ts I"
+      ],
+      "justification": "Append-only audit trail of evidence upload and every reviewer validation decision. The grant is INSERT only and a trigger rejects UPDATE and DELETE."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_review_records",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE HUMAN REVIEW RECORDS",
+      "sources": [
+        "src/lib/comprehensive/review-record-service.ts S",
+        "src/lib/comprehensive/review-record-service.ts SIU"
+      ],
+      "justification": "Versioned finding, risk, control-design, decision and management-action records are read and written only through the authenticated reviewer service surface; no DELETE is granted."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_review_subject_catalog",
+      "required": "IU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH DETERMINISTIC REVIEW SUBJECT AUTHORITY",
+      "sources": [
+        "src/lib/comprehensive/review-record-service.ts IU"
+      ],
+      "justification": "The authenticated reviewer service materializes and validates the current assessment/score-run analytical universe. DELETE is withheld; catalog subjects are replaced or superseded by the current score-run binding."
+    }
+  ],
+  "serviceRoleRpcs": [
+    {
+      "signature": "public.assessment_resume_capability()",
+      "securityMode": "INVOKER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/assessment-experience/resume-capability.ts:16"
+      ]
+    },
+    {
+      "signature": "public.authorize_manual_report_ai_action(uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:18"
+      ]
+    },
+    {
+      "signature": "public.authorize_phase14_ai_route(text,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/ai-route-policy.ts:35"
+      ],
+      "justification": "Fail-closed pre-dispatch authorization bound to Preview, Staging, provider, model, PR, head SHA, gate epoch and expiry."
+    },
+    {
+      "signature": "public.adaptive_save_state(uuid,bigint,text,text,text[],jsonb,jsonb,text[],jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/adaptive/server.ts:225"
+      ],
+      "classification": "PREVIEW/STAGING adaptive state mutation RPC"
+    },
+    {
+      "signature": "public.adaptive_submit_assessment(uuid,bigint,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/adaptive/server.ts:257"
+      ],
+      "classification": "PREVIEW/STAGING adaptive submit RPC"
+    },
+    {
+      "signature": "public.complete_adaptive_score_run_atomic(uuid,uuid,uuid,text,text,score_run_type,text,uuid,text,jsonb,jsonb,jsonb,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:377"
+      ],
+      "classification": "PREVIEW/STAGING adaptive scoring RPC"
+    },
+    {
+      "signature": "public.automatic_release_completed_fulfilment(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:233"
+      ]
+    },
+    {
+      "signature": "public.check_rate_limit(text,integer,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public",
+      "sources": [
+        "src/lib/security/rate-limit.ts:26"
+      ]
+    },
+    {
+      "signature": "public.claim_exact_delivery(uuid,uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:97"
+      ]
+    },
+    {
+      "signature": "public.claim_exact_fulfilment_job(uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:126"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_ai_attempt(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:57"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_delivery(uuid,text,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-delivery.ts:70"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_generation(text,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:347"
+      ]
+    },
+    {
+      "signature": "public.claim_next_delivery(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:103"
+      ]
+    },
+    {
+      "signature": "public.claim_next_fulfilment_job(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:131"
+      ]
+    },
+    {
+      "signature": "public.claim_payment_report_generation(text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:342"
+      ]
+    },
+    {
+      "signature": "public.complete_manual_report_delivery(uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-delivery.ts:125"
+      ]
+    },
+    {
+      "signature": "public.complete_score_run_atomic(uuid,uuid,score_run_type,text,uuid,jsonb,jsonb,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public",
+      "sources": [
+        "src/lib/scoring/score-assessment.ts:168"
+      ]
+    },
+    {
+      "signature": "public.execute_phase14_worker_step(jsonb,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:170"
+      ]
+    },
+    {
+      "signature": "public.fail_delivery(uuid,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:285"
+      ]
+    },
+    {
+      "signature": "public.fail_fulfilment_job(uuid,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:191",
+        "src/app/score/api/internal/fulfilment-worker/route.ts:303"
+      ]
+    },
+    {
+      "signature": "public.fail_manual_report_generation(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:170"
+      ]
+    },
+    {
+      "signature": "public.finalize_delivery(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:213"
+      ]
+    },
+    {
+      "signature": "public.get_phase14_worker_attestation_context(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:205",
+        "src/lib/reports/phase14-security.ts:228"
+      ]
+    },
+    {
+      "signature": "public.preview_development_record_resend_webhook_reconciliation(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:31"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_resend_webhook_reconciliation_done()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:18"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:148"
+      ]
+    },
+    {
+      "signature": "public.mark_delivery_dispatch_started(uuid,uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:164"
+      ]
+    },
+    {
+      "signature": "public.mark_delivery_reconciliation_required(uuid,uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:219"
+      ]
+    },
+    {
+      "signature": "public.payment_automation_capability()",
+      "securityMode": "INVOKER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/payments/payment-capability.ts:30"
+      ]
+    },
+    {
+      "signature": "public.phase1_manual_fulfilment_capability()",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_catalog, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-schema-capability.ts:59"
+      ]
+    },
+    {
+      "signature": "public.rc1_freeze_status()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/rc1/operation-freeze.ts:58"
+      ]
+    },
+    {
+      "signature": "public.record_automatic_fulfilment_exception(uuid,uuid,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:98",
+        "src/lib/fulfilment/delivery-worker.ts:50",
+        "src/lib/fulfilment/immediate-dispatch.ts:79"
+      ]
+    },
+    {
+      "signature": "public.record_customer_report_artefact_access(uuid,uuid,uuid,boolean,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:89"
+      ],
+      "classification": "Customer access audit RPC (artefact-aware)"
+    },
+    {
+      "signature": "public.record_customer_report_access(uuid,uuid,uuid,boolean,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:100"
+      ],
+      "classification": "Customer access audit RPC (pre-migration fallback)"
+    },
+    {
+      "signature": "public.preview_development_finalize_premium_report_delivery(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:89"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_mark_reconciliation_required(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:120",
+        "src/lib/reports/email/delivery-dispatch.ts:167"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_prepare_premium_report_delivery(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:182"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.record_fulfilment_dispatch_result(uuid,uuid,text,integer,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/immediate-dispatch.ts:67"
+      ]
+    },
+    {
+      "signature": "public.record_manual_report_narrative_provenance(uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-narrative-provenance.ts:28"
+      ]
+    },
+    {
+      "signature": "public.record_payment_transition(text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/payments/payment-service.ts:69"
+      ]
+    },
+    {
+      "signature": "public.record_phase14_operational_alert(text,text,uuid,uuid,jsonb,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/workflow-start.ts:94",
+        "src/lib/reports/download-verification.ts:21",
+        "src/lib/reports/email/delivery-dispatch.ts:40"
+      ]
+    },
+    {
+      "signature": "public.record_phase14_provider_lookup_attestation(text,text,uuid,uuid,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:384"
+      ]
+    },
+    {
+      "signature": "public.record_report_quality_diagnostics(uuid,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:207"
+      ]
+    },
+    {
+      "signature": "public.record_unmatched_payment_event(text,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/payments/payment-service.ts:57"
+      ]
+    },
+    {
+      "signature": "public.recover_phase14_worker_capability_lease(jsonb,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:267"
+      ]
+    },
+    {
+      "signature": "public.save_assessment_resume_state(text,text,uuid,integer,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/assessment/[assessmentRef]/page.tsx:133",
+        "src/lib/respondent/assessment-save.ts:230"
+      ]
+    },
+    {
+      "signature": "public.settle_manual_report_ai_attempt(uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:64"
+      ]
+    },
+    {
+      "signature": "public.start_manual_report_generation(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:423"
+      ]
+    },
+    {
+      "signature": "public.complete_report_secondary_artefact(uuid,text,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/supporting-register-delivery.ts:171"
+      ],
+      "classification": "Secondary report-artefact completion RPC"
+    },
+    {
+      "signature": "public.consume_assessment_token(text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/respondent/tokens.ts:94"
+      ],
+      "classification": "Atomic assessment-token consumption (resume/snapshot)"
+    },
+    {
+      "signature": "public.consume_customer_report_access_token(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:157"
+      ],
+      "classification": "Atomic customer report-access consumption"
+    },
+    {
+      "signature": "public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:637"
+      ],
+      "classification": "Atomic report + supporting-register finalisation (search_path mirrors the accepted complete_manual_report_generation)"
+    },
+    {
+      "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:109"
+      ]
+    },
+    {
+      "signature": "public.preview_development_ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:171"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.terminal_phase14_generation_publication(jsonb,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:317 dynamic resolution"
+      ]
+    },
+    {
+      "signature": "public.create_paid_order(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text)",
+      "securityMode": "INVOKER",
+      "searchPath": "pg_catalog, public",
+      "sources": [
+        "src/lib/commercial/order-service.ts",
+        "src/lib/orders/manual-eft-orders.ts"
+      ],
+      "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
+    },
+    {
+      "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/comprehensive/generation-service.ts"
+      ],
+      "justification": "Atomic persisted Comprehensive package registration: one verified primary report and exactly four verified secondary artefacts at one immutable version."
+    },
+    {
+      "signature": "public.record_customer_report_artefact_access(uuid, uuid, uuid, boolean, text, text, text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts"
+      ],
+      "justification": "Artefact-aware customer access audit bound to the exact possession token, order and report."
+    },
+    {
+      "signature": "public.finalise_comprehensive_artifact_set(uuid, uuid, integer, uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/comprehensive/artifact-service.ts"
+      ],
+      "justification": "Atomic release of the complete verified Comprehensive secondary-artifact set; it fails closed on missing human-review records, primary report integrity, or any missing artifact version."
+    }
+  ],
+  "nonServiceRpcClassifications": {
+    "AUTHENTICATED ADMIN CLIENT ONLY": [
+      "admin_terminal_phase14_generation_publication",
+      "approve_quality_review",
+      "assert_premium_report_download_entitlement",
+      "authorize_bounced_report_redelivery",
+      "authorize_phase14_action",
+      "authorize_phase14_worker_operation",
+      "authorize_premium_report_delivery",
+      "backlog_reconciliation_queue",
+      "claim_premium_report_delivery",
+      "classify_backlog_order",
+      "correct_delivery_recipient_and_queue",
+      "ensure_manual_premium_report_fulfilment",
+      "fail_premium_report_delivery_before_dispatch",
+      "finalize_premium_report_delivery",
+      "mark_premium_report_delivery_dispatch_started",
+      "mark_premium_report_delivery_reconciliation_required",
+      "queue_premium_report_fulfilment",
+      "rc1_activate_freeze",
+      "rc1_provision_certification_runtime_secret",
+      "rc1_release_freeze",
+      "record_phase14_storage_cleanup_result",
+      "record_premium_report_generation_run",
+      "recover_fulfilment_job",
+      "register_phase14_manual_final_storage_cleanup",
+      "reissue_customer_report_access_token",
+      "reject_quality_review",
+      "resolve_premium_report_delivery_reconciliation",
+      "retry_delivery",
+      "retry_fulfilment_job",
+      "revoke_customer_report_access_token",
+      "set_phase14_ai_route_policy",
+      "set_phase14_feature_policy",
+      "set_phase14_runtime_secret",
+      "set_phase14_security_gate_version",
+      "transition_phase14_operational_alert",
+      "transition_premium_report_fulfilment",
+      "update_phase14_feature_policy"
+    ],
+    "SECURITY-DEFINER RPC ONLY": [
+      "abandon_premium_report_generation_claim",
+      "claim_premium_report_generation",
+      "commit_premium_report_draft",
+      "link_phase14_storage_cleanup_report",
+      "recover_premium_report_generation_claim",
+      "register_phase14_storage_cleanup",
+      "renew_premium_report_generation_lease"
+    ]
+  },
+  "storageApiOnly": [
+    "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+    "src/lib/comprehensive/evidence-service.ts:126",
+    "src/lib/comprehensive/evidence-service.ts:249",
+    "src/lib/comprehensive/package-registration.ts:54",
+    "src/lib/comprehensive/package-registration.ts:91",
+    "src/lib/comprehensive/package-registration.ts:95",
+    "src/lib/rc1/control-plane.ts:510",
+    "src/lib/rc1/control-plane.ts:516",
+    "src/lib/reports/customer-report-access.ts:236",
+    "src/lib/reports/customer-report-access.ts:290",
+    "src/lib/reports/customer-report-access.ts:338",
+    "src/lib/reports/download-verification.ts:29",
+    "src/lib/reports/email/delivery-dispatch.ts:28",
+    "src/lib/reports/phase1-manual-delivery.ts:58",
+    "src/lib/reports/phase1-manual-fulfilment.ts:309",
+    "src/lib/reports/phase1-manual-fulfilment.ts:738",
+    "src/lib/reports/phase1-manual-fulfilment.ts:888",
+    "src/lib/reports/phase1-report-access.ts:179",
+    "src/lib/reports/phase1-report-access.ts:212",
+    "src/lib/reports/premium-report-service-core.ts:731",
+    "src/lib/reports/storage-publication.ts:29",
+    "src/lib/reports/storage-publication.ts:47",
+    "src/lib/reports/storage-publication.ts:59",
+    "src/lib/reports/storage-publication.ts:80",
+    "src/lib/reports/storage-publication.ts:88",
+    "src/lib/reports/supporting-register-delivery.ts:157",
+    "src/lib/reports/supporting-register-delivery.ts:97"
+  ],
+  "authAdminApiOnly": [],
+  "dynamicResolutions": {
+    "src/lib/reports/phase14-security.ts:317 rpcName": [
+      "execute_phase14_worker_step",
+      "terminal_phase14_generation_publication"
+    ],
+    "storageBucketExpressions": "STORAGE API ONLY; no public-table grant inferred"
+  },
+  "analysis": {
+    "serviceRoleAdapterFiles": [
+      "src/lib/fulfilment/delivery-worker.ts",
+      "src/lib/reports/automation/manual-ai-attempt-store.ts",
+      "src/lib/reports/automation/manual-narrative-provenance.ts",
+      "src/lib/reports/download-verification.ts",
+      "src/lib/reports/email/delivery-dispatch.ts",
+      "src/lib/reports/report-access-eligibility.ts",
+      "src/lib/reports/storage-publication.ts",
+      "src/lib/reports/supporting-register-delivery.ts",
+      "src/lib/comprehensive/artifact-service.ts"
+      ,"src/lib/comprehensive/review-record-service.ts"
+      ,"src/lib/comprehensive/package-registration.ts"
+      ,"src/lib/commercial/customer-order-status.ts"
+    ],
+    "nonServiceCallSites": [
+      "src/lib/reports/phase14-security.ts:76:rpc",
+      "src/lib/reports/phase14-security.ts:102:rpc",
+      "src/lib/reports/phase14-security.ts:122:from",
+      "src/lib/reports/automation/fulfilment.ts:58:rpc",
+      "src/lib/reports/automation/fulfilment.ts:109:from",
+      "src/lib/reports/automation/fulfilment.ts:130:rpc",
+      "src/lib/reports/premium-report-service-core.ts:74:rpc",
+      "src/lib/reports/premium-report-service-core.ts:188:rpc",
+      "src/lib/reports/premium-report-service-core.ts:266:rpc",
+      "src/lib/reports/premium-report-service-core.ts:298:rpc",
+      "src/lib/reports/premium-report-service-core.ts:344:rpc",
+      "src/lib/reports/premium-report-service-core.ts:379:rpc",
+      "src/lib/reports/premium-report-service-core.ts:627:rpc",
+      "src/lib/reports/premium-report-service-core.ts:660:rpc",
+      "src/lib/reports/premium-report-service-core.ts:708:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:212:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:224:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:234:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:261:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:203:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:272:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:341:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:395:rpc",
+      "src/lib/reports/premium-report-download.ts:19:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:73:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:113:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:140:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:157:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:181:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:206:rpc",
+      "src/lib/reports/premium-report-service-core.ts:263:rpc",
+      "src/lib/reports/premium-report-service-core.ts:295:rpc",
+      "src/lib/reports/premium-report-service-core.ts:341:rpc",
+      "src/lib/reports/premium-report-service-core.ts:624:rpc",
+      "src/lib/reports/premium-report-service-core.ts:657:rpc",
+      "src/lib/reports/premium-report-service-core.ts:705:rpc",
+      "src/lib/rc1/control-plane.ts:76:from",
+      "src/lib/rc1/control-plane.ts:99:rpc"
+    ],
+    "fullAstInventorySha256": "0981eb73c4c90036e243f459a666b049c5a97b110a6ca49d220d9cc87afcf14f"
+  },
+  "productionOverPrivilegeBacklog": {
+    "scope": "Deferred; no Production ACL change is authorised by this correction.",
+    "summary": "Production historically grants SIUD on most legacy public application tables. Migration 46 copies only active route-derived combinations. In particular, methodology/configuration tables remain SELECT-only, event tables retain no newly granted destructive privilege, and RPC-owned mutations remain RPC-only."
+  },
+  "jointLaunchReview": {
+    "reviewedAt": "2026-08-10",
+    "branch": "integration/joint-launch-essential-comprehensive",
+    "reason": "The joint Essential + Comprehensive launch adds a commercial price-version contract, a Comprehensive engagement lifecycle and a client evidence intake. Each brings new direct service-role table operations, which changes the AST inventory hash and therefore requires this manual privilege review.",
+    "principle": "Each new table receives the narrowest verb set an actual call site needs. No new table receives DELETE. Both audit tables are INSERT-only by grant AND rejected on UPDATE/DELETE by trigger. product_price_versions is SELECT-only because prices are minted by migration, never by application code.",
+    "storageApiReview": "Comprehensive evidence and report artifacts use private Storage buckets with server-derived one-object paths. Uploads are followed by immutable metadata RPCs; failed metadata commits compensate the exact uploaded object. No getPublicUrl or createSignedUrl is used in this lane, and no storage credential or path is returned to a browser.",
+    "anonAuthenticatedPrivilege": "None on any new table. Verified executably, not by inspection, in scripts/joint-launch-migration-replay-tests.mjs against a real Postgres.",
+    "securityDefiner": "The artifact metadata/release RPCs and the append-only review-record audit trigger are SECURITY DEFINER with an empty search_path; lifecycle, evidence and price helpers remain SECURITY INVOKER with explicit search paths. The migration replay asserts these boundaries.",
+    "transactionalClosureReview": "Paid-order creation moved into public.create_paid_order(), a SECURITY INVOKER transactional RPC. Comprehensive artifact release is a separate service-role-only atomic set finalisation after all verified metadata and human-review records exist. Direct application INSERTs on public.orders and public.comprehensive_engagements are therefore gone; no customer-facing privilege was widened."
+  }
+}

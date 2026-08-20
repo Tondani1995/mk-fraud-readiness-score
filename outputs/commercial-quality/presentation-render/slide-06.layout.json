@@ -1,0 +1,1356 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/9sqfqr",
+    "id": "9sqfqr",
+    "slide": 6,
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FBF9F5",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6d0ba98v",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 06",
+      "textPreview": "COMPREHENSIVE REVIEW · 06",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 06"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 06",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 06",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tgralo7m",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Three plausible pathways show how control gaps can compound.",
+      "textPreview": "Three plausible pathways show how control gaps can compound.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Three plausible pathways show how control gaps can"
+          },
+          {
+            "index": 2,
+            "text": "compound."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Three plausible pathways show how control gaps can compound.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Three plausible pathways show how control gaps can compound.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sfitcjq1",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Scenario logic helps management test prevention, detection and containment together.",
+      "textPreview": "Scenario logic helps management test prevention, detection and containment together.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Scenario logic helps management test prevention, detection and containment together."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Scenario logic helps management test prevention, detection and containment together.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Scenario logic helps management test prevention, detection and containment together.",
+              "fontSize": 18,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fi9sneps",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/eh0bet87",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1kbupo7i",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "06 / 10",
+      "textPreview": "06 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "06 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "06 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "06 / 10",
+              "fontSize": 13,
+              "color": "#5A6B7C",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gj2tgjqd",
+      "id": "7",
+      "bbox": [
+        80,
+        220,
+        330,
+        300
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FBF9F5",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/36tcrypo",
+      "id": "8",
+      "bbox": [
+        102,
+        240,
+        72,
+        34
+      ],
+      "geometry": "rect",
+      "text": "01",
+      "textPreview": "01",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "01"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "01",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "01",
+              "fontSize": 26,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/25kbit83",
+      "id": "9",
+      "bbox": [
+        102,
+        292,
+        280,
+        68
+      ],
+      "geometry": "rect",
+      "text": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded",
+      "textPreview": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has com...",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Without deliberate"
+          },
+          {
+            "index": 2,
+            "text": "monitoring, fraud is found"
+          },
+          {
+            "index": 3,
+            "text": "only by accident,"
+          },
+          {
+            "index": 4,
+            "text": "complaint or external"
+          },
+          {
+            "index": 5,
+            "text": "notification, typically long"
+          },
+          {
+            "index": 6,
+            "text": "after the loss has"
+          },
+          {
+            "index": 7,
+            "text": "compounded"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded",
+              "fontSize": 20,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gfit4zed",
+      "id": "10",
+      "bbox": [
+        102,
+        378,
+        280,
+        36
+      ],
+      "geometry": "rect",
+      "text": "The recorded control condition is engaged through Fraud Detection Capability: The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+      "textPreview": "The recorded control condition is engaged through Fraud Detection Capability: The organisation monitors transactions or operational activ...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The recorded control condition is"
+          },
+          {
+            "index": 2,
+            "text": "engaged through Fraud Detection"
+          },
+          {
+            "index": 3,
+            "text": "Capability: The organisation"
+          },
+          {
+            "index": 4,
+            "text": "monitors transactions or operational"
+          },
+          {
+            "index": 5,
+            "text": "activity for unusual patterns,"
+          },
+          {
+            "index": 6,
+            "text": "anomalies or red flags."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The recorded control condition is engaged through Fraud Detection Capability: The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The recorded control condition is engaged through Fraud Detection Capability: The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+              "fontSize": 16,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hgrux4vy",
+      "id": "11",
+      "bbox": [
+        102,
+        424,
+        280,
+        76
+      ],
+      "geometry": "rect",
+      "text": "Misuse can occur when an actor exploits the recorded control condition and without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.",
+      "textPreview": "Misuse can occur when an actor exploits the recorded control condition and without deliberate monitoring, fraud is found only by accident...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Misuse can occur when an actor"
+          },
+          {
+            "index": 2,
+            "text": "exploits the recorded control"
+          },
+          {
+            "index": 3,
+            "text": "condition and without deliberate"
+          },
+          {
+            "index": 4,
+            "text": "monitoring, fraud is found only by"
+          },
+          {
+            "index": 5,
+            "text": "accident, complaint or external"
+          },
+          {
+            "index": 6,
+            "text": "notification, typically long after the"
+          },
+          {
+            "index": 7,
+            "text": "loss has compounded."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Misuse can occur when an actor exploits the recorded control condition and without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Misuse can occur when an actor exploits the recorded control condition and without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ud0b2pw7",
+      "id": "12",
+      "bbox": [
+        450,
+        220,
+        330,
+        300
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FDF4E7",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ve9cvuds",
+      "id": "13",
+      "bbox": [
+        472,
+        240,
+        72,
+        34
+      ],
+      "geometry": "rect",
+      "text": "02",
+      "textPreview": "02",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "02"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "02",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "02",
+              "fontSize": 26,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/432t8zep",
+      "id": "14",
+      "bbox": [
+        472,
+        292,
+        280,
+        68
+      ],
+      "geometry": "rect",
+      "text": "Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+      "textPreview": "Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed...",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Controls decay quietly"
+          },
+          {
+            "index": 2,
+            "text": "through staff turnover,"
+          },
+          {
+            "index": 3,
+            "text": "system change and"
+          },
+          {
+            "index": 4,
+            "text": "workload pressure, so a"
+          },
+          {
+            "index": 5,
+            "text": "control believed to be"
+          },
+          {
+            "index": 6,
+            "text": "operating may have lapsed"
+          },
+          {
+            "index": 7,
+            "text": "months earlier"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+              "fontSize": 20,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/54bu14vu",
+      "id": "15",
+      "bbox": [
+        472,
+        378,
+        280,
+        36
+      ],
+      "geometry": "rect",
+      "text": "The recorded control condition is engaged through Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews its fraud risks and control environment.",
+      "textPreview": "The recorded control condition is engaged through Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The recorded control condition is"
+          },
+          {
+            "index": 2,
+            "text": "engaged through Continuous"
+          },
+          {
+            "index": 3,
+            "text": "Improvement and Fraud Risk"
+          },
+          {
+            "index": 4,
+            "text": "Monitoring: The organisation"
+          },
+          {
+            "index": 5,
+            "text": "periodically reviews its fraud risks"
+          },
+          {
+            "index": 6,
+            "text": "and control environment."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The recorded control condition is engaged through Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews its fraud risks and control environment.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The recorded control condition is engaged through Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews its fraud risks and control environment.",
+              "fontSize": 16,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ih0b69wj",
+      "id": "16",
+      "bbox": [
+        472,
+        424,
+        280,
+        76
+      ],
+      "geometry": "rect",
+      "text": "Misuse can occur when an actor exploits the recorded control condition and controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+      "textPreview": "Misuse can occur when an actor exploits the recorded control condition and controls decay quietly through staff turnover, system change a...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Misuse can occur when an actor"
+          },
+          {
+            "index": 2,
+            "text": "exploits the recorded control"
+          },
+          {
+            "index": 3,
+            "text": "condition and controls decay quietly"
+          },
+          {
+            "index": 4,
+            "text": "through staff turnover, system"
+          },
+          {
+            "index": 5,
+            "text": "change and workload pressure, so a"
+          },
+          {
+            "index": 6,
+            "text": "control believed to be operating"
+          },
+          {
+            "index": 7,
+            "text": "may have lapsed months earlier."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Misuse can occur when an actor exploits the recorded control condition and controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Misuse can occur when an actor exploits the recorded control condition and controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3itczud4",
+      "id": "17",
+      "bbox": [
+        820,
+        220,
+        330,
+        300
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FBEDED",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/s72twjel",
+      "id": "18",
+      "bbox": [
+        842,
+        240,
+        72,
+        34
+      ],
+      "geometry": "rect",
+      "text": "03",
+      "textPreview": "03",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#A32020",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "03"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "03",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#A32020",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "03",
+              "fontSize": 26,
+              "color": "#A32020",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d8bu5ov6",
+      "id": "19",
+      "bbox": [
+        842,
+        292,
+        280,
+        68
+      ],
+      "geometry": "rect",
+      "text": "Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+      "textPreview": "Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined ...",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Without a current"
+          },
+          {
+            "index": 2,
+            "text": "structured assessment,"
+          },
+          {
+            "index": 3,
+            "text": "control investment follows"
+          },
+          {
+            "index": 4,
+            "text": "intuition and recent events,"
+          },
+          {
+            "index": 5,
+            "text": "leaving whole exposure"
+          },
+          {
+            "index": 6,
+            "text": "areas unexamined and"
+          },
+          {
+            "index": 7,
+            "text": "unfunded"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+              "fontSize": 20,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1orupona",
+      "id": "20",
+      "bbox": [
+        842,
+        378,
+        280,
+        36
+      ],
+      "geometry": "rect",
+      "text": "The recorded control condition is engaged through Fraud Risk Identification: The organisation has completed a structured fraud risk assessment within the past two years.",
+      "textPreview": "The recorded control condition is engaged through Fraud Risk Identification: The organisation has completed a structured fraud risk asses...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The recorded control condition is"
+          },
+          {
+            "index": 2,
+            "text": "engaged through Fraud Risk"
+          },
+          {
+            "index": 3,
+            "text": "Identification: The organisation has"
+          },
+          {
+            "index": 4,
+            "text": "completed a structured fraud risk"
+          },
+          {
+            "index": 5,
+            "text": "assessment within the past two"
+          },
+          {
+            "index": 6,
+            "text": "years."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The recorded control condition is engaged through Fraud Risk Identification: The organisation has completed a structured fraud risk assessment within the past two years.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The recorded control condition is engaged through Fraud Risk Identification: The organisation has completed a structured fraud risk assessment within the past two years.",
+              "fontSize": 16,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/03ytgj6p",
+      "id": "21",
+      "bbox": [
+        842,
+        424,
+        280,
+        76
+      ],
+      "geometry": "rect",
+      "text": "Misuse can occur when an actor exploits the recorded control condition and without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.",
+      "textPreview": "Misuse can occur when an actor exploits the recorded control condition and without a current structured assessment, control investment fo...",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#1A2634",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 8,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Misuse can occur when an actor"
+          },
+          {
+            "index": 2,
+            "text": "exploits the recorded control"
+          },
+          {
+            "index": 3,
+            "text": "condition and without a current"
+          },
+          {
+            "index": 4,
+            "text": "structured assessment, control"
+          },
+          {
+            "index": 5,
+            "text": "investment follows intuition and"
+          },
+          {
+            "index": 6,
+            "text": "recent events, leaving whole"
+          },
+          {
+            "index": 7,
+            "text": "exposure areas unexamined and"
+          },
+          {
+            "index": 8,
+            "text": "unfunded."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Misuse can occur when an actor exploits the recorded control condition and without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#1A2634"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Misuse can occur when an actor exploits the recorded control condition and without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.",
+              "fontSize": 16,
+              "color": "#1A2634"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

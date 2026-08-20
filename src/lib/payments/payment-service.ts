@@ -1,9 +1,29 @@
 import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordPaymentConfirmedNotification } from '@/lib/notifications/phase1-order-notifications';
 import { getPaymentAutomationCapability } from './payment-capability';
-import { triggerPaidOrderFulfilment } from './fulfilment';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
+
+// Release B: record_payment_transition() (extended in
+// supabase/migrations/20260724160000_release_b_durable_fulfilment.sql) now queues the
+// deterministic Phase 1 fulfilment job itself, inside the same transaction as the payment
+// state transition (closes the Q6 atomicity gap -- see
+// docs/safe-launch/11-release-b-existing-infrastructure-audit.md and
+// docs/safe-launch/12-durable-fulfilment-design.md, "Payment transaction boundary").
+// processVerifiedPayment() therefore no longer calls the synchronous fulfilment trigger
+// (src/lib/payments/fulfilment.ts, which still exists for reference/tests but is no longer
+// imported here) to run generateManualPhase1Report() synchronously inside this request --
+// generation now runs later, out of band, when the internal worker route
+// (src/app/score/api/internal/fulfilment-worker/route.ts) claims the queued row. This is
+// what makes the payment-confirmation HTTP response return without waiting for PDF
+// generation, per the design doc's "Durable workflow boundary".
+function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
+  const queued = String(result?.fulfilment ?? '');
+  if (queued === 'QUEUED') return 'queued';
+  if (queued === 'ALREADY_ACTIVE') return 'already_active';
+  return 'not_requested';
+}
 
 function targetState(event: NormalisedPaymentEvent, expectedAmount: number, expectedCurrency: string, requireTransactionReference: boolean): { state: PaymentState; reason: string } {
   if (event.outcome === 'failed') return { state: 'PAYMENT_FAILED', reason: 'Provider reported payment failure.' };
@@ -31,7 +51,7 @@ export async function processVerifiedPayment(input: {
     return { ok: false, duplicate: false, state: 'PAYMENT_PENDING', fulfilment: 'not_requested', message: capability.message!, technicalReference };
   }
   const { data: order, error: orderError } = await db.from('orders')
-    .select('id,order_reference,assessment_id,amount_cents,currency,status')
+    .select('id,order_reference,assessment_id,amount_cents,currency,status,customer_name,customer_email')
     .eq('order_reference', input.event.orderReference).maybeSingle();
   if (orderError || !order) {
     await db.rpc('record_unmatched_payment_event', {
@@ -68,24 +88,54 @@ export async function processVerifiedPayment(input: {
   }
   let fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
   let message = target.reason;
-  if (target.state === 'PAID') {
-    const result = await triggerPaidOrderFulfilment({ orderReference: order.order_reference, paymentEventId: input.event.eventId });
-    fulfilment = result.result;
-    message = result.message;
+  if (target.state === 'PAID' && !data.duplicate) {
+    fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
+    if (fulfilment === 'queued') message = 'Payment confirmed. Report generation has been queued for the fulfilment worker.';
+    else if (fulfilment === 'already_active') message = 'Payment confirmed. A fulfilment job is already queued or in progress for this order.';
     await db.from('payment_automation_records').update({
-      fulfilment_trigger_result: result.result === 'phase1_unavailable' ? 'PHASE1_UNAVAILABLE'
-        : result.result === 'queued' ? 'QUEUED'
-          : result.result === 'already_active' ? 'ALREADY_ACTIVE'
-            : result.result === 'already_fulfilled' ? 'ALREADY_FULFILLED' : 'FAILED',
+      fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
+        : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
       updated_at: new Date().toISOString()
     }).eq('order_id', order.id);
+    // Fire-and-forget: a notification failure must never fail payment recording itself -- the
+    // payment transition above already committed. recordPaymentConfirmedNotification throws on
+    // DB errors (see phase1-order-notifications.ts), so this is caught explicitly rather than
+    // relying on the caller.
+    await recordPaymentConfirmedNotification({
+      orderId: order.id,
+      orderReference: order.order_reference,
+      assessmentId: order.assessment_id,
+      amountCents: Number(order.amount_cents),
+      currency: String(order.currency ?? 'ZAR'),
+      customerName: order.customer_name ?? null,
+      customerEmail: order.customer_email ?? null,
+      verifiedAtIso: new Date().toISOString()
+    }).catch((notificationError: unknown) => {
+      console.error('payment_confirmed_notification_failed', {
+        technicalReference, orderReference: order.order_reference,
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError)
+      });
+    });
   }
   await trackAssessmentEvent({
     eventType: 'payment_marked_received', assessmentId: order.assessment_id, orderId: order.id,
     metadata: { source: input.source, payment_state: target.state, duplicate: data.duplicate === true, fulfilment }
   });
   console.info('payment_transition', { orderReference: order.order_reference, state: target.state, source: input.source, duplicate: data.duplicate === true, fulfilment, technicalReference });
-  return { ok: true, duplicate: data.duplicate === true, state: target.state, eventId: data.event_id, fulfilment, message, technicalReference };
+  const fulfilmentAttemptId = fulfilment === 'queued'
+    && typeof data.fulfilment_attempt_id === 'string'
+    ? data.fulfilment_attempt_id
+    : undefined;
+  return {
+    ok: true,
+    duplicate: data.duplicate === true,
+    state: target.state,
+    eventId: data.event_id,
+    fulfilmentAttemptId,
+    fulfilment,
+    message,
+    technicalReference
+  };
 }
 
 export async function confirmManualPayment(input: {

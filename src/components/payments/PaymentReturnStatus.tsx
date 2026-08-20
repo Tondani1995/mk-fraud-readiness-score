@@ -11,6 +11,7 @@ const labels: Record<string, { title: string; detail: string }> = {
   REFUNDED: { title: 'Payment refunded', detail: 'The verified payment was subsequently refunded or reversed.' },
   PAYMENT_PENDING: { title: 'Payment awaiting verification', detail: 'Returning from a payment page is not proof of payment. We are waiting for the verified server-side result.' }
 };
+const MAX_STATUS_POLLS = 20;
 
 export function PaymentReturnStatus({ orderReference }: { orderReference: string }) {
   const [state, setState] = useState('PAYMENT_PENDING');
@@ -19,13 +20,18 @@ export function PaymentReturnStatus({ orderReference }: { orderReference: string
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let pollCount = 0;
     async function poll() {
+      pollCount += 1;
       try {
         const response = await fetch(`/score/api/payments/${encodeURIComponent(orderReference)}/status`, { cache: 'no-store', signal: controller.signal });
         const body = await response.json().catch(() => ({}));
         if (!response.ok || !body.ok) { setError('Verified payment status is not available for this browser session.'); return; }
         setState(body.payment.state); setFulfilment(body.payment.fulfilment_trigger_result); setError(null);
-        if (['PAYMENT_PENDING', 'PAYMENT_PROCESSING'].includes(body.payment.state)) timer = setTimeout(poll, 3000);
+        if (['PAYMENT_PENDING', 'PAYMENT_PROCESSING'].includes(body.payment.state)) {
+          if (pollCount < MAX_STATUS_POLLS) timer = setTimeout(poll, 3000);
+          else setError('Verified payment is still awaiting confirmation. Refresh this page later to check again.');
+        }
       } catch (pollError) {
         if (pollError instanceof DOMException && pollError.name === 'AbortError') return;
         setError('Verified payment status is temporarily unavailable. Please refresh to retry.');

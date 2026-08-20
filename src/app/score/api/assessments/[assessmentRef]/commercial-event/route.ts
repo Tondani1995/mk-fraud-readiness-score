@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { trackAssessmentEvent, type AssessmentEventType } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
@@ -9,8 +10,24 @@ const ALLOWED_EVENT_TYPES = new Set<AssessmentEventType>([
   'executive_summary_viewed',
   'report_options_opened',
   'report_option_selected',
-  'full_report_5000_selected'
+  'essential_selected',
+  'comprehensive_selected'
 ]);
+
+/**
+ * Event names the already-deployed client may still send. They are accepted and translated to the
+ * tier-named event so no analytics is lost during a rollout, but nothing is ever PERSISTED under
+ * the legacy name from here.
+ */
+const LEGACY_EVENT_ALIASES: Record<string, AssessmentEventType> = {
+  full_report_5000_selected: 'essential_selected'
+};
+
+/** Selection events that also notify MK internally. */
+const SELECTION_EVENT_TIER: Partial<Record<AssessmentEventType, 'essential' | 'comprehensive'>> = {
+  essential_selected: 'essential',
+  comprehensive_selected: 'comprehensive'
+};
 
 function cleanSourceSection(value: unknown) {
   if (typeof value !== 'string') return 'free_snapshot';
@@ -18,12 +35,23 @@ function cleanSourceSection(value: unknown) {
 }
 
 function cleanOptionCode(value: unknown) {
-  if (value === COMMERCIAL_OPTION_CODES.fullReport) return COMMERCIAL_OPTION_CODES.fullReport;
-  if (value === COMMERCIAL_OPTION_CODES.personalisedReport) return COMMERCIAL_OPTION_CODES.personalisedReport;
+  if (value === COMMERCIAL_OPTION_CODES.essential || value === COMMERCIAL_OPTION_CODES.legacyFullReport) {
+    return COMMERCIAL_OPTION_CODES.essential;
+  }
+  if (value === COMMERCIAL_OPTION_CODES.comprehensive) return COMMERCIAL_OPTION_CODES.comprehensive;
+  // The legacy personalised-report option belongs to the manual advisory enquiry flow, which this
+  // route does not create orders for; it is still a valid selection to record.
+  if (value === COMMERCIAL_OPTION_CODES.legacyPersonalisedReport) {
+    return COMMERCIAL_OPTION_CODES.legacyPersonalisedReport;
+  }
   return null;
 }
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
+  const frozen = await getRc1OperationFreezeResponse('assessment_write');
+  if (frozen) return frozen;
+
   let body: any = {};
   try {
     body = await request.json();
@@ -35,7 +63,8 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     return NextResponse.json({ ok: false, errors: ['Private snapshot link required.'] }, { status: 403 });
   }
 
-  const eventType = body?.eventType as AssessmentEventType;
+  const requestedEventType = String(body?.eventType ?? '');
+  const eventType = (LEGACY_EVENT_ALIASES[requestedEventType] ?? requestedEventType) as AssessmentEventType;
   if (!ALLOWED_EVENT_TYPES.has(eventType)) {
     return NextResponse.json({ ok: false, errors: ['Unsupported commercial event.'] }, { status: 400 });
   }
@@ -57,9 +86,8 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     return NextResponse.json({ ok: false, errors: ['Snapshot is not available.'] }, { status: 409 });
   }
 
-  const optionCode = eventType === 'full_report_5000_selected'
-    ? COMMERCIAL_OPTION_CODES.fullReport
-    : cleanOptionCode(body?.optionCode);
+  const selectionTier = SELECTION_EVENT_TIER[eventType];
+  const optionCode = selectionTier ?? cleanOptionCode(body?.optionCode);
 
   if (eventType === 'report_option_selected' && !optionCode) {
     return NextResponse.json({ ok: false, errors: ['A supported report option is required.'] }, { status: 400 });
@@ -82,13 +110,13 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     metadata
   });
 
-  if (eventType === 'full_report_5000_selected') {
+  if (selectionTier) {
     await queueInternalNotification({
-      notificationType: 'full_report_5000_selected',
+      notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected',
       assessmentId: assessment.id,
       organisationId: assessment.organisation_id,
       respondentId: assessment.primary_respondent_id,
-      optionCode: COMMERCIAL_OPTION_CODES.fullReport,
+      optionCode: selectionTier,
       metadata
     });
   }

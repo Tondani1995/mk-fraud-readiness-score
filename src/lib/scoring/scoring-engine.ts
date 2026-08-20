@@ -6,6 +6,7 @@ import type {
   SavedAssessmentAnswer,
   SavedExposureAnswer
 } from '@/lib/types/domain';
+import { getMaturityBand } from './maturity-band';
 
 export type ScoreRunSummary = {
   overallScore: number | null;
@@ -91,12 +92,7 @@ function normaliseResponse(responseValue: number): number {
   return round((responseValue / 5) * 100, 2);
 }
 
-function maturityForScore(score: number): MaturityBand {
-  if (score < 40) return 'Reactive';
-  if (score < 60) return 'Developing';
-  if (score < 80) return 'Structured';
-  return 'Strategic';
-}
+const maturityForScore = getMaturityBand;
 
 function exposureBandForScore(score: number): ExposureBand {
   if (score <= 25) return 'Low';

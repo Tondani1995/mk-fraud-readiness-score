@@ -1,3 +1,6 @@
+import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { MK_TOKENS } from './design/tokens';
+
 let browserPromise: Promise<any> | null = null;
 
 // Tracks consecutive render failures across renderer instances (i.e. across HTTP invocations
@@ -17,6 +20,49 @@ export const DEFAULT_PDF_RENDER_TIMEOUT_MS = 30_000;
 function resolvePdfRenderTimeoutMs(): number {
   const configured = Number(process.env.PDF_RENDER_TIMEOUT_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PDF_RENDER_TIMEOUT_MS;
+}
+
+function documentTitleFromHtml(html: string): string {
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? 'MK Fraud Insights report';
+  return title
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+    .slice(0, 240) || 'MK Fraud Insights report';
+}
+
+/**
+ * Chromium is launched with tagged-PDF and document-outline generation enabled. These metadata
+ * fields are safe post-processing of the existing PDF bytes; deliberately do not manufacture a
+ * structure tree because the renderer must own the tag relationships.
+ */
+async function addPdfAccessibilityMetadata(pdfBytes: Buffer, html: string): Promise<Buffer> {
+  try {
+    const pdf = await PDFDocument.load(pdfBytes);
+    const title = documentTitleFromHtml(html);
+    pdf.setTitle(title, { showInWindowTitleBar: true });
+    pdf.setAuthor('MK Fraud Insights');
+    pdf.setSubject('Fraud readiness advisory report');
+    pdf.setKeywords(['fraud readiness', 'MK Fraud Insights', 'advisory report']);
+    pdf.setCreator('MK Fraud Insights');
+    pdf.setProducer('MK Fraud Insights PDF renderer');
+    pdf.catalog.set(PDFName.of('Lang'), PDFString.of('en-ZA'));
+    if (!pdf.catalog.has(PDFName.of('StructTreeRoot'))) {
+      console.warn('pdf_accessibility_tagged_structure_unavailable', {
+        message: 'Chromium did not retain a tagged-PDF structure tree; metadata and source semantics remain available.'
+      });
+    }
+    return Buffer.from(await pdf.save({ useObjectStreams: false }));
+  } catch (error) {
+    console.warn('pdf_accessibility_metadata_postprocess_skipped', {
+      message: error instanceof Error ? error.message : String(error)
+    });
+    return pdfBytes;
+  }
 }
 
 /** Test-only hook: forces the next getBrowser() call to relaunch regardless of cached state. */
@@ -92,6 +138,9 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
   return executablePath;
 }
 
+export const BROWSER_LAUNCH_TIMEOUT_MS = 60_000;
+export const BROWSER_PROTOCOL_TIMEOUT_MS = 120_000;
+
 async function launchBrowser() {
   const [{ default: puppeteer }, chromiumModule] = await Promise.all([
     import('puppeteer-core'),
@@ -100,16 +149,40 @@ async function launchBrowser() {
   const chromium = normalizeChromiumModule(chromiumModule);
   const executablePath = await resolveChromiumExecutablePath(chromium);
   const localOverride = Boolean(process.env.PUPPETEER_EXECUTABLE_PATH?.trim());
+  const pdfAccessibilityArgs = ['--export-tagged-pdf', '--generate-pdf-document-outline'];
   const args = localOverride
-    ? puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: true })
-    : puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' });
+    ? await puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
+    : await puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
 
-  return puppeteer.launch({
-    args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath,
-    headless: localOverride ? true : 'shell'
-  });
+  // A launch with no timeout is unbounded: if the browser process starts but
+  // never completes the DevTools handshake, the render hangs until the caller
+  // gives up. Observed locally as a >600s stall with no diagnostic. Both the
+  // launch handshake and subsequent CDP calls are now bounded.
+  const launchStartedAt = Date.now();
+  try {
+    const browser = await puppeteer.launch({
+      args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: localOverride ? true : 'shell',
+      timeout: BROWSER_LAUNCH_TIMEOUT_MS,
+      protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS
+    });
+    console.info('Chromium launch diagnostics', { stage: 'launch', outcome: 'ok', durationMs: Date.now() - launchStartedAt, headless: localOverride ? true : 'shell' });
+    return browser;
+  } catch (error) {
+    console.error('Chromium launch diagnostics', {
+      stage: 'launch',
+      outcome: 'failed',
+      durationMs: Date.now() - launchStartedAt,
+      timeoutMs: BROWSER_LAUNCH_TIMEOUT_MS,
+      executablePath,
+      platform: process.platform,
+      arch: process.arch,
+      message: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
 }
 
 /** Best-effort close that never lets a failure while tearing down a dead resource mask the real error. */
@@ -120,6 +193,29 @@ async function closeSafely(closeable: { close: () => Promise<void> } | null | un
   } catch {
     // The resource may already be gone (crashed process, already-closed page) -- nothing more
     // we can safely do here, and this must never throw over a caller's real error.
+  }
+}
+
+/**
+ * Releases the cached browser.
+ *
+ * The singleton is correct for a long-lived server, where reusing one browser
+ * across requests is the point. It is wrong for a one-shot CLI: the browser
+ * process keeps libuv handles open, so the script finishes its work and then
+ * never exits. That presented as a "render hang" when the render itself had
+ * already completed in about three seconds.
+ *
+ * Any entry point that renders and then expects to terminate must await this.
+ */
+export async function closeRenderBrowser(): Promise<void> {
+  const pending = browserPromise;
+  browserPromise = null;
+  if (!pending) return;
+  try {
+    const browser = await pending;
+    await browser.close();
+  } catch {
+    // A browser that never launched, or already died, needs no disposal.
   }
 }
 
@@ -156,7 +252,7 @@ async function getBrowser() {
  * observable operational signal (`phase14_pdf_renderer_repeated_failures`) separate from the
  * per-report error already recorded on the fulfilment row by the caller.
  */
-export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
+export async function renderHtmlToPdfBuffer(html: string, options?: { footerLabel?: string }): Promise<Buffer> {
   let browser: { newPage: () => Promise<unknown>; close: () => Promise<void>; isConnected: () => boolean } | null = null;
   let page: { close: () => Promise<void>; setContent: (html: string, opts: unknown) => Promise<void>; pdf: (opts: unknown) => Promise<unknown> } | null = null;
   const pdfRenderTimeoutMs = resolvePdfRenderTimeoutMs();
@@ -166,14 +262,20 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
     await page!.setContent(html, { waitUntil: 'load', timeout: 15_000 });
     // M6: bounded timeout on the render itself. Puppeteer throws a TimeoutError (recognised
     // below by error.name) if the render has not completed within this many milliseconds.
+    const footerLabel = options?.footerLabel
+      ?? (/Comprehensive/i.test(documentTitleFromHtml(html)) ? 'MK Fraud Readiness · Comprehensive · Confidential' : 'MK Fraud Readiness · Essential · Confidential');
     const pdf = await page!.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      preferCSSPageSize: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: `<div style="width:100%;padding:0 14mm;color:${MK_TOKENS.muted};font:7px Arial,sans-serif;text-align:right;border-top:1px solid ${MK_TOKENS.rule};"><span style="float:left;padding-top:4px;">${footerLabel}</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+      margin: { top: '12mm', right: '13mm', bottom: '15mm', left: '13mm' },
       timeout: pdfRenderTimeoutMs
     });
     consecutiveRenderFailures = 0;
-    return Buffer.from(pdf as Parameters<typeof Buffer.from>[0]);
+    return addPdfAccessibilityMetadata(Buffer.from(pdf as Parameters<typeof Buffer.from>[0]), html);
   } catch (error) {
     // Never reuse a browser that failed to launch, open a page, load content, or render -- any of
     // these can indicate a crashed or hung renderer process. Discard the cached handle so the

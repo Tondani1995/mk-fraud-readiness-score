@@ -340,4 +340,209 @@ function Phase14SettingsControl({
   );
 }
 
-export { Phase14GateControl, Phase14PoliciesControl, Phase14AiRoutesControl, Phase14SettingsControl };
+const RUNTIME_SECRET_MIN_LENGTH = 32;
+const RUNTIME_SECRET_GENERATED_BYTES = 48;
+
+// URL/shell-safe base64 (no '+', '/', '=') so the generated value can be pasted directly into a
+// Vercel env var or a shell without escaping. Uses Web Crypto's CSPRNG, not Math.random.
+function generateHighEntropySecret(byteLength = RUNTIME_SECRET_GENERATED_BYTES): string {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Computed entirely client-side via Web Crypto SubtleCrypto -- never sent anywhere. Used only to
+// let the admin visually confirm, after submission, that the value the server fingerprinted is
+// the exact same value they generated and pasted into Vercel (both are the identical string, so
+// both fingerprints are computed from that one string, one locally and one in Postgres).
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+type RuntimeSecretResult = { secret_key: string; rotated_at: string; fingerprint: string } | null;
+
+function Phase14RuntimeSecretControl({
+  secretKey,
+  vercelVarName,
+  description
+}: {
+  secretKey: 'provider_webhook_db_hmac' | 'provider_lookup_db_hmac';
+  vercelVarName: string;
+  description: string;
+}) {
+  const [secretValue, setSecretValue] = useState('');
+  const [confirmValue, setConfirmValue] = useState('');
+  const [reason, setReason] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [clientFingerprint, setClientFingerprint] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [result, setResult] = useState<RuntimeSecretResult>(null);
+
+  function handleGenerate() {
+    const generated = generateHighEntropySecret();
+    setSecretValue(generated);
+    setConfirmValue(generated);
+    setResult(null);
+    setNotice(null);
+    sha256Hex(generated).then(setClientFingerprint).catch(() => setClientFingerprint(null));
+  }
+
+  function handleSecretValueChange(value: string) {
+    setSecretValue(value);
+    setResult(null);
+    if (value.length >= RUNTIME_SECRET_MIN_LENGTH) {
+      sha256Hex(value).then(setClientFingerprint).catch(() => setClientFingerprint(null));
+    } else {
+      setClientFingerprint(null);
+    }
+  }
+
+  async function submit() {
+    if (!reason.trim()) {
+      setNotice({ tone: 'error', text: 'A reason is required and is recorded in audit_logs.' });
+      return;
+    }
+    if (secretValue.length < RUNTIME_SECRET_MIN_LENGTH) {
+      setNotice({ tone: 'error', text: `The secret value must be at least ${RUNTIME_SECRET_MIN_LENGTH} characters.` });
+      return;
+    }
+    if (secretValue !== confirmValue) {
+      setNotice({ tone: 'error', text: 'The secret value and confirmation do not match.' });
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      const response = await fetch('/score/api/admin/phase14-activation/runtime-secret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secretKey, secretValue, confirmValue, reason })
+      });
+      const body = await readJson(response);
+      if (!response.ok || !body.ok) throw new Error(body.error ?? 'Secret rotation failed.');
+      setResult(body.secret as RuntimeSecretResult);
+      setNotice({ tone: 'success', text: `${secretKey} rotated. The value has been cleared from this form.` });
+      // Clear the secret from memory immediately on success -- never left sitting in state.
+      setSecretValue('');
+      setConfirmValue('');
+      setReason('');
+      setReveal(false);
+    } catch (error) {
+      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Secret rotation failed.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const fingerprintsMatch = result && clientFingerprint ? result.fingerprint === clientFingerprint : null;
+
+  return (
+    <div className="rounded-2xl border border-mk-line bg-white p-4">
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-mk-ink">Supabase secret <code>{secretKey}</code></p>
+        <p className="text-xs text-mk-muted">Paired Vercel Preview variable: <code>{vercelVarName}</code> · {description}</p>
+      </div>
+      <NoticeBanner notice={notice} />
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" onClick={handleGenerate}>
+          Generate a new {RUNTIME_SECRET_GENERATED_BYTES}-byte secret
+        </Button>
+        {clientFingerprint && (
+          <span className="self-center text-xs text-mk-muted">
+            Client-computed SHA-256: <code>{clientFingerprint.slice(0, 16)}…</code>
+          </span>
+        )}
+      </div>
+
+      <ol className="mb-3 list-decimal space-y-1 pl-5 text-xs text-mk-muted">
+        <li>Generate here, or paste an equally high-entropy value of your own.</li>
+        <li>Copy the exact value into Vercel → Project Settings → Environment Variables → <code>{vercelVarName}</code>, scoped to <strong>Preview</strong> on <code>release-c/email-secure-delivery</code> only.</li>
+        <li>Submit the identical value below to provision the matching Supabase secret.</li>
+        <li>Compare the fingerprint shown after submission against the client-computed one above — they must match, since both are SHA-256 of the one value you just pasted in both places.</li>
+      </ol>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`${secretKey}-value`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+            Secret value
+          </label>
+          <div className="mt-1 flex gap-2">
+            <input
+              id={`${secretKey}-value`}
+              type={reveal ? 'text' : 'password'}
+              autoComplete="off"
+              value={secretValue}
+              onChange={(event) => handleSecretValueChange(event.target.value)}
+              className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm font-mono"
+              placeholder="At least 32 random characters"
+            />
+            <Button type="button" variant="ghost" onClick={() => setReveal((v) => !v)}>
+              {reveal ? 'Hide' : 'Reveal'}
+            </Button>
+          </div>
+        </div>
+        <div>
+          <label htmlFor={`${secretKey}-confirm`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+            Confirm secret value
+          </label>
+          <input
+            id={`${secretKey}-confirm`}
+            type={reveal ? 'text' : 'password'}
+            autoComplete="off"
+            value={confirmValue}
+            onChange={(event) => setConfirmValue(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm font-mono"
+          />
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <label htmlFor={`${secretKey}-reason`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+          Reason (required, audited)
+        </label>
+        <input
+          id={`${secretKey}-reason`}
+          type="text"
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm"
+          placeholder="e.g. Initial provisioning for Release C controlled Preview verification, 2026-07-25"
+        />
+      </div>
+
+      <div className="mt-4">
+        <Button type="button" disabled={busy} onClick={submit}>
+          {busy ? 'Provisioning…' : `Provision ${secretKey}`}
+        </Button>
+      </div>
+
+      {result && (
+        <div className="mt-4 rounded-xl bg-mk-cream px-4 py-3 text-xs text-mk-ink">
+          <p><strong>Secret key:</strong> {result.secret_key}</p>
+          <p><strong>Rotated at:</strong> {result.rotated_at}</p>
+          <p><strong>Fingerprint (SHA-256, not the secret):</strong> <code>{result.fingerprint}</code></p>
+          {fingerprintsMatch !== null && (
+            <p className={fingerprintsMatch ? 'text-emerald-700' : 'text-red-700'}>
+              {fingerprintsMatch
+                ? 'Matches the client-computed fingerprint of the value you generated above.'
+                : 'Does NOT match the client-computed fingerprint — do not assume Vercel has the same value.'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export {
+  Phase14GateControl,
+  Phase14PoliciesControl,
+  Phase14AiRoutesControl,
+  Phase14SettingsControl,
+  Phase14RuntimeSecretControl
+};

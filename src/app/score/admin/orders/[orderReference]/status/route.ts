@@ -1,6 +1,9 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { canManageFinance, getAdminSession } from '@/lib/auth/admin-route';
+import { dispatchImmediateFulfilment } from '@/lib/fulfilment/immediate-dispatch';
 import { updateAdminOrderStatus, type ManualOrderStatus } from '@/lib/orders/manual-eft-orders';
 import { getPaymentAutomationCapability } from '@/lib/payments/payment-capability';
 import { confirmManualPayment } from '@/lib/payments/payment-service';
@@ -9,7 +12,11 @@ import crypto from 'node:crypto';
 
 const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
+  const frozen = await getRc1OperationFreezeResponse('payment_status');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   const detailUrl = new URL(`/score/admin/orders/${params.orderReference}`, request.url);
 
@@ -37,6 +44,17 @@ export async function POST(request: Request, { params }: { params: { orderRefere
       currency: String(form.get('currency') ?? 'ZAR'),
       idempotencyKey: String(form.get('idempotencyKey') ?? request.headers.get('x-idempotency-key') ?? crypto.randomUUID())
     });
+    if (
+      payment.ok
+      && !payment.duplicate
+      && payment.fulfilment === 'queued'
+      && payment.fulfilmentAttemptId
+    ) {
+      waitUntil(dispatchImmediateFulfilment({
+        attemptId: payment.fulfilmentAttemptId,
+        correlationReference: crypto.randomUUID()
+      }));
+    }
     result = { ok: payment.ok, error: payment.ok ? undefined : payment.message, message: payment.message };
   } else {
     const legacy = await updateAdminOrderStatus({ orderReference: params.orderReference, nextStatus: status, note, admin });

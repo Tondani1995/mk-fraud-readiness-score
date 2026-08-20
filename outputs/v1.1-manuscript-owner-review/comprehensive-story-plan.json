@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "mk-reporting-bible-1.1-story-plan-v1",
+  "bibleVersion": "1.1",
+  "productTier": "comprehensive",
+  "executiveStoryObjective": "Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.",
+  "movements": [
+    {
+      "id": "diagnosis",
+      "order": 1,
+      "title": "Executive diagnosis",
+      "objective": "State what MK concluded from the recorded assessment.",
+      "sectionIds": [
+        "EXECUTIVE-DIAGNOSIS"
+      ],
+      "transitionPurpose": "Clarify the analytical basis and boundary before interpretation.",
+      "requiredManagementTakeaway": "Management should understand the current position, its pattern and the leadership priorities."
+    },
+    {
+      "id": "basis",
+      "order": 2,
+      "title": "Analytical basis",
+      "objective": "Explain the self-assessment basis and assurance boundary once.",
+      "sectionIds": [
+        "ANALYTICAL-BASIS",
+        "READINESS-PROFILE"
+      ],
+      "transitionPurpose": "Move from score shape to the themes that explain concentration.",
+      "requiredManagementTakeaway": "The result is strategic analysis and control design, not independent operating verification."
+    },
+    {
+      "id": "themes",
+      "order": 3,
+      "title": "Systemic themes",
+      "objective": "Explain the cross-cutting patterns and interactions supplied by the deterministic layer.",
+      "sectionIds": [
+        "SYSTEMIC-THEMES"
+      ],
+      "transitionPurpose": "Move from patterns to the material findings supporting them.",
+      "requiredManagementTakeaway": "The material story is created by linked conditions, not isolated question scores."
+    },
+    {
+      "id": "findings",
+      "order": 4,
+      "title": "Material findings",
+      "objective": "Interpret the material findings in their broader control-system context.",
+      "sectionIds": [
+        "MATERIAL-FINDINGS"
+      ],
+      "transitionPurpose": "Show how these conditions create plausible pathways to manage.",
+      "requiredManagementTakeaway": "The findings require connected treatment across owners, controls and oversight."
+    },
+    {
+      "id": "exposure",
+      "order": 5,
+      "title": "Fraud exposure and scenarios",
+      "objective": "Narrate approved fraud pathways without making allegations.",
+      "sectionIds": [
+        "FRAUD-SCENARIOS"
+      ],
+      "transitionPurpose": "Use the pathways to explain why the target control environment matters.",
+      "requiredManagementTakeaway": "Scenario logic should inform prevention, monitoring, containment and response design."
+    },
+    {
+      "id": "design",
+      "order": 6,
+      "title": "Target fraud-control environment",
+      "objective": "Explain the target-state control blueprints and connected operating design.",
+      "sectionIds": [
+        "CONTROL-BLUEPRINTS",
+        "OPERATING-MODEL"
+      ],
+      "transitionPurpose": "Move from target design to the decisions required to make it real.",
+      "requiredManagementTakeaway": "Controls become useful when objective, ownership, proof, challenge and effectiveness are explicit."
+    },
+    {
+      "id": "decisions",
+      "order": 7,
+      "title": "Leadership decisions",
+      "objective": "Explain the genuine executive choices, approved options and trade-offs.",
+      "sectionIds": [
+        "LEADERSHIP-DECISIONS"
+      ],
+      "transitionPurpose": "Sequence the selected direction through the twelve-month blueprint.",
+      "requiredManagementTakeaway": "Leadership must choose a route, owner and target date with the consequence of delay visible."
+    },
+    {
+      "id": "roadmap",
+      "order": 8,
+      "title": "Twelve-month transformation blueprint",
+      "objective": "Show progression from Stabilise through Mature.",
+      "sectionIds": [
+        "TRANSFORMATION-BLUEPRINT",
+        "SCORECARD"
+      ],
+      "transitionPurpose": "Close with the future state and the next management checkpoint.",
+      "requiredManagementTakeaway": "Progress should move from urgent ownership and foundations to repeatability, measurement and oversight."
+    },
+    {
+      "id": "conclusion",
+      "order": 9,
+      "title": "Management conclusion",
+      "objective": "Close with the transition required and route to Advisory where appropriate.",
+      "sectionIds": [
+        "CONCLUSION"
+      ],
+      "transitionPurpose": "End with a useful narrative management close.",
+      "requiredManagementTakeaway": "Success is a control environment management understands, owns, monitors and improves deliberately."
+    }
+  ],
+  "themeOrder": [
+    "THEME-001",
+    "THEME-002",
+    "THEME-003"
+  ],
+  "findingOrder": [
+    "FINDING-001",
+    "FINDING-002",
+    "FINDING-003",
+    "FINDING-004",
+    "FINDING-005",
+    "FINDING-006",
+    "FINDING-007",
+    "FINDING-008",
+    "FINDING-009",
+    "FINDING-010",
+    "FINDING-011",
+    "FINDING-012",
+    "FINDING-013",
+    "FINDING-014",
+    "FINDING-015"
+  ],
+  "scenarioOrder": [
+    "SCENARIO-001",
+    "SCENARIO-002",
+    "SCENARIO-003",
+    "SCENARIO-004",
+    "SCENARIO-005"
+  ],
+  "riskOrder": [
+    "RISK-001",
+    "RISK-002",
+    "RISK-003",
+    "RISK-004",
+    "RISK-005",
+    "RISK-006",
+    "RISK-007",
+    "RISK-008",
+    "RISK-009",
+    "RISK-010",
+    "RISK-011",
+    "RISK-012",
+    "RISK-013",
+    "RISK-014",
+    "RISK-015"
+  ],
+  "controlOrder": [
+    "CONTROL-001",
+    "CONTROL-002",
+    "CONTROL-003",
+    "CONTROL-004",
+    "CONTROL-005",
+    "CONTROL-006",
+    "CONTROL-007",
+    "CONTROL-008",
+    "CONTROL-009",
+    "CONTROL-010",
+    "CONTROL-011",
+    "CONTROL-012",
+    "CONTROL-013",
+    "CONTROL-014",
+    "CONTROL-015"
+  ],
+  "decisionOrder": [
+    "DECISION-001",
+    "DECISION-002",
+    "DECISION-003",
+    "DECISION-004",
+    "DECISION-005",
+    "DECISION-006"
+  ],
+  "roadmapOrder": [
+    "ROADMAP-001",
+    "ROADMAP-002",
+    "ROADMAP-003",
+    "ROADMAP-004",
+    "ROADMAP-005",
+    "ROADMAP-006",
+    "ROADMAP-007",
+    "ROADMAP-008",
+    "ROADMAP-009",
+    "ROADMAP-010",
+    "ROADMAP-011",
+    "ROADMAP-012",
+    "ROADMAP-013",
+    "ROADMAP-014",
+    "ROADMAP-015"
+  ],
+  "requiredConclusion": "Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.",
+  "prohibitedClaims": [
+    "independent operating effectiveness",
+    "evidence validation",
+    "confirmed fraud event",
+    "invented incident, loss, customer, supplier, system or interview",
+    "unsupported Rand amount",
+    "legal, regulatory, benchmark, certification or guarantee conclusion",
+    "management motive or competence allegation"
+  ]
+}

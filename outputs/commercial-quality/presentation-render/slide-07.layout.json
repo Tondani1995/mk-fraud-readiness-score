@@ -1,0 +1,1471 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/bjy8q9",
+    "id": "bjy8q9",
+    "slide": 7,
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FBF9F5",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3utczaho",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 07",
+      "textPreview": "COMPREHENSIVE REVIEW · 07",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 07"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 07",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 07",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4v2d8fy9",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Management must choose how to close the access-review gap.",
+      "textPreview": "Management must choose how to close the access-review gap.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Management must choose how to close the"
+          },
+          {
+            "index": 2,
+            "text": "access-review gap."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Management must choose how to close the access-review gap.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Management must choose how to close the access-review gap.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pwbu1kzu",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Options and trade-offs make the decision explicit before the action plan is agreed.",
+      "textPreview": "Options and trade-offs make the decision explicit before the action plan is agreed.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Options and trade-offs make the decision explicit before the action plan is agreed."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Options and trade-offs make the decision explicit before the action plan is agreed.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Options and trade-offs make the decision explicit before the action plan is agreed.",
+              "fontSize": 18,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qxkvapgz",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rytc3uhk",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cz2dczy5",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "07 / 10",
+      "textPreview": "07 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "07 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "07 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "07 / 10",
+              "fontSize": 13,
+              "color": "#5A6B7C",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d0be5kzq",
+      "id": "7",
+      "bbox": [
+        88,
+        212,
+        980,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Approve accountable executive mandates and escalation authority for priority remediation.",
+      "textPreview": "Approve accountable executive mandates and escalation authority for priority remediation.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Approve accountable executive mandates and escalation authority for priority"
+          },
+          {
+            "index": 2,
+            "text": "remediation."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Approve accountable executive mandates and escalation authority for priority remediation.",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Approve accountable executive mandates and escalation authority for priority remediation.",
+              "fontSize": 24,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/61gvylgv",
+      "id": "8",
+      "bbox": [
+        88,
+        312,
+        295,
+        160
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/72pcrqhg",
+      "id": "9",
+      "bbox": [
+        108,
+        332,
+        150,
+        22
+      ],
+      "geometry": "rect",
+      "text": "OPTION A",
+      "textPreview": "OPTION A",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "OPTION A"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "OPTION A",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "OPTION A",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7ypgza9c",
+      "id": "10",
+      "bbox": [
+        108,
+        372,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Option A — deliver through existing internal ownership",
+      "textPreview": "Option A — deliver through existing internal ownership",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Option A — deliver through"
+          },
+          {
+            "index": 2,
+            "text": "existing internal ownership"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Option A — deliver through existing internal ownership",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Option A — deliver through existing internal ownership",
+              "fontSize": 17,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6xgfq5sr",
+      "id": "11",
+      "bbox": [
+        108,
+        422,
+        250,
+        66
+      ],
+      "geometry": "rect",
+      "text": "Cost: Internal capacity and management time.\nBenefit: Builds durable ownership inside the organisation.\nTrade-off: May move more slowly where capability is immature.\nRecommended option",
+      "textPreview": "Cost: Internal capacity and management time. | Benefit: Builds durable ownership inside the organisation. | Trade-off: May move more slow...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cost: Internal capacity and management"
+          },
+          {
+            "index": 2,
+            "text": "time."
+          },
+          {
+            "index": 3,
+            "text": "Benefit: Builds durable ownership inside"
+          },
+          {
+            "index": 4,
+            "text": "the organisation."
+          },
+          {
+            "index": 5,
+            "text": "Trade-off: May move more slowly where"
+          },
+          {
+            "index": 6,
+            "text": "capability is immature."
+          },
+          {
+            "index": 7,
+            "text": "Recommended option"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cost: Internal capacity and management time.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cost: Internal capacity and management time.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Benefit: Builds durable ownership inside the organisation.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Benefit: Builds durable ownership inside the organisation.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "Trade-off: May move more slowly where capability is immature.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Trade-off: May move more slowly where capability is immature.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "Recommended option",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recommended option",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t07y1kri",
+      "id": "12",
+      "bbox": [
+        423,
+        312,
+        295,
+        160
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/szyxsfax",
+      "id": "13",
+      "bbox": [
+        443,
+        332,
+        150,
+        22
+      ],
+      "geometry": "rect",
+      "text": "OPTION B",
+      "textPreview": "OPTION B",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "OPTION B"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "OPTION B",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "OPTION B",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ja5gvatg",
+      "id": "14",
+      "bbox": [
+        443,
+        372,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Option B — use bounded specialist support",
+      "textPreview": "Option B — use bounded specialist support",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Option B — use bounded"
+          },
+          {
+            "index": 2,
+            "text": "specialist support"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Option B — use bounded specialist support",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Option B — use bounded specialist support",
+              "fontSize": 17,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i9wfm5sv",
+      "id": "15",
+      "bbox": [
+        443,
+        422,
+        250,
+        66
+      ],
+      "geometry": "rect",
+      "text": "Cost: Targeted specialist budget and handover effort.\nBenefit: Adds focused capacity against the named priority.\nTrade-off: Requires clear scope, procurement and transfer of ownership.\nRecommended option",
+      "textPreview": "Cost: Targeted specialist budget and handover effort. | Benefit: Adds focused capacity against the named priority. | Trade-off: Requires ...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cost: Targeted specialist budget and"
+          },
+          {
+            "index": 2,
+            "text": "handover effort."
+          },
+          {
+            "index": 3,
+            "text": "Benefit: Adds focused capacity against"
+          },
+          {
+            "index": 4,
+            "text": "the named priority."
+          },
+          {
+            "index": 5,
+            "text": "Trade-off: Requires clear scope,"
+          },
+          {
+            "index": 6,
+            "text": "procurement and transfer of ownership."
+          },
+          {
+            "index": 7,
+            "text": "Recommended option"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cost: Targeted specialist budget and handover effort.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cost: Targeted specialist budget and handover effort.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Benefit: Adds focused capacity against the named priority.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Benefit: Adds focused capacity against the named priority.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "Trade-off: Requires clear scope, procurement and transfer of ownership.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Trade-off: Requires clear scope, procurement and transfer of ownership.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "Recommended option",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recommended option",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5w7yxkr6",
+      "id": "16",
+      "bbox": [
+        758,
+        312,
+        295,
+        160
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kvyxofa1",
+      "id": "17",
+      "bbox": [
+        778,
+        332,
+        150,
+        22
+      ],
+      "geometry": "rect",
+      "text": "OPTION C",
+      "textPreview": "OPTION C",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "OPTION C"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "OPTION C",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "OPTION C",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v65grqt4",
+      "id": "18",
+      "bbox": [
+        778,
+        372,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Option C — combine internal ownership with targeted specialist support",
+      "textPreview": "Option C — combine internal ownership with targeted specialist support",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Option C — combine"
+          },
+          {
+            "index": 2,
+            "text": "internal ownership with"
+          },
+          {
+            "index": 3,
+            "text": "targeted specialist support"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Option C — combine internal ownership with targeted specialist support",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Option C — combine internal ownership with targeted specialist support",
+              "fontSize": 17,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a5wfilsj",
+      "id": "19",
+      "bbox": [
+        778,
+        422,
+        250,
+        66
+      ],
+      "geometry": "rect",
+      "text": "Cost: Combined internal capacity plus targeted specialist budget.\nBenefit: Keeps accountability internal while accelerating the priority design.\nTrade-off: Needs explicit boundaries so ownership and escalation are not diluted.\nRecommended option",
+      "textPreview": "Cost: Combined internal capacity plus targeted specialist budget. | Benefit: Keeps accountability internal while accelerating the priorit...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 7,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cost: Combined internal capacity plus"
+          },
+          {
+            "index": 2,
+            "text": "targeted specialist budget."
+          },
+          {
+            "index": 3,
+            "text": "Benefit: Keeps accountability internal"
+          },
+          {
+            "index": 4,
+            "text": "while accelerating the priority design."
+          },
+          {
+            "index": 5,
+            "text": "Trade-off: Needs explicit boundaries so"
+          },
+          {
+            "index": 6,
+            "text": "ownership and escalation are not diluted."
+          },
+          {
+            "index": 7,
+            "text": "Recommended option"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cost: Combined internal capacity plus targeted specialist budget.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cost: Combined internal capacity plus targeted specialist budget.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Benefit: Keeps accountability internal while accelerating the priority design.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Benefit: Keeps accountability internal while accelerating the priority design.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "Trade-off: Needs explicit boundaries so ownership and escalation are not diluted.",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Trade-off: Needs explicit boundaries so ownership and escalation are not diluted.",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "Recommended option",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recommended option",
+              "fontSize": 12,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1czalcr",
+      "id": "20",
+      "bbox": [
+        88,
+        522,
+        965,
+        74
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FDF4E7",
+      "lineColor": "#F0E6C8",
+      "lineWidth": 1
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z2lg3qdw",
+      "id": "21",
+      "bbox": [
+        112,
+        532,
+        910,
+        20
+      ],
+      "geometry": "rect",
+      "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
+      "textPreview": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#142F4C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
+              "fontSize": 13,
+              "color": "#142F4C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/03uhcvuh",
+      "id": "22",
+      "bbox": [
+        112,
+        552,
+        910,
+        20
+      ],
+      "geometry": "rect",
+      "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
+      "textPreview": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm t...",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#142F4C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
+              "fontSize": 13,
+              "color": "#142F4C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l4ny50v2",
+      "id": "23",
+      "bbox": [
+        112,
+        572,
+        910,
+        18
+      ],
+      "geometry": "rect",
+      "text": "Owner: CEO / Managing Director · Target period: 30 days",
+      "textPreview": "Owner: CEO / Managing Director · Target period: 30 days",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Owner: CEO / Managing Director · Target period: 30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Owner: CEO / Managing Director · Target period: 30 days",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#142F4C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Owner: CEO / Managing Director · Target period: 30 days",
+              "fontSize": 13,
+              "color": "#142F4C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

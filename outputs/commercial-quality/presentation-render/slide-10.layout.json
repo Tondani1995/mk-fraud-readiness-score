@@ -1,0 +1,826 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/3tw75r",
+    "id": "3tw75r",
+    "slide": 10,
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FBF9F5",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4jmdwvq9",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 10",
+      "textPreview": "COMPREHENSIVE REVIEW · 10",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 10",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 10",
+              "fontSize": 14,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jidc3qpo",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Next checkpoint: review proof, measures and overdue action ageing.",
+      "textPreview": "Next checkpoint: review proof, measures and overdue action ageing.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Next checkpoint: review proof, measures and overdue"
+          },
+          {
+            "index": 2,
+            "text": "action ageing."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Next checkpoint: review proof, measures and overdue action ageing.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Next checkpoint: review proof, measures and overdue action ageing.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ih4bul8j",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "The blueprint is useful when the decision record and operating measures are maintained.",
+      "textPreview": "The blueprint is useful when the decision record and operating measures are maintained.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The blueprint is useful when the decision record and operating measures are maintained."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The blueprint is useful when the decision record and operating measures are maintained.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The blueprint is useful when the decision record and operating measures are maintained.",
+              "fontSize": 18,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tovut076",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/snmd0f6l",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rmdc7ap0",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "10 / 10",
+      "textPreview": "10 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "10 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "10 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "10 / 10",
+              "fontSize": 13,
+              "color": "#5A6B7C",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6l4vy5of",
+      "id": "7",
+      "bbox": [
+        88,
+        228,
+        950,
+        220
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#142F4C",
+      "lineColor": "#142F4C",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9sbuxg7m",
+      "id": "8",
+      "bbox": [
+        122,
+        260,
+        500,
+        32
+      ],
+      "geometry": "rect",
+      "text": "Bring four things to the next review",
+      "textPreview": "Bring four things to the next review",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "fontSize": 23,
+        "typeface": "+mn-lt",
+        "color": "#C9A227",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Bring four things to the next review"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Bring four things to the next review",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "color": "#C9A227",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Bring four things to the next review",
+              "fontSize": 23,
+              "color": "#C9A227",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8r2tobq1",
+      "id": "9",
+      "bbox": [
+        124,
+        320,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/algvmh07",
+      "id": "10",
+      "bbox": [
+        148,
+        312,
+        800,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Proof requirements and retained control records",
+      "textPreview": "Proof requirements and retained control records",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Proof requirements and retained control records"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Proof requirements and retained control records",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#FFFFFF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Proof requirements and retained control records",
+              "fontSize": 18,
+              "color": "#FFFFFF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vmpcv2hs",
+      "id": "11",
+      "bbox": [
+        124,
+        358,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wnydo7id",
+      "id": "12",
+      "bbox": [
+        148,
+        350,
+        800,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Open action ageing by accountable owner",
+      "textPreview": "Open action ageing by accountable owner",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Open action ageing by accountable owner"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Open action ageing by accountable owner",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#FFFFFF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Open action ageing by accountable owner",
+              "fontSize": 18,
+              "color": "#FFFFFF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xo7uxczy",
+      "id": "13",
+      "bbox": [
+        124,
+        396,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ipgvqh0j",
+      "id": "14",
+      "bbox": [
+        148,
+        388,
+        800,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Effectiveness measures for the highest-priority controls",
+      "textPreview": "Effectiveness measures for the highest-priority controls",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Effectiveness measures for the highest-priority controls"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Effectiveness measures for the highest-priority controls",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#FFFFFF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Effectiveness measures for the highest-priority controls",
+              "fontSize": 18,
+              "color": "#FFFFFF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jq9wzmh4",
+      "id": "15",
+      "bbox": [
+        124,
+        434,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4bidsri9",
+      "id": "16",
+      "bbox": [
+        148,
+        426,
+        800,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Explicit residual-risk and escalation decisions",
+      "textPreview": "Explicit residual-risk and escalation decisions",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Explicit residual-risk and escalation decisions"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Explicit residual-risk and escalation decisions",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#FFFFFF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Explicit residual-risk and escalation decisions",
+              "fontSize": 18,
+              "color": "#FFFFFF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5cre1wzu",
+      "id": "17",
+      "bbox": [
+        88,
+        505,
+        950,
+        54
+      ],
+      "geometry": "rect",
+      "text": "The board should see the decision, the owner, the target period, the measure and the response - not a longer register.",
+      "textPreview": "The board should see the decision, the owner, the target period, the measure and the response - not a longer register.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The board should see the decision, the owner, the target period, the measure and"
+          },
+          {
+            "index": 2,
+            "text": "the response - not a longer register."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The board should see the decision, the owner, the target period, the measure and the response - not a longer register.",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The board should see the decision, the owner, the target period, the measure and the response - not a longer register.",
+              "fontSize": 24,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

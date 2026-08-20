@@ -1,0 +1,106 @@
+name: Joint Launch Core Products
+
+# Mandatory gate for the joint Essential (R7,500) + Comprehensive (R35,000) launch.
+#
+# Every job here is credential-free. Nothing in this workflow touches Production or Staging, calls
+# an AI provider, sends an email or executes a payment:
+#   * the product-contract and Comprehensive suites are pure module tests plus source assertions;
+#   * the migration replay boots a disposable embedded Postgres in the runner's temp directory,
+#     replays the entire committed migration chain and throws the database away.
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/commercial/**'
+      - 'src/lib/comprehensive/**'
+      - 'src/lib/orders/**'
+      - 'src/lib/reports/report-entitlement.ts'
+      - 'src/lib/reports/assemble-report-data.ts'
+      - 'src/app/score/api/commercial/**'
+      - 'src/app/score/api/admin/comprehensive/**'
+      - 'src/app/score/api/assessments/**'
+      - 'supabase/migrations/**'
+      - 'scripts/joint-launch-*'
+      - 'scripts/rc1-service-role-privilege-contract*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/joint-launch-core-products.yml'
+  push:
+    paths:
+      - 'src/lib/commercial/**'
+      - 'src/lib/comprehensive/**'
+      - 'src/lib/orders/**'
+      - 'src/lib/reports/report-entitlement.ts'
+      - 'src/lib/reports/assemble-report-data.ts'
+      - 'src/app/score/api/commercial/**'
+      - 'src/app/score/api/admin/comprehensive/**'
+      - 'src/app/score/api/assessments/**'
+      - 'supabase/migrations/**'
+      - 'scripts/joint-launch-*'
+      - 'scripts/rc1-service-role-privilege-contract*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/joint-launch-core-products.yml'
+
+jobs:
+  joint-launch-core-products:
+    name: Joint launch commercial contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          test -f package-lock.json
+          npm ci
+
+      - name: Run TypeScript check
+        run: npm run typecheck
+
+      - name: Run lint
+        run: npm run lint
+
+      # Any new direct service-role table or Storage call site changes the AST inventory hash and
+      # fails this step until the privilege manifest is reviewed and updated by hand. That is the
+      # intended gate, not an inconvenience.
+      - name: Verify the AST-derived service-role privilege contract
+        run: npm run rc1:analyze-service-role-contract
+
+      - name: Verify accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
+      - name: Product catalogue, price-version and entitlement contract
+        run: npm run joint-launch:test-product-contract
+
+      - name: Comprehensive lifecycle, evidence intake and security
+        run: npm run joint-launch:test-comprehensive
+
+      - name: Evidence storage compensation (upload/insert/cleanup failure matrix)
+        run: npm run joint-launch:test-evidence-compensation
+
+      - name: Full migration replay on a disposable Postgres
+        run: npm run joint-launch:test-migration-replay
+
+      # Concurrency, freeze-gated cutover ordering and stale-deployment refusal, proved by executing
+      # two simultaneous transactions on two connections against a real Postgres.
+      - name: Transactional safety (concurrency, cutover ordering, orphan prevention)
+        run: npm run joint-launch:test-transactional-safety
+
+      - name: Existing commercial and entitlement suites
+        run: |
+          npm run phase9:test-orders
+          npm run phase10:test-report
+          npm run phase11:test-security
+          npm run phase13:test-events
+          npm run phase13:test-conversion
+          npm run phase14:test-report-engine
+          npm run phase1:test-stabilisation
+          npm run rc1:test-synthetic-notification-contract
+          npm run release-d:test-operational-alerts

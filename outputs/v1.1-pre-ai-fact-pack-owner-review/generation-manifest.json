@@ -1,0 +1,56 @@
+{
+  "title": "MK FRAUD READINESS v1.1 PRE-AI FACT PACK — OWNER REVIEW CANDIDATE",
+  "bibleVersion": "1.1",
+  "bibleSha256": "2b9c9673d041bf5c5659dc0bc05e352ba3ab7d79232050f0691f7f5c20308749",
+  "stage": "PRE_AI_FACT_PACK_AND_STORY_PLAN",
+  "aiConfigured": false,
+  "aiCalled": false,
+  "aiRequiredForNextStage": true,
+  "aiProvider": null,
+  "aiModel": null,
+  "manuscripts": null,
+  "pdfs": null,
+  "gateStatus": "PASS",
+  "gateReport": "pre-ai-fact-pack-gate-report.md",
+  "essential": {
+    "organisation": "Rivonia Health Logistics (Pty) Ltd",
+    "assessmentReference": "MKFRS-2026-F4047D75C0",
+    "factCount": 70,
+    "findings": 8,
+    "scenarios": 3
+  },
+  "comprehensive": {
+    "organisation": "Kestrel Industrial Supply (Pty) Ltd",
+    "assessmentReference": "MKFRS-2026-95B3815A0C",
+    "factCount": 122,
+    "findings": 8,
+    "scenarios": 4
+  },
+  "sourceOrders": {
+    "essential": "MKORD-2026-22FF6B69",
+    "comprehensive": "MKORD-2026-7FBBEE23"
+  },
+  "generatedFromCommit": "86d6d8a76e805ec57e652a3caa1723e646c0fbad",
+  "generatedFiles": {
+    "essential-fact-pack.json": {
+      "sha256": "e322809474528a7fb080855972a4a4c4aec9631493d23d49c08a1fc19921d6ac",
+      "bytes": 196471
+    },
+    "essential-story-plan.json": {
+      "sha256": "c630d3a05f426095fa00e0bf51a68ac07b91e58227f583c2ad5dcd524249da51",
+      "bytes": 5158
+    },
+    "comprehensive-fact-pack.json": {
+      "sha256": "90afe74e53301e6721cd3daec15846bf16ce43ad760efdcfc91fce8507ef28c4",
+      "bytes": 279286
+    },
+    "comprehensive-story-plan.json": {
+      "sha256": "615c704369a0e7bce2843aff3c430d4911d07bd4f9b25790eee0b1a38fb9ab2f",
+      "bytes": 6670
+    },
+    "pre-ai-fact-pack-gate-report.md": {
+      "sha256": "2d6931c70299ce3f763a7545b1e2bd761619cf7cf9e27809cfe0e75e43c0d461",
+      "bytes": 2411
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
+import { writeFile } from 'node:fs/promises';
 
 const baseUrl = (process.env.LOCAL_INTEGRATION_BASE_URL ?? '').replace(/\/$/, '');
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
@@ -19,6 +20,42 @@ requireLoopback(supabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL');
 const service = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
+
+async function countRows(table, column, value) {
+  const { count, error } = await service
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq(column, value);
+  assert.ifError(error);
+  return count ?? 0;
+}
+
+async function commercialSideEffectCounts(assessmentId) {
+  const { data: orders, error: orderError } = await service
+    .from('orders')
+    .select('id')
+    .eq('assessment_id', assessmentId);
+  assert.ifError(orderError);
+  const orderIds = (orders ?? []).map((order) => order.id);
+
+  const { data: emails, error: emailError } = await service
+    .from('email_events')
+    .select('id')
+    .eq('assessment_id', assessmentId);
+  assert.ifError(emailError);
+  const emailIds = (emails ?? []).map((email) => email.id);
+
+  const reports = await countRows('reports', 'assessment_id', assessmentId);
+  const transitions = orderIds.length === 0 ? 0 : await Promise.all(orderIds.map((orderId) => countRows('payment_transition_events', 'order_id', orderId))).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+  const providerEvents = emailIds.length === 0 ? 0 : await Promise.all(emailIds.map((emailId) => countRows('email_provider_events', 'email_event_id', emailId))).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+  return {
+    orders: orderIds.length,
+    reports,
+    paymentTransitions: transitions,
+    assessmentEmailEvents: emailIds.length,
+    providerEvents
+  };
+}
 
 async function jsonRequest(path, init) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -52,6 +89,11 @@ const resumeToken = new URL(resumeUrl).searchParams.get('token');
 assert.ok(assessmentId && assessmentReference && resumeToken, 'Start response did not include a usable reference and token.');
 assert.equal(new URL(resumeUrl).origin, new URL(baseUrl).origin, 'Resume URL left the consolidated origin.');
 assert.match(new URL(resumeUrl).pathname, /^\/score\/assessment\//);
+
+// The start operation may create its one respondent notification. Capture that
+// assessment-scoped baseline so unrelated shared-environment events cannot
+// make the submission assertion fail.
+const commercialBaseline = await commercialSideEffectCounts(assessmentId);
 
 const { data: assessment, error: assessmentError } = await service
   .from('assessments')
@@ -117,6 +159,13 @@ assert.equal(submitted.snapshot.scoreRunId, submitted.scoreRunId);
 assert.equal(new URL(submitted.snapshotUrl).origin, new URL(baseUrl).origin);
 assert.match(new URL(submitted.snapshotUrl).pathname, /^\/score\/snapshot\//);
 
+const commercialAfterSubmit = await commercialSideEffectCounts(assessmentId);
+assert.deepEqual(
+  commercialAfterSubmit,
+  commercialBaseline,
+  'legacy submission must not create an order, payment transition, report, provider event, or additional assessment email event'
+);
+
 const { data: scoreRun, error: scoreError } = await service
   .from('score_runs')
   .select('id,status,overall_score,final_maturity,coverage_pct')
@@ -132,6 +181,22 @@ const snapshotResponse = await fetch(submitted.snapshotUrl);
 assert.equal(snapshotResponse.status, 200);
 const snapshotHtml = await snapshotResponse.text();
 assert.match(snapshotHtml, new RegExp(assessmentReference));
+
+const { data: persistedAssessment, error: persistedAssessmentError } = await service
+  .from('assessments')
+  .select('id,status,current_score_run_id')
+  .eq('id', assessmentId)
+  .single();
+assert.ifError(persistedAssessmentError);
+assert.equal(persistedAssessment.status, 'scored');
+assert.equal(persistedAssessment.current_score_run_id, submitted.scoreRunId);
+if (process.env.PHASE23_RESPONDENT_EVIDENCE_PATH) {
+  await writeFile(process.env.PHASE23_RESPONDENT_EVIDENCE_PATH, JSON.stringify({
+    assessmentId,
+    assessmentReference,
+    scoreRunId: submitted.scoreRunId
+  }));
+}
 
 console.log(JSON.stringify({
   ok: true,

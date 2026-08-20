@@ -1,0 +1,56 @@
+{
+  "source": "persisted Rivonia assessment",
+  "orderReference": "MKORD-2026-22FF6B69",
+  "sheets": [
+    {
+      "name": "Read me",
+      "rows": 6,
+      "columns": 3
+    },
+    {
+      "name": "Findings",
+      "rows": 34,
+      "columns": 18
+    },
+    {
+      "name": "Risks",
+      "rows": 31,
+      "columns": 13
+    },
+    {
+      "name": "Control Actions",
+      "rows": 34,
+      "columns": 18
+    },
+    {
+      "name": "Evidence Checklist",
+      "rows": 142,
+      "columns": 9
+    },
+    {
+      "name": "Roadmap",
+      "rows": 34,
+      "columns": 12
+    },
+    {
+      "name": "Question Trace",
+      "rows": 68,
+      "columns": 12
+    },
+    {
+      "name": "Control Improvements",
+      "rows": 34,
+      "columns": 9
+    }
+  ],
+  "universe": {
+    "findings": 34,
+    "risks": 31,
+    "controlImprovements": 34,
+    "evidenceChecklist": 142,
+    "roadmapActions": 34,
+    "functionalAgenda": 80,
+    "questionTraces": 68,
+    "projectionRoadmapActions": 10
+  }
+}

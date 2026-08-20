@@ -9,8 +9,12 @@ on:
       - 'src/lib/notifications/phase1-order-notifications.ts'
       - 'src/lib/reports/phase1-*.ts'
       - 'supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql'
+      - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
+      - 'supabase/migrations/20260729170000_rc1_authenticated_admin_profile_read.sql'
       - 'scripts/apply-phase1-0023-only.sh'
       - 'scripts/phase1-*'
+      - 'scripts/rc1-service-role-*'
+      - 'scripts/rc1-control-plane-*'
       - 'docs/v2/phase-1/**'
       - '.github/workflows/phase1-migration-replay.yml'
       - '.github/workflows/supabase-migration-replay.yml'
@@ -50,6 +54,12 @@ jobs:
       - name: Fresh dependency install
         run: npm ci
 
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
+      - name: Verify the committed local Supabase configuration
+        run: npm run verify:supabase-local-config
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -80,7 +90,13 @@ jobs:
         run: |
           supabase db reset --local --yes --version 0016
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase1-migration-replay/pre-0023-server.log 2>&1 &
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0016 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          MK_RC1_OPERATION_FREEZE_MODE=released \
+            npm start -- --port 3100 > tmp/phase1-migration-replay/pre-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do
@@ -99,14 +115,41 @@ jobs:
 
       - name: Verify controlled fulfilment after 0023
         run: |
+          # Use a distinct port from the pre-0023 step. The Next.js child process can outlive the
+          # step shell's EXIT trap on a hosted runner; a fresh post-migration server must never
+          # silently fall back to the pre-boundary process that happens to own port 3100.
+          post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          # TEST-ONLY seam, installed HERE and not earlier: scripts/phase1-0023-replay-tests.sh runs
+          # further `supabase db reset` cycles, so anything installed before it is destroyed. The
+          # current app fails closed without the atomic finalisation RPC -- correct, and unchanged --
+          # and the historical 0023 schema simply predates both that RPC and the reports bucket.
+          # The file is in no migration ledger and reaches no real environment.
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase1-disposable-atomic-finalisation-seam.sql
+          # Independent proof, outside the installing script, that the disposable fixture took.
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select to_regprocedure('public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)') is not null")" = 't'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public = false and 'application/pdf' = any(allowed_mime_types) and 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' = any(allowed_mime_types) from storage.buckets where id = 'generated-reports'")" = 't'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0023 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          MK_RC1_OPERATION_FREEZE_MODE=released \
+            npm start -- --port "$post_port" > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do
-            curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break
+            curl --fail --silent "http://127.0.0.1:$post_port/" >/dev/null && break
             sleep 1
           done
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
           PHASE1_EXPECT_CAPABILITY=available node scripts/phase1-schema-compatibility-integration.mjs \
             | tee tmp/phase1-migration-replay/post-0023-compatibility.txt
 

@@ -1,0 +1,73 @@
+{
+  "essentialPages": 30,
+  "comprehensivePages": 38,
+  "boardPages": 7,
+  "workshopPages": 10,
+  "presentationSlides": 10,
+  "essentialSheets": [
+    "Read me",
+    "Summary",
+    "Material Findings",
+    "Risk Register",
+    "Control Actions",
+    "Roadmap",
+    "Management Decisions",
+    "Question Traceability"
+  ],
+  "comprehensiveSheets": [
+    "Read me",
+    "Summary",
+    "Material Findings",
+    "Risk Register",
+    "Control Actions",
+    "Roadmap",
+    "Management Decisions",
+    "Question Traceability"
+  ],
+  "prohibitedTokenHits": [],
+  "source": {
+    "essential": "Rivonia Health Logistics (Pty) Ltd · MKORD-2026-22FF6B69 · MKFRS-2026-F4047D75C0",
+    "comprehensive": "Kestrel Industrial Supply (Pty) Ltd · MKORD-2026-7FBBEE23 · MKFRS-2026-95B3815A0C"
+  },
+  "files": [
+    {
+      "file": "essential-main-report.pdf",
+      "hits": [],
+      "sha256": "db767dae939d831dec854cbc1bdbd3ced6d3a0e50899cc85b8a52eead67d2b22",
+      "pages": 28
+    },
+    {
+      "file": "essential-supporting-register.xlsx",
+      "hits": [],
+      "sha256": "03cf81d2d59a7fbf1cdb8412fa6f82174820cd54f60ae4ed5d1631ebcd0cb813"
+    },
+    {
+      "file": "comprehensive-main-report.pdf",
+      "hits": [],
+      "sha256": "91df1108f9fb268a2eb788b08148f96e3ce4fda457231dfd7e168c5fad97dfd9",
+      "pages": 35
+    },
+    {
+      "file": "comprehensive-board-readout.pdf",
+      "hits": [],
+      "sha256": "1210ff0cc8011804372df7bafbea293dcc2e192a2cdccd5a9cecba878e01abec",
+      "pages": 7
+    },
+    {
+      "file": "comprehensive-workshop-material.pdf",
+      "hits": [],
+      "sha256": "0dc22f043610c1f9dd2df268d2f8deee0f4454f347e786a76a8990451ce27170",
+      "pages": 10
+    },
+    {
+      "file": "comprehensive-executive-presentation.pptx",
+      "hits": [],
+      "sha256": "389508f9a1412235922990856eb30d84129a9b9b53e0b13caa44caa2cbce5f8b"
+    },
+    {
+      "file": "comprehensive-annotated-register.xlsx",
+      "hits": [],
+      "sha256": "fc942bb9ec66288bb1d5d602267a42381102047bdbc72b5b9173879a0ac3eec1"
+    }
+  ]
+}

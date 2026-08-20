@@ -1,3 +1,8 @@
+-- RETIRED MIGRATION — DO NOT EXECUTE.
+-- This migration was committed locally but was never applied under version 0011 to the Production cloud ledger.
+-- It was a consolidated surrogate for separately applied Production migrations and is retired from canonical replay.
+-- Migration tooling must never execute this archived file.
+
 -- MK Fraud Readiness Score V1 - Phase 10 premium PDF report engine additions
 -- Purpose: add the minimum additive database configuration needed for controlled
 -- admin-only PDF report generation after Phase 9 manual EFT confirmation.

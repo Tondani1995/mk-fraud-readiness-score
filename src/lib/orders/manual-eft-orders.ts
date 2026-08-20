@@ -1,9 +1,14 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
+import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions } from '@/lib/orders/eft-instructions';
+import { COMMERCIAL_CURRENCY, ESSENTIAL_PRICE_CENTS, ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
 import type { AdminSession } from '@/lib/auth/admin-route';
+
+export { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions };
 
 export type ManualOrderStatus = 'draft' | 'awaiting_payment' | 'payment_received' | 'cancelled' | 'expired';
 
@@ -35,11 +40,6 @@ function service() {
   return createSupabaseServiceClient() as any;
 }
 
-export function formatOrderAmount(amountCents: number | null | undefined, currency: string | null | undefined) {
-  const amount = Number(amountCents ?? 0) / 100;
-  return `${currency ?? 'ZAR'} ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function normaliseStatus(status: string | null | undefined): ManualOrderStatus {
   if (status === 'created') return 'draft';
   if (status === 'verified') return 'payment_received';
@@ -51,77 +51,20 @@ function paymentReference(orderReference: string) {
   return orderReference.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
 }
 
-function makeOrderReference() {
-  const year = new Date().getUTCFullYear();
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `MKORD-${year}-${random}`;
-}
-
-export async function getActiveEftInstructions() {
-  const db = service();
-  const { data: activeSetting } = await db
-    .from('eft_settings')
-    .select('bank_name,account_holder,account_number,branch_code,account_type,currency,payment_reference_instruction,customer_instruction,contact_email,is_active,updated_at')
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (activeSetting) {
-    return {
-      active: true,
-      bankName: activeSetting.bank_name,
-      accountHolder: activeSetting.account_holder,
-      accountNumber: activeSetting.account_number,
-      branchCode: activeSetting.branch_code,
-      accountType: activeSetting.account_type,
-      currency: activeSetting.currency,
-      paymentReferenceInstruction: activeSetting.payment_reference_instruction,
-      customerInstruction: activeSetting.customer_instruction,
-      contactEmail: activeSetting.contact_email,
-      message: activeSetting.customer_instruction
-    };
-  }
-
-  const { data } = await db
-    .from('app_settings')
-    .select('value_json')
-    .eq('setting_key', 'eft_instructions')
-    .maybeSingle();
-
-  const value = data?.value_json ?? {};
-  return {
-    active: value.active === true,
-    bankName: value.bank_name ?? value.bankName,
-    accountHolder: value.account_holder ?? value.accountHolder,
-    accountNumber: value.account_number ?? value.accountNumber,
-    branchCode: value.branch_code ?? value.branchCode,
-    accountType: value.account_type ?? value.accountType ?? null,
-    currency: value.currency ?? 'ZAR',
-    paymentReferenceInstruction: value.payment_reference_instruction ?? value.paymentReferenceInstruction ?? 'Use your order reference as the payment reference.',
-    customerInstruction: value.customer_instruction ?? value.customerInstruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.',
-    contactEmail: value.contact_email ?? value.contactEmail ?? 'hello@mkfraud.co.za',
-    message: value.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'
-  };
-}
-
-export async function buildEftInstructionSnapshot() {
-  const instructions = await getActiveEftInstructions();
-  return {
-    ...instructions,
-    capturedAt: new Date().toISOString(),
-    paymentGateway: false,
-    proofUpload: false,
-    reportUnlock: false
-  };
-}
-
-async function getDefaultDetailedReportProduct(db: any) {
+/**
+ * The Essential product, resolved by its authoritative product code.
+ *
+ * Previously this picked "the first active product that requires payment verification, ordered by
+ * display_order". That was only ever correct while Essential happened to be the lowest-ordered paid
+ * product; with Comprehensive now also active and payment-verified, an ordering change would have
+ * silently sold the wrong product. The code is now named explicitly.
+ */
+async function getEssentialProduct(db: any) {
   const { data: product } = await db
     .from('products')
     .select('id,product_code,name,price_cents,currency,requires_payment_verification,delivery_mode,active')
+    .eq('product_code', ESSENTIAL_PRODUCT_CODE)
     .eq('active', true)
-    .eq('requires_payment_verification', true)
-    .order('display_order', { ascending: true })
-    .limit(1)
     .maybeSingle();
 
   return product ?? null;
@@ -173,7 +116,7 @@ async function trackEftOrderEvent(input: {
       respondentId: input.assessment.primary_respondent_id,
       orderId: order.id,
       dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata
     }),
     queueInternalNotification({
@@ -183,7 +126,7 @@ async function trackEftOrderEvent(input: {
       respondentId: input.assessment.primary_respondent_id,
       orderId: order.id,
       dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata
     })
   ]);
@@ -217,82 +160,60 @@ export async function createOrGetOrderForReportRequest(input: {
     return toCustomerOrder(existing.data);
   }
 
-  const product = await getDefaultDetailedReportProduct(db);
+  // Creation goes through the one transactional primitive (create_paid_order), so the order, its
+  // price-version binding and its authoritative creation trail commit together. Nothing here reads
+  // a price constant: the RPC is told which catalogue contract this build compiled against and
+  // refuses the write if the database disagrees.
+  const product = await getEssentialProduct(db);
   if (!product) return null;
 
-  const organisationName = input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation';
-  const respondentName = input.respondent?.full_name ?? null;
-  const respondentEmail = input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null;
   const eftSnapshot = await buildEftInstructionSnapshot();
 
-  let inserted: any = null;
-  let lastError: any = null;
+  const { data: created, error: createError } = await db.rpc('create_paid_order', {
+    p_tier: 'essential',
+    p_assessment_id: input.assessment.id,
+    p_expected_product_code: ESSENTIAL_PRODUCT_CODE,
+    p_expected_amount_cents: ESSENTIAL_PRICE_CENTS,
+    p_expected_currency: COMMERCIAL_CURRENCY,
+    p_report_request_id: input.dataRequest?.id ?? null,
+    p_customer_email: input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null,
+    p_customer_name: input.respondent?.full_name ?? null,
+    p_organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
+    p_product_name: product.name,
+    p_eft_instructions_snapshot: eftSnapshot,
+    p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
+    p_assessment_reference: input.assessment.assessment_reference ?? null
+  });
 
-  for (let attempt = 0; attempt < 3 && !inserted; attempt += 1) {
-    const { data, error } = await db
-      .from('orders')
-      .insert({
-        order_reference: makeOrderReference(),
-        assessment_id: input.assessment.id,
-        report_request_id: input.dataRequest?.id ?? null,
-        product_id: product.id,
-        product_name: product.name,
-        amount_cents: product.price_cents,
-        currency: product.currency ?? 'ZAR',
-        status: 'awaiting_payment',
-        requested_by_respondent_id: input.assessment.primary_respondent_id,
-        customer_email: respondentEmail,
-        customer_name: respondentName,
-        organisation_name: organisationName,
-        eft_instructions_snapshot: eftSnapshot
-      })
-      .select('id,order_reference,status,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,eft_instructions_snapshot')
-      .single();
+  if (createError) throw new Error(createError.message ?? 'Order could not be created.');
+  if (!created) throw new Error('Order could not be created.');
 
-    if (!error) inserted = data;
-    lastError = error;
-  }
+  const inserted = {
+    id: created.order_id,
+    order_reference: created.order_reference,
+    status: created.status,
+    product_name: created.product_name,
+    amount_cents: created.amount_cents,
+    currency: created.currency,
+    customer_email: input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null,
+    customer_name: input.respondent?.full_name ?? null,
+    organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
+    created_at: new Date().toISOString(),
+    eft_instructions_snapshot: eftSnapshot
+  };
 
-  if (!inserted) throw new Error(lastError?.message ?? 'Order could not be created.');
-
-  await db.from('order_events').insert([
-    {
-      order_id: inserted.id,
-      event_type: 'assessment_completed',
-      note: 'Assessment completion is linked to this order.',
-      metadata_json: {
-        actor_type: 'system',
-        assessment_reference: input.assessment.assessment_reference
-      },
-      created_at: input.assessment.submitted_at ?? inserted.created_at
+  // create_paid_order() already wrote the order_created_from_report_request event and the audit row
+  // inside the transaction. The assessment-completion marker is a presentational backdated event
+  // and stays here, post-commit.
+  await db.from('order_events').insert({
+    order_id: inserted.id,
+    event_type: 'assessment_completed',
+    note: 'Assessment completion is linked to this order.',
+    metadata_json: {
+      actor_type: 'system',
+      assessment_reference: input.assessment.assessment_reference
     },
-    {
-      order_id: inserted.id,
-      event_type: 'order_created_from_report_request',
-      new_status: inserted.status,
-      metadata_json: {
-        actor_type: 'respondent_token',
-        assessment_reference: input.assessment.assessment_reference,
-        data_request_id: input.dataRequest?.id ?? null,
-        payment_gateway: false,
-        proof_upload: false,
-        report_unlock: false
-      }
-    }
-  ]);
-
-  await db.from('audit_logs').insert({
-    actor_type: 'respondent_token',
-    assessment_id: input.assessment.id,
-    entity_table: 'orders',
-    entity_id: inserted.id,
-    action: 'manual_eft_order_created',
-    after_json: {
-      order_reference: inserted.order_reference,
-      product_name: inserted.product_name,
-      status: inserted.status,
-      report_unlock: false
-    }
+    created_at: input.assessment.submitted_at ?? inserted.created_at
   });
 
   await trackEftOrderEvent(input, inserted, true);
@@ -451,7 +372,7 @@ export async function updateAdminOrderStatus(input: {
       assessmentId: detail.order.assessment_id,
       orderId: detail.order.id,
       dataRequestId: detail.order.report_request_id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata: {
         order_reference: detail.order.order_reference,
         previous_status: currentStatus,

@@ -20,8 +20,9 @@ export async function executeClaimedReportDelivery(input: {
   claim: DeliveryDispatchClaim;
   transport: ReportEmailTransport;
   transportInput: Parameters<ReportEmailTransport>[0];
+  developmentMode?: boolean;
 }) {
-  let dispatchStarted = false;
+  let dispatchStarted = input.developmentMode === true;
   let providerMessageId: string | null = null;
   try {
     const { data: pdf, error: downloadError } = await input.db.storage
@@ -51,7 +52,9 @@ export async function executeClaimedReportDelivery(input: {
       throw new Error('Report attachment checksum mismatch.');
     }
 
-    const { error: boundaryError } = input.workerLease
+    const { error: boundaryError } = input.developmentMode
+      ? { error: null }
+      : input.workerLease
       ? await (async () => {
           try {
             await executePhase14WorkerStep(
@@ -77,12 +80,18 @@ export async function executeClaimedReportDelivery(input: {
     const provider = await input.transport({
       ...input.transportInput,
       attachment: {
-        ...input.transportInput.attachment,
+        filename: input.transportInput.attachment?.filename ?? 'report.pdf',
         contentBase64: pdfBuffer.toString('base64')
       }
     });
     providerMessageId = provider.messageId;
-    const { data: finalized, error: finalizationError } = input.workerLease
+    const { data: finalized, error: finalizationError } = input.developmentMode
+      ? await input.rpcDb.rpc('preview_development_finalize_premium_report_delivery', {
+          p_authorization_id: input.claim.authorization_id,
+          p_email_event_id: input.claim.email_event_id,
+          p_provider_message_id: provider.messageId
+        })
+      : input.workerLease
       ? await (async () => {
           try {
             return {
@@ -107,13 +116,21 @@ export async function executeClaimedReportDelivery(input: {
             p_provider_message_id: provider.messageId
           });
     if (finalizationError || !finalized || finalized.finalized !== true) {
-      await markReconciliationRequired(
-        input.rpcDb,
-        input.claim.authorization_id,
-        provider.messageId,
-        `Provider accepted the request but atomic finalization failed: ${finalizationError?.message ?? finalized?.reason ?? 'no result'}`,
-        input.workerLease
-      );
+      if (input.developmentMode) {
+        await input.rpcDb.rpc('preview_development_mark_reconciliation_required', {
+          p_authorization_id: input.claim.authorization_id,
+          p_provider_message_id: provider.messageId,
+          p_reason: `Provider accepted the request but atomic finalization failed: ${finalizationError?.message ?? finalized?.reason ?? 'no result'}`
+        });
+      } else {
+        await markReconciliationRequired(
+          input.rpcDb,
+          input.claim.authorization_id,
+          provider.messageId,
+          `Provider accepted the request but atomic finalization failed: ${finalizationError?.message ?? finalized?.reason ?? 'no result'}`,
+          input.workerLease
+        );
+      }
       throw new Error('Provider acceptance is durable but delivery finalization requires reconciliation.');
     }
     return { providerMessageId, finalized };
@@ -146,13 +163,21 @@ export async function executeClaimedReportDelivery(input: {
         throw new AggregateError([error, failureStateError], 'Delivery failure state could not be persisted.');
       }
     } else if (!providerMessageId) {
-      await markReconciliationRequired(
-        input.rpcDb,
-        input.claim.authorization_id,
-        null,
-        message,
-        input.workerLease
-      );
+      if (input.developmentMode) {
+        await input.rpcDb.rpc('preview_development_mark_reconciliation_required', {
+          p_authorization_id: input.claim.authorization_id,
+          p_provider_message_id: null,
+          p_reason: message
+        });
+      } else {
+        await markReconciliationRequired(
+          input.rpcDb,
+          input.claim.authorization_id,
+          null,
+          message,
+          input.workerLease
+        );
+      }
     }
     throw error;
   }

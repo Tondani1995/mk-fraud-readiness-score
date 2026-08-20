@@ -42,6 +42,18 @@ jobs:
             npm install
           fi
 
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
+      - name: Verify RC1 near-real-time automatic fulfilment
+        run: npm run rc1:test-near-real-time-fulfilment
+
+      - name: Verify RC1 synthetic notification contract
+        run: npm run rc1:test-synthetic-notification-contract
+
+      - name: Verify AST-derived service-role privilege contract
+        run: npm run rc1:analyze-service-role-contract
+
       - name: Run Phase 7 snapshot tests
         run: npm run phase7:test-snapshot
 

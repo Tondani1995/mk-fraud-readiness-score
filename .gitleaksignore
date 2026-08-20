@@ -40,7 +40,51 @@ a3c705418b6b9f60e61464b7eded7e18742bbd6b:supabase/migrations/20260714194317_phas
 b89166ebdf5ad97cf9e4a9963558c0a27943c4e2:supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql:generic-api-key:1287
 28107e4325ce83be45ff596bdb035ad00cbf474b:scripts/phase14-production-canonical-reconciliation.sql:generic-api-key:1998
 fc4e07a25ba4cb8ec1171cadb3b66f337424991d:supabase/migrations/0017_phase14_canonical_disabled_foundation.sql:generic-api-key:2149
+a3d7c144033a156d109c75bca60d8ec44dab2d9a:supabase/migrations/0017_phase14_canonical_disabled_foundation.sql:generic-api-key:2156
 33b21584b234b83606d7e0dfd92109ed5a5181a7:scripts/phase14-security-closure-tests.mjs:jwt:143
 33b21584b234b83606d7e0dfd92109ed5a5181a7:scripts/phase14-security-closure-tests.mjs:aws-access-token:144
 4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:7
 4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:11
+
+# PR #39: reviewed historical false positive from a credential-free recording-fake test. It
+# authenticated nothing and is already replaced at HEAD; this suppression is fingerprint-specific.
+9819b04f67eed38175ae68dbe4befa8bcad1df01:scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs:generic-api-key:609
+
+# Reviewed non-secret phase14 delivery-policy setting in the generated production reconciliation artifact.
+5ae75713be1bdf2bfee7f944926572bc48665d0d:scripts/phase14-production-canonical-reconciliation.sql:generic-api-key:2003
+
+# Reviewed non-secret fixed synthetic request key in the disposable RC1 harness; no credential value is present.
+fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-tests.mjs:generic-api-key:199
+
+# RC1D: reviewed non-secret MD5 trigger-definition fingerprints in the machine-readable
+# postflight manifest. These identify database trigger definitions; they are neither credentials
+# nor customer data. Suppression remains limited to the three exact findings.
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:125
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:129
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:132
+
+# RC1E: reviewed non-secret MD5 structural fingerprint of the rc1_certification_secret_write_tokens table definition; it is not a credential, authentication secret, cryptographic key, provider token, customer datum or externally usable value.
+436ad1c309e4310b56e35bbf04a8535b6da7a1d8:scripts/rc1-production-preflight.manifest.json:generic-api-key:108
+
+# RC1 postflight hardening: reviewed non-secret SHA-256 semantic table-structure fingerprints;
+# they identify database definitions and are not credentials, keys, tokens or customer data.
+2d4cd3ad3ea91fc75bf1ddfdb85e142be5dce01a:scripts/rc1-production-preflight.manifest.json:generic-api-key:142
+2d4cd3ad3ea91fc75bf1ddfdb85e142be5dce01a:scripts/rc1-production-preflight.manifest.json:generic-api-key:147
+2d4cd3ad3ea91fc75bf1ddfdb85e142be5dce01a:scripts/rc1-staging-postflight-hardening.manifest.json:generic-api-key:21
+
+# RC1 PDF navigation: reviewed non-secret test fixture. The finding is the `key` field of a
+# TocEntry inside the PDF heading-extraction probe -- a heading label printed into a throwaway
+# single-page PDF that the test itself builds and deletes. It authenticates nothing, reaches no
+# service, and there is nothing to rotate. The constant is a spaced, dictionary-word heading at
+# HEAD so it no longer trips the generic detector, and this comment deliberately does not quote
+# the original literal, which is what caused the second, self-referential match below (the same
+# scanner-reading-its-own-ignore-file noise already described near the top of this file).
+1a0c437574743e06d399d255ee41bd270ca7d31d:scripts/rc1-pdf-navigation-module-tests.mjs:generic-api-key:173
+c46430b490f0cdb18c8d0a7353563fae7149e200:.gitleaksignore:generic-api-key:75
+#
+# Reviewed 2026-08-02: a disposable per-run assessment token pepper set inside the
+# migration-replay workflow, used only against the ephemeral CI-local Postgres. It is not a
+# credential for any real system and grants no access. The literal was replaced with a
+# run-time derived value in a later commit; this entry covers the historical commit, which
+# the full-history scan still reaches.
+f01dd0510abf51386bc49e726803f08a03a7d28b:.github/workflows/supabase-migration-replay.yml:generic-api-key:828

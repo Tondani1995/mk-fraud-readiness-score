@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
@@ -151,7 +152,11 @@ async function createOrUpdatePersonalisedRequest(input: {
   throw error;
 }
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
+  const frozen = await getRc1OperationFreezeResponse('order_create');
+  if (frozen) return frozen;
+
   let body: any = {};
   try {
     body = await request.json();
@@ -228,7 +233,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
+        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
         metadata
       }),
       queueInternalNotification({
@@ -237,7 +242,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
+        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
         metadata
       }),
       db.from('audit_logs').insert({
@@ -249,7 +254,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
         after_json: {
           assessment_reference: assessment.assessment_reference,
           request_reference: result.request.request_reference,
-          option_code: COMMERCIAL_OPTION_CODES.personalisedReport,
+          option_code: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
           payment_obligation: false,
           order_created: false,
           report_generation: false

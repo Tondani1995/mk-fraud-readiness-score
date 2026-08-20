@@ -1,0 +1,99 @@
+{
+  "manifest_version": 1,
+  "locked_parent_sha": "4b34480b2dd8f6098589efda4cad2deb9e3de050",
+  "migration_count_after": 45,
+  "newest_migration": "20260728191000",
+  "migrations": {
+    "20260728190000_rc1_staging_postflight_least_privilege.sql": {
+      "sha256": "30fd0091f2e18816fb26af9515ca95d3f109f97a8f01d007d58d77965614bfe2"
+    },
+    "20260728191000_rc1_launch_required_foreign_key_indexes.sql": {
+      "sha256": "d4d28897ea72bb3064c9e0a2b726ded10cc7cca54b2e1b634bc83f86982f3af9"
+    }
+  },
+  "rpc_semantic_map": {
+    "required_count": 35,
+    "pre_correction_sha256": "ba42238468cacf4697fb0c95925e3549ffa05d978dd6e304e4098e8d1e9ff1ed",
+    "post_correction_sha256": "ba42238468cacf4697fb0c95925e3549ffa05d978dd6e304e4098e8d1e9ff1ed",
+    "reason": "The corrected bounce-redelivery overload and the two trigger helpers are outside the accepted 35-RPC map; all 35 entries, including their ACLs, remain byte-for-byte semantically unchanged."
+  },
+  "freeze_table_semantic_hashes": {
+    "rc1_certification_secret_write_tokens": "e73cb3cc3a30c04f0e64c072196c4d8694eb83c7bb65216ede9c936aa4a67a08",
+    "rc1_operation_freeze_audit": "1bf503cdfbfb5cd4155c182d3586c2ad9a934055d25aa25133bd9f8d7577c3e2",
+    "rc1_operation_freeze_state": "1e2e1572b650c227b693cb59f46ee98196bf91ad649e86b313f9d74ba5c606d6"
+  },
+  "acl_outcomes": [
+    {
+      "signature": "public.authorize_bounced_report_redelivery(uuid,uuid,text)",
+      "public": false,
+      "anon": false,
+      "authenticated": true,
+      "service_role": false,
+      "owner": true
+    },
+    {
+      "signature": "public.invalidate_phase14_authority_on_gate_change()",
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": false,
+      "owner": true
+    },
+    {
+      "signature": "public.rls_auto_enable()",
+      "platform_owned_optional_local_object": true,
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": false,
+      "owner": true
+    }
+  ],
+  "launch_required_indexes": [
+    {"schema":"phase14_private","table":"worker_attestation_nonces","constraint":"worker_attestation_nonces_capability_id_fkey","columns":["capability_id"],"index":"worker_attestation_nonces_capability_id_idx"},
+    {"schema":"phase14_private","table":"worker_recovery_nonces","constraint":"worker_recovery_nonces_capability_id_fkey","columns":["capability_id"],"index":"worker_recovery_nonces_capability_id_idx"},
+    {"schema":"public","table":"backlog_reconciliation_records","constraint":"backlog_reconciliation_records_report_id_fkey","columns":["report_id"],"index":"backlog_reconciliation_records_report_id_idx"},
+    {"schema":"public","table":"customer_contact_verifications","constraint":"customer_contact_verifications_assessment_id_fkey","columns":["assessment_id"],"index":"customer_contact_verifications_assessment_id_idx"},
+    {"schema":"public","table":"email_events","constraint":"email_events_assessment_id_fkey","columns":["assessment_id"],"index":"email_events_assessment_id_idx"},
+    {"schema":"public","table":"email_events","constraint":"email_events_order_id_fkey","columns":["order_id"],"index":"email_events_order_id_idx"},
+    {"schema":"public","table":"manual_report_delivery_attempts","constraint":"manual_report_delivery_attempts_email_event_id_fkey","columns":["email_event_id"],"index":"manual_report_delivery_attempts_email_event_id_idx"},
+    {"schema":"public","table":"manual_report_generation_attempts","constraint":"manual_report_generation_attempts_output_report_id_fkey","columns":["output_report_id"],"index":"manual_report_generation_attempts_output_report_id_idx"},
+    {"schema":"public","table":"payment_proofs","constraint":"payment_proofs_order_id_fkey","columns":["order_id"],"index":"payment_proofs_order_id_idx"},
+    {"schema":"public","table":"phase14_operational_alerts","constraint":"phase14_operational_alerts_email_event_id_fkey","columns":["email_event_id"],"index":"phase14_operational_alerts_email_event_id_idx"},
+    {"schema":"public","table":"phase14_operational_alerts","constraint":"phase14_operational_alerts_report_id_fkey","columns":["report_id"],"index":"phase14_operational_alerts_report_id_idx"},
+    {"schema":"public","table":"phase14_provider_attestation_consumptions","constraint":"phase14_provider_attestation_consumptions_authorization_id_fkey","columns":["authorization_id"],"index":"phase14_provider_attestation_consumptions_authorization_id_idx"},
+    {"schema":"public","table":"phase14_provider_attestations","constraint":"phase14_provider_attestations_authorization_id_fkey","columns":["authorization_id"],"index":"phase14_provider_attestations_authorization_id_idx"},
+    {"schema":"public","table":"phase14_provider_attestations","constraint":"phase14_provider_attestations_email_event_id_fkey","columns":["email_event_id"],"index":"phase14_provider_attestations_email_event_id_idx"},
+    {"schema":"public","table":"phase14_storage_cleanup_queue","constraint":"phase14_storage_cleanup_queue_lease_owner_capability_id_fkey","columns":["lease_owner_capability_id"],"index":"phase14_storage_cleanup_queue_lease_owner_capability_id_idx"},
+    {"schema":"public","table":"phase14_storage_cleanup_queue","constraint":"phase14_storage_cleanup_queue_owner_capability_id_fkey","columns":["owner_capability_id"],"index":"phase14_storage_cleanup_queue_owner_capability_id_idx"},
+    {"schema":"public","table":"phase14_storage_cleanup_queue","constraint":"phase14_storage_cleanup_queue_report_id_fkey","columns":["report_id"],"index":"phase14_storage_cleanup_queue_report_id_idx"},
+    {"schema":"public","table":"phase14_worker_capabilities","constraint":"phase14_worker_capabilities_assessment_id_fkey","columns":["assessment_id"],"index":"phase14_worker_capabilities_assessment_id_idx"},
+    {"schema":"public","table":"phase14_worker_capabilities","constraint":"phase14_worker_capabilities_fulfilment_id_fkey","columns":["fulfilment_id"],"index":"phase14_worker_capabilities_fulfilment_id_idx"},
+    {"schema":"public","table":"phase14_worker_capabilities","constraint":"phase14_worker_capabilities_order_id_fkey","columns":["order_id"],"index":"phase14_worker_capabilities_order_id_idx"},
+    {"schema":"public","table":"phase14_worker_capabilities","constraint":"phase14_worker_capabilities_report_id_fkey","columns":["report_id"],"index":"phase14_worker_capabilities_report_id_idx"},
+    {"schema":"public","table":"phase14_worker_capabilities","constraint":"phase14_worker_capabilities_score_run_id_fkey","columns":["score_run_id"],"index":"phase14_worker_capabilities_score_run_id_idx"},
+    {"schema":"public","table":"phase14_workflow_start_outbox","constraint":"phase14_workflow_start_outbox_fulfilment_id_fkey","columns":["fulfilment_id"],"index":"phase14_workflow_start_outbox_fulfilment_id_idx"},
+    {"schema":"public","table":"report_ai_attempts","constraint":"report_ai_attempts_manual_assessment_id_fkey","columns":["manual_assessment_id"],"index":"report_ai_attempts_manual_assessment_id_idx"},
+    {"schema":"public","table":"report_ai_attempts","constraint":"report_ai_attempts_manual_order_id_fkey","columns":["manual_order_id"],"index":"report_ai_attempts_manual_order_id_idx"},
+    {"schema":"public","table":"report_ai_attempts","constraint":"report_ai_attempts_manual_score_run_id_fkey","columns":["manual_score_run_id"],"index":"report_ai_attempts_manual_score_run_id_idx"},
+    {"schema":"public","table":"report_delivery_authorizations","constraint":"report_delivery_authorizations_assessment_id_fkey","columns":["assessment_id"],"index":"report_delivery_authorizations_assessment_id_idx"},
+    {"schema":"public","table":"report_delivery_authorizations","constraint":"report_delivery_authorizations_bounce_remediation_fk","columns":["bounce_remediation_id"],"index":"report_delivery_authorizations_bounce_remediation_idx"},
+    {"schema":"public","table":"report_delivery_authorizations","constraint":"report_delivery_authorizations_order_id_fkey","columns":["order_id"],"index":"report_delivery_authorizations_order_id_idx"},
+    {"schema":"public","table":"report_delivery_authorizations","constraint":"report_delivery_authorizations_score_run_id_fkey","columns":["score_run_id"],"index":"report_delivery_authorizations_score_run_id_idx"},
+    {"schema":"public","table":"report_delivery_authorizations","constraint":"report_delivery_authorizations_worker_capability_id_fkey","columns":["worker_capability_id"],"index":"report_delivery_authorizations_worker_capability_id_idx"},
+    {"schema":"public","table":"report_delivery_finalizations","constraint":"report_delivery_finalizations_fulfilment_id_fkey","columns":["fulfilment_id"],"index":"report_delivery_finalizations_fulfilment_id_idx"},
+    {"schema":"public","table":"report_delivery_finalizations","constraint":"report_delivery_finalizations_report_id_fkey","columns":["report_id"],"index":"report_delivery_finalizations_report_id_idx"},
+    {"schema":"public","table":"report_delivery_remediations","constraint":"report_delivery_remediations_prior_email_event_id_fkey","columns":["prior_email_event_id"],"index":"report_delivery_remediations_prior_email_event_id_idx"},
+    {"schema":"public","table":"report_delivery_remediations","constraint":"report_delivery_remediations_report_id_fkey","columns":["report_id"],"index":"report_delivery_remediations_report_id_idx"},
+    {"schema":"public","table":"report_events","constraint":"report_events_report_id_fkey","columns":["report_id"],"index":"report_events_report_id_idx"},
+    {"schema":"public","table":"report_fulfilments","constraint":"report_fulfilments_delivery_capability_id_fkey","columns":["delivery_capability_id"],"index":"report_fulfilments_delivery_capability_id_idx"},
+    {"schema":"public","table":"report_fulfilments","constraint":"report_fulfilments_generation_capability_id_fkey","columns":["generation_capability_id"],"index":"report_fulfilments_generation_capability_id_idx"},
+    {"schema":"public","table":"report_generation_claims","constraint":"report_generation_claims_fulfilment_id_fkey","columns":["fulfilment_id"],"index":"report_generation_claims_fulfilment_id_idx"},
+    {"schema":"public","table":"report_generation_claims","constraint":"report_generation_claims_order_id_fkey","columns":["order_id"],"index":"report_generation_claims_order_id_idx"},
+    {"schema":"public","table":"report_generation_claims","constraint":"report_generation_claims_report_id_fkey","columns":["report_id"],"index":"report_generation_claims_report_id_idx"},
+    {"schema":"public","table":"report_generation_claims","constraint":"report_generation_claims_score_run_id_fkey","columns":["score_run_id"],"index":"report_generation_claims_score_run_id_idx"},
+    {"schema":"public","table":"reports","constraint":"reports_score_run_id_fkey","columns":["score_run_id"],"index":"reports_score_run_id_idx"},
+    {"schema":"public","table":"reports","constraint":"reports_supersedes_report_id_fkey","columns":["supersedes_report_id"],"index":"reports_supersedes_report_id_idx"},
+    {"schema":"public","table":"reports","constraint":"reports_template_id_fkey","columns":["template_id"],"index":"reports_template_id_idx"}
+  ]
+}

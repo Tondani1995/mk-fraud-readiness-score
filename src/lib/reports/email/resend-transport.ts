@@ -5,7 +5,11 @@ export type ReportEmailTransportInput = {
   subject: string;
   html: string;
   text: string;
-  attachment: {
+  // Release C: made optional. The report-ready customer email must NOT attach the PDF by
+  // default (secure-link delivery only, per docs/safe-launch/15-email-and-secure-delivery-design.md)
+  // -- only the (still-dormant) Phase14 attachment-based flow supplies this. Every existing
+  // caller that always attached a PDF continues to work unchanged; this is additive.
+  attachment?: {
     filename: string;
     contentBase64: string;
   };
@@ -91,10 +95,9 @@ export const sendReportEmailWithResend: ReportEmailTransport = async (input) => 
       subject: input.subject,
       html: input.html,
       text: input.text,
-      attachments: [{
-        filename: input.attachment.filename,
-        content: input.attachment.contentBase64
-      }],
+      attachments: input.attachment
+        ? [{ filename: input.attachment.filename, content: input.attachment.contentBase64 }]
+        : undefined,
       tags: input.tags
     })
   }, timeoutMs, 'resend_send');

@@ -5,7 +5,7 @@ import Insight from "@/lib/website/models/Insight";
 import { adminUnauthorizedResponse, getAdminFromRequest } from "@/lib/website/adminAuth";
 import { loadPublishedInsightBySlug } from "@/lib/website/insights/repository";
 
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 function isValidObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -16,7 +16,8 @@ function buildLookup(id: string, isAdmin: boolean) {
     return isAdmin ? lookup : { ...lookup, status: "published" };
 }
 
-export async function GET(req: Request, { params }: Ctx) {
+export async function GET(req: Request, props: Ctx) {
+    const params = await props.params;
     try {
         const { id } = params;
         const isAdmin = Boolean(await getAdminFromRequest(req));
@@ -53,7 +54,8 @@ export async function GET(req: Request, { params }: Ctx) {
     }
 }
 
-export async function PUT(req: Request, { params }: Ctx) {
+export async function PUT(req: Request, props: Ctx) {
+    const params = await props.params;
     try {
         const admin = await getAdminFromRequest(req);
         if (!admin) return adminUnauthorizedResponse();
@@ -89,7 +91,8 @@ export async function PUT(req: Request, { params }: Ctx) {
     }
 }
 
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+    const params = await props.params;
     try {
         const admin = await getAdminFromRequest(req);
         if (!admin) return adminUnauthorizedResponse();

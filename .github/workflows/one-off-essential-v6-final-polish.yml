@@ -1,0 +1,190 @@
+name: One-off Essential V6 final polish
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-prove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out working branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply final V6 deterministic polish
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  if new in text:
+                      return text
+                  raise SystemExit(f'missing patch anchor: {label}')
+              return text.replace(old, new, 1)
+
+          template_path = Path('src/lib/reports/templates/report-template.ts')
+          text = template_path.read_text()
+
+          text = replace_once(
+              text,
+              '  @page { size: A4 portrait; margin: 0; }',
+              '  @page { size: A4 portrait; margin: 12mm 13mm 15mm 13mm; }',
+              'paged-media margins'
+          )
+          text = replace_once(
+              text,
+              '  .cover { break-before: auto; min-height: 270mm; padding: 19mm;',
+              '  .cover { break-before: auto; margin: -12mm -13mm 0; min-height: 270mm; padding: 19mm;',
+              'cover bleed compensation'
+          )
+
+          old_scope = """    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} answered through the assessment's oversight-response route rather than the standard response route. These areas remain in scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
+    <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';"""
+          new_scope = """    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} completed using the assessment's oversight question set rather than the standard question set. ${adaptiveScope.redirectedCount === 1 ? 'It remains' : 'They remain'} in the scored scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
+    ${adaptiveScope.resultStatus !== 'PROVISIONAL' ? `<p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` : ''}` ) : '';"""
+          text = replace_once(text, old_scope, new_scope, 'scope wording')
+
+          finding_anchor = """  const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">"""
+          finding_replacement = """  const customerMaterialityLabel = (materialityClass: string): string => ({
+    maturity_constraint: 'Maturity constraint',
+    control_failure: 'Priority control weakness',
+    cross_domain_dependency: 'Cross-domain dependency',
+    assurance_priority: 'Assurance priority'
+  }[materialityClass] ?? materialityClass.replaceAll('_', ' '));
+
+  const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">"""
+          text = replace_once(text, finding_anchor, finding_replacement, 'customer materiality helper')
+          text = replace_once(
+              text,
+              "${esc(finding.materialityClass.replaceAll('_', ' '))}",
+              "${esc(customerMaterialityLabel(finding.materialityClass))}",
+              'finding materiality label'
+          )
+
+          old_recommended = """  const recommendedNextStep = topEvidenceItem
+    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p></div>`
+    : '';"""
+          new_recommended = """  const recommendedNextStep = topEvidenceItem
+    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p>`
+    : '';"""
+          text = replace_once(text, old_recommended, new_recommended, 'recommended next step inline')
+          text = replace_once(
+              text,
+              "    <p><strong>Next step.</strong> Agree the proof requirements listed in this report and supporting register, then sequence them through the leadership decisions above.</p>`;",
+              "    `;",
+              'remove duplicate generic next step'
+          )
+          text = replace_once(
+              text,
+              '  .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }',
+              '  .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }\n  .recommended-next-step { margin-top:4mm; padding:3mm 4mm; background:var(--mk-neutral-bg); border-left:1mm solid var(--mk-navy-500); break-before:avoid; page-break-before:avoid; }',
+              'recommended next step css'
+          )
+          template_path.write_text(text)
+
+          adaptation_path = Path('src/lib/reports/essential-presentation-adaptation.ts')
+          adaptation = adaptation_path.read_text()
+          exact_current = "  [/\\binduction packs, the workforce communication channels used by the organisation, notice boards at operating locations, intranet and supervisor briefings\\b/gi, 'induction and onboarding materials, the workforce communication channels used by the organisation, and supervisor briefings'],"
+          expanded = exact_current + "\n  [/\\binduction packs, the workforce communication channels used by the organisation, appropriate workforce communication channels and operating locations, internal workforce communication channel and supervisor briefings\\b/gi, 'induction and onboarding materials, workforce communication channels used by the organisation, and supervisor briefings'],"
+          adaptation = replace_once(adaptation, exact_current, expanded, 'current adapted workforce phrase')
+          adaptation_path.write_text(adaptation)
+
+          regression_path = Path('scripts/commercial-quality/essential-v6-final-polish-regression.mjs')
+          regression_path.write_text(r'''#!/usr/bin/env node
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { adaptEssentialText, buildEssentialAdaptationContext } from '../../src/lib/reports/essential-presentation-adaptation.ts';
+
+          const template = readFileSync(new URL('../../src/lib/reports/templates/report-template.ts', import.meta.url), 'utf8');
+          assert.match(template, /@page \{ size: A4 portrait; margin: 12mm 13mm 15mm 13mm; \}/, 'physical PDF pages must reserve the same body/footer margins the renderer expects');
+          assert.doesNotMatch(template, /@page \{ size: A4 portrait; margin: 0; \}/);
+          assert.match(template, /\.cover \{ break-before: auto; margin: -12mm -13mm 0;/, 'cover keeps its intended bleed while ordinary pages use safe margins');
+          assert.match(template, /control_failure: 'Priority control weakness'/, 'self-assessed weaknesses must not be labelled as verified control failures');
+          assert.match(template, /customerMaterialityLabel\(finding\.materialityClass\)/);
+          assert.doesNotMatch(template, /esc\(finding\.materialityClass\.replaceAll\('_', ' '\)\)/);
+          assert.match(template, /completed using the assessment's oversight question set rather than the standard question set/);
+          assert.match(template, /adaptiveScope\.resultStatus !== 'PROVISIONAL'/, 'provisional comparison limitation should not be printed twice');
+          assert.match(template, /<p class="recommended-next-step"><strong>Recommended next step\.<\/strong>/);
+          assert.doesNotMatch(template, /<div class="closing-note"><strong>Recommended next step/);
+          assert.doesNotMatch(template, /<strong>Next step\.<\/strong> Agree the proof requirements/);
+
+          const context = buildEssentialAdaptationContext({});
+          const ugly = 'The ethics owner must publish reporting routes in plain language across the channels the workforce actually uses — induction packs, the workforce communication channels used by the organisation, appropriate workforce communication channels and operating locations, internal workforce communication channel and supervisor briefings.';
+          const cleaned = adaptEssentialText(ugly, context);
+          assert.match(cleaned, /induction and onboarding materials, workforce communication channels used by the organisation, and supervisor briefings/i);
+          assert.doesNotMatch(cleaned, /appropriate workforce communication channels and operating locations|internal workforce communication channel/i);
+
+          console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', v6FinalPolish: 'PASS', footerCollisionBoundary: 'PASS', sparsePageCleanup: 'PASS' }, null, 2));
+          '''.replace(/^          /gm, ''))
+
+          workflow_path = Path('.github/workflows/essential-provider-diagnostics.yml')
+          workflow = workflow_path.read_text()
+          anchor = """      - name: Prove Essential V5.1 customer-visible cleanup provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+
+      - name: Run provider-free Comprehensive customer-visible regressions"""
+          replacement = """      - name: Prove Essential V5.1 customer-visible cleanup provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+
+      - name: Prove Essential V6 final polish provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
+
+      - name: Run provider-free Comprehensive customer-visible regressions"""
+          workflow = replace_once(workflow, anchor, replacement, 'permanent V6 regression gate')
+          workflow_path.write_text(workflow)
+          PY
+
+      - name: Run complete provider-free report regressions
+        run: |
+          npm run v11:narrative-diagnostics
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
+          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+          npm run typecheck
+
+      - name: Commit proven deterministic changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/reports/templates/report-template.ts \
+            src/lib/reports/essential-presentation-adaptation.ts \
+            scripts/commercial-quality/essential-v6-final-polish-regression.mjs \
+            .github/workflows/essential-provider-diagnostics.yml
+          if git diff --cached --quiet; then
+            echo "No V6 final-polish changes required."
+            exit 0
+          fi
+          git commit -m "Fix final Essential V6 commercial rendering defects"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality

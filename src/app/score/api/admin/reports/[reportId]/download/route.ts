@@ -5,7 +5,8 @@ import { createSecurePhase1ReportAccess, ReportAccessError } from '@/lib/reports
 export const dynamic = 'force-dynamic';
 const REPORT_DOWNLOAD_ROLES = new Set(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
 
-export async function GET(request: Request, { params }: { params: { reportId: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ reportId: string }> }) {
+  const params = await props.params;
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Authentication is required.' }, { status: 401 });
   if (!REPORT_DOWNLOAD_ROLES.has(admin.role)) {

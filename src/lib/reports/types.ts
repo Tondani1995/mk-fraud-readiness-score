@@ -1,23 +1,77 @@
 export type MaturityBand = 'Reactive' | 'Developing' | 'Structured' | 'Strategic';
 export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
+export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
+export type AdaptiveResultMetrics = {
+  resultStatus: AdaptiveResultStatus;
+  graphVersion: string;
+  graphFingerprint: string;
+  applicableCount: number;
+  applicableWeight: number;
+  excludedCount: number;
+  excludedWeight: number;
+  redirectedCount: number;
+  redirectedWeight: number;
+  invalidatedCount: number;
+  invalidatedWeight: number;
+  profileOnlyCount: number;
+  unknownCount: number;
+  unknownWeight: number;
+  unansweredApplicableCount: number;
+  unansweredApplicableWeight: number;
+  assessmentCoveragePct: number;
+  controlVisibilityPct: number;
+  exposureAssessed: boolean;
+  visibilityGaps: Array<{
+    id: string;
+    questionCode: string;
+    domainCode: string;
+    prompt: string;
+    statement: string;
+    whyVisibilityMatters: string;
+    evidenceNeeded: string;
+    likelyEvidenceOwner: string;
+    recommendedVerificationAction: string;
+    priority: 'High' | 'Medium';
+    targetTiming: '30 days' | '60 days';
+  }>;
+  materialExclusionSharePct: number;
+  unknownSharePct: number;
+  scoreComparabilityStatement: string;
+  limitationReasons: string[];
+  excludedQuestionCodes: string[];
+  redirectedQuestionCodes: string[];
+  invalidatedQuestionCodes: string[];
+  unknownQuestionCodes: string[];
+  questionTraces: unknown[];
+};
 
 export interface ScoreRunRecord {
   id: string;
   assessmentId: string;
+  /**
+   * The methodology version this score run was actually calculated against, sourced directly
+   * from score_runs.methodology_version_id. The report must use this value, not the currently
+   * active methodology, not the first active methodology, not a date-based inference, and not a
+   * hardcoded version -- a score run locked against an older methodology version must still be
+   * reported against that same version.
+   */
+  methodologyVersionId: string;
   status: string;
   lockedAt: string | null;
   inputHash: string | null;
-  overallScore: number;
-  calculatedMaturity: MaturityBand;
-  finalMaturity: MaturityBand;
-  exposureScore: number;
-  exposureBand: ExposureBand;
+  overallScore: number | null;
+  calculatedMaturity: MaturityBand | null;
+  finalMaturity: MaturityBand | null;
+  exposureScore: number | null;
+  exposureBand: ExposureBand | null;
   coveragePct: number;
   nARatePct: number;
   criticalGapCount: number;
   majorGapCount: number;
   capApplied: boolean;
   capReason: string | null;
+  adaptiveResultStatus?: AdaptiveResultStatus | null;
+  adaptiveMetrics?: AdaptiveResultMetrics | null;
 }
 
 export interface DomainResultRecord {
@@ -42,6 +96,13 @@ export interface GapQuestionRecord {
   isMajorGap: boolean;
 }
 
+/** Complete persisted question-level evidence from score_question_traces. */
+export interface QuestionTraceRecord extends GapQuestionRecord {
+  normalisedScore: number | null;
+  applicable: boolean;
+  triggeredRules: unknown[];
+}
+
 export interface ExposureAnswerRecord {
   factorCode: string;
   name: string;
@@ -55,17 +116,35 @@ export interface MaturityCapEventRecord {
   capTo: MaturityBand;
   reason: string;
   relatedQuestionCode: string | null;
+  relatedQuestionPrompt: string | null;
+  /**
+   * Domain code for this cap event. Resolved from the event's own related_domain_id when present,
+   * falling back to the related question's domain when the event only recorded a question-level
+   * reference. Null only for rules that are inherently cross-domain (e.g. "three or more critical
+   * controls scored <=2"), which have neither a single question nor a single domain to point to.
+   */
   relatedDomainCode: string | null;
+  relatedDomainName: string | null;
+}
+
+export interface ScoreBand {
+  min: number;
+  max: number;
 }
 
 export interface RecommendationRuleRecord {
   ruleCode: string;
   title: string;
   severity: string;
+  /**
+   * Parsed numeric score band this rule applies to (e.g. {min:-Infinity,max:39}), derived from the
+   * rule's condition_json/title at read time. Null for rules that aren't score-band rules (e.g. the
+   * maturity-cap rule, matched on severity instead).
+   */
+  scoreBand: ScoreBand | null;
   action30: string | null;
   action60: string | null;
   action90: string | null;
-  firedForDomainCodes: string[];
 }
 
 export interface AssembledReportData {
@@ -77,6 +156,7 @@ export interface AssembledReportData {
   currentScoreRunId: string;
   orderVerifiedAt: string | null;
   orderVerifiedBy: string | null;
+  paymentVerification: import('@/lib/payments/payment-verification').PaymentVerificationEvidence;
   organisationName: string;
   respondentName: string;
   customerEmail: string;
@@ -88,21 +168,46 @@ export interface AssembledReportData {
   orderStatus: string;
   amountCents: number | null;
   currency: string | null;
+  /**
+   * The product's CURRENT catalogue price. Retained for diagnostics and admin display only -- it is
+   * deliberately NOT an entitlement input, because a catalogue reprice must never invalidate an
+   * already-paid order. Entitlement resolves through productPriceVersions instead.
+   */
   productPriceCents: number | null;
   productCurrency: string | null;
+  /**
+   * Versioned-price entitlement inputs. Optional so that pre-existing evidence-model fixtures which
+   * predate the joint-launch price contract still satisfy the type; entitlement fails CLOSED when
+   * any of them is absent, so an omission can never grant entitlement.
+   */
+  productId?: string | null;
+  orderCreatedAt?: string | null;
+  productPriceVersionId?: string | null;
+  productPriceVersions?: import('@/lib/commercial/order-price-entitlement').ProductPriceVersion[];
   requiresPaymentVerification: boolean | null;
   deliveryMode: string | null;
   productActive: boolean | null;
   scoreRun: ScoreRunRecord;
   domainResults: DomainResultRecord[];
   exposureAnswers: ExposureAnswerRecord[];
+  /** All persisted traces for the locked score run, not only critical/major gaps. */
+  questionTraces: QuestionTraceRecord[];
   criticalMajorGaps: GapQuestionRecord[];
+  /** Validated response_scale rows for scoreRun.methodologyVersionId, loaded once per report. */
+  officialResponseLabels: import('./response-labels').OfficialResponseLabel[];
   maturityCapEvents: MaturityCapEventRecord[];
   recommendationRules: RecommendationRuleRecord[];
   expectedDomainResultCount: number;
   actualDomainResultCount: number;
   expectedQuestionTraceCount: number;
   actualQuestionTraceCount: number;
+  adaptiveScope?: AdaptiveResultMetrics | null;
+  /**
+   * Operating-model answers captured at the adaptive gateways, keyed by gateway question
+   * id. Read-only narrative evidence: no scoring, maturity or applicability decision may
+   * depend on it. Empty for assessments taken before the adaptive graph existed.
+   */
+  adaptiveGatewayAnswers?: Readonly<Record<string, string>>;
 }
 
 export interface ContentBlock {
@@ -135,4 +240,6 @@ export interface RoadmapItem {
   action60: string | null;
   action90: string | null;
   priorityScore: number;
+  /** Checkpoint D: exact authoritative action IDs from which this compatibility row was derived. */
+  authoritativeActionIds?: string[];
 }

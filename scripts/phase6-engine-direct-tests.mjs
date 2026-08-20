@@ -10,6 +10,8 @@ const seedPath = path.join(root, 'supabase/migrations/0003_phase5_methodology_se
 const enginePath = path.join(root, 'src/lib/scoring/scoring-engine.ts');
 const seed = fs.readFileSync(seedPath, 'utf8');
 const engineSource = fs.readFileSync(enginePath, 'utf8');
+const maturityBandPath = path.join(root, 'src/lib/scoring/maturity-band.ts');
+const maturityBandSource = fs.readFileSync(maturityBandPath, 'utf8');
 
 function loadActualScoringEngine() {
   const transpiled = ts.transpileModule(engineSource, {
@@ -21,11 +23,24 @@ function loadActualScoringEngine() {
     fileName: enginePath
   }).outputText;
 
+  const maturityTranspiled = ts.transpileModule(maturityBandSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+    fileName: maturityBandPath
+  }).outputText;
+  const maturityModule = { exports: {} };
+  vm.runInNewContext(maturityTranspiled, {
+    module: maturityModule,
+    exports: maturityModule.exports,
+    require: (id) => { throw new Error(`Unexpected runtime import from maturity-band.ts: ${id}`); },
+    console
+  }, { filename: 'maturity-band.transpiled.cjs' });
+
   const module = { exports: {} };
   const sandbox = {
     module,
     exports: module.exports,
     require: (id) => {
+      if (id === './maturity-band') return maturityModule.exports;
       throw new Error(`Unexpected runtime import from scoring-engine.ts: ${id}`);
     },
     console

@@ -102,17 +102,21 @@ assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCo
 // Hotfix regression (production incident: digest 3595257760): a client component exported as a
 // property of a compound object (e.g. `export const Phase14ActivationControls = { Gate: ... }`)
 // cannot be resolved by Next.js's production React Client Manifest when referenced as
-// `<Phase14ActivationControls.Gate />` from a server component. This must stay as four direct
-// named exports, imported and used directly, or the /score/admin/phase14-activation route will
-// 500 in production (it passed local dev and CI build before, since the manifest-resolution
-// failure only manifests under the production RSC build).
+// `<Phase14ActivationControls.Gate />` from a server component. Every control here must stay a
+// direct named export, imported and used directly, or the /score/admin/phase14-activation route
+// will 500 in production (it passed local dev and CI build before, since the manifest-resolution
+// failure only manifests under the production RSC build). The list below is not a fixed count --
+// it is every control this file currently defines; add new ones here as they're added there.
 assertNotIncludes(
   'src/components/admin/Phase14ActivationControls.tsx',
   'export const Phase14ActivationControls = {',
   'Phase14ActivationControls.tsx must not re-introduce the compound-object client export pattern that broke the production React Client Manifest (digest 3595257760)'
 );
 {
-  const namedExports = ['Phase14GateControl', 'Phase14PoliciesControl', 'Phase14AiRoutesControl', 'Phase14SettingsControl'];
+  const namedExports = [
+    'Phase14GateControl', 'Phase14PoliciesControl', 'Phase14AiRoutesControl', 'Phase14SettingsControl',
+    'Phase14RuntimeSecretControl'
+  ];
   const controlsSource = read('src/components/admin/Phase14ActivationControls.tsx');
   for (const exportName of namedExports) {
     assert(
@@ -120,9 +124,12 @@ assertNotIncludes(
       `Phase14ActivationControls.tsx must define ${exportName} as a standalone function component`
     );
   }
+  const exportBlockMatch = controlsSource.match(/export \{([\s\S]*?)\};?\s*$/);
+  assert(exportBlockMatch, 'Phase14ActivationControls.tsx must end with a single direct-named-export statement');
+  const exportedNames = exportBlockMatch[1].split(',').map((n) => n.trim()).filter(Boolean);
   assert(
-    /export \{\s*Phase14GateControl,\s*Phase14PoliciesControl,\s*Phase14AiRoutesControl,\s*Phase14SettingsControl\s*\};?/.test(controlsSource),
-    'Phase14ActivationControls.tsx must export all four controls as direct named exports'
+    namedExports.every((name) => exportedNames.includes(name)) && exportedNames.length === namedExports.length,
+    `Phase14ActivationControls.tsx's final export statement must export exactly [${namedExports.join(', ')}] as direct named exports, got [${exportedNames.join(', ')}]`
   );
 
   const pageSource = read('src/app/score/admin/phase14-activation/page.tsx');
@@ -146,7 +153,11 @@ assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href 
 assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/answers`', 'Assessment autosave posts through score namespace');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/submit`', 'Assessment submit posts through score namespace');
-assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', "const SCORE_BASE_PATH = '/score'", 'Snapshot defines the score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`)', 'Snapshot paid-order creation posts through score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Snapshot paid-order request remains scoped to the private snapshot token');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`/api/assessments/${snapshot.assessmentReference}/paid-order`', 'Snapshot paid-order creation must not bypass the score namespace');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`https://', 'Snapshot paid-order creation must not hardcode a host');
 assertIncludes('src/app/score/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');

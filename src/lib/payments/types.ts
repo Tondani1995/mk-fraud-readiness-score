@@ -27,6 +27,7 @@ export type PaymentTransitionResult = {
   duplicate: boolean;
   state: PaymentState;
   eventId?: string;
+  fulfilmentAttemptId?: string;
   fulfilment: 'not_requested' | 'phase1_unavailable' | 'queued' | 'already_active' | 'already_fulfilled' | 'failed';
   message: string;
   technicalReference: string;

@@ -12,6 +12,25 @@ function loadPureModule(relativePath) {
   }).outputText;
   const module = { exports: {} };
   new Function('require', 'module', 'exports', output)((specifier) => {
+    if (specifier === './narrative-brief') {
+      return loadPureModule('src/lib/reports/automation/narrative-brief.ts');
+    }
+    if (specifier === './types') {
+      return {
+        PREMIUM_REPORT_AI_BODY_MAX_CHARS: 2500,
+        // The brief now takes its per-section maxima from this table, so the stub must carry it or
+        // buildPremiumReportNarrativeBrief dereferences undefined.
+        PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS: {
+          executive: 1200, falseComfort: 800, leadership: 800, domain: 650, gap: 550
+        }
+      };
+    }
+    if (specifier === '../commercial-quality') {
+      return {
+        COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE: 'Safe test-only commercial-quality message.',
+        ReportCommercialQualityError: class ReportCommercialQualityError extends Error {}
+      };
+    }
     throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
@@ -39,14 +58,15 @@ const evidence = {
 const validPlan = {
   executiveEvidenceRefs: ['score:final_maturity'],
   executiveBody: 'The organisation shows a Developing maturity position based on the cited evidence.',
-  falseComfortEvidenceRefs: ['gap:Q1'],
+  falseComfortEvidenceRefs: ['gap:Q1', 'score:final_maturity'],
   falseComfortBody: 'A single strong control does not offset the cited gap.',
-  leadershipEvidenceRefs: ['domain:D1'],
+  leadershipEvidenceRefs: ['domain:D1', 'gap:Q1', 'score:final_maturity'],
   leadershipBody: 'Leadership should prioritise the D1 domain given the cited evidence.',
   domainEvidence: [{ domainCode: 'D1', evidenceRefs: ['domain:D1'], body: 'Domain D1 requires attention based on its cited evidence.' }],
   gapEvidence: [{ questionCode: 'Q1', evidenceRefs: ['gap:Q1'], body: 'This gap remains open based on the cited evidence.' }]
 };
-assert.equal(validatePremiumReportAiEditorialPlan(validPlan, evidence).ok, true);
+const validPlanResult = validatePremiumReportAiEditorialPlan(validPlan, evidence);
+assert.equal(validPlanResult.ok, true, JSON.stringify(validPlanResult.issues));
 assert.equal(validatePremiumReportAiEditorialPlan({
   ...validPlan,
   domainEvidence: [{ domainCode: 'Ｄ１', evidenceRefs: ['domain：Ｄ１'], body: validPlan.domainEvidence[0].body }],
@@ -76,7 +96,9 @@ for (const [label, prohibitedText] of [
 // silently discarded -- see Phase 14 Independent Review C1). It must never receive a "title"
 // field (titles stay MK-authored/deterministic) and every body field must be length-bounded.
 const aiSchema = read('src/lib/reports/automation/ai-sdk-generator.ts');
-assert.match(aiSchema, /body:\s*(z\.string|narrativeBody)/);
+// Provider-facing bodies are now section-typed rather than one generic body, so sectionBody() is
+// the expected shape; the assertion still refuses an untyped or unbounded body field.
+assert.match(aiSchema, /body:\s*(z\.string|narrativeBody|sectionBody\()/);
 assert.doesNotMatch(aiSchema, /title:\s*z\.string/);
 assert.match(aiSchema, /narrativeBody\s*=\s*z\.string\(\)\.min\(1\)\.max\(/, 'AI body fields must be length-bounded.');
 assert.match(aiSchema, /domainEvidence/);
@@ -129,7 +151,7 @@ assert.match(downloadVerification, /record_phase14_operational_alert/);
   };
   const baseNarrative = () => ({
     executiveDiagnosis: { title: 'Executive summary', body: 'The organisation shows a Developing maturity position.', evidenceRefs: ['score:final_maturity'] },
-    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other exposure.', evidenceRefs: [] },
+    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other open gaps.', evidenceRefs: [] },
     leadershipAttention: { body: 'Leadership should prioritise remediation.', evidenceRefs: [] },
     domainNarratives: [],
     gapCommentary: []

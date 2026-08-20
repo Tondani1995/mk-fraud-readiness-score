@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import type { AssembledReportData, RoadmapItem } from '../types';
+import type { AdvisoryEvidenceModel, CommercialQualityIssue } from '../evidence-model';
+import type { EssentialProjection } from '../essential-projection';
 import { bandForScore } from '../select-content-blocks';
 import {
   PREMIUM_REPORT_SCHEMA_VERSION,
@@ -28,15 +30,30 @@ export function evidenceChecksum(evidence: PremiumReportEvidencePack) {
 
 function coreEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   const score = data.scoreRun;
-  return [
+  const base: ReportEvidenceItem[] = [
+    {
+      id: 'score:scale_max',
+      kind: 'score_scale',
+      label: 'Fraud Readiness Score scale maximum',
+      value: {
+        scale: 'fraud_readiness_score',
+        maximum: 100,
+        unit: 'points'
+      }
+    },
     { id: 'score:overall', kind: 'overall_score', label: 'Overall readiness score', value: score.overallScore },
     { id: 'score:calculated_maturity', kind: 'calculated_maturity', label: 'Calculated maturity', value: score.calculatedMaturity },
     { id: 'score:final_maturity', kind: 'final_maturity', label: 'Final maturity', value: score.finalMaturity },
-    { id: 'score:exposure', kind: 'exposure_score', label: 'Exposure score', value: score.exposureScore },
-    { id: 'score:exposure_band', kind: 'exposure_band', label: 'Exposure band', value: score.exposureBand },
     { id: 'score:coverage', kind: 'coverage', label: 'Assessment coverage percentage', value: score.coveragePct },
     { id: 'gaps:critical_count', kind: 'gap_count', label: 'Critical gap count', value: score.criticalGapCount },
     { id: 'gaps:major_count', kind: 'gap_count', label: 'Major gap count', value: score.majorGapCount }
+  ];
+  if (data.adaptiveScope?.exposureAssessed === false) return base;
+  return [
+    ...base.slice(0, 4),
+    { id: 'score:exposure', kind: 'exposure_score', label: 'Exposure score', value: score.exposureScore },
+    { id: 'score:exposure_band', kind: 'exposure_band', label: 'Exposure band', value: score.exposureBand },
+    ...base.slice(4)
   ];
 }
 
@@ -57,8 +74,32 @@ function domainEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   }));
 }
 
-function gapEvidence(data: AssembledReportData): ReportEvidenceItem[] {
-  return data.criticalMajorGaps.map((gap) => ({
+/**
+ * M2: the `gap:` evidence items define which gap narrative sections the brief creates, which
+ * sections the model must return, and which sections the narrative validator requires. Bounding
+ * them to the Essential projection is therefore the single seam that bounds the AI contract.
+ *
+ * data.criticalMajorGaps stays complete in L1; every unselected critical/major gap remains
+ * fail-closed in L3 and still contributes to counts, systemic diagnosis and selection scoring.
+ */
+function gapEvidence(
+  data: AssembledReportData,
+  projection?: EssentialProjection
+): ReportEvidenceItem[] {
+  const gaps = projection
+    ? projection.findings.map((finding) => ({
+      questionCode: finding.questionCode,
+      domainCode: finding.domainCode,
+      domainName: finding.domainName,
+      prompt: finding.questionPrompt,
+      responseValue: finding.responseValue,
+      isCritical: finding.isCriticalControl,
+      isHardGate: finding.isHardGate,
+      isCriticalGap: finding.gapClassification === 'critical',
+      isMajorGap: finding.gapClassification === 'major'
+    }))
+    : data.criticalMajorGaps;
+  return gaps.map((gap) => ({
     id: `gap:${gap.questionCode}`,
     kind: 'gap' as const,
     domainCode: gap.domainCode,
@@ -74,9 +115,28 @@ function gapEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   }));
 }
 
+function questionEvidence(data: AssembledReportData): ReportEvidenceItem[] {
+  return data.questionTraces.map((trace) => ({
+    id: `question:${trace.questionCode}`,
+    kind: 'question_response' as const,
+    domainCode: trace.domainCode,
+    questionCode: trace.questionCode,
+    label: trace.prompt,
+    value: {
+      responseValue: trace.responseValue,
+      isCritical: trace.isCritical,
+      isHardGate: trace.isHardGate,
+      isCriticalGap: trace.isCriticalGap,
+      isMajorGap: trace.isMajorGap,
+      applicable: trace.applicable
+    },
+    evidenceRefs: [`domain:${trace.domainCode}`]
+  }));
+}
+
 function maturityCapEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   return data.maturityCapEvents.map((event) => ({
-    id: `cap:${event.ruleCode}`,
+    id: `cap:${event.ruleCode}:${event.relatedQuestionCode ?? event.relatedDomainCode ?? 'global'}`,
     kind: 'maturity_cap' as const,
     domainCode: event.relatedDomainCode ?? undefined,
     questionCode: event.relatedQuestionCode ?? undefined,
@@ -86,8 +146,28 @@ function maturityCapEvidence(data: AssembledReportData): ReportEvidenceItem[] {
       capTo: event.capTo,
       relatedQuestionCode: event.relatedQuestionCode,
       relatedDomainCode: event.relatedDomainCode
-    }
+    },
+    evidenceRefs: event.relatedQuestionCode ? [`question:${event.relatedQuestionCode}`] : event.relatedDomainCode ? [`domain:${event.relatedDomainCode}`] : []
   }));
+}
+
+function advisoryEvidence(model: AdvisoryEvidenceModel): ReportEvidenceItem[] {
+  return [
+    ...model.materialFindings.map((finding) => ({
+      id: `finding:${finding.id}`, kind: 'material_finding' as const, domainCode: finding.domainCode,
+      questionCode: finding.questionCode, label: finding.title, value: finding,
+      evidenceRefs: [`question:${finding.questionCode}`, `domain:${finding.domainCode}`]
+    })),
+    ...model.riskRegister.map((risk) => ({ id: `risk:${risk.id}`, kind: 'risk' as const, label: risk.title, value: risk, evidenceRefs: risk.evidenceRefs })),
+    ...model.contradictions.map((item) => ({ id: `contradiction:${item.id}`, kind: 'contradiction' as const, label: item.title, value: item, evidenceRefs: item.evidenceRefs })),
+    ...model.scenarios.map((scenario) => ({ id: `scenario:${scenario.id}`, kind: 'plausible_scenario' as const, label: scenario.title, value: scenario, evidenceRefs: scenario.evidenceRefs })),
+    ...model.controlImprovements.map((control) => ({ id: `control:${control.id}`, kind: 'control_improvement' as const, questionCode: control.linkedQuestionCode, label: control.controlObjective, value: control, evidenceRefs: control.evidenceRefs })),
+    ...model.evidenceChecklist.map((item) => ({ id: item.evidenceRef, kind: 'evidence_checklist' as const, label: item.artefact, value: item, evidenceRefs: [...item.linkedFindingIds.map((id) => `finding:${id}`), ...item.linkedRiskIds.map((id) => `risk:${id}`), ...item.linkedQuestionCodes.map((code) => `question:${code}`)].sort() })),
+    ...model.visibilityGaps.map((gap) => ({ id: `visibility-gap:${gap.id}`, kind: 'visibility_gap' as const, questionCode: gap.questionCode, domainCode: gap.domainCode, label: gap.prompt, value: gap, evidenceRefs: [`question:${gap.questionCode}`, `domain:${gap.domainCode}`, gap.evidenceRef] })),
+    ...model.leadershipDecisions.map((decision) => ({ id: `decision:${decision.id}`, kind: 'leadership_decision' as const, label: decision.decisionRequired, value: decision, evidenceRefs: decision.evidenceRefs })),
+    ...model.roadmapActions.map((action) => ({ id: `roadmap:${action.id}`, kind: 'roadmap_action' as const, domainCode: action.domainCode, label: action.deliverable, value: action, evidenceRefs: action.evidenceRefs })),
+    { id: 'limitation:self_assessment', kind: 'assessment_limitation' as const, label: 'Assessment limitation', value: 'Self-assessment only, not independently verified.', evidenceRefs: [] }
+  ];
 }
 
 function roadmapEvidence(roadmap: { agenda: RoadmapItem[] }): ReportEvidenceItem[] {
@@ -187,15 +267,18 @@ export function scanForPromptInjection(value: string): PromptInjectionScan {
 
 export function buildPremiumReportEvidencePack(
   data: AssembledReportData,
-  roadmap: { agenda: RoadmapItem[] },
-  schemaVersion = PREMIUM_REPORT_SCHEMA_VERSION
+  roadmapOrModel: { agenda: RoadmapItem[] } | AdvisoryEvidenceModel,
+  schemaVersion = PREMIUM_REPORT_SCHEMA_VERSION,
+  projection?: EssentialProjection
 ): PremiumReportEvidencePack {
+  const advisoryModel = 'roadmapActions' in roadmapOrModel ? roadmapOrModel : undefined;
   const items = [
     ...coreEvidence(data),
     ...domainEvidence(data),
-    ...gapEvidence(data),
+    ...gapEvidence(data, projection),
+    ...(advisoryModel ? questionEvidence(data) : []),
     ...maturityCapEvidence(data),
-    ...roadmapEvidence(roadmap)
+    ...(advisoryModel ? advisoryEvidence(advisoryModel) : roadmapEvidence(roadmapOrModel as { agenda: RoadmapItem[] }))
   ].sort((left, right) => left.id.localeCompare(right.id));
 
   return {
@@ -204,7 +287,70 @@ export function buildPremiumReportEvidencePack(
     organisationName: sanitiseUntrustedEvidenceText(data.organisationName, 200),
     packageName: sanitiseUntrustedEvidenceText(data.packageName, 200),
     scoreRunId: data.scoreRun.id,
+    methodologyVersionId: data.scoreRun.methodologyVersionId,
+    generatedAt: data.generatedAt,
+    selfAssessmentLimitation: 'Self-assessment only, not independently verified.',
     methodologyAuthority: 'deterministic',
+    narrativeAuthority: 'ai_optional_validated',
+    advisoryModel,
     items
   };
+}
+
+/** Mechanical Checkpoint D validation of the closed evidence-reference and privacy boundary. */
+export function validatePremiumReportEvidencePack(
+  evidence: PremiumReportEvidencePack,
+  sensitiveValues: string[] = []
+): CommercialQualityIssue[] {
+  const issues: CommercialQualityIssue[] = [];
+  const ids = evidence.items.map((item) => item.id);
+  const known = new Set(ids);
+  if (known.size !== ids.length) {
+    issues.push({ code: 'QG_AI_EVIDENCE_REF_DUPLICATE', severity: 'violation', message: 'AI evidence pack contains duplicate evidence IDs.', source: 'ai-evidence' });
+  }
+  for (const item of evidence.items) {
+    for (const ref of item.evidenceRefs ?? []) {
+      if (!known.has(ref)) {
+        issues.push({ code: 'QG_AI_EVIDENCE_REF_UNRESOLVED', severity: 'violation', message: `Evidence item ${item.id} contains unresolved reference ${ref}.`, entityId: item.id, source: 'ai-evidence' });
+      }
+    }
+  }
+  const canonical = canonicalEvidenceJson(evidence);
+  const prohibitedKey = /"(?:customerEmail|respondentName|adminNotes|eft|token|secret|password|authorization)"\s*:/i;
+  const leakedValue = sensitiveValues.filter((value) => value.trim().length > 0).some((value) => canonical.includes(value));
+  if (prohibitedKey.test(canonical) || leakedValue) {
+    issues.push({ code: 'QG_AI_EVIDENCE_CONTAINS_PII', severity: 'violation', message: 'AI evidence pack contains a prohibited sensitive field or value.', source: 'ai-evidence' });
+  }
+  const model = evidence.advisoryModel;
+  if (model) {
+    const checklistItems = evidence.items.filter((item) => item.kind === 'evidence_checklist');
+    const visibilityItems = checklistItems.filter((item) => (item.value as { visibilityGap?: boolean } | null)?.visibilityGap === true);
+    for (const gap of model.visibilityGaps) {
+      const matchingChecklist = visibilityItems.filter((item) => {
+        const value = item.value as { linkedQuestionCodes?: string[]; evidenceRef?: string };
+        return value.linkedQuestionCodes?.length === 1
+          && value.linkedQuestionCodes[0] === gap.questionCode
+          && value.evidenceRef === gap.evidenceRef;
+      });
+      const matchingCondition = evidence.items.filter((item) => item.kind === 'visibility_gap' && item.id === `visibility-gap:${gap.id}`);
+      const conditionRefs = matchingCondition.length === 1 ? matchingCondition[0].evidenceRefs ?? [] : [];
+      if (
+        matchingChecklist.length !== 1
+        || matchingCondition.length !== 1
+        || !conditionRefs.includes(`question:${gap.questionCode}`)
+        || !conditionRefs.includes(`domain:${gap.domainCode}`)
+        || !conditionRefs.includes(gap.evidenceRef)
+      ) {
+        issues.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility gap ${gap.id} has incomplete checklist and condition evidence linkage.`, entityId: gap.id, source: 'ai-evidence' });
+      }
+    }
+    for (const item of visibilityItems) {
+      const value = item.value as { linkedQuestionCodes?: string[]; evidenceRef?: string };
+      const matches = model.visibilityGaps.filter((gap) => gap.questionCode === value.linkedQuestionCodes?.[0] && gap.evidenceRef === value.evidenceRef);
+      if (matches.length !== 1) {
+        issues.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility checklist item ${item.id} has no unique authoritative visibility gap.`, entityId: item.id, source: 'ai-evidence' });
+      }
+    }
+  }
+  return issues;
 }

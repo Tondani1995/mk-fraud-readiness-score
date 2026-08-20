@@ -1,43 +1,100 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
-import { gapKey } from '../select-content-blocks';
+import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturity-band';
+import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
+import { assertCommercialReportQuality } from '../commercial-quality';
+import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
+import type { TocEntry } from '../pdf-navigation';
+import { MK_CSS_VARIABLES } from '../design/tokens';
+import { SeverityBudget } from '../design/severity-budget';
+import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
 
 const BAND_COLOR: Record<string, string> = {
-  Reactive: '#b91c1c',
-  Developing: '#b45309',
-  Structured: '#1d3658',
-  Strategic: '#15803d',
-  'Not scored': '#746B5C'
+  Reactive: 'var(--mk-critical)',
+  Developing: 'var(--mk-major)',
+  Structured: 'var(--mk-navy-500)',
+  Strategic: 'var(--mk-confirmed)',
+  'Not scored': 'var(--mk-muted)'
 };
 
-const DOMAIN_GROUPS: { title: string; subtitle: string; domains: string[] }[] = [
+const DOMAIN_GROUPS = [
   {
     title: 'Foundations: ownership, awareness and reporting culture',
-    subtitle: 'Whether fraud risk has a real owner, whether people are equipped to notice it, and whether concerns can be raised safely.',
+    subtitle: 'Executive ownership, risk identification, workforce awareness and safe reporting.',
     domains: ['Fraud Leadership and Governance', 'Fraud Risk Identification', 'Fraud Culture and Awareness', 'Whistleblowing and Reporting Culture']
   },
   {
     title: 'Operational defence: controls, detection and third parties',
-    subtitle: 'Whether day-to-day processes, monitoring and supplier relationships are actually protected, not only described as protected.',
+    subtitle: 'Day-to-day prevention, detection and supplier-facing control operation.',
     domains: ['Operational Fraud Controls', 'Fraud Detection Capability', 'Third-Party and Supply Chain Fraud Risk']
   },
   {
     title: 'Response and evolution: incidents, digital risk and improvement',
-    subtitle: 'Whether the organisation would handle a real incident well, defend fast-moving digital risk, and keep improving.',
+    subtitle: 'Incident response, digital and identity defence, and continuous control improvement.',
     domains: ['Fraud Incident Response', 'Digital and Identity Fraud Risk', 'Continuous Improvement and Fraud Risk Monitoring']
   }
 ];
 
-const LEADERSHIP_FUNCTIONS: { role: string; relevantDomains: string[]; question: (weak: boolean) => string }[] = [
-  { role: 'CEO', relevantDomains: ['Fraud Leadership and Governance'], question: (weak) => weak ? 'Is fraud risk genuinely owned at executive level, with real authority to act?' : 'Does leadership see fraud readiness evidence often enough to trust it, not just assume it?' },
-  { role: 'CFO', relevantDomains: ['Operational Fraud Controls', 'Third-Party and Supply Chain Fraud Risk'], question: (weak) => weak ? 'Which payment, procurement or supplier processes rely on trust rather than a control that would catch manipulation?' : 'Where would finance be the last line of defence if an operational control failed upstream?' },
-  { role: 'COO', relevantDomains: ['Operational Fraud Controls', 'Fraud Detection Capability'], question: (weak) => weak ? 'Which day-to-day processes have no independent review or exception monitoring?' : 'Are operational controls tested under real pressure, or only under normal conditions?' },
-  { role: 'Head of Risk / Internal Audit', relevantDomains: ['Fraud Risk Identification', 'Continuous Improvement and Fraud Risk Monitoring'], question: (weak) => weak ? 'When was fraud risk last mapped across the business, and has that map kept pace with change?' : 'Is the review cycle fast enough to catch a new risk before it becomes a loss?' },
-  { role: 'Head of Technology / IT Security', relevantDomains: ['Digital and Identity Fraud Risk'], question: (weak) => weak ? 'Can the organisation reliably verify identity before granting access, approving a payment or onboarding someone new?' : 'Is digital fraud monitoring being updated as fast as digital fraud methods are changing?' },
-  { role: 'Head of HR / People', relevantDomains: ['Fraud Culture and Awareness', 'Whistleblowing and Reporting Culture'], question: (weak) => weak ? 'Would an employee know how to report a concern and trust that reporting it is safe?' : 'Is fraud awareness reinforced with real examples, or treated as a once-off induction topic?' },
-  { role: 'Legal / Compliance', relevantDomains: ['Fraud Incident Response'], question: (weak) => weak ? 'If fraud were suspected today, is there a documented evidence-handling process that would hold up to scrutiny?' : 'Has the incident response process actually been rehearsed, not just written down?' }
+/**
+ * Checkpoint F controller review blocker 4 -- executive core vs. implementation appendix.
+ * Only the highest-materiality findings/risks are rendered in full narrative-card form in the
+ * core; every finding/risk/control/evidence-item/agenda-item is still rendered, in compact-table
+ * form, in the appendix (see buildAppendixSections()) -- nothing is dropped, only the *depth* of
+ * presentation differs by priority.
+ */
+const TOP_FINDINGS_COUNT = 5;
+const TOP_RISKS_COUNT = 4;
+const TOP_CONTRADICTIONS_COUNT = 2;
+const TOP_SCENARIOS_COUNT = 3;
+
+/**
+ * Checkpoint F controller review blocker 7 -- the exact heading strings used for both the
+ * customer-facing contents page and the PDF bookmark tree, and the lookup keys
+ * extractHeadingPageMap() (pdf-navigation.ts) searches for in the rendered PDF text. Keep every
+ * key unique and stable; renderReportHtml() renders each as the literal h2 text of its section.
+ */
+export const REPORT_TOC_ENTRIES: TocEntry[] = [
+  { key: 'Executive summary', label: 'Executive summary' },
+  { key: 'What the result means', label: 'What the result means' },
+  { key: 'Domain overview', label: 'Domain overview' },
+  { key: 'Priority findings, contradictions and scenarios', label: 'Priority findings, contradictions and scenarios' },
+  { key: 'Priority risks', label: 'Priority risks' },
+  { key: 'Leadership decisions and roadmap', label: 'Leadership decisions and roadmap' },
+  { key: 'Proof requirements', label: 'Proof requirements' },
+  { key: 'Methodology, limitations and next steps', label: 'Methodology, limitations and next steps' },
+  // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference
+  // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the
+  // appendix bookmark root it no longer belongs to.
+  // key is deliberately not the bare word "Appendix" -- the core sections cross-reference the
+  // appendix by name, so a plain "Appendix" search key would match that cross-reference text on an
+  // earlier page instead of the actual appendix divider page.
+  // One canonical mapping: the printed TOC label, the rendered h2 and the audit's required-section
+  // heading are the SAME string. checkpoint-f-pdf-audit.py keys tocPrinted by the printed row text
+  // and looks it up by REQUIRED_SECTIONS heading, so a divergent label silently breaks the contract.
+  { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },
+  { key: 'Complete supporting detail', label: 'Complete supporting detail', appendix: true },
+  { key: 'E1. Supporting control actions', label: 'E1. Supporting control actions', appendix: true },
+  { key: 'E2. Definitions and score basis', label: 'E2. Definitions and score basis', appendix: true }
 ];
 
-function esc(value: unknown) {
+/** The exact marker text that begins the appendix -- used by the audit script to scope its
+ * internal-question-code check to the core report only (the appendix mapping table is the one
+ * place question codes are intentionally shown). */
+export const APPENDIX_START_MARKER = 'Appendix';
+
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
+    .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
+    .replace(/\bD\d+-Q\d+\b/g, '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */
+function escNarrative(value: unknown): string {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -46,413 +103,896 @@ function esc(value: unknown) {
     .replaceAll("'", '&#39;');
 }
 
-function score(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+function score(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
   return String(Math.round(Number(value)));
 }
 
-function pct(value: number | null | undefined) {
+function pct(value: number | null | undefined): string {
   const rendered = score(value);
-  return rendered === '-' ? '-' : `${rendered}%`;
+  return rendered === '—' ? rendered : `${rendered}%`;
 }
 
-function domainBandLabel(rawScore: number | null) {
-  if (rawScore === null) return 'Not scored';
-  if (rawScore < 40) return 'Reactive';
-  if (rawScore < 65) return 'Developing';
-  if (rawScore < 80) return 'Structured';
-  return 'Strategic';
+function bandFor(value: number | null): string {
+  if (value === null) return 'Not scored';
+  return getMaturityBand(value);
 }
 
-function roadmapCard(item: RoadmapItem) {
-  return `
-    <div class="agenda-card">
-      <div class="agenda-card-top">
-        <span class="agenda-domain">${esc(item.domainName)}</span>
-        <span class="agenda-severity">${esc(item.severity)}</span>
-      </div>
-      <div class="agenda-owner">Suggested owner: ${esc(item.ownerRole)}</div>
-      <div class="agenda-rationale">${esc(item.rationale)}</div>
-      <div class="agenda-timeline">
-        ${item.action30 ? `<div class="agenda-stage"><span class="stage-label">30 days</span><span class="stage-action">${esc(item.action30)}</span></div>` : ''}
-        ${item.action60 ? `<div class="agenda-stage"><span class="stage-label">60 days</span><span class="stage-action">${esc(item.action60)}</span></div>` : ''}
-        ${item.action90 ? `<div class="agenda-stage"><span class="stage-label">90 days</span><span class="stage-action">${esc(item.action90)}</span></div>` : ''}
-      </div>
-    </div>`;
+function customerSentence(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`;
+}
+
+function customerFindingWhyItMatters(value: string): string {
+  return value
+    .replace(
+      /This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\./gi,
+      'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.'
+    )
+    .replace(
+      /This recorded weakness affects a methodology critical control and warrants priority treatment\./gi,
+      'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'
+    );
+}
+
+function customerRiskTitle(title: string, riskEvent: string): string {
+  return /control effectiveness risk$/i.test(title.trim()) ? customerSentence(riskEvent) : title;
+}
+
+function list(items: string[]): string {
+  return items.length > 0
+    ? `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
+    : '';
+}
+
+function labelled(label: string, value: unknown): string {
+  const rendered = String(value ?? '').trim();
+  return rendered.length > 0
+    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(rendered)}</div></div>`
+    : '';
+}
+
+function labelledList(label: string, items: string[]): string {
+  return items.length > 0
+    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${list(items)}</div></div>`
+    : '';
+}
+
+function section(title: string, heading: string, body: string, className = ''): string {
+  return `<section class="report-section ${className}">
+    <div class="section-kicker">${esc(title)}</div>
+    <h2>${esc(heading)}</h2>
+    ${body}
+  </section>`;
+}
+
+/** A subsection heading inside a merged section -- does not force a new PDF page (unlike h2/section()
+ * above), which is the main lever used to remove pages 4 previously spent purely on forced breaks
+ * between short, related sections. */
+function subsection(heading: string, body: string): string {
+  return `<div class="subsection-heading"><h2>${esc(heading)}</h2></div>${body}`;
+}
+
+function table(headers: string[], rows: string[], className = 'compact-register'): string {
+  return `<table class="continuing-table ${className}"><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function lowercaseFirst(text: string): string {
+  return text.length > 0 ? text.charAt(0).toLowerCase() + text.slice(1) : text;
+}
+
+/**
+ * Final controller review round: the "Recommended next step" callout (Methodology, limitations and
+ * next steps) previously concatenated an evidence artefact title with the raw internal proof
+ * sentence -- `Commission independent validation of <artefact> -- Whether <clause> operates to the
+ * exact expected control standard...` -- which reads as a database-field join, not advisory prose.
+ *
+ * provesWhat is *always* generated by buildEvidenceChecklist() (evidence-model/registers.ts) from
+ * exactly one template: `Whether ${clause} operate(s) to the exact expected control standard across
+ * the complete in-scope population.` -- there is no other code path that produces an
+ * EvidenceChecklistItem. That means the raw proof clause can be deterministically extracted and
+ * re-embedded in natural grammar (lowercased, since it was only ever capitalised because it opened
+ * that internal sentence) instead of guessed or paraphrased -- this stays exact-meaning-preserving
+ * and fully deterministic, never an AI rewrite.
+ *
+ * The artefact side has no equivalent fixed template (evidenceToRequest strings are authored per
+ * question in question-playbooks.ts, not generated), so it gets a small set of explicit, high-
+ * quality phrasings for artefact types whose generic wording reads awkwardly (e.g. "tabletop"),
+ * falling back to a plain, always-grammatical "Commission independent validation of the <artefact,
+ * lowercased>." for every other case -- safe because every catalogued artefact string opens with an
+ * ordinary word, never an acronym or proper noun that lowercasing would corrupt.
+ */
+const PROVES_WHAT_TEMPLATE = /^Whether (.+) operates? to the exact expected control standard across the complete in-scope population\.$/;
+
+const EVIDENCE_ACTION_OVERRIDES: Array<[RegExp, string]> = [
+  [/tabletop/i, 'Commission an independently observed fraud-incident tabletop exercise.']
+];
+
+function buildEvidenceRecommendation(item: { artefact: string; provesWhat: string }): string {
+  const override = EVIDENCE_ACTION_OVERRIDES.find(([pattern]) => pattern.test(item.artefact));
+  const actionSentence = override ? override[1] : `Commission independent validation of the ${lowercaseFirst(item.artefact)}.`;
+
+  const match = PROVES_WHAT_TEMPLATE.exec(item.provesWhat);
+  const testSentence = match
+    ? `Confirm across the complete in-scope population that ${lowercaseFirst(match[1])}.`
+    : item.provesWhat.trim()
+      ? `Confirm ${lowercaseFirst(item.provesWhat.replace(/[.]$/, ''))}.`
+      : 'Confirm that this control operates as designed across the complete in-scope population.';
+
+  return `${actionSentence} ${testSentence}`;
 }
 
 export function renderReportHtml(
   data: AssembledReportData,
   content: SelectedContent,
-  roadmap: { agenda: RoadmapItem[] }
-) {
+  roadmap: { agenda: RoadmapItem[] },
+  preparedEvidenceModel?: AdvisoryEvidenceModel,
+  tocPageMap?: Record<string, number>,
+  preparedProjection?: EssentialProjection,
+  /**
+   * Validated v1.1 manuscript. Rendered in the blueprint's own chapter/section/subsection
+   * order, immediately after the deterministic exhibits it explains. It is presentation
+   * only: every number, finding, risk, control and roadmap action on the page still comes
+   * from the deterministic pipeline, and nothing here reads a value back out of prose.
+   */
+  narrative?: ParsedBlueprintMarkdown
+): string {
   const sr = data.scoreRun;
-  const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#1d3658';
-  const generatedDate = new Date(data.generatedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const evidenceModel = preparedEvidenceModel ?? buildAdvisoryEvidenceModel(data);
+  // ONE bounded projection instance for this render. The narrative brief, deterministic fallback,
+  // commercial-quality validator and every bounded list below consume exactly this object -- no
+  // module recomputes its own "top findings" or effective gap set.
+  const projection = preparedProjection ?? buildEssentialProjection(data, evidenceModel);
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel, projection });
+  if (quality.warnings.length > 0) {
+    console.warn('COMMERCIAL_QUALITY_WARNING', {
+      assessmentReference: data.assessmentReference,
+      warningCodes: quality.warnings.map((issue) => issue.code),
+      warningCount: quality.warnings.length
+    });
+  }
+
+  const generatedDate = new Date(data.generatedAt).toLocaleDateString('en-ZA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+  const supportingRegisterFileName = `${data.reportReference}-supporting-register.xlsx`;
+  const supportingRegisterReference = `Essential Supporting Register (${supportingRegisterFileName})`;
+  const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? 'var(--mk-navy-500)';
+  const severityBudget = new SeverityBudget();
+  const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
+  const adaptiveScope = data.adaptiveScope;
+  const adaptiveExposureAssessed = !adaptiveScope || adaptiveScope.exposureAssessed !== false;
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
-
-  const domainHeatmap = data.domainResults.map((domain) => {
-    const band = domainBandLabel(domain.rawScore);
-    const color = BAND_COLOR[band] ?? '#1d3658';
-    return `<div class="heatmap-cell" style="background:${color}">
-      <span class="heatmap-name">${esc(domain.domainName)}</span>
-      <span class="heatmap-score">${score(domain.rawScore)}</span>
-    </div>`;
-  }).join('');
-
+  const domainNameByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain.domainName]));
+  const customerDomainText = (value: string): string => value.replace(/\bD\d+\b/g, (code) => domainNameByCode.get(code) ?? code);
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
-  const exposurePlotSizeMm = 72;
-  const exposurePlotInsetMm = 6;
-  const exposurePointSizeMm = 5;
-  const exposurePlotUsableMm = exposurePlotSizeMm - exposurePlotInsetMm * 2;
-  const plotX = exposurePlotInsetMm + (exposurePct / 100) * exposurePlotUsableMm;
-  const plotY = exposurePlotInsetMm + (1 - readinessPct / 100) * exposurePlotUsableMm;
-  const quadrantLabel = exposurePct >= 50 && readinessPct < 50
-    ? 'High exposure, limited readiness: the highest-priority combination'
-    : exposurePct >= 50 && readinessPct >= 50
-      ? 'High exposure, matched by real readiness: a defensible position'
-      : exposurePct < 50 && readinessPct < 50
-        ? 'Lower inherent exposure, but readiness has not yet been tested at scale'
-        : 'Lower exposure and genuine readiness: the strongest combination available';
+  const plotX = 5 + exposurePct * 0.62;
+  const plotY = 5 + (100 - readinessPct) * 0.62;
+  // The exposure headline must always be derived from the authoritative sr.exposureBand (never
+  // re-derived from raw exposurePct/readinessPct thresholds), so it can never diverge from the
+  // exposure band shown elsewhere in the report. See Checkpoint F controller review blocker 2.
+  const readinessDescriptor = readinessPct >= 50 ? 'stronger reported readiness' : 'developing reported readiness';
+  const exposurePosition = `${sr.exposureBand ?? 'Not assessed'} exposure with ${readinessDescriptor}`;
+  const adaptiveScopeBlock = adaptiveScope ? subsection('Assessment scope and limitations', `
+    <div class="metric-grid">
+      <div><span>Applicable controls</span><strong>${adaptiveScope.applicableCount}</strong></div>
+      <div><span>Control visibility</span><strong>${pct(adaptiveScope.controlVisibilityPct)}</strong></div>
+      <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
+      <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
+    </div>
+    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} completed using the assessment's oversight question set rather than the standard question set. ${adaptiveScope.redirectedCount === 1 ? 'It remains' : 'They remain'} in the scored scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
+    ${adaptiveScope.resultStatus !== 'PROVISIONAL' ? `<p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` : ''}` ) : '';
 
-  const exposureFactorRows = data.exposureAnswers.map((answer) => {
-    const level = answer.maxPoints > 0 ? answer.pointsAwarded / answer.maxPoints : 0;
-    const barColor = level > 0.66 ? '#b91c1c' : level > 0.33 ? '#b45309' : '#15803d';
-    return `<div class="exposure-row">
-      <div class="exposure-row-label">${esc(answer.name)}</div>
-      <div class="exposure-row-bottom">
-        <div class="exposure-row-track"><div class="exposure-row-fill" style="width:${Math.round(level * 100)}%; background:${barColor};"></div></div>
-        <div class="exposure-row-level">${esc(answer.selectedLabel)}</div>
-      </div>
+  const heatmap = data.domainResults.map((domain) => {
+    const band = bandFor(domain.rawScore);
+    return `<div class="heat-cell" style="border-top-color:${BAND_COLOR[band] ?? 'var(--mk-navy-500)'}">
+      <div class="heat-name">${esc(domain.domainName)}</div>
+      <div class="heat-score">${score(domain.rawScore)}</div>
+      <div class="heat-band">${esc(band)}</div>
     </div>`;
   }).join('');
 
-  const topRisksHtml = [...data.domainResults]
-    .filter((domain) => domain.rawScore !== null)
-    .sort((a, b) => b.weightPct * (100 - (b.rawScore ?? 100)) - a.weightPct * (100 - (a.rawScore ?? 100)))
-    .slice(0, 3)
-    .map((domain, index) => {
-      const narrative = content.domainNarratives[domain.domainName];
-      return `<div class="risk-card">
-        <div class="risk-rank">Risk ${index + 1}</div>
-        <div class="risk-domain">${esc(domain.domainName)}</div>
-        <div class="risk-body">${esc(narrative?.body ?? 'This domain should be reviewed with leadership as part of the report walkthrough.')}</div>
-      </div>`;
-    }).join('');
-
-  const priorityGaps = data.criticalMajorGaps.slice(0, 8).map((gap) => `<li>
-    <div class="priority-domain">${esc(gap.domainName)} <span class="gap-severity">${gap.isCriticalGap ? 'Critical' : 'Major'}</span></div>
-    <div class="priority-prompt">${esc(gap.prompt)}</div>
-  </li>`).join('');
-
-  const criticalControlsList = data.maturityCapEvents.map((event) => {
-    const gap = data.criticalMajorGaps.find((item) => item.domainCode === event.relatedDomainCode);
-    const domainName = gap?.domainName ?? data.domainResults.find((domain) => domain.domainCode === event.relatedDomainCode)?.domainName ?? 'A core control area';
-    const description = gap?.prompt ?? 'A control did not meet the required standard.';
-    return `<li>
-      <div class="critical-control-domain">${esc(domainName)}</div>
-      <div class="critical-control-desc">${esc(description)}</div>
-      <div class="critical-control-effect">This limits the overall reading to <strong>${esc(event.capTo)}</strong>, regardless of performance elsewhere.</div>
-    </li>`;
+  const exposureRows = data.exposureAnswers.map((answer) => {
+    const level = answer.maxPoints > 0 ? answer.pointsAwarded / answer.maxPoints : 0;
+    const color = level > 0.66 ? 'var(--mk-critical)' : level > 0.33 ? 'var(--mk-major)' : 'var(--mk-confirmed)';
+    return `<div class="bar-row">
+      <div><strong>${esc(answer.name)}</strong><span>${esc(answer.selectedLabel)}</span></div>
+      <div class="bar-track"><i style="width:${Math.round(level * 100)}%;background:${color}"></i></div>
+    </div>`;
   }).join('');
 
-  const domainGroupPages = DOMAIN_GROUPS.map((group) => {
+  const exposureSection = adaptiveExposureAssessed ? subsection(exposurePosition, `
+      <div class="exposure-layout">
+        <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
+        <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
+      </div>`) : '';
+
+  const priorityGaps = data.criticalMajorGaps.map((gap) => {
+    const severityLabel = gap.isCriticalGap ? 'Critical control gap' : 'Major control gap';
+    return `<div class="compact-card alert-card">
+      <div class="card-eyebrow">${severityLabel} · ${esc(gap.domainName)}</div>
+      <h3>${esc(gap.prompt)}</h3>
+      <p>This recorded condition is considered in the diagnosis, priority findings, risks and roadmap that follow where it is material to the executive priority set.</p>
+    </div>`;
+  }).join('');
+
+  const capCards = data.maturityCapEvents.map((event) => {
+    const governanceCrossReference = event.relatedDomainName === 'Fraud Leadership and Governance'
+      ? '<p><strong>Management response:</strong> see the leadership roadmap section for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
+      : '';
+    return `<div class="compact-card amber-card">
+      <div class="card-eyebrow">Maturity ceiling · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>
+      <h3>${esc(event.relatedQuestionPrompt ?? customerDomainText(event.reason))}</h3>
+      <p>This rule sets a maximum maturity of <strong>${esc(event.capTo)}</strong>. More than one ceiling may apply at the same time; the strictest applicable ceiling governs the final maturity. The recorded condition remains subject to the operating proof specified in this report.</p>
+      ${governanceCrossReference}
+    </div>`;
+  }).join('');
+
+  const systemic = projection.systemic;
+  // M3: at systemic weakness the report leads with the condition, not with an enumeration of
+  // individual controls -- listing more controls when none exist reduces decision value.
+  const systemicDiagnosisBlock = systemic.systemic
+    ? `<div class="attention-box"><strong>Systemic condition</strong><p>This assessment records an absence of foundational fraud controls across ${systemic.domainsFailing} of ${systemic.domainsScored} assessed domains, covering ${Math.round(systemic.failedShare * 100)}% of the applicable controls. Individual control findings are therefore of limited value on their own: the organisation does not yet have a fraud control baseline to improve. This report prioritises establishing that baseline.</p></div>`
+    : '';
+  // Domain-level aggregation replaces ten per-domain essays when the condition is systemic.
+  const systemicDomainAggregation = systemic.systemic
+    ? table(
+      ['Domain', 'Weight', 'Score', 'Controls in scope', 'Recorded absent'],
+      data.domainResults.map((domain) => {
+        const inScope = data.questionTraces.filter((trace) => trace.domainCode === domain.domainCode && trace.applicable);
+        const absent = inScope.filter((trace) => (trace.responseValue ?? 5) <= 2).length;
+        return `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.weightPct)}</td><td>${score(domain.rawScore)}/100</td><td>${inScope.length}</td><td>${absent}</td></tr>`;
+      })
+    )
+    : '';
+  // Foundational programme: the selected findings sequenced as a baseline-establishment plan.
+  const foundationalProgramme = systemic.systemic
+    ? `<p class="lede">Establishing a control baseline, in dependency order. Each step names the exact control recorded as absent.</p>${table(
+      ['Step', 'Domain', 'Control to establish', 'Accountable owner', 'Target'],
+      projection.findings.map((finding, index) => `<tr><td>${index + 1}</td><td>${esc(finding.domainName)}</td><td>${esc(finding.questionPrompt)}</td><td>${esc(finding.accountableOwner)}</td><td>${esc(finding.targetPeriod)}</td></tr>`)
+    )}`
+    : '';
+
+  const domainGroupBlocks = DOMAIN_GROUPS.map((group) => {
     const cards = group.domains.map((domainName) => {
       const domain = domainByName.get(domainName);
       if (!domain) return '';
-      const narrative = content.domainNarratives[domainName];
-      const band = domainBandLabel(domain.rawScore);
-      const color = BAND_COLOR[band] ?? '#1d3658';
-      const gapHtml = data.criticalMajorGaps.filter((gap) => gap.domainName === domainName).map((gap) => {
-        const commentary = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)];
-        return `<div class="mini-gap-note">${gap.isCriticalGap ? 'Critical' : 'Major'}: ${esc(commentary?.body ?? gap.prompt)}</div>`;
-      }).join('');
-      return `<div class="domain-card">
-        <div class="domain-card-top">
-          <span class="domain-card-name">${esc(domainName)}</span>
-          <span class="domain-card-score" style="color:${color};">${score(domain.rawScore)}/100</span>
-        </div>
-        <div class="position-track"><div class="position-fill" style="width:${domain.rawScore ?? 0}%; background:${color};"></div></div>
-        <div class="domain-card-headline">${esc(narrative?.title ?? domainName)}</div>
-        <p class="domain-card-body">${esc(narrative?.body ?? '')}</p>
-        ${gapHtml}
+      const band = bandFor(domain.rawScore);
+      const gaps = data.criticalMajorGaps.filter((gap) => gap.domainName === domainName);
+      return `<div class="compact-card domain-card">
+        <div class="domain-top"><h3>${esc(domainName)}</h3><span style="color:${BAND_COLOR[band]}">${score(domain.rawScore)}/100</span></div>
+        <div class="mini-track"><i style="width:${domain.rawScore ?? 0}%;background:${BAND_COLOR[band]}"></i></div>
+        <p><strong>${esc(band)}</strong> reported position.</p>
+        ${gaps.map((gap, index) => { const allocation = severityBudget.request({ page: 20 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: `${domainName}-${index}` }); return `<div class="inline-alert">${allocation.allocated === 'critical' ? 'Critical' : allocation.allocated === 'major' ? 'Priority' : 'Recorded'} condition: ${esc(gap.prompt)}</div>`; }).join('')}
       </div>`;
     }).join('');
-    return `<section class="page">
-      <div class="section-divider">Domain Advisory</div>
-      <h2>${esc(group.title)}</h2>
-      <p class="group-subtitle">${esc(group.subtitle)}</p>
-      <div class="domain-card-grid">${cards}</div>
-    </section>`;
-  }).join('\n');
+    return `<p class="lede">${esc(group.subtitle)}</p><div class="stack">${cards}</div>`;
+  });
 
-  const actionRegisterRows = roadmap.agenda.map((item) => `<tr>
-    <td>${esc(item.domainName)}</td>
-    <td>${esc(item.severity)}</td>
-    <td>${esc(item.action30 ?? '-')}</td>
-    <td>${esc(item.ownerRole)}</td>
-  </tr>`).join('');
+  // Appendix ordering still needs the full L1 register; the *main report* uses the projection.
+  const sortedFindings = [...evidenceModel.materialFindings].sort((a, b) => b.materialityScore - a.materialityScore);
+  const sortedRisks = [...evidenceModel.riskRegister].sort((a, b) => {
+    const rank: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+    return rank[b.priority] - rank[a.priority];
+  });
+  const topFindings = projection.findings;
+  const topRisks = projection.risks;
+  const topContradictions = projection.contradictions;
+  const topScenarios = projection.scenarios;
 
-  const agendaCards = roadmap.agenda.map((item) => roadmapCard(item)).join('');
+  // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
+  // report appended after methodology. Bind each chapter to the section it was written to explain.
+  const narrativeChapterBody = (
+    chapterId: string,
+    sectionFilter: (title: string) => boolean = () => true
+  ): string => {
+    const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
+    if (!chapter) return '';
+    return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
+      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('');
+      const childBlocks = chapterSection.subsections.map((item) => `
+        <div class="manuscript-subsection">
+          <div class="field-label">${esc(item.title)}</div>
+          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('')}
+        </div>`).join('');
+      return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
+    }).join('');
+  };
+  const executiveNarrative = narrativeChapterBody('EXECUTIVE-ASSESSMENT');
+  const diagnosisNarrative = narrativeChapterBody('WHAT-HOLDS-READINESS-BACK');
+  const exposureNarrative = narrativeChapterBody('PRIORITY-FRAUD-EXPOSURES');
+  const scenarioNarrative = narrativeChapterBody('EXPOSURE-COULD-MATERIALISE');
+  const targetControlNarrative = narrativeChapterBody('TARGET-CONTROL-ENVIRONMENT');
+  const thirtyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b30 days\b/i.test(title));
+  const sixtyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b60 days\b/i.test(title));
+  const ninetyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b90 days\b/i.test(title));
+  const roadmapConclusionNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /conclusion/i.test(title));
+  const roadmapOtherNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => !/\b(?:30|60|90) days\b|conclusion/i.test(title));
+  const executiveNarrativeBlock = executiveNarrative
+    || `<p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div>`;
 
-  const weakDomainNames = new Set(data.domainResults.filter((domain) => (domain.rawScore ?? 100) < 70).map((domain) => domain.domainName));
-  const leadershipAgendaRows = LEADERSHIP_FUNCTIONS.map((fn) => {
-    const isWeak = fn.relevantDomains.some((domain) => weakDomainNames.has(domain));
-    return `<div class="leadership-row">
-      <div class="leadership-role">${esc(fn.role)}</div>
-      <div class="leadership-question">${esc(fn.question(isWeak))}</div>
+  const customerMaterialityLabel = (materialityClass: string): string => {
+    const labels: Record<string, string> = {
+      maturity_constraint: 'Maturity constraint',
+      control_failure: 'Priority control weakness',
+      cross_domain_dependency: 'Cross-domain dependency',
+      assurance_priority: 'Assurance priority'
+    };
+    return labels[materialityClass] ?? materialityClass.replaceAll('_', ' ');
+  };
+
+  const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">
+    <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(customerMaterialityLabel(finding.materialityClass))}</span></div>
+    <div class="record-grid two">
+      ${labelled('Domain', finding.domainName)}
+      ${labelled('Assessed control state', `${finding.questionPrompt} — ${finding.responseLabel}`)}
+      ${labelled('Diagnosis', finding.diagnosis)}
+      ${labelled('Why it matters', customerFindingWhyItMatters(finding.whyItMatters))}
+      ${labelled('Recommended control', finding.recommendedControl)}
+      ${labelled('Control owner', finding.processOwner || finding.accountableOwner)}
+      ${labelled('Accountable executive', finding.accountableOwner)}
+      ${labelled('Implementation', `${finding.implementationDifficulty} difficulty · ${finding.targetPeriod}`)}
+      ${labelled('Remaining limitation', finding.selfAssessmentLimitation)}
+    </div>
+  </article>`;
+
+  const contradictionCard = (item: AdvisoryEvidenceModel['contradictions'][number], index: number) => `<article class="compact-card amber-card">
+    <div class="card-eyebrow">Contradiction ${index + 1}</div>
+    <h3>${esc(item.title)}</h3>
+    ${labelled('What the assessment shows', item.drivingResponses)}
+    ${labelled('Why it matters', item.whyItMatters)}
+    ${labelled('Leadership verification', item.whatLeadershipShouldVerify)}
+  </article>`;
+
+/**
+ * One consequence sentence per distinct claim.
+ *
+ * The three impact sources overlap, and where a domain has no specific impact the shared
+ * placeholder is returned for both financial and operational -- so a scenario could print
+ * "Impact requires case-specific validation" twice in the same sentence. Placeholders are
+ * dropped and identical clauses collapsed before the customer sees them.
+ */
+function consequenceClauses(values: Array<string | null | undefined>): string {
+  const seen = new Set<string>();
+  const clauses: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? '').trim().replace(/\s+/g, ' ');
+    if (!text) continue;
+    if (/requires case-specific validation/i.test(text)) continue;
+    const key = text.toLowerCase().replace(/[.;]+$/, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clauses.push(text.replace(/[.;]+$/, ''));
+  }
+  return clauses.join('; ');
+}
+
+  const scenarioCard = (item: AdvisoryEvidenceModel['scenarios'][number], index: number) => `<article class="long-record scenario-record">
+    <div class="record-heading"><div><span class="record-number">Scenario ${index + 1} · ${esc(item.scenarioBasis.replaceAll('_', ' '))}</span><h3>${esc(item.title)}</h3></div></div>
+    <p class="disclaimer">${esc(item.disclaimer)}</p>
+    <div class="record-grid two scenario-components">
+      ${labelled('Actor / opportunity', item.confirmedOperatingContext.join('; '))}
+      ${labelled('Entry point', item.entryPoint)}
+      ${labelled('Mechanism', item.fraudSequence)}
+      ${labelled('Control bypassed', item.controlsExpected.join('; '))}
+      ${labelled('Concealment', item.concealmentMechanism)}
+      ${labelled('Consequence', consequenceClauses([...item.likelyImpact, item.financialImpact, item.operationalImpact]))}
+      ${labelledList('Warning indicators', item.earlyWarningIndicators)}
+      ${labelled('Containment', item.immediateContainment)}
+      ${labelled('Long-term response', item.longerTermResponse)}
+    </div>
+  </article>`;
+
+  const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => {
+    const affectedDomainLabels = risk.affectedDomains.map((code) => domainNameByCode.get(code) ?? code).join(', ');
+    return `<article class="long-record risk-record">
+    <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(customerRiskTitle(risk.title, risk.riskEvent))}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
+    <div class="risk-statement">${esc(risk.riskStatement)}</div>
+    <div class="record-grid two">
+      ${labelled('Likelihood', `${risk.likelihood} — ${risk.likelihoodRationale}`)}
+      ${labelled('Impact', `${risk.impact} — ${risk.impactRationale}`)}
+      ${labelled('Current control position', risk.currentControlPosition)}
+      ${labelled('Required treatment', risk.requiredTreatment)}
+      ${labelled('Accountable executive', risk.accountableExecutive)}
+      ${labelled('Target period', risk.targetPeriod)}
+    </div>
+  </article>`;
+  };
+
+  const priorityFindingsBlock = topFindings.map(findingCard).join('');
+  const priorityContradictionsBlock = topContradictions.length > 0
+    ? subsection('Contradictions', topContradictions.map(contradictionCard).join(''))
+    : subsection('Contradictions', '<div class="clean-note"><strong>No material contradiction was detected.</strong><p>Independent evidence remains necessary to validate the reported control position.</p></div>');
+  const priorityScenariosBlock = subsection('Scenarios and assurance tests', scenarioNarrative || topScenarios.map(scenarioCard).join(''));
+  const priorityRisksBlock = topRisks.map(riskCard).join('');
+
+  const decisionRows = evidenceModel.leadershipDecisions.map((decision, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(decision.decisionRequired)}</td>
+    <td>${esc(decision.recommendedDecision)}</td>
+    <td>${esc(decision.accountableExecutive)}</td>
+    <td>${esc(decision.targetPeriod)}</td>
+    <td>${esc(decision.consequenceOfDelay)}</td>
+  </tr>`);
+  const decisionsBlock = subsection('Leadership decisions required', `
+    <p class="section-note">Every decision below carries a defined accountable executive role and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the companion ${esc(supportingRegisterReference)}.</p>
+    ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
+
+  // Bounded L2, exactly as the evidence-priority block below already does. This read
+  // evidenceModel.roadmapActions -- the COMPLETE L1 action set -- so V7 printed all 60 recommended
+  // actions against the accepted 12-target/15-ceiling the projection's dependency-closed roadmap
+  // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
+  // the accepted ordering; never render the full L1 roadmap here.
+  const roadmapDeliverableForDisplay = (action: { deliverable: string; domainName: string }): string => {
+    const match = action.deliverable.match(/^Apply immediate escalation at "([^"]+)" and deliver the exact control design:\s*/i);
+    if (!match) return action.deliverable;
+    const trigger = match[1].trim().replace(/[.;]+$/, '');
+    return `Implement the target control design for ${action.domainName}. Escalation trigger: ${trigger}.`;
+  };
+  const roadmapRowsForPeriod = (period: '30 days' | '60 days' | '90 days') => projection.roadmapActions
+    .filter((action) => action.period === period)
+    .map((action) => `<tr>
+      <td>${esc(action.domainName)}</td>
+      <td>${esc(roadmapDeliverableForDisplay(action))}</td>
+      <td>${esc(action.accountableExecutive)}</td>
+      <td>${esc(action.successMeasure)}</td>
+    </tr>`);
+  const roadmapThirtyRows = roadmapRowsForPeriod('30 days');
+  const roadmapSixtyRows = roadmapRowsForPeriod('60 days');
+  const roadmapNinetyRows = roadmapRowsForPeriod('90 days');
+  const firstThirtyDayRows = evidenceModel.leadershipDecisions
+    .filter((decision) => decision.targetPeriod === '30 days')
+    .map((decision) => `<tr>
+      <td>${esc(decision.decisionRequired)}</td>
+      <td>${esc(decision.recommendedDecision)}</td>
+      <td>${esc(decision.accountableExecutive)}</td>
+      <td>Decision recorded, accountable owner confirmed and escalation route documented.</td>
+    </tr>`);
+  const roadmapActionTable = (rows: string[]) => table(
+    ['Domain', 'Deliverable', 'Accountable executive', 'Success measure'],
+    rows,
+    'compact-register roadmap-table'
+  );
+  const roadmapBlock = subsection('30/60/90-day roadmap', `
+    <p class="section-note">The first 30 days establish decisions and ownership; the 60- and 90-day windows implement and evidence the linked controls.</p>
+    ${thirtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${thirtyDayNarrative}</div>` : ''}
+    ${firstThirtyDayRows.length ? `<h3 class="roadmap-table-heading">First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
+    ${roadmapThirtyRows.length ? `<h3 class="roadmap-table-heading">First 30 days — implementation foundations</h3>${roadmapActionTable(roadmapThirtyRows)}` : ''}
+    ${roadmapOtherNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${roadmapOtherNarrative}</div>` : ''}
+    ${sixtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${sixtyDayNarrative}</div>` : ''}
+    ${roadmapSixtyRows.length ? `<h3 class="roadmap-table-heading">60-day implementation actions</h3>${roadmapActionTable(roadmapSixtyRows)}` : ''}
+    ${ninetyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${ninetyDayNarrative}</div>` : ''}
+    ${roadmapNinetyRows.length ? `<h3 class="roadmap-table-heading">90-day implementation actions</h3>${roadmapActionTable(roadmapNinetyRows)}` : ''}
+    ${roadmapConclusionNarrative ? `<div class="manuscript-panel roadmap-stage-panel roadmap-conclusion-panel">${roadmapConclusionNarrative}</div>` : ''}`);
+
+  const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
+  for (const item of evidenceModel.evidenceChecklist) {
+    const key = item.linkedFindingIds[0] ?? 'unlinked';
+    evidenceGroupedByFinding.set(key, [...(evidenceGroupedByFinding.get(key) ?? []), item]);
+  }
+  // Bounded L2: the projection already applied the accepted 15-item cap and the accepted ordering
+  // (selected-finding priority first, then artefact rank). Never regroup the full L1 checklist here.
+  const priorityEvidenceRows = projection.evidenceToObtain.map((item, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(item.artefact)}</td>
+    <td>${esc(item.provesWhat)}</td>
+    <td>${esc(item.likelyOwner)}</td>
+    <td>${esc(item.reviewStatus)}</td>
+  </tr>`);
+  const evidencePriorityBlock = `
+    <!-- Cross-references must never quote a tracked REPORT_TOC_ENTRIES heading verbatim: the
+         contents-page scan locates each entry by its heading text, so a prose copy of that text on
+         an earlier page is found first and the printed page number and bookmark then point at the
+         mention rather than the section. -->
+    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the companion ${esc(supportingRegisterReference)}.</p>
+    <div class="evidence-priority-table">
+    ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
+    <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require a separately scoped review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
     </div>`;
+
+  const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity ceilings and advisory model use only the recorded assessment inputs and the MK Fraud Readiness methodology.</p>
+    <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain the specified operating proof before treating a control as effective or a finding as resolved.</p>
+    <p><strong>Control design standard.</strong> Priority controls are specified by responsibility, population or scope, operating frequency, retained evidence, independent challenge, escalation trigger, service level, effectiveness measure and response to failure.</p>
+    <p><strong>Companion register.</strong> The complete Essential delivery includes the ${esc(supportingRegisterReference)}. It carries the complete finding, risk, control-action, evidence, roadmap and question-trace registers that are intentionally bounded in this PDF.</p>
+    <p class="section-note">Assessment basis: submitted self-assessment responses and the MK Fraud Readiness methodology.</p>
+    `;
+
+  // Customer-facing replacement for the removed internal controller/release-status callout: a
+  // concrete, per-report "Recommended next step" derived from the single highest-priority evidence
+  // item (the same one leading the Evidence validation priorities section/table above), not a
+  // generic restatement of the "Next step" paragraph immediately above. Falls back to the checklist's
+  // first item if no evidence is linked to the top finding specifically -- the evidence checklist is
+  // never empty for a generated report (every finding, including assurance-priority ones, carries at
+  // least one validation item), so this always has real, varying-per-report content to show.
+  const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
+  const recommendedNextStep = topEvidenceItem
+    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the companion ${esc(supportingRegisterReference)}.</p>`
+    : '';
+
+  const priorityAndFalseComfort = data.maturityCapEvents.length > 0
+    ? [
+        subsection('The recorded conditions requiring first attention', priorityGaps),
+        subsection(content.falseComfort.title, `<div class="cap-card-list">${capCards}</div><div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`)
+      ].join('\n')
+    : subsection(
+        data.criticalMajorGaps.length > 0 ? 'The recorded conditions requiring first attention' : 'No critical or major gap was recorded',
+        `${priorityGaps || '<div class="clean-note"><strong>No critical or major gaps were recorded.</strong><p>The strong self-reported result remains subject to evidence-based assurance.</p></div>'}
+        <div class="subsection-heading"><h2>${esc(content.falseComfort.title)}</h2></div>
+        <div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`
+      );
+
+  // ---- Appendix (blocker 4): the complete, authoritative registers in compact table form. ----
+  const findingsAppendixRows = sortedFindings.map((finding, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(finding.domainName)}</td>
+    <td>${esc(finding.questionPrompt)} — ${esc(finding.responseLabel)}</td>
+    <td>${esc(finding.diagnosis)}</td>
+    <td>${esc(finding.recommendedControl)}</td>
+    <td>${esc(finding.accountableOwner)}<br/>${esc(finding.targetPeriod)}</td>
+  </tr>`);
+  const risksAppendixRows = sortedRisks.map((risk, index) => `<tr>
+    <td>${index + 1}</td>
+    <td><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></td>
+    <td>${esc(risk.title)}</td>
+    <td>${esc(risk.cause)}</td>
+    <td>${esc(risk.riskEvent)}</td>
+    <td>${esc(risk.requiredTreatment)}</td>
+  </tr>`);
+  const controlsAppendixRows = evidenceModel.controlImprovements.map((control, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(control.controlObjective)}</td>
+    <td>${esc(control.currentState)}</td>
+    <td>${esc(control.controlDesign)}</td>
+    <td>${esc(control.accountableExecutive)}<br/>${esc(control.targetPeriod)}</td>
+  </tr>`);
+  const evidenceAppendixRows = evidenceModel.evidenceChecklist.map((item, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(item.artefact)}</td>
+    <td>${esc(item.provesWhat)}</td>
+    <td>${esc(item.likelyOwner)}</td>
+    <td>${esc(item.reviewStatus)}</td>
+  </tr>`);
+  const agendaAppendixRows = evidenceModel.functionalAgenda.map((item, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(item.function)}</td>
+    <td>${esc(item.question)}</td>
+  </tr>`);
+  // This is the one place a methodology question code is intentionally shown -- see
+  // APPENDIX_START_MARKER above and the audit script's core-only PDF_INTERNAL_METHOD_CODE_OVERUSE scope.
+  const methodologyMappingRows = sortedFindings.map((finding, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(finding.domainName)}</td>
+    <td>${esc(finding.questionPrompt)}</td>
+    <td>${esc(finding.questionCode)}</td>
+  </tr>`);
+  const maturityScaleRows = MATURITY_BAND_THRESHOLDS.map((band) => {
+    const upper = Number.isFinite(band.max) ? band.max : 100;
+    const range = band.label === 'Strategic' ? `${band.min}–100` : `${band.min}–<${upper}`;
+    return `<tr><td>${esc(band.label)}</td><td>${esc(range)}</td><td>${esc(
+      band.label === 'Reactive' ? 'Foundational controls are limited or mainly reactive.'
+        : band.label === 'Developing' ? 'Core control elements exist but are incomplete, inconsistent or not yet connected.'
+          : band.label === 'Structured' ? 'Controls are more consistently defined, owned and operated.'
+            : 'Fraud-risk management is embedded, monitored and continually improved.'
+    )}</td></tr>`;
+  }).join('');
+  const numericBand = sr.overallScore === null ? null : getMaturityBand(sr.overallScore);
+  const numericBandIndex = numericBand ? MATURITY_BAND_THRESHOLDS.findIndex((band) => band.label === numericBand) : -1;
+  const nextNumericBand = numericBandIndex >= 0 ? MATURITY_BAND_THRESHOLDS[numericBandIndex + 1] : undefined;
+  const scoreInterpretation = sr.overallScore === null
+    ? 'No overall readiness score was issued because the assessment did not meet the scoring conditions.'
+    : `The weighted overall score is ${Number(sr.overallScore).toFixed(2)}/100, which maps numerically to ${numericBand}. The final maturity shown in this report is ${sr.finalMaturity}. ${nextNumericBand ? `The next numerical band begins at ${nextNumericBand.min}/100; a higher numerical score alone does not override a stricter applicable maturity ceiling.` : 'This is the highest numerical maturity band.'}`;
+  const definitionsBlock = `
+    <h3>How the score is calculated</h3>
+    <p>Each applicable assessment response is normalised to a 0–100 control score and weighted within its domain. Domain scores are then combined using the methodology's domain weights to produce the overall readiness score. A control recorded as not applicable is excluded from its scoring denominator rather than treated as a weakness.</p>
+    <p>${esc(scoreInterpretation)}</p>
+    <h3>Maturity scale</h3>
+    <table class="continuing-table compact-register maturity-scale-table"><thead><tr><th>Maturity</th><th>Score range</th><th>Interpretation</th></tr></thead><tbody>${maturityScaleRows}</tbody></table>
+    <h3>Maturity ceilings</h3>
+    <p>Maturity ceilings protect against a strong average masking a material weakness. A hard-gate critical control scored 0 or 1 sets a maximum of Developing; a hard-gate control scored 2 sets a maximum of Structured; three or more critical controls scored 0, 1 or 2 set a maximum of Developing; any core domain below 40 sets a maximum of Developing; and any core domain below 60 sets a maximum of Structured. Where several ceilings apply, the strictest ceiling governs the final maturity.</p>
+    <h3>Reported domain scores</h3>
+    <table class="continuing-table compact-register score-basis-table"><thead><tr><th>Domain</th><th>Reported score</th><th>Maturity</th></tr></thead><tbody>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${score(domain.rawScore)}/100</td><td>${esc(bandFor(domain.rawScore))}</td></tr>`).join('')}</tbody></table>
+    <p class="section-note">Risk priority uses the deterministic qualitative likelihood/impact matrix. Risks in the same priority class are not further ranked by their display sequence. Priority and materiality are derived from assessment evidence; neither is an independent risk assessment.</p>`;
+
+  // Final controller review round: A1-A7 previously each forced their own fresh page
+  // (section() = break-before:page), so whenever one register's own table ended with a short
+  // continuation (e.g. two trailing rows on an otherwise-empty page), the next register was still
+  // pushed to a brand-new page instead of starting in that remaining space -- producing near-empty
+  // ordinary continuation pages the audit's text-count-gated check didn't reliably catch. A2-A7 are
+  // now subsections flowing inside A1's single section() (one forced break, right after the
+  // appendix divider); each subsequent register's heading and first row begin wherever the previous
+  // one's content actually ends. `.subsection-heading { break-after: avoid }`, `thead { display:
+  // table-header-group }` and `tr { break-inside: avoid }` (all pre-existing) keep each heading
+  // attached to its first row, repeat table headers across the resulting page breaks, and keep
+  // individual rows intact -- so this only removes wasted whitespace, it never splits content.
+  // E1 is explicitly "further control actions BEYOND the priority set above", so anything the
+  // roadmap already selected must not reappear here. Matched on the linked control-action identity
+  // the roadmap carries, so the two views cannot describe the same action twice.
+  // The projection already excludes anything the roadmap selected (via linkedRoadmapActionIds) and
+  // applies the 40 cap. Never re-filter here on mismatched identifier namespaces.
+  const carAppendixRows = projection.appendixControlActionRecords.map((record, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(record.domainName)}</td>
+    <td>${esc(record.controlObjective)}</td>
+    <td>${esc(record.controlDesign)}</td>
+    <td>${esc(record.accountableOwner)} / ${esc(record.targetPeriod)}</td>
+  </tr>`);
+  const u = projection.universe;
+  // Invariant I3: the bounded report must state the complete authoritative L1 counts and say
+  // exactly where the omitted detail lives. It must never claim detail is available that the
+  // supporting register does not actually contain.
+  const supportingReferenceBlock = `
+    <p class="lede">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
+    <p>Every item not shown in this report is retained in full in the ${esc(supportingRegisterReference)}. No identified weakness has been discarded.</p>`;
+  // The appendix root opens the same physical page as E1. The former standalone
+  // `.appendix-divider` section carried `min-height: 250mm`, which -- proportionate when the
+  // appendix held ~60 pages of full L1 registers -- spent an entire page on ~240 characters once
+  // the appendix became bounded. Navigation identity is unchanged: the root is still its own
+  // REPORT_TOC_ENTRIES entry and h2, and E1/E2/Complete supporting detail remain independently
+  // discoverable subsection headings.
+  const appendixSections = [
+    section('Appendix', 'Appendix: supporting material', `
+      <p class="lede">Bounded supporting material for the priority matters above. The complete authoritative registers are provided in the supporting register, not reproduced here.</p>
+      ${subsection('Complete supporting detail', supportingReferenceBlock)}
+      ${subsection('E1. Supporting control actions', `
+        <p class="section-note">Further control actions beyond the priority set above, in materiality order.</p>
+        ${table(['No.', 'Domain', 'Control objective', 'Control design', 'Owner / Target'], carAppendixRows)}`)}
+      ${subsection('E2. Definitions and score basis', definitionsBlock)}`, 'long-section continue-after-short-tail')
+  ].join('\n');
+
+  const tocRows = REPORT_TOC_ENTRIES.map((entry) => {
+    const pageNumber = tocPageMap?.[entry.key];
+    return `<tr class="${entry.appendix ? 'toc-appendix-row' : ''}"><td>${esc(entry.label)}</td><td class="toc-page">${pageNumber ?? '—'}</td></tr>`;
   }).join('');
 
-  return `<!DOCTYPE html>
+  const parts = [
+    `<section class="cover">
+      <div>
+        <div class="cover-brand">MK FRAUD INSIGHTS</div>
+        <div class="cover-rule"></div>
+        <div class="cover-eyebrow">Independent fraud risk advisory</div>
+        <h1>Essential Fraud Readiness<br/>Review</h1>
+        <p class="cover-subtitle">An evidence-linked view of reported readiness, material risk, control priorities and leadership decisions.</p>
+      </div>
+      <div class="cover-client"><span>Prepared exclusively for</span><strong>${esc(data.organisationName)}</strong></div>
+      <div class="cover-meta">Report reference ${esc(data.reportReference)}<br/>Generated ${esc(generatedDate)}<br/>${esc(data.packageName)} package</div>
+      <div class="cover-confidential">Confidential · Internal leadership use</div>
+    </section>`,
+    section('Contents', 'Contents', `<table class="continuing-table toc-table"><tbody>${tocRows}</tbody></table>`),
+    section('Executive summary', 'Executive summary', `
+      ${subsection(customerSentence(content.executiveSummary.title), `
+      <div class="diagnosis">
+        <div class="score-tile"><span>Reported readiness</span><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
+        <div class="manuscript-panel executive-manuscript">${executiveNarrativeBlock}</div>
+      </div>
+      <div class="metric-grid">
+        ${adaptiveExposureAssessed ? `<div><span>Exposure</span><strong>${esc(sr.exposureBand ?? 'Not assessed')}</strong></div>` : ''}
+        <div><span>Coverage</span><strong>${pct(sr.coveragePct)}</strong></div>
+        <div><span>Critical gaps</span><strong>${sr.criticalGapCount}</strong></div>
+        <div><span>Major gaps</span><strong>${sr.majorGapCount}</strong></div>
+      </div>`)}
+      ${adaptiveScopeBlock}
+      ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity ?? 'visibility-limited')} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
+      ${exposureSection}
+      ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
+    section('Domain overview', 'Domain overview', `${diagnosisNarrative ? `<div class="manuscript-panel">${diagnosisNarrative}</div>` : ''}${systemic.systemic
+      ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
+      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section continue-after-short-tail'),
+    section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
+      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the ${esc(supportingRegisterReference)}.</p>
+      <p class="section-note"><strong>Role distinction:</strong> Control owner identifies the role responsible for implementing or operating the control. Accountable executive identifies the executive role responsible for sponsorship, decision rights and escalation. The two roles may legitimately differ.</p>
+      ${exposureNarrative ? `<div class="manuscript-panel">${exposureNarrative}</div>` : ''}
+      ${priorityFindingsBlock}
+      ${priorityContradictionsBlock}
+      ${priorityScenariosBlock}`, 'long-section continue-after-short-tail splittable-finding-section'),
+    section('Priority risks', 'Priority risks', `
+      <p class="section-note">Risk priority is produced by the deterministic qualitative likelihood/impact matrix. Risks sharing the same priority class are not more finely ranked by their display order. Likelihood and impact are qualitative descriptors, not statistical probabilities. The complete risk register (${sortedRisks.length} risks) is provided in the ${esc(supportingRegisterReference)}.</p>
+      ${priorityRisksBlock}`, 'long-section continue-after-short-tail splittable-risk-section'),
+    section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${targetControlNarrative ? subsection('Target control environment', `<div class="manuscript-panel">${targetControlNarrative}</div>`) : ''}${systemic.systemic
+      ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
+      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section continue-after-short-tail'),
+    section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
+    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`, 'continue-after-long-register'),
+    appendixSections
+  ].join('\n');
+
+  return `<!doctype html>
 <html lang="en-ZA">
 <head>
-<meta charset="utf-8" />
-<title>MK Fraud Readiness Advisory Report - ${esc(data.organisationName)}</title>
+<meta charset="utf-8"/>
+<title>MK Fraud Readiness — Essential — ${esc(data.organisationName)}</title>
 <style>
-  @page { size: A4; margin: 0; }
+  @page { size: A4 portrait; margin: 12mm 13mm 15mm 13mm; }
   * { box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; color: #16140f; margin: 0; font-size: 10.5pt; line-height: 1.5; }
-  h1, h2, h3, .heading-font { font-family: Arial, Helvetica, sans-serif; }
-  .page { break-after: page; page-break-after: always; padding: 18mm 15mm 15mm 15mm; display: flex; flex-direction: column; }
-  .page:last-child { break-after: auto; page-break-after: auto; }
-  .cover { background: linear-gradient(160deg, #001030 0%, #0a1f4d 60%, #1d3658 100%); color: white; padding: 0; }
-  .cover-inner { padding: 36mm 24mm; height: 297mm; display: flex; flex-direction: column; justify-content: space-between; }
-  .cover-top .eyebrow { text-transform: uppercase; letter-spacing: 4px; font-size: 9pt; color: #b7c6e0; font-family: Arial, sans-serif; font-weight: 600; }
-  .cover-top h1 { font-size: 32pt; margin: 7mm 0 4mm 0; font-family: Arial, sans-serif; font-weight: 800; line-height: 1.1; }
-  .cover-top .sub { font-size: 12pt; color: #d7e0f0; font-family: Arial, sans-serif; font-weight: 300; max-width: 120mm; }
-  .cover-mid { border-top: 1px solid rgba(255,255,255,0.25); border-bottom: 1px solid rgba(255,255,255,0.25); padding: 7mm 0; margin: 9mm 0; }
-  .cover-mid .org { font-size: 19pt; font-family: Arial, sans-serif; font-weight: 700; }
-  .cover-mid .prepared-for { font-size: 8.5pt; color: #b7c6e0; text-transform: uppercase; letter-spacing: 2px; font-family: Arial, sans-serif; margin-bottom: 2mm; }
-  .cover-bottom .meta { font-size: 8.5pt; color: #b7c6e0; font-family: Arial, sans-serif; line-height: 1.8; }
-  .cover-bottom .confidential { margin-top: 7mm; font-size: 8pt; color: #8fa3c9; font-style: italic; font-family: Arial, sans-serif; }
-  .confidentiality-page { justify-content: center; }
-  .confidentiality-page .box { border: 1px solid #E6D8BF; border-radius: 2mm; padding: 12mm; background: #FCF9F2; }
-  .section-divider { align-self: flex-start; background: #001030; color: white; padding: 2.2mm 5.5mm; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 2px; font-size: 8pt; margin-bottom: 7mm; border-radius: 1mm; }
-  h2 { font-size: 17pt; margin: 0 0 4mm 0; color: #001030; line-height: 1.25; font-weight: 700; }
-  h3 { font-size: 11pt; color: #001030; margin: 0 0 3mm 0; }
-  p { margin: 0 0 4mm 0; }
-  .group-subtitle { color: #746B5C; font-size: 9.5pt; margin: -2mm 0 6mm 0; }
-  .diagnosis-tile { display: flex; gap: 8mm; margin-bottom: 6mm; }
-  .diagnosis-score { flex: 0 0 40mm; }
-  .diagnosis-score .big-number { font-size: 42pt; font-weight: 800; font-family: Arial, sans-serif; color: #001030; line-height: 1; }
-  .diagnosis-score .out-of { font-size: 9.5pt; color: #746B5C; font-family: Arial, sans-serif; }
-  .diagnosis-score .band-chip { display: inline-block; padding: 1.4mm 3.8mm; border-radius: 20px; color: white; font-family: Arial, sans-serif; font-size: 9pt; font-weight: 700; margin-top: 3mm; }
-  .diagnosis-narrative { flex: 1; }
-  .diagnosis-narrative p { font-size: 11pt; }
-  .leadership-box { background: #F7F1E6; border-left: 4px solid #1d3658; padding: 5mm 6mm; margin-top: 5mm; }
-  .leadership-box .label { font-family: Arial, sans-serif; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: #1d3658; font-weight: 700; margin-bottom: 2mm; }
-  .score-grid { display: flex; gap: 3mm; margin: 5mm 0; }
-  .score-grid-cell { flex: 1; border: 1px solid #E6D8BF; padding: 4mm 2mm; text-align: center; break-inside: avoid; }
-  .score-grid-cell .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #746B5C; font-family: Arial, sans-serif; }
-  .score-grid-cell .value { font-size: 14pt; font-weight: bold; font-family: Arial, sans-serif; color: #001030; margin-top: 2mm; }
-  .heatmap { display: flex; flex-wrap: wrap; gap: 2mm; margin: 5mm 0; }
-  .heatmap-cell { flex: 1 1 18mm; min-width: 18mm; text-align: center; color: white; padding: 4mm 2mm; font-family: Arial, sans-serif; border-radius: 1.5mm; break-inside: avoid; }
-  .heatmap-name { display: block; font-size: 6.5pt; line-height: 1.2; margin-bottom: 2mm; min-height: 8mm; }
-  .heatmap-score { display: block; font-size: 12pt; font-weight: bold; }
-  .exposure-page { padding: 14mm 15mm 13mm 15mm; }
-  .exposure-page .section-divider { margin-bottom: 4mm; padding: 1.9mm 5mm; font-size: 7.5pt; }
-  .exposure-page h2 { font-size: 14.5pt; line-height: 1.18; margin-bottom: 3mm; }
-  .exposure-page h3 { font-size: 9.5pt; margin: 4mm 0 2.5mm 0 !important; }
-  .matrix-wrap { display: flex; gap: 6mm; align-items: flex-start; margin-bottom: 3mm; }
-  .matrix-plot-cell { flex: 0 0 73mm; }
-  .matrix-legend-cell { flex: 1; }
-  .matrix-legend-cell p { font-size: 8.8pt; line-height: 1.35; margin-bottom: 0; }
-  .matrix-plot { position: relative; width: 72mm; height: 72mm; border: 1px solid #E6D8BF; background: linear-gradient(to right, rgba(29,54,88,0.04) 50%, transparent 50%), linear-gradient(to bottom, transparent 50%, rgba(29,54,88,0.04) 50%); }
-  .matrix-axis-label { font-family: Arial, sans-serif; font-size: 6.5pt; color: #746B5C; margin-top: 1.2mm; line-height: 1.25; }
-  .matrix-point { position: absolute; width: 5mm; height: 5mm; border-radius: 50%; background: #001030; border: 1.5px solid white; box-shadow: 0 0 0 1px #001030; }
-  .exposure-driver-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 4mm; row-gap: 2mm; margin-top: 2mm; }
-  .exposure-row { display: block; border: 1px solid #E6D8BF; border-radius: 1mm; padding: 2mm 2.5mm; margin-bottom: 0; break-inside: avoid; page-break-inside: avoid; }
-  .exposure-row-label { font-size: 7.5pt; line-height: 1.22; font-family: Arial, sans-serif; margin-bottom: 1.5mm; min-height: 7mm; }
-  .exposure-row-bottom { display: flex; align-items: center; gap: 2mm; }
-  .exposure-row-track { flex: 1; height: 2.4mm; border-radius: 2mm; background: #E6D8BF; overflow: hidden; }
-  .exposure-row-fill { height: 100%; }
-  .exposure-row-level { flex: 0 0 22mm; text-align: right; font-size: 7pt; line-height: 1.15; font-family: Arial, sans-serif; color: #746B5C; }
-  .risk-card { border: 1px solid #E6D8BF; border-left: 3px solid #b91c1c; border-radius: 1mm; padding: 4mm 5mm; margin-bottom: 4mm; break-inside: avoid; }
-  .risk-rank { font-family: Arial, sans-serif; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1px; color: #b91c1c; font-weight: 700; }
-  .risk-domain { font-family: Arial, sans-serif; font-size: 12pt; font-weight: 700; color: #001030; margin: 1mm 0 2mm 0; }
-  .risk-body { font-size: 10pt; }
-  ul.priority-list { list-style: none; padding: 0; margin: 4mm 0; }
-  ul.priority-list li { border-bottom: 1px solid #E6D8BF; padding: 3.5mm 0; break-inside: avoid; }
-  .priority-domain { font-family: Arial, sans-serif; font-weight: 700; color: #001030; font-size: 9.5pt; }
-  .priority-prompt { font-size: 9.5pt; margin-top: 1.5mm; }
-  .gap-severity { float: right; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; color: #b91c1c; font-weight: 700; }
-  ul.critical-list { list-style: none; padding: 0; }
-  ul.critical-list li { background: white; border: 1px solid #E6D8BF; border-radius: 1.5mm; padding: 3.5mm 4.5mm; margin-bottom: 3mm; break-inside: avoid; }
-  .critical-control-domain { font-family: Arial, sans-serif; font-weight: 700; color: #001030; font-size: 9.5pt; }
-  .critical-control-desc { font-size: 9.5pt; margin: 1.5mm 0; }
-  .critical-control-effect { font-size: 8.5pt; color: #7C5F2A; }
-  .clean-note { background: #F0F7F2; border-left: 4px solid #15803d; padding: 5mm 6mm; font-size: 10pt; }
-  .false-comfort-page { background: #FCF7ED; }
-  .false-comfort-page h2 { color: #7C5F2A; }
-  .domain-card-grid { display: flex; flex-direction: column; gap: 4mm; }
-  .domain-card { border: 1px solid #E6D8BF; border-radius: 1.5mm; padding: 4.5mm 5.5mm; break-inside: avoid; }
-  .domain-card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2mm; }
-  .domain-card-name { font-family: Arial, sans-serif; font-weight: 700; font-size: 10pt; color: #001030; }
-  .domain-card-score { font-family: Arial, sans-serif; font-weight: 700; font-size: 10pt; }
-  .position-track { height: 3mm; background: #E6D8BF; border-radius: 2mm; overflow: hidden; margin-bottom: 3mm; }
-  .position-fill { height: 100%; }
-  .domain-card-headline { font-family: Arial, sans-serif; font-weight: 700; font-size: 9.5pt; color: #1d3658; margin-bottom: 1.5mm; }
-  .domain-card-body { font-size: 9.5pt; margin: 0; }
-  .mini-gap-note { background: #FCEAEA; border-left: 3px solid #b91c1c; padding: 2.5mm 3.5mm; margin-top: 2.5mm; font-size: 8.5pt; }
-  table.action-register { width: 100%; border-collapse: collapse; margin: 4mm 0; }
-  table.action-register th, table.action-register td { border: 1px solid #E6D8BF; padding: 2.5mm 3.5mm; text-align: left; font-size: 9pt; }
-  table.action-register th { background: #F7F1E6; font-family: Arial, sans-serif; font-size: 8pt; text-transform: uppercase; }
-  .agenda-list { display: flex; flex-direction: column; gap: 4mm; }
-  .agenda-card { background: white; border: 1px solid #E6D8BF; border-left: 3px solid #1d3658; border-radius: 1mm; padding: 4mm 5mm; break-inside: avoid; }
-  .agenda-card-top { display: flex; justify-content: space-between; margin-bottom: 1.5mm; }
-  .agenda-domain { font-family: Arial, sans-serif; font-weight: 700; font-size: 10pt; color: #001030; }
-  .agenda-severity { font-family: Arial, sans-serif; font-size: 7.5pt; text-transform: uppercase; color: #746B5C; }
-  .agenda-owner { font-family: Arial, sans-serif; font-size: 8pt; color: #7C5F2A; font-weight: 700; margin-bottom: 1.5mm; }
-  .agenda-rationale { font-size: 9pt; color: #746B5C; font-style: italic; margin-bottom: 3mm; }
-  .agenda-timeline { display: flex; gap: 3mm; }
-  .agenda-stage { flex: 1; background: #F7F1E6; border-radius: 1mm; padding: 2.5mm 3mm; }
-  .stage-label { display: block; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; font-weight: 700; color: #1d3658; margin-bottom: 1mm; }
-  .stage-action { display: block; font-size: 8.5pt; }
-  .leadership-row { display: flex; gap: 5mm; padding: 3.5mm 0; border-bottom: 1px solid #E6D8BF; break-inside: avoid; }
-  .leadership-role { flex: 0 0 48mm; font-family: Arial, sans-serif; font-weight: 700; color: #001030; font-size: 9.5pt; }
-  .leadership-question { flex: 1; font-size: 9.5pt; }
-  .next-step-list { display: flex; flex-direction: column; gap: 3mm; margin-top: 4mm; }
-  .next-step-item { border-left: 3px solid #1d3658; padding-left: 4mm; break-inside: avoid; }
-  .next-step-title { font-family: Arial, sans-serif; font-weight: 700; color: #001030; font-size: 9.5pt; }
-  .version-record { border: 1px solid #E6D8BF; border-radius: 1.5mm; padding: 6mm; margin-top: 6mm; }
-  .version-record .row { display: flex; justify-content: space-between; padding: 2mm 0; border-bottom: 1px solid #F0EBDD; font-size: 9pt; font-family: Arial, sans-serif; }
-  table.appendix-table { width: 100%; border-collapse: collapse; margin: 4mm 0; }
-  table.appendix-table th, table.appendix-table td { border: 1px solid #E6D8BF; padding: 2mm 3mm; font-size: 8.5pt; }
-  table.appendix-table th { background: #F7F1E6; font-family: Arial, sans-serif; }
-  .footer-note { font-family: Arial, sans-serif; font-size: 7pt; color: #746B5C; margin-top: auto; padding-top: 5mm; border-top: 1px solid #E6D8BF; }
+  html, body { margin: 0; padding: 0; }
+  :root { ${MK_CSS_VARIABLES} }
+  body { color: var(--mk-ink); font: 9.2pt/1.42 Georgia, 'Times New Roman', serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  h1, h2, h3, strong, b, th, .cover-brand, .cover-eyebrow, .section-kicker, .field-label, .record-number, .priority-badge { font-family: Arial, Helvetica, sans-serif; }
+  h1, h2, h3, p { margin-top: 0; }
+  h2 { color: var(--mk-navy-900); font-size: 20pt; line-height: 1.15; margin-bottom: 5mm; }
+  h3 { color: var(--mk-navy-700); font-size: 10.5pt; line-height: 1.25; margin-bottom: 2mm; }
+  p { margin-bottom: 3mm; }
+  ul { margin: 1mm 0 0; padding-left: 5mm; }
+  li { margin-bottom: 1mm; }
+  .cover, .report-section { break-before: page; page-break-before: always; }
+  .cover { break-before: auto; margin: -12mm -13mm 0; min-height: 270mm; padding: 19mm; color: var(--mk-white); background: linear-gradient(145deg,var(--mk-navy-900) 0%,var(--mk-navy-500) 70%,var(--mk-navy-500) 100%); display: flex; flex-direction: column; justify-content: space-between; }
+  .cover-brand { font-size: 10pt; font-weight: 700; letter-spacing: 2.4px; }
+  .cover-rule { width: 28mm; border-top: 1.2mm solid var(--mk-brass); margin: 9mm 0; }
+  .cover-eyebrow { color: var(--mk-rule); font-size: 8pt; letter-spacing: 1.8px; text-transform: uppercase; }
+  .cover h1 { color: var(--mk-white); font-size: 31pt; line-height: 1.08; margin: 6mm 0; }
+  .cover-subtitle { color: var(--mk-rule); max-width: 125mm; font-size: 11.5pt; }
+  .cover-client { border-top: .3mm solid var(--mk-white-35); border-bottom: .3mm solid var(--mk-white-35); padding: 6mm 0; }
+  .cover-client span { display: block; color: var(--mk-muted); font: 7.5pt Arial,sans-serif; letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 2mm; }
+  .cover-client strong { font-size: 18pt; }
+  .cover-meta, .cover-confidential { color: var(--mk-rule); font: 8pt/1.7 Arial,sans-serif; }
+  .cover-confidential { text-transform: uppercase; letter-spacing: 1px; }
+  .report-section { padding: 1mm 1mm 0; }
+  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; break-after: avoid; page-break-after: avoid; }
+  .section-kicker + h2 { break-before: avoid; page-break-before: avoid; }
+  .lede { color: var(--mk-muted); font-size: 10pt; max-width: 170mm; }
+  .manuscript-panel { border-left: 1mm solid var(--mk-navy-500); background: var(--mk-cream); padding: 4mm 5mm; margin-bottom: 5mm; }
+  .manuscript-section { margin-bottom: 4mm; }
+  .manuscript-section:last-child { margin-bottom: 0; }
+  .manuscript-section > h3 { break-after: avoid; page-break-after: avoid; }
+  .manuscript-section > h3 + p { break-before: avoid; page-break-before: avoid; }
+  .manuscript-subsection { margin-top: 3mm; }
+  .keep-together { break-inside: avoid; page-break-inside: avoid; }
+  /* Scoped to the bounded 15-item evidence-priority table only; global table rules are unchanged. */
+  .evidence-priority-table td, .evidence-priority-table th { padding-top: 1.1mm; padding-bottom: 1.1mm; }
+  .evidence-priority-table .section-note { break-before: avoid; page-break-before: avoid; }
+  .section-note, .disclaimer { color: var(--mk-muted); font-size: 8pt; font-style: italic; }
+  .subsection-heading { margin-top: 8mm; break-after: avoid; page-break-after: avoid; }
+  /* A heading already avoids breaking after itself, but an intervening .section-note did not, so a
+     heading plus its one-line intro could sit alone on a page while the table began on the next --
+     V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
+  .subsection-heading + .section-note,
+  .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
+  .roadmap-table-heading { break-after: avoid; page-break-after: avoid; margin-top: 5mm; }
+  .roadmap-table-heading + table { break-before: avoid; page-break-before: avoid; }
+  /* Layout-boundary exception, and the ONLY one. Every .report-section forces a page break before
+     itself. Roadmap rows are large whole control designs and about two fit a page, so when the
+     final row lands alone the compulsory break before the next section guarantees the rest of that
+     page stays empty -- the checkpoint-f PDF_NEAR_EMPTY_PAGE failure (F1 AI page 20 at 0.1334
+     occupied area, F1 fallback page 19 at 0.1772, against the 0.26 floor).
+     Letting the FOLLOWING section begin in that remaining space fills the page with
+     real content. Applied to the two sections that follow a long register -- Evidence validation
+     priorities after the roadmap, and Methodology after the evidence table, which stranded its own
+     last rows on CI page 21 once the roadmap page was fixed. Every other section keeps its forced
+     break. An earlier attempt allowed roadmap rows to split instead; CI disproved it -- a
+     row that fits a page is never split, it simply moves whole -- and splitting a control objective
+     from its owner, timing and success measure is not what a commercial report should do. */
+  .report-section.continue-after-long-register { break-before: auto; page-break-before: auto; }
+  /* V7 final acceptance: when the preceding section leaves a short tail, start the next section in
+     the available space instead of manufacturing a mostly-empty page. Section identity is
+     unchanged; the kicker and heading remain attached to the first meaningful content. */
+  .report-section.continue-after-short-tail { break-before: auto; page-break-before: auto; }
+  .continue-after-short-tail .section-kicker,
+  .continue-after-short-tail > h2 { break-after: avoid; page-break-after: avoid; }
+  /* Priority-risk records may cross a page only between already indivisible field blocks. */
+  .splittable-risk-section .risk-record { break-inside: auto; page-break-inside: auto; }
+  .splittable-risk-section .record-heading,
+  .splittable-risk-section .risk-statement,
+  .splittable-risk-section .field { break-inside: avoid; page-break-inside: avoid; }
+  .splittable-finding-section .finding-record { break-inside: auto; page-break-inside: auto; }
+  .splittable-finding-section .record-heading,
+  .splittable-finding-section .field { break-inside: avoid; page-break-inside: avoid; }
+  /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
+     its first meaningful content wherever it starts on the page. */
+  .continue-after-long-register .section-kicker,
+  .continue-after-long-register h2,
+  .continue-after-long-register .lede { break-after: avoid; page-break-after: avoid; }
+  .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
+  .subsection-heading:first-child { margin-top: 0; }
+  .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
+  .toc-table .toc-page { text-align: right; width: 16mm; color: var(--mk-navy-900); font-weight: 700; }
+  .toc-appendix-row td { color: var(--mk-muted); }
+  .governance-grid, .support-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 5mm; }
+  .support-grid { grid-template-columns: repeat(3,1fr); }
+  .compact-card { border: .25mm solid var(--mk-rule); border-left: 1mm solid var(--mk-navy-500); padding: 4mm; margin-bottom: 3.5mm; break-inside: avoid; page-break-inside: avoid; background: var(--mk-white); }
+  .amber-card { border-left-color: var(--mk-brass); background: var(--mk-major-bg); }
+  .alert-card { border-left-color: var(--mk-critical); background: var(--mk-critical-bg); }
+  .card-eyebrow, .record-number { color: var(--mk-brass); font-size: 6.8pt; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 1mm; }
+  .diagnosis { display: grid; grid-template-columns: 42mm 1fr; gap: 8mm; align-items: start; }
+  .score-tile strong { display: block; color: var(--mk-navy-900); font-size: 43pt; line-height: .9; }
+  .score-tile span { display: block; color: var(--mk-muted); font: 8pt Arial,sans-serif; margin: 2mm 0; }
+  .score-tile b { display: inline-block; color: white; padding: 1.4mm 3mm; border-radius: 8mm; font-size: 8pt; }
+  .executive-copy { font-size: 11pt; }
+  .attention-box, .false-comfort, .closing-note, .clean-note { padding: 4mm 5mm; background: var(--mk-major-bg); border-left: 1mm solid var(--mk-brass); break-inside: avoid; }
+  .attention-box strong { color: var(--mk-brass); font-size: 8pt; text-transform: uppercase; letter-spacing: .6px; }
+  .attention-box p, .closing-note p, .clean-note p { margin: 1mm 0 0; }
+  .metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }
+  .metric-grid div { border: .25mm solid var(--mk-rule); padding: 3mm; text-align: center; }
+  .metric-grid span { display:block; color:var(--mk-muted); font:6.5pt Arial,sans-serif; text-transform:uppercase; letter-spacing:.5px; }
+  .metric-grid strong { display:block; color:var(--mk-navy-900); font-size:12pt; margin-top:1mm; }
+  .heatmap { display: grid; grid-template-columns: repeat(5,1fr); gap: 3mm; }
+  .heat-cell { border: .25mm solid var(--mk-rule); border-top: 1.2mm solid; padding: 3mm; min-height: 26mm; break-inside: avoid; }
+  .heat-name { min-height: 12mm; font: 7pt/1.25 Arial,sans-serif; color: var(--mk-muted); }
+  .heat-score { font: 700 17pt Arial,sans-serif; color:var(--mk-navy-900); }
+  .heat-band { font: 6.5pt Arial,sans-serif; color:var(--mk-muted); }
+  .exposure-layout { display:grid; grid-template-columns:72mm 1fr; gap:8mm; }
+  .matrix { width:60mm; height:60mm; position:relative; border:.3mm solid var(--mk-rule); background:linear-gradient(90deg,var(--mk-navy-grid) 50%,transparent 50%),linear-gradient(0deg,var(--mk-navy-grid) 50%,transparent 50%); }
+  .matrix:before,.matrix:after { content:''; position:absolute; background:var(--mk-rule); }
+  .matrix:before { left:50%;top:0;bottom:0;width:.2mm; }
+  .matrix:after { top:50%;left:0;right:0;height:.2mm; }
+  .matrix i { position:absolute;width:5mm;height:5mm;border-radius:50%;background:var(--mk-navy-900);border:.8mm solid white;box-shadow:0 0 0 .3mm var(--mk-navy-900);transform:translate(-50%,-50%); }
+  .axis-note { color:var(--mk-muted);font:6.5pt Arial,sans-serif;margin-top:2mm; }
+  /* Checkpoint F controller review blocker 5: keep the whole (short, ~6-row) exposure-factor list
+     together rather than letting it split with a couple of trailing rows stranded on their own
+     near-empty page -- the list is small enough that "avoid" here costs at most a few millimetres
+     of earlier pushed content, never a forced blank page. */
+  .bar-row-list { break-inside: avoid; page-break-inside: avoid; }
+  /* Second controller review round: a lone trailing maturity-constraint card, pushed alone onto a
+     fresh page when it doesn't fit the remaining space, left that page mostly blank (each card is
+     individually break-inside:avoid, but nothing kept the *group* together). Bounded and short
+     (one card per maturity-capping condition, typically one to a handful), so keeping the whole
+     list together costs at most a partially-filled previous page, never a stranded near-empty one. */
+  .cap-card-list { break-inside: auto; page-break-inside: auto; }
+  /* A7's domain-coverage table is the last content in the document, so nothing follows it to fill
+     leftover space when only its final couple of rows spill onto a fresh page (the "page 33" /
+     clean-fixture "page 20" defect). It is short and fixed-length (one row per assessed domain),
+     so keeping it whole is safe -- worst case it starts a page later, never mid-table. */
+  .score-basis-table { break-inside: avoid; page-break-inside: avoid; }
+  .bar-row { margin-bottom:2mm; break-inside:avoid; }
+  .bar-row div:first-child { display:flex;justify-content:space-between;font:7.5pt Arial,sans-serif;gap:3mm; }
+  .bar-row span { color:var(--mk-muted); }
+  .bar-track,.mini-track { height:2.4mm;background:var(--mk-rule);margin-top:1.2mm;overflow:hidden;border-radius:2mm; }
+  .bar-track i,.mini-track i { display:block;height:100%; }
+  /* Let related domain cards fragment as ordinary flow content. A flex column can strand a
+     single short card on a fresh page when the preceding group fills the current one. */
+  .stack { display:block; }
+  .stack .compact-card { margin-bottom: 1mm; }
+  .domain-top { display:flex;justify-content:space-between;gap:4mm;align-items:baseline; }
+  .domain-top span { font:700 10pt Arial,sans-serif; }
+  .inline-alert { margin-top:2mm;padding:2mm 3mm;background:var(--mk-critical-bg);border-left:.8mm solid var(--mk-critical);font-size:8pt; }
+  .long-record { border-top:.8mm solid var(--mk-navy-500); padding-top:3mm; margin:0 0 6mm; break-inside:avoid; page-break-inside:avoid; }
+  .long-record h3 { font-size:12pt;margin:1mm 0 0; }
+  .record-heading { display:flex;justify-content:space-between;gap:5mm;align-items:flex-start;break-after:avoid;page-break-after:avoid; }
+  .priority-badge { flex:0 0 auto;background:var(--mk-neutral-bg);color:var(--mk-navy-500);border-radius:6mm;padding:1mm 2.5mm;font-size:6.8pt;text-transform:uppercase; }
+  .priority-critical { background:var(--mk-critical-bg);color:var(--mk-critical); }.priority-high { background:var(--mk-major-bg);color:var(--mk-major); }.priority-medium { background:var(--mk-neutral-bg);color:var(--mk-navy-500); }.priority-low { background:var(--mk-confirmed-bg);color:var(--mk-confirmed); }
+  .record-grid { display:grid; gap:0 5mm; margin-top:3mm; }
+  .record-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .field { display:grid; grid-template-columns:38mm 1fr; gap:3mm; border-top:.2mm solid var(--mk-rule); padding:2mm 0; break-inside:avoid; page-break-inside:avoid; }
+  /* Checkpoint F controller review blocker 5: allow the *last field* of a record to move back onto
+     the previous page instead of starting a fresh, near-empty page on its own; combined with
+     limiting full narrative-card records to the small top-priority set (blocker 4), no record is
+     long enough for this to still leave a near-empty trailing page. */
+  .field:last-child { break-before: avoid; page-break-before: avoid; }
+  tr:last-child { break-before: avoid; page-break-before: avoid; }
+  .record-grid .field { display:block; }
+  .scenario-components .field { padding:2.2mm 0; }
+  .field-label { color:var(--mk-brass);font-size:6.5pt;font-weight:700;letter-spacing:.45px;text-transform:uppercase;margin-bottom:.7mm; }
+  .field-value { font-size:8.4pt; }
+  .field-value p { margin:0; }.field-value ul { margin-top:0; }
+  .risk-statement { background:var(--mk-neutral-bg);border-left:1mm solid var(--mk-navy-900);padding:3mm 4mm;margin-top:3mm;font-size:9.3pt;break-inside:avoid; }
+  table { width:100%;border-collapse:collapse; }
+  thead { display:table-header-group; }
+  tr { break-inside:avoid;page-break-inside:avoid; }
+  .roadmap-table { break-inside: avoid; page-break-inside: avoid; }
+  /* V8.1 acceptance: do not strand a 60/90-day manuscript heading at the foot of a page. */
+  .roadmap-stage-panel .manuscript-section > h3 { break-after: avoid; page-break-after: avoid; }
+  .roadmap-stage-panel .manuscript-section > h3 + p { break-before: avoid; page-break-before: avoid; }
+  th,td { border:.2mm solid var(--mk-rule);padding:2.2mm 3mm;text-align:left;vertical-align:top; }
+  th { background:var(--mk-navy-900);color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
+  td { font-size:8pt; }
+  .compact-register th:first-child, .compact-register td:first-child { width:8mm; }
+  .support-grid .compact-card { min-height:42mm; }
+  .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }
+  .recommended-next-step { margin-top:4mm; padding:3mm 4mm; background:var(--mk-neutral-bg); border-left:1mm solid var(--mk-navy-500); break-before:avoid; page-break-before:avoid; break-inside:avoid; page-break-inside:avoid; }
+  .score-basis-table th:nth-child(1), .score-basis-table td:nth-child(1) { width:58%; }
+  .score-basis-table th:nth-child(2), .score-basis-table td:nth-child(2) { width:18%; white-space:nowrap; }
+  .score-basis-table th:nth-child(3), .score-basis-table td:nth-child(3) { width:24%; }
+  .maturity-scale-table th:nth-child(1), .maturity-scale-table td:nth-child(1) { width:20%; }
+  .maturity-scale-table th:nth-child(2), .maturity-scale-table td:nth-child(2) { width:18%; white-space:nowrap; }
 </style>
 </head>
-<body>
-<section class="page cover">
-  <div class="cover-inner">
-    <div class="cover-top">
-      <div class="eyebrow">MK Fraud Insights &middot; Independent Fraud Risk Advisory</div>
-      <h1>Fraud Readiness Advisory Report</h1>
-      <div class="sub">A structured diagnosis of fraud readiness, exposure and priority action prepared exclusively for this organisation's leadership team.</div>
-    </div>
-    <div class="cover-mid">
-      <div class="prepared-for">Prepared exclusively for</div>
-      <div class="org">${esc(data.organisationName)}</div>
-    </div>
-    <div class="cover-bottom">
-      <div class="meta">Report reference: ${esc(data.reportReference)}<br/>Generated: ${esc(generatedDate)}<br/>Package: ${esc(data.packageName)}</div>
-      <div class="confidential">Confidential. Prepared exclusively for ${esc(data.organisationName)} and not for wider distribution without MK Fraud Insights' consent.</div>
-    </div>
-  </div>
-</section>
-<section class="page confidentiality-page">
-  <div class="box">
-    <h2>Confidentiality and use</h2>
-    <p>This report is prepared exclusively for ${esc(data.organisationName)} based on a structured self-assessment. It is intended for internal leadership use and is not for external distribution without MK Fraud Insights' consent.</p>
-    <p>Findings reflect the responses provided at the time of assessment and should be read as a diagnostic starting point, not a certification, audit opinion or guarantee.</p>
-  </div>
-</section>
-<section class="page">
-  <div class="section-divider">Executive Diagnosis</div>
-  <div class="diagnosis-tile">
-    <div class="diagnosis-score"><div class="big-number">${score(sr.overallScore)}</div><div class="out-of">out of 100</div><div class="band-chip" style="background:${bandColor};">${esc(sr.finalMaturity)}</div></div>
-    <div class="diagnosis-narrative"><h2>${esc(content.executiveSummary.title)}</h2><p>${esc(content.executiveSummary.body)}</p></div>
-  </div>
-  <div class="leadership-box"><div class="label">What leadership should pay attention to</div><p>${esc(content.leadershipAttention.body)}</p></div>
-</section>
-<section class="page">
-  <div class="section-divider">Readiness Score</div>
-  <h2>What this score means in commercial terms</h2>
-  <div class="score-grid">
-    <div class="score-grid-cell"><div class="label">Score</div><div class="value">${score(sr.overallScore)}/100</div></div>
-    <div class="score-grid-cell"><div class="label">Band</div><div class="value">${esc(sr.finalMaturity)}</div></div>
-    <div class="score-grid-cell"><div class="label">Exposure</div><div class="value">${esc(sr.exposureBand)}</div></div>
-    <div class="score-grid-cell"><div class="label">Coverage</div><div class="value">${pct(sr.coveragePct)}</div></div>
-    <div class="score-grid-cell"><div class="label">Flags</div><div class="value">${sr.criticalGapCount + sr.majorGapCount}</div></div>
-  </div>
-  <p>A ${esc(sr.finalMaturity)} reading means fraud controls are ${sr.finalMaturity === 'Strategic' ? 'mature and largely proven' : sr.finalMaturity === 'Structured' ? 'genuinely present and operating, with consistency the main remaining gap' : sr.finalMaturity === 'Developing' ? 'present in places but not yet reliable' : 'not yet structured'}. This number should be read together with the exposure profile and domain view that follow, not in isolation.</p>
-</section>
-<section class="page">
-  <div class="section-divider">The Three Biggest Fraud-Readiness Risks</div>
-  <h2>Where leadership attention matters most right now</h2>
-  ${topRisksHtml}
-</section>
-<section class="page exposure-page">
-  <div class="section-divider">Exposure Profile</div>
-  <h2>${esc(quadrantLabel)}</h2>
-  <div class="matrix-wrap">
-    <div class="matrix-plot-cell"><div class="matrix-plot"><div class="matrix-point" style="left:${plotX - exposurePointSizeMm / 2}mm; top:${plotY - exposurePointSizeMm / 2}mm;"></div></div><div class="matrix-axis-label">Horizontal: inherent exposure low to high. Vertical: readiness low to high.</div></div>
-    <div class="matrix-legend-cell"><p>Exposure describes how much inherent fraud risk the operating model carries, independent of how good controls are. Readiness describes how well those controls defend against it. The same readiness score means something different for a low-exposure organisation than a high-exposure one.</p></div>
-  </div>
-  <h3>What is driving this organisation's exposure</h3>
-  <div class="exposure-driver-list">${exposureFactorRows}</div>
-</section>
-<section class="page">
-  <div class="section-divider">Domain Heatmap</div>
-  <h2>The score is made up of ten areas, not one average</h2>
-  <div class="heatmap">${domainHeatmap}</div>
-</section>
-<section class="page">
-  <div class="section-divider">Priority Gap Dashboard</div>
-  <h2>If leadership reads one page, it should be this one</h2>
-  ${priorityGaps ? `<ul class="priority-list">${priorityGaps}</ul>` : '<div class="clean-note">No critical or major gaps were flagged in this assessment. See the False Comfort page next: a clean result is good news, but it is not the same claim as zero risk.</div>'}
-</section>
-<section class="page">
-  <div class="section-divider">Critical Flags and Leadership Blind Spots</div>
-  <h2>Where a small number of issues can still mean high risk</h2>
-  <p>A small number of controls in this methodology carry enough weight that a serious gap in one can limit the overall reading, regardless of how strong other areas are.</p>
-  ${criticalControlsList ? `<ul class="critical-list">${criticalControlsList}</ul>` : '<div class="clean-note">No control issues of this kind were flagged in this assessment.</div>'}
-</section>
-<section class="page false-comfort-page">
-  <div class="section-divider">False Comfort</div>
-  <h2>${esc(content.falseComfort.title)}</h2>
-  <p>${esc(content.falseComfort.body)}</p>
-</section>
-${domainGroupPages}
-<section class="page">
-  <div class="section-divider">Action Register</div>
-  <h2>The specific actions behind the roadmap</h2>
-  <table class="action-register"><tr><th>Domain</th><th>Priority</th><th>Immediate action</th><th>Suggested owner</th></tr>${actionRegisterRows}</table>
-</section>
-<section class="page">
-  <div class="section-divider">30/60/90-Day Roadmap</div>
-  <h2>A sequenced plan, not a repeated checklist</h2>
-  <div class="agenda-list">${agendaCards}</div>
-</section>
-<section class="page">
-  <div class="section-divider">Leadership Agenda</div>
-  <h2>What each function should be asking</h2>
-  ${leadershipAgendaRows}
-</section>
-<section class="page">
-  <div class="section-divider">Where MK Fraud Insights Can Help Next</div>
-  <h2>Natural next steps, not a hard sell</h2>
-  <div class="next-step-list">
-    <div class="next-step-item"><div class="next-step-title">Targeted control review</div><p>A focused review of the specific domains flagged as highest priority in this report.</p></div>
-    <div class="next-step-item"><div class="next-step-title">Fraud risk framework design</div><p>Building the governance, ownership and reporting structure this report's findings point toward.</p></div>
-    <div class="next-step-item"><div class="next-step-title">Advisory retainer</div><p>Ongoing access to fraud risk expertise as the organisation's controls and exposure evolve.</p></div>
-  </div>
-</section>
-<section class="page">
-  <div class="section-divider">Methodology and Limitations</div>
-  <h2>How this reading was produced</h2>
-  <p>This report is generated from a structured self-assessment across ten areas of fraud risk management, each weighted by relative importance to overall fraud readiness. Certain control failures can limit the overall reading even where other areas score well.</p>
-  <h3 style="margin-top:6mm;">Limitations</h3>
-  <p>This is a structured self-assessment, not a forensic investigation, external audit or compliance certification. It reflects responses at a point in time and should be read as a diagnostic starting point, not assurance that fraud has not occurred or cannot occur.</p>
-</section>
-<section class="page">
-  <div class="section-divider">Appendix: Score Basis</div>
-  <h2>Coverage and completeness</h2>
-  <table class="appendix-table"><tr><th>Domain</th><th>Coverage</th></tr>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td></tr>`).join('')}</table>
-</section>
-<section class="page">
-  <div class="section-divider">Version Record</div>
-  <h2>Report versioning</h2>
-  <div class="version-record">
-    <div class="row"><span>Report reference</span><span>${esc(data.reportReference)}</span></div>
-    <div class="row"><span>Assessment reference</span><span>${esc(data.assessmentReference)}</span></div>
-    <div class="row"><span>Generated</span><span>${esc(generatedDate)}</span></div>
-    <div class="row"><span>Package</span><span>${esc(data.packageName)}</span></div>
-  </div>
-  <div class="footer-note">MK Fraud Insights | Independent Fraud Risk Advisory | www.mkfraud.co.za | Prepared exclusively for ${esc(data.organisationName)}</div>
-</section>
-</body>
+<body>${parts}</body>
 </html>`;
 }

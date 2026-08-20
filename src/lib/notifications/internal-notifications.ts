@@ -4,8 +4,13 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 export type InternalNotificationType =
   | 'assessment_completed'
   | 'eft_order_created'
+  // Historical compatibility only: existing queued/sent rows carry these values. Current code
+  // emits the tier-named events instead.
   | 'full_report_5000_selected'
-  | 'personalised_report_50000_selected';
+  | 'personalised_report_50000_selected'
+  | 'essential_selected'
+  | 'comprehensive_selected'
+  | 'comprehensive_order_created';
 
 export type QueueInternalNotificationInput = {
   notificationType: InternalNotificationType;

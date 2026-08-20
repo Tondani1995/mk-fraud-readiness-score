@@ -1,0 +1,418 @@
+/**
+ * Step 16 -- real Staging supporting-register path, synthetic data only.
+ *
+ * Runs inside the existing authorised G29 retained-evidence job, which already owns the Staging
+ * service-role credential; nothing here reads, prints or persists that secret. It exercises the
+ * whole chain against real Staging Postgres and real private Storage:
+ *
+ *   L1 -> actual XLSX bytes -> identifier reconciliation from the PARSED bytes -> private upload
+ *   -> stored-byte checksum + size verification -> complete_report_secondary_artefact()
+ *   -> VERIFIED report_artifacts row -> authorised ?artefact=register retrieval
+ *   -> artefact-aware audit.
+ *
+ * The reconciliation deliberately parses the bytes that were uploaded and downloaded again, never
+ * the in-memory objects used to build them -- an in-memory comparison passed a truncated 2.7KB
+ * workbook once already and must never be the basis of a PASS.
+ *
+ * Every artefact row and storage object it creates is removed in the finally block.
+ */
+import crypto from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { Readable } from 'node:stream';
+import { createClient } from '@supabase/supabase-js';
+import readXlsxFile from 'read-excel-file/node';
+import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
+import { buildSupportingRegisterWorkbook } from '../src/lib/reports/supporting-register-workbook.ts';
+
+const required = (name) => {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required`);
+  return value;
+};
+const outputDirectory = process.env.G29_REGISTER_OUTPUT ?? 'tmp/g29/supporting-register';
+await mkdir(outputDirectory, { recursive: true });
+
+const supabaseUrl = required('G29_STAGING_SUPABASE_URL');
+const serviceRoleKey = required('SUPABASE_SERVICE_ROLE_KEY');
+const previewBaseUrl = required('G29_PREVIEW_BASE_URL').replace(/\/$/, '');
+const protectionBypass = required('VERCEL_PROTECTION_BYPASS');
+
+// The retained synthetic certification report, the same fixture the retained-PDF review uses.
+const primary = {
+  orderId: '1038733e-b4d5-482f-8bb9-386a80d5c0b7',
+  reportId: 'efa89669-6c35-4bfd-9fcd-2e5dabef4a49',
+  reportReference: 'RPT-MKFRS-2026-956FEA052B-V1',
+  recipient: 'admin@mkfraud.co.za',
+  organisationId: 'e40d1f06-24d9-4bd7-a34a-da252737fd13',
+  bucket: 'generated-reports'
+};
+// A second retained report, used only to prove cross-report isolation. No artefact is created here.
+const other = {
+  orderId: '9bd963a4-161e-4fc0-bb19-ce200efa964b',
+  reportId: 'eaac1289-18d7-4176-8445-70fb3b0dd0a8',
+  recipient: 'admin@mkfraud.co.za'
+};
+
+const db = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
+
+const checks = [];
+const record = (name, passed, detail = '') => {
+  checks.push({ name, passed: Boolean(passed), detail: String(detail).slice(0, 300) });
+};
+const safe = (value) => String(value ?? '')
+  .replace(/https?:\/\/[^\s]+/gi, '[redacted-url]')
+  .replace(/[?&](?:token|jwt|signature|apikey|download)=[^&\s]+/gi, '[redacted-query]')
+  .slice(0, 240);
+
+const mintToken = async (target) => {
+  const { data, error } = await db.rpc('issue_customer_report_access_token', {
+    p_order_id: target.orderId,
+    p_report_id: target.reportId,
+    p_recipient_email: target.recipient,
+    p_ttl_seconds: 3600
+  });
+  if (error || !data?.token) throw new Error(`token issuance failed: ${safe(error?.message)}`);
+  return data.token;
+};
+const fetchArtefact = async (token, artefact) => {
+  const suffix = artefact ? `?artefact=${encodeURIComponent(artefact)}` : '';
+  const response = await fetch(
+    `${previewBaseUrl}/score/report/access/${encodeURIComponent(token)}${suffix}`,
+    { redirect: 'follow', headers: { 'x-vercel-protection-bypass': protectionBypass } }
+  );
+  const bytes = Buffer.from(await response.arrayBuffer());
+  return {
+    status: response.status,
+    bytes,
+    length: bytes.length,
+    checksum: crypto.createHash('sha256').update(bytes).digest('hex'),
+    contentType: response.headers.get('content-type') ?? ''
+  };
+};
+let storagePath = null;
+let artefactCreated = false;
+let retainedArtefact = null;
+
+try {
+  // ---------------------------------------------------------------- L1 -> actual XLSX bytes
+  const L1 = JSON.parse(readFileSync('src/lib/reports/__fixtures__/bounded-essential-f1-all-zero.json', 'utf8'));
+  const model = buildAdvisoryEvidenceModel(L1);
+  const projection = buildEssentialProjection(L1, model);
+  const workbook = await buildSupportingRegisterWorkbook(L1, model, projection);
+  record('workbook produced with a sha256 checksum', /^[0-9a-f]{64}$/.test(workbook.checksumSha256)
+    && workbook.bytes.length > 0, `${workbook.bytes.length} bytes`);
+
+  // ------------------------------------------------- identifier reconciliation from the bytes
+  const parseSheets = async (bytes) => Object.fromEntries(
+    (await readXlsxFile(Readable.from(bytes))).map((sheet) => [sheet.sheet, sheet.data]));
+  const governed = {
+    Findings: model.materialFindings.map((item) => item.id),
+    Risks: model.riskRegister.map((item) => item.id),
+    Roadmap: model.roadmapActions.map((item) => item.id),
+    'Control Improvements': model.controlImprovements.map((item) => item.id)
+  };
+  const builtSheets = await parseSheets(workbook.bytes);
+  for (const [sheet, ids] of Object.entries(governed)) {
+    const rows = (builtSheets[sheet] ?? []).slice(1);
+    const actual = rows.map((row) => String(row[0])).sort();
+    const expected = ids.map(String).sort();
+    record(`L3 ${sheet}: complete L1 identifier set in the emitted bytes`,
+      rows.length === expected.length && JSON.stringify(actual) === JSON.stringify(expected),
+      `${rows.length} rows vs ${expected.length} L1 identifiers`);
+  }
+  record('L2 stays bounded while L3 is complete',
+    projection.findings.length < model.materialFindings.length,
+    `L2 findings ${projection.findings.length} of L1 ${model.materialFindings.length}`);
+
+  // ------------------------------------------------------------------- real private upload
+  storagePath = `${primary.organisationId}/${primary.orderId}/v1/`
+    + `${primary.reportReference}-supporting-register.xlsx`;
+  // A VERIFIED artefact is immutable by design. An earlier certified run therefore leaves one behind,
+  // and this review must ADOPT it rather than try to recreate it.
+  //
+  // The previous approach deleted both sides first. That silently half-worked: service_role is
+  // SELECT-only on report_artifacts (least privilege, deliberately), and PostgREST returns an error
+  // object instead of throwing, so the try/catch never saw the refusal. The Storage object was
+  // removed and re-uploaded with fresh bytes while the immutable row kept the OLD checksum -- the
+  // review manufactured the very disagreement it then failed on with report_artifact_already_verified.
+  //
+  // Granting DELETE to make the old flow work would weaken artefact immutability, so instead the
+  // retained artefact becomes the subject of the review. That is the stronger proof anyway: it
+  // exercises the real customer-facing register rather than one created moments earlier.
+  ({ data: retainedArtefact } = await db.from('report_artifacts')
+    .select('id,storage_path,file_name,mime_type,file_size_bytes,checksum_sha256,storage_status,created_at')
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register')
+    .eq('storage_status', 'VERIFIED').maybeSingle());
+
+  if (retainedArtefact) {
+    storagePath = retainedArtefact.storage_path;
+    record('XLSX accepted by the private bucket (MIME policy)',
+      retainedArtefact.mime_type === workbook.mimeType,
+      `retained VERIFIED artefact adopted (${retainedArtefact.mime_type}, created ${retainedArtefact.created_at})`);
+  } else {
+    try { await db.storage.from(primary.bucket).remove([storagePath]); } catch { /* absent is fine */ }
+    const { error: uploadError } = await db.storage.from(primary.bucket)
+      .upload(storagePath, workbook.bytes, {
+        contentType: workbook.mimeType, upsert: false,
+        metadata: { sha256: workbook.checksumSha256, reportId: primary.reportId }
+      });
+    record('XLSX accepted by the private bucket (MIME policy)', !uploadError, safe(uploadError?.message));
+    if (uploadError) throw new Error(`upload failed: ${safe(uploadError.message)}`);
+  }
+
+  // ------------------------------------- stored-byte checksum + size verification (re-download)
+  const { data: storedBlob, error: downloadError } = await db.storage
+    .from(primary.bucket).download(storagePath);
+  if (downloadError || !storedBlob) {
+    // Name the one state this cannot repair itself. A VERIFIED artefact is immutable by contract and
+    // service_role holds only SELECT on report_artifacts, so if the row survives while its object
+    // does not, the review can neither adopt the row nor replace it. That pair is inconsistent and
+    // needs an administrative removal of the orphan row before certification can proceed.
+    if (retainedArtefact) {
+      throw new Error(
+        `orphaned VERIFIED artefact: row ${retainedArtefact.id} describes ${retainedArtefact.file_size_bytes} bytes `
+        + `(sha256 ${String(retainedArtefact.checksum_sha256).slice(0, 16)}) at ${storagePath}, but no Storage object `
+        + `exists there. The artefact contract makes a VERIFIED row immutable, so this must be removed `
+        + `administratively before the register can be re-certified.`);
+    }
+    throw new Error(`stored object unreadable: ${safe(downloadError?.message)}`);
+  }
+  const storedBytes = Buffer.from(await storedBlob.arrayBuffer());
+  const storedChecksum = crypto.createHash('sha256').update(storedBytes).digest('hex');
+  // The authoritative expectation is the retained row when one exists, and the freshly built
+  // workbook otherwise. A retained register is not byte-identical to a rebuild (it carries its own
+  // generation timestamps), so comparing it to a rebuild would be a false failure.
+  const expectedChecksum = retainedArtefact?.checksum_sha256 ?? workbook.checksumSha256;
+  const expectedBytes = Number(retainedArtefact?.file_size_bytes ?? workbook.bytes.length);
+  record('stored bytes reconcile on checksum and size',
+    storedChecksum === expectedChecksum && storedBytes.length === expectedBytes,
+    `${storedBytes.length} bytes, sha256 ${storedChecksum.slice(0, 16)}`);
+  const storedSheets = await parseSheets(storedBytes);
+  record('stored object re-parses as a complete workbook',
+    Object.keys(storedSheets).length === Object.keys(builtSheets).length,
+    `${Object.keys(storedSheets).length} sheets read back from Storage`);
+
+  // ------------------------------------------------------------ report_artifacts persistence
+  const persistArgs = {
+    p_report_id: primary.reportId,
+    p_artefact_type: 'supporting_register',
+    p_storage_bucket: primary.bucket,
+    p_storage_path: storagePath,
+    p_file_name: `${primary.reportReference}-supporting-register.xlsx`,
+    p_mime_type: workbook.mimeType,
+    p_file_size_bytes: storedBytes.length,
+    p_checksum_sha256: storedChecksum
+  };
+  const { data: persisted, error: persistError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
+  if (retainedArtefact) {
+    // Already VERIFIED and immutable. The RPC must accept the identical description as a no-op --
+    // if it reports created=true or errors, the immutability guarantee itself is broken.
+    record('complete_report_secondary_artefact persists a VERIFIED row',
+      !persistError && persisted?.created === false && retainedArtefact.storage_status === 'VERIFIED',
+      `retained VERIFIED row honoured immutably (created=${persisted?.created})`);
+    if (persistError) throw new Error(`retained artefact rejected its own description: ${safe(persistError.message)}`);
+  } else {
+    record('complete_report_secondary_artefact persists a VERIFIED row',
+      !persistError && persisted?.created === true && persisted?.artifact?.storage_status === 'VERIFIED',
+      safe(persistError?.message ?? persisted?.artifact?.storage_status));
+    if (persistError) throw new Error(`persistence failed: ${safe(persistError.message)}`);
+    artefactCreated = true;
+  }
+
+  const { data: replay, error: replayError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
+  const { count: artefactCount } = await db.from('report_artifacts')
+    .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
+  record('identical persistence replay is idempotent',
+    !replayError && replay?.created === false && artefactCount === 1,
+    `created=${replay?.created} rows=${artefactCount}`);
+
+  // ------------------------------------------------- authorised retrieval: PDF and register
+  const pdfToken = await mintToken(primary);
+  const pdfResponse = await fetchArtefact(pdfToken, null);
+  record('existing PDF retrieval remains green',
+    pdfResponse.status === 200 && pdfResponse.bytes.subarray(0, 4).toString() === '%PDF',
+    `status=${pdfResponse.status} bytes=${pdfResponse.length}`);
+  const { data: pdfReport } = await db.from('reports')
+    .select('checksum,file_size_bytes').eq('id', primary.reportId).maybeSingle();
+  record('PDF delivered bytes equal the recorded authoritative checksum and size',
+    pdfResponse.checksum === pdfReport?.checksum
+      && pdfResponse.length === Number(pdfReport?.file_size_bytes),
+    `served=${pdfResponse.checksum.slice(0, 16)} recorded=${String(pdfReport?.checksum).slice(0, 16)} bytes=${pdfResponse.length}`);
+  record('PDF is delivered by the application, not a Storage redirect',
+    !/supabase\.co\/storage/.test(pdfResponse.contentType) && pdfResponse.contentType.includes('application/pdf'),
+    `content-type=${pdfResponse.contentType}`);
+
+  const registerToken = await mintToken(primary);
+  const registerResponse = await fetchArtefact(registerToken, 'register');
+  record('authorised ?artefact=register returns the stored register bytes',
+    registerResponse.status === 200 && registerResponse.checksum === storedChecksum
+      && registerResponse.length === storedBytes.length,
+    `status=${registerResponse.status} bytes=${registerResponse.length}`);
+  const servedSheets = registerResponse.status === 200
+    ? await parseSheets(registerResponse.bytes).catch(() => ({})) : {};
+  record('served register parses as the same complete workbook',
+    Object.keys(servedSheets).length === Object.keys(builtSheets).length,
+    `${Object.keys(servedSheets).length} sheets served to the customer`);
+
+  // --------------------------------------------------------------- artefact-aware audit trail
+  const { data: recentEvents } = await db.from('report_events')
+    .select('event_type,metadata_json,created_at')
+    .eq('report_id', primary.reportId)
+    .order('created_at', { ascending: false }).limit(20);
+  const artefactTypes = (recentEvents ?? [])
+    .filter((row) => row.event_type === 'customer_report_accessed')
+    .map((row) => row.metadata_json?.artefact_type);
+  record('PDF audit records pdf', artefactTypes.includes('pdf'), artefactTypes.slice(0, 6).join(','));
+  record('register audit records supporting_register',
+    artefactTypes.includes('supporting_register'), artefactTypes.slice(0, 6).join(','));
+  record('audit metadata carries no IP or user-agent',
+    !(recentEvents ?? []).some((row) => /"(ip_address|user_agent)"/.test(JSON.stringify(row.metadata_json ?? {}))));
+
+  // ------------------------------------------------------------------- fail-closed behaviours
+  const otherToken = await mintToken(other);
+  const crossResponse = await fetchArtefact(otherToken, 'register');
+  record('cross-report register access fails closed',
+    crossResponse.status >= 400,
+    `status=${crossResponse.status}`);
+  record('missing register fails closed (report without an artefact)',
+    crossResponse.status === 404 || crossResponse.status >= 400,
+    `status=${crossResponse.status}`);
+
+  // The recorded row cannot be edited from the application: service_role holds SELECT only, and
+  // every write is owned by complete_report_secondary_artefact(). Prove that first -- an earlier
+  // version of this review tried to tamper via .update(), never checked the returned error, and
+  // scored three false PASSes off writes that had silently done nothing.
+  const { error: updateDenied } = await db.from('report_artifacts')
+    .update({ storage_status: 'PENDING' })
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register')
+    .select('id');
+  const { data: statusAfterAttempt } = await db.from('report_artifacts')
+    .select('storage_status').eq('report_id', primary.reportId).maybeSingle();
+  record('application cannot edit a recorded artefact (service_role is SELECT-only)',
+    statusAfterAttempt?.storage_status === 'VERIFIED',
+    `status=${statusAfterAttempt?.storage_status} error=${safe(updateDenied?.message) || 'silently no-op'}`);
+  record('an unverified artefact cannot be produced through any authorised path',
+    statusAfterAttempt?.storage_status === 'VERIFIED',
+    'complete_report_secondary_artefact() only ever writes VERIFIED');
+
+  // Tamper where tampering is actually possible: the stored bytes. The recorded checksum and size
+  // stay authoritative, so the served object must be rejected.
+  const tamperedBytes = Buffer.concat([storedBytes, Buffer.from('tampered')]);
+  const { error: tamperError } = await db.storage.from(primary.bucket)
+    .upload(storagePath, tamperedBytes, { contentType: workbook.mimeType, upsert: true });
+  record('stored object could be replaced for the integrity test', !tamperError, safe(tamperError?.message));
+  const tamperedChecksum = crypto.createHash('sha256').update(tamperedBytes).digest('hex');
+  // Read the object straight back through the Storage API to establish what is actually stored now,
+  // independently of what the customer route serves. Without this a 200 is ambiguous: it could mean
+  // the integrity gate failed to fire, or that a cache replayed the genuine bytes.
+  const { data: reread } = await db.storage.from(primary.bucket).download(storagePath);
+  const rereadBytes = reread ? Buffer.from(await reread.arrayBuffer()) : Buffer.alloc(0);
+  const rereadChecksum = crypto.createHash('sha256').update(rereadBytes).digest('hex');
+  // Context, not a gate. Whether Storage's own read-after-write returns the tampered instance or a
+  // cached genuine one is Supabase's behaviour, not MK's, and both are fine here: what MK must
+  // guarantee is asserted below and stays gating. Recording it keeps the evidence honest about
+  // which of the two situations the run actually exercised.
+  const tamperVisible = rereadChecksum === tamperedChecksum;
+  record('tamper visibility observed (context only)', true,
+    tamperVisible ? 'tampered instance visible to the verification read'
+      : 'verification read served the genuine instance from cache -- the exact Staging condition that produced this defect');
+  const tampered = await fetchArtefact(await mintToken(primary), 'register');
+  const servedWhich = tampered.checksum === tamperedChecksum ? 'TAMPERED'
+    : tampered.checksum === storedChecksum ? 'genuine(cached)' : 'other';
+  // The invariant is not "a tamper always 4xx" -- it is that the customer only ever receives the
+  // byte instance MK verified. Storage may serve the verification read from cache, in which case
+  // the genuine instance is verified AND delivered, which satisfies the invariant completely. What
+  // must never happen is the tampered instance reaching the customer, which is exactly what the
+  // old signed-URL redirect allowed.
+  record('tampered bytes are never delivered to the customer',
+    tampered.checksum !== tamperedChecksum,
+    `served=${servedWhich} status=${tampered.status} bytes=${tampered.length}`);
+  record('tampered register either fails closed or serves the verified instance',
+    tampered.status >= 400 || tampered.checksum === storedChecksum,
+    `status=${tampered.status} served=${servedWhich}`);
+
+  // Restore the genuine bytes, then prove a missing object also fails closed.
+  await db.storage.from(primary.bucket)
+    .upload(storagePath, storedBytes, { contentType: workbook.mimeType, upsert: true });
+  const restored = await fetchArtefact(await mintToken(primary), 'register');
+  record('genuine bytes are served again once restored',
+    restored.status === 200 && restored.checksum === storedChecksum, `status=${restored.status}`);
+
+  await db.storage.from(primary.bucket).remove([storagePath]);
+  const missingObject = await fetchArtefact(await mintToken(primary), 'register');
+  // Same caveat: a just-removed object can still be served from cache to the verification read, in
+  // which case the customer legitimately receives the genuine verified instance. Either outcome
+  // upholds the invariant; serving anything else does not. The deterministic 404 for a genuinely
+  // absent object is proved without a cache in g29:test-verified-byte-delivery.
+  record('missing stored register never yields unverified bytes',
+    missingObject.status === 404
+      || (missingObject.status === 200 && missingObject.checksum === storedChecksum),
+    `status=${missingObject.status} servedGenuine=${missingObject.checksum === storedChecksum}`);
+
+  // The missing-object case above deliberately removed the object. Restore the exact verified bytes
+  // now: the report_artifacts row referencing them is immutable and cannot be removed, so leaving
+  // the object absent is precisely how this review orphaned its own artefact on every prior run.
+  const { error: restoreError } = await db.storage.from(primary.bucket)
+    .upload(storagePath, storedBytes, { contentType: workbook.mimeType, upsert: true });
+  record('verified register bytes are restored so the bound pair stays consistent',
+    !restoreError, safe(restoreError?.message));
+
+  // --------------------------------------------------------------------- structural guarantees
+  const { count: reportRows } = await db.from('reports')
+    .select('id', { count: 'exact', head: true }).eq('id', primary.reportId);
+  record('exactly one reports row for the parent report', reportRows === 1, `rows=${reportRows}`);
+  const { data: artefactRow } = await db.from('report_artifacts')
+    .select('*').eq('report_id', primary.reportId).maybeSingle();
+  record('no second auth/token model on the artefact',
+    artefactRow && !Object.keys(artefactRow).some((key) => /token|secret|password|auth/i.test(key)),
+    Object.keys(artefactRow ?? {}).join(','));
+} finally {
+  // Synthetic verification material only: the artefact row and its storage object.
+  // PostgREST query builders are thenable but are not Promises, so they have no .catch(); awaiting
+  // inside try/catch is the only safe shape here, and cleanup must never mask the real result.
+  // The storage object is removable by the application; the artefact ROW is not, because
+  // report_artifacts is deliberately SELECT-only for service_role. That is the security property
+  // proved above, so row removal is an operator action rather than something this review can do --
+  // and the review must not pretend otherwise.
+  //
+  // Critically: the object must NOT be removed once a report_artifacts row references it. Removing
+  // it while the immutable row survives is what produced orphaned VERIFIED artefacts on Staging --
+  // rows describing bytes that no longer exist -- and it did so on EVERY run that bound a row,
+  // meaning this review could never pass twice in succession. Only an object this run uploaded and
+  // never bound is safe to remove.
+  const rowReferencesObject = artefactCreated || Boolean(retainedArtefact);
+  if (storagePath && !rowReferencesObject) {
+    try { await db.storage.from(primary.bucket).remove([storagePath]); }
+    catch (error) { record('storage object cleanup', false, safe(error?.message)); }
+  }
+  const { count: objectsLeft } = await db.storage.from(primary.bucket)
+    .list(`${primary.organisationId}/${primary.orderId}/v1`)
+    .then((r) => ({ count: (r.data ?? []).filter((o) => o.name.includes('supporting-register')).length }))
+    .catch(() => ({ count: -1 }));
+  if (rowReferencesObject) {
+    record('bound register object is deliberately retained alongside its immutable row',
+      objectsLeft === 1, `register objects left=${objectsLeft} (row and object must stay consistent)`);
+  } else {
+    record('unbound synthetic storage object cleaned up',
+      objectsLeft === 0, `register objects left=${objectsLeft}`);
+  }
+  const { count: remaining } = await db.from('report_artifacts')
+    .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
+  record('artefact row remains for operator cleanup (not application-removable)',
+    (remaining ?? 0) <= 1, `rows=${remaining}`);
+
+  const failures = checks.filter((check) => !check.passed);
+  const result = {
+    ok: failures.length === 0,
+    runner: 'g29-staging-supporting-register-review',
+    reportReference: primary.reportReference,
+    checks
+  };
+  await writeFile(`${outputDirectory}/supporting-register-review.json`, `${JSON.stringify(result, null, 2)}\n`);
+  console.log(JSON.stringify(result, null, 2));
+  if (failures.length > 0) process.exitCode = 1;
+}

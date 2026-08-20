@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { startAccountlessAssessment } from '@/lib/respondent/start-assessment';
 import { validateResumeToken } from '@/lib/respondent/tokens';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -7,6 +8,9 @@ import { getOptionalServerEnv } from '@/lib/env/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('assessment_start');
+  if (frozen) return frozen;
+
   const service = createSupabaseServiceClient();
   const appBaseUrl = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', new URL(request.url).origin);
   const stamp = Date.now();

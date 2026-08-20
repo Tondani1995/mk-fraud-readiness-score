@@ -83,6 +83,11 @@ select (
 
 begin;
 select set_config('lock_timeout','10s',true);
+-- Replay-order compatibility: the Production Phase 10 migration owns this
+-- column, while this controller-only reconciliation may run against the
+-- earlier historical boundary before that migration was acknowledged.
+alter table public.report_events
+  add column if not exists metadata_json jsonb default '{}'::jsonb;
 \if :phase14_production_delta_required
 -- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0020_phase14_privileged_function_grants.sql (sha256:3beac7831756fd9c5d43573c5372ca6e096741f82712e985ffdefed85dc3b180)
 -- Phase 14 database-security hardening.

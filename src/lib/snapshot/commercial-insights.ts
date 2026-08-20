@@ -1,11 +1,28 @@
 import type { FreeSnapshot, FreeSnapshotDomain } from '@/lib/snapshot/free-snapshot';
 
+/**
+ * Commercial option codes recorded against assessment events.
+ *
+ * `essential` and `comprehensive` are the joint-launch codes and the only ones current code writes.
+ * `legacyFullReport` and `legacyPersonalisedReport` exist because assessment_events rows carrying
+ * them already exist in Production and Staging; they are readable historical fact and must not be
+ * rewritten, but nothing emits them any more. See
+ * docs/v1/joint-launch/legacy-commercial-reference-inventory.md.
+ */
 export const COMMERCIAL_OPTION_CODES = {
-  fullReport: 'full_report_5000',
-  personalisedReport: 'personalised_report_50000'
+  essential: 'essential',
+  comprehensive: 'comprehensive',
+  legacyFullReport: 'full_report_5000',
+  legacyPersonalisedReport: 'personalised_report_50000'
 } as const;
 
 export type CommercialOptionCode = typeof COMMERCIAL_OPTION_CODES[keyof typeof COMMERCIAL_OPTION_CODES];
+
+/** Option codes a current code path is permitted to write. */
+export const CURRENT_COMMERCIAL_OPTION_CODES = [
+  COMMERCIAL_OPTION_CODES.essential,
+  COMMERCIAL_OPTION_CODES.comprehensive
+] as const;
 export type CommercialScoreBand = 'Reactive' | 'Developing' | 'Structured' | 'Strategic';
 
 export type CommercialDomainInsight = {
@@ -254,14 +271,15 @@ function round(value: number) {
   return Math.round(value);
 }
 
-export function commercialScoreBand(score: number): CommercialScoreBand {
+export function commercialScoreBand(score: number | null): CommercialScoreBand {
+  if (score === null) return 'Reactive';
   if (score < 40) return 'Reactive';
   if (score < 60) return 'Developing';
   if (score < 80) return 'Structured';
   return 'Strategic';
 }
 
-function commercialMaturityBand(maturity: string): CommercialScoreBand {
+function commercialMaturityBand(maturity: string | null): CommercialScoreBand {
   if (maturity === 'Reactive' || maturity === 'Developing' || maturity === 'Structured' || maturity === 'Strategic') return maturity;
   return 'Reactive';
 }
@@ -329,17 +347,61 @@ function scoredDomains(snapshot: FreeSnapshot) {
 }
 
 function leadershipPriority(snapshot: FreeSnapshot, band: CommercialScoreBand) {
+  if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
+    return 'Leadership should obtain and independently verify the evidence needed to confirm the applicable control position. Unknown responses are not treated as confirmed weaknesses or control absence.';
+  }
   if (snapshot.capApplied) return 'Leadership should address the control weakness that triggered the readiness cap before relying on the broader score as evidence of a dependable fraud-control environment.';
   if (snapshot.criticalGapCount > 0) return 'Leadership attention should prioritise the identified critical-control weaknesses and establish clear ownership, remediation dates and evidence of sustained operation.';
   if (band === 'Reactive' || band === 'Developing') return 'Leadership attention should move from individual control activities to a coordinated fraud-readiness programme with clear ownership, measurable oversight and prioritised remediation.';
   return 'Leadership should focus on control consistency, independent assurance and the areas where stronger overall maturity could conceal concentrated weaknesses.';
 }
 
+/**
+ * The high-level risk implication shown on the free snapshot.
+ *
+ * The guard used to read `|| snapshot.resultStatus`, and every adaptive
+ * assessment carries a result status — PROVISIONAL or NORMAL as much as
+ * INSUFFICIENT_VISIBILITY. So the "exposure was not assessed" fallback fired on
+ * the whole adaptive path, and the customer met a blank at the exact moment they
+ * were deciding whether to pay. Only genuine absence of visibility should
+ * suppress the implication.
+ *
+ * Where the exposure band is absent but the assessment is scored, a legitimate
+ * implication is still available from the control position itself. It stays
+ * deliberately high level: a pattern and its consequence, never the exposure
+ * diagnosis, scenarios or priorities that the paid tiers carry.
+ */
 function riskImplication(snapshot: FreeSnapshot) {
-  return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] ?? RISK_IMPLICATION_BY_EXPOSURE.Low;
+  // Only genuine lack of visibility suppresses the implication. `exposureAssessed
+  // === false` is not that: the adaptive path never runs the exposure module, so
+  // it is false for every adaptive assessment including fully covered ones. It
+  // means "no exposure band", which the fall-through below already handles.
+  if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
+    return 'Too much of the assessment is unconfirmed to issue a risk implication. Leadership should first close the visibility gaps, because an unknown response is not evidence that a control is absent — or that it works.';
+  }
+  if (snapshot.exposureBand) return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand];
+
+  // Derived from the recorded control position, not from an exposure model.
+  if (snapshot.capApplied) {
+    return 'One recorded control weakness is significant enough to cap the readiness result. Until it is closed, the wider score should not be read as evidence of a dependable control environment.';
+  }
+  if (snapshot.criticalGapCount > 0) {
+    return `The assessment records ${snapshot.criticalGapCount} critical-control weakness${snapshot.criticalGapCount === 1 ? '' : 'es'}. Critical controls are the ones expected to hold on their own, so a gap in any of them matters more than the overall score suggests.`;
+  }
+  const band = commercialScoreBand(snapshot.overallScore);
+  if (band === 'Reactive' || band === 'Developing') {
+    return 'The recorded position is uneven rather than uniformly weak: capability exists in parts of the profile but is not yet connected into a consistent response. Fraud tends to find the join between a strong control and a weak one.';
+  }
+  return 'No critical-control weakness is recorded. At this level the material question changes from whether controls exist to whether they still operate consistently, are evidenced, and would hold as the business changes.';
 }
 
 function coverageMessage(snapshot: FreeSnapshot) {
+  if (snapshot.adaptiveMetrics) {
+    if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY' || snapshot.adaptiveMetrics.unknownSharePct > 0 || snapshot.adaptiveMetrics.unansweredApplicableCount > 0) {
+      return `Assessment coverage is ${round(snapshot.adaptiveMetrics.assessmentCoveragePct)}%. Control visibility is ${round(snapshot.adaptiveMetrics.controlVisibilityPct)}%; unknown responses account for ${round(snapshot.adaptiveMetrics.unknownSharePct)}% of applicable control weight. Unknown responses are uncertainty, not confirmed control absence.`;
+    }
+    return null;
+  }
   if (snapshot.nARatePct <= 0 && snapshot.coveragePct >= 100) return null;
   return `Coverage is ${round(snapshot.coveragePct)}%. Not-applicable responses are excluded from the score, so they do not inflate readiness; they reduce the evidence base available for interpretation.`;
 }
@@ -386,12 +448,17 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
   const priority = priorityAreas(snapshot);
   const positive = strengths(snapshot);
 
+  const insufficient = snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY';
   return {
     scoreBand,
-    currentPosition: CURRENT_POSITION_BY_BAND[maturityBand],
+    currentPosition: insufficient
+      ? 'The applicable assessment scope was recorded, but the supplied responses do not provide enough visibility to confirm the organisation\'s control position. This result does not classify unknown responses as absent, failed or ineffective.'
+      : CURRENT_POSITION_BY_BAND[maturityBand],
     riskImplication: riskImplication(snapshot),
     leadershipPriority: leadershipPriority(snapshot, maturityBand),
-    conciseInterpretation: `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
+    conciseInterpretation: insufficient
+      ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. The result identifies the assessed scope, information gaps and evidence needed for a reliable view.'
+      : `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
     criticalGapIndicator: snapshot.criticalGapCount > 0 || snapshot.capApplied,
     coverageMessage: coverageMessage(snapshot),
     priorityAreas: priority,
@@ -414,7 +481,7 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
       'Prioritised management actions',
       '30/60/90-day fraud-readiness roadmap',
       'Leadership agenda',
-      'Expert quality review',
+      'Supporting evidence register',
       'Professionally prepared PDF report'
     ]
   };

@@ -1,0 +1,9 @@
+{
+  "source": "fixtures/commercial-quality/manifest.json",
+  "fixtures": ["F1", "F2", "F3", "F4", "F5", "F6"],
+  "customerOutputs": {
+    "essential": "Rivonia Health Logistics (Pty) Ltd / MKFRS-2026-F4047D75C0",
+    "comprehensive": "Kestrel Industrial Supply (Pty) Ltd / MKFRS-2026-95B3815A0C"
+  },
+  "note": "Fixture profiles are internal gate inputs; fixture labels and stress-fixture metadata are not customer-facing."
+}

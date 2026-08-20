@@ -22,6 +22,36 @@ export const PHASE1_QUEUE_LABELS = {
 
 export type Phase1QueueKey = keyof typeof PHASE1_QUEUE_LABELS;
 
+// Real (Release C) delivery status vocabulary, from report_delivery_authorizations_status_check
+// (supabase/migrations/20260724170000_release_c_email_secure_delivery.sql). Distinct from
+// manual_report_delivery_attempts' DELIVERY_PENDING/DELIVERING/DELIVERY_FAILED/DELIVERED, which
+// getPhase1OrderOperations below still reads unchanged -- that table drives the separate,
+// still-live legacy/provider-double admin delivery action (FulfilmentActions' "Initiate/Retry
+// Delivery" button, via src/lib/reports/phase1-manual-delivery.ts), not real customer delivery.
+// Exported (not just used locally) so delivery-recovery-service.ts's getOrderDeliveryState can
+// classify the order-detail page's authoritative delivery status with the exact same rules this
+// function uses for the admin orders list -- one shared classification, not two that could drift.
+export const DELIVERY_IN_FLIGHT_STATUSES = ['queued', 'claimed', 'dispatching', 'retry_scheduled'];
+// 'bounced'/'complained' are added here even though they're not values of
+// report_delivery_authorizations.status itself (they live on the linked email_events row --
+// see the deliveryState override below) -- a bounce/complaint always means "needs attention",
+// the same bucket a terminal authorization failure already means.
+export const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked', 'bounced', 'complained'];
+
+// Maps an already bounce/complaint-resolved delivery status (see the deliveryState override in
+// annotateOrdersWithPhase1State below, and mapAuthorization in delivery-recovery-service.ts,
+// which apply the identical override) onto the same four buckets the admin orders list queues
+// use. Shared by both the list (this file) and the order-detail page's primary summary
+// (delivery-recovery-service.ts's getOrderDeliveryState), so the two views can't disagree about
+// what a given status means.
+export function classifyDeliveryBucket(status: string | null | undefined): 'not_ready' | 'delivery_pending' | 'delivered' | 'delivery_failed' {
+  if (!status) return 'not_ready';
+  if (DELIVERY_IN_FLIGHT_STATUSES.includes(status)) return 'delivery_pending';
+  if (status === 'finalized') return 'delivered';
+  if (DELIVERY_ATTENTION_STATUSES.includes(status)) return 'delivery_failed';
+  return 'not_ready';
+}
+
 function latestBy<T extends { order_id: string; created_at: string }>(rows: T[]) {
   const map = new Map<string, T>();
   for (const row of rows) if (!map.has(row.order_id)) map.set(row.order_id, row);
@@ -60,7 +90,7 @@ export async function getPhase1OrderOperations(
   }
   const [generationResult, deliveryResult, notificationResult] = await Promise.all([
     db.from('manual_report_generation_attempts')
-      .select('id,request_id,order_id,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,error_category,safe_operational_error,technical_reference,output_report_id,created_at,updated_at')
+      .select('id,request_id,order_id,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,max_attempts,next_attempt_at,lease_owner,lease_expires_at,error_category,safe_operational_error,technical_reference,output_report_id,quality_reviewed_by,quality_reviewed_at,quality_review_decision,quality_review_reason,regenerated_from_attempt_id,delivery_queued_at,created_at,updated_at')
       .eq('order_id', orderId).order('created_at', { ascending: false }),
     db.from('manual_report_delivery_attempts')
       .select('id,request_id,order_id,report_id,requested_by,requested_at,started_at,completed_at,status,retry_count,provider_mode,error_category,safe_operational_error,technical_reference,email_event_id,created_at,updated_at')
@@ -103,8 +133,13 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
       .in('order_id', ids).order('version_number', { ascending: false }),
     db.from('manual_report_generation_attempts').select('order_id,status,safe_operational_error,created_at')
       .in('order_id', ids).order('created_at', { ascending: false }),
-    db.from('manual_report_delivery_attempts').select('order_id,status,safe_operational_error,created_at')
-      .in('order_id', ids).order('created_at', { ascending: false })
+    // email_events(status) embeds the linked send's provider-reported outcome (via the
+    // report_delivery_authorizations_email_event_id_fkey relationship) -- finalize_delivery()
+    // only ever sets the authorization itself to 'finalized' at send time; a later bounce or
+    // complaint webhook (apply_email_provider_event_atomic()) only ever updates email_events.
+    // Without this join, a bounced/complained order would keep showing as 'delivered' forever.
+    db.from('report_delivery_authorizations').select('order_id,status,authorised_at,email_events(status)')
+      .in('order_id', ids).order('authorised_at', { ascending: false })
   ])));
   const queryError = results.flatMap((result) => result).find((result) => result.error)?.error;
   if (queryError) {
@@ -119,7 +154,7 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
   const deliveryRows = results.flatMap((result) => result[2].data ?? []);
   const reportByOrder = latestBy(reportRows.map((row: any) => ({ ...row, created_at: row.generated_at ?? '' })));
   const generationByOrder = latestBy(generationRows);
-  const deliveryByOrder = latestBy(deliveryRows);
+  const deliveryByOrder = latestBy(deliveryRows.map((row: any) => ({ ...row, created_at: row.authorised_at ?? '' })));
 
   const annotated = orders.map((order) => {
     const report: any = reportByOrder.get(order.id) ?? null;
@@ -127,10 +162,15 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     const delivery: any = deliveryByOrder.get(order.id) ?? null;
     const ready = Boolean(report?.storage_status === 'VERIFIED' && report?.storage_bucket && report?.storage_path && !['voided'].includes(report?.status));
     const generationState = generation?.status ?? (ready ? 'REPORT_READY' : 'NOT_REQUESTED');
-    const deliveryState = delivery?.status ?? (ready ? 'NOT_READY' : 'NOT_READY');
+    // A bounce/complaint always overrides the authorization's own status for display purposes --
+    // a 'finalized' authorization only means the provider accepted the request, not that the
+    // customer actually received it. See the query comment above for why this can't be read off
+    // report_delivery_authorizations.status alone.
+    const emailOutcome = delivery?.email_events?.status;
+    const deliveryState = emailOutcome === 'bounced' || emailOutcome === 'complained' ? emailOutcome : (delivery?.status ?? 'NOT_READY');
     const generationStuck = ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(generationState)
       && Date.now() - new Date(generation?.created_at ?? 0).getTime() > 15 * 60 * 1_000;
-    const deliveryStuck = ['DELIVERY_PENDING', 'DELIVERING'].includes(deliveryState)
+    const deliveryStuck = DELIVERY_IN_FLIGHT_STATUSES.includes(deliveryState)
       && Date.now() - new Date(delivery?.created_at ?? 0).getTime() > 60 * 60 * 1_000;
     const queues = new Set<Phase1QueueKey>();
     if (order.status === 'awaiting_payment' || order.status === 'draft') queues.add('new_orders');
@@ -139,10 +179,10 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     if (generationState === 'REPORT_GENERATING') queues.add('generation_in_progress');
     if (generationState === 'GENERATION_FAILED') queues.add('generation_failed');
     if (ready) queues.add('report_ready');
-    if (ready && deliveryState !== 'DELIVERED') queues.add('ready_not_delivered');
-    if (['DELIVERY_PENDING', 'DELIVERING'].includes(deliveryState)) queues.add('delivery_pending');
-    if (deliveryState === 'DELIVERY_FAILED') queues.add('delivery_failed');
-    if (deliveryState === 'DELIVERED') queues.add('delivered');
+    if (ready && deliveryState !== 'finalized') queues.add('ready_not_delivered');
+    if (DELIVERY_IN_FLIGHT_STATUSES.includes(deliveryState)) queues.add('delivery_pending');
+    if (DELIVERY_ATTENTION_STATUSES.includes(deliveryState)) queues.add('delivery_failed');
+    if (deliveryState === 'finalized') queues.add('delivered');
     if (queues.has('paid_no_report') || queues.has('generation_failed') || queues.has('ready_not_delivered') || queues.has('delivery_failed') || generationStuck || deliveryStuck) {
       queues.add('immediate_attention');
     }
@@ -153,7 +193,7 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
       delivery,
       generationState,
       deliveryState,
-      stuckReason: generationStuck ? 'Generation attempt is older than 15 minutes.' : deliveryStuck ? 'Delivery attempt is older than 60 minutes.' : null,
+      stuckReason: generationStuck ? 'Generation attempt is older than 15 minutes.' : deliveryStuck ? 'Delivery authorisation is older than 60 minutes.' : null,
       queues: [...queues]
     };
   });

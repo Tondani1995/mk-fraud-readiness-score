@@ -4,6 +4,10 @@ import {
   PREMIUM_REPORT_SCHEMA_VERSION,
   type PremiumReportAutomationFlags
 } from './types';
+import { selectNarrativeModelWithDatabaseOverride } from '../ai-model-policy';
+
+const DEFAULT_MODEL_SELECTION = selectNarrativeModelWithDatabaseOverride();
+const DEFAULT_NARRATIVE_MODEL = DEFAULT_MODEL_SELECTION.requestedModel;
 
 export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFlags = Object.freeze({
   securityGateSatisfied: false,
@@ -14,9 +18,13 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   manualDeliveryEnabled: false,
   testRecipientOverrideEnabled: false,
   testRecipientOverride: null,
-  model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.5',
+  model: DEFAULT_NARRATIVE_MODEL,
+  modelSelectionSource: DEFAULT_MODEL_SELECTION.selectionSource,
+  ...(DEFAULT_MODEL_SELECTION.configuredOverride ? { configuredModelOverride: DEFAULT_MODEL_SELECTION.configuredOverride } : {}),
+  ...(DEFAULT_MODEL_SELECTION.overrideRejectedReason ? { modelOverrideRejected: DEFAULT_MODEL_SELECTION.overrideRejectedReason } : {}),
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
-  schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION
+  schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
+  contractVersionMismatch: null
 });
 
 function enabled(value: unknown) {
@@ -29,8 +37,9 @@ function optionalText(value: unknown) {
   return trimmed || null;
 }
 
-export function parsePremiumReportAutomationFlags(value: unknown): PremiumReportAutomationFlags {
+export function parsePremiumReportAutomationFlags(value: unknown, environment: NodeJS.ProcessEnv = process.env): PremiumReportAutomationFlags {
   const source = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const modelSelection = selectNarrativeModelWithDatabaseOverride(environment, { databaseModel: source.premium_report_ai_model });
   return {
     securityGateSatisfied: false,
     securityGateVersion: null,
@@ -40,19 +49,40 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
     manualDeliveryEnabled: enabled(source.premium_report_manual_delivery_enabled),
     testRecipientOverrideEnabled: enabled(source.premium_report_test_recipient_override_enabled),
     testRecipientOverride: optionalText(source.premium_report_test_recipient_override),
-    model: optionalText(source.premium_report_ai_model)
-      ?? process.env.MK_REPORT_AI_MODEL?.trim()
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.model,
-    promptVersion: optionalText(source.premium_report_prompt_version)
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.promptVersion,
-    schemaVersion: optionalText(source.premium_report_schema_version)
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.schemaVersion
+    model: modelSelection.requestedModel,
+    modelSelectionSource: modelSelection.selectionSource,
+    ...(modelSelection.configuredOverride ? { configuredModelOverride: modelSelection.configuredOverride } : {}),
+    ...(modelSelection.overrideRejectedReason ? { modelOverrideRejected: modelSelection.overrideRejectedReason } : {}),
+    // The COMPILED constants are the contract. A database setting cannot relabel the executable
+    // prompt and schema: it may only assert what it expects to be deployed. Where it asserts
+    // something different, that is a deployment error and AI must fail closed rather than run under
+    // a false version label -- the labels participate in durable-attempt identity and reuse.
+    promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
+    schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
+    contractVersionMismatch: contractVersionMismatch(source)
   };
 }
 
-export async function getPremiumReportAutomationFlags(): Promise<PremiumReportAutomationFlags> {
+/**
+ * Returns a safe diagnostic when the database asserts a different contract version, or null when it
+ * asserts nothing or agrees. Deliberately carries no prose or evidence -- only the version labels.
+ */
+export function contractVersionMismatch(source: Record<string, unknown>): string | null {
+  const declaredPrompt = optionalText(source.premium_report_prompt_version);
+  const declaredSchema = optionalText(source.premium_report_schema_version);
+  const mismatched: string[] = [];
+  if (declaredPrompt !== null && declaredPrompt !== PREMIUM_REPORT_PROMPT_VERSION) {
+    mismatched.push(`prompt_version declared ${declaredPrompt}, compiled ${PREMIUM_REPORT_PROMPT_VERSION}`);
+  }
+  if (declaredSchema !== null && declaredSchema !== PREMIUM_REPORT_SCHEMA_VERSION) {
+    mismatched.push(`schema_version declared ${declaredSchema}, compiled ${PREMIUM_REPORT_SCHEMA_VERSION}`);
+  }
+  return mismatched.length > 0 ? `ai_contract_version_mismatch: ${mismatched.join('; ')}` : null;
+}
+
+export async function getPremiumReportAutomationFlags(dbOverride?: any): Promise<PremiumReportAutomationFlags> {
   try {
-    const db = createSupabaseServiceClient() as any;
+    const db = dbOverride ?? createSupabaseServiceClient() as any;
     const [
       { data, error },
       { data: gate, error: gateError },

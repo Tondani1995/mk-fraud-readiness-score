@@ -1,0 +1,58 @@
+{
+  "gate": "tier-entitlement-routing",
+  "providerCalls": 0,
+  "essentialOrder": "MKORD-2026-22FF6B69",
+  "comprehensiveOrder": "MKORD-2026-BC315A4D",
+  "conditions": 8,
+  "violations": 0,
+  "results": [
+    {
+      "id": "T1",
+      "description": "Essential order is entitled to the Essential report only",
+      "result": "PASS",
+      "detail": "product=essential_self_assessment reportType=essential_self_assessment"
+    },
+    {
+      "id": "T2",
+      "description": "Comprehensive order is entitled to the Comprehensive report only",
+      "result": "PASS",
+      "detail": "product=mk_validated_assessment reportType=mk_validated"
+    },
+    {
+      "id": "T3",
+      "description": "Entitlements never cross between tiers",
+      "result": "PASS",
+      "detail": "essential=essential_self_assessment comprehensive=mk_validated"
+    },
+    {
+      "id": "T4",
+      "description": "Retired reviewer-led Comprehensive model is absent from entitlement",
+      "result": "PASS",
+      "detail": "no reviewer-led rejection"
+    },
+    {
+      "id": "T5",
+      "description": "Wrong-tier and unentitled products are rejected",
+      "result": "PASS",
+      "detail": "all rejected"
+    },
+    {
+      "id": "T6",
+      "description": "Manual fulfilment selects the pipeline from the entitlement",
+      "result": "PASS",
+      "detail": "branches on reportType, routes to the certified Comprehensive pipeline, persists the type"
+    },
+    {
+      "id": "T7",
+      "description": "Comprehensive manual path reuses the certified pipeline without duplicating it",
+      "result": "PASS",
+      "detail": "composition only"
+    },
+    {
+      "id": "T8",
+      "description": "Comprehensive manual path defaults to a single provider call",
+      "result": "PASS",
+      "detail": "maxRepairsPerSlot defaults to 0"
+    }
+  ]
+}

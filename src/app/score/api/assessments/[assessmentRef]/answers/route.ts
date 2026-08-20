@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { saveAssessmentDraft } from '@/lib/respondent/assessment-save';
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
+  const frozen = await getRc1OperationFreezeResponse('assessment_write');
+  if (frozen) return frozen;
+
   let body: any;
   try {
     body = await request.json();

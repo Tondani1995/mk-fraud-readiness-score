@@ -1,0 +1,27 @@
+{
+  "gate": "manual-delivery-recording",
+  "executedAgainst": "Staging penhenkzfrtmcxklodtu",
+  "providerCalls": 0,
+  "emailsSent": 0,
+  "method": "Each condition ran against the real record_manual_report_delivery RPC with disposable state inside a plpgsql exception block, which rolled the fixtures back while the collected results survived.",
+  "conditions": 6,
+  "violations": 0,
+  "results": [
+    { "id": "D1", "description": "cannot mark delivered before payment", "result": "PASS", "detail": "manual_delivery_order_not_paid" },
+    { "id": "D2", "description": "cannot mark delivered without a ready report", "result": "PASS", "detail": "manual_delivery_report_not_ready" },
+    { "id": "D3", "description": "valid ready report can be marked delivered", "result": "PASS", "detail": "recorded=true recipient=launch-test@mkfraud.co.za" },
+    { "id": "D4", "description": "repeat action creates no duplicate delivery", "result": "PASS", "detail": "reason=already_delivered rows=1" },
+    { "id": "D5", "description": "marking delivered sends no email", "result": "PASS", "detail": "provider delivery authorisations=0" },
+    { "id": "D6", "description": "audit event records actor, recipient and method", "result": "PASS", "detail": "order_events report_delivered, delivery_method=manual_email" }
+  ],
+  "liveOperatorJourney": {
+    "order": "MKORD-2026-BC315A4D",
+    "reportReference": "RPT-MKFRS-2026-E30E89D679-V1",
+    "recipientVisible": "launch-test@mkfraud.co.za",
+    "emailPackCopyable": "recipient, subject, body, attachment filename",
+    "markedDeliveredAt": "2026-08-16T12:36:33Z",
+    "markedDeliveredBy": "admin@mkfraud.co.za",
+    "finalCounts": { "deliveryRows": 1, "deliveredEvents": 1, "providerSends": 0, "reports": 1 },
+    "sqlRequiredForOperatorActions": false
+  }
+}

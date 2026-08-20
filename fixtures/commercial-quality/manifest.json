@@ -1,0 +1,12 @@
+{
+  "version": "premium-product-spec-v1",
+  "purpose": "Binary quality-gate fixture matrix for the six required commercial profiles.",
+  "fixtures": [
+    {"id":"F1","organisation":"Rivonia Health Logistics","sector":"Healthcare logistics","score":36,"band":"Reactive","characteristics":["mostly unconfirmed","three do not know responses"],"testingPurpose":"Low-end baseline and honest unconfirmed language."},
+    {"id":"F2","organisation":"Kestrel Industrial Supply","sector":"Industrial distribution","score":55,"band":"Developing","characteristics":["partial evidence","reviewer disagreement","one real incident"],"testingPurpose":"Evidence reconciliation and visible human correction."},
+    {"id":"F3","organisation":"Meridian Financial Services","sector":"Financial services","score":81,"band":"Managed","characteristics":["two major gaps","zero critical gaps","most evidence supported"],"testingPurpose":"High-maturity calm: zero critical emphasis and confirmed strengths."},
+    {"id":"F4","organisation":"Thornfield Manufacturing","sector":"Manufacturing","score":68,"band":"Defined","characteristics":["balanced control environment","no dominant weakness"],"testingPurpose":"Balanced prose and stable sorting without a headline weakness."},
+    {"id":"F5","organisation":"Sable Retail Group","sector":"Retail","score":44,"band":"Reactive","characteristics":["sparse answers","two evidence items"],"testingPurpose":"Graceful degradation and suppression of empty-content filler."},
+    {"id":"F6","organisation":"Ardent Logistics","sector":"Transport and logistics","score":59,"band":"Developing","characteristics":["two upward reviewer corrections","mixed evidence status"],"testingPurpose":"Upward movement in the correction exhibit and confirmed path."}
+  ]
+}

@@ -13,7 +13,13 @@ export const FALLBACK_EXECUTIVE_DIAGNOSIS: Record<MaturityBand, FallbackText> = 
   },
   Structured: {
     headline: 'Real controls exist; the gap is consistency, not intent',
-    body: 'This is a credible position. Controls exist and are operating across much of what was assessed. The next step is proving that they work the same way every time, regardless of who is on duty, how busy the team is, or how long it has been since the last incident.'
+    // "Controls exist and are operating across much of what was assessed" claimed an operating
+    // state across the whole assessment. A Structured reading is a weighted average, so it can sit
+    // above a control the respondent recorded as entirely absent -- and the section cites that
+    // gap, which is why validatePremiumReportNarrative raised response_label_misstatement on the
+    // Phase 1 passing fixture. Claiming the majority position without claiming every control keeps
+    // the copy honest and keeps the guard intact.
+    body: 'This is a credible position. Most of what was assessed is backed by day-to-day practice rather than policy alone, though that does not extend to every control - anything recorded as weaker in this report stands outside it. The next step is proving the rest work the same way every time, regardless of who is on duty, how busy the team is, or how long it has been since the last incident.'
   },
   Strategic: {
     headline: 'Fraud controls are mature; the next test is pressure',
@@ -22,7 +28,11 @@ export const FALLBACK_EXECUTIVE_DIAGNOSIS: Record<MaturityBand, FallbackText> = 
 };
 
 export const FALLBACK_CAPPED_DIAGNOSIS: FallbackText = {
-  headline: 'A single control gap is holding back a stronger underlying position',
+  // Deliberately count-neutral: this fallback has no visibility into how many maturity_cap_events
+  // fired for a given assessment (that context lives in AssembledReportData, not this static table),
+  // so it must not assert "a single" gap the way the old copy did -- confirmed wrong on the MK Assist
+  // reference assessment, which has 4 separate maturity_cap_events, not 1.
+  headline: 'One or more control gaps are holding back a stronger underlying position',
   body: 'Taken purely as a weighted average, this organisation scored {{overallScore}} out of 100, which would ordinarily place it in the {{calculatedMaturity}} readiness band. That average is not the full picture. One or more specific controls scored low enough to cap the final reading to {{finalMaturity}}, because some weaknesses change what the rest of the score is allowed to mean.'
 };
 
@@ -64,8 +74,12 @@ export const FALLBACK_DOMAIN_CONTENT: Record<string, Record<MaturityBand, Fallba
   'Operational Fraud Controls': {
     Reactive: { headline: 'Day-to-day processes have little built-in protection', body: 'Segregation of duties, approval limits and access reviews are largely absent or ad hoc. Fraud tends to find the gap nobody was watching, and there are currently more unwatched gaps than watched ones.' },
     Developing: { headline: 'Some controls exist, unevenly applied', body: 'Certain processes have real safeguards while others still rely on trust and familiarity. That unevenness means protection depends on which part of the business a transaction passes through.' },
-    Structured: { headline: 'Core processes are genuinely protected', body: 'Segregation of duties, access controls and review of sensitive manual activity are operating in the processes that matter most. The next risk is not total absence; it is the gap between controls.' },
-    Strategic: { headline: 'Controls are part of how work gets done', body: 'Operational controls are embedded in normal work rather than sitting above it as an overlay. That is hard to build and easy to erode during growth, restructuring or pressure.' }
+    // Both bands previously asserted an operating or embedded state across the domain. A band is a
+    // weighted average, so it can sit above a control the respondent recorded as absent -- and the
+    // section cites that gap. Describing what the majority of the evidence shows, without claiming
+    // every control, keeps the copy true and leaves response_label_misstatement intact.
+    Structured: { headline: 'Core processes are genuinely protected', body: 'Segregation of duties, access controls and review of sensitive manual activity hold up across the processes that matter most, on the strength of what was reported here. The next risk is not total absence; it is the gap between controls, and any condition recorded as weaker in this report sits in that gap.' },
+    Strategic: { headline: 'Controls are part of how work gets done', body: 'Operational control is carried by normal work rather than by an overlay above it. That is hard to build and easy to erode during growth, restructuring or pressure - and it does not extend to anything this report records as weaker.' }
   },
   'Fraud Detection Capability': {
     Reactive: { headline: 'Nothing is watching for unusual activity yet', body: 'Without monitoring or exception reporting, the organisation is relying on prevention working perfectly. It never does. There is no reliable second line behind the first.' },
@@ -107,15 +121,19 @@ export const FALLBACK_DOMAIN_CONTENT: Record<string, Record<MaturityBand, Fallba
     Reactive: { headline: 'Controls are set once and not revisited', body: 'There is no habit of reviewing whether fraud controls still work or still matter. A control environment that has not been reviewed recently is not stable; it is untested against current risks.' },
     Developing: { headline: 'Reviews happen occasionally, not rhythmically', body: 'Some review of controls and incidents takes place, but without a defined rhythm it can slip during busy periods, which is often exactly when review matters most.' },
     Structured: { headline: 'The organisation reviews itself, but speed matters', body: 'Fraud risk and controls are periodically reviewed, and incidents feed improvement. As the organisation and threat landscape change, the speed of review matters as much as its existence.' },
-    Strategic: { headline: 'Fraud readiness is treated as a moving target', body: 'Reviews happen often enough to track how the organisation and threat landscape are changing, rather than assuming what worked last year still works now.' }
+    Strategic: { headline: 'Fraud readiness is treated as a moving target', body: 'Reviews happen often enough to track how the organisation and threat landscape are changing, rather than assuming what worked last year still works.' }
   }
 };
 
 export function getDomainFallback(domainName: string, band: MaturityBand): FallbackText {
   const content = FALLBACK_DOMAIN_CONTENT[domainName]?.[band];
   if (content) return content;
+  // Deliberately states no maturity band. The generic fallback has no evidence of its own, so
+  // asserting "was assessed at a <band> level" made an unsupported maturity claim that
+  // validatePremiumReportNarrative correctly rejected. Wording stays band-neutral; the band is
+  // carried by the domain evidence and rendered from there.
   return {
-    headline: `${domainName}: ${band.toLowerCase()} position`,
-    body: `${domainName} was assessed at a ${band} level. The detailed advisory interpretation for this domain should be reviewed with MK Fraud Insights during the report walkthrough.`
+    headline: `${domainName}: assessed position`,
+    body: `${domainName} was assessed against the MK Fraud Readiness methodology using this organisation's own responses. The detailed advisory interpretation for this domain should be reviewed with MK Fraud Insights during the report walkthrough.`
   };
 }

@@ -13,8 +13,15 @@ on:
       - 'src/lib/reports/phase1-manual-fulfilment.ts'
       - 'supabase/migrations/0024_phase23_payment_automation.sql'
       - 'supabase/migrations/0025_phase23_assessment_resume.sql'
+      - 'supabase/migrations/20260728190000_rc1_staging_postflight_least_privilege.sql'
+      - 'supabase/migrations/20260728191000_rc1_launch_required_foreign_key_indexes.sql'
+      - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
+      - 'supabase/migrations/20260729170000_rc1_authenticated_admin_profile_read.sql'
       - 'scripts/phase23-*'
       - 'scripts/apply-phase23-*'
+      - 'scripts/rc1-staging-postflight-hardening*'
+      - 'scripts/rc1-service-role-*'
+      - 'scripts/rc1-control-plane-*'
       - 'docs/v2/phases-2-3/**'
       - '.github/workflows/phase23-release-safety.yml'
 
@@ -43,22 +50,118 @@ jobs:
           cache: npm
       - name: Fresh dependency install
         run: npm ci
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+      - name: Verify the committed local Supabase configuration
+        run: npm run verify:supabase-local-config
+
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.1
       - name: Start disposable database at the approved 0016 boundary
         run: |
           # Holds out every post-0016 migration so this job starts from exactly the approved
-          # 0016 boundary. This list must include every Phase 1/Phase 2-3/Phase 14 migration
-          # above 0016, not just Phase 2-3's own 0024/0025 -- it was originally written before
-          # Phase 14's migrations existed and had to be extended here (this remediation pass)
-          # after Phase 14's migrations were renumbered from 0024-0028 to 0026-0030 and 0031 was
-          # added, both of which depend on 0017's foundation and previously broke `supabase start`
-          # outright when left in place without 0017 (see round-7-remediation-register.md).
-          mkdir -p tmp/held-migrations tmp/phase23-evidence
-          mv supabase/migrations/0017_*.sql supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql tmp/held-migrations/
+          # 0016 boundary. Previously this was a manually enumerated mv list, which went stale
+          # each time a new Phase 1/2-3/14 migration was added (it was originally written before
+          # Phase 14's migrations existed, then extended once, and still missed 0032-0034 and
+          # both timestamped July 2026 migrations entirely -- letting `supabase start` apply a
+          # migration whose function body assumes the held-out 0023 table
+          # `manual_report_generation_attempts` exists, which it does not at this boundary).
+          # Replaced with boundary-driven logic: classify every file in supabase/migrations by
+          # its version prefix. A 4-digit numeric prefix greater than 0016 is post-boundary; any
+          # non-4-digit prefix (a timestamped migration, e.g. 20260721150808_...) is always
+          # post-boundary, since timestamped migrations are by construction commits made after
+          # the numbered migration sequence. This is correct for every migration that exists
+          # today and every migration added in the future, without editing this workflow again.
+          set -Eeuo pipefail
+          holdout_boundary_is_post() {
+            local base="$1" boundary="$2" prefix
+            prefix="${base%%_*}"
+            case "$prefix" in
+              ''|*[!0-9]*)
+                echo "::error::Unrecognised migration filename prefix (not purely numeric): $base" >&2
+                exit 1
+                ;;
+            esac
+            if [ "${#prefix}" -eq 4 ]; then
+              [ "$((10#$prefix))" -gt "$((10#$boundary))" ]
+            else
+              true
+            fi
+          }
+          boundary='0016'
+          holdout_dir='tmp/held-migrations'
+          manifest="$holdout_dir/held-manifest.txt"
+          mkdir -p "$holdout_dir" tmp/phase23-evidence
+          : > "$manifest"
+          held=0
+          for f in supabase/migrations/*.sql; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            if holdout_boundary_is_post "$base" "$boundary"; then
+              mv "$f" "$holdout_dir/"
+              echo "$base" >> "$manifest"
+              held=$((held + 1))
+            fi
+          done
+          echo "Held out $held post-$boundary migration(s):"
+          cat "$manifest"
+          if [ "$held" -eq 0 ]; then
+            echo "::error::Expected at least one post-$boundary migration to hold out; found none. Investigate before trusting this boundary." >&2
+            exit 1
+          fi
+          has_numeric=0
+          has_timestamped=0
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            p="${name%%_*}"
+            if [ "${#p}" -eq 4 ]; then has_numeric=1; else has_timestamped=1; fi
+          done < "$manifest"
+          if [ "$has_numeric" -ne 1 ]; then
+            echo "::error::Expected at least one 4-digit numeric post-$boundary migration in $manifest; found none." >&2
+            exit 1
+          fi
+          if [ "$has_timestamped" -ne 1 ]; then
+            echo "::error::Expected at least one timestamped migration in $manifest; found none." >&2
+            exit 1
+          fi
+          for f in supabase/migrations/*.sql; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            if holdout_boundary_is_post "$base" "$boundary"; then
+              echo "::error::Post-boundary migration still present before supabase start: $base" >&2
+              exit 1
+            fi
+          done
+          restore_held_migrations() {
+            local restored=0 name left
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "$holdout_dir/$name" ]; then
+                echo "::error::Expected held-out migration missing from $holdout_dir: $name" >&2
+                return 1
+              fi
+              mv "$holdout_dir/$name" "supabase/migrations/$name"
+              restored=$((restored + 1))
+            done < "$manifest"
+            left=$(find "$holdout_dir" -maxdepth 1 -name '*.sql' | wc -l)
+            if [ "$left" -ne 0 ]; then
+              echo "::error::$left migration(s) still present in $holdout_dir after restoration." >&2
+              return 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "supabase/migrations/$name" ]; then
+                echo "::error::Restoration verification failed -- $name not found back in supabase/migrations." >&2
+                return 1
+              fi
+            done < "$manifest"
+            echo "Restored $restored held-out migration(s); verified all present back in supabase/migrations."
+          }
+          trap restore_held_migrations EXIT
           supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor > tmp/phase23-evidence/supabase-start.log 2>&1
-          mv tmp/held-migrations/*.sql supabase/migrations/
+          restore_held_migrations
+          trap - EXIT
           supabase status -o env > tmp/phase23-evidence/supabase.env
           source tmp/phase23-evidence/supabase.env
           {
@@ -66,7 +169,7 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
-          test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where version between '0017' and '0031'")" = 0
+          test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where (length(version)=4 and version::int > 16) or length(version)<>4")" = 0
       - name: Static, type, build and focused release checks
         run: |
           npm run lint
@@ -80,7 +183,13 @@ jobs:
       - name: Pre-0023 compatibility
         run: |
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase23-evidence/pre-0023-server.log 2>&1 &
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0016 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          MK_RC1_OPERATION_FREEZE_MODE=released \
+            npm start -- --port 3100 > tmp/phase23-evidence/pre-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break; sleep 1; done
@@ -89,15 +198,44 @@ jobs:
         run: npm run phase23:test-exact-replay
       - name: Post-migration respondent, scoring and browser evidence
         run: |
+          # The pre-0023 compatibility step starts a Next.js child process that can outlive
+          # its shell trap on hosted runners. Use a distinct port and bind every post-0023
+          # integration command to that fresh server so stale pre-boundary code cannot satisfy
+          # the health check or receive the request.
+          post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase23-evidence/post-0025-server.log 2>&1 &
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0025 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          MK_RC1_OPERATION_FREEZE_MODE=released \
+            npm start -- --port "$post_port" > tmp/phase23-evidence/post-0025-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..60}; do curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break; sleep 1; done
-          npm run consolidation:test-routes
-          npm run consolidation:test-respondent
-          npm run phase23:test-payment-db
-          npm run phase23:test-browser
+          for attempt in {1..60}; do curl --fail --silent "http://127.0.0.1:$post_port/" >/dev/null && break; sleep 1; done
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+            npm run consolidation:test-routes
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
+            npm run consolidation:test-respondent
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
+            npm run phase23:test-payment-db
+          PHASE23_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+            npm run phase23:test-browser
       - name: Confirm prohibited history remains absent
         run: |
           test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where version between '0017' and '0022'")" = 0

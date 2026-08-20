@@ -3,6 +3,13 @@
 -- No gate, feature policy, AI route, secret, identity or external operation is enabled here.
 begin;
 
+-- Replay-order compatibility: the real Production migration
+-- 20260708193238_phase10_report_engine_additions.sql owns this column and is replayed before
+-- 0017 in the cloud ledger. The repository retains numbered 0017 as a canonical foundation file,
+-- so make the prerequisite explicit and idempotent here for filename-ordered local tooling. This
+-- does not recreate retired 0011 content and is a no-op wherever the real Phase 10 migration ran.
+alter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;
+
 -- BEGIN ARCHIVED SOURCE: uat-applied/0017_phase14_autonomous_report_engine.sql
 -- MK Fraud Readiness Score V1 - Phase 14 autonomous premium report engine
 -- Additive operational state for idempotent report fulfilment and generation provenance.

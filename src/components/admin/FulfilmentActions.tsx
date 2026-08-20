@@ -24,7 +24,12 @@ export function FulfilmentActions(props: Props) {
   const [running, setRunning] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const requestKeys = useRef<Record<string, string>>({});
-  const generationActive = ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(props.generationState) && !props.generationStuck;
+  // QUEUED means generation is pending and ready to be started; only GENERATING is work
+  // actually executing. Treating QUEUED as active disabled the operator's own Generate
+  // button and told them a report was being produced while nothing was running -- which,
+  // under manual fulfilment where nothing drains the queue, was permanent.
+  const generationActive = props.generationState === 'REPORT_GENERATING' && !props.generationStuck;
+  const generationPending = props.generationState === 'REPORT_QUEUED' && !props.generationStuck;
   const deliveryActive = ['DELIVERY_PENDING', 'DELIVERING'].includes(props.deliveryState);
 
   function requestKey(action: string) {
@@ -36,20 +41,38 @@ export function FulfilmentActions(props: Props) {
     if (running) return;
     setRunning(action);
     setNotice({ tone: 'info', text: 'Generating report…' });
+    let statusUncertain = false;
+    const slowNoticeTimer = window.setTimeout(() => {
+      setNotice({ tone: 'info', text: 'Still generating — do not retry. The page will update when the server confirms the final status.' });
+    }, 45_000);
     try {
       const response = await fetch(`/score/api/admin/orders/${encodeURIComponent(props.orderReference)}/generate-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': requestKey(action) },
         body: JSON.stringify({ action, requestKey: requestKey(action) })
       });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message ?? 'Report generation failed.');
-      setNotice({ tone: 'success', text: result.message ?? 'Report generated successfully.' });
+      let result: Record<string, unknown>;
+      try {
+        result = await response.json() as Record<string, unknown>;
+      } catch {
+        statusUncertain = true;
+        setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed in this browser response. Do not retry — this page will refresh to reconcile the server status.' });
+        window.setTimeout(() => window.location.reload(), 5_000);
+        return;
+      }
+      if (!response.ok || !result.ok) {
+        setNotice({ tone: 'error', text: typeof result.message === 'string' ? result.message : 'Report generation failed.' });
+        return;
+      }
+      setNotice({ tone: 'success', text: typeof result.message === 'string' ? result.message : 'Report generated successfully.' });
       window.setTimeout(() => window.location.reload(), 700);
-    } catch (error) {
-      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Report generation failed.' });
+    } catch {
+      statusUncertain = true;
+      setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed. Do not retry — this page will refresh to reconcile the server status.' });
+      window.setTimeout(() => window.location.reload(), 5_000);
     } finally {
-      setRunning(null);
+      window.clearTimeout(slowNoticeTimer);
+      if (!statusUncertain) setRunning(null);
     }
   }
 
@@ -101,7 +124,7 @@ export function FulfilmentActions(props: Props) {
       <div className="flex flex-wrap gap-2">
         {props.capabilityAvailable && props.canGenerate && props.eligible && !props.storageCandidate && props.generationState !== 'GENERATION_FAILED' ? (
           <Button type="button" disabled={Boolean(running) || generationActive} onClick={() => generation('admin_generate')}>
-            {generationActive || running === 'admin_generate' ? 'Generating report…' : 'Generate Report'}
+            {generationActive || running === 'admin_generate' ? 'Generating report…' : generationPending ? 'Generate Report (queued)' : 'Generate Report'}
           </Button>
         ) : null}
         {props.capabilityAvailable && props.canGenerate && props.eligible && (props.generationState === 'GENERATION_FAILED' || props.generationStuck) ? (
@@ -133,6 +156,11 @@ export function FulfilmentActions(props: Props) {
       {generationActive ? (
         <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           Report generation is already in progress for this order.
+        </p>
+      ) : null}
+      {generationPending ? (
+        <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+          Payment is confirmed and this report is queued for generation. Nothing is running yet — select Generate Report to produce it.
         </p>
       ) : null}
       {props.generationStuck ? (
