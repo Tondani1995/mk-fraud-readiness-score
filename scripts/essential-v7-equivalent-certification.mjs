@@ -28,7 +28,7 @@ import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/in
 import { buildEssentialProjection, ESSENTIAL_CAPS } from '../src/lib/reports/essential-projection.ts';
 import { selectContent } from '../src/lib/reports/select-content-blocks.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
-import { __resetPdfRendererStateForTests } from '../src/lib/reports/render-pdf.ts';
+import { __resetPdfRendererStateForTests, closeRenderBrowser } from '../src/lib/reports/render-pdf.ts';
 import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { essentialSemanticSpanHash, validateEssentialFinalHtml } from '../src/lib/reports/essential-validation-cascade.ts';
@@ -209,14 +209,21 @@ const carryForwardSemanticDecisions = deterministicSemanticCandidates.map((candi
   reasonCode: 'deterministic_question_playbook_semantics'
 }));
 __resetPdfRendererStateForTests();
-const pdf = await renderValidatedCommercialPdfWithNavigation({
-  data,
-  content: deterministicContent,
-  roadmap,
-  evidenceModel: advisoryModel,
-  carryForwardAssuranceSpanHashes,
-  carryForwardSemanticDecisions
-});
+let pdf;
+try {
+  pdf = await renderValidatedCommercialPdfWithNavigation({
+    data,
+    content: deterministicContent,
+    roadmap,
+    evidenceModel: advisoryModel,
+    carryForwardAssuranceSpanHashes,
+    carryForwardSemanticDecisions
+  });
+} finally {
+  // This is a one-shot certification CLI, not the long-lived report server. Release the cached
+  // Chromium handle so CI can complete after the render rather than retaining a libuv handle.
+  await closeRenderBrowser();
+}
 fs.writeFileSync(PDF_PATH, pdf);
 
 const sha256 = crypto.createHash('sha256').update(pdf).digest('hex');
@@ -322,4 +329,7 @@ console.log(`L1 ${JSON.stringify(l1)}`);
 console.log(`L2 ${JSON.stringify(l2)}`);
 console.log(`accessibility ${JSON.stringify(accessibility)}`);
 console.log(`\n${passed} passed, ${failures.length} failed`);
-if (failures.length > 0) process.exit(1);
+// This certification is a one-shot CLI. The production renderer intentionally caches Chromium
+// for long-lived server requests, so terminate the completed harness explicitly after its
+// synchronous artefact writes and assertions have flushed.
+process.exit(failures.length > 0 ? 1 : 0);
