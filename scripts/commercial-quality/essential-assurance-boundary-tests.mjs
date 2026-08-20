@@ -115,9 +115,44 @@ assert.match(
 assert.doesNotMatch(passiveCompletedAssurance.markdown, /has been independently verified/i);
 assert.equal(classifyAssuranceLanguage(passiveCompletedAssurance.chapters[0].sections[0].paragraphs[0].text), null);
 
+// Vhutshilo Customer-1 acceptance regression (2026-08-20): the provider manuscript was accepted,
+// then final HTML rejected a transaction-volume absolute that had no earlier manuscript equivalent.
+// Layer 0 must now remove the two closed unsupported absolutes before manuscript validation, while
+// preserving the analytical point as an explicit self-assessment evidence limitation.
+const unsupportedVolumeAbsolutes = {
+  ok: true,
+  markdown: '# Detection\n\nManual review cannot cover transaction volume. The majority of activity is never examined.',
+  errors: [],
+  chapters: [{
+    chapterId: 'DETECTION',
+    title: 'Detection',
+    sections: [{
+      chapterId: 'DETECTION',
+      sectionId: 'VOLUME',
+      title: 'Volume',
+      permittedClaimRefs: [],
+      paragraphs: [{
+        text: 'Manual review cannot cover transaction volume. The majority of activity is never examined.',
+        permittedClaimRefs: []
+      }],
+      subsections: []
+    }]
+  }]
+};
+const volumeCount = normaliseProhibitedAssessmentAssurance(unsupportedVolumeAbsolutes);
+assert.equal(volumeCount, 4, 'both unsupported absolutes must be normalised in parsed prose and raw Markdown');
+const volumeText = unsupportedVolumeAbsolutes.chapters[0].sections[0].paragraphs[0].text;
+assert.doesNotMatch(volumeText, /manual review cannot cover transaction volume/i);
+assert.doesNotMatch(volumeText, /majority of activity is never examined/i);
+assert.match(volumeText, /manual-review coverage is not established by this self-assessment/i);
+assert.match(volumeText, /share of activity examined is not established by this self-assessment/i);
+assert.doesNotMatch(unsupportedVolumeAbsolutes.markdown, /manual review cannot cover transaction volume/i);
+assert.doesNotMatch(unsupportedVolumeAbsolutes.markdown, /majority of activity is never examined/i);
+
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
   deterministicAssuranceBoundary: 'PASS',
-  passiveCompletedAssuranceNormalisation: 'PASS'
+  passiveCompletedAssuranceNormalisation: 'PASS',
+  vhutshiloTransactionVolumeNormalisation: 'PASS'
 }, null, 2));
