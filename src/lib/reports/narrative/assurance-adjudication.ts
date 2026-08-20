@@ -133,8 +133,16 @@ const EVIDENCE_CRITERION = /\b(?:confirm\s+|determine\s+|establish\s+|verify\s+)
 // phrasing. The narrower disclaimer-template shape ("not a statement that existing evidence has
 // been validated") is handled earlier, by the Tier 0 strip above, since it also has to run before
 // Tier A.
+//
+// Vhutshilo final-output acceptance incident (2026-08-20) exposed two additional grammatical
+// negation forms present in deterministic customer copy: "Neither measure is independent
+// assurance" and "no ... evidence has been independently verified". They are explicit limitations,
+// not completed assurance. Keep them as narrow grammatical patterns instead of treating every
+// occurrence of "no" or "neither" near assurance vocabulary as safe.
 // ---------------------------------------------------------------------------------------------
-const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed)|operating effectiveness)\b/i;
+const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\b/i;
+const NEITHER_ASSURANCE_LIMITATION = /\bneither\b[^.!?]{0,80}\b(?:is|are|was|were)\s+(?:an?\s+)?independent\s+assurance\b/i;
+const NO_COMPLETED_ASSURANCE_LIMITATION = /\bno\b[^.!?]{0,120}\b(?:has been|have been|was|were|is|are)\s+independently\s+(?:verified|reviewed|confirmed)\b/i;
 
 // ---------------------------------------------------------------------------------------------
 // Tier E -- actor-based completed-assertion checks. Everything here runs only after Tier D has
@@ -204,7 +212,9 @@ export function adjudicateAssuranceProposition(text: string): AssuranceAdjudicat
   const criterion = value.match(EVIDENCE_CRITERION);
   if (criterion) return allow('evidence_assurance_criterion_not_completed_assurance', criterion[0]);
 
-  const limitation = value.match(EXPLICIT_LIMITATION);
+  const limitation = value.match(EXPLICIT_LIMITATION)
+    ?? value.match(NEITHER_ASSURANCE_LIMITATION)
+    ?? value.match(NO_COMPLETED_ASSURANCE_LIMITATION);
   if (limitation) return allow('explicit_assurance_limitation', limitation[0]);
 
   const trailingActor = value.match(MK_TRAILING_ACTOR);
