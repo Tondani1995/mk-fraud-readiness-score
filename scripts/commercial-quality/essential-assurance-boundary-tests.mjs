@@ -149,10 +149,51 @@ assert.match(volumeText, /share of activity examined is not established by this 
 assert.doesNotMatch(unsupportedVolumeAbsolutes.markdown, /manual review cannot cover transaction volume/i);
 assert.doesNotMatch(unsupportedVolumeAbsolutes.markdown, /majority of activity is never examined/i);
 
+// Siyakhula Customer-2 acceptance regression (2026-08-20): the provider correctly stated that the
+// control position had not been independently verified, then described the target management review
+// as "evidence-based". The hard-vocabulary scan incorrectly joined the negated "verified" token to
+// "evidence-based" and blocked the manuscript. Layer 0 keeps the control-design meaning while
+// removing that validator collision before assurance adjudication.
+const siyakhulaEvidenceBasedReview = {
+  ok: true,
+  markdown: '# Target\n\nThe reported position has not been independently verified; it is the management control design needed to make ongoing review visible and evidence-based.',
+  errors: [],
+  chapters: [{
+    chapterId: 'TARGET',
+    title: 'Target',
+    sections: [{
+      chapterId: 'TARGET',
+      sectionId: 'RESPONSE-06',
+      title: 'Response 06',
+      permittedClaimRefs: [],
+      paragraphs: [{
+        text: 'The reported position has not been independently verified; it is the management control design needed to make ongoing review visible and evidence-based.',
+        permittedClaimRefs: []
+      }],
+      subsections: []
+    }]
+  }]
+};
+const siyakhulaCount = normaliseProhibitedAssessmentAssurance(siyakhulaEvidenceBasedReview);
+assert.equal(siyakhulaCount, 2, 'Siyakhula evidence-based review phrase must be normalised in parsed prose and raw Markdown');
+const siyakhulaText = siyakhulaEvidenceBasedReview.chapters[0].sections[0].paragraphs[0].text;
+assert.doesNotMatch(siyakhulaText, /make ongoing review visible and evidence-based/i);
+assert.match(siyakhulaText, /make ongoing review visible and tied to defined evidence requirements/i);
+assert.equal(classifyAssuranceLanguage(siyakhulaText)?.category, 'customer_control_activity');
+assert.doesNotMatch(siyakhulaEvidenceBasedReview.markdown, /make ongoing review visible and evidence-based/i);
+
+// Safety counterexample: evidence-based assurance remains prohibited. The new normalisation only
+// targets the specific management-review phrase and must never rewrite or clear a positive assurance claim.
+assert.equal(
+  classifyAssuranceLanguage('This report provides evidence-based assurance that the control is effective.')?.category,
+  'prohibited_assurance'
+);
+
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
   deterministicAssuranceBoundary: 'PASS',
   passiveCompletedAssuranceNormalisation: 'PASS',
-  vhutshiloTransactionVolumeNormalisation: 'PASS'
+  vhutshiloTransactionVolumeNormalisation: 'PASS',
+  siyakhulaEvidenceBasedReviewNormalisation: 'PASS'
 }, null, 2));
