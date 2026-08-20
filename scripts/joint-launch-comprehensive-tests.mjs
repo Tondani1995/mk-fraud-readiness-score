@@ -1,5 +1,7 @@
 /**
- * Joint launch Comprehensive lifecycle, evidence-intake and security tests.
+ * Legacy reviewed-engagement/Advisory compatibility lifecycle, evidence-intake and security tests.
+ * NON-AUTHORITATIVE for the active automated Comprehensive launch; see
+ * scripts/comprehensive-launch-closure-tests.mjs for the authoritative launch contract.
  * Credential-free: no database, no network, no storage provider.
  *
  * Covers the COMPREHENSIVE and SECURITY requirements: payment is required before an engagement can
@@ -46,7 +48,7 @@ function check(label, fn) {
 
 const READY = { paymentVerified: true, reviewerAssigned: true, unreviewedEvidenceCount: 0, note: 'note' };
 
-console.log('joint-launch comprehensive lifecycle, evidence and security');
+console.log('legacy reviewed-engagement/Advisory compatibility (non-authoritative)');
 
 // --- LIFECYCLE ------------------------------------------------------------------------------------
 

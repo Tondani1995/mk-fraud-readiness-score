@@ -13,6 +13,12 @@ on:
     paths:
       - 'src/lib/commercial/**'
       - 'src/lib/comprehensive/**'
+      - 'src/lib/reports/comprehensive/**'
+      - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/customer-report-access.ts'
+      - 'src/lib/reports/supporting-register-delivery.ts'
+      - 'src/components/comprehensive/**'
+      - 'src/app/score/report/access/**'
       - 'src/lib/orders/**'
       - 'src/lib/reports/report-entitlement.ts'
       - 'src/lib/reports/assemble-report-data.ts'
@@ -20,6 +26,7 @@ on:
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
       - 'supabase/migrations/**'
+      - 'scripts/comprehensive-launch-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -29,6 +36,12 @@ on:
     paths:
       - 'src/lib/commercial/**'
       - 'src/lib/comprehensive/**'
+      - 'src/lib/reports/comprehensive/**'
+      - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/customer-report-access.ts'
+      - 'src/lib/reports/supporting-register-delivery.ts'
+      - 'src/components/comprehensive/**'
+      - 'src/app/score/report/access/**'
       - 'src/lib/orders/**'
       - 'src/lib/reports/report-entitlement.ts'
       - 'src/lib/reports/assemble-report-data.ts'
@@ -36,6 +49,7 @@ on:
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
       - 'supabase/migrations/**'
+      - 'scripts/comprehensive-launch-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -79,7 +93,12 @@ jobs:
       - name: Product catalogue, price-version and entitlement contract
         run: npm run joint-launch:test-product-contract
 
-      - name: Comprehensive lifecycle, evidence intake and security
+      - name: Comprehensive automated launch closure (authoritative)
+        run: npm run joint-launch:test-comprehensive-launch-closure
+
+      # Retained for historical reviewed-engagement/Advisory compatibility only. This is not the
+      # authoritative active Comprehensive launch test.
+      - name: Legacy reviewed-engagement/Advisory compatibility (non-authoritative)
         run: npm run joint-launch:test-comprehensive
 
       - name: Evidence storage compensation (upload/insert/cleanup failure matrix)

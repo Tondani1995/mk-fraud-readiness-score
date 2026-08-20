@@ -16,6 +16,7 @@ import {
 } from '../src/lib/reports/comprehensive/index.ts';
 import { buildComprehensiveRegisterWorkbook } from '../src/lib/reports/comprehensive/workbook-builder.ts';
 import { comprehensiveFixtures } from '../src/lib/reports/comprehensive/fixtures.ts';
+import { getCustomerOrderStatusCopy } from '../src/components/comprehensive/customer-order-status-copy.ts';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => fs.readFile(new URL(path, root), 'utf8');
@@ -99,6 +100,21 @@ const access = await read('src/lib/reports/customer-report-access.ts');
 const accessRoute = await read('src/app/score/report/access/[token]/route.ts');
 const worker = await read('src/app/score/api/internal/fulfilment-worker/route.ts');
 const launchMigration = await read('supabase/migrations/20260820120000_comprehensive_automated_launch_closure.sql');
+
+const essentialStatusCopy = getCustomerOrderStatusCopy('essential');
+const comprehensiveStatusCopy = getCustomerOrderStatusCopy('comprehensive');
+assert.doesNotMatch(JSON.stringify(essentialStatusCopy), /Comprehensive/);
+assert.match(essentialStatusCopy.assessmentTitle, /^Essential automated diagnostic$/);
+assert.match(essentialStatusCopy.pdfLabel, /^Essential report PDF$/);
+assert.match(essentialStatusCopy.registerLabel, /^Essential supporting register XLSX$/);
+assert.doesNotMatch(JSON.stringify(comprehensiveStatusCopy), /Essential/);
+assert.match(comprehensiveStatusCopy.assessmentTitle, /^Comprehensive automated assessment$/);
+assert.match(comprehensiveStatusCopy.pdfLabel, /^Comprehensive report PDF$/);
+assert.match(comprehensiveStatusCopy.registerLabel, /^Comprehensive supporting register XLSX$/);
+assert.match(customerWorkspace, /getCustomerOrderStatusCopy/);
+assert.doesNotMatch(customerWorkspace, /<CardTitle>Automated assessment<\/CardTitle>/);
+assert.doesNotMatch(customerWorkspace, /label="Comprehensive report PDF"/);
+assert.doesNotMatch(customerWorkspace, /label="Comprehensive supporting register XLSX"/);
 
 assert.match(manualGeneration, /assembleComprehensive/);
 assert.match(manualGeneration, /buildComprehensiveDeliveryModel/);

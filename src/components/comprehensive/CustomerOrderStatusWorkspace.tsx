@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { CustomerPaidOrderStatus } from '@/lib/commercial/customer-order-status';
+import { getCustomerOrderStatusCopy } from './customer-order-status-copy';
 
 function lifecycleLabel(value: string) {
   return value.replace(/_/g, ' ');
@@ -38,6 +39,7 @@ export function CustomerOrderStatusWorkspace({
   const register = fulfilment?.customerAccessToken
     ? `${pdf}?artefact=register`
     : null;
+  const copy = getCustomerOrderStatusCopy(order.tier === 'comprehensive' ? 'comprehensive' : 'essential');
 
   return (
     <div className="space-y-6">
@@ -54,13 +56,13 @@ export function CustomerOrderStatusWorkspace({
           </div> : <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-mk-danger">EFT instructions are not available for this order. Do not make payment; contact MK Fraud Insights.</p>}
           <p><strong className="text-mk-ink">Payment reference:</strong> {order.paymentReference}</p>
           {order.eftInstructions?.paymentReferenceInstruction ? <p>{order.eftInstructions.paymentReferenceInstruction}</p> : null}
-          <p>Payment is verified before the automated analytical package is released.</p>
+          <p>{copy.paymentReleaseDescription}</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>{order.tier === 'comprehensive' ? 'Comprehensive automated assessment' : 'Automated assessment'}</CardTitle>
+          <CardTitle>{copy.assessmentTitle}</CardTitle>
           <p className="text-sm text-mk-muted">{order.productName} · {order.amountDisplay}</p>
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-6 text-mk-muted">
@@ -70,7 +72,7 @@ export function CustomerOrderStatusWorkspace({
             <p><strong className="text-mk-ink">Assessment lifecycle:</strong> {fulfilment ? lifecycleLabel(fulfilment.state) : 'awaiting payment'}</p>
             <p><strong className="text-mk-ink">Report version:</strong> {fulfilment?.versionNumber ?? '—'}</p>
           </div>
-          <p>This is an automated analytical assessment of the self-assessment information provided. It does not independently validate evidence, test operating effectiveness, or provide an assurance opinion.</p>
+          <p>{copy.assessmentDescription}</p>
           <button type="button" onClick={refresh} disabled={refreshing} className="rounded-xl border border-mk-line px-4 py-2 font-semibold text-mk-ink hover:border-mk-brass disabled:opacity-60">
             {refreshing ? 'Refreshing…' : 'Refresh status'}
           </button>
@@ -80,12 +82,12 @@ export function CustomerOrderStatusWorkspace({
       {pdf && fulfilment?.deliverables.length ? <Card>
         <CardHeader><CardTitle>Secure delivery</CardTitle></CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <DownloadLink label="Comprehensive report PDF" href={pdf} />
-          {register ? <DownloadLink label="Comprehensive supporting register XLSX" href={register} /> : null}
+          <DownloadLink label={copy.pdfLabel} href={pdf} />
+          {register ? <DownloadLink label={copy.registerLabel} href={register} /> : null}
         </CardContent>
       </Card> : <Card>
         <CardHeader><CardTitle>Next step</CardTitle></CardHeader>
-        <CardContent className="text-sm leading-6 text-mk-muted">Once payment is verified, MK Fraud Insights generates the PDF and supporting register, verifies both private files, and makes them available through the secure delivery link.</CardContent>
+        <CardContent className="text-sm leading-6 text-mk-muted">{copy.nextStepDescription}</CardContent>
       </Card>}
     </div>
   );
