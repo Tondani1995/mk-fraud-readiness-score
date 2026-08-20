@@ -121,6 +121,36 @@ test('final exact HTML carries the full candidate-to-acceptance ledger', () => {
   assert.match(result.finalHtmlSha256, /^[a-f0-9]{64}$/);
 });
 
+test('final assurance validation preserves HTML block boundaries and carry-forward identity', () => {
+  const safeSentence = 'Independently review the governance process before closure.';
+  const manuscript = adjudicateTextFirstValidation({
+    parsed: minimalParsed(safeSentence),
+    report: reportWithIssue('assurance_claim'),
+    factPack: { facts: [] }
+  });
+  assert.equal(manuscript.publishable, true);
+  assert.equal(manuscript.acceptedAssuranceSpanHashes.length, 1);
+
+  // Before the block-aware fix, stripHtml() fused the unpunctuated heading and paragraph into
+  // "Leadership action Independently review ...". That synthetic sentence no longer started with
+  // the customer recommendation and therefore fell through to AMBIGUOUS at final HTML despite the
+  // exact paragraph having already been accepted at manuscript stage.
+  const safeFinal = validateEssentialFinalHtml({
+    html: `<html><body><h3>Leadership action</h3><p>${safeSentence}</p></body></html>`,
+    data: dummyData,
+    carryForwardAssuranceSpanHashes: manuscript.acceptedAssuranceSpanHashes
+  });
+  assert.equal(safeFinal.publishable, true);
+  assert.equal(safeFinal.heldForReviewCodes.length, 0);
+  const assuranceCandidate = safeFinal.candidates.find((item) => item.ruleCode === 'assurance_language_final');
+  assert.ok(assuranceCandidate);
+  assert.ok(assuranceCandidate.decisions.some((decision) => decision.reasonCode === 'inherited_manuscript_stage_acceptance_unchanged_content'));
+
+  const prohibited = final('<html><body><h3>Leadership action</h3><p>This report provides independent assurance that the controls are effective.</p></body></html>');
+  assert.equal(prohibited.publishable, false);
+  assert.ok(prohibited.blockingCodes.includes('assurance_language_final'));
+});
+
 test('final deterministic template limitations are cleared without weakening positive assurance blocking', () => {
   const limitations = final(`<html><body>
     <p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p>
