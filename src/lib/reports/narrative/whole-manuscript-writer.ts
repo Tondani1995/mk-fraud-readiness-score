@@ -12,7 +12,7 @@ import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import {
   semanticReviewEnvelopeSchema,
   reviewIdForCandidateIndex,
-  validateSemanticReviewResult,
+  validateSemanticReviewEnvelope,
   type SemanticReviewDiagnostics,
   type SemanticReviewExecutionContract,
   type SemanticReviewerInput,
@@ -839,7 +839,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
         }
         let checked: SemanticReviewResult;
         try {
-          checked = validateSemanticReviewResult(input, envelope);
+          checked = validateSemanticReviewEnvelope(input, envelope);
         } catch (error) {
           const failure = error instanceof Error ? error : new Error('semantic envelope validation failed');
           (failure as { providerResponse?: unknown }).providerResponse = response;

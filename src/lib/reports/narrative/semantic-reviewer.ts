@@ -178,6 +178,12 @@ function cleanText(value: unknown, field: string, maximum: number): string {
   return cleaned;
 }
 
+function cleanProviderReviewId(value: unknown): string {
+  const reviewId = cleanText(value, 'reviewId', 5);
+  if (!/^B\d{2,4}$/.test(reviewId)) throw invalid('reviewId must use the bounded provider review-ID format');
+  return reviewId;
+}
+
 function validateReplacement(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) throw invalid('REPAIR requires replacementProse', 'semantic_deterministic_validation_failed');
   const replacement = value.trim();
@@ -200,31 +206,23 @@ export function reviewIdForCandidate(input: SemanticReviewerInput, candidateId: 
 }
 
 /**
- * Validate the closed semantic-review envelope before it reaches the cascade. The reviewer must
- * truthfully decide every candidate in one response. Applied-repair budgeting is a coordinator
- * policy, not a provider-truth constraint: multiple REPAIR findings are valid output and fail
- * closed later as `multiple_semantic_repairs_required`.
+ * Assert the already-normalised internal result returned by a semantic reviewer seam. Internal
+ * results use full candidate IDs everywhere, including the optional repair object. This function
+ * never reads or maps provider review IDs.
  */
-export function validateSemanticReviewResult(input: SemanticReviewerInput, result: SemanticReviewResult | SemanticReviewEnvelope): SemanticReviewResult {
+export function assertInternalSemanticReviewResult(input: SemanticReviewerInput, result: SemanticReviewResult): SemanticReviewResult {
   if (!result || !Array.isArray(result.decisions)) throw invalid('decisions must be an array', 'semantic_structured_output_invalid');
   const expected = new Map(input.candidates.map((candidate) => [candidate.candidateId, candidate]));
-  const expectedByReviewId = new Map(input.candidates.map((candidate, index) => [reviewIdForCandidateIndex(index), candidate]));
   if (result.decisions.length !== expected.size) throw invalid(`expected exactly ${expected.size} decisions`, 'semantic_candidate_count_mismatch');
 
   const seen = new Set<string>();
   const decisions = result.decisions.map((raw) => {
     if (!raw || typeof raw !== 'object') throw invalid('each decision must be an object', 'semantic_structured_output_invalid');
     const decision = raw as Partial<SemanticReviewDecision> & { reviewId?: unknown; reason?: unknown };
-    const reviewId = decision.reviewId !== undefined
-      ? cleanText(decision.reviewId, 'reviewId', 5)
-      : undefined;
-    const candidateId = reviewId
-      ? (() => {
-          const candidate = expectedByReviewId.get(reviewId);
-          if (!candidate) throw invalid(`unknown reviewId ${reviewId}`, 'semantic_unknown_candidate');
-          return candidate.candidateId;
-        })()
-      : cleanText(decision.candidateId, 'candidateId', 240);
+    if (Object.prototype.hasOwnProperty.call(decision, 'reviewId')) {
+      throw invalid('internal semantic decisions must use candidateId', 'semantic_structured_output_invalid');
+    }
+    const candidateId = cleanText(decision.candidateId, 'candidateId', 240);
     if (!expected.has(candidateId)) throw invalid(`unknown candidateId ${candidateId}`, 'semantic_unknown_candidate');
     if (seen.has(candidateId)) throw invalid(`duplicate decision for ${candidateId}`, 'semantic_deterministic_validation_failed');
     seen.add(candidateId);
@@ -233,15 +231,13 @@ export function validateSemanticReviewResult(input: SemanticReviewerInput, resul
     }
     const disposition = decision.disposition as SemanticReviewDisposition;
     const reasonCode = cleanText(decision.reasonCode, 'reasonCode', 48);
-    // Legacy injected provider-free fixtures may still carry a replacement on the decision. The
-    // live provider schema does not: it uses the single envelope-level repair object below.
-    const legacyReplacementProse = disposition === 'REPAIR' && 'replacementProse' in decision
+    const replacementProse = disposition === 'REPAIR' && 'replacementProse' in decision && decision.replacementProse !== undefined && decision.replacementProse !== null
       ? validateReplacement(decision.replacementProse)
       : undefined;
     if (disposition !== 'REPAIR' && decision.replacementProse !== undefined && decision.replacementProse !== null) {
       throw invalid(`${disposition} may not include replacementProse`, 'semantic_deterministic_validation_failed');
     }
-    return { candidateId, disposition, reasonCode, ...(legacyReplacementProse ? { replacementProse: legacyReplacementProse } : {}) };
+    return { candidateId, disposition, reasonCode, ...(replacementProse ? { replacementProse } : {}) };
   });
 
   const repairCount = decisions.filter((decision) => decision.disposition === 'REPAIR').length;
@@ -250,21 +246,23 @@ export function validateSemanticReviewResult(input: SemanticReviewerInput, resul
   let repair: SemanticReviewRepair | null = null;
   if (rawRepair !== undefined && rawRepair !== null) {
     if (!rawRepair || typeof rawRepair !== 'object') throw invalid('repair must be null or an object');
-    const repairRecord = rawRepair as { reviewId?: unknown; replacementProse?: unknown };
-    const repairReviewId = cleanText(repairRecord.reviewId, 'reviewId', 5);
-    const repairCandidate = expectedByReviewId.get(repairReviewId);
-    if (!repairCandidate) throw invalid(`unknown reviewId ${repairReviewId}`, 'semantic_unknown_candidate');
+    const repairRecord = rawRepair as { candidateId?: unknown; reviewId?: unknown; replacementProse?: unknown };
+    if (Object.prototype.hasOwnProperty.call(repairRecord, 'reviewId')) {
+      throw invalid('internal semantic repair must use candidateId', 'semantic_structured_output_invalid');
+    }
+    const repairCandidateId = cleanText(repairRecord.candidateId, 'candidateId', 240);
+    if (!expected.has(repairCandidateId)) throw invalid(`unknown candidateId ${repairCandidateId}`, 'semantic_unknown_candidate');
     if (repairCount !== 1) throw invalid('repair must be null unless exactly one REPAIR decision exists', 'semantic_deterministic_validation_failed');
-    const decision = decisions.find((item) => item.candidateId === repairCandidate.candidateId);
-    if (!decision || decision.disposition !== 'REPAIR') throw invalid('repair reviewId must identify the REPAIR decision', 'semantic_deterministic_validation_failed');
-    repair = { candidateId: repairCandidate.candidateId, replacementProse: validateReplacement(repairRecord.replacementProse) };
+    const decision = decisions.find((item) => item.candidateId === repairCandidateId);
+    if (!decision || decision.disposition !== 'REPAIR') throw invalid('repair candidateId must identify the REPAIR decision', 'semantic_deterministic_validation_failed');
+    repair = { candidateId: repairCandidateId, replacementProse: validateReplacement(repairRecord.replacementProse) };
   }
   if (repairCount === 1 && !repair) {
     const legacyRepair = decisions.find((decision) => decision.disposition === 'REPAIR' && decision.replacementProse);
     if (legacyRepair?.replacementProse) {
       repair = { candidateId: legacyRepair.candidateId, replacementProse: legacyRepair.replacementProse };
     } else {
-      throw invalid('exactly one REPAIR decision requires one envelope-level repair', 'semantic_deterministic_validation_failed');
+      throw invalid('exactly one REPAIR decision requires one internal repair', 'semantic_deterministic_validation_failed');
     }
   }
   if (repairCount === 0 && rawRepair !== undefined && rawRepair !== null) {
@@ -291,4 +289,43 @@ export function validateSemanticReviewResult(input: SemanticReviewerInput, resul
     };
   }
   return { decisions: cleanedDecisions, repair, ...(accounting ? { accounting } : {}) };
+}
+
+/**
+ * Validate and map the provider-facing compact envelope exactly once. The provider uses bounded
+ * review IDs; the returned domain result uses full candidate IDs and an internal repair object.
+ */
+export function validateSemanticReviewEnvelope(input: SemanticReviewerInput, envelope: SemanticReviewEnvelope): SemanticReviewResult {
+  if (!envelope || !Array.isArray(envelope.decisions)) throw invalid('decisions must be an array', 'semantic_structured_output_invalid');
+  const expectedByReviewId = new Map(input.candidates.map((candidate, index) => [reviewIdForCandidateIndex(index), candidate]));
+  if (envelope.decisions.length !== input.candidates.length) {
+    throw invalid(`expected exactly ${input.candidates.length} decisions`, 'semantic_candidate_count_mismatch');
+  }
+
+  const decisions = envelope.decisions.map((raw) => {
+    if (!raw || typeof raw !== 'object') throw invalid('each decision must be an object', 'semantic_structured_output_invalid');
+    const decision = raw as { reviewId?: unknown; disposition?: unknown; reasonCode?: unknown };
+    const reviewId = cleanProviderReviewId(decision.reviewId);
+    const candidate = expectedByReviewId.get(reviewId);
+    if (!candidate) throw invalid(`unknown reviewId ${reviewId}`, 'semantic_unknown_candidate');
+    if (!DISPOSITIONS.includes(decision.disposition as SemanticReviewDisposition)) {
+      throw invalid(`unsupported disposition for ${reviewId}`, 'semantic_structured_output_invalid');
+    }
+    return {
+      candidateId: candidate.candidateId,
+      disposition: decision.disposition as SemanticReviewDisposition,
+      reasonCode: cleanText(decision.reasonCode, 'reasonCode', 48)
+    };
+  });
+
+  let repair: SemanticReviewRepair | null = null;
+  if (envelope.repair !== undefined && envelope.repair !== null) {
+    const providerRepair = envelope.repair as { reviewId?: unknown; replacementProse?: unknown };
+    const reviewId = cleanProviderReviewId(providerRepair.reviewId);
+    const candidate = expectedByReviewId.get(reviewId);
+    if (!candidate) throw invalid(`unknown reviewId ${reviewId}`, 'semantic_unknown_candidate');
+    repair = { candidateId: candidate.candidateId, replacementProse: validateReplacement(providerRepair.replacementProse) };
+  }
+
+  return assertInternalSemanticReviewResult(input, { decisions, repair });
 }

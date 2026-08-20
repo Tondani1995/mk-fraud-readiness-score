@@ -18,7 +18,7 @@ import {
   validateWholeManuscriptConformance,
   semanticReviewMaxOutputTokensForAttempt
 } from '../../src/lib/reports/narrative/whole-manuscript-writer.ts';
-import { semanticReviewEnvelopeSchema, validateSemanticReviewResult } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
+import { semanticReviewEnvelopeSchema, validateSemanticReviewEnvelope } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
 import { runNarrativeProviderAttempts } from '../../src/lib/reports/narrative/provider-attempt-policy.ts';
 
 function technicalError(code, options = {}) {
@@ -346,9 +346,9 @@ assert.ok(estimateTokens(allAllowEnvelope) <= 2000, `all-ALLOW envelope should r
 assert.ok(estimateTokens(oneRepairEnvelope) < 4000, `one-repair envelope should remain bounded: ${estimateTokens(oneRepairEnvelope)}`);
 assert.ok(estimateTokens(multipleRepairEnvelope) <= 2000, `multiple-repair envelope must stay compact: ${estimateTokens(multipleRepairEnvelope)}`);
 assert.throws(() => semanticReviewEnvelopeSchema.parse({ decisions: [{ disposition: 'ALLOW', reasonCode: 'grounded' }], repair: null }));
-assert.deepEqual(validateSemanticReviewResult({ candidates }, semanticReviewEnvelopeSchema.parse(allAllowEnvelope)).repair, null);
-assert.equal(validateSemanticReviewResult({ candidates }, semanticReviewEnvelopeSchema.parse(oneRepairEnvelope)).repair?.candidateId, 'candidate-1');
-assert.equal(validateSemanticReviewResult({ candidates }, semanticReviewEnvelopeSchema.parse(multipleRepairEnvelope)).repair, null);
+assert.deepEqual(validateSemanticReviewEnvelope({ candidates }, semanticReviewEnvelopeSchema.parse(allAllowEnvelope)).repair, null);
+assert.equal(validateSemanticReviewEnvelope({ candidates }, semanticReviewEnvelopeSchema.parse(oneRepairEnvelope)).repair?.candidateId, 'candidate-1');
+assert.equal(validateSemanticReviewEnvelope({ candidates }, semanticReviewEnvelopeSchema.parse(multipleRepairEnvelope)).repair, null);
 
 const richPayload = buildSemanticReviewRequestPayload({ candidates: [candidate] });
 assert.equal(richPayload.blocks[0].paragraph, candidate.paragraph);

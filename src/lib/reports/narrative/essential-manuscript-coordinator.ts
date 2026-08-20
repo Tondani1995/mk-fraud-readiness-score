@@ -21,7 +21,6 @@ import {
 } from '../essential-validation-cascade';
 import { replaceTargetBlock } from './whole-manuscript-recovery';
 import {
-  validateSemanticReviewResult,
   type EssentialSemanticReviewer,
   type SemanticReviewCandidateInput,
   type SemanticReviewDecision,
@@ -702,7 +701,7 @@ export async function composeEssentialManuscript(input: {
   try {
     // Exactly one batched request covers every block. Lexical warnings are included only as
     // compact context on their owning block and can never suppress an otherwise required review.
-    reviewed = validateSemanticReviewResult({ candidates: reviewInput }, await semanticReviewer.review({ candidates: reviewInput }));
+    reviewed = await semanticReviewer.review({ candidates: reviewInput });
     if ((reviewed.accounting?.providerCalls ?? 0) > MAX_PROVIDER_ATTEMPTS_PER_STAGE) {
       const error = new Error('semantic_review_provider_call_budget_exceeded');
       (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = reviewed.accounting?.diagnostics;

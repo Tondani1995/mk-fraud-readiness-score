@@ -19,7 +19,11 @@ import { buildReportBlueprint } from '../../src/lib/reports/narrative/report-blu
 import { emptyNarrativeRecoveryBudget } from '../../src/lib/reports/narrative/recovery-policy.ts';
 import { replaceTargetBlock } from '../../src/lib/reports/narrative/whole-manuscript-recovery.ts';
 import { buildSemanticReviewRequestPayload } from '../../src/lib/reports/narrative/whole-manuscript-writer.ts';
-import { semanticReviewEnvelopeSchema, validateSemanticReviewResult } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
+import {
+  assertInternalSemanticReviewResult,
+  semanticReviewEnvelopeSchema,
+  validateSemanticReviewEnvelope
+} from '../../src/lib/reports/narrative/semantic-reviewer.ts';
 
 const emptyFacts = { facts: [] };
 
@@ -160,7 +164,7 @@ function fakeReviewer(entries) {
 async function adjudicate(entry) {
   const input = reviewerInput(entry);
   const reviewer = fakeReviewer([entry]);
-  const result = validateSemanticReviewResult({ candidates: [input] }, await reviewer.review({ candidates: [input] }));
+  const result = assertInternalSemanticReviewResult({ candidates: [input] }, await reviewer.review({ candidates: [input] }));
   const cascade = adjudicateTextFirstValidation({
     parsed: minimalParsed(entry.text),
     report: reportFor(entry),
@@ -200,7 +204,7 @@ test('one reviewer request covers multiple candidates', async () => {
   const entries = CORPUS.slice(0, 2);
   const inputs = entries.map(reviewerInput);
   const reviewer = fakeReviewer(entries);
-  const result = validateSemanticReviewResult({ candidates: inputs }, await reviewer.review({ candidates: inputs }));
+  const result = assertInternalSemanticReviewResult({ candidates: inputs }, await reviewer.review({ candidates: inputs }));
   assert.equal(reviewer.calls, 1);
   assert.equal(result.decisions.length, 2);
 });
@@ -327,26 +331,61 @@ test('structured semantic envelope accepts all four dispositions and truthfully 
     repair: null
   };
   const schemaResult = semanticReviewEnvelopeSchema.parse(envelope);
-  const result = validateSemanticReviewResult({ candidates: inputs }, schemaResult);
+  const result = validateSemanticReviewEnvelope({ candidates: inputs }, schemaResult);
   assert.deepEqual(result.decisions.map((decision) => decision.disposition), ['ALLOW', 'REPAIR', 'REJECT', 'HOLD', 'REPAIR']);
   assert.equal(result.decisions.filter((decision) => decision.disposition === 'REPAIR').length, 2);
 });
 
-test('semantic envelope fails closed on omission, unknown candidate and malformed output', () => {
+test('semantic provider envelope fails closed on omission, duplicate, unknown and malformed IDs', () => {
   const entries = CORPUS.slice(2, 4);
   const inputs = entries.map(reviewerInput);
   assert.throws(
-    () => validateSemanticReviewResult({ candidates: inputs }, { decisions: [] }),
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, { decisions: [{ reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' }], repair: null }),
     (error) => error?.semanticReviewFailureCode === 'semantic_candidate_count_mismatch'
   );
   assert.throws(
-    () => validateSemanticReviewResult({ candidates: inputs }, {
-      decisions: inputs.map((candidate, index) => ({ candidateId: index === 0 ? 'unknown-candidate' : candidate.candidateId, disposition: 'ALLOW', reasonCode: 'fixture', reason: 'allow' }))
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, {
+      decisions: [
+        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' },
+        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' }
+      ],
+      repair: null
+    }),
+    (error) => error?.semanticReviewFailureCode === 'semantic_deterministic_validation_failed'
+  );
+  assert.throws(
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, {
+      decisions: [
+        { reviewId: 'B99', disposition: 'ALLOW', reasonCode: 'fixture' },
+        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+      ],
+      repair: null
     }),
     (error) => error?.semanticReviewFailureCode === 'semantic_unknown_candidate'
   );
   const malformed = semanticReviewEnvelopeSchema.parse({ decisions: [{ reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' }], repair: null });
-  assert.throws(() => validateSemanticReviewResult({ candidates: [reviewerInput(entries[0])] }, malformed), /exactly one REPAIR/);
+  assert.throws(() => validateSemanticReviewEnvelope({ candidates: [reviewerInput(entries[0])] }, malformed), /exactly one REPAIR/);
+  const malformedRepair = semanticReviewEnvelopeSchema.parse({
+    decisions: [
+      { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' },
+      { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+    ],
+    repair: { reviewId: 'B99', replacementProse: 'Management should document the bounded control route.' }
+  });
+  assert.throws(
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, malformedRepair),
+    (error) => error?.semanticReviewFailureCode === 'semantic_unknown_candidate'
+  );
+  assert.throws(
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, {
+      decisions: [
+        { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' },
+        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+      ],
+      repair: { reviewId: 'malformed', replacementProse: 'Management should document the bounded control route.' }
+    }),
+    (error) => error?.semanticReviewFailureCode === 'semantic_structured_output_invalid'
+  );
 });
 
 test('semantic request preserves every grounding field and does not compact input evidence', () => {
@@ -386,6 +425,9 @@ test('semantic reviewer source uses provider structured output and never reparse
   assert.match(source, /maxRetries:\s*0/);
   assert.match(source, /structuredOutput:\s*true/);
   assert.match(source, /semanticReviewExecutionContract/);
+  const coordinatorSource = fs.readFileSync('src/lib/reports/narrative/essential-manuscript-coordinator.ts', 'utf8');
+  assert.match(coordinatorSource, /reviewed = await semanticReviewer\.review\(\{ candidates: reviewInput \}\)/);
+  assert.doesNotMatch(coordinatorSource, /validateSemanticReview(?:Envelope|Result)/);
 });
 
 function coordinatorFixture() {
@@ -437,6 +479,64 @@ function fixtureWriter({ blueprint, markdown, writerMetadata }) {
   };
   return writer;
 }
+
+function providerEnvelopeFor(input, repairCandidateId) {
+  const repairIndex = repairCandidateId
+    ? input.candidates.findIndex((candidate) => candidate.candidateId === repairCandidateId)
+    : -1;
+  if (repairCandidateId) assert.ok(repairIndex >= 0);
+  else assert.equal(repairIndex, -1);
+  return {
+    decisions: input.candidates.map((candidate, index) => ({
+      reviewId: `B${String(index + 1).padStart(2, '0')}`,
+      disposition: index === repairIndex ? 'REPAIR' : 'ALLOW',
+      reasonCode: index === repairIndex ? 'provider_mapped_repair' : 'provider_mapped_allow'
+    })),
+    repair: repairIndex >= 0
+      ? { reviewId: `B${String(repairIndex + 1).padStart(2, '0')}`, replacementProse: 'Management should document and cross-train control responsibilities across the relevant process.' }
+      : null
+  };
+}
+
+test('all-ALLOW provider envelope maps once and reaches the coordinator as an internal result', async () => {
+  const fixture = coordinatorFixture();
+  const writer = fixtureWriter(fixture);
+  let reviewerCalls = 0;
+  let mapped;
+  writer.reviewSemanticCandidates = async (input) => {
+    reviewerCalls += 1;
+    mapped = validateSemanticReviewEnvelope({ candidates: input.candidates }, semanticReviewEnvelopeSchema.parse(providerEnvelopeFor(input)));
+    assert.equal(mapped.repair, null);
+    assert.ok(mapped.decisions.every((decision) => decision.candidateId && !('reviewId' in decision)));
+    return { ...mapped, accounting: { providerCalls: 0, repairCount: 0 } };
+  };
+  const composed = await composeEssentialManuscript({ factPack: fixture.factPack, writer });
+  assert.equal(reviewerCalls, 1);
+  assert.equal(composed.manuscript.writerMetadata.totalProviderCalls, 1, 'the provider-free seam adds no physical provider call');
+  assert.equal(composed.manuscript.writerMetadata.semanticReviewRepairCount, 0);
+});
+
+test('one provider REPAIR maps reviewId to candidateId once and reaches the existing bounded repair path', async () => {
+  const fixture = coordinatorFixture();
+  const writer = fixtureWriter(fixture);
+  let reviewerCalls = 0;
+  let mapped;
+  writer.reviewSemanticCandidates = async (input) => {
+    reviewerCalls += 1;
+    const target = input.candidates.find((candidate) => /one or two people/i.test(candidate.paragraph));
+    assert.ok(target);
+    mapped = validateSemanticReviewEnvelope({ candidates: input.candidates }, semanticReviewEnvelopeSchema.parse(providerEnvelopeFor(input, target.candidateId)));
+    assert.equal(mapped.repair?.candidateId, target.candidateId);
+    assert.equal(Object.prototype.hasOwnProperty.call(mapped.repair, 'reviewId'), false, 'the internal repair must not retain provider reviewId');
+    return { ...mapped, accounting: { providerCalls: 0, repairCount: 1 } };
+  };
+  const composed = await composeEssentialManuscript({ factPack: fixture.factPack, writer });
+  assert.equal(reviewerCalls, 1, 'the mapped internal result must not trigger a second validation or provider call');
+  assert.doesNotMatch(composed.manuscript.markdown, /one or two people/i);
+  assert.match(composed.manuscript.markdown, /document and cross-train control responsibilities/i);
+  assert.equal(composed.manuscript.writerMetadata.semanticReviewRepairCount, 1);
+  assert.equal(composed.manuscript.writerMetadata.totalProviderCalls, 1);
+});
 
 test('coordinator injects one fake reviewer, applies one exact repair, and never calls recursive recovery', async () => {
   const fixture = coordinatorFixture();
