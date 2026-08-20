@@ -1,3 +1,8 @@
+/**
+ * LEGACY / ADVISORY-ONLY generator. Active Comprehensive fulfilment uses phase1-manual-fulfilment
+ * and the frozen automated package path; this five-artifact reviewed generator is retained only
+ * for historical compatibility.
+ */
 import crypto, { randomUUID } from 'node:crypto';
 import { assembleReportData } from '@/lib/reports/assemble-report-data';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';

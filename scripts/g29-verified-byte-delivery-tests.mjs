@@ -70,14 +70,15 @@ function makeDb(options = {}) {
       checksum_sha256: options.registerChecksum ?? XLSX_SHA,
       file_size_bytes: options.registerSize ?? XLSX_BYTES.length,
       storage_status: options.registerStatus ?? 'VERIFIED', artefact_type: 'supporting_register',
-      file_name: 'REPORT-V1-supporting-register.xlsx',
-      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      file_name: 'REPORT-V1-comprehensive-supporting-register.xlsx',
+      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      artifact_version: 1, release_state: 'released', engagement_id: null, report_id: REPORT_ID
     }
     : options.artefactRow;
 
   const builder = (rows) => {
     const api = {
-      select: () => api, eq: () => api, order: () => api, limit: () => api,
+      select: () => api, eq: () => api, is: () => api, in: () => api, order: () => api, limit: () => api,
       maybeSingle: async () => ({ data: rows, error: null }),
       then: (resolve) => resolve({ data: rows, error: null }),
       update: () => ({ eq: async () => ({ error: null }) })
@@ -106,18 +107,25 @@ function makeDb(options = {}) {
         return {
           select: () => ({ eq: () => ({ maybeSingle: async () => ({
             data: {
-              id: REPORT_ID, assessment_id: 'a1', order_id: ORDER_ID, report_type: 'premium',
+              id: REPORT_ID, assessment_id: 'a1', order_id: ORDER_ID, report_type: 'mk_validated',
               report_reference: 'REPORT-V1', version_number: 1, status: 'released',
               storage_bucket: 'generated-reports', storage_path: PDF_PATH,
               checksum: options.reportChecksum ?? PDF_SHA,
               file_name: 'REPORT-V1.pdf', mime_type: 'application/pdf',
-              file_size_bytes: PDF_BYTES.length, storage_status: 'VERIFIED'
-            },
-            error: null
+              file_size_bytes: PDF_BYTES.length, storage_status: 'VERIFIED',
+              products: { product_code: 'mk_validated_assessment' }
+            }, error: null
           }) }) }),
           update: (patch) => ({ eq: async () => {
             calls.reportStatusUpdates.push(patch.storage_status); return { error: null };
           } })
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({
+            data: { id: ORDER_ID, product_id: 'p1', products: { product_code: 'mk_validated_assessment' } }, error: null
+          }) }) })
         };
       }
       if (table === 'report_artifacts') return builder(artefactRow);

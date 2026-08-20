@@ -1,3 +1,4 @@
+/** LEGACY / ADVISORY-ONLY: reviewed five-artifact package registration is not active fulfilment. */
 export const COMPREHENSIVE_REPORT_BUCKET = 'comprehensive-reports' as const;
 export const COMPREHENSIVE_PACKAGE_ARTIFACT_TYPES = ['supporting_register', 'board_readout', 'executive_presentation', 'workshop_material'] as const;
 export type ComprehensivePackageArtifactType = (typeof COMPREHENSIVE_PACKAGE_ARTIFACT_TYPES)[number];

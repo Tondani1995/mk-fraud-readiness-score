@@ -3,8 +3,15 @@ import type { ComprehensiveDeliveryModel } from './types';
 import { buildComprehensiveRegisterSheets } from './register';
 
 const MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+export const COMPREHENSIVE_REGISTER_WORKBOOK_MIME_TYPE = MIME_TYPE;
 export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
 export const COMPREHENSIVE_READ_ME_SHEET = 'Read me';
+
+export interface ComprehensiveWorkbookBinding {
+  orderReference?: string;
+  reportReference?: string;
+  versionNumber?: number;
+}
 
 function cell(value: unknown): string { return value === null || value === undefined ? '' : String(value); }
 function humanDate(value: unknown): string { const raw = String(value ?? '').trim(); if (!raw) return ''; const date = new Date(raw); return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
@@ -29,9 +36,13 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
   ];
 }
 
-function readMeRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
+function readMeRows(model: ComprehensiveDeliveryModel, binding: ComprehensiveWorkbookBinding = {}): Array<Record<string, string>> {
   return [
     { field: 'Workbook purpose', value: 'Comprehensive Fraud Readiness Strategy and Control Blueprint', note: 'Use the workbook to understand, decide, build and monitor.' },
+    { field: 'Product', value: 'Comprehensive', note: 'Automated analytical product; no human review or sign-off is part of this package.' },
+    { field: 'Order binding', value: cell(binding.orderReference), note: 'The private Storage path and report_artifacts row bind this workbook to the exact order.' },
+    { field: 'Report binding', value: cell(binding.reportReference), note: 'The private Storage path and report_artifacts row bind this workbook to the exact report version.' },
+    { field: 'Report version', value: binding.versionNumber === undefined ? '' : String(binding.versionNumber), note: 'Exact version released with the Comprehensive PDF.' },
     { field: 'Customer basis', value: "This report provides strategic fraud-risk analysis and control design based on management's recorded Fraud Readiness assessment responses.", note: 'It does not independently verify operating effectiveness.' },
     { field: 'Analytical boundary', value: 'The deterministic engine decides; bounded narrative explains the recorded result.', note: 'No identity or sign-off record is required for generation.' },
     { field: 'How to read', value: 'Start with Summary, then Findings and Risks, then Control Blueprints, Decisions and the Implementation Blueprint.', note: 'Technical IDs and question codes support traceability.' },
@@ -40,12 +51,12 @@ function readMeRows(model: ComprehensiveDeliveryModel): Array<Record<string, str
   ];
 }
 
-export interface ComprehensiveRegisterWorkbook { bytes: Buffer; checksumSha256: string; mimeType: string; sheetNames: string[]; rowCounts: Record<string, number>; }
+export interface ComprehensiveRegisterWorkbook { bytes: Buffer; checksumSha256: string; mimeType: string; fileName: string; sheetNames: string[]; rowCounts: Record<string, number>; }
 
-export async function buildComprehensiveRegisterWorkbook(model: ComprehensiveDeliveryModel): Promise<ComprehensiveRegisterWorkbook> {
+export async function buildComprehensiveRegisterWorkbook(model: ComprehensiveDeliveryModel, binding: ComprehensiveWorkbookBinding = {}): Promise<ComprehensiveRegisterWorkbook> {
   const registerSheets = buildComprehensiveRegisterSheets(model);
   const sheets = [
-    { name: COMPREHENSIVE_READ_ME_SHEET, rows: readMeRows(model), columns: ['field', 'value', 'note'] },
+    { name: COMPREHENSIVE_READ_ME_SHEET, rows: readMeRows(model, binding), columns: ['field', 'value', 'note'] },
     { name: COMPREHENSIVE_SUMMARY_SHEET, rows: summaryRows(model), columns: ['field', 'value', 'note'] },
     ...registerSheets
   ];
@@ -57,7 +68,16 @@ export async function buildComprehensiveRegisterWorkbook(model: ComprehensiveDel
   const bytes = Buffer.from(await workbook.toBuffer());
   const rowCounts: Record<string, number> = {};
   for (const sheet of sheets) rowCounts[sheet.name] = sheet.rows.length;
-  return { bytes, checksumSha256: crypto.createHash('sha256').update(bytes).digest('hex'), mimeType: MIME_TYPE, sheetNames: sheets.map((sheet) => sheet.name), rowCounts };
+  const reference = String(binding.reportReference ?? model.analytical.assessmentReference ?? 'comprehensive')
+    .replace(/[^A-Za-z0-9._-]+/g, '_');
+  return {
+    bytes,
+    checksumSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    mimeType: MIME_TYPE,
+    fileName: `${reference}-comprehensive-supporting-register.xlsx`,
+    sheetNames: sheets.map((sheet) => sheet.name),
+    rowCounts
+  };
 }
 
-export async function buildComprehensiveRegisterWorkbookBytes(model: ComprehensiveDeliveryModel): Promise<Buffer> { return (await buildComprehensiveRegisterWorkbook(model)).bytes; }
+export async function buildComprehensiveRegisterWorkbookBytes(model: ComprehensiveDeliveryModel, binding?: ComprehensiveWorkbookBinding): Promise<Buffer> { return (await buildComprehensiveRegisterWorkbook(model, binding)).bytes; }

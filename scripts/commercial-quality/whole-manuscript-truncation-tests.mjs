@@ -27,9 +27,9 @@ function blueprint(reportTier) {
 const snapshotBudget = deriveWholeManuscriptOutputBudget(blueprint('snapshot'));
 const essentialBudget = deriveWholeManuscriptOutputBudget(blueprint('essential'));
 const comprehensiveBudget = deriveWholeManuscriptOutputBudget(blueprint('comprehensive'));
-assert.equal(snapshotBudget.expectedOutputTokens, 1400);
-assert.equal(essentialBudget.expectedOutputTokens, 4200);
-assert.equal(comprehensiveBudget.expectedOutputTokens, 7600);
+assert.equal(snapshotBudget.expectedOutputTokens, 2100);
+assert.equal(essentialBudget.expectedOutputTokens, 6300);
+assert.equal(comprehensiveBudget.expectedOutputTokens, 11400);
 for (const budget of [snapshotBudget, essentialBudget, comprehensiveBudget]) {
   assert.ok(budget.hardOutputTokenLimit > budget.expectedOutputTokens);
   assert.ok(budget.safetyMarginTokens > 0);

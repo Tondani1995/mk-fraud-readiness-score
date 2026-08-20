@@ -1,3 +1,4 @@
+/** LEGACY / ADVISORY-ONLY: five-artifact reviewed package release is not active Comprehensive. */
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 function service() {

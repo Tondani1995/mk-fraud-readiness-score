@@ -6,7 +6,7 @@ import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
-import { buildAndStoreSupportingRegister } from './supporting-register-delivery';
+import { buildAndStoreSupportingRegister, storeVerifiedRegisterWorkbook } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import { EssentialValidationCascadeError } from './essential-validation-cascade';
@@ -29,6 +29,7 @@ import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
 import type { EssentialSemanticReviewer } from './narrative/semantic-reviewer';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
+import { renderComprehensiveReportPackage } from './comprehensive/manual-generation';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -51,6 +52,10 @@ export interface ManualPhase1Dependencies {
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
   buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
+  /** Provider-free seam for the frozen Comprehensive PDF + XLSX package builder. */
+  renderComprehensiveReportPackage?: typeof renderComprehensiveReportPackage;
+  /** Publishes the already-built Comprehensive workbook without invoking Essential's builder. */
+  storeVerifiedRegisterWorkbook?: typeof storeVerifiedRegisterWorkbook;
   getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
   createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
   narrativeGenerator?: PremiumReportNarrativeGenerator;
@@ -436,6 +441,7 @@ export async function generateManualPhase1Report(
   let finalisationCommitted = false;
   let registerStoragePath: string | null = null;
   let pdfChecksumForReconciliation: string | null = null;
+  let comprehensiveWorkbook: Awaited<ReturnType<typeof renderComprehensiveReportPackage>>['workbook'] | undefined;
   let generationStage = 'start_generation';
   try {
     // Payment confirmation queues an attempt, and under manual fulfilment nothing drains
@@ -559,10 +565,17 @@ export async function generateManualPhase1Report(
       // Repairs are additional paid calls and are not authorised here, so a slot that
       // fails surfaces as a visible generation failure rather than more spend.
       try {
-        const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
+        const buildComprehensivePackage = dependencies.renderComprehensiveReportPackage ?? renderComprehensiveReportPackage;
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
-        const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
+        const comprehensive = await buildComprehensivePackage({
+          assembled,
+          evidenceModel: advisoryModel,
+          orderReference: input.orderReference,
+          reportReference: assembled.reportReference,
+          versionNumber
+        });
         comprehensivePdf = comprehensive.pdf;
+        comprehensiveWorkbook = comprehensive.workbook;
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
         console.info('comprehensive_manual_generation', {
           technicalReference,
@@ -761,18 +774,27 @@ export async function generateManualPhase1Report(
 
     // Both physical artefacts must exist and be verified before anything becomes customer-final.
     generationStage = 'store_supporting_register';
-    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
-    const storedRegister = await storeSupportingRegister({
-      db,
-      data: assembled,
-      model: reportEvidenceModel,
-      projection: essentialProjection,
-      storageBucket,
-      organisationId: assembled.organisationId,
-      orderId: assembled.orderId,
-      versionNumber,
-      verifyStoredObject: verifyPrivateObject
-    });
+    const storedRegister = isComprehensive
+      ? await (dependencies.storeVerifiedRegisterWorkbook ?? storeVerifiedRegisterWorkbook)({
+        db,
+        workbook: comprehensiveWorkbook!,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      })
+      : await (dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister)({
+        db,
+        data: assembled,
+        model: reportEvidenceModel,
+        projection: essentialProjection,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      });
     registerUploaded = true;
     registerStoragePath = storedRegister.storagePath;
     console.info('supporting_register', {
@@ -789,8 +811,11 @@ export async function generateManualPhase1Report(
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
     finalisationInvoked = true;
+    const finaliseRpc = isComprehensive
+      ? 'finalise_comprehensive_automated_report_with_supporting_register'
+      : 'finalise_manual_report_with_supporting_register';
     const { data: completed, error: completeError } = await db.rpc(
-      'finalise_manual_report_with_supporting_register', {
+      finaliseRpc, {
       p_attempt_id: attemptId,
       p_template_id: template.id,
       p_report_type: reportType,

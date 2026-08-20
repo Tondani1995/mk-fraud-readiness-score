@@ -21,7 +21,7 @@ assert.doesNotMatch(customerCopy, /case-specific validation/i);
 assert.match(customerCopy, /Governing body \/ independent oversight/);
 assert.match(customerCopy, /relevant operational, control and oversight responsibilities/);
 assert.match(customerCopy, /financial consequence depends on the value and transactions affected/i);
-assert.match(customerCopy, /operational consequence depends on the process, system or records affected/i);
+assert.match(customerCopy, /operational consequence depends on the affected process, system or service/i);
 
 const unsupportedSummary = adaptEssentialText(
   "The organisation's fraud defences depend on people, not systems. It is meaningfully ahead of many of similar size. If the one or two people who currently hold this knowledge left tomorrow, the control environment would fail. The concentration risk in people, not process, is material.",

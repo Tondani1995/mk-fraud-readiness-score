@@ -205,8 +205,9 @@ try {
   assert.equal(a.created, true, 'the first caller creates the order');
   assert.equal(b.created, false, 'the second caller must NOT create a second order');
   assert.equal(a.order_id, b.order_id, 'the loser must resolve to the winner’s order');
-  assert.equal(a.engagement_id, b.engagement_id, 'the loser must resolve to the winner’s engagement');
-  check('two concurrent Comprehensive attempts yield exactly one order and one engagement');
+  assert.equal(a.engagement_id, null, 'the active automated result has no reviewed-engagement binding');
+  assert.equal(b.engagement_id, null, 'the duplicate automated result has no reviewed-engagement binding');
+  check('two concurrent Comprehensive attempts yield exactly one automated order');
 
   const raceOrders = await db.query(
     `select count(*)::int as n from public.orders where assessment_id = $1`, [raceAssessmentId]
@@ -215,36 +216,33 @@ try {
   const raceEngagements = await db.query(
     `select count(*)::int as n from public.comprehensive_engagements where assessment_id = $1`, [raceAssessmentId]
   );
-  assert.equal(raceEngagements.rows[0].n, 1);
-  check('exactly one order row and one engagement row exist for the contended assessment');
+  assert.equal(raceEngagements.rows[0].n, 0);
+  check('the active automated order creates no reviewed-engagement row');
 
-  const orphans = await db.query(
-    `select count(*)::int as n from public.orders o
+  const activeReviewedBindings = await db.query(
+    `select count(*)::int as n from public.comprehensive_engagements e
+     join public.orders o on o.id = e.order_id
      join public.products p on p.id = o.product_id
-     where p.product_code = 'mk_validated_assessment'
-       and not exists (select 1 from public.comprehensive_engagements e where e.order_id = o.id)`
+     where p.product_code = 'mk_validated_assessment' and o.assessment_id = $1`,
+    [raceAssessmentId]
   );
-  assert.equal(orphans.rows[0].n, 0);
-  check('NO orphaned Comprehensive order exists (the defect this fix closes)');
+  assert.equal(activeReviewedBindings.rows[0].n, 0);
+  check('the active Comprehensive order has no legacy reviewed-engagement dependency');
 
-  // The engagement and its creation trail committed with the order, not after it.
+  // The automated order and its creation trail committed together.
   const trail = await db.query(
     `select
-       (select count(*)::int from public.comprehensive_engagement_events e
-         join public.comprehensive_engagements g on g.id = e.engagement_id
-        where g.assessment_id = $1 and e.event_type = 'engagement_created') as engagement_events,
        (select count(*)::int from public.order_events oe
-        where oe.order_id = $2 and oe.event_type = 'order_created_from_report_request') as order_events,
+        where oe.order_id = $1 and oe.event_type = 'order_created_from_report_request') as order_events,
        (select count(*)::int from public.audit_logs al
-        where al.entity_id = $2 and al.action = 'paid_order_created') as audit_rows`,
-    [raceAssessmentId, a.order_id]
+        where al.entity_id = $1 and al.action = 'paid_order_created') as audit_rows`,
+    [a.order_id]
   );
-  assert.equal(trail.rows[0].engagement_events, 1);
   assert.equal(trail.rows[0].order_events, 1);
   assert.equal(trail.rows[0].audit_rows, 1);
-  check('the order, engagement and full creation trail committed in one transaction, exactly once');
+  check('the automated order and full creation trail committed in one transaction, exactly once');
 
-  // A cancelled engagement releases the assessment for a genuinely new order.
+  // A stale legacy engagement row cannot change the active automated order identity.
   await db.query(
     `update public.comprehensive_engagements set state = 'cancelled' where assessment_id = $1`,
     [raceAssessmentId]
@@ -253,9 +251,9 @@ try {
     `select public.create_paid_order('comprehensive', $1, 'mk_validated_assessment', 3500000, 'ZAR') as result`,
     [raceAssessmentId]
   )).rows[0].result;
-  assert.equal(afterCancel.created, true);
-  assert.notEqual(afterCancel.order_id, a.order_id);
-  check('a cancelled engagement frees the assessment for a new Comprehensive order');
+  assert.equal(afterCancel.created, false);
+  assert.equal(afterCancel.order_id, a.order_id);
+  check('legacy engagement state cannot create a second active Comprehensive order');
 
   // Essential is idempotent per report request rather than creating duplicates.
   const essentialAssessmentId = await newAssessment('MKFRS-TXN-ESS-0001');

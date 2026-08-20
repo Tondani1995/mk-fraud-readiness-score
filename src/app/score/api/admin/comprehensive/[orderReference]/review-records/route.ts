@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
+import { isAutomatedComprehensiveOrder, AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED } from '@/lib/commercial/legacy-comprehensive-admin-route';
 import { canReviewComprehensiveEvidence } from '@/lib/comprehensive/evidence-service';
 import { getEngagementByOrderReference } from '@/lib/comprehensive/engagement-service';
 import { listComprehensiveReviewRecords, upsertComprehensiveReviewRecord } from '@/lib/comprehensive/review-record-service';
@@ -16,6 +17,7 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
   const params = await props.params;
   const admin = await getAdminSession();
   if (!admin || !canReviewComprehensiveEvidence(admin.role)) return json({ ok: false, reason: 'forbidden' }, 403);
+  if (await isAutomatedComprehensiveOrder(params.orderReference)) return json({ ok: false, reason: AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED }, 410);
   const engagement = await getEngagementByOrderReference(params.orderReference);
   if (!engagement) return json({ ok: false, reason: 'engagement_not_found' }, 404);
   try {
@@ -31,6 +33,7 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
   if (frozen) return frozen;
   const admin = await getAdminSession();
   if (!admin || !canReviewComprehensiveEvidence(admin.role)) return json({ ok: false, reason: 'forbidden' }, 403);
+  if (await isAutomatedComprehensiveOrder(params.orderReference)) return json({ ok: false, reason: AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED }, 410);
   const engagement = await getEngagementByOrderReference(params.orderReference);
   if (!engagement) return json({ ok: false, reason: 'engagement_not_found' }, 404);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));

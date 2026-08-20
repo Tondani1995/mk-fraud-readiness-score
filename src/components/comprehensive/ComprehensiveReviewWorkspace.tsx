@@ -1,3 +1,4 @@
+/** LEGACY / ADVISORY-ONLY UI. The active Comprehensive admin surface is OperationsWorkspace. */
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
