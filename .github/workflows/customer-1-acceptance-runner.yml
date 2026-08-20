@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 7
     env:
-      PREVIEW_URL: https://mk-fraud-platform-l2jkio9a6-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-85y70rrfc-tondanis-projects.vercel.app
       ORDER_REFERENCE: MKORD-2026-FAA9331C
-      REQUEST_KEY: acceptance-c1-61d736cf-vhutshilo
+      REQUEST_KEY: acceptance-c1-c5e8ba6d-vhutshilo
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - name: Refuse to call provider without protected-preview bypass
