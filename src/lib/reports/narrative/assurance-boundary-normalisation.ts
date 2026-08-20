@@ -2,12 +2,15 @@ import type { ParsedBlueprintMarkdown } from './blueprint-text';
 
 /**
  * Deterministic pre-validation cleanup for the Essential manuscript. It removes a closed set
- * of assurance-boundary phrases that the writer is not permitted to assert and canonicalises
- * provider-only decimal formatting so numerically identical Fact Pack values do not fail
- * grounding solely because the provider wrote, for example, 20.00 instead of 20.
+ * of assurance-boundary phrases and known unsupported absolutes that the writer is not permitted
+ * to assert, and canonicalises provider-only decimal formatting so numerically identical Fact Pack
+ * values do not fail grounding solely because the provider wrote, for example, 20.00 instead of 20.
  *
  * This is not a provider repair and does not change any score, finding, risk, control, owner,
- * timing or analytical conclusion.
+ * timing or analytical conclusion. The unsupported-absolute rewrites only replace an unevidenced
+ * categorical claim with the narrower truth the self-assessment can actually support: the claimed
+ * coverage/share is not established by this assessment. Final HTML keeps its independent fail-safe
+ * scan for the original prohibited wording.
  */
 const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
   {
@@ -47,6 +50,20 @@ const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
     // Preserve the limitation while removing that false-positive construction.
     pattern: /\bnot\s+(?:an?\s+)?independent\s+verification(?:\s+of\s+operating\s+effectiveness)?\b/gi,
     replacement: 'without verification of operating effectiveness by this review'
+  },
+  {
+    // Vhutshilo Customer-1 final-output incident (2026-08-20): this final-only legacy truth guard
+    // fired only after a provider call and manuscript acceptance. Repair the closed phrase at Layer
+    // 0 instead of letting final HTML re-litigate it after acceptance; the final regex remains as a
+    // fail-safe if this wording is ever introduced by a different surface.
+    pattern: /\bmanual review cannot cover transaction volume\b/gi,
+    replacement: 'manual-review coverage is not established by this self-assessment'
+  },
+  {
+    // Same incident family. The assessment contains no population statistic proving that most
+    // activity is unexamined, so replace that categorical claim with the precise evidence boundary.
+    pattern: /\bmajority of activity is never examined\b/gi,
+    replacement: 'the share of activity examined is not established by this self-assessment'
   }
 ];
 
