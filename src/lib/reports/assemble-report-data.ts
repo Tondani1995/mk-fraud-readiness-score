@@ -69,6 +69,11 @@ export class ReportAssemblyError extends Error {
   }
 }
 
+export interface ReportAssemblyDependencies {
+  /** Credential-free test seam; production callers use the service-role client by default. */
+  db?: any;
+}
+
 function nullableNumber(value: unknown) {
   return value === null || value === undefined ? null : Number(value);
 }
@@ -93,8 +98,11 @@ async function loadScoredAssessment(supabase: any, assessmentId: string) {
     .maybeSingle();
 }
 
-export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
-  const supabase = createSupabaseServiceClient();
+export async function assembleReportData(
+  orderReference: string,
+  dependencies: ReportAssemblyDependencies = {}
+): Promise<AssembledReportData> {
+  const supabase: any = dependencies.db ?? (createSupabaseServiceClient() as any);
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -162,7 +170,9 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     ? await supabase.from('admin_profiles').select('id,status,role').in('id', manualActorIds)
     : { data: [], error: null };
   if (verifierError) throw new ReportAssemblyError('entitlement_snapshot_failed', 'Payment verifier evidence could not be loaded.');
-  const verifiers = new Map((verifierRows ?? []).map((row: any) => [String(row.id).toLowerCase(), row]));
+  const verifiers = new Map<string, { status?: string | null; role?: string | null }>(
+    (verifierRows ?? []).map((row: any) => [String(row.id).toLowerCase(), row] as [string, { status?: string | null; role?: string | null }])
+  );
 
   const paymentEvidenceForRow = (row: any): PaymentVerificationEvidence => {
     const verifier = verifiers.get(String(row.actor_reference ?? '').toLowerCase());
@@ -189,8 +199,8 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     };
   };
 
-  const sourceEvidence = (paymentRows ?? []).map(paymentEvidenceForRow);
-  const priorValidSourceEvent = sourceEvidence.some((evidence) => isValidPaymentSourceEvent({ ...evidence, transitionCount: 1 }));
+  const sourceEvidence: PaymentVerificationEvidence[] = (paymentRows ?? []).map(paymentEvidenceForRow);
+  const priorValidSourceEvent = sourceEvidence.some((evidence: PaymentVerificationEvidence) => isValidPaymentSourceEvent({ ...evidence, transitionCount: 1 }));
   const legacyEvidence: PaymentVerificationEvidence | null = legacyPaymentSchemaUnavailable
     && order.status === 'payment_received'
     && Boolean(order.verified_at)
@@ -325,7 +335,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     isHardGate: row.questions.is_hard_gate,
     isCriticalGap: row.is_critical_gap,
     isMajorGap: row.is_major_gap
-  })).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
+  })).sort((a: QuestionTraceRecord, b: QuestionTraceRecord) => a.questionCode.localeCompare(b.questionCode));
 
   const criticalMajorGaps: GapQuestionRecord[] = questionTraces
     .filter((trace) => trace.isCriticalGap || trace.isMajorGap)
@@ -333,7 +343,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   // The official scale is loaded once for the score run's persisted methodology version. This is
   // deliberately not an active-methodology lookup and not a per-finding query.
-  const officialResponseLabels = await getOfficialResponseLabels(scoreRunRow.methodology_version_id);
+  const officialResponseLabels = await getOfficialResponseLabels(scoreRunRow.methodology_version_id, supabase);
 
   // related_domain_id can be null on question-level cap events (every question belongs to a
   // domain, but the cap-writing path only ever persisted the question reference for those rules).

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
+import { ResponseLabelSourceError } from './response-labels';
 import { COMPREHENSIVE_REPORT_TYPE, ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
@@ -110,6 +111,7 @@ export type Phase1GenerationReason =
    */
   | 'essential_final_validation_rejected'
   | 'essential_final_validation_held_for_review'
+  | 'response_scale_source_invalid'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
@@ -168,7 +170,15 @@ function mapRpcFailure(error: unknown, technicalReference: string): Phase1Genera
   return new Phase1GenerationError('generation_failed', 'Report generation could not be started. Retry or use the technical reference for support.', 500, technicalReference);
 }
 
-function mapPreflightFailure(error: unknown, technicalReference: string): Phase1GenerationError {
+export function mapPreflightFailure(error: unknown, technicalReference: string): Phase1GenerationError {
+  if (error instanceof ResponseLabelSourceError) {
+    return new Phase1GenerationError(
+      'response_scale_source_invalid',
+      'The assessment response scale could not be validated for report generation.',
+      409,
+      technicalReference
+    );
+  }
   if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) {
     if (error.reason === 'order_not_found') {
       return new Phase1GenerationError('order_not_found', error.message, 404, technicalReference);

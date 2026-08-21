@@ -40,7 +40,7 @@ function test(name, fn) {
   }
 }
 
-// A valid, complete six-row scale -- deliberately built out of display_order sequence (5, then 1,
+// A valid V1.1 six-row scale -- deliberately built out of display_order sequence (5, then 1,
 // then ...) to double as the "unordered input" fixture reused by the normalisation test below.
 // display_order -> response_value -> normalised_score mapping is: 1->0->0, 2->1->20, 3->2->40,
 // 4->3->60, 5->4->80, 6->5->100 -- correctly aligned and strictly increasing 0..100, so this
@@ -56,15 +56,27 @@ function validRows() {
   ];
 }
 
+function zeroBasedRows() {
+  return validRows().map((row) => ({ ...row, display_order: row.display_order - 1 }));
+}
+
 console.log('V7 Checkpoint A correction -- response-label validator unit suite');
 
-test('1. valid six-row scale (0-5) is accepted and returned', () => {
+test('1. V1.1 scale (response values 0-5, display order 1-6) is accepted unchanged', () => {
   const result = validateOfficialResponseLabels(validRows());
   assert.equal(result.length, 6);
   assert.deepEqual(
     result.map((r) => r.responseValue),
     [0, 1, 2, 3, 4, 5]
   );
+  assert.deepEqual(result.map((r) => r.displayOrder), [1, 2, 3, 4, 5, 6]);
+});
+
+test('1b. V1.2 scale (response values 0-5, display order 0-5) is accepted', () => {
+  const result = validateOfficialResponseLabels(zeroBasedRows());
+  assert.equal(result.length, 6);
+  assert.deepEqual(result.map((r) => r.responseValue), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual(result.map((r) => r.displayOrder), [0, 1, 2, 3, 4, 5]);
 });
 
 test('2. missing value 5 is rejected', () => {
@@ -214,9 +226,21 @@ test('non-integer display_order is rejected', () => {
   assert.throws(() => validateOfficialResponseLabels(rows), ResponseLabelSourceError);
 });
 
-test('non-positive display_order is rejected', () => {
+test('negative display_order is rejected', () => {
   const rows = validRows();
-  rows[0].display_order = 0;
+  rows[0].display_order = -1;
+  assert.throws(() => validateOfficialResponseLabels(rows), ResponseLabelSourceError);
+});
+
+test('mixed 0/1-based malformed sequence is rejected', () => {
+  const rows = validRows();
+  rows.find((r) => r.display_order === 1).display_order = 0;
+  assert.throws(() => validateOfficialResponseLabels(rows), ResponseLabelSourceError);
+});
+
+test('missing ordinal in an otherwise six-row scale is rejected', () => {
+  const rows = zeroBasedRows();
+  rows.find((r) => r.display_order === 2).display_order = 6;
   assert.throws(() => validateOfficialResponseLabels(rows), ResponseLabelSourceError);
 });
 

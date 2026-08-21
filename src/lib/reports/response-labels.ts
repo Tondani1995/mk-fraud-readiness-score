@@ -5,8 +5,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
  *
  * This replaces the inferred/assumed 0-4 response scale previously hardcoded in
  * evidence-model/material-findings.ts's responseMeaning() (spec 8.2). The official source is the
- * response_scale table, keyed by methodology_version_id, confirmed present and populated for both
- * methodology versions currently in production use (MFRS-V1.0 and MFRS-V1.1) via a read-only
+ * response_scale table, keyed by methodology_version_id, confirmed present and populated for the
+ * methodology versions currently in use (including the approved V1.2 candidate) via read-only
  * production query on 2026-07-22 (Checkpoint A verification -- see the mapping table in the
  * Checkpoint A report). That query also surfaced a real, previously-undetected defect: the actual
  * scale is 0-5 (six values), not 0-4 (five values) as material-findings.ts assumed -- so values 4
@@ -50,18 +50,27 @@ export class ResponseLabelSourceError extends Error {
   }
 }
 
-// The currently supported methodology response scale is exactly these six values (0-5). Both
-// production methodology versions (MFRS-V1.0, MFRS-V1.1) share this scale -- see the Checkpoint A
-// mapping table. If a future methodology version legitimately introduces a different scale, this
-// constant (and the validator built around it) is the single place that needs to change.
+// The currently supported methodology response scale is exactly these six values (0-5). The
+// persisted display-order convention is versioned data: V1.1 uses one-based 1-6, while the
+// approved V1.2 candidate uses zero-based 0-5. If a future methodology version legitimately
+// introduces another convention, this explicit allow-list is the single place that needs review.
 const SUPPORTED_RESPONSE_VALUES = [0, 1, 2, 3, 4, 5] as const;
 
-// The scale's display_order values must be exactly these, in this order, once sorted -- and the
-// response_value found at each of those positions must be exactly this sequence. Together these
-// two constants encode "response_value N is always displayed at position N+1" -- i.e. the scale is
-// not just a valid *set* of six rows, it is a valid, correctly *ordered* sequence.
-const REQUIRED_DISPLAY_ORDERS = [1, 2, 3, 4, 5, 6] as const;
+// The scale's display_order values must be exactly one of these supported consecutive sequences,
+// once sorted -- and the response_value found at each position must be exactly this sequence.
+// Together these constants encode a valid, correctly ordered scale without accepting arbitrary
+// increasing ordinals or silently normalising a malformed convention.
+const SUPPORTED_DISPLAY_ORDER_SEQUENCES = [
+  [0, 1, 2, 3, 4, 5],
+  [1, 2, 3, 4, 5, 6]
+] as const;
 const REQUIRED_RESPONSE_VALUES_IN_DISPLAY_ORDER = [0, 1, 2, 3, 4, 5] as const;
+
+export type SupportedResponseDisplayOrder = (typeof SUPPORTED_DISPLAY_ORDER_SEQUENCES)[number];
+
+export type ResponseScaleDatabaseClient = {
+  from: (table: string) => any;
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -134,9 +143,10 @@ function arraysEqual(a: readonly number[], b: readonly number[]): boolean {
  */
 function validateStructuralConsistency(sorted: OfficialResponseLabel[]): void {
   const displayOrders = sorted.map((entry) => entry.displayOrder);
-  if (!arraysEqual(displayOrders, REQUIRED_DISPLAY_ORDERS)) {
+  const supportedDisplayOrder = SUPPORTED_DISPLAY_ORDER_SEQUENCES.some((sequence) => arraysEqual(displayOrders, sequence));
+  if (!supportedDisplayOrder) {
     throw new ResponseLabelSourceError(
-      `Response-scale display_order values must be exactly 1-6 in sequence; got [${displayOrders.join(', ')}].`
+      `Response-scale display_order values must be exactly one supported consecutive sequence (0-5 or 1-6); got [${displayOrders.join(', ')}].`
     );
   }
 
@@ -184,8 +194,8 @@ function validateStructuralConsistency(sorted: OfficialResponseLabel[]): void {
  *   - a null or blank operational meaning;
  *   - a normalised score that is not a finite number or canonical numeric string, or that is
  *     blank/malformed/out-of-range (not 0-100);
- *   - a non-integer or non-positive display order (numbers only -- see file header);
- *   - display_order values that, once sorted, are not exactly 1-6 in sequence;
+ *   - a non-integer or negative display order (numbers only -- see file header);
+ *   - display_order values that, once sorted, are not exactly one supported 0-5 or 1-6 sequence;
  *   - response_value values that, ordered by display_order, are not exactly 0-5 in sequence
  *     (individually-valid rows assembled into an inconsistent pairing);
  *   - normalised_score values that are not strictly increasing by display_order, that do not
@@ -251,9 +261,9 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
       );
     }
 
-    if (!isFiniteNumber(displayOrder) || !Number.isInteger(displayOrder) || displayOrder <= 0) {
+    if (!isFiniteNumber(displayOrder) || !Number.isInteger(displayOrder) || displayOrder < 0) {
       throw new ResponseLabelSourceError(
-        `Response-scale row ${index} (response_value=${responseValue}) has a non-integer or non-positive display_order: ${JSON.stringify(displayOrder)}.`
+        `Response-scale row ${index} (response_value=${responseValue}) has a non-integer or negative display_order: ${JSON.stringify(displayOrder)}.`
       );
     }
 
@@ -307,8 +317,11 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
  * methodology version. This function never returns unvalidated data and never infers a missing
  * label.
  */
-export async function getOfficialResponseLabels(methodologyVersionId: string): Promise<OfficialResponseLabel[]> {
-  const supabase = createSupabaseServiceClient();
+export async function getOfficialResponseLabels(
+  methodologyVersionId: string,
+  databaseClient?: ResponseScaleDatabaseClient
+): Promise<OfficialResponseLabel[]> {
+  const supabase: any = databaseClient ?? createSupabaseServiceClient();
 
   const { data, error } = await supabase
     .from('response_scale')

@@ -91,6 +91,7 @@
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs",
     "v7:test-checkpoint-a-quality-gate-baseline": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs",
     "v7:test-checkpoint-a-response-label-unit": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs",
+    "phase1:test-v1-2-report-assembly-eligibility": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase1-v1-2-report-assembly-eligibility-tests.mjs",
     "v7:test-checkpoint-a-unit": "npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-unit",
     "v7:test-checkpoint-a-db": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs",
     "v7:test-checkpoint-b": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs",
