@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { generateText, Output } from 'ai';
 import { selectNarrativeModel } from '../ai-model-policy';
+import type { AssembledReportData } from '../types';
+import type { AdvisoryEvidenceModel, Contradiction } from '../evidence-model/types';
 import type { ComprehensiveManagementModel } from './management-model';
+import type { DomainDiagnosticRow } from './assembly';
 import { claimsVerification } from './product-contract';
 
 /**
@@ -48,8 +51,8 @@ export const INTERPRETATION_CONTRACTS: ReadonlyArray<InterpretationSlotContract>
     label: 'Executive interpretation',
     managementQuestion: 'Where does this organisation stand, and what is the most important relationship between its capabilities?',
     responsibility: 'Explain the assessed position and the single most important relationship between capabilities.',
-    mayUse: ['overall score', 'maturity band', 'the report posture', 'domain profile', 'management theme titles and counts'],
-    mustNotDo: ['name the posture as a mode or label', 'list individual findings', 'describe control designs', 'restate the roadmap'],
+    mayUse: ['overall score', 'maturity band', 'the report posture', 'recorded operating context', 'material question positions', 'prioritised risks', 'material strengths', 'contradiction relationships and evidence references'],
+    mustNotDo: ['name the posture as a mode or label', 'list all ten domain scores', 'recite every finding', 'describe control designs', 'restate the roadmap', 'infer an organisational fact absent from the evidence pack'],
     minWords: 110, maxWords: 190
   },
   {
@@ -138,6 +141,241 @@ export interface InterpretationBrief {
   decisions: Array<{ decision: string; whyNow: string; owner: string; targetPeriod: string }>;
   phases: Array<{ phase: string; actions: number; programmes: string[] }>;
   totals: { findings: number; risks: number; controls: number; evidenceItems: number; actions: number };
+  /**
+   * Curated executive evidence. This is intentionally bounded: it carries the
+   * recorded operating context and the material relationships needed to explain
+   * the result, never the raw assessment payload.
+   */
+  evidencePack: InterpretationEvidencePack;
+}
+
+export interface InterpretationEvidencePack {
+  assessment: {
+    methodologyVersionId: string;
+    graphVersion: string;
+    graphFingerprint: string;
+    coveragePct: number;
+    uncertaintyRatePct: number;
+    exposureScore: number | null;
+    exposureBand: string | null;
+    capApplied: boolean;
+    capReason: string | null;
+    criticalGapCount: number;
+    majorGapCount: number;
+  };
+  operatingContext: {
+    gatewayAnswers: Array<{ gatewayCode: string; recordedValue: string }>;
+    exposureFactors: Array<{ factorCode: string; factor: string; selectedValue: string; pointsAwarded: number; maxPoints: number }>;
+  };
+  materialQuestionPositions: Array<{
+    questionCode: string;
+    domain: string;
+    prompt: string;
+    recordedResponse: string;
+    responseValue: number | null;
+    normalisedScore: number | null;
+    materiality: string;
+    critical: boolean;
+    hardGate: boolean;
+    selectionReasons: string[];
+    linkedFindingIds: string[];
+    linkedRiskIds: string[];
+    linkedControlIds: string[];
+    evidenceRefs: string[];
+  }>;
+  prioritisedFindings: Array<{
+    findingId: string;
+    questionCode: string;
+    title: string;
+    diagnosis: string;
+    materiality: string;
+    priorityScore: number;
+    selectionReasons: string[];
+    linkedRiskIds: string[];
+    linkedControlIds: string[];
+    evidenceRefs: string[];
+  }>;
+  prioritisedRisks: Array<{
+    riskId: string;
+    statement: string;
+    priority: string;
+    likelihood: string;
+    impact: string;
+    currentControlPosition: string;
+    requiredTreatment: string;
+    linkedFindingIds: string[];
+    linkedScenarioIds: string[];
+    evidenceRefs: string[];
+  }>;
+  materialStrengths: Array<{
+    questionCode: string;
+    domain: string;
+    prompt: string;
+    recordedResponse: string;
+    normalisedScore: number | null;
+    evidenceRefs: string[];
+  }>;
+  domainDiagnostics: DomainDiagnosticRow[];
+  contradictions: Array<{
+    id: string;
+    pattern: string;
+    title: string;
+    drivingResponses: string;
+    whyItMatters: string;
+    falseComfortRisk: string;
+    whatLeadershipShouldVerify: string;
+    fraudPathwayEnabled: string;
+    linkedFindingIds: string[];
+    linkedRiskId: string | null;
+    evidenceRefs: string[];
+  }>;
+  evidenceReferences: string[];
+}
+
+const uniqueStrings = (values: readonly unknown[]): string[] => [...new Set(values.map((value) => String(value ?? '').trim()).filter(Boolean))];
+
+function buildInterpretationEvidencePack(input: {
+  model: ComprehensiveManagementModel;
+  assembled?: AssembledReportData;
+  evidenceModel?: AdvisoryEvidenceModel;
+}): InterpretationEvidencePack {
+  const { model, assembled, evidenceModel } = input;
+  const adaptive = assembled?.scoreRun.adaptiveMetrics ?? assembled?.adaptiveScope;
+  const traces = assembled?.questionTraces ?? [];
+  const traceByQuestion = new Map(traces.map((trace) => [trace.questionCode, trace]));
+  const sourceFindings = evidenceModel?.materialFindings ?? [];
+  const sourceFindingById = new Map(sourceFindings.map((finding) => [finding.id, finding]));
+  const controlsByFinding = new Map<string, string[]>();
+  for (const control of model.registers.controls) {
+    const current = controlsByFinding.get(control.linkedFindingId) ?? [];
+    current.push(control.controlId);
+    controlsByFinding.set(control.linkedFindingId, current);
+  }
+  const risksByFinding = new Map<string, string[]>();
+  for (const risk of model.registers.risks) {
+    for (const findingId of risk.linkedFindingIds) {
+      const current = risksByFinding.get(findingId) ?? [];
+      current.push(risk.riskId);
+      risksByFinding.set(findingId, current);
+    }
+  }
+  const refsForFinding = (findingId: string, questionCode: string, riskIds: string[], controlIds: string[]): string[] => uniqueStrings([
+    `finding:${findingId}`, `question:${questionCode}`, ...riskIds.map((id) => `risk:${id}`), ...controlIds.map((id) => `control:${id}`)
+  ]);
+  const findingRows = [...model.registers.findings].sort((left, right) => right.materialityScore - left.materialityScore || left.findingId.localeCompare(right.findingId));
+  const materialQuestionPositions = findingRows.map((finding) => {
+    const trace = traceByQuestion.get(finding.questionCode);
+    const source = sourceFindingById.get(finding.findingId);
+    const riskIds = uniqueStrings([...(risksByFinding.get(finding.findingId) ?? []), ...source?.linkedExposureFactorCodes?.map((code) => `exposure:${code}`) ?? []]);
+    const controlIds = uniqueStrings(controlsByFinding.get(finding.findingId) ?? []);
+    return {
+      questionCode: finding.questionCode,
+      domain: finding.domainName,
+      prompt: trace?.prompt ?? finding.questionCode,
+      recordedResponse: finding.assessedPosition,
+      responseValue: trace?.responseValue ?? null,
+      normalisedScore: trace?.normalisedScore ?? null,
+      materiality: finding.materialityClass,
+      critical: finding.isCriticalControl,
+      hardGate: finding.isHardGate,
+      selectionReasons: [...(source?.selectionReasons ?? [])],
+      linkedFindingIds: [finding.findingId],
+      linkedRiskIds: riskIds.filter((id) => id.startsWith('RISK-')),
+      linkedControlIds: controlIds,
+      evidenceRefs: refsForFinding(finding.findingId, finding.questionCode, riskIds.filter((id) => id.startsWith('RISK-')), controlIds)
+    };
+  }).slice(0, 40);
+  const prioritisedFindings = findingRows.slice(0, 16).map((finding) => {
+    const source = sourceFindingById.get(finding.findingId);
+    const riskIds = uniqueStrings(risksByFinding.get(finding.findingId) ?? []);
+    const controlIds = uniqueStrings(controlsByFinding.get(finding.findingId) ?? []);
+    return {
+      findingId: finding.findingId,
+      questionCode: finding.questionCode,
+      title: finding.assessedDiagnosis || finding.questionCode,
+      diagnosis: finding.assessedDiagnosis,
+      materiality: finding.materialityClass,
+      priorityScore: finding.materialityScore,
+      selectionReasons: [...(source?.selectionReasons ?? [])],
+      linkedRiskIds: riskIds,
+      linkedControlIds: controlIds,
+      evidenceRefs: refsForFinding(finding.findingId, finding.questionCode, riskIds, controlIds)
+    };
+  });
+  const prioritisedRisks = [...model.registers.risks]
+    .sort((left, right) => `${right.priority}:${right.impact}`.localeCompare(`${left.priority}:${left.impact}`) || left.riskId.localeCompare(right.riskId))
+    .slice(0, 16)
+    .map((risk) => ({
+      riskId: risk.riskId,
+      statement: risk.riskStatement,
+      priority: risk.priority,
+      likelihood: risk.likelihood,
+      impact: risk.impact,
+      currentControlPosition: risk.currentControlPosition,
+      requiredTreatment: risk.requiredTreatment,
+      linkedFindingIds: [...risk.linkedFindingIds],
+      linkedScenarioIds: [...risk.linkedScenarioIds],
+      evidenceRefs: uniqueStrings([`risk:${risk.riskId}`, ...risk.linkedFindingIds.map((id) => `finding:${id}`), ...risk.linkedScenarioIds.map((id) => `scenario:${id}`)])
+    }));
+  const materialStrengths = traces
+    .filter((trace) => trace.applicable && typeof trace.normalisedScore === 'number' && trace.normalisedScore >= 80)
+    .sort((left, right) => (right.normalisedScore ?? 0) - (left.normalisedScore ?? 0) || left.questionCode.localeCompare(right.questionCode))
+    .slice(0, 8)
+    .map((trace) => ({
+      questionCode: trace.questionCode,
+      domain: trace.domainName,
+      prompt: trace.prompt,
+      recordedResponse: `Response value ${trace.responseValue ?? 'not recorded'}`,
+      normalisedScore: trace.normalisedScore,
+      evidenceRefs: [`question:${trace.questionCode}`]
+    }));
+  const contradictions = (model.registers.contradictions ?? []).map((contradiction: Contradiction) => ({
+    id: contradiction.id,
+    pattern: contradiction.pattern,
+    title: contradiction.title,
+    drivingResponses: contradiction.drivingResponses,
+    whyItMatters: contradiction.whyItMatters,
+    falseComfortRisk: contradiction.falseComfortRisk,
+    whatLeadershipShouldVerify: contradiction.whatLeadershipShouldVerify,
+    fraudPathwayEnabled: contradiction.fraudPathwayEnabled,
+    linkedFindingIds: [...contradiction.linkedFindingIds],
+    linkedRiskId: contradiction.linkedRiskId,
+    evidenceRefs: [...contradiction.evidenceRefs]
+  }));
+  const evidenceReferences = uniqueStrings([
+    ...materialQuestionPositions.flatMap((item) => item.evidenceRefs),
+    ...prioritisedFindings.flatMap((item) => item.evidenceRefs),
+    ...prioritisedRisks.flatMap((item) => item.evidenceRefs),
+    ...materialStrengths.flatMap((item) => item.evidenceRefs),
+    ...contradictions.flatMap((item) => item.evidenceRefs),
+    ...model.core.domainDiagnostics.flatMap((item) => item.traceability)
+  ]).slice(0, 180);
+  return {
+    assessment: {
+      methodologyVersionId: assembled?.scoreRun.methodologyVersionId ?? '',
+      graphVersion: adaptive?.graphVersion ?? '',
+      graphFingerprint: adaptive?.graphFingerprint ?? '',
+      coveragePct: assembled?.scoreRun.coveragePct ?? 0,
+      uncertaintyRatePct: assembled?.scoreRun.nARatePct ?? 0,
+      exposureScore: assembled?.scoreRun.exposureScore ?? null,
+      exposureBand: assembled?.scoreRun.exposureBand ?? null,
+      capApplied: assembled?.scoreRun.capApplied ?? false,
+      capReason: assembled?.scoreRun.capReason ?? null,
+      criticalGapCount: assembled?.scoreRun.criticalGapCount ?? 0,
+      majorGapCount: assembled?.scoreRun.majorGapCount ?? 0
+    },
+    operatingContext: {
+      gatewayAnswers: Object.entries(assembled?.adaptiveGatewayAnswers ?? {}).map(([gatewayCode, recordedValue]) => ({ gatewayCode, recordedValue: String(recordedValue) })),
+      exposureFactors: (assembled?.exposureAnswers ?? []).map((answer) => ({ factorCode: answer.factorCode, factor: answer.name, selectedValue: answer.selectedLabel, pointsAwarded: answer.pointsAwarded, maxPoints: answer.maxPoints }))
+    },
+    materialQuestionPositions,
+    prioritisedFindings,
+    prioritisedRisks,
+    materialStrengths,
+    domainDiagnostics: model.core.domainDiagnostics,
+    contradictions,
+    evidenceReferences
+  };
 }
 
 export function buildInterpretationBrief(input: {
@@ -146,6 +384,8 @@ export function buildInterpretationBrief(input: {
   score: number;
   maturity: string;
   domains: Array<{ name: string; score: number; band: string }>;
+  assembled?: AssembledReportData;
+  evidenceModel?: AdvisoryEvidenceModel;
 }): InterpretationBrief {
   const { model } = input;
   const roleName = new Map(model.core.governanceRoles.map((role) => [role.canonicalRoleId, role.displayRole]));
@@ -166,7 +406,8 @@ export function buildInterpretationBrief(input: {
       controls: model.registers.controls.length,
       evidenceItems: model.registers.evidence.reduce((sum, group) => sum + group.items.length, 0),
       actions: model.registers.actions.length
-    }
+    },
+    evidencePack: buildInterpretationEvidencePack({ model, assembled: input.assembled, evidenceModel: input.evidenceModel })
   };
 }
 
@@ -201,6 +442,15 @@ function authorisedNumbers(brief: InterpretationBrief): Set<string> {
   add(brief.governance.length); add(brief.domains.length);
   // Ordinals and durations that appear in phase names are part of the brief.
   for (const phase of brief.phases) for (const token of phase.phase.match(/\d+/g) ?? []) out.add(token);
+  // The curated evidence contract may contain recorded exposure and response
+  // values that the writer is allowed to cite. Walk only the bounded pack, not
+  // the raw assessment payload.
+  const walk = (value: unknown): void => {
+    if (typeof value === 'number') { add(value); return; }
+    if (Array.isArray(value)) { for (const item of value) walk(item); return; }
+    if (value && typeof value === 'object') for (const item of Object.values(value as Record<string, unknown>)) walk(item);
+  };
+  walk(brief.evidencePack);
   return out;
 }
 
@@ -337,6 +587,11 @@ export function validateInterpretation(result: Partial<ComprehensiveInterpretati
     // being read aloud in sequence rather than interpreted.
     const recitations = (text.match(/\b(?:contains|has|carries|includes|comprises|adds|holds)\s+\d/gi) ?? []).length;
     if (recitations >= 3) issues.push({ slot, kind: 'QUALITY', code: 'REGISTER_RECITATION', detail: `${recitations} count-listing clauses; the table already lists them` });
+    if (slot === 'executiveInterpretation') {
+      const domainMentions = brief.domains.filter((domain) => domain.name && new RegExp(`\\b${domain.name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(text)).length;
+      const scorePairs = (text.match(/\b\d{1,3}(?:\.\d+)?\s*(?:\/|out of)\s*100\b/gi) ?? []).length;
+      if (domainMentions >= 4 || scorePairs >= 4) issues.push({ slot, kind: 'QUALITY', code: 'DOMAIN_SCORE_RECITATION', detail: 'Executive interpretation recites the domain profile; it must prioritise one relationship.' });
+    }
 
     // QUALITY
     const count = words(text);
@@ -412,11 +667,14 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
     '',
     'ABSOLUTE RULES',
     '- Every number you use must appear in the analysis below. Do not compute new ones, including percentages.',
-    '- Do not invent a finding, risk, control, owner, action, measure, date, cost or incident.',
+    '- Do not invent a finding, risk, control, owner, action, measure, date, cost, incident or organisational fact. If the curated evidence pack does not record it, do not infer it.',
+    '- The evidencePack is a curated executive evidence contract: use it to ground the interpretation, but do not treat technical IDs as customer prose and do not ask for or reconstruct the omitted raw assessment.',
+    '- Domain diagnostics are deterministic anchors for choosing the most important relationships. Use them selectively; do not write ten mini-essays or recite the domain table.',
     '- Never state or imply that MK examined evidence, tested a control, interviewed anyone or verified anything. The assessment is self-reported by the organisation.',
     '- Never state that a control currently exists or currently operates. Recommended designs are what good practice requires, not what the organisation does.',
     '- Write for a CFO or Head of Risk. Plain, specific, unhedged. No consultancy filler.',
     '- Each field below answers a different question. Do not repeat another field.',
+    '- The executive interpretation must identify one important relationship between exposure, control position, strength or contradiction and explain the priority it creates. Do not list the ten domain scores or walk every finding.',
     '',
     '================ THE ANALYSIS ================',
     JSON.stringify(promptBrief),

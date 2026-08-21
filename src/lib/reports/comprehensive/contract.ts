@@ -8,6 +8,8 @@ import type {
   DecisionOptionSet,
   ProofRequirement
 } from './types';
+import type { DomainDiagnosticRow, ScenarioPortfolioRow } from './assembly';
+import type { ScenarioSelectionAudit } from './scenario-selection';
 import { buildDecisionOptionSets } from './decision-options';
 
 const clean = (value: string | undefined | null, fallback: string): string => {
@@ -67,15 +69,19 @@ function buildFindingView(finding: MaterialFinding): ComprehensiveFindingView {
 
 function buildNarrativeBriefs(model: Omit<ComprehensiveDeliveryModel, 'narrativeBriefs'>): ComprehensiveDeliveryModel['narrativeBriefs'] {
   const score = model.analytical.score;
+  const customerScenarioCount = model.scenarioPortfolio?.length ?? model.scenarios.length;
   const basis = "This report provides strategic fraud-risk analysis and control design based on management's recorded Fraud Readiness assessment responses. It does not independently verify operating effectiveness.";
   return [
     { section: 'diagnosis', layer: 'diagnosis', requiredConclusion: 'The recorded assessment establishes the current readiness and exposure position.', deterministicFacts: [`Readiness score: ${score.overallScore ?? 'not scored'}.`, `Exposure score: ${score.exposureScore ?? 'not scored'}.`, `${model.findings.length} material findings and ${model.riskRegister.length} risks are in the analytical universe.`], mustInclude: [basis, 'Assessment responses, not reviewer records, are the source of the position.'], mustNotClaim: ['independent operating effectiveness', 'evidence validation', 'reviewer conclusion'], transitionToNext: 'Use the interpretation layer to explain concentration, interactions and fraud pathways.' },
-    { section: 'interpretation', layer: 'interpretation', requiredConclusion: 'Material findings and scenarios explain where exposure concentrates and why it matters.', deterministicFacts: [`${model.scenarios.length} deterministic scenario pathways are available.`, `${model.contradictions.length} cross-domain interactions are available.`, `${model.proofRequirements.length} proof requirements define what management should retain during implementation.`], mustInclude: ['Conditional scenario language.', 'Links between findings, risks, scenarios and control weaknesses.'], mustNotClaim: ['confirmed fraud event', 'validated evidence', 'independent assurance'], transitionToNext: 'Translate the interpretation into target-state controls, decisions and ownership.' },
+    { section: 'interpretation', layer: 'interpretation', requiredConclusion: 'Material findings and scenarios explain where exposure concentrates and why it matters.', deterministicFacts: [`${customerScenarioCount} customer-facing deterministic scenario pathways are available.`, `${model.contradictions.length} cross-domain interactions are available.`, `${model.proofRequirements.length} proof requirements define what management should retain during implementation.`], mustInclude: ['Conditional scenario language.', 'Links between findings, risks, scenarios and control weaknesses.'], mustNotClaim: ['confirmed fraud event', 'validated evidence', 'independent assurance'], transitionToNext: 'Translate the interpretation into target-state controls, decisions and ownership.' },
     { section: 'design', layer: 'design', requiredConclusion: 'The target state is a set of owned controls, decisions, measures and sequenced actions.', deterministicFacts: [`${model.controlImprovements.length} control blueprints are available.`, `${model.leadershipDecisions.length} leadership decisions are available.`, `${model.roadmapActions.length} roadmap actions are available.`], mustInclude: ['Control objective, owner, population, frequency, proof, escalation, SLA, effectiveness measure and failure response.', 'The four implementation horizons: first 30 days, days 31–90, months 4–6 and months 7–12.'], mustNotClaim: ['completed remediation', 'operating effectiveness already established', 'customer evidence review'], transitionToNext: 'Close with management decisions, scorecard measures and the next checkpoint.' }
   ];
 }
 
-export function buildComprehensiveDeliveryModel(analytical: ComprehensiveAnalyticalUniverse): ComprehensiveDeliveryModel {
+export function buildComprehensiveDeliveryModel(
+  analytical: ComprehensiveAnalyticalUniverse,
+  extra: { domainDiagnostics?: DomainDiagnosticRow[]; scenarioSelectionAudit?: ScenarioSelectionAudit; scenarioPortfolio?: ScenarioPortfolioRow[] } = {}
+): ComprehensiveDeliveryModel {
   const findings = analytical.evidenceModel.materialFindings.map(buildFindingView);
   const proofRequirements = buildProofRequirements(analytical);
   const base = {
@@ -91,6 +97,9 @@ export function buildComprehensiveDeliveryModel(analytical: ComprehensiveAnalyti
     roadmapActions: analytical.evidenceModel.roadmapActions,
     leadershipDecisions: analytical.evidenceModel.leadershipDecisions,
     decisionOptionSets: [] as DecisionOptionSet[],
+    domainDiagnostics: extra.domainDiagnostics ?? [],
+    scenarioSelectionAudit: extra.scenarioSelectionAudit,
+    scenarioPortfolio: extra.scenarioPortfolio,
   };
   const model = { ...base, decisionOptionSets: buildDecisionOptionSets(base.leadershipDecisions) } as Omit<ComprehensiveDeliveryModel, 'narrativeBriefs'>;
   return { ...model, narrativeBriefs: buildNarrativeBriefs(model) };

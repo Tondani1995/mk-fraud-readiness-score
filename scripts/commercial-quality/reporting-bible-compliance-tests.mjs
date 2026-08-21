@@ -39,7 +39,9 @@ assert.ok(COMPREHENSIVE_REPORT_SECTIONS.every((section) => ['diagnosis', 'interp
 assert.ok(!COMPREHENSIVE_REPORT_SECTIONS.some((section) => /validation|reconciliation|signoff|reviewer|observations|gaps/i.test(section.key)));
 
 const workbook = await buildComprehensiveRegisterWorkbook(model);
-assert.deepEqual(workbook.sheetNames, ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability']);
+const requiredWorkbookSheets = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'];
+assert.ok(requiredWorkbookSheets.every((sheet) => workbook.sheetNames.includes(sheet)), 'Comprehensive retains the six deterministic registers');
+assert.ok(['Assessment Basis', 'Scenario Portfolio', 'Contradictions'].every((sheet) => workbook.sheetNames.includes(sheet)), 'Comprehensive exposes bounded basis, scenario and contradiction views');
 assert.ok(workbook.bytes.length > 0);
 
 console.log(JSON.stringify({ passed: true, checks: ['assessment-universe-only generation', 'no reviewer identity dependency', 'no evidence-validation status dependency', 'no evidence-assurance claim', 'diagnosis-interpretation-design section mapping', 'Comprehensive blueprint workbook contract'], sheets: workbook.sheetNames, reportSections: COMPREHENSIVE_REPORT_SECTIONS.length }, null, 2));

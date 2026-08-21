@@ -19,12 +19,14 @@ import {
   type InterpretationAccounting,
   type InterpretationRun
 } from './interpretation';
+import { validateComprehensiveFinalHtml, validateComprehensiveInterpretationSafety, type ComprehensiveSafetyRun } from './safety';
 import { renderHtmlToPdfBuffer } from '../render-pdf';
 
 export interface ComprehensiveReportPackage {
   pdf: Buffer;
   workbook: ComprehensiveRegisterWorkbook;
   interpretationRun: InterpretationRun;
+  safetyRun: ComprehensiveSafetyRun;
   source: {
     assemblyVersion: string;
     managementModelVersion: string;
@@ -90,7 +92,10 @@ export async function renderComprehensiveReportPackage(input: {
 
   const assembly = assembleComprehensive(customerEvidenceModel, {
     scenarioFacts: adaptComprehensiveScenarioFacts(pack.scenarios),
-    domains
+    domains,
+    contradictions: customerEvidenceModel.contradictions,
+    assembled,
+    scenarioUniverse: customerEvidenceModel.scenarios
   });
   const model = buildComprehensiveManagementModel(assembly);
 
@@ -117,6 +122,10 @@ export async function renderComprehensiveReportPackage(input: {
     organisationName: pack.organisation.name,
     assessmentReference: pack.assessment.reference,
     generatedAt: assembled.generatedAt
+  }, {
+    domainDiagnostics: assembly.domainDiagnostics,
+    scenarioSelectionAudit: assembly.scenarioSelectionAudit,
+    scenarioPortfolio: assembly.scenarioPortfolio
   });
   assertComprehensiveBlueprintContract(deliveryModel);
 
@@ -127,10 +136,29 @@ export async function renderComprehensiveReportPackage(input: {
       organisationName: pack.organisation.name,
       score,
       maturity,
-      domains
+      domains,
+      assembled,
+      evidenceModel: customerEvidenceModel
     }),
     { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
   );
+  const safetyRun = validateComprehensiveInterpretationSafety({
+    interpretation: interpretationRun.interpretation,
+    brief: buildInterpretationBrief({
+      model,
+      organisationName: pack.organisation.name,
+      score,
+      maturity,
+      domains,
+      assembled,
+      evidenceModel: customerEvidenceModel
+    }),
+    factPack: pack
+  });
+  if (!safetyRun.publishable) {
+    const detail = [...safetyRun.cascade.blockingCodes, ...safetyRun.cascade.heldForReviewCodes, ...safetyRun.issues.map((issue) => issue.code)];
+    throw new Error(`Comprehensive interpretation safety failed: ${[...new Set(detail)].join(', ') || 'unpublishable interpretation'}`);
+  }
   await input.onInterpretationComplete?.({ accounting: interpretationRun.accounting });
 
   const html = renderComprehensiveManagementReportHtml({
@@ -140,8 +168,12 @@ export async function renderComprehensiveReportPackage(input: {
     score,
     maturity,
     domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band })),
-    commentary: interpretationToCommentary(interpretationRun.interpretation)
+    commentary: interpretationToCommentary(safetyRun.interpretation)
   });
+  const finalSafety = validateComprehensiveFinalHtml({ html, data: assembled, safety: safetyRun });
+  if (!finalSafety.publishable) {
+    throw new Error(`Comprehensive final-output safety failed: ${[...finalSafety.blockingCodes, ...finalSafety.heldForReviewCodes].join(', ') || 'unpublishable final output'}`);
+  }
 
   const pdfRenderer = input.renderPdf ?? renderHtmlToPdfBuffer;
   const pdf = await pdfRenderer(html, {
@@ -157,7 +189,8 @@ export async function renderComprehensiveReportPackage(input: {
   return {
     pdf,
     workbook,
-    interpretationRun,
+    interpretationRun: { ...interpretationRun, interpretation: safetyRun.interpretation, issues: safetyRun.issues },
+    safetyRun,
     source: {
       assemblyVersion: assembly.version,
       managementModelVersion: model.version,

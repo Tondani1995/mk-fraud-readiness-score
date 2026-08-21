@@ -216,7 +216,12 @@ const PATHWAY_BY_QUESTION: Record<string, RiskPathway> = {
 };
 
 export function riskPathwayForFinding(finding: MaterialFinding): RiskPathway {
-  const fallbackTitle = `${finding.domainName} control effectiveness risk`;
+  // A generic domain fallback caused every unclassified question in a domain
+  // to collapse into one indistinguishable register title. Keep the fallback
+  // deterministic, but anchor it to the recorded question so canonical risks
+  // remain one-to-one with the source position.
+  const questionTitle = String(finding.questionPrompt ?? '').replace(/[.]$/, '').trim();
+  const fallbackTitle = `${finding.domainName}: ${questionTitle || finding.questionCode} risk`;
   return PATHWAY_BY_QUESTION[finding.questionCode] ?? {
     key: `CONTROL-${finding.questionCode}`,
     title: fallbackTitle,

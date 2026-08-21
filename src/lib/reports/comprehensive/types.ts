@@ -10,6 +10,8 @@ import type {
   RiskRegisterEntry,
   RoadmapAction
 } from '../evidence-model/types';
+import type { DomainDiagnosticRow, ScenarioPortfolioRow } from './assembly';
+import type { ScenarioSelectionAudit } from './scenario-selection';
 
 /**
  * The deterministic analytical universe is the only production input to the
@@ -138,6 +140,12 @@ export interface ComprehensiveDeliveryModel {
   roadmapActions: RoadmapAction[];
   leadershipDecisions: LeadershipDecision[];
   decisionOptionSets: DecisionOptionSet[];
+  /** Compact deterministic explanation for every assessed domain. */
+  domainDiagnostics?: DomainDiagnosticRow[];
+  /** Complete-source to customer-portfolio scenario selection evidence. */
+  scenarioSelectionAudit?: ScenarioSelectionAudit;
+  /** The compact, audited customer-facing scenario portfolio used by the PDF. */
+  scenarioPortfolio?: ScenarioPortfolioRow[];
   narrativeBriefs: ComprehensiveNarrativeBrief[];
 }
 

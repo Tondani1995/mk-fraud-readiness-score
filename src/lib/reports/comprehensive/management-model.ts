@@ -2,8 +2,11 @@ import type {
   ScenarioPortfolioRow,
   AssurancePriorityRow,
   ResilienceTestRow,
-  AssuranceCoverageRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
+  AssuranceCoverageRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, DomainDiagnosticRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
 import type { ComprehensiveProvenance } from './product-contract';
+import { normaliseRoleLabel } from './role-normalisation';
+import type { ScenarioSelectionAudit } from './scenario-selection';
+import { compareHorizons } from './ordering';
 
 /**
  * Comprehensive management model.
@@ -135,13 +138,19 @@ export interface CanonicalRole {
  */
 function canonicalRoleFor(label: string, fallbackType: CanonicalRoleType): { id: string; display: string; type: CanonicalRoleType } {
   const full = String(label ?? '').trim();
+  const context = fallbackType === 'EXECUTIVE_ACCOUNTABILITY'
+    ? 'executive'
+    : fallbackType === 'PROCESS_OWNERSHIP' ? 'process' : 'oversight';
+  const normalised = normaliseRoleLabel(full, context);
   // Match the whole label first. Splitting on "and" up front turned "Identity
   // and Access Management" into a role called "Identity", because the separator
   // that joins collaborators also occurs inside role names.
-  const whole = ROLE_CANON.find((entry) => entry.match.test(full));
+  const whole = ROLE_CANON.find((entry) => entry.type === fallbackType && entry.match.test(normalised))
+    ?? ROLE_CANON.find((entry) => entry.match.test(normalised));
   if (whole) return { id: whole.id, display: whole.display, type: whole.type };
-  const primary = full.split(ALTERNATIVE)[0]!.split(COLLABORATIVE)[0]!.trim();
-  const match = ROLE_CANON.find((entry) => entry.match.test(primary));
+  const primary = normalised.split(ALTERNATIVE)[0]!.split(COLLABORATIVE)[0]!.trim();
+  const match = ROLE_CANON.find((entry) => entry.type === fallbackType && entry.match.test(primary))
+    ?? ROLE_CANON.find((entry) => entry.match.test(primary));
   if (match) return { id: match.id, display: match.display, type: match.type };
   // Unmapped labels keep their own identity rather than being forced into a
   // neighbouring role, so a library addition is visible instead of mis-filed.
@@ -206,6 +215,7 @@ export interface ComprehensiveManagementModel {
     governanceRoles: CanonicalRole[];
     decisionAgenda: DecisionRow[];
     implementationPhases: ImplementationPhase[];
+    domainDiagnostics: DomainDiagnosticRow[];
   };
   /** REGISTERS — the traceable depth behind the core. */
   registers: {
@@ -219,6 +229,8 @@ export interface ComprehensiveManagementModel {
      * never gives the customer less scenario insight than the lower one.
      */
     scenarios: ScenarioPortfolioRow[];
+    /** Material contradictions are management priorities, not hidden diagnostics. */
+    contradictions: import('../evidence-model/types').Contradiction[];
     /**
      * Capabilities worth confirming rather than fixing. Empty wherever the
      * assessment records no operating capability, which is the honest result
@@ -232,6 +244,7 @@ export interface ComprehensiveManagementModel {
     resilienceTests: ResilienceTestRow[];
     /** Whole-environment assurance view, one row per assessed domain. */
     assuranceCoverage: AssuranceCoverageRow[];
+    scenarioSelectionAudit: ScenarioSelectionAudit;
     /**
      * One measure per control, so this scales with the register rather than the
      * core. The core answers "how will we know" at programme level; this is the
@@ -313,7 +326,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
     for (const vote of entry.roleVotes) counts.set(vote, (counts.get(vote) ?? 0) + 1);
     const accountableRoleId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
     const { roleVotes, ...programme } = entry;
-    return { ...programme, accountableRoleId, targetPeriods: unique(programme.targetPeriods) };
+    return { ...programme, accountableRoleId, targetPeriods: unique(programme.targetPeriods).sort(compareHorizons) };
   }).sort((a, b) => b.controlIds.length - a.controlIds.length);
 
   // ---- Governance: canonical roles -----------------------------------------
@@ -413,8 +426,8 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
   return {
     version: COMPREHENSIVE_MANAGEMENT_MODEL_VERSION,
     narrativeMode: assembly.narrativeMode,
-    core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases },
-    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities, resilienceTests: assembly.resilienceTests, assuranceCoverage: assembly.assuranceCoverage },
+    core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases, domainDiagnostics: assembly.domainDiagnostics },
+    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, contradictions: assembly.contradictions, assurancePriorities: assembly.assurancePriorities, resilienceTests: assembly.resilienceTests, assuranceCoverage: assembly.assuranceCoverage, scenarioSelectionAudit: assembly.scenarioSelectionAudit },
     counts: {
       managementThemes: managementThemes.length,
       exposureThemes: exposureThemes.length,
@@ -424,6 +437,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
       implementationPhases: implementationPhases.length,
       registerMeasures: measurementFramework.length,
       registerScenarios: assembly.scenarioPortfolio.length,
+      registerContradictions: assembly.contradictions.length,
       registerAssurancePriorities: assembly.assurancePriorities.length,
       registerResilienceTests: assembly.resilienceTests.length,
       registerAssuranceCoverage: assembly.assuranceCoverage.length,

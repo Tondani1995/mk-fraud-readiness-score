@@ -462,11 +462,26 @@ function stripProviderNarrativeBlocks(html: string): string {
   return html.replace(/<p\b[^>]*data-narrative-block="[^"]+"[^>]*>[\s\S]*?<\/p>/gi, ' ');
 }
 
+/**
+ * Comprehensive registers are deterministic analytical objects already certified upstream.
+ * Their risk/scenario language can legitimately contain high-recall phrases such as "manual
+ * review cannot cover transaction volume"; those are not fresh provider-authored assertions.
+ * Keep them in the final artefact and raw-ID appendix boundary, but exclude them from the
+ * customer-prose semantic scan. Essential does not emit this marker, so its behaviour is
+ * unchanged.
+ */
+function stripCertifiedDeterministicRegisters(html: string): string {
+  return html.replace(/<section\b[^>]*data-deterministic-register="true"[^>]*>[\s\S]*?<\/section>/gi, ' ');
+}
+
 function scanFinalHtml(html: string): EssentialValidationCandidate[] {
   const text = stripHtml(html);
-  const semanticHtml = stripProviderNarrativeBlocks(html);
+  const semanticHtml = stripCertifiedDeterministicRegisters(stripProviderNarrativeBlocks(html));
   const semanticText = stripHtml(semanticHtml);
-  const coreHtml = html.split(/<h2[^>]*>\s*Appendix: supporting material\s*<\/h2>/i)[0] ?? html;
+  // Essential uses a supporting-material heading while Comprehensive uses flowing Appendix A–F
+  // registers.  Both products keep technical identifiers in their appendices; the management
+  // core is the only surface on which the raw-ID hard gate applies.
+  const coreHtml = html.split(/<h2[^>]*>\s*Appendix: supporting material\s*<\/h2>|<div class="n">Appendix A<\/div>/i)[0] ?? html;
   const coreText = stripHtml(coreHtml);
   const found: EssentialValidationCandidate[] = [];
   for (const block of providerNarrativeBlocksFromHtml(html)) {

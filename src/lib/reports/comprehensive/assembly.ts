@@ -1,5 +1,9 @@
-import type { AdvisoryEvidenceModel } from '../evidence-model/types';
+import type { AssembledReportData } from '../types';
+import type { AdvisoryEvidenceModel, Contradiction, MaterialFinding, PlausibleScenario, RiskRegisterEntry } from '../evidence-model/types';
 import type { ComprehensiveProvenance } from './product-contract';
+import { normaliseRoleLabel, type RoleContext } from './role-normalisation';
+import { buildScenarioSelectionAudit, assertScenarioSelectionAudit, type ScenarioSelectionAudit } from './scenario-selection';
+import { compareDomainCodes, compareHorizons, compareProgrammeActions, sortByCanonicalDomain } from './ordering';
 
 /**
  * Comprehensive deterministic assembly.
@@ -189,6 +193,27 @@ export interface ScenarioPortfolioRow {
   linkedControlIds: string[];
 }
 
+export type DomainDiagnosticPosture = 'PRIORITY' | 'WATCH' | 'MAINTAIN';
+
+/**
+ * A compact deterministic explanation of every assessed domain. It is a
+ * management diagnostic, not a second score and not ten generated essays.
+ */
+export interface DomainDiagnosticRow {
+  provenance: 'DERIVED_ANALYSIS';
+  domainCode: string;
+  domainName: string;
+  score: number;
+  maturity: string;
+  posture: DomainDiagnosticPosture;
+  recordedPosition: string;
+  keyStrengthOrWeakness: string;
+  dependencyOrContradiction: string;
+  operatingContext: string;
+  managementAttention: string;
+  traceability: string[];
+}
+
 export interface ResilienceTestRow {
   provenance: 'DERIVED_ANALYSIS';
   testId: string;
@@ -284,6 +309,12 @@ export interface ComprehensiveAssembly {
    * are the same deterministic scenarios Essential renders; nothing is invented.
    */
   scenarioPortfolio: ScenarioPortfolioRow[];
+  /** Complete-source to customer-portfolio selection evidence; not a hidden slice. */
+  scenarioSelectionAudit: ScenarioSelectionAudit;
+  /** One compact, evidence-linked diagnostic per assessed domain. */
+  domainDiagnostics: DomainDiagnosticRow[];
+  /** Cross-domain contradictions that change management priority. */
+  contradictions: Contradiction[];
   /**
    * What a strong organisation should confirm.
    *
@@ -335,12 +366,6 @@ const unique = <T,>(values: T[]): T[] => [...new Set(values)];
  * Horizons are taken from the target periods the playbooks actually carry. No
  * horizon is invented to make the programme look longer than the data supports.
  */
-const HORIZON_ORDER = ['30 days', '60 days', '90 days', '3-6 months', '6-12 months'];
-function horizonRank(period: string): number {
-  const index = HORIZON_ORDER.indexOf(period);
-  return index === -1 ? HORIZON_ORDER.length : index;
-}
-
 export function assembleComprehensive(
   evidence: AdvisoryEvidenceModel,
   /**
@@ -356,7 +381,13 @@ export function assembleComprehensive(
    * Omitted, no scenario portfolio is produced. There is deliberately no
    * fallback to the evidence-model objects: a wrong scenario is worse than none.
    */
-  source: { scenarioFacts?: readonly any[]; domains?: readonly { name: string; score: number; band: string }[] } = {}
+  source: {
+    scenarioFacts?: readonly any[];
+    domains?: readonly { name: string; score: number; band: string }[];
+    contradictions?: readonly Contradiction[];
+    assembled?: AssembledReportData;
+    scenarioUniverse?: readonly PlausibleScenario[];
+  } = {}
 ) {
   const findings = evidence.materialFindings ?? [];
   const risks = evidence.riskRegister ?? [];
@@ -418,7 +449,7 @@ export function assembleComprehensive(
     impact: text(risk.impact),
     currentControlPosition: text(risk.currentControlPosition),
     requiredTreatment: text(risk.requiredTreatment),
-    ownerRole: text(risk.accountableExecutive ?? risk.accountableOwner),
+    ownerRole: normaliseRoleLabel(risk.accountableExecutive ?? risk.accountableOwner, 'executive'),
     effectivenessMeasure: text(risk.effectivenessMeasure),
     linkedFindingIds: list(risk.linkedFindingIds),
     linkedScenarioIds: list(risk.linkedScenarioIds)
@@ -439,9 +470,9 @@ export function assembleComprehensive(
     controlObjective: text(control.controlObjective),
     targetState: text(control.targetState),
     controlDesign: text(control.controlDesign),
-    accountableExecutiveRole: text(control.accountableExecutive ?? control.accountableOwner),
-    processOwnerRole: text(control.processOwner),
-    oversightFunction: text(control.oversightFunction ?? control.oversightOwner),
+    accountableExecutiveRole: normaliseRoleLabel(control.accountableExecutive ?? control.accountableOwner, 'executive'),
+    processOwnerRole: normaliseRoleLabel(control.processOwner, 'process'),
+    oversightFunction: normaliseRoleLabel(control.oversightFunction ?? control.oversightOwner, 'oversight'),
     operatingFrequency: text(control.operatingFrequency),
     populationCoverage: text(control.completePopulationCoverage),
     dependencies: unique([...list(control.dependencies), text(control.implementationDependency)].filter(Boolean)),
@@ -469,7 +500,7 @@ export function assembleComprehensive(
       artefact: text(item.artefact),
       provesWhat: text(item.provesWhat),
       minimumAcceptableCharacteristics: list(item.minimumAcceptableCharacteristics),
-      ownerRole: text(item.likelyOwner),
+      ownerRole: normaliseRoleLabel(item.likelyOwner, 'process'),
       expectedRecency: text(item.expectedRecency),
       requiredPopulation: text(item.requiredPopulation)
     };
@@ -504,17 +535,23 @@ export function assembleComprehensive(
    * not express.
    */
   const roleKey = (name: string): string =>
-    name.split(/\s*(?:\/|\band\b|\bwith\b)\s*/i).map((part) => part.trim().toLowerCase()).filter(Boolean).sort().join(' / ');
-  const role = (name: string): GovernanceRoleRow => {
-    const key = roleKey(name);
+    name.split(/\s*\/\s*/).map((part) => part.trim().toLowerCase()).filter(Boolean).sort().join(' / ');
+  const role = (name: string, context: RoleContext): GovernanceRoleRow => {
+    const displayRole = normaliseRoleLabel(name, context);
+    const key = roleKey(displayRole);
     if (!roleIndex.has(key)) {
-      roleIndex.set(key, { provenance: 'CONTROL_LIBRARY', sourceRefs: [], role: name.trim(), controlsOwned: [], decisionsRequired: [], evidenceExpected: [], reviewCadences: [], escalationResponsibilities: [] });
+      roleIndex.set(key, { provenance: 'CONTROL_LIBRARY', sourceRefs: [], role: displayRole, controlsOwned: [], decisionsRequired: [], evidenceExpected: [], reviewCadences: [], escalationResponsibilities: [] });
     }
     return roleIndex.get(key)!;
   };
   for (const control of controlBlueprints) {
-    for (const name of [control.accountableExecutiveRole, control.processOwnerRole, control.oversightFunction].filter(Boolean)) {
-      const entry = role(name);
+    for (const [name, context] of [
+      [control.accountableExecutiveRole, 'executive'],
+      [control.processOwnerRole, 'process'],
+      [control.oversightFunction, 'oversight']
+    ] as const) {
+      if (!name) continue;
+      const entry = role(name, context);
       entry.controlsOwned.push(control.controlId);
       if (control.operatingFrequency) entry.reviewCadences.push(control.operatingFrequency);
       if (control.escalationThreshold) entry.escalationResponsibilities.push(control.escalationThreshold);
@@ -523,7 +560,7 @@ export function assembleComprehensive(
   }
   for (const group of evidenceRequirements) {
     for (const item of group.items) {
-      if (item.ownerRole) role(item.ownerRole).evidenceExpected.push(item.evidenceId);
+      if (item.ownerRole) role(item.ownerRole, 'process').evidenceExpected.push(item.evidenceId);
     }
   }
 
@@ -535,14 +572,14 @@ export function assembleComprehensive(
     decisionRequired: text(decision.decisionRequired),
     whyNow: text(decision.whyNow),
     recommendedDirection: text(decision.recommendedDecision),
-    ownerRole: text(decision.accountableExecutive),
+    ownerRole: normaliseRoleLabel(decision.accountableExecutive, 'executive'),
     targetPeriod: text(decision.targetPeriod),
     consequenceOfDelay: text(decision.consequenceOfDelay),
     linkedFindingIds: list(decision.linkedFindingIds),
     linkedRiskIds: list(decision.linkedRiskIds)
   }));
   for (const decision of decisionRows) {
-    if (decision.ownerRole) role(decision.ownerRole).decisionsRequired.push(decision.decisionId);
+    if (decision.ownerRole) role(decision.ownerRole, 'executive').decisionsRequired.push(decision.decisionId);
   }
 
   // Lead with the roles carrying the most accountability.
@@ -576,7 +613,7 @@ export function assembleComprehensive(
       actionId: text(action.id),
       action: deliverable,
       deliverable,
-      ownerRole: text(action.accountableExecutive ?? action.accountableOwner),
+      ownerRole: normaliseRoleLabel(action.accountableExecutive ?? action.accountableOwner, 'executive'),
       completionCriterion: text(action.evidenceOfCompletion),
       dependencies: unique([...list(action.dependencyIds), text(action.dependency)].filter(Boolean)),
       targetPeriod: period,
@@ -602,8 +639,8 @@ export function assembleComprehensive(
     horizonMap.set(horizon, [...(horizonMap.get(horizon) ?? []), action]);
   }
   const horizons: ProgrammeHorizon[] = [...horizonMap.entries()]
-    .sort((a, b) => horizonRank(a[0]) - horizonRank(b[0]))
-    .map(([horizon, rows]) => ({ horizon, actions: rows }));
+    .sort((a, b) => compareHorizons(a[0], b[0]))
+    .map(([horizon, rows]) => ({ horizon, actions: rows.sort(compareProgrammeActions) }));
 
   /**
    * The programme beyond 90 days.
@@ -665,7 +702,8 @@ export function assembleComprehensive(
   const mature = laterHorizonActions('6-12 months', 'MATURE');
   if (embed.length) horizons.push({ horizon: '3-6 months', actions: embed });
   if (mature.length) horizons.push({ horizon: '6-12 months', actions: mature });
-  horizons.sort((a, b) => horizonRank(a.horizon) - horizonRank(b.horizon));
+  horizons.sort((a, b) => compareHorizons(a.horizon, b.horizon));
+  for (const horizon of horizons) horizon.actions.sort(compareProgrammeActions);
 
   const programmeActions = horizons.flatMap((horizon) => horizon.actions);
   const measures = unique([
@@ -690,11 +728,19 @@ export function assembleComprehensive(
     .replace(/^\w/, (c) => c.toUpperCase());
 
   const scenarioPortfolio: ScenarioPortfolioRow[] = (source.scenarioFacts ?? []).map((scenario: any) => {
-    const linkedRiskIds = unique(list(scenario.linkedRiskRefs).filter(Boolean));
-    const linkedFindingIds = unique(list(scenario.linkedFindingRefs).filter(Boolean));
+    // Fact Pack factRefs are narrative-only aliases. Comprehensive resolves
+    // links from the canonical IDs carried alongside them, with the alias path
+    // retained only for backwards-compatible legacy facts.
+    const linkedRiskIds = unique(list(scenario.linkedRiskIds ?? scenario.linkedRiskRefs).filter(Boolean));
+    const linkedFindingIds = unique(list(scenario.linkedFindingIds ?? scenario.linkedFindingRefs).filter(Boolean));
+    const linkedControls = unique(linkedRiskIds.flatMap((riskId) => controlsByRisk.get(riskId) ?? []));
+    const relevantControls = linkedControls.map((controlId) => controlById.get(controlId)).filter(Boolean) as ControlBlueprintRow[];
+    const interruptionPoint = text(
+      relevantControls[0]?.controlDesign || relevantControls[0]?.controlObjective || scenario.requiredControlResponse
+    );
     return {
       provenance: 'DERIVED_ANALYSIS' as const,
-      scenarioId: text(scenario.factRef),
+      scenarioId: text(scenario.canonicalScenarioId ?? scenario.sourceId ?? scenario.factRef),
       title: text(scenario.title),
       // The raw family code (control_d10_q01) is an engineering label and never
       // reaches customer prose; only the humanised form does.
@@ -707,13 +753,89 @@ export function assembleComprehensive(
       consequence: text(scenario.consequence),
       warningIndicators: list(scenario.warningIndicators),
       controlWeakness: text(scenario.currentControlWeakness),
-      interruptionPoint: text(scenario.requiredControlResponse),
+      interruptionPoint,
       immediateContainment: text(scenario.immediateContainment),
       longTermResponse: text(scenario.longTermResponse),
       linkedFindingIds,
       linkedRiskIds,
-      linkedControlIds: unique(linkedRiskIds.flatMap((riskId) => controlsByRisk.get(riskId) ?? []))
+      linkedControlIds: linkedControls
     };
+  });
+
+  const scenarioSelectionAudit = buildScenarioSelectionAudit({
+    sourceUniverse: source.scenarioUniverse ?? (evidence.scenarios ?? []),
+    selectedFacts: source.scenarioFacts ?? [],
+    renderedScenarioIds: scenarioPortfolio.map((scenario) => scenario.scenarioId),
+    findings,
+    risks
+  });
+  assertScenarioSelectionAudit(scenarioSelectionAudit);
+
+  const contradictions = [...(source.contradictions ?? [])];
+
+  // ---- Domain diagnostics ---------------------------------------------------
+  // The score table answers "where". These deterministic rows answer "what it
+  // means here" without inventing a narrative or repeating ten domain essays.
+  const assembled = source.assembled;
+  const sortedSourceDomains = sortByCanonicalDomain(source.domains ?? []);
+  const responseLabels = new Map((assembled?.officialResponseLabels ?? []).map((label) => [label.responseValue, label]));
+  const tracesByDomain = new Map<string, NonNullable<AssembledReportData['questionTraces']>>();
+  for (const trace of assembled?.questionTraces ?? []) {
+    const existing = tracesByDomain.get(trace.domainCode) ?? [];
+    existing.push(trace);
+    tracesByDomain.set(trace.domainCode, existing);
+  }
+  const findingSources = new Map(findings.map((finding) => [finding.id, finding]));
+  const exposureNames = new Map((assembled?.exposureAnswers ?? []).map((answer) => [answer.factorCode, answer.name]));
+  const findingForDomain = (domainCode: string, domainName: string): MaterialFinding[] => findings
+    .filter((finding) => finding.domainCode === domainCode || finding.domainName === domainName)
+    .sort((left, right) => right.materialityScore - left.materialityScore || left.questionCode.localeCompare(right.questionCode));
+  const priorityRank = (priority: RiskRegisterEntry['priority']): number => ({ Critical: 4, High: 3, Medium: 2, Low: 1 }[priority]);
+  const riskForFinding = (findingId: string): RiskRegisterEntry | undefined => risks
+    .filter((risk) => risk.linkedFindingIds.includes(findingId))
+    .sort((left, right) => priorityRank(right.priority) - priorityRank(left.priority) || left.id.localeCompare(right.id))[0];
+  const domainDiagnostics: DomainDiagnosticRow[] = sortedSourceDomains.map((domain) => {
+    const domainResult = assembled?.domainResults.find((candidate) => candidate.domainName === domain.name || candidate.domainCode === domain.name);
+    const domainCode = domainResult?.domainCode ?? domain.name;
+    const domainName = domainResult?.domainName ?? domain.name;
+    const domainFindings = findingForDomain(domainCode, domainName);
+    const traces = [...(tracesByDomain.get(domainCode) ?? [])].filter((trace) => trace.applicable && typeof trace.normalisedScore === 'number');
+    const weakest = domainFindings[0];
+    const strongestTrace = [...traces].sort((left, right) => (right.normalisedScore ?? -1) - (left.normalisedScore ?? -1) || left.questionCode.localeCompare(right.questionCode))[0];
+    const strongestLabel = strongestTrace ? responseLabels.get(strongestTrace.responseValue ?? -1) : undefined;
+    const posture: DomainDiagnosticPosture = weakest
+      ? (weakest.isHardGate || weakest.isCriticalControl || weakest.gapClassification !== 'none' ? 'PRIORITY' : 'WATCH')
+      : (strongestTrace && (strongestTrace.normalisedScore ?? 0) >= 80 ? 'MAINTAIN' : 'WATCH');
+    const positionMeaning = `${domain.score}/100 records a ${domain.band} position; this is self-reported and does not establish how controls operate in practice.`;
+    const keyStrengthOrWeakness = weakest
+      ? `Weakness: the recorded position is ${weakest.responseLabel.toLowerCase()}; ${weakest.diagnosis || 'the linked control position requires management attention.'}`
+      : strongestTrace
+        ? `Strength: the recorded position is ${strongestTrace.normalisedScore}/100${strongestLabel ? ` (${strongestLabel.label})` : ''}; ${strongestLabel?.operationalMeaning ?? 'the recorded response is a stronger position in this domain.'}`
+        : 'No material strength or weakness was selected for separate interpretation in this domain.';
+    const linkedContradiction = contradictions.find((contradiction) => contradiction.linkedFindingIds.some((id) => domainFindings.some((finding) => finding.id === id)));
+    const linkedRisk = weakest ? riskForFinding(weakest.id) : undefined;
+    const dependencyOrContradiction = linkedContradiction
+      ? `${linkedContradiction.title}: ${linkedContradiction.whatLeadershipShouldVerify}`
+      : linkedRisk
+        ? `Linked dependency: ${linkedRisk.riskEvent}. Management should test the linked control population before relying on this domain position.`
+        : 'No material cross-domain contradiction was recorded for this domain; retain the supporting operating evidence and watch for deterioration.';
+    const linkedFactors = [...new Set(domainFindings.flatMap((finding) => finding.linkedExposureFactorCodes))]
+      .map((code) => exposureNames.get(code) ?? code);
+    const operatingContext = linkedFactors.length
+      ? `This domain is directly connected to recorded ${linkedFactors.join(', ')} exposure.`
+      : assembled?.exposureAnswers?.length
+        ? `The wider profile records ${assembled.exposureAnswers.slice(0, 2).map((answer) => answer.name).join(' and ')} exposure; no narrower domain link was selected.`
+        : 'No additional operating exposure context was recorded for this domain.';
+    const managementAttention = weakest
+      ? `Prioritise the linked control position in ${domainName}; management should confirm complete population coverage, retained proof and exception escalation before treating this domain as stable.`
+      : `Retain the supporting evidence for ${domainName} and include this domain in normal management review so the recorded position does not erode unnoticed.`;
+    const traceability = [...new Set([
+      ...domainFindings.map((finding) => `finding:${finding.id}`),
+      ...(linkedRisk ? [`risk:${linkedRisk.id}`] : []),
+      ...(strongestTrace ? [`question:${strongestTrace.questionCode}`] : []),
+      ...(linkedContradiction ? [`contradiction:${linkedContradiction.id}`] : [])
+    ])];
+    return { provenance: 'DERIVED_ANALYSIS', domainCode, domainName, score: domain.score, maturity: domain.band, posture, recordedPosition: positionMeaning, keyStrengthOrWeakness, dependencyOrContradiction, operatingContext, managementAttention, traceability };
   });
 
   // ---- Assurance priorities -------------------------------------------------
@@ -833,6 +955,9 @@ export function assembleComprehensive(
     governance: { roles, decisions: decisionRows },
     programme: { horizons },
     scenarioPortfolio,
+    scenarioSelectionAudit,
+    domainDiagnostics,
+    contradictions,
     assurancePriorities,
     resilienceTests,
     assuranceCoverage,
@@ -845,6 +970,7 @@ export function assembleComprehensive(
       governanceRoles: roles.length,
       decisions: decisionRows.length,
       scenarios: scenarioPortfolio.length,
+      contradictions: contradictions.length,
       assurancePriorities: assurancePriorities.length,
       resilienceTests: resilienceTests.length,
       assuranceCoverage: assuranceCoverage.length,

@@ -91,6 +91,8 @@ export interface NarrativeRiskFact {
 export interface NarrativeScenarioFact {
   factRef: string;
   sourceId: string;
+  /** Canonical scenario identity used by Comprehensive output. */
+  canonicalScenarioId: string;
   scenarioFamily: FraudPathwayFamily;
   title: string;
   /**
@@ -109,6 +111,9 @@ export interface NarrativeScenarioFact {
   warningIndicators: string[];
   immediateContainment: string;
   longTermResponse: string;
+  /** Canonical domain identifiers; Fact Pack factRefs remain narrative-only. */
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
   linkedFindingRefs: string[];
   linkedRiskRefs: string[];
 }
@@ -683,9 +688,11 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     stock_asset_misuse: 'Stock and physical-asset custody, movement and reconciliation are at an initial or ad hoc stage.'
   };
   const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} is recorded as ${text(finding.responseLabel, 'not consistently in place').toLowerCase()}.`)).join(' ');
+  const canonicalScenarioId = source?.id ?? `SC-${rule.family.toUpperCase()}`;
   return {
     factRef: `SCENARIO-${String(index + 1).padStart(3, '0')}`,
     sourceId: source?.id ?? `SYNTH-${rule.family.toUpperCase()}`,
+    canonicalScenarioId,
     scenarioFamily: rule.family,
     title: title[rule.family.toLowerCase()],
     actorClass: contextVariant?.actorClass ?? rule.language.actorClass,
@@ -700,6 +707,8 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     warningIndicators: unique([...sourceWarnings, ...fallbackWarnings(rule.family)]).slice(0, 5),
     immediateContainment: usableSourceResponse(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
     longTermResponse: fallbackLongTerm[rule.family.toLowerCase()],
+    linkedFindingIds,
+    linkedRiskIds: linkedRisks.map((risk) => risk.id),
     linkedFindingRefs: linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     linkedRiskRefs: linkedRisks.map((risk) => riskRefs.get(risk.id) ?? '').filter(Boolean)
   };

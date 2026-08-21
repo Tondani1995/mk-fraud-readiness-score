@@ -73,7 +73,10 @@ const workbook = await buildComprehensiveRegisterWorkbook(model, {
   reportReference: 'RPT-MKFRS-2026-V1',
   versionNumber: 1
 });
-assert.equal(workbook.sheetNames.length, 8, 'Comprehensive workbook has Read me, Summary and six deterministic registers');
+const requiredWorkbookSheets = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'];
+assert.ok(requiredWorkbookSheets.every((sheet) => workbook.sheetNames.includes(sheet)), 'Comprehensive workbook retains Read me, Summary and six deterministic registers');
+assert.ok(['Assessment Basis', 'Scenario Portfolio', 'Contradictions'].every((sheet) => workbook.sheetNames.includes(sheet)), 'Comprehensive workbook exposes bounded basis, scenario and contradiction views');
+assert.ok(workbook.sheetNames.length >= requiredWorkbookSheets.length);
 assert.equal(workbook.mimeType, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 assert.match(workbook.fileName, /comprehensive-supporting-register\.xlsx$/i);
 assert.ok(workbook.bytes.length > 0);

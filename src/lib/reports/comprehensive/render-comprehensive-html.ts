@@ -1,5 +1,6 @@
 import { PROGRAMME_WORK_TYPE_LABEL } from './assembly';
 import type { ComprehensiveManagementModel } from './management-model';
+import { compareDomainCodes } from './ordering';
 
 /**
  * Comprehensive report composition.
@@ -35,8 +36,8 @@ const cell = (value: unknown, fallback = '—'): string => {
  * so the deterministic report is complete on its own and the future narrative
  * has an explicit, bounded home rather than being sprinkled through registers.
  */
-function interpretationSlot(label: string, commentary?: string): string {
-  if (commentary) return `<div class="interp"><div class="interp-l">${esc(label)}</div><p>${esc(commentary)}</p></div>`;
+function interpretationSlot(label: string, commentary?: string, path?: string): string {
+  if (commentary) return `<div class="interp"><div class="interp-l">${esc(label)}</div><p${path ? ` data-narrative-block="${esc(path)}"` : ''}>${esc(commentary)}</p></div>`;
   return `<div class="interp interp--pending"><div class="interp-l">${esc(label)}</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>`;
 }
 
@@ -87,6 +88,10 @@ th{background:var(--navy-700);color:#fff;font-size:6.2pt;font-weight:700;letter-
   text-transform:uppercase;text-align:left;padding:1.6mm 1.8mm;vertical-align:bottom}
 td{padding:1.5mm 1.8mm;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.3}
 tbody tr:nth-child(even) td{background:var(--rule-soft)}
+table.contradictions{font-size:6.05pt;margin-top:1.5mm}
+table.contradictions th{font-size:5.6pt;padding:.9mm 1.1mm}
+table.contradictions td{padding:.85mm 1.1mm;line-height:1.12}
+.contradiction-title{font-size:9pt;margin:3mm 0 1mm}
 td.id{font-size:6.8pt;color:var(--muted);white-space:nowrap}
 td.tight{white-space:nowrap}
 .tag{display:inline-block;font-size:6.2pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
@@ -113,6 +118,19 @@ td.tight{white-space:nowrap}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
 .panel{background:var(--cream);border-left:3px solid var(--navy-700);padding:3.5mm 4.5mm;margin-top:3mm}
 .panel .l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--navy-700);margin-bottom:1.5mm}
+.diagnostic-card{border-top:1.5px solid var(--navy-700);padding-top:2.5mm;margin-top:3mm;page-break-inside:avoid}
+.diagnostic-head{display:flex;justify-content:space-between;align-items:baseline;gap:4mm}
+.diagnostic-head h3{margin-bottom:0}
+.diagnostic-score{font-size:7pt;color:var(--muted);white-space:nowrap}
+.diagnostic-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm 5mm;margin-top:2mm}
+.diagnostic-field{font-size:7.6pt;line-height:1.35}
+.diagnostic-field .label{display:block;font-size:6.2pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-500);margin-bottom:.6mm}
+.diagnostic-attention{border-left:2px solid var(--brass);padding-left:2.5mm;margin-top:2mm;font-size:7.7pt}
+.contradiction-card{border-top:1.5px solid var(--navy-700);padding-top:2.5mm;margin-top:4mm;page-break-inside:avoid}
+.contradiction-card h3{margin-bottom:1mm}
+.contradiction-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm 5mm;margin-top:2mm}
+.contradiction-field{font-size:7.5pt;line-height:1.35}
+.contradiction-field .label{display:block;font-size:6.2pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-500);margin-bottom:.6mm}
 .interp{border-left:3px solid var(--brass);background:#FDFBF4;padding:3.5mm 4.5mm;margin-top:4mm}
 .interp-l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7a6011;margin-bottom:1.5mm}
 .interp--pending p{font-size:7.6pt}
@@ -142,6 +160,12 @@ export function renderComprehensiveManagementReportHtml(input: {
   const pages: string[] = [];
 
   const roleName = new Map(core.governanceRoles.map((role) => [role.canonicalRoleId, role.displayRole]));
+  const domainOrder = (title: string): number => {
+    const diagnostic = core.domainDiagnostics.find((row) => row.domainName === title);
+    if (diagnostic) return Number(diagnostic.domainCode.replace(/\D/g, '')) || 999;
+    return Number(title.match(/\d+/)?.[0] ?? 999);
+  };
+  const orderedDomains = [...input.domains].sort((left, right) => domainOrder(left.title) - domainOrder(right.title) || left.title.localeCompare(right.title));
 
   // ---- 1. Cover -------------------------------------------------------------
   pages.push(`<section class="page page--navy">
@@ -265,14 +289,35 @@ export function renderComprehensiveManagementReportHtml(input: {
       <div class="s"><div class="n">${reg.controls.length}</div><div class="l">Control designs recommended</div></div>
     </div>
     <h2>Domain readiness profile</h2>
-    <div class="bars">${input.domains.map((domain) => `<div class="row">
+    <div class="bars">${orderedDomains.map((domain) => `<div class="row">
       <div class="nm">${esc(domain.title)}</div>
       <div class="track"><div class="fill ${domain.emphasis === 'weak' ? 'weak' : domain.emphasis === 'strong' ? 'strong' : ''}" style="width:${Math.max(1, Math.min(100, domain.score))}%"></div></div>
       <div class="val">${domain.score.toFixed(2)}</div><div class="band">${esc(domain.band)}</div></div>`).join('')}</div>
-    <div class="cap" style="margin-top:2mm">Ordered as assessed. Positions are self-reported through the assessment and have not been independently verified.</div>
-    ${interpretationSlot('Executive interpretation', commentary['EXECUTIVE-POSITION'])}
+    <div class="cap" style="margin-top:2mm">Ordered by canonical domain number. Positions are self-reported through the assessment and have not been independently verified.</div>
+    ${interpretationSlot('Executive interpretation', commentary['EXECUTIVE-POSITION'], 'comprehensive.interpretation.executiveInterpretation')}
     <div class="sp"></div>
   </section>`);
+
+  const diagnosticChunks: typeof core.domainDiagnostics[] = [];
+  for (let index = 0; index < core.domainDiagnostics.length; index += 4) diagnosticChunks.push(core.domainDiagnostics.slice(index, index + 4));
+  for (const chunk of diagnosticChunks) {
+    emit(slot('POSITION'), `<section class="page">
+      <div class="q">${heading(slot('POSITION'))}</div>
+      <h1>What the domain positions mean here</h1>
+      <p class="note">Each card interprets one recorded domain position using only the assessment, its linked findings, exposure context and explicit evidence references. It is not an independent control conclusion.</p>
+      ${chunk.map((diagnostic) => `<article class="diagnostic-card">
+        <div class="diagnostic-head"><h3>${esc(diagnostic.domainCode)} · ${esc(diagnostic.domainName)} <span class="tag">${esc(diagnostic.posture)}</span></h3><span class="diagnostic-score">${diagnostic.score.toFixed(2)} / 100 · ${esc(diagnostic.maturity)}</span></div>
+        <div class="diagnostic-grid">
+          <div class="diagnostic-field"><span class="label">Recorded position</span>${esc(diagnostic.recordedPosition)}</div>
+          <div class="diagnostic-field"><span class="label">Strength or weakness</span>${esc(diagnostic.keyStrengthOrWeakness)}</div>
+          <div class="diagnostic-field"><span class="label">Dependency / contradiction</span>${esc(diagnostic.dependencyOrContradiction)}</div>
+          <div class="diagnostic-field"><span class="label">Operating context</span>${esc(diagnostic.operatingContext)}</div>
+        </div>
+        <div class="diagnostic-attention"><strong>Management attention</strong> · ${esc(diagnostic.managementAttention)}</div>
+      </article>`).join('')}
+      <div class="sp"></div>
+    </section>`);
+  }
 
   // ---- 4. Section 2 — management themes -------------------------------------
   emit(slot('DRIVERS'), `<section class="page">
@@ -289,9 +334,42 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${esc(theme.managementQuestion)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Every finding behind these patterns is listed in Appendix A.</div>
-    ${interpretationSlot('Why this matters', commentary['DIAGNOSIS'])}
+    ${reg.contradictions.length ? `<div class="panel"><div class="l">Cross-domain contradictions</div><p class="note">${reg.contradictions.length} recorded relationships create false comfort or an exposure/control mismatch. They are expanded on the following management pages so the leadership implication is readable rather than compressed into a table.</p></div>` : ''}
     <div class="sp"></div>
   </section>`);
+
+  const contradictionChunks: typeof reg.contradictions[] = [];
+  for (let index = 0; index < reg.contradictions.length; index += 2) contradictionChunks.push(reg.contradictions.slice(index, index + 2));
+  for (const chunk of contradictionChunks) {
+    emit(slot('DRIVERS'), `<section class="page">
+      <div class="q">${heading(slot('DRIVERS'))}</div>
+      <h1>Relationships leadership should not overlook</h1>
+      ${chunk.map((contradiction) => `<article class="contradiction-card">
+        <h3>${esc(contradiction.title)}</h3>
+        <div class="contradiction-field"><span class="label">Recorded relationship</span>${esc(contradiction.drivingResponses)}</div>
+        <div class="contradiction-grid">
+          <div class="contradiction-field"><span class="label">Operational meaning</span>${esc(contradiction.whyItMatters)}</div>
+          <div class="contradiction-field"><span class="label">False comfort to test</span>${esc(contradiction.falseComfortRisk)}</div>
+          <div class="contradiction-field"><span class="label">Fraud pathway enabled</span>${esc(contradiction.fraudPathwayEnabled)}</div>
+          <div class="contradiction-field"><span class="label">Leadership should verify</span>${esc(contradiction.whatLeadershipShouldVerify)}</div>
+        </div>
+      </article>`).join('')}
+      <div class="sp"></div>
+    </section>`);
+  }
+
+  // A long, bounded diagnosis must not be squeezed below the contradiction
+  // table on the fixed drivers page. Keep it in the same management section,
+  // but give it its own continuation page so the full interpretation remains
+  // readable and cannot be clipped by the page boundary.
+  if (commentary['DIAGNOSIS']) {
+    emit(slot('DRIVERS'), `<section class="page">
+      <div class="q">${heading(slot('DRIVERS'))}</div>
+      <h1>Why the pattern matters</h1>
+        ${interpretationSlot('Why this matters', commentary['DIAGNOSIS'], 'comprehensive.interpretation.whyThisMatters')}
+      <div class="sp"></div>
+    </section>`);
+  }
 
   // ---- 5. Section 3 — exposure ----------------------------------------------
   emit(slot('EXPOSURE'), `<section class="page">
@@ -307,7 +385,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${esc(theme.managementQuestion)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Full risk statements, causes and treatment directions are in Appendix B. Risks are derived from assessed control positions; no likelihood or monetary value is assigned, because the assessment does not support one.</div>
-    ${interpretationSlot('Management implication', commentary['EXPOSURE'])}
+    ${interpretationSlot('Management implication', commentary['EXPOSURE'], 'comprehensive.interpretation.managementImplication')}
     <div class="sp"></div>
   </section>`);
 
@@ -327,7 +405,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(programme.targetPeriods.join(', '))}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Individual control designs are in Appendix C; the evidence each requires is in Appendix D.</div>
-    ${interpretationSlot('Control programme synthesis', commentary['CONTROL-PROGRAMMES'])}
+    ${interpretationSlot('Control programme synthesis', commentary['CONTROL-PROGRAMMES'], 'comprehensive.interpretation.controlProgrammeSynthesis')}
     <div class="sp"></div>
   </section>`);
 
@@ -346,7 +424,7 @@ export function renderComprehensiveManagementReportHtml(input: {
           <div><div class="cap"><strong>Delivery horizon</strong> · ${esc(programme.targetPeriods.join(', ') || '—')}</div>
                <div class="cap"><strong>Effectiveness measures</strong> · ${programme.measureCount}</div></div>
         </div>
-        <div class="cap" style="margin-top:1.5mm">Controls: ${esc(programme.controlIds.join(', '))}</div>
+        <div class="cap" style="margin-top:1.5mm">The detailed control designs and their traceability are in Appendix C.</div>
       </div>`).join('')}
       <div class="sp"></div>
     </section>`);
@@ -425,7 +503,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${esc(phase.programmeIds.map((id) => core.controlProgrammes.find((programme) => programme.programmeId === id)?.title ?? id).join(' · '))}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Every programme item, with its dependency and completion criterion, is in Appendix E.</div>
-    ${interpretationSlot('Implementation synthesis', commentary['IMPLEMENTATION'])}
+    ${interpretationSlot('Implementation synthesis', commentary['IMPLEMENTATION'], 'comprehensive.interpretation.implementationSynthesis')}
     <div class="sp"></div>
   </section>`);
 
@@ -443,7 +521,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(roleName.get(programme.accountableRoleId))}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">The individual measures are in Appendix F.</div>
-    ${interpretationSlot('Conclusion', commentary['CONCLUSION'])}
+    ${interpretationSlot('Conclusion', commentary['CONCLUSION'], 'comprehensive.interpretation.conclusion')}
     <div class="sp"></div>
   </section>`);
 
@@ -469,7 +547,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // text. An earlier pass fed the last column from "why controls may not catch
   // it", which read as a restatement of the control standard.
   if (reg.scenarios.length) {
-    emit('SCENARIOS', `<section class="reg">
+    emit('SCENARIOS', `<section class="reg" data-deterministic-register="true">
     ${sectionHead(sectionNumber('SCENARIOS'), 'Fraud scenario portfolio', 'Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.')}
     <table>
       <thead><tr><th style="width:17%">Pathway</th><th style="width:19%">How it could begin</th><th style="width:20%">How it could progress</th><th style="width:20%">Interruption point</th><th style="width:16%">Warning indicators</th><th style="width:8%">Links</th></tr></thead>
@@ -479,7 +557,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(scenario.mechanism)}</td>
         <td>${cell(scenario.interruptionPoint)}</td>
         <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : '—'}</td>
-        <td class="id">${esc([...scenario.linkedRiskIds, ...scenario.linkedControlIds].join(', ')) || '—'}</td></tr>`).join('')}</tbody>
+        <td>${scenario.linkedRiskIds.length || scenario.linkedControlIds.length ? 'Detailed links are in Appendices B and C.' : '—'}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -492,7 +570,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // position and posture, never an invented dependency or evidence claim.
   if (reg.assuranceCoverage.length) {
     const postureLabel: Record<string, string> = { DEEP_DIVE_PRIORITY: 'Deep-dive priority', CONFIRM: 'Confirm', MAINTAIN: 'Maintain' };
-    emit('COVERAGE', `<section class="reg">
+    emit('COVERAGE', `<section class="reg" data-deterministic-register="true">
     ${sectionHead(sectionNumber('COVERAGE'), 'Assurance coverage across the control environment', 'Every assessed domain, with the posture it warrants. This is not a list of weaknesses: most domains here are working, and the map exists so management can see the whole environment rather than only the areas receiving deeper attention.')}
     <table>
       <thead><tr><th style="width:20%">Domain</th><th style="width:9%">Position</th><th style="width:12%">Posture</th><th style="width:21%">Capability to preserve or confirm</th><th style="width:20%">Management proof</th><th style="width:18%">Deterioration signal / rhythm</th></tr></thead>
@@ -502,7 +580,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td class="cap">${esc(postureLabel[row.posture] ?? row.posture)}</td>
         <td>${row.capabilityToPreserve ? cell(row.capabilityToPreserve) : `<span class="cap">${esc(row.coverageNote)}</span>`}</td>
         <td>${cell(row.managementProof, '—')}</td>
-        <td>${cell(row.deteriorationSignal, '—')}${row.reviewRhythm ? `<div class="cap" style="margin-top:.8mm">${cell(row.reviewRhythm, '')}</div>` : ''}${row.traceability.length ? `<div class="id" style="margin-top:.8mm">${esc(row.traceability.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody>
+        <td>${cell(row.deteriorationSignal, '—')}${row.reviewRhythm ? `<div class="cap" style="margin-top:.8mm">${cell(row.reviewRhythm, '')}</div>` : ''}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -514,7 +592,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // migrations, turnover or volume spikes, and the section must not promise an
   // analytical object the model does not contain.
   if (reg.resilienceTests.length) {
-    emit('RESILIENCE', `<section class="reg">
+    emit('RESILIENCE', `<section class="reg" data-deterministic-register="true">
     ${sectionHead(sectionNumber('RESILIENCE'), 'Control resilience tests', 'Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.')}
     <table>
       <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
@@ -524,7 +602,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(test.deteriorationCondition)}</td>
         <td>${cell(test.evidenceToInspect)}</td>
         <td>${cell(test.effectivenessSignal)}</td>
-        <td class="cap">${cell(test.reviewRhythm)}<div class="id" style="margin-top:.8mm">${esc(test.linkedAssurancePriorityId)}</div></td></tr>`).join('')}</tbody>
+        <td class="cap">${cell(test.reviewRhythm)}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -536,12 +614,12 @@ export function renderComprehensiveManagementReportHtml(input: {
   // should hold and what would signal deterioration. They are never findings and
   // are never labelled weaknesses.
   if (reg.assurancePriorities.length) {
-    emit('DEEP_DIVE', `<section class="reg">
+    emit('DEEP_DIVE', `<section class="reg" data-deterministic-register="true">
     ${sectionHead(sectionNumber('DEEP_DIVE'), 'Deep-dive assurance priorities', 'These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.')}
     <table>
       <thead><tr><th style="width:9%">ID</th><th style="width:19%">Capability</th><th style="width:22%">Evidence management should hold</th><th style="width:18%">Depends on</th><th style="width:18%">Deterioration trigger</th><th style="width:14%">Owner / cadence</th></tr></thead>
       <tbody>${reg.assurancePriorities.map((priority) => `<tr>
-        <td class="id">${esc(priority.priorityId)}<div>${esc(priority.priorityClass.replace(/_/g, ' ').toLowerCase())}</div></td>
+        <td>${esc(priority.priorityClass.replace(/_/g, ' ').toLowerCase())}</td>
         <td>${cell(priority.capability)}<div class="cap" style="margin-top:.8mm">${cell(priority.whyItMatters, '')}</div></td>
         <td>${cell(priority.evidenceManagementShouldHold)}${priority.suggestedSamplingApproach ? `<div class="cap" style="margin-top:.8mm">${cell(priority.suggestedSamplingApproach, '')}</div>` : ''}</td>
         <td>${priority.dependencies.length ? `<ul>${priority.dependencies.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : '—'}</td>
@@ -555,7 +633,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // page order is decided, so Contents and the document cannot disagree.
   for (const entry of activeSections) pages.push(...(sectionPages.get(entry.key) ?? []));
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('A', 'Finding register', `Every material finding the assessment produced. "Assessment indication" is what the responses record; it is self-reported and has not been verified.`)}
     <table>
       <thead><tr><th style="width:9%">ID</th><th style="width:13%">Domain</th><th style="width:22%">Assessment indication</th><th style="width:10%">Materiality</th><th style="width:23%">Fraud mechanism</th><th style="width:12%">Risk</th><th style="width:11%">Control</th></tr></thead>
@@ -570,7 +648,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     </table>
   </section>`);
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('B', 'Fraud risk register', 'Risks implied by the assessed control positions. No likelihood, monetary value or incident frequency is assigned, because the assessment does not support one.')}
     <table>
       <thead><tr><th style="width:9%">ID</th><th style="width:33%">Risk</th><th style="width:19%">Current control position</th><th style="width:26%">Required treatment</th><th style="width:13%">Owner role</th></tr></thead>
@@ -583,7 +661,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     </table>
   </section>`);
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('C', 'Control blueprint register', 'Recommended control standard for each finding. This is MK methodology — what good practice requires — not a description of what the organisation currently operates. The assessed state column records what the organisation reported for that control.')}
     ${(() => {
       const bands = [...new Set(reg.controls.map((control) => control.currentState).filter(Boolean))];
@@ -608,7 +686,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     </table>
   </section>`);
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('D', 'Evidence requirement register', 'What management should be able to produce for each recommended control. No evidence has been requested, received or examined.')}
     ${core.controlProgrammes.map((programme) => {
       const groups = reg.evidence.filter((group) => programme.controlIds.includes(group.controlId));
@@ -626,7 +704,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     }).join('')}
   </section>`);
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('E', '12-month action and assurance register', 'The full twelve-month programme. Not every row is initial implementation: later horizons operate each control through its required cycle and then review whether it is still effective. The work type on each row says which it is.')}
     <table>
       <thead><tr><th style="width:9%">Horizon</th><th style="width:11%">Work type</th><th style="width:24%">Action</th><th style="width:14%">Owner</th><th style="width:21%">Completion criterion</th><th style="width:21%">Effectiveness measure</th></tr></thead>
@@ -640,7 +718,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     </table>
   </section>`);
 
-  pages.push(`<section class="reg">
+  pages.push(`<section class="reg" data-deterministic-register="true">
     ${registerHead('F', 'Measurement register', 'The effectiveness test behind each recommended control, grouped by programme. These are the signals management should expect once the control operates.')}
     ${core.controlProgrammes.map((programme) => {
       const rows = reg.measures.filter((measure) => measure.programmeId === programme.programmeId);

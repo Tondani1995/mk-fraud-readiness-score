@@ -1,4 +1,5 @@
 import type { AdvisoryEvidenceModel } from '../evidence-model';
+import { normaliseRoleText } from './role-normalisation';
 
 /**
  * Customer-visible adaptation for Comprehensive.
@@ -9,21 +10,6 @@ import type { AdvisoryEvidenceModel } from '../evidence-model';
  * scores, linkages, periods, severities and analytical classifications are untouched.
  */
 const IDENTIFIER_KEY = /(^id$|Id$|Ids$|Ref$|Refs$|Code$|code$|^phase$|^targetPeriod$|^severity$|^materialityClass$|^status$|Class$|Family$)/;
-
-const ROLE_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
-  [/\bChief Technology Officer\b|\bCTO\b/gi, 'Technology security accountable owner'],
-  [/\bChief Information Security Officer\b|\bCISO\b/gi, 'Technology security accountable owner'],
-  [/\bChief People Officer\b|\bChief Human Resources Officer\b/gi, 'People workforce accountable owner'],
-  [/\bHead of (?:People|HR)\b/gi, 'People workforce accountable owner'],
-  [/\bGeneral Counsel\b/gi, 'Legal investigations accountable owner'],
-  [/\bChair of (?:the )?Audit[- ]Committee\b|\bAudit[- ]Committee Chair\b/gi, 'Independent governing oversight'],
-  [/\bAudit[- ]Committee\b/gi, 'Independent governing oversight'],
-  [/\bChief Financial Officer\b|\bCFO\b/gi, 'Finance operations accountable owner'],
-  [/\bChief Operating Officer\b|\bCOO\b/gi, 'Operations accountable owner'],
-  [/\bHead of Risk\b|\bChief Risk Officer\b/gi, 'Risk compliance accountable owner'],
-  [/\bSecurity Operations Centre\b|\bSecurity Operations Center\b|\bSOC\b/gi, 'security monitoring function'],
-  [/\bLearning and Development\b/gi, 'workforce training function']
-];
 
 function cleanText(value: string): string {
   let text = value;
@@ -47,20 +33,9 @@ function cleanText(value: string): string {
     .replace(/\b(?:depots|branches|sites)\b/gi, 'operating locations')
     .replace(/\boperating locations\s+and\s+operating locations\b/gi, 'operating locations');
 
-  for (const [pattern, replacement] of ROLE_REPLACEMENTS) text = text.replace(pattern, replacement);
-
-  // Composite playbook labels often contain the same formal owner twice after
-  // adaptation (for example CFO / COO). Keep one functional owner label instead.
-  text = text
-    .replace(/\bFinance operations accountable owner\s*\/\s*Operations accountable owner\b/gi,
-      'Finance and operations accountable owner')
-    .replace(/\bOperations accountable owner\s*\/\s*Finance operations accountable owner\b/gi,
-      'Finance and operations accountable owner')
-    .replace(/\b([A-Za-z ]+ accountable owner)\s*\/\s*\1\b/gi, '$1')
-    .replace(/\bIndependent governing oversight\s*\/\s*Independent governing oversight\b/gi,
-      'Independent governing oversight');
-
-  return text.replace(/\s{2,}/g, ' ').trim();
+  // Role wording is normalised once here for narrative text. Structured role
+  // fields are normalised with an explicit context in the assembly layer.
+  return normaliseRoleText(text.replace(/\s{2,}/g, ' '));
 }
 
 export function adaptComprehensiveEvidenceModel(model: AdvisoryEvidenceModel): AdvisoryEvidenceModel {

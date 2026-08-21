@@ -19,6 +19,52 @@ function friendlyHeader(column: string): string { return column.replace(/([a-z])
 function technicalColumn(column: string): boolean { return /(^id$|technicalId|questionCode|sourceRefs|proofRef|linked(?:Finding|Risk|Control)Ids?)/i.test(column); }
 function orderedColumns(columns: string[]): string[] { return [...columns].sort((a, b) => Number(technicalColumn(a)) - Number(technicalColumn(b))); }
 
+function columnWidth(column: string): number {
+  if (/^(id|technicalId|questionCode|proofRef|sourceRefs|linked.*Ids?|evidenceRef)$/i.test(column)) return 22;
+  if (/^(field|recordType|period|priority|likelihood|impact|materiality|status|applicable|normalisedScore|score|points|count|targetPeriod)$/i.test(column)) return 16;
+  if (/^(title|domain|scenarioType|pattern|factor|selectedValue|owner|accountable|processOwner|oversightFunction)$/i.test(column)) return 30;
+  if (/^(prompt|recordedResponse|diagnosis|statement|riskStatement|cause|riskEvent|controlDesign|controlObjective|targetState|currentState|operationalMeaning|falseComfortRisk|leadershipVerification|requirement|deliverable|proofOrCompletion|acceptableExamples|optionAnalysis|whyItMatters|fraudMechanism|interruptionControl|progression|concealment|recordedPosition|keyStrengthOrWeakness|dependencyOrContradiction|operatingContext|managementAttention|selectionReason)$/i.test(column)) return 58;
+  return 34;
+}
+
+function rowHeight(row: Record<string, unknown>, columns: string[]): number {
+  const lines = columns.reduce((max, column) => {
+    const value = cell(row[column]);
+    if (!value) return max;
+    const width = columnWidth(column);
+    return Math.max(max, Math.ceil(value.length / Math.max(12, width * 1.15)));
+  }, 1);
+  return Math.min(120, Math.max(22, 8 + lines * 13));
+}
+
+function excelColumnName(index: number): string {
+  let n = index + 1;
+  let result = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    n = Math.floor((n - 1) / 26);
+  }
+  return result;
+}
+
+function autoFilterFeature(sheets: Array<{ rows: Array<Record<string, unknown>>; columns: string[] }>): unknown {
+  return {
+    files: {
+      transform: {
+        'xl/worksheets/sheet{id}.xml': {
+          transform(content: string, _options: unknown, properties: { sheetIndex: number }) {
+            const sheet = sheets[properties.sheetIndex];
+            if (!sheet || content.includes('<autoFilter ') || sheet.columns.length === 0) return content;
+            const ref = `A1:${excelColumnName(sheet.columns.length - 1)}${sheet.rows.length + 1}`;
+            return content.replace('</sheetData>', `</sheetData><autoFilter ref="${ref}"/>`);
+          }
+        }
+      }
+    }
+  };
+}
+
 function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
   return [
     { field: 'Organisation', value: cell(model.analytical.organisationName), note: '' },
@@ -61,10 +107,25 @@ export async function buildComprehensiveRegisterWorkbook(model: ComprehensiveDel
     ...registerSheets
   ];
   const { default: writeXlsxFile, getSheetData } = await import('write-excel-file/node');
-  const workbook = await (writeXlsxFile as any)(sheets.map((sheet) => ({
-    sheet: sheet.name,
-    data: (getSheetData as any)(sheet.rows, orderedColumns(sheet.columns).map((column) => ({ header: friendlyHeader(column), cell: (row: Record<string, unknown>) => cell(row[column]) })))
-  })));
+  const sheetShapes = sheets.map((sheet) => ({ rows: sheet.rows, columns: orderedColumns(sheet.columns) }));
+  const workbook = await (writeXlsxFile as any)(sheets.map((sheet, index) => {
+    const columns = sheetShapes[index]!.columns;
+    const rows = sheet.rows as Array<Record<string, unknown>>;
+    const dataColumns = columns.map((column) => ({
+      header: { value: friendlyHeader(column), fontWeight: 'bold', textColor: '#FFFFFF', backgroundColor: '#17324D', wrap: true, alignVertical: 'center', height: 30 },
+      cell: (row: Record<string, unknown>) => ({ value: cell(row[column]), wrap: true, alignVertical: 'top', height: rowHeight(row, columns) })
+    }));
+    return {
+      sheet: sheet.name,
+      data: (getSheetData as any)(rows, dataColumns),
+      columns: columns.map((column) => ({ width: columnWidth(column) })),
+      stickyRowsCount: 1,
+      stickyColumnsCount: 1,
+      showGridLines: false,
+      orientation: 'landscape',
+      zoomScale: 85
+    };
+  }), { features: [autoFilterFeature(sheetShapes)] });
   const bytes = Buffer.from(await workbook.toBuffer());
   const rowCounts: Record<string, number> = {};
   for (const sheet of sheets) rowCounts[sheet.name] = sheet.rows.length;

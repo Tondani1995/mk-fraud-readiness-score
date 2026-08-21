@@ -208,6 +208,7 @@
     "v11:comprehensive-management-model-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-management-model-gate.mjs",
     "v11:comprehensive-renderer-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-renderer-gate.mjs",
     "v11:comprehensive-interpretation-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-interpretation-gate.mjs",
+    "v11:comprehensive-safety-corpus": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/comprehensive-safety-corpus-regression.mjs",
     "v11:essential-slot-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-slot-ownership-gate.mjs",
     "v11:sustainment-semantic-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/sustainment-semantic-gate.mjs",
     "v11:storefront-contract-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/storefront-contract-gate.mjs",

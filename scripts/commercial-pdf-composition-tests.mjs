@@ -28,7 +28,7 @@ const blocks = readFileSync('src/lib/reports/select-content-blocks.ts', 'utf8');
 
 // ------------------------------------------------------------------ roadmap source and cap
 test('the template renders the bounded projection roadmap, never the full L1 set', () => {
-  assert.match(template, /const roadmapRows = projection\.roadmapActions\.map/,
+  assert.match(template, /const roadmapRowsForPeriod = \(period: '30 days' \| '60 days' \| '90 days'\) => projection\.roadmapActions/,
     'roadmap rows must come from the projection');
   assert.ok(!/roadmapRows = evidenceModel\.roadmapActions/.test(template),
     'the full L1 roadmap must never be the PDF source again');
@@ -79,7 +79,7 @@ test('the E1 cap remains 40 and unrelated control actions are still retained', (
 test('no reference to a non-existent Appendix A1 or A2 survives', () => {
   assert.ok(!/Appendix A1/.test(template), 'the PDF has no Appendix A1');
   assert.ok(!/Appendix A2/.test(template), 'the PDF has no Appendix A2');
-  assert.match(template, /supporting register issued with this report/,
+  assert.match(template, /complete authoritative registers are provided in the supporting register/,
     'the complete registers must be pointed at the supporting register');
 });
 
