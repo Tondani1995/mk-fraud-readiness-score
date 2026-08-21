@@ -728,6 +728,57 @@ export type ComprehensiveInterpretationFailureReasonCode =
 export type DiagnosticTriState = 'yes' | 'no' | 'unknown';
 
 /**
+ * Bounded safety evidence retained only when an explicit non-production owner
+ * acceptance seam needs to explain why a paid provider response was held. It
+ * contains the parsed six-slot response and the cascade ledger, never the raw
+ * prompt, headers or provider error object. Normal customer routes do not
+ * expose this optional field.
+ */
+export interface ComprehensiveSafetyFailureEvidence {
+  interpretation: ComprehensiveInterpretation;
+  issues: Array<{
+    slot: InterpretationSlotId;
+    kind: InterpretationIssueKind;
+    code: string;
+    detail: string;
+  }>;
+  repairs: Array<{
+    kind: string;
+    slots: InterpretationSlotId[];
+    replacements: number;
+  }>;
+  cascade: {
+    policyVersion: string;
+    publishable: boolean;
+    blockingCodes: string[];
+    heldForReviewCodes: string[];
+    warningCodes: string[];
+    repairCodes: string[];
+    candidates: Array<{
+      id: string;
+      ruleCode: string;
+      severity: string;
+      path: string;
+      span: string;
+      spanHash: string;
+      finalDisposition: string;
+      decisions: Array<{
+        layer: string;
+        disposition: string;
+        reasonCode: string;
+      }>;
+    }>;
+  };
+  candidateTrace: Array<{
+    slot: InterpretationSlotId;
+    path: string;
+    spanHash: string;
+    disposition: 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD';
+    reasonCode: string;
+  }>;
+}
+
+/**
  * Bounded operational evidence for a failed Comprehensive interpretation.
  *
  * This deliberately contains no provider error text, headers, prompts, response
@@ -747,6 +798,8 @@ export interface ComprehensiveInterpretationFailureDiagnostics {
   retryable: boolean;
   statusCode?: number;
   accounting: InterpretationAccounting;
+  /** Present only for the explicit synthetic Preview owner-diagnostic seam. */
+  safetyEvidence?: ComprehensiveSafetyFailureEvidence;
 }
 
 export class ComprehensiveInterpretationFailure extends Error {

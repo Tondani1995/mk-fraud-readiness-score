@@ -142,6 +142,10 @@ assert.equal(safetyFailure.diagnostics.stage, 'SAFETY_VALIDATION');
 assert.equal(safetyFailure.diagnostics.providerAttempted, 'yes');
 assert.equal(safetyFailure.diagnostics.providerResponseReceived, 'yes');
 assert.equal(safetyFailure.diagnostics.accounting.calls, 1);
+assert.ok(safetyFailure.diagnostics.safetyEvidence, 'safety failures retain bounded cascade evidence');
+assert.equal(safetyFailure.diagnostics.safetyEvidence.interpretation.executiveInterpretation, '');
+assert.equal(safetyFailure.diagnostics.safetyEvidence.cascade.policyVersion, 'mk-essential-validation-cascade-v1');
+assert.ok(Array.isArray(safetyFailure.diagnostics.safetyEvidence.candidateTrace));
 
 const postProcessingFailure = await captureFailure(() => renderComprehensiveReportPackage({
   assembled: data,

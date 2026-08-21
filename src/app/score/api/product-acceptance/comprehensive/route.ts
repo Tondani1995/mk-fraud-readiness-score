@@ -69,6 +69,7 @@ function safeFailureDiagnostics(error: unknown): ComprehensiveInterpretationFail
   accountingAvailable: false;
   retryable: false;
   accounting: null;
+  safetyEvidence?: undefined;
 } {
   if (isComprehensiveInterpretationFailure(error)) return error.diagnostics;
   return {
@@ -118,6 +119,7 @@ export async function POST(request: Request) {
   const quality = checkQualityGates(buildAdvisoryEvidenceModel(assembled), assembled);
   if (quality.violations.length) return noStoreJson({ ok: false, reason: 'deterministic_quality_gate_failed', technicalReference }, 422);
 
+  let previewBrief: ReturnType<typeof buildInterpretationBrief> | undefined;
   try {
     const evidenceModel = buildAdvisoryEvidenceModel(assembled);
     const customerEvidenceModel = adaptComprehensiveEvidenceModel(evidenceModel);
@@ -173,6 +175,7 @@ export async function POST(request: Request) {
       assembled,
       evidenceModel: customerEvidenceModel
     });
+    previewBrief = brief;
     const prompt = buildInterpretationPrompt(brief);
     const startedAt = Date.now();
     const result = await renderComprehensiveReportPackage({
@@ -244,6 +247,25 @@ export async function POST(request: Request) {
       technicalReference,
       ...publicDiagnostics
     });
-    return noStoreJson({ ok: false, reason: 'preview_interpretation_failed', technicalReference, failure: publicDiagnostics }, 500);
+    const response: Record<string, unknown> = {
+      ok: false,
+      reason: 'preview_interpretation_failed',
+      technicalReference,
+      failure: publicDiagnostics
+    };
+    // This route is an exact, synthetic, non-production owner seam. Return the
+    // bounded parsed response and cascade ledger only here so the one authorised
+    // recovery call can be adjudicated without another blind provider spend.
+    if (isCedarRidgeFixture(assembled) && previewBrief && diagnostics.safetyEvidence) {
+      response.ownerRecoveryEvidence = {
+        evidencePack: previewBrief.evidencePack,
+        providerResponse: diagnostics.safetyEvidence.interpretation,
+        issues: diagnostics.safetyEvidence.issues,
+        repairs: diagnostics.safetyEvidence.repairs,
+        cascade: diagnostics.safetyEvidence.cascade,
+        candidateTrace: diagnostics.safetyEvidence.candidateTrace
+      };
+    }
+    return noStoreJson(response, 500);
   }
 }

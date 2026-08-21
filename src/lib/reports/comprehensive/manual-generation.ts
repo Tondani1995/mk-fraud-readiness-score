@@ -18,6 +18,7 @@ import {
   generateComprehensiveInterpretation,
   interpretationToCommentary,
   type ComprehensiveInterpretationFailureReasonCode,
+  type ComprehensiveSafetyFailureEvidence,
   type DiagnosticTriState,
   type InterpretationAccounting,
   type InterpretationRun
@@ -60,7 +61,51 @@ function wrapPostProcessingFailure(accounting: InterpretationAccounting, reasonC
   });
 }
 
-function throwSafetyFailure(accounting: InterpretationAccounting, reasonCode: ComprehensiveInterpretationFailureReasonCode): never {
+function safetyEvidenceForFailure(run: ComprehensiveSafetyRun): ComprehensiveSafetyFailureEvidence {
+  return {
+    interpretation: run.interpretation,
+    issues: run.issues.map((issue) => ({
+      slot: issue.slot,
+      kind: issue.kind,
+      code: issue.code,
+      detail: issue.detail
+    })),
+    repairs: run.repairs.map((repair) => ({
+      kind: repair.kind,
+      slots: [...repair.slots],
+      replacements: repair.replacements
+    })),
+    cascade: {
+      policyVersion: run.cascade.policyVersion,
+      publishable: run.cascade.publishable,
+      blockingCodes: [...run.cascade.blockingCodes],
+      heldForReviewCodes: [...run.cascade.heldForReviewCodes],
+      warningCodes: [...run.cascade.warningCodes],
+      repairCodes: [...run.cascade.repairCodes],
+      candidates: run.cascade.candidates.map((candidate) => ({
+        id: candidate.id,
+        ruleCode: candidate.ruleCode,
+        severity: candidate.severity,
+        path: candidate.path,
+        span: candidate.span,
+        spanHash: candidate.spanHash,
+        finalDisposition: candidate.finalDisposition,
+        decisions: candidate.decisions.map((decision) => ({
+          layer: decision.layer,
+          disposition: decision.disposition,
+          reasonCode: decision.reasonCode
+        }))
+      }))
+    },
+    candidateTrace: run.candidateTrace.map((trace) => ({ ...trace }))
+  };
+}
+
+function throwSafetyFailure(
+  accounting: InterpretationAccounting,
+  reasonCode: ComprehensiveInterpretationFailureReasonCode,
+  safetyRun?: ComprehensiveSafetyRun
+): never {
   const providerAttempted = accounting.calls > 0;
   const completedBoundary: DiagnosticTriState = providerAttempted ? 'yes' : 'no';
   throw new ComprehensiveInterpretationFailure({
@@ -74,7 +119,8 @@ function throwSafetyFailure(accounting: InterpretationAccounting, reasonCode: Co
     gatewayResponseReceived: completedBoundary,
     accountingAvailable: accountingAvailable(accounting),
     retryable: false,
-    accounting: { ...accounting, repairedSlots: [...accounting.repairedSlots] }
+    accounting: { ...accounting, repairedSlots: [...accounting.repairedSlots] },
+    ...(safetyRun ? { safetyEvidence: safetyEvidenceForFailure(safetyRun) } : {})
   });
 }
 
@@ -201,7 +247,8 @@ export async function renderComprehensiveReportPackage(input: {
   if (!safetyRun.publishable) {
     throwSafetyFailure(
       interpretationRun.accounting,
-      'interpretation_safety_unpublishable'
+      'interpretation_safety_unpublishable',
+      safetyRun
     );
   }
   try {
