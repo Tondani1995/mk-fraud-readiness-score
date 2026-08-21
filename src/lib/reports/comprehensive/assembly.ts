@@ -1,7 +1,7 @@
 import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel, Contradiction, MaterialFinding, PlausibleScenario, RiskRegisterEntry } from '../evidence-model/types';
 import type { ComprehensiveProvenance } from './product-contract';
-import { normaliseRoleLabel, type RoleContext } from './role-normalisation';
+import { normaliseOversightRoleLabel, normaliseRoleLabel, type RoleContext } from './role-normalisation';
 import { buildScenarioSelectionAudit, assertScenarioSelectionAudit, type ScenarioSelectionAudit } from './scenario-selection';
 import { compareDomainCodes, compareHorizons, compareProgrammeActions, sortByCanonicalDomain } from './ordering';
 
@@ -383,7 +383,7 @@ export function assembleComprehensive(
    */
   source: {
     scenarioFacts?: readonly any[];
-    domains?: readonly { name: string; score: number; band: string }[];
+    domains?: readonly { domainCode?: string; name: string; score: number; band: string }[];
     contradictions?: readonly Contradiction[];
     assembled?: AssembledReportData;
     scenarioUniverse?: readonly PlausibleScenario[];
@@ -449,7 +449,8 @@ export function assembleComprehensive(
     impact: text(risk.impact),
     currentControlPosition: text(risk.currentControlPosition),
     requiredTreatment: text(risk.requiredTreatment),
-    ownerRole: normaliseRoleLabel(risk.accountableExecutive ?? risk.accountableOwner, 'executive'),
+    ownerRole: normaliseRoleLabel(risk.accountableExecutive ?? risk.accountableOwner, 'executive')
+      || normaliseRoleLabel(risk.processOwner, 'process'),
     effectivenessMeasure: text(risk.effectivenessMeasure),
     linkedFindingIds: list(risk.linkedFindingIds),
     linkedScenarioIds: list(risk.linkedScenarioIds)
@@ -472,7 +473,11 @@ export function assembleComprehensive(
     controlDesign: text(control.controlDesign),
     accountableExecutiveRole: normaliseRoleLabel(control.accountableExecutive ?? control.accountableOwner, 'executive'),
     processOwnerRole: normaliseRoleLabel(control.processOwner, 'process'),
-    oversightFunction: normaliseRoleLabel(control.oversightFunction ?? control.oversightOwner, 'oversight'),
+    oversightFunction: normaliseRoleLabel([
+      control.oversightFunction ?? control.oversightOwner,
+      normaliseOversightRoleLabel(control.accountableExecutive ?? control.accountableOwner),
+      normaliseOversightRoleLabel(control.processOwner)
+    ].filter(Boolean).join(' / '), 'oversight'),
     operatingFrequency: text(control.operatingFrequency),
     populationCoverage: text(control.completePopulationCoverage),
     dependencies: unique([...list(control.dependencies), text(control.implementationDependency)].filter(Boolean)),
@@ -777,7 +782,15 @@ export function assembleComprehensive(
   // The score table answers "where". These deterministic rows answer "what it
   // means here" without inventing a narrative or repeating ten domain essays.
   const assembled = source.assembled;
-  const sortedSourceDomains = sortByCanonicalDomain(source.domains ?? []);
+  const domainCodesByName = new Map(
+    (assembled?.domainResults ?? []).map((domain) => [domain.domainName, domain.domainCode])
+  );
+  const sortedSourceDomains = sortByCanonicalDomain(
+    (source.domains ?? []).map((domain) => ({
+      ...domain,
+      domainCode: domain.domainCode ?? domainCodesByName.get(domain.name) ?? domain.name
+    }))
+  );
   const responseLabels = new Map((assembled?.officialResponseLabels ?? []).map((label) => [label.responseValue, label]));
   const tracesByDomain = new Map<string, NonNullable<AssembledReportData['questionTraces']>>();
   for (const trace of assembled?.questionTraces ?? []) {
@@ -826,8 +839,12 @@ export function assembleComprehensive(
       : assembled?.exposureAnswers?.length
         ? `The wider profile records ${assembled.exposureAnswers.slice(0, 2).map((answer) => answer.name).join(' and ')} exposure; no narrower domain link was selected.`
         : 'No additional operating exposure context was recorded for this domain.';
+    const evidenceAnchor = weakest?.evidenceToRequest?.find((item) => String(item ?? '').trim());
+    const verificationTarget = evidenceAnchor
+      ? `${String(evidenceAnchor).trim().charAt(0).toLowerCase()}${String(evidenceAnchor).trim().slice(1)}`
+      : 'complete population coverage, retained proof and exception escalation';
     const managementAttention = weakest
-      ? `Prioritise the linked control position in ${domainName}; management should confirm complete population coverage, retained proof and exception escalation before treating this domain as stable.`
+      ? `Prioritise ${weakest.diagnosis || `the linked control position in ${domainName}`}; management should verify ${verificationTarget} before treating ${domainName} as stable.`
       : `Retain the supporting evidence for ${domainName} and include this domain in normal management review so the recorded position does not erode unnoticed.`;
     const traceability = [...new Set([
       ...domainFindings.map((finding) => `finding:${finding.id}`),

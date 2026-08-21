@@ -43,7 +43,12 @@ const labels = [
 
 const weakCodes = new Set(['D1-Q04', 'D1-Q07', 'D3-Q04', 'D3-Q08', 'D3-Q09', 'D3-Q10', 'D3-Q11', 'D4-Q05', 'D4-Q08', 'D5-Q03', 'D8-Q04', 'D8-Q08', 'D8-Q09', 'D8-Q10', 'D7-Q04']);
 const strongCodes = new Set(['D1-Q01', 'D2-Q01', 'D3-Q03', 'D7-Q01', 'D9-Q01', 'D10-Q01']);
-const domainNames = Object.fromEntries([...new Set(questions.map((question) => question.domainCode))].map((code) => [code, `Domain ${code.slice(1)}`]));
+// The candidate graph is the authoritative customer-facing domain vocabulary.
+// The fixture must exercise the same names as a persisted assessment rather
+// than manufacturing generic labels that can leak into product artefacts.
+const domainNames = Object.fromEntries(graph.domains.map((domain) => [domain.domainCode, domain.name]));
+assert.equal(Object.keys(domainNames).length, 10);
+assert.equal(Object.values(domainNames).every((name) => !/^Domain \d+$/.test(name)), true);
 
 function responseFor(question, index) {
   if (strongCodes.has(question.questionCode)) return 5;
@@ -144,6 +149,7 @@ assert.equal(brief.evidencePack.contradictions.length, 5);
 assert.equal(comprehensiveAssembly.domainDiagnostics.length, 10);
 assert.deepEqual(comprehensiveAssembly.domainDiagnostics.map((row) => row.domainCode), ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10']);
 assert.equal(comprehensiveAssembly.domainDiagnostics.every((row) => row.recordedPosition && row.keyStrengthOrWeakness && row.operatingContext && row.managementAttention), true);
+assert.equal(comprehensiveAssembly.domainDiagnostics.every((row) => !row.managementAttention.includes('Prioritise the linked control position in Domain ')), true);
 assert.equal(comprehensiveAssembly.scenarioSelectionAudit.noMaterialScenarioSilentlyLost, true);
 assert.equal(comprehensiveAssembly.scenarioSelectionAudit.highestMaterialityRelevantSelected, true);
 assert.equal(comprehensiveAssembly.scenarioSelectionAudit.customerFacingCount, comprehensiveAssembly.scenarioPortfolio.length);
@@ -187,8 +193,9 @@ const deterministicHtml = renderComprehensiveManagementReportHtml({
   domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band }))
 });
 assert.equal(deterministicHtml.includes('…'), false, 'management contradiction/domain cards must not use clipped ellipses');
-assert.equal(comprehensiveAssembly.domainDiagnostics.every((row) => deterministicHtml.includes(row.managementAttention)), true);
-assert.equal(comprehensiveAssembly.contradictions.every((row) => deterministicHtml.includes(row.whatLeadershipShouldVerify)), true);
+const htmlEscape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+assert.equal(comprehensiveAssembly.domainDiagnostics.every((row) => deterministicHtml.includes(htmlEscape(row.managementAttention))), true);
+assert.equal(comprehensiveAssembly.contradictions.every((row) => deterministicHtml.includes(htmlEscape(row.whatLeadershipShouldVerify))), true);
 
 const scenarioAudit = auditScenarioLinkage(comprehensiveAssembly.scenarioPortfolio, comprehensiveAssembly.findingRegister, comprehensiveAssembly.riskRegister, comprehensiveAssembly.controlBlueprints);
 assertScenarioLinkageAudit(scenarioAudit);
@@ -200,8 +207,11 @@ assert.equal(/(?:FINDING|RISK|SCENARIO)-\d{3}/.test(reportSurface), false, 'cust
 const roleFixtures = [
   { source: 'CFO', context: 'executive', expected: 'Chief Financial Officer' },
   { source: 'Chief Financial Officer', context: 'executive', expected: 'Chief Financial Officer' },
+  { source: 'Finance', context: 'executive', expected: 'Chief Financial Officer' },
   { source: 'Finance operations accountable owner', context: 'process', expected: 'Finance and payment operations' },
-  { source: 'Audit Committee Chair', context: 'oversight', expected: 'Audit Committee Chair' }
+  { source: 'Audit Committee Chair', context: 'oversight', expected: 'Audit Committee Chair' },
+  { source: 'Audit Committee Chair', context: 'executive', expected: '' },
+  { source: 'Internal Audit or independent reviewer', context: 'process', expected: '' }
 ].map((item) => ({ ...item, actual: normaliseRoleLabel(item.source, item.context) }));
 assert.equal(roleFixtures.every((item) => item.actual === item.expected), true);
 const displayedRoles = [
@@ -210,6 +220,7 @@ const displayedRoles = [
   ...comprehensiveAssembly.controlBlueprints.flatMap((control) => [control.accountableExecutiveRole, control.processOwnerRole, control.oversightFunction])
 ].filter(Boolean);
 assert.equal(displayedRoles.some((role) => /\b(?:CEO|CFO|COO|CTO|CIO|CISO)\b/.test(role)), false);
+assert.equal(managementModel.core.governanceRoles.some((role) => role.roleType === 'EXECUTIVE_ACCOUNTABILITY' && /Audit Committee|Internal Audit/i.test(role.displayRole)), false);
 
 const pdfPath = path.join(outputDir, 'MKFRS-CEDAR-RIDGE-FIXTURE-comprehensive-repaired.pdf');
 const xlsxPath = path.join(outputDir, 'RPT-MKFRS-CEDAR-RIDGE-FIXTURE-V2-comprehensive-supporting-register-repaired.xlsx');
@@ -221,7 +232,17 @@ const contradictions = brief.evidencePack.contradictions.map((contradiction) => 
   ...contradiction,
   managementReportLocations: [{ section: 'Section 2 — The patterns beneath the score', heading: 'Relationships leadership should not overlook', fields: ['recorded relationship', 'operational meaning', 'false comfort to test', 'fraud pathway enabled', 'leadership should verify'] }]
 }));
-const roleAudit = { version: ROLE_NORMALISATION_VERSION, equivalenceFixtures: roleFixtures, displayedRoleCount: displayedRoles.length, displayedRoles: [...new Set(displayedRoles)], unintendedAbbreviations: [] };
+const roleAudit = {
+  version: ROLE_NORMALISATION_VERSION,
+  equivalenceFixtures: roleFixtures,
+  displayedRoleCount: displayedRoles.length,
+  displayedRoles: [...new Set(displayedRoles)],
+  executiveRoles: [...new Set(managementModel.core.governanceRoles.filter((role) => role.roleType === 'EXECUTIVE_ACCOUNTABILITY').map((role) => role.displayRole))],
+  oversightRoles: [...new Set(managementModel.core.governanceRoles.filter((role) => role.roleType === 'OVERSIGHT').map((role) => role.displayRole))],
+  prohibitedExecutiveOversightLabels: ['Audit Committee', 'Audit Committee Chair', 'Internal Audit'],
+  executiveOversightInversions: managementModel.core.governanceRoles.filter((role) => role.roleType === 'EXECUTIVE_ACCOUNTABILITY' && /Audit Committee|Internal Audit/i.test(role.displayRole)).map((role) => role.displayRole),
+  unintendedAbbreviations: []
+};
 const beforeAfter = [
   { defect: 'AI narrative evidence contract', before: 'Brief contained score, domains, themes, programmes and totals only.', after: 'Curated evidence pack now carries recorded context, material positions, priorities, strengths, contradictions and evidence references.', evidence: 'deterministic-evidence-pack.json' },
   { defect: 'Contradiction synthesis', before: 'Five deterministic contradictions were not in the management model or core diagnosis.', after: 'All five appear in Section 2 with operational meaning and leadership verification.', evidence: 'contradictions.json and PDF Section 2' },

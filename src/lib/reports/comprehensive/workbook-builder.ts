@@ -86,8 +86,8 @@ function readMeRows(model: ComprehensiveDeliveryModel, binding: ComprehensiveWor
   return [
     { field: 'Workbook purpose', value: 'Comprehensive Fraud Readiness Strategy and Control Blueprint', note: 'Use the workbook to understand, decide, build and monitor.' },
     { field: 'Product', value: 'Comprehensive', note: 'Automated analytical product; no human review or sign-off is part of this package.' },
-    { field: 'Order binding', value: cell(binding.orderReference), note: 'The private Storage path and report_artifacts row bind this workbook to the exact order.' },
-    { field: 'Report binding', value: cell(binding.reportReference), note: 'The private Storage path and report_artifacts row bind this workbook to the exact report version.' },
+    { field: 'Order binding', value: cell(binding.orderReference), note: 'The order reference above provides traceability to the exact customer order.' },
+    { field: 'Report binding', value: cell(binding.reportReference), note: 'The report reference and version above identify the exact report version released with the PDF.' },
     { field: 'Report version', value: binding.versionNumber === undefined ? '' : String(binding.versionNumber), note: 'Exact version released with the Comprehensive PDF.' },
     { field: 'Customer basis', value: "This report provides strategic fraud-risk analysis and control design based on management's recorded Fraud Readiness assessment responses.", note: 'It does not independently verify operating effectiveness.' },
     { field: 'Analytical boundary', value: 'The deterministic engine decides; bounded narrative explains the recorded result.', note: 'No identity or sign-off record is required for generation.' },

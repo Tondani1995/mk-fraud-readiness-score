@@ -93,9 +93,9 @@ const ROLE_CANON: ReadonlyArray<{ id: string; display: string; type: CanonicalRo
   { id: 'ROLE-CPO', display: 'Chief People Officer', type: 'EXECUTIVE_ACCOUNTABILITY', match: /^chief people/i },
   { id: 'ROLE-CTO', display: 'Chief Technology Officer', type: 'EXECUTIVE_ACCOUNTABILITY', match: /^chief technology/i },
   { id: 'ROLE-GC', display: 'General Counsel', type: 'EXECUTIVE_ACCOUNTABILITY', match: /^general counsel/i },
-  { id: 'ROLE-AUDIT-CHAIR', display: 'Audit Committee Chair', type: 'EXECUTIVE_ACCOUNTABILITY', match: /^(audit committee chair|chair of audit committee)/i },
   // Oversight
   { id: 'ROLE-BOARD', display: 'Board', type: 'OVERSIGHT', match: /^board/i },
+  { id: 'ROLE-AUDIT-COMMITTEE-CHAIR', display: 'Audit Committee Chair', type: 'OVERSIGHT', match: /^(audit committee chair|chair of audit committee)/i },
   { id: 'ROLE-AUDIT-COMMITTEE', display: 'Audit Committee', type: 'OVERSIGHT', match: /^audit committee/i },
   { id: 'ROLE-RISK-COMMITTEE', display: 'Risk Committee', type: 'OVERSIGHT', match: /^risk committee/i },
   { id: 'ROLE-INTERNAL-AUDIT', display: 'Internal Audit', type: 'OVERSIGHT', match: /^internal audit/i },
@@ -313,7 +313,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
       provenance: 'CONTROL_LIBRARY' as ComprehensiveProvenance, roleVotes: []
     };
     existing.controlIds.push(control.controlId);
-    existing.roleVotes.push(canonicalRoleFor(control.accountableExecutiveRole, 'EXECUTIVE_ACCOUNTABILITY').id);
+    if (control.accountableExecutiveRole) existing.roleVotes.push(canonicalRoleFor(control.accountableExecutiveRole, 'EXECUTIVE_ACCOUNTABILITY').id);
     if (control.targetPeriod) existing.targetPeriods.push(control.targetPeriod);
     const group = evidenceByControl.get(control.controlId);
     if (group) { existing.evidenceGroupCount += 1; existing.evidenceItemCount += group.items.length; }

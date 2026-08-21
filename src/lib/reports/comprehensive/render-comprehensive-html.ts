@@ -298,8 +298,13 @@ export function renderComprehensiveManagementReportHtml(input: {
     <div class="sp"></div>
   </section>`);
 
+  // A diagnostic card is a customer-facing evidence unit. Four cards can exceed
+  // the fixed A4 core page when a dependency or evidence anchor is long; the
+  // fixed page's overflow guard then clips the tail without a continuation.
+  // Each card fits comfortably on its own page at the existing body size, so
+  // give it an explicit page rather than allowing a silent fragment.
   const diagnosticChunks: typeof core.domainDiagnostics[] = [];
-  for (let index = 0; index < core.domainDiagnostics.length; index += 4) diagnosticChunks.push(core.domainDiagnostics.slice(index, index + 4));
+  for (let index = 0; index < core.domainDiagnostics.length; index += 1) diagnosticChunks.push(core.domainDiagnostics.slice(index, index + 1));
   for (const chunk of diagnosticChunks) {
     emit(slot('POSITION'), `<section class="page">
       <div class="q">${heading(slot('POSITION'))}</div>

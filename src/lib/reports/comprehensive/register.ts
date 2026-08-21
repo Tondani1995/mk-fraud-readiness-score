@@ -1,5 +1,5 @@
 import type { ComprehensiveDeliveryModel } from './types';
-import { normaliseRoleLabel, normaliseRoleText } from './role-normalisation';
+import { normaliseOversightRoleLabel, normaliseRoleLabel, normaliseRoleText } from './role-normalisation';
 
 export interface RegisterSheet<T extends Record<string, unknown> = Record<string, unknown>> { name: string; columns: string[]; rows: T[]; }
 
@@ -17,6 +17,12 @@ function safeCell(value: unknown): string | number | boolean | null {
 function list(values: unknown[]): string { return values.map((value) => String(value ?? '').trim()).filter(Boolean).join('; '); }
 function refs(values: unknown[]): string { return list(values).replaceAll('finding:', 'Finding ID: ').replaceAll('risk:', 'Risk ID: ').replaceAll('question:', 'Question code: ').replaceAll('control:', 'Control ID: ').replaceAll('evidence:', 'Proof ID: '); }
 function date(value: unknown): string { const raw = String(value ?? '').trim(); if (!raw) return ''; const parsed = new Date(raw); return Number.isNaN(parsed.getTime()) ? raw : parsed.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+function oversight(value: unknown, ...roleSources: unknown[]): string {
+  return normaliseRoleLabel([
+    value,
+    ...roleSources.map((source) => normaliseOversightRoleLabel(source))
+  ].filter(Boolean).join(' / '), 'oversight');
+}
 
 export function safeSpreadsheetCell(value: unknown): string | number | boolean | null { return safeCell(value); }
 
@@ -26,7 +32,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     recordedResponse: safeCell(finding.responseMeaning), diagnosis: safeCell(finding.diagnosis), whyItMatters: safeCell(finding.whyItMatters),
     fraudMechanism: safeCell(finding.fraudMechanism), materiality: safeCell(finding.materialityClass), priorityScore: safeCell(finding.materialityScore),
     interpretation: safeCell(finding.interpretation), recommendedControl: safeCell(finding.recommendedControl), accountableOwner: safeCell(normaliseRoleLabel(finding.accountableOwner, 'executive')),
-    processOwner: safeCell(normaliseRoleLabel(finding.processOwner, 'process')), oversightFunction: safeCell(normaliseRoleLabel(finding.oversightFunction, 'oversight')), targetPeriod: safeCell(finding.targetPeriod),
+    processOwner: safeCell(normaliseRoleLabel(finding.processOwner, 'process')), oversightFunction: safeCell(oversight(finding.oversightFunction, finding.accountableOwner, finding.processOwner)), targetPeriod: safeCell(finding.targetPeriod),
     effectivenessMeasure: safeCell(finding.effectivenessMeasure), escalationThreshold: safeCell(finding.escalationThreshold), sourceRefs: safeCell(refs([`finding:${finding.id}`, `question:${finding.questionCode}`]))
   }));
 
@@ -34,7 +40,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     id: safeCell(risk.id), title: safeCell(risk.title), priority: safeCell(risk.priority), likelihood: safeCell(risk.likelihood), impact: safeCell(risk.impact),
     riskStatement: safeCell(risk.riskStatement), cause: safeCell(risk.cause), riskEvent: safeCell(risk.riskEvent), financialImpact: safeCell(risk.financialImpact),
     operationalImpact: safeCell(risk.operationalImpact), currentControlPosition: safeCell(risk.currentControlPosition), requiredTreatment: safeCell(risk.requiredTreatment),
-    accountableExecutive: safeCell(normaliseRoleLabel(risk.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(risk.processOwner, 'process')), oversightFunction: safeCell(normaliseRoleLabel(risk.oversightFunction, 'oversight')),
+    accountableExecutive: safeCell(normaliseRoleLabel(risk.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(risk.processOwner, 'process')), oversightFunction: safeCell(oversight(risk.oversightFunction, risk.accountableExecutive, risk.processOwner)),
     targetPeriod: safeCell(risk.targetPeriod), effectivenessMeasure: safeCell(risk.effectivenessMeasure), remainingLimitation: safeCell(risk.remainingLimitation),
     linkedFindingIds: safeCell(refs(risk.linkedFindingIds)), linkedScenarioIds: safeCell(refs(risk.linkedScenarioIds))
   }));
@@ -42,7 +48,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
   const controls = model.controlImprovements.map((control) => ({
     id: safeCell(control.id), linkedFindingId: safeCell(control.linkedFindingId), linkedRiskIds: safeCell(refs(control.linkedRiskIds)), questionCode: safeCell(control.linkedQuestionCode),
     currentState: safeCell(control.currentState), targetState: safeCell(control.targetState), controlObjective: safeCell(control.controlObjective), controlDesign: safeCell(control.controlDesign),
-    accountableExecutive: safeCell(normaliseRoleLabel(control.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(control.processOwner, 'process')), oversightFunction: safeCell(normaliseRoleLabel(control.oversightFunction, 'oversight')),
+    accountableExecutive: safeCell(normaliseRoleLabel(control.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(control.processOwner, 'process')), oversightFunction: safeCell(oversight(control.oversightFunction, control.accountableExecutive, control.processOwner)),
     supportingFunctions: safeCell(list(control.supportingFunctions)), operatingFrequency: safeCell(control.operatingFrequency), population: safeCell(control.completePopulationCoverage),
     proofRetained: safeCell(list(control.evidenceRetained)), independentCheck: safeCell(control.effectivenessTest), escalationThreshold: safeCell(control.escalationThreshold),
     serviceLevel: safeCell(control.implementationDependency), effectivenessMeasure: safeCell(control.effectivenessTest), failureResponse: safeCell(control.failureResponse),
@@ -58,7 +64,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
 
   const roadmap = model.roadmapActions.map((action) => ({
     id: safeCell(action.id), period: safeCell(action.period), domain: safeCell(action.domainName), deliverable: safeCell(action.deliverable),
-    accountableExecutive: safeCell(normaliseRoleLabel(action.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(action.processOwner, 'process')), oversightFunction: safeCell(normaliseRoleLabel(action.oversightFunction, 'oversight')),
+    accountableExecutive: safeCell(normaliseRoleLabel(action.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(action.processOwner, 'process')), oversightFunction: safeCell(oversight(action.oversightFunction, action.accountableExecutive, action.processOwner)),
     supportingFunctions: safeCell(list(action.supportingFunctions)), dependencies: safeCell(refs(action.dependencyIds)), successMeasure: safeCell(action.successMeasure),
     proofOfCompletion: safeCell(action.evidenceOfCompletion), escalationThreshold: safeCell(action.escalationThreshold), linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
   }));
@@ -67,7 +73,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     ...model.roadmapActions.map((action) => ({
       recordType: 'Roadmap action', technicalId: safeCell(action.id), period: safeCell(action.period), domain: safeCell(action.domainName),
       requirementOrDeliverable: safeCell(action.deliverable), accountableOwner: safeCell(normaliseRoleLabel(action.accountableExecutive, 'executive')), processOwner: safeCell(normaliseRoleLabel(action.processOwner, 'process')),
-      oversightFunction: safeCell(normaliseRoleLabel(action.oversightFunction, 'oversight')), dependencies: safeCell(refs(action.dependencyIds)), proofOrCompletion: safeCell(action.evidenceOfCompletion),
+      oversightFunction: safeCell(oversight(action.oversightFunction, action.accountableExecutive, action.processOwner)), dependencies: safeCell(refs(action.dependencyIds)), proofOrCompletion: safeCell(action.evidenceOfCompletion),
       successMeasure: safeCell(action.successMeasure), expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
     })),
     ...model.proofRequirements.map((item) => ({

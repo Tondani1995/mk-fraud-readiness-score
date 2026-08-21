@@ -28,6 +28,7 @@ const EXECUTIVE_ALIASES: Readonly<Record<string, string>> = {
   CISO: 'Chief Information Security Officer',
   'CHIEF INFORMATION SECURITY OFFICER': 'Chief Information Security Officer',
   'GENERAL COUNSEL': 'General Counsel',
+  FINANCE: 'Chief Financial Officer',
   'CHIEF PEOPLE OFFICER': 'Chief People Officer',
   'CHIEF HUMAN RESOURCES OFFICER': 'Chief People Officer'
 };
@@ -35,6 +36,7 @@ const EXECUTIVE_ALIASES: Readonly<Record<string, string>> = {
 const PROCESS_ALIASES: Readonly<Record<string, string>> = {
   'FINANCE OPERATIONS ACCOUNTABLE OWNER': 'Finance and payment operations',
   'FINANCE AND PAYMENT OPERATIONS': 'Finance and payment operations',
+  FINANCE: 'Finance and payment operations',
   'FINANCE CONTROL': 'Finance and payment operations',
   'ACCOUNTS PAYABLE': 'Finance and payment operations',
   'PROCUREMENT / VENDOR MASTER': 'Procurement and vendor management',
@@ -64,6 +66,9 @@ const PROCESS_ALIASES: Readonly<Record<string, string>> = {
 const OVERSIGHT_ALIASES: Readonly<Record<string, string>> = {
   'AUDIT COMMITTEE CHAIR': 'Audit Committee Chair',
   'CHAIR OF THE AUDIT COMMITTEE': 'Audit Committee Chair',
+  'INDEPENDENT REVIEWER': 'Independent reviewer',
+  'EQUIVALENT INDEPENDENT REVIEWER': 'Independent reviewer',
+  'INDEPENDENT ASSURANCE REVIEWER': 'Independent reviewer',
   'INDEPENDENT GOVERNING OVERSIGHT': 'Independent governing oversight',
   'AUDIT COMMITTEE': 'Audit Committee',
   'RISK COMMITTEE': 'Risk Committee',
@@ -88,18 +93,44 @@ function aliasesFor(context: RoleContext): Readonly<Record<string, string>> {
   return { ...EXECUTIVE_ALIASES, ...PROCESS_ALIASES, ...OVERSIGHT_ALIASES };
 }
 
+const OVERSIGHT_ROLE_PATTERN = /^(?:audit committee(?: chair)?|chair (?:of )?(?:the )?audit committee|board|risk committee|internal audit|(?:equivalent )?independent (?:assurance )?reviewer|independent governing oversight|legal|compliance|risk|finance control|information security)(?:\b|$)/i;
+
+function roleParts(value: string): string[] {
+  return value.split(/\s*\/\s*|\s+\bor\s+/i).map((part) => part.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+function isOversightRolePart(value: string): boolean {
+  const part = key(value);
+  return OVERSIGHT_ALIASES[part] !== undefined || OVERSIGHT_ROLE_PATTERN.test(value);
+}
+
 function normaliseAtom(value: string, context: RoleContext): string {
   const trimmed = value.replace(/\s+/g, ' ').trim();
   if (!trimmed) return '';
   return aliasesFor(context)[key(trimmed)] ?? aliasesFor('generic')[key(trimmed)] ?? trimmed;
 }
 
+/** Preserve oversight terms when a source field put them in the wrong role slot. */
+export function normaliseOversightRoleLabel(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  return roleParts(raw)
+    .filter(isOversightRolePart)
+    .map((part) => normaliseAtom(part, 'oversight'))
+    .filter(Boolean)
+    .filter((part, index, parts) => parts.indexOf(part) === index)
+    .join(' / ');
+}
+
 /** Normalise one role label while retaining meaningful composite alternatives. */
 export function normaliseRoleLabel(value: unknown, context: RoleContext): string {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
-  return raw
-    .split(/\s*\/\s*/)
+  const parts = roleParts(raw);
+  const eligibleParts = context === 'executive' || context === 'process'
+    ? parts.filter((part) => !isOversightRolePart(part))
+    : parts;
+  return eligibleParts
     .map((part) => normaliseAtom(part, context))
     .filter(Boolean)
     .filter((part, index, parts) => parts.indexOf(part) === index)
