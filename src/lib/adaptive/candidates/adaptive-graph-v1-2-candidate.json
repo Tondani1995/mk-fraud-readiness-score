@@ -1,0 +1,3701 @@
+{
+  "graphVersion": "MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821",
+  "methodologyVersion": "MFRS-V1.2-CANDIDATE-OWNER-CORRECTION",
+  "status": "draft_candidate",
+  "activationPolicy": "owner_approval_required",
+  "provenance": "V1.2 owner-review correction built from the frozen V1.1 graph; no V1.1 customer graph, historical response or active route is changed.",
+  "responseScale": [
+    {
+      "responseValue": 0,
+      "label": "Not in place",
+      "operationalMeaning": "The capability is absent or is not recognised as required.",
+      "normalisedScore": 0
+    },
+    {
+      "responseValue": 1,
+      "label": "Informal / reactive",
+      "operationalMeaning": "Some activity occurs, but it is informal, reactive or dependent on individual effort.",
+      "normalisedScore": 20
+    },
+    {
+      "responseValue": 2,
+      "label": "Partly designed",
+      "operationalMeaning": "The capability has been partly designed, but important elements are incomplete or inconsistent.",
+      "normalisedScore": 40
+    },
+    {
+      "responseValue": 3,
+      "label": "Implemented in key areas",
+      "operationalMeaning": "The capability operates in key areas, but coverage or consistency is not yet organisation-wide.",
+      "normalisedScore": 60
+    },
+    {
+      "responseValue": 4,
+      "label": "Consistently operating",
+      "operationalMeaning": "The capability is defined, operating consistently and supported by evidence.",
+      "normalisedScore": 80
+    },
+    {
+      "responseValue": 5,
+      "label": "Embedded and improving",
+      "operationalMeaning": "The capability is measured, governed and deliberately improved over time.",
+      "normalisedScore": 100
+    }
+  ],
+  "uncertaintyOption": {
+    "value": "unknown",
+    "label": "I don't know / cannot confirm",
+    "scoringStatus": "unknown",
+    "uncertaintyTreatment": "retained_in_scope_zero_readiness_credit_reported_as_unconfirmed",
+    "excludedFromDenominatorRule": "never"
+  },
+  "notApplicablePolicy": {
+    "label": "Not applicable",
+    "availableOnlyFrom": "deterministic_factual_gateway_absence",
+    "neverAvailableFrom": "maturity_judgement_or_unknown_response"
+  },
+  "domains": [
+    {
+      "domainCode": "D1",
+      "name": "Fraud Leadership and Governance",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 1,
+      "v11WeightTotal": 7.5,
+      "candidateWeightTotal": 7.5
+    },
+    {
+      "domainCode": "D2",
+      "name": "Fraud Risk Identification",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 2,
+      "v11WeightTotal": 9.75,
+      "candidateWeightTotal": 9.75
+    },
+    {
+      "domainCode": "D3",
+      "name": "Operational Fraud Controls",
+      "weightPct": 14,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 3,
+      "v11WeightTotal": 9,
+      "candidateWeightTotal": 10.5
+    },
+    {
+      "domainCode": "D4",
+      "name": "Fraud Detection Capability",
+      "weightPct": 14,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 4,
+      "v11WeightTotal": 8.5,
+      "candidateWeightTotal": 8.5
+    },
+    {
+      "domainCode": "D5",
+      "name": "Fraud Incident Response",
+      "weightPct": 10,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 5,
+      "v11WeightTotal": 8.75,
+      "candidateWeightTotal": 6.5
+    },
+    {
+      "domainCode": "D6",
+      "name": "Whistleblowing and Reporting Culture",
+      "weightPct": 6,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 6,
+      "v11WeightTotal": 7,
+      "candidateWeightTotal": 6
+    },
+    {
+      "domainCode": "D7",
+      "name": "Third-Party and Supply Chain Fraud Risk",
+      "weightPct": 10,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 7,
+      "v11WeightTotal": 8.5,
+      "candidateWeightTotal": 8.5
+    },
+    {
+      "domainCode": "D8",
+      "name": "Digital and Identity Fraud Risk",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 8,
+      "v11WeightTotal": 10.5,
+      "candidateWeightTotal": 9.25
+    },
+    {
+      "domainCode": "D9",
+      "name": "Fraud Culture and Awareness",
+      "weightPct": 5,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 9,
+      "v11WeightTotal": 6.75,
+      "candidateWeightTotal": 4.5
+    },
+    {
+      "domainCode": "D10",
+      "name": "Continuous Improvement and Fraud Risk Monitoring",
+      "weightPct": 5,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 10,
+      "v11WeightTotal": 7.5,
+      "candidateWeightTotal": 5.25
+    }
+  ],
+  "gateways": [
+    {
+      "questionId": "G01",
+      "section": "Organisation profile",
+      "prompt": "What best describes your organisation’s main operating environment?",
+      "construct": "primary operating environment",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "primary operating environment",
+      "gatewayStatus": "gateway",
+      "sortOrder": 0,
+      "responseOptions": [
+        {
+          "value": "professional_services",
+          "label": "Professional services"
+        },
+        {
+          "value": "retail_consumer",
+          "label": "Retail or consumer-facing"
+        },
+        {
+          "value": "construction_projects",
+          "label": "Construction or project delivery"
+        },
+        {
+          "value": "technology_digital_platform",
+          "label": "Technology, digital or platform services"
+        },
+        {
+          "value": "manufacturing_production",
+          "label": "Manufacturing or production"
+        },
+        {
+          "value": "public_nonprofit_member",
+          "label": "Public, nonprofit or member-based"
+        },
+        {
+          "value": "other_mixed",
+          "label": "Other or mixed"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G02",
+      "section": "Organisation profile",
+      "prompt": "How many people work for the organisation, including regular employees?",
+      "construct": "explicit employee headcount band",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "explicit employee headcount band",
+      "gatewayStatus": "gateway",
+      "sortOrder": 1,
+      "responseOptions": [
+        {
+          "value": "employees_1_9",
+          "label": "1–9 people"
+        },
+        {
+          "value": "employees_10_49",
+          "label": "10–49 people"
+        },
+        {
+          "value": "employees_50_249",
+          "label": "50–249 people"
+        },
+        {
+          "value": "employees_250_999",
+          "label": "250–999 people"
+        },
+        {
+          "value": "employees_1000_plus",
+          "label": "1,000 or more people"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G03",
+      "section": "Suppliers and third parties",
+      "prompt": "Does the organisation use external suppliers, contractors or service providers?",
+      "construct": "whether external suppliers or providers exist",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "whether external suppliers or providers exist",
+      "gatewayStatus": "gateway",
+      "sortOrder": 2,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G04",
+      "section": "Suppliers and third parties",
+      "prompt": "Who is primarily responsible for supplier onboarding and ongoing supplier management?",
+      "construct": "primary responsibility for supplier onboarding and ongoing supplier management",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "primary responsibility for supplier onboarding and ongoing supplier management",
+      "gatewayStatus": "gateway",
+      "sortOrder": 3,
+      "responseOptions": [
+        {
+          "value": "organisation",
+          "label": "Our organisation"
+        },
+        {
+          "value": "group_function",
+          "label": "A group or shared-service function"
+        },
+        {
+          "value": "external_provider",
+          "label": "An external service provider"
+        },
+        {
+          "value": "shared_hybrid",
+          "label": "A shared or hybrid model"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": {
+        "questionId": "G03",
+        "in": [
+          "yes"
+        ]
+      }
+    },
+    {
+      "questionId": "G05",
+      "section": "Procurement and sourcing",
+      "prompt": "Who is primarily responsible for procurement and sourcing?",
+      "construct": "primary responsibility for procurement and sourcing",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "primary responsibility for procurement and sourcing",
+      "gatewayStatus": "gateway",
+      "sortOrder": 4,
+      "responseOptions": [
+        {
+          "value": "dedicated_internal",
+          "label": "Dedicated internal procurement or sourcing function"
+        },
+        {
+          "value": "business_owners",
+          "label": "Business owners or managers"
+        },
+        {
+          "value": "group_function",
+          "label": "A group or shared-service function"
+        },
+        {
+          "value": "external_provider",
+          "label": "External service provider"
+        },
+        {
+          "value": "shared_hybrid",
+          "label": "Shared or hybrid model"
+        },
+        {
+          "value": "no_procurement",
+          "label": "No defined procurement or sourcing process"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G06",
+      "section": "Money and physical assets",
+      "prompt": "Does the organisation handle physical cash as part of normal operations?",
+      "construct": "physical cash exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "physical cash exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 5,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G07",
+      "section": "Money and physical assets",
+      "prompt": "Does the organisation hold or manage stock, inventory or valuable physical assets?",
+      "construct": "stock, inventory or physical-asset exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "stock, inventory or physical-asset exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 6,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G08",
+      "section": "People and payroll",
+      "prompt": "Who is primarily responsible for delivering payroll?",
+      "construct": "primary responsibility for payroll delivery",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "primary responsibility for payroll delivery",
+      "gatewayStatus": "gateway",
+      "sortOrder": 7,
+      "responseOptions": [
+        {
+          "value": "organisation",
+          "label": "Our organisation"
+        },
+        {
+          "value": "group_function",
+          "label": "A group or shared-service function"
+        },
+        {
+          "value": "external_provider",
+          "label": "An external payroll provider"
+        },
+        {
+          "value": "shared_hybrid",
+          "label": "A shared or hybrid model"
+        },
+        {
+          "value": "no_payroll",
+          "label": "The organisation does not run payroll"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G09",
+      "section": "Digital channels and users",
+      "prompt": "Which statement best describes the organisation’s customer or user digital channels?",
+      "construct": "own versus third-party customer or user digital channels",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "own versus third-party customer or user digital channels",
+      "gatewayStatus": "gateway",
+      "sortOrder": 8,
+      "responseOptions": [
+        {
+          "value": "own",
+          "label": "Our organisation operates them"
+        },
+        {
+          "value": "provider",
+          "label": "A third-party platform operates them"
+        },
+        {
+          "value": "both",
+          "label": "Our organisation and third-party platforms both operate them"
+        },
+        {
+          "value": "none",
+          "label": "We do not operate customer or user digital channels"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G10",
+      "section": "Digital payments",
+      "prompt": "Does the organisation accept customer or user payments through card, online, app, portal or other digital channels?",
+      "construct": "customer or user digital-payment exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "customer or user digital-payment exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 9,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G11",
+      "section": "Data and identity",
+      "prompt": "Does the organisation handle personal or identity information about customers, users, employees or suppliers?",
+      "construct": "personal and identity-data exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "personal and identity-data exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 10,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G12",
+      "section": "Financial and stock adjustments",
+      "prompt": "Can people make manual financial, stock or similar record adjustments?",
+      "construct": "manual financial or stock adjustment capability",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "manual financial or stock adjustment capability",
+      "gatewayStatus": "gateway",
+      "sortOrder": 11,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G13",
+      "section": "Operating footprint",
+      "prompt": "Does the organisation operate from more than one site, store or project location?",
+      "construct": "multi-site or multi-project operation",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "multi-site or multi-project operation",
+      "gatewayStatus": "gateway",
+      "sortOrder": 12,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G14",
+      "section": "People and workforce",
+      "prompt": "Does the organisation use temporary, seasonal or subcontracted workers?",
+      "construct": "temporary, seasonal or subcontracted workforce exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "temporary, seasonal or subcontracted workforce exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 13,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G15",
+      "section": "Digital access",
+      "prompt": "Can people access systems or organisation data remotely?",
+      "construct": "remote system or data access",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "remote system or data access",
+      "gatewayStatus": "gateway",
+      "sortOrder": 14,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G16",
+      "section": "Payment governance",
+      "prompt": "Which approval arrangement normally applies to higher-risk payments or significant spending?",
+      "construct": "approval arrangement for higher-risk payments or significant spending",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "approval arrangement for higher-risk payments or significant spending",
+      "gatewayStatus": "gateway",
+      "sortOrder": 15,
+      "responseOptions": [
+        {
+          "value": "one_person",
+          "label": "One person within the organisation"
+        },
+        {
+          "value": "two_or_more",
+          "label": "Two or more people within the organisation"
+        },
+        {
+          "value": "group_function",
+          "label": "A group or shared-service function"
+        },
+        {
+          "value": "external_provider",
+          "label": "An external service provider"
+        },
+        {
+          "value": "no_formal",
+          "label": "No defined approval arrangement"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    },
+    {
+      "questionId": "G17",
+      "section": "Intermediaries",
+      "prompt": "Does the organisation use agents, brokers, distributors or other intermediaries?",
+      "construct": "agent, broker, distributor or intermediary exposure",
+      "constructCount": 1,
+      "questionType": "single_select",
+      "responseDimension": "agent, broker, distributor or intermediary exposure",
+      "gatewayStatus": "gateway",
+      "sortOrder": 16,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "Yes"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        },
+        {
+          "value": "unknown",
+          "label": "I don't know / cannot confirm"
+        }
+      ],
+      "scoringStatus": "profile_only",
+      "conditionalWhen": null
+    }
+  ],
+  "gatewayBlocks": [
+    {
+      "phase": "profile",
+      "title": "About your organisation",
+      "intro": "Short factual questions establish scope before the scored capabilities."
+    },
+    {
+      "phase": "supplier_and_procurement",
+      "title": "Suppliers and procurement",
+      "intro": "Supplier and sourcing answers distinguish direct controls from retained oversight."
+    },
+    {
+      "phase": "money_people_and_footprint",
+      "title": "Money, people and operating footprint",
+      "intro": "Cash, assets, payroll, workforce and location answers establish factual exposure."
+    },
+    {
+      "phase": "digital_and_identity",
+      "title": "Digital, identity and access",
+      "intro": "Channel, payment, data and remote-access answers distinguish digital pathways."
+    },
+    {
+      "phase": "payment_and_intermediary_governance",
+      "title": "Payment arrangement and intermediaries",
+      "intro": "Approval arrangement and intermediary answers complete the exposure profile."
+    }
+  ],
+  "questions": [
+    {
+      "questionId": "D1-Q01",
+      "questionCode": "D1-Q01",
+      "domainCode": "D1",
+      "prompt": "A named senior owner is accountable for fraud risk management and has authority to drive action.",
+      "construct": "senior accountability",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "A named senior owner is accountable for fraud risk management and has authority to drive action.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D1-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 1,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q02",
+      "questionCode": "D1-Q02",
+      "domainCode": "D1",
+      "prompt": "Fraud risk is recognised in the organisation's wider risk or governance framework.",
+      "construct": "D1-Q02",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risk is recognised in the organisation's wider risk or governance framework.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D1-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 2,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q03",
+      "questionCode": "D1-Q03",
+      "domainCode": "D1",
+      "prompt": "Fraud risks, incidents and control weaknesses are reported to senior leadership or a governance forum on a defined rhythm.",
+      "construct": "D1-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risks, incidents and control weaknesses are reported to senior leadership or a governance forum on a defined rhythm.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D1-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q03"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 3,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q04",
+      "questionCode": "D1-Q04",
+      "domainCode": "D1",
+      "prompt": "Management owns fraud-risk decisions and control action.",
+      "construct": "management ownership",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Management owns fraud-risk decisions and control action.",
+      "weight": 1,
+      "weightBasis": "D1-Q04 V1.1 weight 1.5 divided: 1.0 retained management ownership; 0.5 allocated to D1-Q07 independent assurance.",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q04"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 4,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q05",
+      "questionCode": "D1-Q05",
+      "domainCode": "D1",
+      "prompt": "Written guidance sets out how fraud should be prevented and detected, and how suspected fraud should be reported and handled.",
+      "construct": "written fraud guidance",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Written guidance sets out how fraud should be prevented and detected, and how suspected fraud should be reported and handled.",
+      "weight": 1,
+      "weightBasis": "V1.1 D1-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 5,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q05",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q06",
+      "questionCode": "D1-Q06",
+      "domainCode": "D1",
+      "prompt": "Leadership receives updates on emerging fraud threats affecting the sector, operating model or customer and supplier environment.",
+      "construct": "D1-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Leadership receives updates on emerging fraud threats affecting the sector, operating model or customer and supplier environment.",
+      "weight": 1,
+      "weightBasis": "V1.1 D1-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D1-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 6,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D1-Q07",
+      "questionCode": "D1-Q07",
+      "domainCode": "D1",
+      "prompt": "Fraud risk and key controls receive independent review appropriate to the organisation’s size and operating model.",
+      "construct": "independent assurance",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Separate management ownership from independent review by an assurance function, governing body or external specialist where appropriate.",
+      "weight": 0.5,
+      "weightBasis": "Split from D1-Q04 V1.1 weight 1.5; explicit 0.5 owner-review allocation.",
+      "origin": "SPLIT",
+      "newControl": true,
+      "splitFrom": "D1-Q04",
+      "sourceCurrentIds": [
+        "D1-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 7,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D1-Q07",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D10-Q01",
+      "questionCode": "D10-Q01",
+      "domainCode": "D10",
+      "prompt": "The organisation periodically reviews its fraud risks and control environment.",
+      "construct": "D10-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation periodically reviews its fraud risks and control environment.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D10-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D10-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 8,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D10-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D10-Q02",
+      "questionCode": "D10-Q02",
+      "domainCode": "D10",
+      "prompt": "Fraud incidents or control failures are analysed to understand root causes and control weaknesses.",
+      "construct": "D10-Q02",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud incidents or control failures are analysed to understand root causes and control weaknesses.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D10-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D10-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 9,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D10-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D10-Q03",
+      "questionCode": "D10-Q03",
+      "domainCode": "D10",
+      "prompt": "Lessons from investigations or incidents are translated into control, process, training or monitoring improvements.",
+      "construct": "D10-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Lessons from investigations or incidents are translated into control, process, training or monitoring improvements.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D10-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D10-Q03",
+        "D5-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 10,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D10-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D10-Q06",
+      "questionCode": "D10-Q06",
+      "domainCode": "D10",
+      "prompt": "Leadership periodically reviews whether key fraud controls remain effective, resourced and fit for purpose.",
+      "construct": "D10-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Leadership periodically reviews whether key fraud controls remain effective, resourced and fit for purpose.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D10-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D10-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 11,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D10-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q01",
+      "questionCode": "D2-Q01",
+      "domainCode": "D2",
+      "prompt": "The organisation has completed a structured fraud risk assessment within the past two years.",
+      "construct": "D2-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation has completed a structured fraud risk assessment within the past two years.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D2-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 12,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q02",
+      "questionCode": "D2-Q02",
+      "domainCode": "D2",
+      "prompt": "Fraud risks are mapped to the organisation’s important processes.",
+      "construct": "process-level fraud mapping",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risks are mapped to the organisation’s important processes.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D2-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q02"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 13,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q03",
+      "questionCode": "D2-Q03",
+      "domainCode": "D2",
+      "prompt": "New systems, channels, products, services or operational changes include fraud-risk review before implementation.",
+      "construct": "D2-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "New systems, channels, products, services or operational changes include fraud-risk review before implementation.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D2-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q03",
+        "D10-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 14,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q04",
+      "questionCode": "D2-Q04",
+      "domainCode": "D2",
+      "prompt": "Fraud risks are refreshed when the organisation changes how it operates, serves customers or works with suppliers.",
+      "construct": "D2-Q04",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risks are refreshed when the organisation changes how it operates, serves customers or works with suppliers.",
+      "weight": 1,
+      "weightBasis": "V1.1 D2-Q04 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 15,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q05",
+      "questionCode": "D2-Q05",
+      "domainCode": "D2",
+      "prompt": "Fraud risks linked to suppliers, contractors, agents, intermediaries or other third parties have been assessed.",
+      "construct": "D2-Q05",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risks linked to suppliers, contractors, agents, intermediaries or other third parties have been assessed.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D2-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 16,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G17",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_external_party_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q05",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D2-Q06",
+      "questionCode": "D2-Q06",
+      "domainCode": "D2",
+      "prompt": "The organisation monitors emerging fraud threats affecting its industry, geography or operating environment.",
+      "construct": "D2-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation monitors emerging fraud threats affecting its industry, geography or operating environment.",
+      "weight": 1,
+      "weightBasis": "V1.1 D2-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q06",
+        "D10-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 17,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q07",
+      "questionCode": "D2-Q07",
+      "domainCode": "D2",
+      "prompt": "The organisation considers how fraud could occur through misuse of authority, privileged access, approvals, system permissions or operational process gaps.",
+      "construct": "D2-Q07",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation considers how fraud could occur through misuse of authority, privileged access, approvals, system permissions or operational process gaps.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D2-Q07 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 18,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q07",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D2-Q08",
+      "questionCode": "D2-Q08",
+      "domainCode": "D2",
+      "prompt": "The organisation considers how fraud could occur through customer or user platforms, online forms, WhatsApp journeys, loyalty programmes, service portals or other digital channels where relevant.",
+      "construct": "D2-Q08",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation considers how fraud could occur through customer or user platforms, online forms, WhatsApp journeys, loyalty programmes, service portals or other digital channels where relevant.",
+      "weight": 1,
+      "weightBasis": "V1.1 D2-Q08 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D2-Q08"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 19,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_relevant_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D2-Q08",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q01",
+      "questionCode": "D3-Q01",
+      "domainCode": "D3",
+      "prompt": "High-risk processes have segregation of duties between initiation, approval, processing and reconciliation.",
+      "construct": "D3-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "High-risk processes have segregation of duties between initiation, approval, processing and reconciliation.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D3-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 20,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D3-Q02",
+      "questionCode": "D3-Q02",
+      "domainCode": "D3",
+      "prompt": "Transactions or operational activities above defined risk or value thresholds require independent review or approval.",
+      "construct": "D3-Q02",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Transactions or operational activities above defined risk or value thresholds require independent review or approval.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D3-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 21,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D3-Q03",
+      "questionCode": "D3-Q03",
+      "domainCode": "D3",
+      "prompt": "Supplier onboarding verifies business identity, ownership and initial banking information before approval.",
+      "construct": "supplier onboarding checks",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Supplier onboarding verifies business identity, ownership and initial banking information before approval.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D3-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q03"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 22,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "unknown"
+            ]
+          },
+          {
+            "all": [
+              {
+                "questionId": "G03",
+                "in": [
+                  "yes"
+                ]
+              },
+              {
+                "questionId": "G04",
+                "in": [
+                  "organisation",
+                  "shared_hybrid",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_direct_supplier_delivery",
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G03",
+              "in": [
+                "yes"
+              ]
+            },
+            {
+              "questionId": "G04",
+              "in": [
+                "group_function",
+                "external_provider"
+              ]
+            }
+          ]
+        },
+        "redirectTo": "OV-D3-Q03"
+      },
+      "oversightVariantIds": [
+        "OV-D3-Q03"
+      ],
+      "evidenceReference": "V12-D3-Q03",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q04",
+      "questionCode": "D3-Q04",
+      "domainCode": "D3",
+      "prompt": "System and data access is granted against current role requirements.",
+      "construct": "access provisioning",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "System and data access is granted against current role requirements.",
+      "weight": 1,
+      "weightBasis": "D3-Q04 V1.1 weight 1.5 divided: 1.0 retained access provisioning; 0.5 allocated to D3-Q08 periodic review.",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q04"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 23,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D3-Q05",
+      "questionCode": "D3-Q05",
+      "domainCode": "D3",
+      "prompt": "Refunds, credits, write-offs, stock adjustments, manual journals and overrides receive independent review where used.",
+      "construct": "manual adjustment review",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Refunds, credits, write-offs, stock adjustments, manual journals and overrides receive independent review where used.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D3-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 24,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G12",
+        "in": [
+          "yes",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_manual_adjustment_capability",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q05",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q06",
+      "questionCode": "D3-Q06",
+      "domainCode": "D3",
+      "prompt": "Operational processes are periodically reviewed to identify control weaknesses or opportunities for manipulation.",
+      "construct": "D3-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Operational processes are periodically reviewed to identify control weaknesses or opportunities for manipulation.",
+      "weight": 1,
+      "weightBasis": "V1.1 D3-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 25,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D3-Q07",
+      "questionCode": "D3-Q07",
+      "domainCode": "D3",
+      "prompt": "People in high-risk roles are subject to appropriate oversight, rotation, secondary review or other compensating controls.",
+      "construct": "D3-Q07",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "People in high-risk roles are subject to appropriate oversight, rotation, secondary review or other compensating controls.",
+      "weight": 1,
+      "weightBasis": "V1.1 D3-Q07 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D3-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 26,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G06",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G07",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G12",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G14",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_high_risk_operational_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q07",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q08",
+      "questionCode": "D3-Q08",
+      "domainCode": "D3",
+      "prompt": "System and data access is reviewed periodically and removed when no longer required.",
+      "construct": "access recertification",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Remove inappropriate or obsolete access before it creates an opportunity for misuse.",
+      "weight": 0.5,
+      "weightBasis": "Split from D3-Q04 V1.1 weight 1.5; explicit 0.5 owner-review allocation.",
+      "origin": "SPLIT",
+      "newControl": true,
+      "splitFrom": "D3-Q04",
+      "sourceCurrentIds": [
+        "D3-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 27,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q08",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D3-Q09",
+      "questionCode": "D3-Q09",
+      "domainCode": "D3",
+      "prompt": "Payroll master-file changes and unusual payroll records receive review before payment.",
+      "construct": "payroll master and ghost-worker review",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Reduce fraud through fictitious workers, altered payroll records or unauthorised payroll changes.",
+      "weight": 0.5,
+      "weightBasis": "NEW; explicit 0.5 owner-review weight for payroll integrity gap.",
+      "origin": "NEW",
+      "newControl": true,
+      "splitFrom": null,
+      "sourceCurrentIds": [],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 28,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G08",
+        "in": [
+          "organisation",
+          "shared_hybrid",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_direct_payroll_delivery",
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G08",
+          "in": [
+            "group_function",
+            "external_provider"
+          ]
+        },
+        "redirectTo": "OV-G07"
+      },
+      "oversightVariantIds": [
+        "OV-G07"
+      ],
+      "evidenceReference": "V12-D3-Q09",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q10",
+      "questionCode": "D3-Q10",
+      "domainCode": "D3",
+      "prompt": "Physical cash is counted, safeguarded and reconciled by defined people.",
+      "construct": "cash custody and reconciliation",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Reduce loss and concealment opportunities in physical cash handling.",
+      "weight": 0.5,
+      "weightBasis": "NEW; explicit 0.5 owner-review weight for physical-cash gap.",
+      "origin": "NEW",
+      "newControl": true,
+      "splitFrom": null,
+      "sourceCurrentIds": [],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 29,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G06",
+        "in": [
+          "yes",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_physical_cash_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q10",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D3-Q11",
+      "questionCode": "D3-Q11",
+      "domainCode": "D3",
+      "prompt": "Stock and physical assets are safeguarded and reconciled by defined people.",
+      "construct": "stock and asset custody",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Reduce loss and concealment opportunities in stock and physical-asset handling.",
+      "weight": 0.5,
+      "weightBasis": "NEW; explicit 0.5 owner-review weight for physical-asset gap.",
+      "origin": "NEW",
+      "newControl": true,
+      "splitFrom": null,
+      "sourceCurrentIds": [],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 30,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G07",
+        "in": [
+          "yes",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_stock_or_asset_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D3-Q11",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D4-Q01",
+      "questionCode": "D4-Q01",
+      "domainCode": "D4",
+      "prompt": "The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+      "construct": "D4-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D4-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 31,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q02",
+      "questionCode": "D4-Q02",
+      "domainCode": "D4",
+      "prompt": "Exception reporting provides defined alerts for unusual transactions or activities and a documented review process.",
+      "construct": "exception reporting and review",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Exception reporting provides defined alerts for unusual transactions or activities and a documented review process.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D4-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 32,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q03",
+      "questionCode": "D4-Q03",
+      "domainCode": "D4",
+      "prompt": "Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions.",
+      "construct": "D4-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D4-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q03"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 33,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q04",
+      "questionCode": "D4-Q04",
+      "domainCode": "D4",
+      "prompt": "Detection controls are updated when new fraud risks, fraud methods or operational changes emerge.",
+      "construct": "D4-Q04",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Detection controls are updated when new fraud risks, fraud methods or operational changes emerge.",
+      "weight": 1,
+      "weightBasis": "V1.1 D4-Q04 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 34,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q05",
+      "questionCode": "D4-Q05",
+      "domainCode": "D4",
+      "prompt": "Monitoring covers fraud and control misuse by people inside the organisation.",
+      "construct": "internal misuse monitoring",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Monitoring covers fraud and control misuse by people inside the organisation.",
+      "weight": 0.5,
+      "weightBasis": "D4-Q05 V1.1 weight 1.0 divided: 0.5 retained internal monitoring; 0.5 allocated to D4-Q08 external monitoring.",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 35,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q05",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q06",
+      "questionCode": "D4-Q06",
+      "domainCode": "D4",
+      "prompt": "People responsible for monitoring suspicious activity know when to escalate concerns and have authority to do so.",
+      "construct": "D4-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "People responsible for monitoring suspicious activity know when to escalate concerns and have authority to do so.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D4-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 36,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q07",
+      "questionCode": "D4-Q07",
+      "domainCode": "D4",
+      "prompt": "Detection controls are periodically reviewed for effectiveness by management, risk, audit or another independent reviewer.",
+      "construct": "D4-Q07",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Detection controls are periodically reviewed for effectiveness by management, risk, audit or another independent reviewer.",
+      "weight": 1,
+      "weightBasis": "V1.1 D4-Q07 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D4-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 37,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q07",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D4-Q08",
+      "questionCode": "D4-Q08",
+      "domainCode": "D4",
+      "prompt": "Monitoring covers fraud threats from external parties relevant to the organisation.",
+      "construct": "external fraud monitoring",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Detect relevant external fraud threats and counterparty abuse.",
+      "weight": 0.5,
+      "weightBasis": "Split from D4-Q05 V1.1 weight 1.0; explicit 0.5 owner-review allocation.",
+      "origin": "SPLIT",
+      "newControl": true,
+      "splitFrom": "D4-Q05",
+      "sourceCurrentIds": [
+        "D4-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 38,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G17",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_external_party_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D4-Q08",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D5-Q01",
+      "questionCode": "D5-Q01",
+      "domainCode": "D5",
+      "prompt": "The organisation has a documented process for responding to suspected fraud incidents.",
+      "construct": "D5-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation has a documented process for responding to suspected fraud incidents.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D5-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D5-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 39,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D5-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D5-Q03",
+      "questionCode": "D5-Q03",
+      "domainCode": "D5",
+      "prompt": "Roles and decision rights are defined for fraud triage, investigation, escalation and case closure.",
+      "construct": "triage, investigation, escalation and closure decision rights",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Roles and decision rights are defined for fraud triage, investigation, escalation and case closure.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D5-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D5-Q03"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 40,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D5-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D5-Q04",
+      "questionCode": "D5-Q04",
+      "domainCode": "D5",
+      "prompt": "Fraud investigations follow documented procedures that protect confidentiality and fair treatment and record key facts, decisions and actions.",
+      "construct": "investigation records and fair treatment",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud investigations follow documented procedures that protect confidentiality and fair treatment and record key facts, decisions and actions.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D5-Q04 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D5-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 41,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D5-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D5-Q05",
+      "questionCode": "D5-Q05",
+      "domainCode": "D5",
+      "prompt": "Evidence linked to suspected fraud is identified, preserved and handled appropriately.",
+      "construct": "D5-Q05",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Evidence linked to suspected fraud is identified, preserved and handled appropriately.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D5-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D5-Q05"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 42,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D5-Q05",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D5-Q06",
+      "questionCode": "D5-Q06",
+      "domainCode": "D5",
+      "prompt": "External specialists are considered when incidents require forensic, legal, cyber or investigative expertise.",
+      "construct": "D5-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "External specialists are considered when incidents require forensic, legal, cyber or investigative expertise.",
+      "weight": 1,
+      "weightBasis": "V1.1 D5-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D5-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 43,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D5-Q06",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D6-Q01",
+      "questionCode": "D6-Q01",
+      "domainCode": "D6",
+      "prompt": "The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.",
+      "construct": "D6-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D6-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D6-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": false,
+      "sortOrder": 44,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D6-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D6-Q02",
+      "questionCode": "D6-Q02",
+      "domainCode": "D6",
+      "prompt": "Employees know how to recognise suspected fraud and use the reporting channel.",
+      "construct": "reporting channel awareness",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Employees know how to recognise suspected fraud and use the reporting channel.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D6-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D6-Q02",
+        "D5-Q02",
+        "D6-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 45,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D6-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D6-Q03",
+      "questionCode": "D6-Q03",
+      "domainCode": "D6",
+      "prompt": "Reports submitted through the channel are reviewed independently from the people or teams implicated.",
+      "construct": "D6-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Reports submitted through the channel are reviewed independently from the people or teams implicated.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D6-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D6-Q03"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 46,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D6-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D6-Q04",
+      "questionCode": "D6-Q04",
+      "domainCode": "D6",
+      "prompt": "The organisation clearly communicates that retaliation against whistleblowers or people who raise concerns is prohibited.",
+      "construct": "D6-Q04",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation clearly communicates that retaliation against whistleblowers or people who raise concerns is prohibited.",
+      "weight": 1,
+      "weightBasis": "V1.1 D6-Q04 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D6-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 47,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D6-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D6-Q05",
+      "questionCode": "D6-Q05",
+      "domainCode": "D6",
+      "prompt": "Relevant external stakeholders have an appropriate way to report suspected fraud or misconduct.",
+      "construct": "external stakeholder reporting access",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Relevant external stakeholders have an appropriate way to report suspected fraud or misconduct.",
+      "weight": 1,
+      "weightBasis": "V1.1 D6-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D6-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 48,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D6-Q05",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D7-Q01",
+      "questionCode": "D7-Q01",
+      "domainCode": "D7",
+      "prompt": "Suppliers, contractors or other third parties are subject to due diligence before being engaged.",
+      "construct": "D7-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Suppliers, contractors or other third parties are subject to due diligence before being engaged.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D7-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": false,
+      "sortOrder": 49,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "unknown"
+            ]
+          },
+          {
+            "all": [
+              {
+                "questionId": "G03",
+                "in": [
+                  "yes"
+                ]
+              },
+              {
+                "questionId": "G04",
+                "in": [
+                  "organisation",
+                  "shared_hybrid",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_direct_supplier_delivery",
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G03",
+              "in": [
+                "yes"
+              ]
+            },
+            {
+              "questionId": "G04",
+              "in": [
+                "group_function",
+                "external_provider"
+              ]
+            }
+          ]
+        },
+        "redirectTo": "OV-D7-Q01"
+      },
+      "oversightVariantIds": [
+        "OV-D7-Q01"
+      ],
+      "evidenceReference": "V12-D7-Q01",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q02",
+      "questionCode": "D7-Q02",
+      "domainCode": "D7",
+      "prompt": "Procurement processes include safeguards against collusion, manipulation, bid rigging or favouritism.",
+      "construct": "D7-Q02",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Procurement processes include safeguards against collusion, manipulation, bid rigging or favouritism.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D7-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 50,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G05",
+        "in": [
+          "dedicated_internal",
+          "business_owners",
+          "shared_hybrid",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_direct_procurement_delivery",
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G05",
+          "in": [
+            "group_function",
+            "external_provider"
+          ]
+        },
+        "redirectTo": "OV-D7-Q02"
+      },
+      "oversightVariantIds": [
+        "OV-D7-Q02"
+      ],
+      "evidenceReference": "V12-D7-Q02",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q03",
+      "questionCode": "D7-Q03",
+      "domainCode": "D7",
+      "prompt": "Employees are required to disclose and manage conflicts of interest involving suppliers or third parties.",
+      "construct": "D7-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Employees are required to disclose and manage conflicts of interest involving suppliers or third parties.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D7-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q03"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 51,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G17",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_external_party_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D7-Q03",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q04",
+      "questionCode": "D7-Q04",
+      "domainCode": "D7",
+      "prompt": "Supplier payments include checks for invoice manipulation, false vendors and supplier bank-detail changes.",
+      "construct": "supplier payment integrity",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Supplier payments include checks for invoice manipulation, false vendors and supplier bank-detail changes.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D7-Q04 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q04"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 52,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "unknown"
+            ]
+          },
+          {
+            "all": [
+              {
+                "questionId": "G03",
+                "in": [
+                  "yes"
+                ]
+              },
+              {
+                "questionId": "G04",
+                "in": [
+                  "organisation",
+                  "shared_hybrid",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_direct_supplier_delivery",
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G03",
+              "in": [
+                "yes"
+              ]
+            },
+            {
+              "questionId": "G04",
+              "in": [
+                "group_function",
+                "external_provider"
+              ]
+            }
+          ]
+        },
+        "redirectTo": "OV-D7-Q04"
+      },
+      "oversightVariantIds": [
+        "OV-D7-Q04"
+      ],
+      "evidenceReference": "V12-D7-Q04",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q05",
+      "questionCode": "D7-Q05",
+      "domainCode": "D7",
+      "prompt": "High-risk suppliers or third-party relationships are periodically monitored or reviewed.",
+      "construct": "D7-Q05",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "High-risk suppliers or third-party relationships are periodically monitored or reviewed.",
+      "weight": 1,
+      "weightBasis": "V1.1 D7-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 53,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "unknown"
+            ]
+          },
+          {
+            "all": [
+              {
+                "questionId": "G03",
+                "in": [
+                  "yes"
+                ]
+              },
+              {
+                "questionId": "G04",
+                "in": [
+                  "organisation",
+                  "shared_hybrid",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_direct_supplier_delivery",
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G03",
+              "in": [
+                "yes"
+              ]
+            },
+            {
+              "questionId": "G04",
+              "in": [
+                "group_function",
+                "external_provider"
+              ]
+            }
+          ]
+        },
+        "redirectTo": "OV-D7-Q05"
+      },
+      "oversightVariantIds": [
+        "OV-D7-Q05"
+      ],
+      "evidenceReference": "V12-D7-Q05",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q06",
+      "questionCode": "D7-Q06",
+      "domainCode": "D7",
+      "prompt": "Procurement or vendor-management activity is subject to oversight or periodic review.",
+      "construct": "D7-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Procurement or vendor-management activity is subject to oversight or periodic review.",
+      "weight": 1,
+      "weightBasis": "V1.1 D7-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 54,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "questionId": "G05",
+        "in": [
+          "dedicated_internal",
+          "business_owners",
+          "shared_hybrid",
+          "unknown"
+        ]
+      },
+      "skipReasonCode": "no_direct_procurement_delivery",
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G05",
+          "in": [
+            "group_function",
+            "external_provider"
+          ]
+        },
+        "redirectTo": "OV-D7-Q06"
+      },
+      "oversightVariantIds": [
+        "OV-D7-Q06"
+      ],
+      "evidenceReference": "V12-D7-Q06",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D7-Q07",
+      "questionCode": "D7-Q07",
+      "domainCode": "D7",
+      "prompt": "Fraud risks are considered when using agents, brokers, distributors, intermediaries, partners or outsourced service providers where relevant.",
+      "construct": "D7-Q07",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud risks are considered when using agents, brokers, distributors, intermediaries, partners or outsourced service providers where relevant.",
+      "weight": 1,
+      "weightBasis": "V1.1 D7-Q07 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D7-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 55,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G17",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_external_party_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D7-Q07",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q01",
+      "questionCode": "D8-Q01",
+      "domainCode": "D8",
+      "prompt": "The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm.",
+      "construct": "D8-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D8-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q01"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 56,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G11",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_identity_or_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q01",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q02",
+      "questionCode": "D8-Q02",
+      "domainCode": "D8",
+      "prompt": "The organisation monitors suspicious access, account or transaction behaviour across its relevant systems and digital channels, including through provider reporting where a third party operates the channel.",
+      "construct": "coherent digital monitoring",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation monitors suspicious access, account or transaction behaviour across its relevant systems and digital channels, including through provider reporting where a third party operates the channel.",
+      "weight": 1.5,
+      "weightBasis": "V1.1 D8-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q02",
+        "D8-Q05"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 57,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G15",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_relevant_digital_exposure",
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G09",
+              "in": [
+                "provider"
+              ]
+            },
+            {
+              "not": {
+                "any": [
+                  {
+                    "questionId": "G09",
+                    "in": [
+                      "own",
+                      "both",
+                      "unknown"
+                    ]
+                  },
+                  {
+                    "questionId": "G10",
+                    "in": [
+                      "yes",
+                      "unknown"
+                    ]
+                  },
+                  {
+                    "questionId": "G15",
+                    "in": [
+                      "yes",
+                      "unknown"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "redirectTo": "OV-D8-Q02"
+      },
+      "oversightVariantIds": [
+        "OV-D8-Q02"
+      ],
+      "evidenceReference": "V12-D8-Q02",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q03",
+      "questionCode": "D8-Q03",
+      "domainCode": "D8",
+      "prompt": "Employees receive training on phishing, social engineering and digital impersonation attempts.",
+      "construct": "D8-Q03",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Employees receive training on phishing, social engineering and digital impersonation attempts.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D8-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q03"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 58,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D8-Q04",
+      "questionCode": "D8-Q04",
+      "domainCode": "D8",
+      "prompt": "Access to sensitive systems, administrator rights and confidential data is restricted.",
+      "construct": "sensitive access restriction",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Access to sensitive systems, administrator rights and confidential data is restricted.",
+      "weight": 1,
+      "weightBasis": "D8-Q04 V1.1 weight 1.5 divided: 1.0 retained sensitive-access restriction; 0.5 allocated to D8-Q09 periodic review.",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q04"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 59,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q04",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D8-Q06",
+      "questionCode": "D8-Q06",
+      "domainCode": "D8",
+      "prompt": "Employees and users know how to report suspicious digital activity or account-security concerns.",
+      "construct": "D8-Q06",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Employees and users know how to report suspicious digital activity or account-security concerns.",
+      "weight": 1,
+      "weightBasis": "V1.1 D8-Q06 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q06"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 60,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G15",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_relevant_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q06",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q07",
+      "questionCode": "D8-Q07",
+      "domainCode": "D8",
+      "prompt": "Emerging digital fraud risks relevant to the organisation's operations or sector are reviewed periodically.",
+      "construct": "D8-Q07",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Emerging digital fraud risks relevant to the organisation's operations or sector are reviewed periodically.",
+      "weight": 1,
+      "weightBasis": "V1.1 D8-Q07 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q07"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 61,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G15",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_relevant_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q07",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q08",
+      "questionCode": "D8-Q08",
+      "domainCode": "D8",
+      "prompt": "The organisation can detect identity misuse, account takeover or impersonation.",
+      "construct": "identity misuse detection",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "The organisation can detect identity misuse, account takeover or impersonation.",
+      "weight": 1,
+      "weightBasis": "D8-Q08 V1.1 weight 1.5 divided: 1.0 retained identity detection; 0.5 allocated to D8-Q10 investigation/containment.",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D8-Q08"
+      ],
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 62,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G11",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_identity_or_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q08",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D8-Q09",
+      "questionCode": "D8-Q09",
+      "domainCode": "D8",
+      "prompt": "Sensitive access and administrator rights are reviewed periodically.",
+      "construct": "sensitive access review",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Identify and remove inappropriate privileged or sensitive access.",
+      "weight": 0.5,
+      "weightBasis": "Split from D8-Q04 V1.1 weight 1.5; explicit 0.5 owner-review allocation.",
+      "origin": "SPLIT",
+      "newControl": true,
+      "splitFrom": "D8-Q04",
+      "sourceCurrentIds": [
+        "D8-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 63,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q09",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D8-Q10",
+      "questionCode": "D8-Q10",
+      "domainCode": "D8",
+      "prompt": "The organisation can investigate and contain identity misuse, account takeover or impersonation.",
+      "construct": "identity misuse response",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Investigate and contain identity misuse and account compromise.",
+      "weight": 0.5,
+      "weightBasis": "Split from D8-Q08 V1.1 weight 1.5; explicit 0.5 owner-review allocation.",
+      "origin": "SPLIT",
+      "newControl": true,
+      "splitFrom": "D8-Q08",
+      "sourceCurrentIds": [
+        "D8-Q08"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 64,
+      "applicabilityClass": "FACTUALLY_CONDITIONAL",
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G09",
+            "in": [
+              "own",
+              "both",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "provider",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G11",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "skipReasonCode": "no_identity_or_digital_exposure",
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D8-Q10",
+      "unknownRetained": true,
+      "naReason": "deterministic_factual_gateway_absence"
+    },
+    {
+      "questionId": "D9-Q01",
+      "questionCode": "D9-Q01",
+      "domainCode": "D9",
+      "prompt": "Employees receive periodic training or guidance on fraud risks relevant to their roles and the organisation's operating environment.",
+      "construct": "D9-Q01",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Employees receive periodic training or guidance on fraud risks relevant to their roles and the organisation's operating environment.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D9-Q01 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D9-Q01"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 65,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D9-Q01",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D9-Q02",
+      "questionCode": "D9-Q02",
+      "domainCode": "D9",
+      "prompt": "Fraud awareness is included in employee onboarding or induction.",
+      "construct": "D9-Q02",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud awareness is included in employee onboarding or induction.",
+      "weight": 1,
+      "weightBasis": "V1.1 D9-Q02 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D9-Q02"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 66,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D9-Q02",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D9-Q03",
+      "questionCode": "D9-Q03",
+      "domainCode": "D9",
+      "prompt": "Leadership communicates clear expectations on ethical conduct, conflicts of interest, fraud prevention and the consequences of misconduct.",
+      "construct": "leadership expectations and misconduct consequences",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Leadership communicates clear expectations on ethical conduct, conflicts of interest, fraud prevention and the consequences of misconduct.",
+      "weight": 1.25,
+      "weightBasis": "V1.1 D9-Q03 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D9-Q03",
+        "D9-Q04"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 67,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D9-Q03",
+      "unknownRetained": true,
+      "naReason": null
+    },
+    {
+      "questionId": "D9-Q05",
+      "questionCode": "D9-Q05",
+      "domainCode": "D9",
+      "prompt": "Fraud awareness uses practical examples or scenarios.",
+      "construct": "scenario-based awareness",
+      "constructCount": 1,
+      "responseDimension": "single_capability_maturity",
+      "questionType": "maturity_scale",
+      "controlObjective": "Fraud awareness uses practical examples or scenarios.",
+      "weight": 1,
+      "weightBasis": "V1.1 D9-Q05 weight retained exactly",
+      "origin": "RETAINED",
+      "newControl": false,
+      "splitFrom": null,
+      "sourceCurrentIds": [
+        "D9-Q05"
+      ],
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 68,
+      "applicabilityClass": "ALWAYS_APPLICABLE",
+      "applicabilityCondition": null,
+      "skipReasonCode": null,
+      "redirectWhen": null,
+      "oversightVariantIds": [],
+      "evidenceReference": "V12-D9-Q05",
+      "unknownRetained": true,
+      "naReason": null
+    }
+  ],
+  "oversightVariants": [
+    {
+      "questionId": "OV-D3-Q03",
+      "replaces": "D3-Q03",
+      "baseControlId": "D3-Q03",
+      "domainCode": "D3",
+      "exposureGateway": "G04",
+      "prompt": "The organisation retains assurance over supplier identity, ownership and initial banking checks performed on its behalf.",
+      "construct": "supplier onboarding oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "all": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes"
+            ]
+          },
+          {
+            "questionId": "G04",
+            "in": [
+              "group_function",
+              "external_provider"
+            ]
+          }
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D3-Q03",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D7-Q01",
+      "replaces": "D7-Q01",
+      "baseControlId": "D7-Q01",
+      "domainCode": "D7",
+      "exposureGateway": "G04",
+      "prompt": "The organisation defines and monitors the third-party due-diligence standard managed on its behalf.",
+      "construct": "third-party due-diligence oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "all": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes"
+            ]
+          },
+          {
+            "questionId": "G04",
+            "in": [
+              "group_function",
+              "external_provider"
+            ]
+          }
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D7-Q01",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D7-Q02",
+      "replaces": "D7-Q02",
+      "baseControlId": "D7-Q02",
+      "domainCode": "D7",
+      "exposureGateway": "G05",
+      "prompt": "The organisation retains oversight of supplier selection, price integrity and conflict controls delivered on its behalf.",
+      "construct": "procurement oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "questionId": "G05",
+        "in": [
+          "group_function",
+          "external_provider"
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D7-Q02",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D7-Q04",
+      "replaces": "D7-Q04",
+      "baseControlId": "D7-Q04",
+      "domainCode": "D7",
+      "exposureGateway": "G04",
+      "prompt": "The organisation independently verifies supplier payment controls, including bank-detail changes, performed on its behalf.",
+      "construct": "supplier payment oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "all": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes"
+            ]
+          },
+          {
+            "questionId": "G04",
+            "in": [
+              "group_function",
+              "external_provider"
+            ]
+          }
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D7-Q04",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D7-Q05",
+      "replaces": "D7-Q05",
+      "baseControlId": "D7-Q05",
+      "domainCode": "D7",
+      "exposureGateway": "G04",
+      "prompt": "The organisation receives and reviews risk information about high-risk third parties managed on its behalf.",
+      "construct": "third-party monitoring oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "all": [
+          {
+            "questionId": "G03",
+            "in": [
+              "yes"
+            ]
+          },
+          {
+            "questionId": "G04",
+            "in": [
+              "group_function",
+              "external_provider"
+            ]
+          }
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D7-Q05",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D7-Q06",
+      "replaces": "D7-Q06",
+      "baseControlId": "D7-Q06",
+      "domainCode": "D7",
+      "exposureGateway": "G05",
+      "prompt": "The organisation reviews procurement and vendor-management activity delivered on its behalf.",
+      "construct": "procurement activity oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "questionId": "G05",
+        "in": [
+          "group_function",
+          "external_provider"
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D7-Q06",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-D8-Q02",
+      "replaces": "D8-Q02",
+      "baseControlId": "D8-Q02",
+      "domainCode": "D8",
+      "exposureGateway": "G09",
+      "prompt": "The organisation reviews fraud, dispute and account-security reporting from the third-party platform it uses.",
+      "construct": "third-party digital-channel oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "questionId": "G09",
+        "in": [
+          "provider"
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-D8-Q02",
+      "unknownRetained": true
+    },
+    {
+      "questionId": "OV-G07",
+      "replaces": "D3-Q09",
+      "baseControlId": "D3-Q09",
+      "domainCode": "D3",
+      "exposureGateway": "G08",
+      "prompt": "The organisation independently reviews a payroll register processed on its behalf for unknown, duplicate or altered records.",
+      "construct": "payroll register oversight",
+      "constructCount": 1,
+      "questionType": "maturity_scale",
+      "responseDimension": "single_capability_maturity",
+      "applicabilityClass": "OVERSIGHT_VARIANT",
+      "applicabilityCondition": {
+        "questionId": "G08",
+        "in": [
+          "group_function",
+          "external_provider"
+        ]
+      },
+      "scoringStatus": "inherits_base_control_weight",
+      "weightPolicy": "inherits_base",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; shared or hybrid delivery remains on the direct path to avoid double-weighting the same family.",
+      "evidenceReference": "V12-OV-G07",
+      "unknownRetained": true
+    }
+  ],
+  "applicabilityStates": [
+    "always_applicable",
+    "factually_conditional",
+    "activity_exists_internal",
+    "activity_outsourced",
+    "activity_shared_hybrid",
+    "activity_absent",
+    "unknown"
+  ],
+  "scoringStatuses": [
+    "profile_only",
+    "always_applicable",
+    "factually_conditional",
+    "oversight_variant",
+    "unknown",
+    "not_in_place",
+    "informal_reactive",
+    "partly_designed",
+    "implemented_in_key_areas",
+    "consistently_operating",
+    "embedded_and_improving",
+    "redirected",
+    "excluded_by_factual_gateway"
+  ],
+  "skipReasonCodes": {
+    "no_external_party_exposure": "No external supplier, provider or intermediary exposure was confirmed.",
+    "no_relevant_digital_exposure": "No relevant customer/user digital channel, digital payment or remote-access exposure was confirmed.",
+    "no_direct_supplier_delivery": "The organisation is not primarily responsible for supplier management; retained provider oversight is assessed where relevant.",
+    "no_direct_procurement_delivery": "The organisation is not primarily responsible for procurement; retained provider oversight is assessed where relevant.",
+    "no_manual_adjustment_capability": "No manual financial or stock adjustment capability was confirmed.",
+    "no_high_risk_operational_exposure": "No relevant cash, asset, adjustment or contingent-workforce exposure was confirmed.",
+    "no_direct_payroll_delivery": "The organisation is not primarily responsible for payroll delivery; retained payroll oversight is assessed where relevant.",
+    "no_physical_cash_exposure": "No physical cash exposure was confirmed.",
+    "no_stock_or_asset_exposure": "No stock or physical-asset exposure was confirmed.",
+    "no_identity_or_digital_exposure": "No relevant identity or digital exposure was confirmed."
+  },
+  "graphInvariants": {
+    "gatewayCount": 17,
+    "questionCount": 68,
+    "oversightVariantCount": 8,
+    "customerRoutingEnabled": false,
+    "activeCustomerGraph": "MFRS-V1.1-ADAPTIVE-DRAFT-20260804",
+    "unknownRetainedByDefault": true,
+    "sharedHybridAvoidsDoubleWeight": true,
+    "newCriticalControls": 0,
+    "newHardGates": 0,
+    "retiredQuestionIds": [
+      "D9-Q06"
+    ],
+    "mergedQuestionIds": [
+      "D5-Q02",
+      "D5-Q07",
+      "D6-Q06",
+      "D8-Q05",
+      "D9-Q04",
+      "D10-Q04",
+      "D10-Q05"
+    ]
+  },
+  "graphFingerprint": "6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7"
+}

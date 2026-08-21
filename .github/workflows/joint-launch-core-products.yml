@@ -25,7 +25,14 @@ on:
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/lib/adaptive/**'
+      - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/app/score/admin/methodology/v1-2/**'
+      - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
+      - 'scripts/adaptive-v1-2-*.mjs'
+      - 'scripts/pre-g30-adaptive-launch-tests.mjs'
+      - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
@@ -48,7 +55,14 @@ on:
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/lib/adaptive/**'
+      - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/app/score/admin/methodology/v1-2/**'
+      - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
+      - 'scripts/adaptive-v1-2-*.mjs'
+      - 'scripts/pre-g30-adaptive-launch-tests.mjs'
+      - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
@@ -89,6 +103,14 @@ jobs:
 
       - name: Verify accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
+
+      - name: Adaptive V1.2 methodology, parity and runtime certification
+        run: npm run adaptive:v1-2:test
+
+      - name: Adaptive launch authority and migration-target certification
+        run: |
+          npm run pre-g30:test-adaptive-launch
+          npm run pre-g30:test-migration-targets
 
       - name: Product catalogue, price-version and entitlement contract
         run: npm run joint-launch:test-product-contract

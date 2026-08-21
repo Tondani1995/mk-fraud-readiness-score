@@ -1,6 +1,8 @@
-export const PREVIEW_ADAPTIVE_GRAPH_VERSION = 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804';
+export const FROZEN_ADAPTIVE_GRAPH_VERSION = 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804';
+export const FROZEN_ADAPTIVE_GRAPH_FINGERPRINT = 'fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab';
+export const PREVIEW_ADAPTIVE_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
 export const PREVIEW_STAGING_PROJECT_REF = 'penhenkzfrtmcxklodtu';
-export const PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT = 'fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab';
+export const PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT = '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7';
 
 export type AdaptiveCondition =
   | null
@@ -16,6 +18,7 @@ export type AdaptiveGateway = {
   questionType: string;
   sortOrder: number;
   responseOptions: Array<{ value: string; label: string }>;
+  conditionalWhen?: AdaptiveCondition;
 };
 
 export type AdaptiveQuestion = {
@@ -54,6 +57,17 @@ export type AdaptiveGraph = {
   questions: AdaptiveQuestion[];
   oversightVariants: AdaptiveOversightVariant[];
 };
+
+export function isSupportedAdaptiveGraph(version: string | null | undefined, fingerprint: string | null | undefined) {
+  return (version === FROZEN_ADAPTIVE_GRAPH_VERSION && fingerprint === FROZEN_ADAPTIVE_GRAPH_FINGERPRINT)
+    || (version === PREVIEW_ADAPTIVE_GRAPH_VERSION && fingerprint === PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT);
+}
+
+function expectedFingerprintForGraph(graph: Pick<AdaptiveGraph, 'graphVersion' | 'graphFingerprint'>) {
+  return graph.graphVersion === FROZEN_ADAPTIVE_GRAPH_VERSION
+    ? FROZEN_ADAPTIVE_GRAPH_FINGERPRINT
+    : PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT;
+}
 
 export type AdaptiveGatewayAnswers = Record<string, string | undefined>;
 export type AdaptiveControlResponses = Record<string, { responseState: 'maturity' | 'unknown'; responseValue: number | null }>;
@@ -140,7 +154,7 @@ export function evaluateAdaptiveCondition(condition: AdaptiveCondition, answers:
   return false;
 }
 
-export function validateAdaptiveGraph(graph: AdaptiveGraph, expectedFingerprint = PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT): string[] {
+export function validateAdaptiveGraph(graph: AdaptiveGraph, expectedFingerprint?: string): string[] {
   const errors: string[] = [];
   const gatewayIds = new Set(graph.gateways.map((gateway) => gateway.questionId));
   const nodeIds = new Set([...graph.questions.map((question) => question.questionId), ...graph.oversightVariants.map((variant) => variant.questionId)]);
@@ -157,8 +171,9 @@ export function validateAdaptiveGraph(graph: AdaptiveGraph, expectedFingerprint 
     if (typeof condition.questionId !== 'string' || !gatewayIds.has(condition.questionId)) errors.push(`${path}:unknown_gateway`);
   };
 
-  if (graph.graphFingerprint !== expectedFingerprint) errors.push('graph_fingerprint_mismatch');
+  if (graph.graphFingerprint !== (expectedFingerprint ?? expectedFingerprintForGraph(graph))) errors.push('graph_fingerprint_mismatch');
   if (!graph.graphVersion || graph.status === 'retired') errors.push('graph_invalid_status');
+  for (const gateway of graph.gateways) visitCondition(gateway.conditionalWhen ?? null, `${gateway.questionId}.conditionalWhen`);
   for (const question of graph.questions) {
     visitCondition(question.applicabilityCondition, `${question.questionId}.applicability`);
     if (question.redirectWhen) {
@@ -176,8 +191,8 @@ export function validateAdaptiveGraph(graph: AdaptiveGraph, expectedFingerprint 
 
 function activityState(question: AdaptiveQuestion | AdaptiveOversightVariant, answers: AdaptiveGatewayAnswers): ApplicabilityState {
   const values = Object.values(answers);
-  if (values.includes('outsourced')) return 'activity_outsourced';
-  if (values.includes('shared_service')) return 'activity_shared_service';
+  if (values.some((value) => ['outsourced', 'external_provider', 'provider'].includes(value ?? ''))) return 'activity_outsourced';
+  if (values.some((value) => ['shared_service', 'group_function', 'shared_hybrid'].includes(value ?? ''))) return 'activity_shared_service';
   if (values.includes('unknown')) return 'unknown';
   return question.questionId.startsWith('OV-') ? 'activity_outsourced' : 'activity_exists_internal';
 }
@@ -189,10 +204,15 @@ function isControlAnswered(node: ResolvedAdaptiveNode): boolean {
   );
 }
 
-function orderedGatewayIds(graph: AdaptiveGraph): string[] {
+function orderedGatewayIds(graph: AdaptiveGraph, gatewayAnswers: AdaptiveGatewayAnswers): string[] {
   const all = graph.gateways.slice().sort((a, b) => a.sortOrder - b.sortOrder).map((gateway) => gateway.questionId);
+  const visible = all.filter((id) => {
+    const gateway = graph.gateways.find((item) => item.questionId === id);
+    return !gateway?.conditionalWhen || evaluateAdaptiveCondition(gateway.conditionalWhen, gatewayAnswers);
+  });
+  if (graph.graphVersion === PREVIEW_ADAPTIVE_GRAPH_VERSION) return visible;
   const blocks = Object.values(GATEWAY_BLOCKS).flat();
-  return [...PROFILE_GATEWAYS, ...all.filter((id) => !PROFILE_GATEWAYS.includes(id) && !blocks.includes(id))];
+  return [...PROFILE_GATEWAYS.filter((id) => visible.includes(id)), ...visible.filter((id) => !PROFILE_GATEWAYS.includes(id) && !blocks.includes(id))];
 }
 
 export function resolveAdaptivePath(input: {
@@ -222,7 +242,7 @@ export function resolveAdaptivePath(input: {
     });
   };
 
-  for (const id of orderedGatewayIds(graph)) pushGateway(id);
+  for (const id of orderedGatewayIds(graph, gatewayAnswers)) pushGateway(id);
   const questionsByDomain = new Map<string, AdaptiveQuestion[]>();
   for (const question of graph.questions.slice().sort((a, b) => a.sortOrder - b.sortOrder)) {
     const list = questionsByDomain.get(question.domainCode) ?? [];
@@ -272,7 +292,9 @@ export function resolveAdaptivePath(input: {
 
   const domains = graph.domains.slice().sort((a, b) => a.sortOrder - b.sortOrder);
   for (const domain of domains) {
-    for (const gatewayId of GATEWAY_BLOCKS[domain.domainCode] ?? []) pushGateway(gatewayId);
+    if (graph.graphVersion !== PREVIEW_ADAPTIVE_GRAPH_VERSION) {
+      for (const gatewayId of GATEWAY_BLOCKS[domain.domainCode] ?? []) pushGateway(gatewayId);
+    }
     pushDomain(domain.domainCode);
   }
 
@@ -311,7 +333,8 @@ export function previewGatewayChange(input: { graph: AdaptiveGraph; currentAnswe
 
 export function deriveAdaptiveIntegritySignals(input: { graph: AdaptiveGraph; path: AdaptiveResolvedPath; navigation: { currentQuestionId: string | null; currentScreen: string }; gatewayAnswers: AdaptiveGatewayAnswers }): AdaptiveIntegritySignal[] {
   const signals: AdaptiveIntegritySignal[] = [];
-  if (input.graph.graphFingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) signals.push({ signalId: 'graph_mismatch', detail: { expected: PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT, actual: input.graph.graphFingerprint }, blocking: true });
+  const expectedFingerprint = expectedFingerprintForGraph(input.graph);
+  if (input.graph.graphFingerprint !== expectedFingerprint) signals.push({ signalId: 'graph_mismatch', detail: { expected: expectedFingerprint, actual: input.graph.graphFingerprint }, blocking: true });
   if (input.path.currentNextNode && !input.path.nodes.some((node) => node.nodeId === input.path.currentNextNode)) signals.push({ signalId: 'path_accounting_mismatch', detail: {}, blocking: true });
   if (input.navigation.currentQuestionId && !input.path.nodes.some((node) => node.nodeId === input.navigation.currentQuestionId)) signals.push({ signalId: 'stale_navigation_state', detail: { currentQuestionId: input.navigation.currentQuestionId }, blocking: true });
   if (input.path.unansweredApplicableCount > 0) signals.push({ signalId: 'incomplete_applicable_controls', detail: { count: input.path.unansweredApplicableCount }, blocking: true });
