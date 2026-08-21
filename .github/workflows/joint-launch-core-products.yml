@@ -47,6 +47,8 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/comprehensive-rpc-identifier-guard.mjs'
+      - 'scripts/comprehensive-interpretation-accounting-tests.mjs'
       - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
       - 'scripts/g27-adaptive-correction-tests.mjs'
       - 'scripts/customer-conversion-interim-closure-tests.mjs'
@@ -93,6 +95,8 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/comprehensive-rpc-identifier-guard.mjs'
+      - 'scripts/comprehensive-interpretation-accounting-tests.mjs'
       - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
       - 'scripts/g27-adaptive-correction-tests.mjs'
       - 'scripts/customer-conversion-interim-closure-tests.mjs'
@@ -152,6 +156,12 @@ jobs:
 
       - name: Comprehensive automated launch closure (authoritative)
         run: npm run joint-launch:test-comprehensive-launch-closure
+
+      - name: Comprehensive PostgreSQL RPC identifier guard
+        run: npm run joint-launch:test-comprehensive-rpc-contract
+
+      - name: Comprehensive package builder and durable accounting seam
+        run: npm run joint-launch:test-comprehensive-accounting
 
       - name: Customer conversion and interim manual fulfilment closure
         run: npm run joint-launch:test-customer-conversion-closure

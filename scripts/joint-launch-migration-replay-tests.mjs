@@ -68,6 +68,16 @@ const db = new pg.default.Client({
 });
 await db.connect();
 
+async function withFixtureDml(callback) {
+  const previous = (await db.query(`select current_setting('session_replication_role') as setting`)).rows[0].setting;
+  await db.query(`set session_replication_role = 'replica'`);
+  try {
+    return await callback();
+  } finally {
+    await db.query(`set session_replication_role = '${previous}'`);
+  }
+}
+
 let failure = null;
 try {
   // Supabase-provided objects the migration chain assumes. Same stubs the Checkpoint E replay uses.
@@ -636,6 +646,310 @@ try {
   );
   assert.equal(settingsWrites.rows[0].n, 0);
   check('the lane writes no app_settings row, so it never touches the activation_control freeze surface');
+
+  // --- Comprehensive automated finalisation RPC contract -------------------------------------------
+  // This is deliberately executed after the complete migration replay. Reading the migration text
+  // alone would not detect PostgreSQL's 63-byte identifier truncation or prove the actual privileges,
+  // atomic report/register binding, or the durable accounting seam.
+  const comprehensiveRpcSignature = 'p_attempt_id uuid, p_template_id uuid, p_report_type report_type, p_storage_bucket text, p_storage_path text, p_file_name text, p_mime_type text, p_file_size_bytes bigint, p_checksum text, p_register_storage_path text, p_register_file_name text, p_register_mime_type text, p_register_file_size_bytes bigint, p_register_checksum text';
+  const comprehensiveRpc = await db.query(
+    `select p.oid, p.proname, pg_get_function_identity_arguments(p.oid) as identity_arguments,
+            pg_get_function_result(p.oid) as result_type, p.prosecdef, p.provolatile, p.proconfig
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'finalise_comprehensive_report_package'`
+  );
+  assert.equal(comprehensiveRpc.rows.length, 1, 'the deliberate Comprehensive finalisation RPC must exist exactly once');
+  const rpcRow = comprehensiveRpc.rows[0];
+  assert.equal(rpcRow.identity_arguments, comprehensiveRpcSignature, 'the finalisation RPC must retain the exact 14-argument identity');
+  assert.equal(rpcRow.result_type, 'jsonb', 'the finalisation RPC must return jsonb');
+  assert.equal(rpcRow.prosecdef, true, 'the finalisation RPC must remain SECURITY DEFINER');
+  assert.equal(rpcRow.provolatile, 'v', 'the finalisation RPC volatility must remain VOLATILE');
+  assert.ok((rpcRow.proconfig ?? []).some((entry) => entry === 'search_path=public, pg_temp'), 'the finalisation RPC search_path must remain pinned');
+  const accidentalRpc = await db.query(
+    `select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'finalise_comprehensive_automated_report_with_supporting_registe'`
+  );
+  assert.equal(accidentalRpc.rows[0].n, 0, 'the accidental PostgreSQL-truncated RPC name must be gone');
+  const rpcAcl = await db.query(
+    `select
+       coalesce(bool_or(grantee = 0 and privilege_type = 'EXECUTE'), false) as public_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'anon') and privilege_type = 'EXECUTE'), false) as anon_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'authenticated') and privilege_type = 'EXECUTE'), false) as authenticated_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'service_role') and privilege_type = 'EXECUTE'), false) as service_execute
+     from aclexplode((select proacl from pg_proc where oid = $1))`, [rpcRow.oid]
+  );
+  assert.equal(rpcAcl.rows[0].public_execute, false, 'PUBLIC must not execute the finalisation RPC');
+  assert.equal(rpcAcl.rows[0].anon_execute, false, 'anon must not execute the finalisation RPC');
+  assert.equal(rpcAcl.rows[0].authenticated_execute, false, 'authenticated must not execute the finalisation RPC');
+  assert.equal(rpcAcl.rows[0].service_execute, true, 'service_role must execute the finalisation RPC');
+  check('post-migration pg_proc and ACL contract: deliberate short name, exact signature, jsonb, SECURITY DEFINER, search_path and service_role-only execution');
+
+  const accountingRpc = await db.query(
+    `select p.oid, pg_get_function_identity_arguments(p.oid) as identity_arguments,
+            pg_get_function_result(p.oid) as result_type, p.prosecdef, p.proconfig
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'record_comprehensive_interpretation_accounting'`
+  );
+  assert.equal(accountingRpc.rows.length, 1, 'the accounting RPC must exist exactly once');
+  const accountingRpcRow = accountingRpc.rows[0];
+  assert.equal(accountingRpcRow.identity_arguments, 'p_attempt_id uuid, p_accounting jsonb');
+  assert.equal(accountingRpcRow.result_type, 'jsonb');
+  assert.equal(accountingRpcRow.prosecdef, true);
+  assert.ok((accountingRpcRow.proconfig ?? []).some((entry) => entry === 'search_path=public, pg_temp'));
+  const accountingAcl = await db.query(
+    `select
+       coalesce(bool_or(grantee = 0 and privilege_type = 'EXECUTE'), false) as public_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'anon') and privilege_type = 'EXECUTE'), false) as anon_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'authenticated') and privilege_type = 'EXECUTE'), false) as authenticated_execute,
+       coalesce(bool_or(grantee = (select oid from pg_roles where rolname = 'service_role') and privilege_type = 'EXECUTE'), false) as service_execute
+     from aclexplode((select proacl from pg_proc where oid = $1))`, [accountingRpcRow.oid]
+  );
+  assert.equal(accountingAcl.rows[0].public_execute, false);
+  assert.equal(accountingAcl.rows[0].anon_execute, false);
+  assert.equal(accountingAcl.rows[0].authenticated_execute, false);
+  assert.equal(accountingAcl.rows[0].service_execute, true);
+  check('provider-accounting RPC is jsonb SECURITY DEFINER with pinned search_path and service_role-only execution');
+
+  const rpcPhase1Source = fs.readFileSync(path.join(root, 'src/lib/reports/phase1-manual-fulfilment.ts'), 'utf8');
+  assert.match(rpcPhase1Source, /rpc\('finalise_comprehensive_report_package'/, 'the application must call the deliberate short RPC name');
+  assert.doesNotMatch(rpcPhase1Source, /rpc\('finalise_comprehensive_automated_report_with_supporting_register'/, 'the application must not call the old 64-byte RPC name');
+  check('the application exact Comprehensive RPC string matches the post-migration pg_proc name');
+
+  const rpcOrganisationId = (await db.query(
+    `insert into public.organisations (legal_name) values ('RPC Contract Synthetic Organisation') returning id`
+  )).rows[0].id;
+  const rpcAssessmentId = (await db.query(
+    `insert into public.assessments (assessment_reference, organisation_id, methodology_version_id, status, submitted_at)
+     values ('MKFRS-RPC-CONTRACT-0001', $1, $2, 'scored', now()) returning id`,
+    [rpcOrganisationId, methodologyId]
+  )).rows[0].id;
+  const rpcOrderId = (await db.query(
+    `insert into public.orders (order_reference, assessment_id, product_id, product_name, product_price_version_id,
+       status, amount_cents, currency)
+     values ('MKORD-RPC-CONTRACT-0001', $1, $2, 'Comprehensive', $3, 'awaiting_payment', 3500000, 'ZAR') returning id`,
+    [rpcAssessmentId, comprehensiveId, comprehensiveVersionId]
+  )).rows[0].id;
+  const rpcScoreRunId = (await withFixtureDml(() => db.query(
+    `insert into public.score_runs(
+       assessment_id, methodology_version_id, run_number, run_type, status, overall_score,
+       calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct,
+       n_a_rate_pct, input_hash, created_by_user_id, locked_at
+     ) values ($1,$2,1,'test_fixture','completed',58.25,'Developing','Developing',62.00,'High',100,0,$3,$4,now())
+     returning id`,
+    [rpcAssessmentId, methodologyId, 'a'.repeat(64), adminUserId]
+  ))).rows[0].id;
+  await withFixtureDml(() => db.query(
+    `update public.assessments set current_score_run_id=$2, status='scored', locked_at=now() where id=$1`,
+    [rpcAssessmentId, rpcScoreRunId]
+  ));
+  const rpcTemplate = (await db.query(
+    `select id from public.report_templates where report_type='mk_validated' and status='active' limit 1`
+  )).rows[0];
+  assert.ok(rpcTemplate, 'the replay must provide an active Comprehensive report template');
+
+  const accounting = {
+    provider: 'openai',
+    model: 'openai/gpt-5.6-luna',
+    calls: 1,
+    repairs: 0,
+    input_tokens: 12345,
+    output_tokens: 2345,
+    total_tokens: 14690,
+    cost_micros: 987654,
+    duration_ms: 54321,
+    repaired_slots: []
+  };
+  const seedRpcAttempt = async (version, requestKey) => (await db.query(
+    `insert into public.manual_report_generation_attempts(
+       request_id, request_key, order_id, report_version, trigger_source, requested_by,
+       status, started_at, technical_reference
+     ) values (gen_random_uuid(),$1,$2,$3,'admin_generate',$4,'REPORT_GENERATING',now(),$5)
+     returning id`,
+    [requestKey, rpcOrderId, version, adminUserId, `rpc-contract-${version}`]
+  )).rows[0].id;
+  const recordAccounting = (attemptId) => db.query(
+    `select public.record_comprehensive_interpretation_accounting($1,$2::jsonb) as result`,
+    [attemptId, JSON.stringify(accounting)]
+  );
+  const finaliseRpc = (attemptId, version, registerChecksum, registerFileName = `RPC-CONTRACT-v${version}-Comprehensive-supporting-register.xlsx`) => {
+    const pdfPath = `rpc/${rpcOrderId}/v${version}/RPC-CONTRACT-v${version}.pdf`;
+    const registerPath = `rpc/${rpcOrderId}/v${version}/${registerFileName}`;
+    return db.query(
+      `select public.finalise_comprehensive_report_package(
+         $1,$2,'mk_validated','generated-reports',$3,$4,'application/pdf',1234,$5,
+         $6,$7,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',5678,$8
+       ) as result`,
+      [attemptId, rpcTemplate.id, pdfPath, `RPC-CONTRACT-v${version}.pdf`, 'a'.repeat(64), registerPath, registerFileName, registerChecksum]
+    );
+  };
+
+  // The replay is normally frozen. Release only the generation surface for this test; triggers
+  // remain live and the original state is restored in the finally block below.
+  const freezeBefore = (await db.query(`select * from public.rc1_operation_freeze_state where singleton`)).rows[0];
+  const restoreFreeze = () => withFixtureDml(() => db.query(`
+    update public.rc1_operation_freeze_state
+       set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+           released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+           release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+           active_canary_expires_at=$11, updated_at=$12
+     where singleton=$1`, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at, freezeBefore.activated_by_fingerprint,
+    freezeBefore.activation_reason_fingerprint, freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at, freezeBefore.updated_at
+  ]));
+  await withFixtureDml(() => db.query(`
+    update public.rc1_operation_freeze_state
+       set state='RELEASED', freeze_epoch=greatest(freeze_epoch,1), released_at=now(),
+           released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+           release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+           active_canary_expires_at=null, updated_at=now()
+     where singleton`));
+
+  try {
+    const successAttemptId = await seedRpcAttempt(1, 'RPC-CONTRACT-SUCCESS');
+    await recordAccounting(successAttemptId);
+    const accountingRow = (await db.query(
+      `select status, generation_mode, resolved_provider, resolved_model, ai_usage_json
+         from public.manual_report_generation_attempts where id=$1`, [successAttemptId]
+    )).rows[0];
+    assert.equal(accountingRow.status, 'REPORT_GENERATING');
+    assert.equal(accountingRow.generation_mode, 'ai');
+    assert.equal(accountingRow.resolved_provider, accounting.provider);
+    assert.equal(accountingRow.resolved_model, accounting.model);
+    assert.deepEqual(accountingRow.ai_usage_json, {
+      provider: accounting.provider, model: accounting.model, calls: accounting.calls,
+      repairs: accounting.repairs, input_tokens: accounting.input_tokens, output_tokens: accounting.output_tokens,
+      total_tokens: accounting.total_tokens, cost_micros: accounting.cost_micros,
+      gateway_cost_micros: accounting.cost_micros, duration_ms: accounting.duration_ms, repaired_slots: []
+    });
+    check('Comprehensive interpretation provider accounting is durably recorded before finalisation');
+
+    const beforeSuccess = (await db.query(
+      `select
+         (select count(*)::int from public.reports where order_id=$1) as reports,
+         (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artifacts,
+         (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+         (select count(*)::int from public.order_events where order_id=$1) as order_events`, [rpcOrderId]
+    )).rows[0];
+    const success = (await finaliseRpc(successAttemptId, 1, 'b'.repeat(64))).rows[0].result;
+    assert.equal(success.report.order_id, rpcOrderId);
+    assert.equal(success.report.assessment_id, rpcAssessmentId);
+    assert.equal(success.report.score_run_id, rpcScoreRunId);
+    assert.equal(Number(success.report.version_number), 1);
+    assert.equal(success.supporting_register.report_id, success.report.id);
+    assert.equal(success.supporting_register.artefact_type, 'supporting_register');
+    assert.equal(success.supporting_register.checksum_sha256, 'b'.repeat(64));
+    assert.equal(Number(success.supporting_register.file_size_bytes), 5678);
+    assert.equal(success.supporting_register.storage_bucket, 'generated-reports');
+    assert.equal(success.supporting_register.storage_status, 'VERIFIED');
+    const afterSuccess = (await db.query(
+      `select
+         (select count(*)::int from public.reports where order_id=$1) as reports,
+         (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artifacts,
+         (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+         (select count(*)::int from public.order_events where order_id=$1) as order_events,
+         (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+         (select output_report_id from public.manual_report_generation_attempts where id=$2) as output_report_id`,
+      [rpcOrderId, successAttemptId]
+    )).rows[0];
+    assert.equal(afterSuccess.reports, beforeSuccess.reports + 1);
+    assert.equal(afterSuccess.artifacts, beforeSuccess.artifacts + 1);
+    assert.ok(afterSuccess.report_events > beforeSuccess.report_events);
+    assert.ok(afterSuccess.order_events > beforeSuccess.order_events);
+    assert.equal(afterSuccess.attempt_status, 'REPORT_READY');
+    assert.equal(afterSuccess.output_report_id, success.report.id);
+    const packageCounts = (await db.query(
+      `select
+         (select count(*)::int from public.report_artifacts where report_id=$1 and artefact_type='supporting_register') as supporting_registers,
+         (select count(*)::int from public.comprehensive_engagements where order_id=$2 or assessment_id=$3) as engagements,
+         (select count(*)::int from public.comprehensive_evidence_items where order_id=$2 or assessment_id=$3) as evidence_items,
+         (select count(*)::int from public.comprehensive_review_records cr join public.comprehensive_engagements ce on ce.id=cr.engagement_id where ce.order_id=$2 or ce.assessment_id=$3) as review_records`,
+      [success.report.id, rpcOrderId, rpcAssessmentId]
+    )).rows[0];
+    assert.equal(packageCounts.supporting_registers, 1, 'success must create exactly one supporting register');
+    assert.equal(packageCounts.engagements, 0, 'the automated finaliser must not create a reviewed engagement');
+    assert.equal(packageCounts.evidence_items, 0, 'the automated finaliser must not create evidence intake');
+    assert.equal(packageCounts.review_records, 0, 'the automated finaliser must not create reviewer records');
+    check('Comprehensive RPC success atomically binds one report and one verified register to order, assessment, score run and version with no reviewer/evidence/sign-off lifecycle');
+
+    const rollbackAttemptId = await seedRpcAttempt(2, 'RPC-CONTRACT-ROLLBACK');
+    await recordAccounting(rollbackAttemptId);
+    await db.query(`
+      create or replace function public.test_rpc_contract_fail_artifact()
+      returns trigger language plpgsql as $$
+      begin
+        raise exception 'rpc_contract_forced_artifact_failure';
+      end;
+      $$`);
+    await db.query(`
+      create trigger trg_test_rpc_contract_fail_artifact
+      before insert on public.report_artifacts
+      for each row when (new.file_name = 'RPC-CONTRACT-v2-Comprehensive-fail-supporting-register.xlsx')
+      execute function public.test_rpc_contract_fail_artifact()`);
+    const beforeRollback = (await db.query(
+      `select
+         (select count(*)::int from public.reports where order_id=$1) as reports,
+         (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artifacts,
+         (select status from public.reports where id=$2) as previous_status,
+         (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+         (select count(*)::int from public.order_events where order_id=$1) as order_events`,
+      [rpcOrderId, success.report.id]
+    )).rows[0];
+    await assert.rejects(
+      finaliseRpc(rollbackAttemptId, 2, 'c'.repeat(64), 'RPC-CONTRACT-v2-Comprehensive-fail-supporting-register.xlsx'),
+      /rpc_contract_forced_artifact_failure|rpc_contract/i
+    );
+    const afterRollback = (await db.query(
+      `select
+         (select count(*)::int from public.reports where order_id=$1) as reports,
+         (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artifacts,
+         (select status from public.reports where id=$2) as previous_status,
+         (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+         (select count(*)::int from public.order_events where order_id=$1) as order_events,
+         (select status from public.manual_report_generation_attempts where id=$3) as attempt_status,
+         (select output_report_id from public.manual_report_generation_attempts where id=$3) as output_report_id,
+         (select ai_usage_json from public.manual_report_generation_attempts where id=$3) as ai_usage_json`,
+      [rpcOrderId, success.report.id, rollbackAttemptId]
+    )).rows[0];
+    assert.deepEqual(afterRollback.reports, beforeRollback.reports);
+    assert.deepEqual(afterRollback.artifacts, beforeRollback.artifacts);
+    assert.equal(afterRollback.previous_status, beforeRollback.previous_status);
+    assert.equal(afterRollback.report_events, beforeRollback.report_events);
+    assert.equal(afterRollback.order_events, beforeRollback.order_events);
+    assert.equal(afterRollback.attempt_status, 'REPORT_GENERATING');
+    assert.equal(afterRollback.output_report_id, null);
+    assert.equal(afterRollback.ai_usage_json.model, accounting.model, 'accounting must survive finalisation failure');
+    await db.query(`drop trigger trg_test_rpc_contract_fail_artifact on public.report_artifacts`);
+    await db.query(`drop function public.test_rpc_contract_fail_artifact()`);
+    check('forced mid-transaction artifact failure fully rolls back report, supersession, artifact and events while preserving provider accounting');
+
+    await withFixtureDml(() => db.query(`delete from public.manual_report_generation_attempts where id=$1`, [rollbackAttemptId]));
+    const invalidAttemptId = await seedRpcAttempt(2, 'RPC-CONTRACT-INVALID');
+    await assert.rejects(
+      finaliseRpc(invalidAttemptId, 2, 'NOT-A-VALID-SHA256'),
+      /comprehensive_supporting_register_integrity_invalid|invalid/i
+    );
+    const afterInvalid = (await db.query(
+      `select
+         (select count(*)::int from public.reports where order_id=$1) as reports,
+         (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artifacts,
+         (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+         (select output_report_id from public.manual_report_generation_attempts where id=$2) as output_report_id`,
+      [rpcOrderId, invalidAttemptId]
+    )).rows[0];
+    assert.equal(afterInvalid.reports, 1, 'invalid input must not create a partial report');
+    assert.equal(afterInvalid.artifacts, 1, 'invalid input must not create a partial artifact');
+    assert.equal(afterInvalid.attempt_status, 'REPORT_GENERATING');
+    assert.equal(afterInvalid.output_report_id, null);
+    check('forced invalid input fails closed with no partial report or artifact linkage');
+  } finally {
+    await db.query(`drop trigger if exists trg_test_rpc_contract_fail_artifact on public.report_artifacts`).catch(() => {});
+    await db.query(`drop function if exists public.test_rpc_contract_fail_artifact()`).catch(() => {});
+    await restoreFreeze();
+  }
 
   console.log(`\njoint-launch migration replay: ${checks} checks passed.`);
 } catch (error) {

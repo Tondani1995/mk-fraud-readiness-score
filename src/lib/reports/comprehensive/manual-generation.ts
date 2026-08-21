@@ -16,6 +16,7 @@ import {
   buildInterpretationBrief,
   generateComprehensiveInterpretation,
   interpretationToCommentary,
+  type InterpretationAccounting,
   type InterpretationRun
 } from './interpretation';
 import { renderHtmlToPdfBuffer } from '../render-pdf';
@@ -56,6 +57,12 @@ export async function renderComprehensiveReportPackage(input: {
   orderReference?: string;
   reportReference?: string;
   versionNumber?: number;
+  /** Called immediately after the provider result is validated and before PDF/XLSX construction. */
+  onInterpretationComplete?: (input: { accounting: InterpretationAccounting }) => Promise<void> | void;
+  /** Provider-free seam for exercising the package builder without an AI call. */
+  generateInterpretation?: typeof generateComprehensiveInterpretation;
+  /** Provider-free seam for exercising the package builder without Chromium. */
+  renderPdf?: typeof renderHtmlToPdfBuffer;
 }): Promise<ComprehensiveReportPackage> {
   const { assembled, evidenceModel } = input;
 
@@ -113,7 +120,8 @@ export async function renderComprehensiveReportPackage(input: {
   });
   assertComprehensiveBlueprintContract(deliveryModel);
 
-  const interpretationRun = await generateComprehensiveInterpretation(
+  const interpretationGenerator = input.generateInterpretation ?? generateComprehensiveInterpretation;
+  const interpretationRun = await interpretationGenerator(
     buildInterpretationBrief({
       model,
       organisationName: pack.organisation.name,
@@ -123,6 +131,7 @@ export async function renderComprehensiveReportPackage(input: {
     }),
     { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
   );
+  await input.onInterpretationComplete?.({ accounting: interpretationRun.accounting });
 
   const html = renderComprehensiveManagementReportHtml({
     model,
@@ -134,7 +143,8 @@ export async function renderComprehensiveReportPackage(input: {
     commentary: interpretationToCommentary(interpretationRun.interpretation)
   });
 
-  const pdf = await renderHtmlToPdfBuffer(html, {
+  const pdfRenderer = input.renderPdf ?? renderHtmlToPdfBuffer;
+  const pdf = await pdfRenderer(html, {
     footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
   });
 

@@ -18,7 +18,7 @@ assessment completed
        -> PDF from the Comprehensive renderer
        -> XLSX from the same deterministic Comprehensive delivery model
        -> private Storage upload + byte/checksum verification for both files
-       -> finalise_comprehensive_automated_report_with_supporting_register
+       -> finalise_comprehensive_report_package
   -> automatic_release_completed_fulfilment
        -> payment/score/PDF/recipient/entitlement gates
        -> exact PDF + XLSX version binding
@@ -35,7 +35,7 @@ assessment completed
 | Payment trigger | `src/app/score/api/internal/fulfilment-worker/route.ts` and payment-verification RPCs | Verified payment queues the existing fulfilment attempt; no reviewer state is consulted. |
 | Analytical generation | `src/lib/reports/comprehensive/manual-generation.ts` | Frozen deterministic source model, one current interpretation architecture, no customer evidence intake. |
 | Report package | `src/lib/reports/phase1-manual-fulfilment.ts`, `src/lib/reports/supporting-register-delivery.ts` | PDF and Comprehensive six-register XLSX are independently stored and verified before finalisation. |
-| Atomic finalisation | `finalise_comprehensive_automated_report_with_supporting_register` | One report, one register, exact order/report/version binding, `engagement_id` null. |
+| Atomic finalisation | `finalise_comprehensive_report_package` | One report, one register, exact order/report/version binding, `engagement_id` null. The forward RPC-contract migration deliberately renames the historical PostgreSQL-truncated routine to this 37-byte application identifier. |
 | Release | `automatic_release_completed_fulfilment` | Existing payment/score/PDF/recipient gates plus exactly one verified Comprehensive register. |
 | Customer lifecycle | `src/lib/commercial/customer-order-status.ts`, `CustomerOrderStatusWorkspace.tsx` | Automated status/readiness/delivery only. |
 | Customer access | `src/lib/reports/customer-report-access.ts`, `/score/report/access/[token]` | Possession token is bound to order/report; PDF and supporting XLSX only; legacy selectors reject. |

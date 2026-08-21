@@ -100,6 +100,7 @@ const access = await read('src/lib/reports/customer-report-access.ts');
 const accessRoute = await read('src/app/score/report/access/[token]/route.ts');
 const worker = await read('src/app/score/api/internal/fulfilment-worker/route.ts');
 const launchMigration = await read('supabase/migrations/20260820120000_comprehensive_automated_launch_closure.sql');
+const rpcContractMigration = await read('supabase/migrations/20260821170050_comprehensive_finalisation_rpc_contract_fix.sql');
 
 const essentialStatusCopy = getCustomerOrderStatusCopy('essential');
 const comprehensiveStatusCopy = getCustomerOrderStatusCopy('comprehensive');
@@ -121,7 +122,8 @@ assert.match(manualGeneration, /buildComprehensiveDeliveryModel/);
 assert.match(manualGeneration, /buildComprehensiveRegisterWorkbook/);
 assert.match(phase1, /renderComprehensiveReportPackage/);
 assert.match(phase1, /storeVerifiedRegisterWorkbook/);
-assert.match(phase1, /finalise_comprehensive_automated_report_with_supporting_register/);
+assert.match(phase1, /finalise_comprehensive_report_package/);
+assert.doesNotMatch(phase1, /finalise_comprehensive_automated_report_with_supporting_register/);
 assert.match(phase1, /finalise_manual_report_with_supporting_register/);
 const comprehensiveBranch = phase1.slice(phase1.indexOf('const storedRegister = isComprehensive'));
 assert.doesNotMatch(comprehensiveBranch.split(': await')[0], /buildAndStoreSupportingRegister/);
@@ -157,6 +159,9 @@ assert.match(launchMigration, /comprehensive_package_incomplete/);
 assert.match(launchMigration, /phase14_delivery_entitlement/);
 assert.match(launchMigration, /report_type = 'mk_validated'/);
 assert.match(launchMigration, /supporting_register_checksum/);
+assert.match(rpcContractMigration, /alter function public\.finalise_comprehensive_automated_report_with_supporting_registe\(/);
+assert.match(rpcContractMigration, /rename to finalise_comprehensive_report_package/);
+assert.match(rpcContractMigration, /record_comprehensive_interpretation_accounting/);
 
 console.log(JSON.stringify({
   passed: true,

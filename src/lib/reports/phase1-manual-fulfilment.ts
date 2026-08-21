@@ -32,6 +32,7 @@ import type { WholeManuscriptWriter } from './narrative/manuscript';
 import type { EssentialSemanticReviewer } from './narrative/semantic-reviewer';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
 import { renderComprehensiveReportPackage } from './comprehensive/manual-generation';
+import { persistComprehensiveInterpretationAccounting } from './comprehensive/interpretation-accounting';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -56,6 +57,8 @@ export interface ManualPhase1Dependencies {
   buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
   /** Provider-free seam for the frozen Comprehensive PDF + XLSX package builder. */
   renderComprehensiveReportPackage?: typeof renderComprehensiveReportPackage;
+  /** Persists bounded Comprehensive provider accounting before rendering and storage. */
+  persistComprehensiveInterpretationAccounting?: typeof persistComprehensiveInterpretationAccounting;
   /** Publishes the already-built Comprehensive workbook without invoking Essential's builder. */
   storeVerifiedRegisterWorkbook?: typeof storeVerifiedRegisterWorkbook;
   getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
@@ -607,7 +610,16 @@ export async function generateManualPhase1Report(
           evidenceModel: advisoryModel,
           orderReference: input.orderReference,
           reportReference: assembled.reportReference,
-          versionNumber
+          versionNumber,
+          onInterpretationComplete: async ({ accounting }) => {
+            const persistAccounting = dependencies.persistComprehensiveInterpretationAccounting
+              ?? persistComprehensiveInterpretationAccounting;
+            await persistAccounting({
+              db,
+              manualGenerationAttemptId: attemptId,
+              accounting
+            });
+          }
         });
         comprehensivePdf = comprehensive.pdf;
         comprehensiveWorkbook = comprehensive.workbook;
@@ -863,7 +875,7 @@ export async function generateManualPhase1Report(
       p_register_checksum: storedRegister.checksumSha256
     };
     const { data: completed, error: completeError } = isComprehensive
-      ? await db.rpc('finalise_comprehensive_automated_report_with_supporting_register', finaliseArguments)
+      ? await db.rpc('finalise_comprehensive_report_package', finaliseArguments)
       : await db.rpc('finalise_manual_report_with_supporting_register', finaliseArguments);
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
