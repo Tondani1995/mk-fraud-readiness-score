@@ -14,7 +14,7 @@ const { isPremiumReportDevelopmentMode } = await import('../src/lib/reports/emai
 const base = {
   VERCEL_ENV: 'preview',
   MK_DEVELOPMENT_MODE: 'enabled',
-  NEXT_PUBLIC_SUPABASE_URL: 'https://penhenkzfrtmcxklodtu.supabase.co',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://iszihmmbgsfefawqmnwo.supabase.co',
   MK_EMAIL_PROVIDER_MODE: 'test',
   MK_EMAIL_RECIPIENT_ALLOWLIST: 'admin@mkfraud.co.za',
 };

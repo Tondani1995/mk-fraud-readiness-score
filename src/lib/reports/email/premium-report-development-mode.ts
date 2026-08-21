@@ -1,4 +1,4 @@
-export const PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF = 'penhenkzfrtmcxklodtu';
+export const PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF = 'iszihmmbgsfefawqmnwo';
 export const PREMIUM_REPORT_DEVELOPMENT_RECIPIENT = 'admin@mkfraud.co.za';
 
 function projectRefFromUrl(value: string | undefined) {

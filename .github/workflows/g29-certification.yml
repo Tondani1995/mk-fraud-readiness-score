@@ -203,7 +203,7 @@ jobs:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: integration.adaptive-db
       G29_OUTPUT: tmp/g29/adaptive-staging.json
-      G25_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
+      G25_SUPABASE_URL: https://iszihmmbgsfefawqmnwo.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       G25_DB_TEST_REF: MKADAPT-QA-20260804-01
     steps:
@@ -362,7 +362,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      G29_STAGING_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
+      G29_STAGING_SUPABASE_URL: https://iszihmmbgsfefawqmnwo.supabase.co
       G29_PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
