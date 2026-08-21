@@ -14,8 +14,11 @@ import {
 } from './customer-visible-adaptation';
 import {
   buildInterpretationBrief,
+  ComprehensiveInterpretationFailure,
   generateComprehensiveInterpretation,
   interpretationToCommentary,
+  type ComprehensiveInterpretationFailureReasonCode,
+  type DiagnosticTriState,
   type InterpretationAccounting,
   type InterpretationRun
 } from './interpretation';
@@ -33,6 +36,46 @@ export interface ComprehensiveReportPackage {
     reportReference: string;
     versionNumber: number | null;
   };
+}
+
+function accountingAvailable(accounting: InterpretationAccounting): boolean {
+  return Boolean(accounting.inputTokens || accounting.outputTokens || accounting.totalTokens || accounting.costMicros);
+}
+
+function wrapPostProcessingFailure(accounting: InterpretationAccounting, reasonCode: ComprehensiveInterpretationFailureReasonCode): ComprehensiveInterpretationFailure {
+  const providerAttempted = accounting.calls > 0;
+  const completedBoundary: DiagnosticTriState = providerAttempted ? 'yes' : 'no';
+  return new ComprehensiveInterpretationFailure({
+    stage: 'POST_PROCESSING',
+    reasonCode,
+    provider: accounting.model.split('/')[0]?.trim() || 'vercel-ai-gateway',
+    model: accounting.model,
+    providerAttempted: providerAttempted ? 'yes' : 'no',
+    providerDispatched: completedBoundary,
+    providerResponseReceived: completedBoundary,
+    gatewayResponseReceived: completedBoundary,
+    accountingAvailable: accountingAvailable(accounting),
+    retryable: false,
+    accounting: { ...accounting, repairedSlots: [...accounting.repairedSlots] }
+  });
+}
+
+function throwSafetyFailure(accounting: InterpretationAccounting, reasonCode: ComprehensiveInterpretationFailureReasonCode): never {
+  const providerAttempted = accounting.calls > 0;
+  const completedBoundary: DiagnosticTriState = providerAttempted ? 'yes' : 'no';
+  throw new ComprehensiveInterpretationFailure({
+    stage: 'SAFETY_VALIDATION',
+    reasonCode,
+    provider: accounting.model.split('/')[0]?.trim() || 'vercel-ai-gateway',
+    model: accounting.model,
+    providerAttempted: providerAttempted ? 'yes' : 'no',
+    providerDispatched: completedBoundary,
+    providerResponseReceived: completedBoundary,
+    gatewayResponseReceived: completedBoundary,
+    accountingAvailable: accountingAvailable(accounting),
+    retryable: false,
+    accounting: { ...accounting, repairedSlots: [...accounting.repairedSlots] }
+  });
 }
 
 /**
@@ -156,35 +199,60 @@ export async function renderComprehensiveReportPackage(input: {
     factPack: pack
   });
   if (!safetyRun.publishable) {
-    const detail = [...safetyRun.cascade.blockingCodes, ...safetyRun.cascade.heldForReviewCodes, ...safetyRun.issues.map((issue) => issue.code)];
-    throw new Error(`Comprehensive interpretation safety failed: ${[...new Set(detail)].join(', ') || 'unpublishable interpretation'}`);
+    throwSafetyFailure(
+      interpretationRun.accounting,
+      'interpretation_safety_unpublishable'
+    );
   }
-  await input.onInterpretationComplete?.({ accounting: interpretationRun.accounting });
+  try {
+    await input.onInterpretationComplete?.({ accounting: interpretationRun.accounting });
+  } catch {
+    throw wrapPostProcessingFailure(interpretationRun.accounting, 'interpretation_accounting_persistence_failed');
+  }
 
-  const html = renderComprehensiveManagementReportHtml({
-    model,
-    organisationName: pack.organisation.name,
-    assessmentReference: pack.assessment.reference,
-    score,
-    maturity,
-    domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band })),
-    commentary: interpretationToCommentary(safetyRun.interpretation)
-  });
-  const finalSafety = validateComprehensiveFinalHtml({ html, data: assembled, safety: safetyRun });
+  let html: string;
+  try {
+    html = renderComprehensiveManagementReportHtml({
+      model,
+      organisationName: pack.organisation.name,
+      assessmentReference: pack.assessment.reference,
+      score,
+      maturity,
+      domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band })),
+      commentary: interpretationToCommentary(safetyRun.interpretation)
+    });
+  } catch {
+    throw wrapPostProcessingFailure(interpretationRun.accounting, 'management_report_render_failed');
+  }
+  let finalSafety: ReturnType<typeof validateComprehensiveFinalHtml>;
+  try {
+    finalSafety = validateComprehensiveFinalHtml({ html, data: assembled, safety: safetyRun });
+  } catch {
+    throw wrapPostProcessingFailure(interpretationRun.accounting, 'final_output_safety_evaluation_failed');
+  }
   if (!finalSafety.publishable) {
-    throw new Error(`Comprehensive final-output safety failed: ${[...finalSafety.blockingCodes, ...finalSafety.heldForReviewCodes].join(', ') || 'unpublishable final output'}`);
+    throwSafetyFailure(
+      interpretationRun.accounting,
+      'final_output_safety_unpublishable'
+    );
   }
 
   const pdfRenderer = input.renderPdf ?? renderHtmlToPdfBuffer;
-  const pdf = await pdfRenderer(html, {
-    footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
-  });
+  let pdf: Buffer;
+  let workbook: ComprehensiveRegisterWorkbook;
+  try {
+    pdf = await pdfRenderer(html, {
+      footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
+    });
 
-  const workbook = await buildComprehensiveRegisterWorkbook(deliveryModel, {
-    orderReference: input.orderReference,
-    reportReference: input.reportReference ?? assembled.reportReference,
-    versionNumber: input.versionNumber
-  });
+    workbook = await buildComprehensiveRegisterWorkbook(deliveryModel, {
+      orderReference: input.orderReference,
+      reportReference: input.reportReference ?? assembled.reportReference,
+      versionNumber: input.versionNumber
+    });
+  } catch {
+    throw wrapPostProcessingFailure(interpretationRun.accounting, 'report_artifact_construction_failed');
+  }
 
   return {
     pdf,

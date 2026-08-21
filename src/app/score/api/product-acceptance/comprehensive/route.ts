@@ -10,7 +10,13 @@ import { assembleComprehensive } from '@/lib/reports/comprehensive/assembly';
 import { buildComprehensiveManagementModel } from '@/lib/reports/comprehensive/management-model';
 import { buildComprehensiveDeliveryModel, assertComprehensiveBlueprintContract } from '@/lib/reports/comprehensive/contract';
 import { adaptComprehensiveEvidenceModel, adaptComprehensiveScenarioFacts } from '@/lib/reports/comprehensive/customer-visible-adaptation';
-import { buildInterpretationBrief, buildInterpretationPrompt, COMPREHENSIVE_INTERPRETATION_VERSION } from '@/lib/reports/comprehensive/interpretation';
+import {
+  buildInterpretationBrief,
+  buildInterpretationPrompt,
+  COMPREHENSIVE_INTERPRETATION_VERSION,
+  isComprehensiveInterpretationFailure,
+  type ComprehensiveInterpretationFailureDiagnostics
+} from '@/lib/reports/comprehensive/interpretation';
 import { renderComprehensiveReportPackage } from '@/lib/reports/comprehensive/manual-generation';
 
 export const runtime = 'nodejs';
@@ -49,6 +55,52 @@ function isCedarRidgeFixture(value: unknown): value is AssembledReportData {
     && assembled.scoreRun?.adaptiveMetrics?.graphFingerprint === CEDAR_RIDGE_GRAPH_FINGERPRINT
     && assembled.domainResults?.length === 10
     && assembled.questionTraces?.length === 68;
+}
+
+function safeFailureDiagnostics(error: unknown): ComprehensiveInterpretationFailureDiagnostics | {
+  stage: 'UNKNOWN';
+  reasonCode: 'unclassified_comprehensive_failure';
+  provider: 'unknown';
+  model: 'unknown';
+  providerAttempted: 'unknown';
+  providerDispatched: 'unknown';
+  providerResponseReceived: 'unknown';
+  gatewayResponseReceived: 'unknown';
+  accountingAvailable: false;
+  retryable: false;
+  accounting: null;
+} {
+  if (isComprehensiveInterpretationFailure(error)) return error.diagnostics;
+  return {
+    stage: 'UNKNOWN',
+    reasonCode: 'unclassified_comprehensive_failure',
+    provider: 'unknown',
+    model: 'unknown',
+    providerAttempted: 'unknown',
+    providerDispatched: 'unknown',
+    providerResponseReceived: 'unknown',
+    gatewayResponseReceived: 'unknown',
+    accountingAvailable: false,
+    retryable: false,
+    accounting: null
+  };
+}
+
+function publicFailureDiagnostics(diagnostics: ReturnType<typeof safeFailureDiagnostics>) {
+  return {
+    stage: diagnostics.stage,
+    reasonCode: diagnostics.reasonCode,
+    provider: diagnostics.provider,
+    model: diagnostics.model,
+    providerAttempted: diagnostics.providerAttempted,
+    providerDispatched: diagnostics.providerDispatched,
+    providerResponseReceived: diagnostics.providerResponseReceived,
+    gatewayResponseReceived: diagnostics.gatewayResponseReceived,
+    accountingAvailable: diagnostics.accountingAvailable,
+    retryable: diagnostics.retryable,
+    ...('statusCode' in diagnostics && diagnostics.statusCode !== undefined ? { statusCode: diagnostics.statusCode } : {}),
+    accounting: diagnostics.accounting
+  };
 }
 
 export async function POST(request: Request) {
@@ -134,6 +186,13 @@ export async function POST(request: Request) {
     const durationMs = Date.now() - startedAt;
     const pdfSha256 = sha256(result.pdf);
     const xlsxSha256 = sha256(result.workbook.bytes);
+    const providerAttempted = result.interpretationRun.accounting.calls > 0 ? 'yes' : 'no';
+    const accountingAvailable = Boolean(
+      result.interpretationRun.accounting.inputTokens
+      || result.interpretationRun.accounting.outputTokens
+      || result.interpretationRun.accounting.totalTokens
+      || result.interpretationRun.accounting.costMicros
+    );
     return noStoreJson({
       ok: true,
       technicalReference,
@@ -142,6 +201,25 @@ export async function POST(request: Request) {
       evidencePackSha256: sha256(JSON.stringify(brief.evidencePack)),
       promptSha256: sha256(prompt),
       accounting: result.interpretationRun.accounting,
+      diagnostics: {
+        stage: 'POST_PROCESSING',
+        provider: result.interpretationRun.accounting.model.split('/')[0]?.trim() || 'vercel-ai-gateway',
+        model: result.interpretationRun.accounting.model,
+        providerAttempted,
+        providerDispatched: providerAttempted === 'yes' ? 'yes' : 'no',
+        providerResponseReceived: providerAttempted === 'yes' ? 'yes' : 'no',
+        gatewayResponseReceived: providerAttempted === 'yes' ? 'yes' : 'no',
+        accountingAvailable,
+        retryable: false,
+        stageTrace: [
+          { stage: 'PRE_DISPATCH', status: 'completed' },
+          { stage: 'PROVIDER_DISPATCH', status: providerAttempted === 'yes' ? 'completed' : 'not_observed' },
+          { stage: 'PROVIDER_RESPONSE', status: providerAttempted === 'yes' ? 'completed' : 'not_observed' },
+          { stage: 'RESPONSE_PARSE_OR_SCHEMA', status: providerAttempted === 'yes' ? 'completed' : 'not_observed' },
+          { stage: 'SAFETY_VALIDATION', status: 'completed' },
+          { stage: 'POST_PROCESSING', status: 'completed' }
+        ]
+      },
       durationMs,
       providerResponse: result.interpretationRun.interpretation,
       safety: result.safetyRun,
@@ -159,7 +237,13 @@ export async function POST(request: Request) {
         workbookRows: result.workbook.rowCounts
       }
     });
-  } catch {
-    return noStoreJson({ ok: false, reason: 'preview_interpretation_failed', technicalReference }, 500);
+  } catch (error) {
+    const diagnostics = safeFailureDiagnostics(error);
+    const publicDiagnostics = publicFailureDiagnostics(diagnostics);
+    console.error('comprehensive_preview_interpretation_failure', {
+      technicalReference,
+      ...publicDiagnostics
+    });
+    return noStoreJson({ ok: false, reason: 'preview_interpretation_failed', technicalReference, failure: publicDiagnostics }, 500);
   }
 }

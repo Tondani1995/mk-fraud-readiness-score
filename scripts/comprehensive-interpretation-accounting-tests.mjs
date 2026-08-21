@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org-fixture.ts';
 import { renderComprehensiveReportPackage } from '../src/lib/reports/comprehensive/manual-generation.ts';
+import {
+  ComprehensiveInterpretationFailure,
+  generateComprehensiveInterpretation
+} from '../src/lib/reports/comprehensive/interpretation.ts';
 
 // Provider-free package-builder proof. The interpretation generator is injected with a deterministic
 // six-slot result and the PDF renderer is injected with fake bytes; the real Comprehensive assembly,
@@ -110,4 +114,62 @@ assert.equal(accountingPersisted, true);
 assert.ok(Buffer.isBuffer(result.pdf) && result.pdf.length > 1000);
 assert.ok(Buffer.isBuffer(result.workbook.bytes) && result.workbook.bytes.length > 0);
 assert.equal(result.interpretationRun.accounting.costMicros, accounting.costMicros);
+
+const captureFailure = async (operation) => {
+  try {
+    await operation();
+    return null;
+  } catch (error) {
+    return error;
+  }
+};
+
+const safetyFailure = await captureFailure(() => renderComprehensiveReportPackage({
+  assembled: data,
+  evidenceModel,
+  orderReference: data.orderReference,
+  reportReference: data.reportReference,
+  versionNumber: 1,
+  generateInterpretation: async () => ({
+    interpretation: { ...interpretation, executiveInterpretation: '' },
+    issues: [],
+    accounting
+  }),
+  renderPdf: async () => Buffer.from('%PDF-1.4')
+}));
+assert.ok(safetyFailure instanceof ComprehensiveInterpretationFailure);
+assert.equal(safetyFailure.diagnostics.stage, 'SAFETY_VALIDATION');
+assert.equal(safetyFailure.diagnostics.providerAttempted, 'yes');
+assert.equal(safetyFailure.diagnostics.providerResponseReceived, 'yes');
+assert.equal(safetyFailure.diagnostics.accounting.calls, 1);
+
+const postProcessingFailure = await captureFailure(() => renderComprehensiveReportPackage({
+  assembled: data,
+  evidenceModel,
+  orderReference: data.orderReference,
+  reportReference: data.reportReference,
+  versionNumber: 1,
+  generateInterpretation: async () => ({ interpretation, issues: [], accounting }),
+  renderPdf: async () => { throw new Error('synthetic renderer failure'); }
+}));
+assert.ok(postProcessingFailure instanceof ComprehensiveInterpretationFailure);
+assert.equal(postProcessingFailure.diagnostics.stage, 'POST_PROCESSING');
+assert.equal(postProcessingFailure.diagnostics.reasonCode, 'report_artifact_construction_failed');
+assert.equal(postProcessingFailure.diagnostics.accounting.calls, 1);
+
+const originalGatewayKey = process.env.AI_GATEWAY_API_KEY;
+const originalVercelGatewayKey = process.env.VERCEL_AI_GATEWAY_API_KEY;
+delete process.env.AI_GATEWAY_API_KEY;
+delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+const credentialFailure = await captureFailure(() => generateComprehensiveInterpretation({}));
+if (originalGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+else process.env.AI_GATEWAY_API_KEY = originalGatewayKey;
+if (originalVercelGatewayKey === undefined) delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+else process.env.VERCEL_AI_GATEWAY_API_KEY = originalVercelGatewayKey;
+assert.ok(credentialFailure instanceof ComprehensiveInterpretationFailure);
+assert.equal(credentialFailure.diagnostics.stage, 'CREDENTIAL_VALIDATION');
+assert.equal(credentialFailure.diagnostics.providerAttempted, 'no');
+assert.equal(credentialFailure.diagnostics.providerDispatched, 'no');
+assert.equal(credentialFailure.diagnostics.providerResponseReceived, 'no');
+assert.equal(credentialFailure.diagnostics.accounting.calls, 0);
 console.log('comprehensive interpretation accounting: mocked package builder, pre-render callback, PDF and XLSX all passed; provider calls = 0.');

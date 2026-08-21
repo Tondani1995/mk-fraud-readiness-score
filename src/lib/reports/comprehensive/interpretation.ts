@@ -700,6 +700,69 @@ export interface InterpretationAccounting {
   repairedSlots: InterpretationSlotId[];
 }
 
+export type ComprehensiveInterpretationFailureStage =
+  | 'CREDENTIAL_VALIDATION'
+  | 'PRE_DISPATCH'
+  | 'PROVIDER_DISPATCH'
+  | 'PROVIDER_RESPONSE'
+  | 'RESPONSE_PARSE_OR_SCHEMA'
+  | 'SAFETY_VALIDATION'
+  | 'POST_PROCESSING'
+  | 'UNKNOWN';
+
+export type ComprehensiveInterpretationFailureReasonCode =
+  | 'ai_gateway_credential_unavailable'
+  | 'provider_call_failed_before_confirmed_response'
+  | 'provider_or_gateway_returned_error'
+  | 'provider_response_not_parseable_json'
+  | 'provider_response_schema_invalid'
+  | 'provider_response_missing_required_interpretation_slots'
+  | 'interpretation_safety_unpublishable'
+  | 'final_output_safety_evaluation_failed'
+  | 'final_output_safety_unpublishable'
+  | 'interpretation_accounting_persistence_failed'
+  | 'management_report_render_failed'
+  | 'report_artifact_construction_failed'
+  | 'unclassified_comprehensive_failure';
+
+export type DiagnosticTriState = 'yes' | 'no' | 'unknown';
+
+/**
+ * Bounded operational evidence for a failed Comprehensive interpretation.
+ *
+ * This deliberately contains no provider error text, headers, prompts, response
+ * content or customer data. A gateway call can fail before the physical provider
+ * boundary, so the dispatch/response fields remain tri-state rather than guessing.
+ */
+export interface ComprehensiveInterpretationFailureDiagnostics {
+  stage: ComprehensiveInterpretationFailureStage;
+  reasonCode: ComprehensiveInterpretationFailureReasonCode;
+  provider: string;
+  model: string;
+  providerAttempted: DiagnosticTriState;
+  providerDispatched: DiagnosticTriState;
+  providerResponseReceived: DiagnosticTriState;
+  gatewayResponseReceived: DiagnosticTriState;
+  accountingAvailable: boolean;
+  retryable: boolean;
+  statusCode?: number;
+  accounting: InterpretationAccounting;
+}
+
+export class ComprehensiveInterpretationFailure extends Error {
+  readonly diagnostics: ComprehensiveInterpretationFailureDiagnostics;
+
+  constructor(diagnostics: ComprehensiveInterpretationFailureDiagnostics) {
+    super(`Comprehensive interpretation failed at ${diagnostics.stage}.`);
+    this.name = 'ComprehensiveInterpretationFailure';
+    this.diagnostics = diagnostics;
+  }
+}
+
+export function isComprehensiveInterpretationFailure(error: unknown): error is ComprehensiveInterpretationFailure {
+  return error instanceof ComprehensiveInterpretationFailure;
+}
+
 export interface InterpretationRun {
   interpretation: ComprehensiveInterpretation;
   issues: InterpretationIssue[];
@@ -728,6 +791,17 @@ function parseObject(raw: string): Record<string, unknown> {
   return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
 }
 
+function boundedStatusCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as { statusCode?: unknown; responseStatusCode?: unknown };
+  const value = typeof candidate.statusCode === 'number' ? candidate.statusCode : candidate.responseStatusCode;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 400 && value <= 599 ? value : undefined;
+}
+
+function retryableStatusCode(statusCode: number | undefined): boolean {
+  return statusCode === 408 || statusCode === 425 || statusCode === 429 || (statusCode !== undefined && statusCode >= 500);
+}
+
 /**
  * One structured call for all six slots, then targeted repair of any slot that
  * fails. A failing slot never causes the other five to be regenerated.
@@ -738,35 +812,109 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
   timeoutMs?: number;
 }): Promise<InterpretationRun> {
   const selection = selectNarrativeModel();
-  const resolved = requireCredential(options?.model ?? selection.fallbackModels[0] ?? 'openai/gpt-5.6-luna');
+  const requestedModel = options?.model ?? selection.fallbackModels[0] ?? 'openai/gpt-5.6-luna';
   const maxRepairs = options?.maxRepairsPerSlot ?? 2;
   const timeoutMs = options?.timeoutMs ?? 240_000;
-  const accounting: InterpretationAccounting = { calls: 0, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costMicros: 0, durationMs: 0, model: resolved.model, repairedSlots: [] };
+  const provider = requestedModel.split('/')[0]?.trim() || 'vercel-ai-gateway';
+  const accounting: InterpretationAccounting = { calls: 0, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costMicros: 0, durationMs: 0, model: requestedModel, repairedSlots: [] };
   const startedAt = Date.now();
+
+  const fail = (input: Omit<ComprehensiveInterpretationFailureDiagnostics, 'provider' | 'model' | 'accounting'>): ComprehensiveInterpretationFailure => {
+    accounting.durationMs = Date.now() - startedAt;
+    return new ComprehensiveInterpretationFailure({
+      ...input,
+      provider,
+      model: requestedModel,
+      accounting: { ...accounting, repairedSlots: [...accounting.repairedSlots] }
+    });
+  };
+
+  let resolved: { model: string; provider: string };
+  try {
+    resolved = requireCredential(requestedModel);
+  } catch {
+    throw fail({
+      stage: 'CREDENTIAL_VALIDATION',
+      reasonCode: 'ai_gateway_credential_unavailable',
+      providerAttempted: 'no',
+      providerDispatched: 'no',
+      providerResponseReceived: 'no',
+      gatewayResponseReceived: 'no',
+      accountingAvailable: false,
+      retryable: false
+    });
+  }
 
   const call = async (prompt: string) => {
     accounting.calls += 1;
-    const response: any = await generateText({
-      model: resolved.model,
-      system: SYSTEM,
-      prompt,
-      output: Output.text(),
-      maxOutputTokens: 6_000,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [resolved.provider] } },
-      abortSignal: AbortSignal.timeout(timeoutMs)
-    });
-    accounting.inputTokens += Number(response?.usage?.inputTokens ?? 0);
-    accounting.outputTokens += Number(response?.usage?.outputTokens ?? 0);
-    accounting.totalTokens += Number(response?.usage?.totalTokens ?? 0);
+    let response: any;
+    try {
+      response = await generateText({
+        model: resolved.model,
+        system: SYSTEM,
+        prompt,
+        output: Output.text(),
+        maxOutputTokens: 6_000,
+        maxRetries: 0,
+        providerOptions: { gateway: { only: [resolved.provider] } },
+        abortSignal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (error) {
+      const statusCode = boundedStatusCode(error);
+      throw fail({
+        stage: statusCode === undefined ? 'PROVIDER_DISPATCH' : 'PROVIDER_RESPONSE',
+        reasonCode: statusCode === undefined ? 'provider_call_failed_before_confirmed_response' : 'provider_or_gateway_returned_error',
+        providerAttempted: 'yes',
+        providerDispatched: 'unknown',
+        providerResponseReceived: 'unknown',
+        gatewayResponseReceived: statusCode === undefined ? 'unknown' : 'yes',
+        accountingAvailable: false,
+        retryable: retryableStatusCode(statusCode),
+        ...(statusCode === undefined ? {} : { statusCode })
+      });
+    }
+
+    const inputTokens = Number(response?.usage?.inputTokens ?? 0);
+    const outputTokens = Number(response?.usage?.outputTokens ?? 0);
+    const totalTokens = Number(response?.usage?.totalTokens ?? 0);
     const cost = Number(response?.providerMetadata?.gateway?.cost ?? 0);
+    accounting.inputTokens += Number.isFinite(inputTokens) ? inputTokens : 0;
+    accounting.outputTokens += Number.isFinite(outputTokens) ? outputTokens : 0;
+    accounting.totalTokens += Number.isFinite(totalTokens) ? totalTokens : 0;
     if (Number.isFinite(cost)) accounting.costMicros += Math.round(cost * 1e6);
     const text = typeof response.output === 'string' ? response.output : typeof response.text === 'string' ? response.text : '';
-    return parseObject(text);
+    try {
+      return parseObject(text);
+    } catch {
+      throw fail({
+        stage: 'RESPONSE_PARSE_OR_SCHEMA',
+        reasonCode: 'provider_response_not_parseable_json',
+        providerAttempted: 'yes',
+        providerDispatched: 'yes',
+        providerResponseReceived: 'yes',
+        gatewayResponseReceived: 'yes',
+        accountingAvailable: Boolean(inputTokens || outputTokens || totalTokens || cost),
+        retryable: false
+      });
+    }
   };
 
   const initial = await call(buildInterpretationPrompt(brief));
-  let current = interpretationSchema.partial().parse(initial) as Partial<ComprehensiveInterpretation>;
+  let current: Partial<ComprehensiveInterpretation>;
+  try {
+    current = interpretationSchema.partial().parse(initial) as Partial<ComprehensiveInterpretation>;
+  } catch {
+    throw fail({
+      stage: 'RESPONSE_PARSE_OR_SCHEMA',
+      reasonCode: 'provider_response_schema_invalid',
+      providerAttempted: 'yes',
+      providerDispatched: 'yes',
+      providerResponseReceived: 'yes',
+      gatewayResponseReceived: 'yes',
+      accountingAvailable: Boolean(accounting.inputTokens || accounting.outputTokens || accounting.totalTokens || accounting.costMicros),
+      retryable: false
+    });
+  }
   let issues = validateInterpretation(current, brief);
 
   for (let attempt = 1; attempt <= maxRepairs; attempt += 1) {
@@ -798,7 +946,20 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
   }
 
   accounting.durationMs = Date.now() - startedAt;
-  return { interpretation: interpretationSchema.parse(current), issues, accounting };
+  try {
+    return { interpretation: interpretationSchema.parse(current), issues, accounting };
+  } catch {
+    throw fail({
+      stage: 'RESPONSE_PARSE_OR_SCHEMA',
+      reasonCode: 'provider_response_missing_required_interpretation_slots',
+      providerAttempted: 'yes',
+      providerDispatched: 'yes',
+      providerResponseReceived: 'yes',
+      gatewayResponseReceived: 'yes',
+      accountingAvailable: Boolean(accounting.inputTokens || accounting.outputTokens || accounting.totalTokens || accounting.costMicros),
+      retryable: false
+    });
+  }
 }
 
 /** Map the six slots onto the renderer's commentary keys. */
