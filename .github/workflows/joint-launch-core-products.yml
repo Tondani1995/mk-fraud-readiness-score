@@ -15,6 +15,9 @@ on:
       - 'src/lib/comprehensive/**'
       - 'src/lib/reports/comprehensive/**'
       - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/evidence-model/**'
+      - 'src/lib/reports/narrative/**'
+      - 'src/lib/reports/essential-projection.ts'
       - 'src/lib/reports/customer-report-access.ts'
       - 'src/lib/reports/supporting-register-delivery.ts'
       - 'src/components/comprehensive/**'
@@ -44,6 +47,8 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
+      - 'scripts/g27-adaptive-correction-tests.mjs'
       - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
@@ -56,6 +61,9 @@ on:
       - 'src/lib/comprehensive/**'
       - 'src/lib/reports/comprehensive/**'
       - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/evidence-model/**'
+      - 'src/lib/reports/narrative/**'
+      - 'src/lib/reports/essential-projection.ts'
       - 'src/lib/reports/customer-report-access.ts'
       - 'src/lib/reports/supporting-register-delivery.ts'
       - 'src/components/comprehensive/**'
@@ -85,6 +93,8 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
+      - 'scripts/g27-adaptive-correction-tests.mjs'
       - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
@@ -128,6 +138,9 @@ jobs:
 
       - name: Adaptive V1.2 methodology, parity and runtime certification
         run: npm run adaptive:v1-2:test
+
+      - name: V1.2 deterministic advisory semantic and playbook compatibility
+        run: npm run v1-2:test-deterministic-advisory
 
       - name: Adaptive launch authority and migration-target certification
         run: |

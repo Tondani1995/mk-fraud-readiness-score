@@ -18,7 +18,10 @@ function focusFor(finding: MaterialFinding): string {
     INCIDENT_RESPONSE: 'Preserve clear intake, severity, containment and response ownership.',
     EVIDENCE_INTEGRITY: 'Preserve controlled retention, custody and traceability of fraud-related records.',
     WHISTLEBLOWING: 'Preserve accessible, protected reporting routes and independent case ownership.',
-    FRAUD_AWARENESS: 'Preserve role-specific fraud awareness and timely reinforcement for higher-risk roles.'
+    FRAUD_AWARENESS: 'Preserve role-specific fraud awareness and timely reinforcement for higher-risk roles.',
+    PAYROLL_INTEGRITY: 'Preserve pre-payment payroll reconciliation, independent change review and exception closure.',
+    CASH_CUSTODY: 'Preserve defined cash custody, attributable counts, banking reconciliation and difference escalation.',
+    STOCK_ASSET_CUSTODY: 'Preserve authorised physical-asset movement, periodic counts, reconciliation and write-off review.'
   };
   return familyFocus[finding.primarySemanticFamily] ?? `Preserve the recorded control standard for ${safeLower(finding.questionPrompt || finding.title)}.`;
 }

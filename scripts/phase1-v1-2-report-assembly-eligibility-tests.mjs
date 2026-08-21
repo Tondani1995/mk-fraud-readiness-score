@@ -15,6 +15,11 @@ import {
   mapPreflightFailure
 } from '../src/lib/reports/phase1-manual-fulfilment.ts';
 import { ResponseLabelSourceError } from '../src/lib/reports/response-labels.ts';
+import {
+  DeterministicAdvisoryError,
+  QuestionPlaybookMissingError,
+  SemanticMappingMissingError
+} from '../src/lib/reports/evidence-model/deterministic-errors.ts';
 
 const ORDER_REFERENCE = 'MKORD-V12-ASSEMBLY-FIXTURE';
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
@@ -271,6 +276,19 @@ assert.equal(mapped.message, 'The assessment response scale could not be validat
 assert.equal(mapped.technicalReference, technicalReference);
 assert.doesNotMatch(mapped.message, /response labels|raw|database|SQL/i);
 
+const typedAdvisoryMappings = [
+  [new SemanticMappingMissingError('D99-Q99', METHODOLOGY_ID), 'semantic_mapping_missing'],
+  [new QuestionPlaybookMissingError('D99-Q99', METHODOLOGY_ID), 'question_playbook_missing'],
+  [new DeterministicAdvisoryError('deterministic_advisory_invalid', 'internal details', { methodologyVersionId: METHODOLOGY_ID }), 'deterministic_advisory_invalid']
+];
+for (const [error, reason] of typedAdvisoryMappings) {
+  const safe = mapPreflightFailure(error, technicalReference);
+  assert.equal(safe.reason, reason);
+  assert.equal(safe.status, 409);
+  assert.equal(safe.technicalReference, technicalReference);
+  assert.doesNotMatch(safe.message, /D99-Q99|internal details|database|SQL/i);
+}
+
 console.log(JSON.stringify({
   passed: true,
   providerCalls: 0,
@@ -290,6 +308,7 @@ console.log(JSON.stringify({
     reason: mapped.reason,
     status: mapped.status,
     technicalReferencePreserved: mapped.technicalReference === technicalReference,
-    rawDetailsExposed: false
+    rawDetailsExposed: false,
+    deterministicAdvisoryReasons: typedAdvisoryMappings.map(([, reason]) => reason)
   }
 }, null, 2));

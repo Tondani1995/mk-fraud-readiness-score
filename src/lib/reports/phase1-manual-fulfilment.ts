@@ -6,6 +6,7 @@ import { COMPREHENSIVE_REPORT_TYPE, ReportEntitlementError, validatePremiumRepor
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
+import { DeterministicAdvisoryError, isDeterministicAdvisoryError } from './evidence-model/deterministic-errors';
 import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
 import { buildAndStoreSupportingRegister, storeVerifiedRegisterWorkbook } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
@@ -112,6 +113,9 @@ export type Phase1GenerationReason =
   | 'essential_final_validation_rejected'
   | 'essential_final_validation_held_for_review'
   | 'response_scale_source_invalid'
+  | 'semantic_mapping_missing'
+  | 'question_playbook_missing'
+  | 'deterministic_advisory_invalid'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
@@ -171,6 +175,14 @@ function mapRpcFailure(error: unknown, technicalReference: string): Phase1Genera
 }
 
 export function mapPreflightFailure(error: unknown, technicalReference: string): Phase1GenerationError {
+  if (isDeterministicAdvisoryError(error)) {
+    const safeMessage = error.code === 'semantic_mapping_missing'
+      ? 'The assessment semantic mappings could not be validated for report generation.'
+      : error.code === 'question_playbook_missing'
+        ? 'The assessment control guidance could not be validated for report generation.'
+        : 'The report analytical preparation could not be validated.';
+    return new Phase1GenerationError(error.code, safeMessage, 409, technicalReference);
+  }
   if (error instanceof ResponseLabelSourceError) {
     return new Phase1GenerationError(
       'response_scale_source_invalid',
@@ -507,7 +519,20 @@ export async function generateManualPhase1Report(
       status: block.status
     }));
     generationStage = 'build_deterministic_advisory';
-    const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    let advisoryModel: ReturnType<typeof buildAdvisoryEvidenceModel>;
+    try {
+      advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    } catch (error) {
+      // Preserve the narrowly typed source failures above. Any other failure in this deterministic
+      // preparation boundary is still fail-closed, but remains inside the closed operator vocabulary
+      // and never exposes narrative, labels or database details to the customer.
+      if (error instanceof ResponseLabelSourceError || isDeterministicAdvisoryError(error)) throw error;
+      throw new DeterministicAdvisoryError(
+        'deterministic_advisory_invalid',
+        'The deterministic advisory model could not be validated.',
+        { methodologyVersionId: assembled.scoreRun.methodologyVersionId }
+      );
+    }
     // Comprehensive is a different product with its own certified pipeline, not a variant
     // of the Essential one. It has its own bounded interpretation contracts and its own
     // renderer, so it branches here and rejoins at storage, where both tiers share the
@@ -884,9 +909,19 @@ export async function generateManualPhase1Report(
       message: `Report version ${completed.report.version_number} generated and verified successfully.`
     };
   } catch (error) {
+    if (isDeterministicAdvisoryError(error)) {
+      console.error('deterministic_advisory_failure', {
+        technicalReference,
+        code: error.code,
+        questionCode: error.questionCode ?? null,
+        methodologyVersionId: error.methodologyVersionId ?? null
+      });
+    }
     const mapped = error instanceof Phase1GenerationError
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
-      : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
+      : isDeterministicAdvisoryError(error)
+        ? mapPreflightFailure(error, technicalReference)
+        : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
     // Cleanup is only ever safe BEFORE the authoritative finalisation commits. After it, both the
     // PDF and the register are committed customer artefacts referenced by authoritative database
     // state, and no generation-failure path -- logging, audit, or anything else -- may delete them.
