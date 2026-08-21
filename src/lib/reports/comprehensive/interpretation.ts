@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { generateText, Output } from 'ai';
-import { selectNarrativeModel } from '../ai-model-policy';
+import { selectComprehensiveModel } from '../ai-model-policy';
 import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel, Contradiction } from '../evidence-model/types';
 import type { ComprehensiveManagementModel } from './management-model';
@@ -864,8 +864,7 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
   maxRepairsPerSlot?: number;
   timeoutMs?: number;
 }): Promise<InterpretationRun> {
-  const selection = selectNarrativeModel();
-  const requestedModel = options?.model ?? selection.fallbackModels[0] ?? 'openai/gpt-5.6-luna';
+  const requestedModel = selectComprehensiveModel(options?.model).requestedModel;
   const maxRepairs = options?.maxRepairsPerSlot ?? 2;
   const timeoutMs = options?.timeoutMs ?? 240_000;
   const provider = requestedModel.split('/')[0]?.trim() || 'vercel-ai-gateway';

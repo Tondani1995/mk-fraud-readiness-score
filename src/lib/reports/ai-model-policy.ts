@@ -14,6 +14,16 @@ export const MAX_PROVIDER_ATTEMPTS_PER_STAGE = MAX_MINI_ATTEMPTS_PER_STAGE + MAX
 export const SNAPSHOT_PRIMARY_MODEL = PRIMARY_NARRATIVE_MODEL;
 export const SNAPSHOT_MAX_SUCCESSFUL_GENERATIONS = 1 as const;
 export const SNAPSHOT_TECHNICAL_FALLBACK = NARRATIVE_FALLBACK_MODELS;
+export const COMPREHENSIVE_PRIMARY_MODEL = 'openai/gpt-5.6-luna' as const;
+
+export interface ComprehensiveModelSelection {
+  requestedModel: string;
+  primaryModel: typeof COMPREHENSIVE_PRIMARY_MODEL;
+  overrideUsed: boolean;
+  selectionSource: 'compiled_primary' | 'approved_override' | 'invalid_override_compiled_primary';
+  configuredOverride?: string;
+  overrideRejectedReason?: 'unsupported_model';
+}
 
 export type NarrativeModel = typeof PRIMARY_NARRATIVE_MODEL | typeof NARRATIVE_FALLBACK_MODELS[number] | (string & {});
 
@@ -40,6 +50,28 @@ export function selectSnapshotModel(): SnapshotModelSelection {
     primaryModel: SNAPSHOT_PRIMARY_MODEL,
     fallbackModels: NARRATIVE_FALLBACK_MODELS,
     maxSuccessfulGenerations: SNAPSHOT_MAX_SUCCESSFUL_GENERATIONS
+  };
+}
+
+/** Comprehensive has an explicit Luna primary; only the approved technical fallback chain may override it. */
+export function selectComprehensiveModel(requestedModel?: unknown): ComprehensiveModelSelection {
+  const configuredOverride = optionalModelText(requestedModel);
+  const approvedOverride = configuredOverride && NARRATIVE_FALLBACK_MODELS.includes(configuredOverride as typeof NARRATIVE_FALLBACK_MODELS[number]);
+  if (approvedOverride) {
+    return {
+      requestedModel: configuredOverride,
+      primaryModel: COMPREHENSIVE_PRIMARY_MODEL,
+      overrideUsed: true,
+      selectionSource: 'approved_override',
+      configuredOverride
+    };
+  }
+  return {
+    requestedModel: COMPREHENSIVE_PRIMARY_MODEL,
+    primaryModel: COMPREHENSIVE_PRIMARY_MODEL,
+    overrideUsed: false,
+    selectionSource: configuredOverride ? 'invalid_override_compiled_primary' : 'compiled_primary',
+    ...(configuredOverride ? { configuredOverride, overrideRejectedReason: 'unsupported_model' as const } : {})
   };
 }
 
