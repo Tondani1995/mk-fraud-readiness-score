@@ -27,7 +27,7 @@ assert.match(server, /data\.status !== 'published'/);
 assert.match(server, /PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT/);
 assert.match(startPage, /AdaptiveStartForm/);
 assert.doesNotMatch(checker, /previewOnly = files\.filter/);
-assert.equal(manifest.stagingOnly.length, 21);
+assert.equal(manifest.stagingOnly.length, 22);
 assert.ok(manifest.stagingOnly.every((entry) => /synthetic|preview|resend|staging|orphan_remediation|certification_(closure|enablement)|adaptive_v1_2_staging_activation/.test(entry.migration)));
 assert.ok(manifest.stagingOnly.some((entry) => entry.migration === '20260821090000_adaptive_v1_2_staging_activation.sql'));
 assert.ok(manifest.requiredProductionGroups.some((group) => group.group === 'adaptive_foundation'));
