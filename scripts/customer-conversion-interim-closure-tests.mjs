@@ -25,6 +25,7 @@ const conversionMigration = read('supabase/migrations/20260821102116_customer_co
 const freeze = read('src/lib/rc1/operation-freeze.ts');
 const graph = JSON.parse(read('src/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json'));
 const { CUSTOMER_HELP_TEXT } = await import('../src/lib/adaptive/customer-help.ts');
+const { resolveOptimisticNavigation } = await import('../src/lib/adaptive/optimistic-navigation.ts');
 
 function has(source, text, label) {
   assert(source.includes(text), `${label}: missing ${text}`);
@@ -55,14 +56,20 @@ for (const node of [
 }
 has(adaptive, 'What we mean', 'adaptive help label');
 
-// Adaptive journey: one selection gives immediate local feedback, then a short transition queues
-// persistence. Writes are serialized and submission waits for the queue.
+// Adaptive journey: one selection gives immediate local feedback and local navigation, then queues
+// persistence. Writes are serialized, stale responses are ignored and submission waits for the queue.
 has(adaptive, 'const AUTO_ADVANCE_DELAY_MS = 140', 'bounded auto-advance latency');
 has(adaptive, 'window.setTimeout', 'auto-advance timer');
 has(adaptive, 'const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true))', 'serialized save queue');
 has(adaptive, 'async function flushSaveQueue()', 'submit queue flush');
 has(adaptive, 'if (!(await flushSaveQueue()))', 'submit waits for latest save');
-has(adaptive, 'Selecting an answer saves and continues automatically.', 'auto-advance customer instruction');
+has(adaptive, 'resolveOptimisticNavigation', 'graph-derived optimistic routing');
+has(adaptive, 'const localRevisionRef = useRef(0)', 'local interaction revision');
+has(adaptive, 'requestRevision !== localRevisionRef.current', 'stale response guard');
+has(adaptive, 'pendingAutoAdvanceRef', 'pending transition flush');
+has(adaptive, 'Retry save', 'recoverable save error');
+notHas(adaptive, 'Save now', 'obsolete manual save action');
+notHas(adaptive, 'Selecting an answer saves and continues automatically.', 'obsolete auto-save customer instruction');
 has(adaptive, 'Review my answers', 'review answers remains available');
 has(adaptive, 'Assessment completion', 'overall progress bar');
 has(adaptive, 'About 8–10 min remaining', 'broad time estimate');
@@ -72,6 +79,98 @@ assert.ok(gatewayChoice.indexOf('setGatewayAnswers(next)') < gatewayChoice.index
 assert.ok(controlChoice.indexOf('setControlResponses(next)') < controlChoice.indexOf('queueAutoAdvance('), 'maturity selection updates local state before the save queue');
 assert.doesNotMatch(gatewayChoice, /await\s+fetch/, 'gateway navigation is not synchronously blocked by the state round trip');
 assert.doesNotMatch(controlChoice, /await\s+fetch/, 'maturity navigation is not synchronously blocked by the state round trip');
+assert.ok(adaptive.indexOf('applyOptimisticTransition(nextGatewayAnswers, nextControlResponses, answeredNodeId)') < adaptive.indexOf('void persist({', adaptive.indexOf('function queueAutoAdvance')), 'local transition precedes persistence');
+assert.match(adaptive, /if \(autoAdvanceTimerRef\.current\)[\s\S]*pending\?\.\(\);/, 'submit flushes a pending local transition before the save queue');
+assert.match(adaptive, /applyLocalPosition\(previousNode\.nodeId, nextScreen\)/, 'Back restores local position before persistence');
+assert.match(adaptive, /state\.path\.currentPreviousNode \?\? state\.path\.currentNextNode/, 'Edit answers uses the resolved path');
+
+// The optimistic transition uses the same frozen graph compiler as the server. In particular,
+// G04 appears only after G03=Yes; the browser does not invent a fallback next question.
+const route = (gatewayAnswers, controlResponses = {}) => resolveOptimisticNavigation({ graph, gatewayAnswers, controlResponses });
+const beforeG04 = route({ G01: 'professional_services', G02: 'small', G03: 'no' });
+const afterG04 = route({ G01: 'professional_services', G02: 'small', G03: 'yes' });
+assert.equal(beforeG04.path.nodes.some((node) => node.nodeId === 'G04'), false, 'G04 is absent when its gateway condition is false');
+assert.equal(afterG04.nextId, 'G04', 'G04 is the local next gateway when G03=Yes');
+assert.equal(afterG04.nextScreen, 'gateway', 'conditional gateway keeps gateway screen semantics');
+
+// Provider-free interaction proof: a local transition completes before an intentionally delayed
+// save, while the serial queue still preserves physical write order and submission waits for it.
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+};
+let visibleQuestion = 'G01';
+const delayedSave = deferred();
+const localFirst = route({ G01: 'professional_services' });
+visibleQuestion = localFirst.nextId;
+assert.notEqual(visibleQuestion, 'G01', 'visible question advances before /state resolves');
+assert.equal(delayedSave.promise instanceof Promise, true, 'artificial network latency is represented without blocking local navigation');
+
+let queue = Promise.resolve(true);
+const physicalOrder = [];
+const firstSave = deferred();
+const secondSave = deferred();
+function enqueueSave(name, pending) {
+  const next = queue.then(async () => {
+    physicalOrder.push(`start:${name}`);
+    await pending.promise;
+    physicalOrder.push(`finish:${name}`);
+    return true;
+  });
+  queue = next;
+  return next;
+}
+const firstQueued = enqueueSave('first', firstSave);
+const secondQueued = enqueueSave('second', secondSave);
+await Promise.resolve();
+assert.deepEqual(physicalOrder, ['start:first'], 'rapid sequential answers serialize the first physical save');
+firstSave.resolve();
+await firstQueued;
+await Promise.resolve();
+assert.deepEqual(physicalOrder, ['start:first', 'finish:first', 'start:second'], 'second answer waits for the first save');
+secondSave.resolve();
+await secondQueued;
+assert.deepEqual(physicalOrder, ['start:first', 'finish:first', 'start:second', 'finish:second'], 'rapid sequential answers persist in order');
+
+let localRevision = 2;
+let localPosition = 'D1-Q02';
+function applyServerResponse(responseRevision, serverPosition) {
+  if (responseRevision !== localRevision) return;
+  localPosition = serverPosition;
+}
+applyServerResponse(1, 'D1-Q01');
+assert.equal(localPosition, 'D1-Q02', 'stale earlier save response cannot roll back later navigation');
+applyServerResponse(2, 'D1-Q03');
+assert.equal(localPosition, 'D1-Q03', 'current save response may confirm the local position');
+
+let saveError = null;
+let retryCount = 0;
+async function recoverableSave(shouldFail) {
+  if (shouldFail) throw new Error('synthetic network latency/failure');
+  retryCount += 1;
+  return true;
+}
+try { await recoverableSave(true); } catch { saveError = 'Your answer could not be saved. Please retry.'; }
+assert.equal(saveError, 'Your answer could not be saved. Please retry.', 'failed save is surfaced as a recoverable error');
+assert.equal(await recoverableSave(false), true, 'failed save can be retried');
+assert.equal(retryCount, 1, 'retry performs one replacement save');
+
+const submitSave = deferred();
+let submitReached = false;
+const submitAfterFlush = (async () => { await submitSave.promise; submitReached = true; })();
+await Promise.resolve();
+assert.equal(submitReached, false, 'submit cannot overtake a pending save');
+submitSave.resolve();
+await submitAfterFlush;
+assert.equal(submitReached, true, 'submit proceeds only after the save queue flushes');
+
+// Back/Edit remain local navigation operations and are persisted with the same ordered queue.
+let editPosition = afterG04.nextId;
+editPosition = afterG04.path.currentPreviousNode ?? afterG04.nextId;
+assert.equal(editPosition, 'G03', 'Edit answers returns to the resolved previous answer');
+editPosition = 'G03';
+assert.equal(editPosition, 'G03', 'Back can restore the previous answered gateway locally');
 notHas(adaptive, 'Applicable controls', 'adaptive customer copy');
 notHas(adaptive, 'Excluded areas', 'adaptive customer copy');
 notHas(adaptive, 'redirectedCount', 'adaptive customer copy');

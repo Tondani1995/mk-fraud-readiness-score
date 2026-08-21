@@ -145,6 +145,9 @@ function publicState(input: Awaited<ReturnType<typeof loadState>>) {
   return {
     graphVersion: input.graph.graphVersion,
     graphFingerprint: input.graph.graphFingerprint,
+    // The customer client uses the exact pinned graph for local optimistic routing.
+    // This is routing metadata only; scoring and submission remain server-authoritative.
+    routingGraph: input.graph,
     responseScale: input.graph.responseScale,
     gateways: input.graph.gateways,
     navigation: input.navigation,
