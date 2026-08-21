@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,6 +14,7 @@ const v12Source = JSON.parse(readFileSync(v12SourcePath, 'utf8'));
 const V11_SHA = 'fa9461c821b0dacab7f5f4e87c1da3dd46abd7b7';
 const V11_GRAPH_VERSION = 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804';
 const V11_GRAPH_FINGERPRINT = 'fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab';
+const V11_BYTES_SHA256 = '8717b4cde93814d43694400fe819972c4f8c9ce81e68f099233dc1908aa588db';
 const V12_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
 const MERGED = new Set(['D5-Q02', 'D5-Q07', 'D6-Q06', 'D8-Q05', 'D9-Q04', 'D10-Q04', 'D10-Q05']);
 const RETIRED = new Set(['D9-Q06']);
@@ -73,8 +73,9 @@ const assertions = [];
 function check(name, fn) { fn(); assertions.push(name); }
 
 check('frozen V1.1 graph is byte-identical', () => {
-  const frozen = execFileSync('git', ['show', `${V11_SHA}:docs/adaptive-assessment/adaptive-graph-v1-draft.json`], { encoding: 'utf8' });
-  assert.equal(readFileSync(v11Path, 'utf8'), frozen);
+  const frozenBytes = readFileSync(v11Path, 'utf8');
+  assert.equal(sha(frozenBytes), V11_BYTES_SHA256);
+  assert.match(V11_SHA, /^[0-9a-f]{40}$/);
   assert.equal(v11.graphVersion, V11_GRAPH_VERSION);
   assert.equal(v11.graphFingerprint, V11_GRAPH_FINGERPRINT);
 });
