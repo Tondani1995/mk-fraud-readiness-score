@@ -80,7 +80,7 @@ export function CustomerOrderStatusWorkspace({
       </Card>
 
       {pdf && fulfilment?.deliverables.length ? <Card>
-        <CardHeader><CardTitle>Secure delivery</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Report delivery</CardTitle></CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           <DownloadLink label={copy.pdfLabel} href={pdf} />
           {register ? <DownloadLink label={copy.registerLabel} href={register} /> : null}

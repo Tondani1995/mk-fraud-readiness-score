@@ -140,7 +140,7 @@ const ESSENTIAL: OrderableProduct = {
   requiresPaymentVerification: true,
   fulfilmentModel: 'automated_diagnostic',
   deliveryMode: 'mk_controlled_pdf',
-  summary: 'Automated self-service fraud readiness diagnostic, delivered as a PDF report with its supporting register.',
+  summary: 'Self-service fraud readiness diagnostic, prepared by MK as a PDF report with its supporting register after payment is confirmed.',
   includes: [
     'Detailed analysis across all applicable domains',
     'Critical weaknesses and false-comfort risks',
@@ -176,7 +176,7 @@ const COMPREHENSIVE: OrderableProduct = {
   requiresPaymentVerification: true,
   fulfilmentModel: 'automated_analytical',
   deliveryMode: 'mk_controlled_pdf',
-  summary: 'Automated in-depth fraud readiness analysis, delivered as a PDF report with its supporting registers. No evidence is independently validated and no assurance opinion is provided.',
+  summary: 'In-depth fraud readiness analysis, prepared by MK as a PDF report with its supporting registers after payment is confirmed. No evidence is independently validated and no assurance opinion is provided.',
   includes: [
     'Everything in Essential',
     'Full material finding register with fraud mechanism and management implication',

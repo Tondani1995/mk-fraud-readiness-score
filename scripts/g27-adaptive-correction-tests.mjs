@@ -105,11 +105,11 @@ const ordinaryEvidence = buildPremiumReportEvidencePack(ordinaryData, ordinaryMo
 assert.equal(ordinaryEvidence.items.some((item) => item.kind === 'visibility_gap'), false, 'ordinary exposure-assessed reports remain free of visibility-gap items');
 
 const ui = readFileSync(new URL('../src/components/adaptive/AdaptiveAssessmentExperience.tsx', import.meta.url), 'utf8');
-assert.match(ui, /onChange=\{\(\) => void chooseControl/);
-assert.match(ui, />Continue<\/Button>/);
-assert.match(ui, /chooseGateway[\s\S]*persist\(next, controlResponses, 'gateway', node\.nodeId, false, true\)/);
-assert.match(ui, /chooseControl[\s\S]*persist\(gatewayAnswers, next, 'question', node\.nodeId, false, true\)/);
-assert.doesNotMatch(ui, /await persist\(next, controlResponses, 'gateway', node\.nodeId\);/);
-assert.doesNotMatch(ui, /await persist\(gatewayAnswers, next, 'question', node\.nodeId\);/);
+assert.match(ui, /onChange=\{\(\) => chooseControl/);
+assert.doesNotMatch(ui, />Continue<\/Button>/);
+assert.match(ui, /function chooseGateway[\s\S]*queueAutoAdvance\(node, next, controlResponses\)/);
+assert.match(ui, /function chooseControl[\s\S]*queueAutoAdvance\(node, gatewayAnswers, next\)/);
+assert.match(ui, /const AUTO_ADVANCE_DELAY_MS = 140/);
+assert.match(ui, /saveQueueRef\.current\.then\(\(\) => persistNow\(input\)\)/);
 
 console.log(JSON.stringify({ ok: true, exposureItems: evidence.items.filter((item) => item.kind.includes('exposure')).length, visibilityGaps: model.visibilityGaps.length }));

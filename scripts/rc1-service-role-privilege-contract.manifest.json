@@ -396,6 +396,19 @@
     },
     {
       "schema": "public",
+      "table": "free_snapshot_narratives",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING FREE SNAPSHOT NARRATIVE CACHE",
+      "sources": [
+        "src/lib/snapshot/narrative.ts:223 S",
+        "src/lib/snapshot/narrative.ts:254 SIU"
+      ],
+      "justification": "The constrained Snapshot narrative is enrichment cached by assessment, score run, methodology and prompt version. Service-role-only access keeps the cache out of customer direct writes; the deterministic score remains authoritative and Production receives no grant from this correction."
+    },
+    {
+      "schema": "public",
       "table": "manual_report_delivery_attempts",
       "required": "S",
       "stagingCurrent": "1000",
@@ -1473,6 +1486,15 @@
       "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
     },
     {
+      "signature": "public.create_paid_order_with_invoice(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text, boolean, jsonb)",
+      "securityMode": "INVOKER",
+      "searchPath": "pg_catalog, public",
+      "sources": [
+        "src/lib/commercial/order-service.ts"
+      ],
+      "justification": "Atomic invoice preference binding for a paid order. The wrapper delegates the frozen create_paid_order() product, price and idempotency contract, then persists billing details in the same database transaction without widening customer-facing access."
+    },
+    {
       "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1643,7 +1665,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "1107a5b0658cc06329c9701ae116d1f5e80b69f7f71a3493a2aab384b064da6d"
+    "fullAstInventorySha256": "09c405f0d6a9673e15e90cb5d6e0cc0e93d176957fffb1edbc3d28e5fa7392cd"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

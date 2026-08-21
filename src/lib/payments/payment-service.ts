@@ -5,19 +5,9 @@ import { recordPaymentConfirmedNotification } from '@/lib/notifications/phase1-o
 import { getPaymentAutomationCapability } from './payment-capability';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
 
-// Release B: record_payment_transition() (extended in
-// supabase/migrations/20260724160000_release_b_durable_fulfilment.sql) now queues the
-// deterministic Phase 1 fulfilment job itself, inside the same transaction as the payment
-// state transition (closes the Q6 atomicity gap -- see
-// docs/safe-launch/11-release-b-existing-infrastructure-audit.md and
-// docs/safe-launch/12-durable-fulfilment-design.md, "Payment transaction boundary").
-// processVerifiedPayment() therefore no longer calls the synchronous fulfilment trigger
-// (src/lib/payments/fulfilment.ts, which still exists for reference/tests but is no longer
-// imported here) to run generateManualPhase1Report() synchronously inside this request --
-// generation now runs later, out of band, when the internal worker route
-// (src/app/score/api/internal/fulfilment-worker/route.ts) claims the queued row. This is
-// what makes the payment-confirmation HTTP response return without waiting for PDF
-// generation, per the design doc's "Durable workflow boundary".
+// Interim customer fulfilment is deliberately manual. The database payment transition records
+// verified payment and does not create a generation job; an authorised MK operator later starts
+// report preparation from the admin fulfilment controls and records manual delivery separately.
 function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
   const queued = String(result?.fulfilment ?? '');
   if (queued === 'QUEUED') return 'queued';
@@ -90,8 +80,9 @@ export async function processVerifiedPayment(input: {
   let message = target.reason;
   if (target.state === 'PAID' && !data.duplicate) {
     fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
-    if (fulfilment === 'queued') message = 'Payment confirmed. Report generation has been queued for the fulfilment worker.';
-    else if (fulfilment === 'already_active') message = 'Payment confirmed. A fulfilment job is already queued or in progress for this order.';
+    if (fulfilment === 'queued') message = 'Payment confirmed. An operator must prepare the purchased report before delivery.';
+    else if (fulfilment === 'already_active') message = 'Payment confirmed. An operator will complete the purchased report preparation and delivery.';
+    else message = 'Payment confirmed. An MK operator will prepare and quality-check the purchased report, then email it manually and mark the order delivered.';
     await db.from('payment_automation_records').update({
       fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
         : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',

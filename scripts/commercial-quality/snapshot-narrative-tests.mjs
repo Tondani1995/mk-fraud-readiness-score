@@ -6,7 +6,9 @@ import { selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 import { buildCommercialSnapshotInsights } from '../../src/lib/snapshot/commercial-insights.ts';
 
 const snapshot = {
+  assessmentId: 'assessment-id',
   assessmentReference: 'TEST-SNAPSHOT',
+  methodologyVersion: 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804',
   organisationName: 'Example Health Logistics (Pty) Ltd',
   respondentName: null,
   respondentEmail: null,
@@ -33,9 +35,11 @@ const insights = buildCommercialSnapshotInsights(snapshot);
 const input = buildSnapshotNarrativeInput(snapshot, insights);
 
 test('Snapshot narrative input is bounded to approved deterministic facts', () => {
-  assert.deepEqual(Object.keys(input).sort(), ['assuranceBoundary', 'attentionAreas', 'maturity', 'nextStepDirection', 'organisationName', 'overallScore', 'strongestAreas'].sort());
+  assert.deepEqual(Object.keys(input).sort(), ['assuranceBoundary', 'attentionAreas', 'domainResults', 'exposureBand', 'maturity', 'nextStepDirection', 'organisationName', 'overallScore', 'strongestAreas', 'uncertaintyPct'].sort());
   assert.equal(JSON.stringify(input).includes('D1'), false);
   assert.equal(JSON.stringify(input).includes('roadmap'), false);
+  assert.equal(input.domainResults.length, 2);
+  assert.equal(typeof input.uncertaintyPct, 'number');
 });
 
 test('Snapshot technical exhaustion fails closed without mechanical narrative', () => {
@@ -59,11 +63,11 @@ test('Snapshot validation accepts a concise grounded narrative', () => {
   assert.ok((value.interpretation + value.nextStep).split(/\s+/).length < SNAPSHOT_NARRATIVE_MAX_WORDS);
 });
 
-test('Snapshot policy is Mini-first with technical fallback and one successful generation', () => {
+test('Snapshot policy is Mini-first with one bounded successful generation', () => {
   const policy = selectSnapshotModel();
   assert.equal(policy.primaryModel, 'openai/gpt-5-mini');
   assert.deepEqual(policy.fallbackModels, ['openai/gpt-5.6-luna', 'openai/gpt-5.6-terra', 'openai/gpt-5.6-sol']);
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'closed safe handling after technical exhaustion', 'invented number rejection', 'paid-tier leakage rejection', 'concise grounded narrative', 'Mini-Luna-Terra-Sol technical fallback', 'one successful Snapshot generation'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input with exposure, uncertainty and domain context', 'closed safe handling after technical exhaustion', 'invented number rejection', 'paid-tier leakage rejection', 'concise grounded narrative', 'Mini-first bounded Snapshot generation policy'] }, null, 2));

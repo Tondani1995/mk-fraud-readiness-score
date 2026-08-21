@@ -25,8 +25,18 @@ on:
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/app/score/admin/orders/**'
       - 'src/lib/adaptive/**'
+      - 'src/lib/notifications/**'
+      - 'src/lib/payments/**'
+      - 'src/lib/rc1/**'
+      - 'src/lib/snapshot/**'
       - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/components/adaptive/**'
+      - 'src/components/assessment/**'
+      - 'src/components/products/**'
+      - 'src/app/score/snapshot/**'
+      - 'src/app/score/order/**'
       - 'src/app/score/admin/methodology/v1-2/**'
       - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
@@ -34,6 +44,7 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -55,8 +66,18 @@ on:
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/app/score/admin/orders/**'
       - 'src/lib/adaptive/**'
+      - 'src/lib/notifications/**'
+      - 'src/lib/payments/**'
+      - 'src/lib/rc1/**'
+      - 'src/lib/snapshot/**'
       - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/components/adaptive/**'
+      - 'src/components/assessment/**'
+      - 'src/components/products/**'
+      - 'src/app/score/snapshot/**'
+      - 'src/app/score/order/**'
       - 'src/app/score/admin/methodology/v1-2/**'
       - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
@@ -64,6 +85,7 @@ on:
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -117,6 +139,9 @@ jobs:
 
       - name: Comprehensive automated launch closure (authoritative)
         run: npm run joint-launch:test-comprehensive-launch-closure
+
+      - name: Customer conversion and interim manual fulfilment closure
+        run: npm run joint-launch:test-customer-conversion-closure
 
       # Retained for historical reviewed-engagement/Advisory compatibility only. This is not the
       # authoritative active Comprehensive launch test.

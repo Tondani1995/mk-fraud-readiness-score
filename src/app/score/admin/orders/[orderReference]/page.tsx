@@ -138,6 +138,8 @@ export default async function AdminOrderDetailPage(
   const canRegenerate = ['platform_admin', 'approver'].includes(admin.role);
   const canDeliver = ['platform_admin', 'approver'].includes(admin.role);
   const eft = order.eft_instructions_snapshot ?? {};
+  const invoiceDetails = order.invoice_details ?? {};
+  const invoiceRequested = order.invoice_requested === true;
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
   const isComprehensive = order.products?.product_code === 'mk_validated_assessment';
@@ -304,6 +306,27 @@ export default async function AdminOrderDetailPage(
             <SnapshotValue label="Amount" value={formatOrderAmount(order.amount_cents, order.currency)} />
             <SnapshotValue label="Created" value={dateTime(order.created_at)} />
             {isComprehensive ? <div className="md:col-span-3"><Button asChild><Link href={`/score/admin/comprehensive/${encodeURIComponent(order.order_reference)}`}>Open Comprehensive reviewer workspace</Link></Button></div> : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Invoice request</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <SnapshotValue label="Invoice requested" value={invoiceRequested ? 'Yes — manual preparation required' : 'No'} />
+            {invoiceRequested ? <>
+              <SnapshotValue label="Legal organisation name" value={invoiceDetails.organisationLegalName} />
+              <SnapshotValue label="Attention" value={invoiceDetails.attention} />
+              <SnapshotValue label="Billing email" value={invoiceDetails.billingEmail} />
+              <SnapshotValue label="Address line 1" value={invoiceDetails.addressLine1} />
+              <SnapshotValue label="Address line 2" value={invoiceDetails.addressLine2} />
+              <SnapshotValue label="City" value={invoiceDetails.city} />
+              <SnapshotValue label="Province" value={invoiceDetails.province} />
+              <SnapshotValue label="Postal code" value={invoiceDetails.postalCode} />
+              <SnapshotValue label="Country" value={invoiceDetails.country} />
+              <SnapshotValue label="VAT number" value={invoiceDetails.vatNumber} />
+              <SnapshotValue label="Company registration" value={invoiceDetails.companyRegistrationNumber} />
+              <SnapshotValue label="Purchase order" value={invoiceDetails.purchaseOrderReference} />
+            </> : <p className="text-sm text-mk-muted md:col-span-2">No billing details were requested for this order.</p>}
           </CardContent>
         </Card>
 

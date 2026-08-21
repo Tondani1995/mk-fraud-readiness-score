@@ -46,6 +46,8 @@ export type PaidOrderCreationResult =
       status: string;
       paymentReference: string;
       eftInstructions: CustomerSafeEftInstructions;
+      invoiceRequested: boolean;
+      invoiceDetails: Record<string, string> | null;
     }
   | { ok: false; reason: PaidOrderCreationReason; message: string };
 
@@ -117,6 +119,8 @@ export async function createPaidOrderForAssessment(input: {
   respondent?: any | null;
   /** Only Essential links an order to a detailed-report data request; Comprehensive does not. */
   dataRequest?: any | null;
+  invoiceRequested?: boolean;
+  invoiceDetails?: Record<string, string> | null;
 }): Promise<PaidOrderCreationResult> {
   const product = paidProductForTier(input.tier);
   if (!product) {
@@ -142,7 +146,10 @@ export async function createPaidOrderForAssessment(input: {
     };
   }
 
-  const { data, error } = await db.rpc('create_paid_order', {
+  const invoiceRequested = input.invoiceRequested === true;
+  const invoiceDetails = invoiceRequested ? input.invoiceDetails ?? null : null;
+
+  const { data, error } = await db.rpc('create_paid_order_with_invoice', {
     p_tier: tier,
     p_assessment_id: input.assessment.id,
     p_expected_product_code: product.productCode,
@@ -155,7 +162,9 @@ export async function createPaidOrderForAssessment(input: {
     p_product_name: product.label,
     p_eft_instructions_snapshot: eftSnapshot,
     p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
-    p_assessment_reference: input.assessment.assessment_reference ?? null
+    p_assessment_reference: input.assessment.assessment_reference ?? null,
+    p_invoice_requested: invoiceRequested,
+    p_invoice_details: invoiceDetails ?? {}
   });
 
   if (error) {
@@ -231,6 +240,8 @@ export async function createPaidOrderForAssessment(input: {
     status: data.status,
     paymentReference: paymentReferenceFor(data.order_reference),
     eftInstructions: boundEft,
+    invoiceRequested,
+    invoiceDetails
   };
 }
 

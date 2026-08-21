@@ -452,7 +452,10 @@ check('every admin Comprehensive route authenticates and authorises before actin
     'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
     'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts'
   ]) {
-    assert.match(read(file), /getRc1OperationFreezeResponse/, `${file} must honour the RC1 freeze`);
+    const freeze = file.endsWith('/paid-order/route.ts')
+      ? /getRc1CustomerFreezeResponse/
+      : /getRc1OperationFreezeResponse/;
+    assert.match(read(file), freeze, `${file} must honour the RC1 freeze`);
   }
 });
 

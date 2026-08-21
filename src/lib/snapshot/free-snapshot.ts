@@ -14,7 +14,9 @@ export type FreeSnapshotDomain = {
 };
 
 export type FreeSnapshot = {
+  assessmentId: string;
   assessmentReference: string;
+  methodologyVersion: string;
   organisationName: string;
   respondentName: string | null;
   respondentEmail: string | null;
@@ -46,16 +48,29 @@ function asNumber(value: unknown, fallback = 0): number {
 export async function loadFreeSnapshotByReference(assessmentReference: string, explicitScoreRunId?: string | null): Promise<FreeSnapshot | null> {
   const service = createSupabaseServiceClient();
 
-  const { data: assessment, error: assessmentError } = await service
+  let { data: assessment, error: assessmentError } = await service
     .from('assessments')
     // Keep the legacy snapshot contract usable on the 0025 compatibility
     // boundary. Adaptive callers persist and read their own mode metadata;
     // the legacy snapshot projection does not need this post-0025 column.
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id,methodology_version_id')
     .eq('assessment_reference', assessmentReference)
     .maybeSingle();
 
-  if (assessmentError) throw assessmentError;
+  if (assessmentError && (assessmentError.code === '42703' || String(assessmentError.message ?? '').toLowerCase().includes('does not exist'))) {
+    const legacy = await service
+      .from('assessments')
+      .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
+      .eq('assessment_reference', assessmentReference)
+      .maybeSingle();
+    if (legacy.error) throw legacy.error;
+    const legacyAssessment = legacy.data
+      ? { ...legacy.data, methodology_version_id: 'score-run-v1' }
+      : null;
+    // Keep the same variable contract for the legacy 0025 boundary.
+    assessment = legacyAssessment;
+    assessmentError = legacy.error;
+  } else if (assessmentError) throw assessmentError;
   if (!assessment) return null;
 
   const scoreRunId = explicitScoreRunId ?? assessment.current_score_run_id;
@@ -129,7 +144,9 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     .map(({ sortOrder: _sortOrder, ...domain }: any) => domain);
 
   return {
+    assessmentId: assessment.id,
     assessmentReference: assessment.assessment_reference,
+    methodologyVersion: String(assessment.methodology_version_id ?? 'score-run-v1'),
     organisationName: organisation?.legal_name ?? organisation?.trading_name ?? 'Organisation',
     respondentName: respondent?.full_name ?? respondent?.email ?? null,
     respondentEmail: respondent?.email ?? null,
