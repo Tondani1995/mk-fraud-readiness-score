@@ -77,7 +77,7 @@ jobs:
           find output/pdf -maxdepth 1 -type f -name '*.pdf' -print -exec cp {} lock-proof/ \;
           test "$(find lock-proof -maxdepth 1 -type f -name '*.pdf' | wc -l | tr -d ' ')" -ge 3
           sha256sum lock-proof/*.pdf | tee lock-proof/SHA256SUMS.txt
-          cp tmp/checkpoint-f-candidates.json lock-proof/checkpoint-f-candidates.json
+          cp tmp/pdfs/checkpoint-f-candidates.json lock-proof/checkpoint-f-candidates.json
           printf 'certified_sha=32fe97c418b81911ad39c0f6bc17407e6702f312\n' > lock-proof/PROOF.txt
           printf 'provider_calls=0\n' >> lock-proof/PROOF.txt
           printf 'source=exact-certified-essential-baseline\n' >> lock-proof/PROOF.txt
