@@ -1,0 +1,62 @@
+name: Essential V10 Lock Proof
+
+on:
+  pull_request:
+    branches:
+      - release/essential-v10-certified-32fe97c
+  push:
+    branches:
+      - qa/essential-v10-lock-proof
+
+permissions:
+  contents: read
+
+jobs:
+  lock-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact certified Essential baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 32fe97c418b81911ad39c0f6bc17407e6702f312
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PDF audit dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
+
+      - name: Generate certified Essential multi-client report set
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "32fe97c418b81911ad39c0f6bc17407e6702f312"
+          npm run v7:test-checkpoint-f
+          mkdir -p lock-proof
+          find output/pdf -maxdepth 1 -type f -name '*.pdf' -print -exec cp {} lock-proof/ \;
+          test "$(find lock-proof -maxdepth 1 -type f -name '*.pdf' | wc -l | tr -d ' ')" -ge 3
+          sha256sum lock-proof/*.pdf | tee lock-proof/SHA256SUMS.txt
+          cp tmp/checkpoint-f-candidates.json lock-proof/checkpoint-f-candidates.json
+          printf 'certified_sha=32fe97c418b81911ad39c0f6bc17407e6702f312\n' > lock-proof/PROOF.txt
+          printf 'provider_calls=0\n' >> lock-proof/PROOF.txt
+          printf 'source=exact-certified-essential-baseline\n' >> lock-proof/PROOF.txt
+
+      - name: Upload owner-review proof reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v10-lock-proof-reports
+          path: lock-proof/
+          if-no-files-found: error
+          retention-days: 7
