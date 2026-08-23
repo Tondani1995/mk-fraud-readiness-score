@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PREVIEW_URL: https://mk-fraud-platform-49oqaglv4-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-bay79dx5v-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - name: Generate exact V1.2 Essential PDFs
@@ -46,14 +46,10 @@ jobs:
             const metaText = await metaResponse.text();
             if (!metaResponse.ok) throw new Error(`${report.profile}: metadata HTTP ${metaResponse.status}: ${metaText.slice(0,500)}`);
             const meta = JSON.parse(metaText);
-            if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') {
-              throw new Error(`${report.profile}: wrong graph ${meta.graphVersion}`);
-            }
-            if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') {
-              throw new Error(`${report.profile}: wrong methodology ${meta.methodology}`);
-            }
+            if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`${report.profile}: wrong graph ${meta.graphVersion}`);
+            if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`${report.profile}: wrong methodology ${meta.methodology}`);
 
-            console.log(`[${index + 1}/3] ${report.profile}: score ${meta.score}, ${meta.finalMaturity}; generating PDF.`);
+            console.log(`[${index + 1}/3] ${report.profile}: score ${meta.score}, ${meta.finalMaturity}; issuing one report-generation request.`);
             const response = await fetch(`${preview}/score/api/qa/v12-essential-comparison/${report.profile}`, {
               headers: { 'x-vercel-protection-bypass': bypass, Accept: 'application/pdf' },
               redirect: 'manual'
@@ -63,9 +59,7 @@ jobs:
               throw new Error(`${report.profile}: generation HTTP ${response.status}: ${text.slice(0,1000)}`);
             }
             const bytes = Buffer.from(await response.arrayBuffer());
-            if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') {
-              throw new Error(`${report.profile}: invalid PDF (${bytes.length} bytes).`);
-            }
+            if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') throw new Error(`${report.profile}: invalid PDF (${bytes.length} bytes).`);
             fs.writeFileSync(`v12-reports/${report.name}`, bytes);
             const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
             summary.push({ ...meta, file: report.name, bytes: bytes.length, sha256 });
