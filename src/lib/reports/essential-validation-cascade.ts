@@ -327,6 +327,16 @@ export function adjudicateTextFirstValidation(input: {
     return prescriptiveLead.test(text) && !currentStateLead.test(text);
   }
 
+  // A reviewer REPAIR is also advisory. Relative-strength language that is explicitly bounded
+  // to the self-assessment is not a present-state operating claim and should not be rewritten.
+  function isBoundedRelativeStrengthContext(source: string): boolean {
+    const text = source.trim();
+    if (!text) return false;
+    const bounded = /\b(?:self[-‑ ]assessed|reported|comparatively stronger|relative strength|relative strengths|stronger reported position|stronger self[-‑ ]assessed position)\b/i.test(text);
+    const unsupportedOperatingUpgrade = /\b(?:functioning|effective|operational|embedded|operating in practice|established (?:capability|foundation|foundations)|functioning foundation|workable foundation|foundation already in place|leadership attention|management commitment|mobilisation capacity|mobilization capacity)\b/i.test(text);
+    return bounded && !unsupportedOperatingUpgrade;
+  }
+
   function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {
     const reviewed = semanticDecisionByCandidateId.get(item.id);
     if (reviewed) {
@@ -339,6 +349,12 @@ export function adjudicateTextFirstValidation(input: {
         return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };
       }
       if (reviewed.disposition === 'REPAIR') {
+        if (reviewed.reasonCode === 'repairable_overstatement' && isBoundedRelativeStrengthContext(source)) {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_bounded_relative_strength_context', repair: false };
+        }
+        if (isPrescriptiveManagementDesignContext(source)) {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_prescriptive_target_state_context', repair: false };
+        }
         return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };
       }
       if (reviewed.disposition === 'HOLD') {

@@ -37,7 +37,7 @@ function cleanReport() {
   };
 }
 
-function run(text: string, disposition: 'ALLOW' | 'REJECT' | 'HOLD', reasonCode: string) {
+function run(text: string, disposition: 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD', reasonCode: string) {
   const path = 'SEC.paragraphs[0]';
   const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
   const result = adjudicateTextFirstValidation({
@@ -68,6 +68,11 @@ export function GET() {
     'ALLOW',
     'grounded'
   );
+  const boundedRelativeStrengthRepair = run(
+    'Whistleblowing and Reporting Culture is a comparatively stronger self-assessed area and represents the clearest positive signal in the profile.',
+    'REPAIR',
+    'repairable_overstatement'
+  );
   const prescriptiveOperatingReject = run(
     'By 60 days establish the evidence register, adopt chain-of-custody forms and place preserved items in an access-controlled repository.',
     'REJECT',
@@ -85,6 +90,8 @@ export function GET() {
     && prescriptiveOperatingReject.finalDisposition === 'ACCEPT'
     && unsafeAllow.publishable === false
     && unsafeAllow.finalDisposition === 'REJECT'
+    && boundedRelativeStrengthRepair.publishable === true
+    && boundedRelativeStrengthRepair.finalDisposition === 'ACCEPT'
     && unconfirmedReject.publishable === false
     && unconfirmedReject.finalDisposition === 'HELD_FOR_REVIEW'
     && unconfirmedReject.blockingCodes.length === 0;
@@ -95,6 +102,7 @@ export function GET() {
     safeReviewerReject: safeReject,
     prescriptiveOperatingReject,
     unsafeReviewerAllow: unsafeAllow,
+    boundedRelativeStrengthRepair,
     unconfirmedReviewerReject: unconfirmedReject
   }, { status: pass ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });
 }

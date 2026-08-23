@@ -856,7 +856,9 @@ export async function composeEssentialManuscript(input: {
 
   // A semantic reviewer may repair exactly one deterministic paragraph. Apply that response
   // without entering the old recovery loop: reparse, rerun hard gates, and rescan candidates once.
-  const repairDecision = reviewed?.decisions.find((decision) => decision.disposition === 'REPAIR');
+  const repairDecision = firstCascade.repairCodes.length > 0
+    ? reviewed?.decisions.find((decision) => decision.disposition === 'REPAIR')
+    : undefined;
   if (repairDecision) {
     const target = reviewInput?.find((item) => item.candidateId === repairDecision.candidateId);
     const block = target ? semanticBlockTarget(narrative, authoritativeBlueprint, target.path) : null;
