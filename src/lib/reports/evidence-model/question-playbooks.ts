@@ -814,7 +814,16 @@ const PLAYBOOKS: Record<string, QuestionControlPlaybook> = {
 };
 
 export const MFRS_V11_METHODOLOGY_ID = 'df96e242-9625-4b2a-bc62-615ae402483a';
-export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
+export const MFRS_V12_METHODOLOGY_ID = '00f2b435-a027-4a06-886b-23998faeaca6';
+/** Stable identity for V1.2 reporting. Database UUIDs are environment-specific; the graph version is not. */
+export const MFRS_V12_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
+const MFRS_V12_LEGACY_METHODOLOGY_IDS = new Set(['c9c40448-8035-4bcc-9804-d5b08a604289']);
+
+export function isV12ReportMethodology(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {
+  return adaptiveGraphVersion === MFRS_V12_GRAPH_VERSION
+    || methodologyVersionId === MFRS_V12_METHODOLOGY_ID
+    || Boolean(methodologyVersionId && MFRS_V12_LEGACY_METHODOLOGY_IDS.has(methodologyVersionId));
+}
 
 /** V1.2 merged/retired V1.1 IDs are not part of the active V1.2 customer pathway. */
 const V12_NON_ACTIVE_QUESTION_CODES = new Set([
@@ -876,28 +885,29 @@ const V12_PLAYBOOK_OVERRIDES: Record<string, QuestionControlPlaybook> = {
   'D8-Q10': { questionCode: 'D8-Q10', domainCode: 'D8', controlObjective: 'Investigate and contain identity misuse, account takeover or impersonation.', expectedStandard: 'Suspected identity misuse has a named response owner, defined containment actions, investigation steps, evidence requirements and closure or recovery decisions.', fraudMechanism: 'Without a tested response route, an identity compromise can continue after detection and its scope, losses and affected parties may remain unclear.', currentStateDiagnosis: diagnosis('Identity-misuse investigation and containment'), recommendedControlDesign: 'Security Operations and Fraud Operations must maintain a response runbook for identity misuse covering session revocation, credential reset, account hold, customer or employee contact, evidence preservation, scope assessment, recovery, escalation and closure; the runbook is exercised periodically and material cases receive independent review.', executiveAccountability: 'Chief Technology Officer / Chief Operating Officer', processOwnership: 'Security Operations and Fraud Operations', oversightFunction: 'Information Security / Risk', supportingFunctions: ['Customer Operations', 'HR', 'Legal', 'Finance'], operatingFrequency: 'On every suspected case; annual or post-incident exercise', evidenceRequired: ['Identity-misuse response runbook', 'Containment and investigation case records', 'Authentication and activity evidence', 'Recovery or notification decisions', 'Exercise and lessons-learned records'], minimumAcceptableEvidenceCharacteristics: ['Containment action is time-stamped and attributable', 'Investigation reconstructs scope and affected activity', 'Closure or recovery decision is recorded'], dependencies: ['Identity and activity logging', 'Incident-response process'], implementationDifficulty: 'High', targetPeriod: '90 days', effectivenessMeasure: 'Every suspected identity-misuse case has timely containment, a recorded investigation and an accountable closure decision.', escalationThreshold: 'Suspected takeover not contained within the defined SLA, incomplete evidence or unresolved affected-party exposure.', relatedScenarioTypes: ['account_takeover', 'incident_response_breakdown'] }
 };
 
-function playbookRegistryFor(methodologyVersionId?: string): Record<string, QuestionControlPlaybook> {
-  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;
+function playbookRegistryFor(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): Record<string, QuestionControlPlaybook> {
+  if (!isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion)) return PLAYBOOKS;
   const registry = { ...PLAYBOOKS, ...V12_PLAYBOOK_OVERRIDES };
   for (const questionCode of V12_NON_ACTIVE_QUESTION_CODES) delete registry[questionCode];
   return registry;
 }
 
-export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string): AuthoritativeQuestionMapping | null {
-  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
-  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID
+export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): AuthoritativeQuestionMapping | null {
+  const isV12 = isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion);
+  if (isV12 && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
+  return isV12
     ? V12_AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null
     : AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null;
 }
 
-export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string): QuestionControlPlaybook | null {
-  return playbookRegistryFor(methodologyVersionId)[questionCode] ?? null;
+export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook | null {
+  return playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)[questionCode] ?? null;
 }
 
-export function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string): boolean {
-  return questionCode in playbookRegistryFor(methodologyVersionId);
+export function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {
+  return questionCode in playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion);
 }
 
-export function listQuestionPlaybooks(methodologyVersionId?: string): QuestionControlPlaybook[] {
-  return Object.values(playbookRegistryFor(methodologyVersionId)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
+export function listQuestionPlaybooks(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook[] {
+  return Object.values(playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
 }
