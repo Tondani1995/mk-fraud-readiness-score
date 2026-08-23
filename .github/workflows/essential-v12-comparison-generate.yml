@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      PREVIEW_URL: https://mk-fraud-platform-5n13zrn16-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-ius6r6vcj-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
