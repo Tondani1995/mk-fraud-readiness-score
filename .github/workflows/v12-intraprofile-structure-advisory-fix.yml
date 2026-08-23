@@ -1,5 +1,6 @@
 name: V1.2 Intra-Profile Structure Signal Adjudication
 
+# Triggered after the final-capture run exposed a reviewer REPAIR mislabelled as unsupported_structure.
 on:
   push:
     branches:
