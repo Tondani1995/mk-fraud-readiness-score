@@ -37,6 +37,16 @@ jobs:
 
           coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
           text = coordinator.read_text()
+          old_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const rejectedDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REJECT');\n  const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          new_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          if old_locals in text:
+              text = text.replace(old_locals, new_locals, 1)
+
+          old_policy_locals = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const rejectedPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, rejectedDecisions);\n  const heldPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, heldDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          new_policy_locals = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          if old_policy_locals in text:
+              text = text.replace(old_policy_locals, new_policy_locals, 1)
+
           old = """  if (rejectedDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer rejected one or more provider-authored narrative blocks.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_reject',\n        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')\n      }\n    );\n  }\n  if (heldDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer held one or more provider-authored narrative blocks for review.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_hold',\n        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')\n      }\n    );\n  }\n"""
           new = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. Pass both into the\n  // canonical five-layer cascade so context, deterministic evidence checks, document review and\n  // final acceptance decide the outcome. The reviewer diagnostics remain attached below if the\n  // cascade ultimately holds or rejects the manuscript.\n"""
           if old in text:
