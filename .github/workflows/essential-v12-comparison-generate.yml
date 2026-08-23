@@ -8,50 +8,47 @@ on:
       - .github/workflows/essential-v12-comparison-generate.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate-three:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
-      VERCEL_AI_GATEWAY_API_KEY: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
-      NODE_ENV: production
+      PREVIEW_URL: https://mk-fraud-platform-5n13zrn16-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: qa/v12-essential-comparison-20260823
+          fetch-depth: 0
 
-      - name: Provider preflight
+      - name: Record exact workflow run
         shell: bash
         run: |
-          if [ -z "$AI_GATEWAY_API_KEY" ] && [ -z "$VERCEL_AI_GATEWAY_API_KEY" ]; then
-            echo "No repository AI Gateway secret is configured; refusing generation before provider dispatch."
+          mkdir -p qa-output/v12-essential
+          printf '%s\n' "$GITHUB_RUN_ID" > qa-output/v12-essential/latest-run-id.txt
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add qa-output/v12-essential/latest-run-id.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "record V1.2 report generation run"
+            git push origin HEAD:qa/v12-essential-comparison-20260823
+          fi
+
+      - name: Preview access preflight
+        shell: bash
+        run: |
+          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
+            echo "VERCEL_PROTECTION_BYPASS secret is missing; refusing generation."
             exit 1
           fi
-          echo "Approved AI Gateway credential is available."
-
-      - name: Install and build exact branch
-        shell: bash
-        run: |
-          npm ci
-          npm run build
-
-      - name: Start isolated application server
-        shell: bash
-        run: |
-          npm start -- -p 3000 > /tmp/mk-v12-next.log 2>&1 &
-          echo $! > /tmp/mk-v12-next.pid
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:3000/score/api/qa/v12-essential-comparison/bokamoso?format=meta >/tmp/v12-meta.json; then
-              cat /tmp/v12-meta.json
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/mk-v12-next.log || true
-          exit 1
+          curl -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" \
+            | tee /tmp/v12-meta.json
+          grep -F 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821' /tmp/v12-meta.json
+          grep -F 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION' /tmp/v12-meta.json
 
       - name: Generate three exact V1.2 Essential PDFs
         shell: bash
@@ -61,7 +58,10 @@ jobs:
           import fs from 'node:fs';
           import crypto from 'node:crypto';
 
-          const base = 'http://127.0.0.1:3000';
+          const base = process.env.PREVIEW_URL.replace(/\/$/, '');
+          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
+          if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS is missing.');
+          const headers = { 'x-vercel-protection-bypass': bypass };
           const reports = [
             { profile: 'bokamoso', name: 'Bokamoso_Skills_Institute_Essential_V1_2.pdf' },
             { profile: 'siyakhula', name: 'Siyakhula_Community_Foundation_Essential_V1_2.pdf' },
@@ -71,14 +71,15 @@ jobs:
 
           for (let index = 0; index < reports.length; index += 1) {
             const report = reports[index];
-            const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}?format=meta`);
-            const meta = await metaResponse.json();
-            if (!metaResponse.ok) throw new Error(`${report.profile}: metadata failed ${JSON.stringify(meta).slice(0,500)}`);
+            const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}?format=meta`, { headers });
+            const metaText = await metaResponse.text();
+            if (!metaResponse.ok) throw new Error(`${report.profile}: metadata HTTP ${metaResponse.status}: ${metaText.slice(0,700)}`);
+            const meta = JSON.parse(metaText);
             if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`${report.profile}: wrong graph ${meta.graphVersion}`);
             if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`${report.profile}: wrong methodology ${meta.methodology}`);
 
-            console.log(`[${index + 1}/3] ${report.profile}: ${meta.score} ${meta.finalMaturity}; exactly one generation request.`);
-            const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}`);
+            console.log(`[${index + 1}/3] ${report.profile}: ${meta.score} ${meta.finalMaturity}; issuing exactly one report-generation request.`);
+            const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}`, { headers });
             if (!response.ok) {
               const text = await response.text();
               throw new Error(`${report.profile}: generation HTTP ${response.status}: ${text.slice(0,1500)}`);
@@ -95,19 +96,21 @@ jobs:
           console.log('ESSENTIAL V1.2 THREE-REPORT GENERATION: PASS 3/3');
           NODE
 
-      - name: Preserve server diagnostics
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/mk-v12-next.log ]; then tail -n 400 /tmp/mk-v12-next.log > v12-server.log || true; fi
-
       - name: Upload V1.2 Essential reports
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: essential-v12-three-report-pack
-          path: |
-            v12-reports/*
-            v12-server.log
+          path: v12-reports/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Commit generation summary
+        shell: bash
+        run: |
+          mkdir -p qa-output/v12-essential
+          cp v12-reports/summary.json qa-output/v12-essential/latest-summary.json
+          git fetch origin qa/v12-essential-comparison-20260823
+          git reset --soft origin/qa/v12-essential-comparison-20260823
+          git add qa-output/v12-essential/latest-summary.json
+          git commit -m "record V1.2 three-report summary" || exit 0
+          git push origin HEAD:qa/v12-essential-comparison-20260823
