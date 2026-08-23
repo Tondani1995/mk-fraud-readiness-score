@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      PREVIEW_URL: https://mk-fraud-platform-b3woyx1y4-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-nyk76dzgd-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -67,5 +67,5 @@ jobs:
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git add qa-output/v12-final-capture
-          git commit -m "capture final V1.2 Essential owner-review reports on repair-advisory source"
+          git commit -m "capture final V1.2 Essential owner-review reports after repair-binding fix"
           git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
