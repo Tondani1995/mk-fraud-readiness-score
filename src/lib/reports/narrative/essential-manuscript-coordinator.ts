@@ -798,20 +798,9 @@ export async function composeEssentialManuscript(input: {
         ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})
       }
     : semanticPolicyBase.semanticReviewDiagnostics;
-  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the
-  // canonical five-layer cascade, which alone may ACCEPT, REPAIR, HOLD or confirm REJECT.
-  if (repairDecisions.length > 1) {
-    throw new EssentialManuscriptError(
-      'semantic_review',
-      'More than one semantic repair is required; the bounded single-repair policy fails closed.',
-      {
-        ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
-        validationCode: 'multiple_semantic_repairs_required',
-        validationIssues: semanticPolicyValidationIssues(repairPolicyDecisions, 'Multiple provider-authored blocks require semantic repair; no repair was applied.')
-      }
-    );
-  }
+  // REJECT, HOLD and REPAIR are reviewer recommendations, not release verdicts. All of them
+  // proceed into the canonical five-layer cascade. The bounded single-repair limit is enforced
+  // only after the cascade has independently decided which suggestions genuinely require repair.
 
   const firstCascade = adjudicateTextFirstValidation({
     parsed: narrative,
@@ -864,6 +853,19 @@ export async function composeEssentialManuscript(input: {
       .filter((candidate) => candidate.finalDisposition === 'REPAIR')
       .map((candidate) => candidate.id)
   );
+  if (repairCandidateIds.size > 1) {
+    const adjudicatedRepairPolicyDecisions = semanticPolicyDecisions.filter((decision) => repairCandidateIds.has(decision.candidateId));
+    throw new EssentialManuscriptError(
+      'semantic_review',
+      'More than one semantic repair remains after five-layer adjudication; the bounded single-repair policy fails closed.',
+      {
+        ...semanticPolicyBase,
+        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
+        validationCode: 'multiple_semantic_repairs_required',
+        validationIssues: semanticPolicyValidationIssues(adjudicatedRepairPolicyDecisions, 'Multiple provider-authored blocks still require repair after five-layer adjudication; no repair was applied.')
+      }
+    );
+  }
   const repairDecision = reviewed?.decisions.find(
     (decision) => decision.disposition === 'REPAIR' && repairCandidateIds.has(decision.candidateId)
   );
