@@ -337,6 +337,18 @@ export function adjudicateTextFirstValidation(input: {
     return bounded && !unsupportedOperatingUpgrade;
   }
 
+  // Comparing deterministic scores or relative positions inside this same assessment is not an
+  // external benchmark claim. Keep this narrow: any reference to peers, industry, benchmarks,
+  // averages, medians or percentiles remains outside this allowance.
+  function isBoundedIntraProfileComparison(source: string): boolean {
+    const text = source.trim();
+    if (!text) return false;
+    const internalFrame = /\b(?:within (?:that|this|the) profile|assessed profile|domain(?:s)?|score(?:s)?|reported position(?:s)?)\b/i.test(text);
+    const comparative = /\b(?:higher|lower|stronger|weaker|comparatively stronger|relatively stronger|materially weaker|above|below)\b/i.test(text);
+    const externalFrame = /\b(?:peer(?:s)?|similar[- ]sized|industry|benchmark(?:s|ed|ing)?|average(?:s)?|median(?:s)?|percentile(?:s)?)\b/i.test(text);
+    return internalFrame && comparative && !externalFrame;
+  }
+
   function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {
     const reviewed = semanticDecisionByCandidateId.get(item.id);
     if (reviewed) {
@@ -349,6 +361,9 @@ export function adjudicateTextFirstValidation(input: {
         return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };
       }
       if (reviewed.disposition === 'REPAIR') {
+        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_intra_profile_score_comparison', repair: false };
+        }
         if (reviewed.reasonCode === 'repairable_overstatement' && isBoundedRelativeStrengthContext(source)) {
           return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_bounded_relative_strength_context', repair: false };
         }
@@ -361,6 +376,9 @@ export function adjudicateTextFirstValidation(input: {
         return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };
       }
       if (reviewed.disposition === 'REJECT') {
+        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_intra_profile_score_comparison', repair: false };
+        }
         if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {
           return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };
         }
