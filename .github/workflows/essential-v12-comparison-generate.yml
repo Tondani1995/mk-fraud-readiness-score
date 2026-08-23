@@ -1,4 +1,4 @@
-name: Essential V1.2 Bokamoso Semantic Proof
+name: Essential V1.2 Five-Layer Semantic Proof
 
 on:
   push:
@@ -11,9 +11,9 @@ permissions:
   contents: write
 
 jobs:
-  bokamoso-proof:
+  bokamoso-five-layer-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       PREVIEW_URL: https://mk-fraud-platform-git-qa-v12-essential-38fe43-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -23,157 +23,183 @@ jobs:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Add exact semantic rejection visibility to synthetic QA route only
+      - name: Route semantic reviewer through the five-layer cascade
         shell: python
         run: |
           from pathlib import Path
-          p = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
-          s = p.read_text()
 
-          old_import = "import { composeEssentialManuscript } from '@/lib/reports/narrative/essential-manuscript-coordinator';"
-          new_import = "import { composeEssentialManuscript, EssentialManuscriptError } from '@/lib/reports/narrative/essential-manuscript-coordinator';\nimport type { EssentialSemanticReviewer } from '@/lib/reports/narrative/semantic-reviewer';"
-          if new_import not in s:
-              if old_import not in s: raise SystemExit('Coordinator import seam missing.')
-              s = s.replace(old_import, new_import, 1)
+          cascade = Path('src/lib/reports/essential-validation-cascade.ts')
+          text = cascade.read_text()
+          old = """    if (reviewed) {\n      return {\n        disposition: reviewed.disposition === 'ALLOW' ? 'ALLOW_CONTEXT'\n          : reviewed.disposition === 'REPAIR' ? 'REPAIRABLE'\n            : reviewed.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS',\n        reasonCode: reviewed.reasonCode,\n        repair: reviewed.disposition === 'REPAIR'\n      };\n    }\n"""
+          new = """    if (reviewed) {\n      // The semantic reviewer is an advisory signal into the five-layer cascade, never a release\n      // verdict by itself. Deterministic hard gates have already run before this seam. For assurance\n      // propositions, independently re-adjudicate actor/modality/tense/negation/context through the\n      // shared core so a reviewer cannot either veto safe customer-control language or wave through\n      // a genuine MK/report assurance claim. Other reviewer REJECT decisions remain adverse signals\n      // and therefore AMBIGUOUS until another deterministic layer can independently confirm them.\n      const assurance = adjudicateAssuranceSentence(source);\n      if (assurance.disposition === 'CONFIRMED_VIOLATION') {\n        return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REPAIR') {\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n      if (reviewed.disposition === 'HOLD') {\n        return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n      if (assurance.disposition === 'AMBIGUOUS') {\n        return { disposition: 'AMBIGUOUS', reasonCode: assurance.reasonCode, repair: false };\n      }\n      return { disposition: 'ALLOW_CONTEXT', reasonCode: reviewed.reasonCode, repair: false };\n    }\n"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'semantic_reviewer_adverse_signal_unconfirmed' not in text:
+              raise SystemExit('semanticDisposition seam missing')
+          cascade.write_text(text)
 
-          old_meta = "return { profile:profileKey, organisationName:profile.organisationName"
-          new_meta = "return { diagnosticRevision:'semantic-audit-v1', profile:profileKey, organisationName:profile.organisationName"
-          if new_meta not in s:
-              if old_meta not in s: raise SystemExit('Metadata seam missing.')
-              s = s.replace(old_meta, new_meta, 1)
+          coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
+          text = coordinator.read_text()
+          old_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const rejectedDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REJECT');\n  const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          new_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          if old_locals in text:
+              text = text.replace(old_locals, new_locals, 1)
 
-          old_start = "  try {\n    const {data}=assembledFor(profileKey);"
-          new_start = "  let semanticAudit: Array<Record<string, unknown>> | undefined;\n  try {\n    const {data}=assembledFor(profileKey);"
-          if new_start not in s:
-              if old_start not in s: raise SystemExit('Route try seam missing.')
-              s = s.replace(old_start, new_start, 1)
+          old_policy = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const rejectedPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, rejectedDecisions);\n  const heldPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, heldDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          new_policy = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          if old_policy in text:
+              text = text.replace(old_policy, new_policy, 1)
 
-          old_compose = "    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer:createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false})});"
-          new_compose = """    const writer=createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false});
-    const semanticReviewer: EssentialSemanticReviewer | undefined = writer.reviewSemanticCandidates ? {
-      review: async (reviewRequest) => {
-        const result=await writer.reviewSemanticCandidates!(reviewRequest);
-        semanticAudit=result.decisions.filter((decision)=>decision.disposition!=='ALLOW').map((decision)=>{
-          const candidate=reviewRequest.candidates.find((item)=>item.candidateId===decision.candidateId);
-          return { candidateId:decision.candidateId, disposition:decision.disposition, reasonCode:decision.reasonCode, ruleCode:candidate?.ruleCode, path:candidate?.path, blueprintPath:candidate?.blueprintPath, chapterTitle:candidate?.chapterTitle, sectionTitle:candidate?.sectionTitle, subsectionTitle:candidate?.subsectionTitle, span:candidate?.paragraph };
-        });
-        return result;
-      }
-    } : undefined;
-    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer,semanticReviewer});"""
-          if new_compose not in s:
-              if old_compose not in s: raise SystemExit('Compose seam missing.')
-              s = s.replace(old_compose, new_compose, 1)
+          early = """  if (rejectedDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer rejected one or more provider-authored narrative blocks.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_reject',\n        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')\n      }\n    );\n  }\n  if (heldDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer held one or more provider-authored narrative blocks for review.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_hold',\n        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')\n      }\n    );\n  }\n"""
+          replacement = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the\n  // canonical five-layer cascade. Only the cascade may classify them as ACCEPT, REPAIR, HOLD or\n  // confirmed REJECT after independent contextual and deterministic checks.\n"""
+          if early in text:
+              text = text.replace(early, replacement, 1)
+          elif 'REJECT and HOLD are reviewer recommendations' not in text:
+              raise SystemExit('early semantic veto seam missing')
 
-          old_catch = """    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});
-    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});"""
-          new_catch = """    const manuscriptDiagnostics=error instanceof EssentialManuscriptError ? error.diagnostics : undefined;
-    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation,semanticAudit,manuscriptDiagnostics});
-    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation,semanticAudit,manuscriptDiagnostics},{status:500,headers:{'Cache-Control':'no-store'}});"""
-          if new_catch not in s:
-              if old_catch not in s: raise SystemExit('Route catch seam missing.')
-              s = s.replace(old_catch, new_catch, 1)
+          old_diag = """        validationCode: failure.codes[0],\n        validationIssues: failure.validationIssues\n"""
+          new_diag = """        validationCode: failure.codes[0],\n        validationIssues: failure.validationIssues,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})\n"""
+          if old_diag in text:
+              text = text.replace(old_diag, new_diag, 1)
+          coordinator.write_text(text)
 
-          p.write_text(s)
+          test = Path('scripts/commercial-quality/essential-validation-cascade-regression.mjs')
+          suite = test.read_text()
+          if 'essentialCandidateId,' not in suite:
+              suite = suite.replace("  adjudicateTextFirstValidation,\n  validateEssentialFinalHtml\n", "  adjudicateTextFirstValidation,\n  essentialCandidateId,\n  validateEssentialFinalHtml\n", 1)
+          marker = "test('hard evidence and contract failures cannot be context-cleared', () => {\n"
+          tests = r"""test('semantic reviewer REJECT is advisory and safe customer assurance language is cleared by five layers', () => {
+  const text = 'Management should obtain independent review of refund and override activity before closure.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = { ok: true, hardTruth: { status: 'PASS', issues: [] }, semanticCandidates: { status: 'PASS', issues: [] }, repairableSemantic: { status: 'PASS', issues: [] }, quality: { status: 'PASS', issues: [] }, sectionCount: 1, subsectionCount: 0, paragraphCount: 1 };
+  const result = adjudicateTextFirstValidation({ parsed: minimalParsed(text), report, factPack: { facts: [] }, requireSemanticReviewer: true, semanticGroundingBlocks: [{ path, span: text }], semanticDecisions: [{ candidateId, disposition: 'REJECT', reasonCode: 'unsupported_assurance' }] });
+  assert.equal(result.publishable, true);
+  assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
+  assert.ok(result.candidates[0].decisions.some((decision) => decision.reasonCode.startsWith('reviewer_adverse_signal_cleared_by_shared_assurance_core:')));
+});
 
-      - name: Typecheck diagnostic route before any provider call
+test('semantic reviewer ALLOW cannot waive a genuine assurance violation', () => {
+  const text = 'This report provides independent assurance that the controls are effective.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = { ok: true, hardTruth: { status: 'PASS', issues: [] }, semanticCandidates: { status: 'PASS', issues: [] }, repairableSemantic: { status: 'PASS', issues: [] }, quality: { status: 'PASS', issues: [] }, sectionCount: 1, subsectionCount: 0, paragraphCount: 1 };
+  const result = adjudicateTextFirstValidation({ parsed: minimalParsed(text), report, factPack: { facts: [] }, requireSemanticReviewer: true, semanticGroundingBlocks: [{ path, span: text }], semanticDecisions: [{ candidateId, disposition: 'ALLOW', reasonCode: 'grounded' }] });
+  assert.equal(result.publishable, false);
+  assert.equal(result.candidates[0].finalDisposition, 'REJECT');
+});
+
+test('unconfirmed non-assurance semantic REJECT becomes HOLD rather than false confirmed rejection', () => {
+  const text = 'The finance team performs daily exception reviews across all sites.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = { ok: true, hardTruth: { status: 'PASS', issues: [] }, semanticCandidates: { status: 'PASS', issues: [] }, repairableSemantic: { status: 'PASS', issues: [] }, quality: { status: 'PASS', issues: [] }, sectionCount: 1, subsectionCount: 0, paragraphCount: 1 };
+  const result = adjudicateTextFirstValidation({ parsed: minimalParsed(text), report, factPack: { facts: [] }, requireSemanticReviewer: true, semanticGroundingBlocks: [{ path, span: text }], semanticDecisions: [{ candidateId, disposition: 'REJECT', reasonCode: 'unsupported_frequency' }] });
+  assert.equal(result.publishable, false);
+  assert.equal(result.candidates[0].finalDisposition, 'HELD_FOR_REVIEW');
+  assert.equal(result.blockingCodes.length, 0);
+});
+
+"""
+          if 'semantic reviewer REJECT is advisory and safe customer assurance language' not in suite:
+              if marker not in suite: raise SystemExit('regression insertion seam missing')
+              suite = suite.replace(marker, tests + marker, 1)
+          test.write_text(suite)
+
+          route = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
+          r = route.read_text()
+          old_meta = "return { diagnosticRevision:'semantic-audit-v1', profile:profileKey"
+          new_meta = "return { diagnosticRevision:'semantic-advisory-v1', profile:profileKey"
+          if old_meta in r:
+              r = r.replace(old_meta, new_meta, 1)
+          elif "diagnosticRevision:'semantic-advisory-v1'" not in r:
+              raise SystemExit('QA diagnostic revision seam missing')
+          route.write_text(r)
+
+      - name: Prove five-layer safety before any provider call
         shell: bash
         run: |
+          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
+          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
           npm run typecheck
           git diff --check
 
-      - name: Commit QA diagnostic and record exact run
+      - name: Commit the proven QA architecture correction
         shell: bash
         run: |
-          mkdir -p qa-output/v12-essential
-          printf '%s\n' "$GITHUB_RUN_ID" > qa-output/v12-essential/latest-run-id.txt
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
-          git add 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts' qa-output/v12-essential/latest-run-id.txt
-          git commit -m "expose V1.2 semantic reject and record proof run" || true
+          git add src/lib/reports/essential-validation-cascade.ts src/lib/reports/narrative/essential-manuscript-coordinator.ts scripts/commercial-quality/essential-validation-cascade-regression.mjs 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          git commit -m "route semantic review through five-layer adjudication"
           git push origin HEAD:qa/v12-essential-comparison-20260823
+          printf '%s\n' "$(git rev-parse HEAD)" > /tmp/advisory-sha
 
-      - name: Wait for the exact diagnostic revision on Vercel branch alias
+      - name: Wait for exact five-layer revision on Vercel
         shell: bash
         run: |
-          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
-            echo "VERCEL_PROTECTION_BYPASS missing; refusing provider generation."
-            exit 1
-          fi
+          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then echo "VERCEL_PROTECTION_BYPASS missing"; exit 1; fi
           ready=0
-          for attempt in $(seq 1 48); do
+          for attempt in $(seq 1 60); do
             body=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" 2>/dev/null || true)
-            if printf '%s' "$body" | grep -Fq '"diagnosticRevision":"semantic-audit-v1"'; then
+            if printf '%s' "$body" | grep -Fq '"diagnosticRevision":"semantic-advisory-v1"'; then
               printf '%s\n' "$body"
               ready=1
               break
             fi
-            echo "waiting for semantic-audit-v1 deployment ($attempt/48)"
+            echo "waiting for semantic-advisory-v1 deployment ($attempt/60)"
             sleep 5
           done
-          [ "$ready" -eq 1 ] || { echo "Diagnostic deployment did not become ready; refusing provider generation."; exit 1; }
+          [ "$ready" -eq 1 ] || { echo "Five-layer revision did not become ready; refusing provider generation."; exit 1; }
 
-      - name: Prove bounded assurance safety regressions
-        shell: bash
-        run: |
-          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
-          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
-          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
-          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
-
-      - name: Generate Bokamoso V1.2 Essential exactly once
+      - name: Generate Bokamoso V1.2 through the corrected five-layer path exactly once
         shell: bash
         run: |
           mkdir -p v12-reports qa-output/v12-essential
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import crypto from 'node:crypto';
-          const base = process.env.PREVIEW_URL.replace(/\/$/, '');
-          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
-          const headers = { 'x-vercel-protection-bypass': bypass };
-          const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso?format=meta`, { headers });
-          const meta = await metaResponse.json();
-          if (!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}`);
-          if (meta.diagnosticRevision !== 'semantic-audit-v1') throw new Error(`wrong diagnostic revision ${meta.diagnosticRevision}`);
-          if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`wrong graph ${meta.graphVersion}`);
-          if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`wrong methodology ${meta.methodology}`);
-          console.log(`Bokamoso V1.2: score ${meta.score}, ${meta.finalMaturity}; issuing one generation request.`);
-          const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso`, { headers });
-          const contentType = response.headers.get('content-type') || '';
-          if (!response.ok) {
-            const text = await response.text();
-            fs.writeFileSync('qa-output/v12-essential/bokamoso-latest-failure.json', text);
-            console.error(text);
-            throw new Error(`Bokamoso generation failed HTTP ${response.status}`);
-          }
-          if (!contentType.includes('application/pdf')) throw new Error(`unexpected content-type ${contentType}`);
-          const bytes = Buffer.from(await response.arrayBuffer());
-          if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') throw new Error(`invalid PDF (${bytes.length} bytes)`);
-          const file = 'Bokamoso_Skills_Institute_Essential_V1_2.pdf';
-          fs.writeFileSync(`v12-reports/${file}`, bytes);
-          const summary = { ...meta, file, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
-          fs.writeFileSync('v12-reports/summary.json', JSON.stringify([summary], null, 2));
-          console.log(`BOKAMOSO V1.2 ESSENTIAL: PASS ${bytes.length} bytes ${summary.sha256}`);
+          const base=process.env.PREVIEW_URL.replace(/\/$/,'');
+          const headers={'x-vercel-protection-bypass':process.env.VERCEL_PROTECTION_BYPASS};
+          const metaResponse=await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso?format=meta`,{headers});
+          const meta=await metaResponse.json();
+          if(!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}`);
+          if(meta.diagnosticRevision!=='semantic-advisory-v1') throw new Error(`wrong revision ${meta.diagnosticRevision}`);
+          if(meta.graphVersion!=='MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`wrong graph ${meta.graphVersion}`);
+          if(meta.methodology!=='MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`wrong methodology ${meta.methodology}`);
+          console.log(`Bokamoso V1.2 ${meta.score} ${meta.finalMaturity}; one generation request.`);
+          const response=await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso`,{headers});
+          const contentType=response.headers.get('content-type')||'';
+          if(!response.ok){const text=await response.text();fs.writeFileSync('qa-output/v12-essential/bokamoso-advisory-failure.json',text);console.error(text);throw new Error(`generation HTTP ${response.status}`);}
+          if(!contentType.includes('application/pdf')) throw new Error(`unexpected content-type ${contentType}`);
+          const bytes=Buffer.from(await response.arrayBuffer());
+          if(bytes.length<100000||bytes.subarray(0,4).toString()!=='%PDF') throw new Error(`invalid PDF ${bytes.length}`);
+          const file='Bokamoso_Skills_Institute_Essential_V1_2.pdf';
+          fs.writeFileSync(`v12-reports/${file}`,bytes);
+          const summary={...meta,file,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+          fs.writeFileSync('v12-reports/summary.json',JSON.stringify([summary],null,2));
+          console.log(`BOKAMOSO V1.2 FIVE-LAYER PASS ${bytes.length} ${summary.sha256}`);
           NODE
 
-      - name: Upload Bokamoso proof
+      - name: Upload five-layer proof
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: essential-v12-bokamoso-proof
+          name: essential-v12-bokamoso-five-layer-proof
           path: v12-reports/*
           if-no-files-found: error
           retention-days: 14
 
-      - name: Commit failure diagnostic
+      - name: Persist failure diagnostic
         if: failure()
         shell: bash
         run: |
-          if [ ! -f qa-output/v12-essential/bokamoso-latest-failure.json ]; then exit 0; fi
+          if [ ! -f qa-output/v12-essential/bokamoso-advisory-failure.json ]; then exit 0; fi
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git fetch origin qa/v12-essential-comparison-20260823
           git reset --soft origin/qa/v12-essential-comparison-20260823
-          git add qa-output/v12-essential/bokamoso-latest-failure.json
-          git commit -m "record Bokamoso V1.2 semantic diagnostic" || exit 0
+          git add qa-output/v12-essential/bokamoso-advisory-failure.json
+          git commit -m "record Bokamoso five-layer semantic diagnostic" || exit 0
           git push origin HEAD:qa/v12-essential-comparison-20260823
