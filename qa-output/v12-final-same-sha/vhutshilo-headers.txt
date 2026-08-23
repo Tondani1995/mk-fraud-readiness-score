@@ -1,13 +1,17 @@
-HTTP/2 500 
+HTTP/2 200 
 age: 0
 cache-control: no-store
-content-type: application/json
-date: Sun, 23 Aug 2026 18:24:07 GMT
+content-disposition: attachment; filename="RPT-MKFRS-V12-COMP-VHUTSHILO-V1.pdf"
+content-type: application/pdf
+date: Sun, 23 Aug 2026 18:31:23 GMT
 server: Vercel
 strict-transport-security: max-age=63072000; includeSubDomains; preload
 vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
 x-matched-path: /score/api/qa/v12-essential-comparison/[profile]
+x-mk-graph: MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821
+x-mk-maturity: Developing
+x-mk-score: 43.33
 x-robots-tag: noindex
 x-vercel-cache: MISS
-x-vercel-id: sfo1::iad1::wtqwg-1787509398541-345a0c464a01
+x-vercel-id: pdx1::iad1::rpbh7-1787509833348-ceaf390828e2
 
