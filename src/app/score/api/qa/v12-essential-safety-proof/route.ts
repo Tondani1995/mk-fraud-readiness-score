@@ -68,6 +68,11 @@ export function GET() {
     'ALLOW',
     'grounded'
   );
+  const ratherThanLimitation = run(
+    'The assessment reflects management’s own responses and the MK scoring method rather than independent verification of operating effectiveness.',
+    'ALLOW',
+    'grounded'
+  );
   const boundedRelativeStrengthRepair = run(
     'Whistleblowing and Reporting Culture is a comparatively stronger self-assessed area and represents the clearest positive signal in the profile.',
     'REPAIR',
@@ -104,6 +109,8 @@ export function GET() {
     && inventedStructureRepair.finalDisposition === 'REPAIR'
     && unsafeAllow.publishable === false
     && unsafeAllow.finalDisposition === 'REJECT'
+    && ratherThanLimitation.publishable === true
+    && ratherThanLimitation.finalDisposition === 'ACCEPT'
     && boundedRelativeStrengthRepair.publishable === true
     && boundedRelativeStrengthRepair.finalDisposition === 'ACCEPT'
     && unconfirmedReject.publishable === false
@@ -118,6 +125,7 @@ export function GET() {
     intraProfileStructureRepair,
     inventedStructureRepair,
     unsafeReviewerAllow: unsafeAllow,
+    ratherThanAssuranceLimitation: ratherThanLimitation,
     boundedRelativeStrengthRepair,
     unconfirmedReviewerReject: unconfirmedReject
   }, { status: pass ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });

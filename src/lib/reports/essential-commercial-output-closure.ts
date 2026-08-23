@@ -130,6 +130,16 @@ function replaceThirtyDayDecisionCompletionTests(html: string): string {
 export function closeEssentialCommercialOutputDefects(html: string): string {
   let closed = html;
 
+  const customerDomainNames: Record<string, string> = {
+    D1: 'Fraud Leadership and Governance', D2: 'Fraud Risk Identification', D3: 'Operational Fraud Controls',
+    D4: 'Fraud Detection Capability', D5: 'Third-Party and Supply Chain Fraud Risk', D6: 'Fraud Culture and Awareness',
+    D7: 'Fraud Incident Response', D8: 'Digital and Identity Fraud Risk', D9: 'Whistleblowing and Reporting Culture',
+    D10: 'Continuous Improvement and Fraud Risk Monitoring'
+  };
+  closed = closed
+    .replace(/\s*\((?:D(?:10|[1-9])(?:\s*,\s*D(?:10|[1-9]))*)\)/g, '')
+    .replace(/\bD(?:10|[1-9])\b/g, (code) => customerDomainNames[code] ?? code);
+
   closed = closed
     .replace(/Evidence mapped to G28-?D\d+-Q\d+/gi, 'Evidence mapped to the named risk and value population')
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')

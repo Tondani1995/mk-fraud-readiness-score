@@ -78,6 +78,7 @@ const CANDIDATE_GATE = /\bindependent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(
 const EVIDENCE_CRITERION = /\b(?:confirm\s+|determine\s+|establish\s+|verify\s+)?whether\b[^.!?]{0,260}\b(?:independent assurance|independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|operating effectiveness)\b/i;
 
 const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\b/i;
+const RATHER_THAN_ASSURANCE_LIMITATION = /\brather than\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\b/i;
 const NEITHER_ASSURANCE_LIMITATION = /\bneither\b[^.!?]{0,80}\b(?:is|are|was|were)\s+(?:an?\s+)?independent\s+assurance\b/i;
 const NO_COMPLETED_ASSURANCE_LIMITATION = /\bno\b[^.!?]{0,120}\b(?:has been|have been|was|were|is|are)\s+independently\s+(?:verified|reviewed|confirmed)\b/i;
 
@@ -121,6 +122,7 @@ export function adjudicateAssuranceProposition(text: string): AssuranceAdjudicat
   if (criterion) return allow('evidence_assurance_criterion_not_completed_assurance', criterion[0]);
 
   const limitation = value.match(EXPLICIT_LIMITATION)
+    ?? value.match(RATHER_THAN_ASSURANCE_LIMITATION)
     ?? value.match(NEITHER_ASSURANCE_LIMITATION)
     ?? value.match(NO_COMPLETED_ASSURANCE_LIMITATION);
   if (limitation) return allow('explicit_assurance_limitation', limitation[0]);
