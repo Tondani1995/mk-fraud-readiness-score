@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
+      # Owner-review generation is pinned to the exact READY deployment below. Do not substitute
+      # the branch alias: later QA commits must not silently change the source under comparison.
       PREVIEW_URL: https://mk-fraud-platform-2q8knezwy-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
