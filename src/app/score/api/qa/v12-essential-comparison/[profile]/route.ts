@@ -300,7 +300,9 @@ function assembledFor(profileKey: ProfileKey) {
     expectedQuestionTraceCount: 68,
     actualQuestionTraceCount: traces.length,
     adaptiveScope: score.metrics,
-    adaptiveGatewayAnswers: gatewayAnswers
+    adaptiveGatewayAnswers: Object.fromEntries(
+      Object.entries(gatewayAnswers).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    )
   };
   return { profile, data, score, path, controlResponses };
 }
