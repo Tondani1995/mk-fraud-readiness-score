@@ -1,0 +1,13 @@
+HTTP/2 500 
+age: 0
+cache-control: no-store
+content-type: application/json
+date: Sun, 23 Aug 2026 18:24:07 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /score/api/qa/v12-essential-comparison/[profile]
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-vercel-id: sfo1::iad1::wtqwg-1787509398541-345a0c464a01
+
