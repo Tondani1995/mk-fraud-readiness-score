@@ -142,7 +142,7 @@ function capEvents(score: ReturnType<typeof calculateAdaptiveReadinessScore>): M
 
 export function buildVhutshiloV12Assembled() {
   const { gatewayAnswers, controlResponses, path } = buildResponses();
-  const score = calculateAdaptiveReadinessScore({ methodology, gatewayAnswers, controlResponses, integritySignals: [] });
+  const score = calculateAdaptiveReadinessScore({ graph, methodology, gatewayAnswers, controlResponses, integritySignals: [] });
   if (score.summary.overallScore === null || !score.summary.calculatedMaturity || !score.summary.finalMaturity) {
     throw new Error('vhutshilo: V1.2 score unavailable');
   }
