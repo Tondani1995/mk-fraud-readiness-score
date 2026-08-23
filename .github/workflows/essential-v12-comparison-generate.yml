@@ -1,4 +1,4 @@
-name: Essential V1.2 Bokamoso Safety Proof
+name: Essential V1.2 Bokamoso Semantic Proof
 
 on:
   push:
@@ -13,9 +13,9 @@ permissions:
 jobs:
   bokamoso-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
-      PREVIEW_URL: https://mk-fraud-platform-ahgils80m-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-git-qa-v12-essential-38fe43-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -23,18 +23,95 @@ jobs:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Record exact workflow run
+      - name: Add exact semantic rejection visibility to synthetic QA route only
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
+          s = p.read_text()
+
+          old_import = "import { composeEssentialManuscript } from '@/lib/reports/narrative/essential-manuscript-coordinator';"
+          new_import = "import { composeEssentialManuscript, EssentialManuscriptError } from '@/lib/reports/narrative/essential-manuscript-coordinator';\nimport type { EssentialSemanticReviewer } from '@/lib/reports/narrative/semantic-reviewer';"
+          if new_import not in s:
+              if old_import not in s: raise SystemExit('Coordinator import seam missing.')
+              s = s.replace(old_import, new_import, 1)
+
+          old_meta = "return { profile:profileKey, organisationName:profile.organisationName"
+          new_meta = "return { diagnosticRevision:'semantic-audit-v1', profile:profileKey, organisationName:profile.organisationName"
+          if new_meta not in s:
+              if old_meta not in s: raise SystemExit('Metadata seam missing.')
+              s = s.replace(old_meta, new_meta, 1)
+
+          old_start = "  try {\n    const {data}=assembledFor(profileKey);"
+          new_start = "  let semanticAudit: Array<Record<string, unknown>> | undefined;\n  try {\n    const {data}=assembledFor(profileKey);"
+          if new_start not in s:
+              if old_start not in s: raise SystemExit('Route try seam missing.')
+              s = s.replace(old_start, new_start, 1)
+
+          old_compose = "    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer:createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false})});"
+          new_compose = """    const writer=createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false});
+    const semanticReviewer: EssentialSemanticReviewer | undefined = writer.reviewSemanticCandidates ? {
+      review: async (reviewRequest) => {
+        const result=await writer.reviewSemanticCandidates!(reviewRequest);
+        semanticAudit=result.decisions.filter((decision)=>decision.disposition!=='ALLOW').map((decision)=>{
+          const candidate=reviewRequest.candidates.find((item)=>item.candidateId===decision.candidateId);
+          return { candidateId:decision.candidateId, disposition:decision.disposition, reasonCode:decision.reasonCode, ruleCode:candidate?.ruleCode, path:candidate?.path, blueprintPath:candidate?.blueprintPath, chapterTitle:candidate?.chapterTitle, sectionTitle:candidate?.sectionTitle, subsectionTitle:candidate?.subsectionTitle, span:candidate?.paragraph };
+        });
+        return result;
+      }
+    } : undefined;
+    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer,semanticReviewer});"""
+          if new_compose not in s:
+              if old_compose not in s: raise SystemExit('Compose seam missing.')
+              s = s.replace(old_compose, new_compose, 1)
+
+          old_catch = """    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});
+    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});"""
+          new_catch = """    const manuscriptDiagnostics=error instanceof EssentialManuscriptError ? error.diagnostics : undefined;
+    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation,semanticAudit,manuscriptDiagnostics});
+    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation,semanticAudit,manuscriptDiagnostics},{status:500,headers:{'Cache-Control':'no-store'}});"""
+          if new_catch not in s:
+              if old_catch not in s: raise SystemExit('Route catch seam missing.')
+              s = s.replace(old_catch, new_catch, 1)
+
+          p.write_text(s)
+
+      - name: Typecheck diagnostic route before any provider call
+        shell: bash
+        run: |
+          npm run typecheck
+          git diff --check
+
+      - name: Commit QA diagnostic and record exact run
         shell: bash
         run: |
           mkdir -p qa-output/v12-essential
           printf '%s\n' "$GITHUB_RUN_ID" > qa-output/v12-essential/latest-run-id.txt
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
-          git add qa-output/v12-essential/latest-run-id.txt
-          if ! git diff --cached --quiet; then
-            git commit -m "record V1.2 Bokamoso proof run"
-            git push origin HEAD:qa/v12-essential-comparison-20260823
+          git add 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts' qa-output/v12-essential/latest-run-id.txt
+          git commit -m "expose V1.2 semantic reject and record proof run" || true
+          git push origin HEAD:qa/v12-essential-comparison-20260823
+
+      - name: Wait for the exact diagnostic revision on Vercel branch alias
+        shell: bash
+        run: |
+          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
+            echo "VERCEL_PROTECTION_BYPASS missing; refusing provider generation."
+            exit 1
           fi
+          ready=0
+          for attempt in $(seq 1 48); do
+            body=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" 2>/dev/null || true)
+            if printf '%s' "$body" | grep -Fq '"diagnosticRevision":"semantic-audit-v1"'; then
+              printf '%s\n' "$body"
+              ready=1
+              break
+            fi
+            echo "waiting for semantic-audit-v1 deployment ($attempt/48)"
+            sleep 5
+          done
+          [ "$ready" -eq 1 ] || { echo "Diagnostic deployment did not become ready; refusing provider generation."; exit 1; }
 
       - name: Prove bounded assurance safety regressions
         shell: bash
@@ -44,7 +121,7 @@ jobs:
           $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
           $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
 
-      - name: Generate Bokamoso V1.2 Essential once
+      - name: Generate Bokamoso V1.2 Essential exactly once
         shell: bash
         run: |
           mkdir -p v12-reports qa-output/v12-essential
@@ -53,15 +130,14 @@ jobs:
           import crypto from 'node:crypto';
           const base = process.env.PREVIEW_URL.replace(/\/$/, '');
           const bypass = process.env.VERCEL_PROTECTION_BYPASS;
-          if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS is missing.');
           const headers = { 'x-vercel-protection-bypass': bypass };
           const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso?format=meta`, { headers });
-          const metaText = await metaResponse.text();
-          if (!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}: ${metaText.slice(0,1000)}`);
-          const meta = JSON.parse(metaText);
+          const meta = await metaResponse.json();
+          if (!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}`);
+          if (meta.diagnosticRevision !== 'semantic-audit-v1') throw new Error(`wrong diagnostic revision ${meta.diagnosticRevision}`);
           if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`wrong graph ${meta.graphVersion}`);
           if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`wrong methodology ${meta.methodology}`);
-          console.log(`Bokamoso V1.2: score ${meta.score}, ${meta.finalMaturity}; one generation request.`);
+          console.log(`Bokamoso V1.2: score ${meta.score}, ${meta.finalMaturity}; issuing one generation request.`);
           const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso`, { headers });
           const contentType = response.headers.get('content-type') || '';
           if (!response.ok) {
@@ -99,5 +175,5 @@ jobs:
           git fetch origin qa/v12-essential-comparison-20260823
           git reset --soft origin/qa/v12-essential-comparison-20260823
           git add qa-output/v12-essential/bokamoso-latest-failure.json
-          git commit -m "record Bokamoso V1.2 safety diagnostic" || exit 0
+          git commit -m "record Bokamoso V1.2 semantic diagnostic" || exit 0
           git push origin HEAD:qa/v12-essential-comparison-20260823
