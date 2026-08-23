@@ -13,9 +13,9 @@ permissions:
 jobs:
   bokamoso-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
-      PREVIEW_URL: https://mk-fraud-platform-guykix6lf-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-ahgils80m-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +35,13 @@ jobs:
             git commit -m "record V1.2 Bokamoso proof run"
             git push origin HEAD:qa/v12-essential-comparison-20260823
           fi
+
+      - name: Prove bounded assurance safety regressions
+        shell: bash
+        run: |
+          node --test scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          node --test scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          node --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
 
       - name: Generate Bokamoso V1.2 Essential once
         shell: bash
