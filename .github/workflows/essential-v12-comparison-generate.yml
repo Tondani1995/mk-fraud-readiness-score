@@ -1,0 +1,84 @@
+name: Essential V1.2 Three-Report Generation
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-comparison-20260823
+    paths:
+      - .github/workflows/essential-v12-comparison-generate.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate-three:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-49oqaglv4-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Generate exact V1.2 Essential PDFs
+        shell: bash
+        run: |
+          mkdir -p v12-reports
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+
+          const preview = process.env.PREVIEW_URL.replace(/\/$/, '');
+          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
+          if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS secret is missing.');
+
+          const reports = [
+            { profile: 'bokamoso', name: 'Bokamoso_Skills_Institute_Essential_V1_2.pdf' },
+            { profile: 'siyakhula', name: 'Siyakhula_Community_Foundation_Essential_V1_2.pdf' },
+            { profile: 'vhutshilo', name: 'Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' }
+          ];
+
+          const summary = [];
+          for (let index = 0; index < reports.length; index += 1) {
+            const report = reports[index];
+            const metaResponse = await fetch(`${preview}/score/api/qa/v12-essential-comparison/${report.profile}?format=meta`, {
+              headers: { 'x-vercel-protection-bypass': bypass, Accept: 'application/json' },
+              redirect: 'manual'
+            });
+            const metaText = await metaResponse.text();
+            if (!metaResponse.ok) throw new Error(`${report.profile}: metadata HTTP ${metaResponse.status}: ${metaText.slice(0,500)}`);
+            const meta = JSON.parse(metaText);
+            if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') {
+              throw new Error(`${report.profile}: wrong graph ${meta.graphVersion}`);
+            }
+            if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') {
+              throw new Error(`${report.profile}: wrong methodology ${meta.methodology}`);
+            }
+
+            console.log(`[${index + 1}/3] ${report.profile}: score ${meta.score}, ${meta.finalMaturity}; generating PDF.`);
+            const response = await fetch(`${preview}/score/api/qa/v12-essential-comparison/${report.profile}`, {
+              headers: { 'x-vercel-protection-bypass': bypass, Accept: 'application/pdf' },
+              redirect: 'manual'
+            });
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(`${report.profile}: generation HTTP ${response.status}: ${text.slice(0,1000)}`);
+            }
+            const bytes = Buffer.from(await response.arrayBuffer());
+            if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') {
+              throw new Error(`${report.profile}: invalid PDF (${bytes.length} bytes).`);
+            }
+            fs.writeFileSync(`v12-reports/${report.name}`, bytes);
+            const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+            summary.push({ ...meta, file: report.name, bytes: bytes.length, sha256 });
+            console.log(`[${index + 1}/3] ${report.name}: ${bytes.length} bytes; ${sha256}`);
+          }
+          fs.writeFileSync('v12-reports/summary.json', JSON.stringify(summary, null, 2));
+          console.log('ESSENTIAL V1.2 THREE-REPORT GENERATION: PASS 3/3');
+          NODE
+
+      - name: Upload V1.2 Essential reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v12-three-report-pack
+          path: v12-reports/*
+          if-no-files-found: error
+          retention-days: 14
