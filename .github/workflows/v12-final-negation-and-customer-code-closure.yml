@@ -1,0 +1,93 @@
+name: V1.2 Final Negation and Customer-Code Closure
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-final-negation-and-customer-code-closure.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+
+      - name: Apply bounded safety and customer-output corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/lib/reports/narrative/assurance-adjudication.ts')
+          s = p.read_text()
+          old = "const EXPLICIT_LIMITATION = /\\b(?:does not|do not|did not|has not|have not|not|without)\\b[^.!?]{0,80}\\b(?:independent(?:ly)?\\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\\b/i;\nconst NEITHER_ASSURANCE_LIMITATION"
+          new = "const EXPLICIT_LIMITATION = /\\b(?:does not|do not|did not|has not|have not|not|without)\\b[^.!?]{0,80}\\b(?:independent(?:ly)?\\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\\b/i;\nconst RATHER_THAN_ASSURANCE_LIMITATION = /\\brather than\\b[^.!?]{0,80}\\b(?:independent(?:ly)?\\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\\b/i;\nconst NEITHER_ASSURANCE_LIMITATION"
+          if old not in s: raise SystemExit('assurance limitation declaration anchor not found')
+          s = s.replace(old, new, 1)
+          old = "  const limitation = value.match(EXPLICIT_LIMITATION)\n    ?? value.match(NEITHER_ASSURANCE_LIMITATION)"
+          new = "  const limitation = value.match(EXPLICIT_LIMITATION)\n    ?? value.match(RATHER_THAN_ASSURANCE_LIMITATION)\n    ?? value.match(NEITHER_ASSURANCE_LIMITATION)"
+          if old not in s: raise SystemExit('assurance limitation chain anchor not found')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('src/lib/reports/narrative/assurance-corpus.ts')
+          s = p.read_text()
+          anchor = "  { id: 'allow-limitation-09', text: 'This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.', source: 'vhutshilo-customer-1-final-template-incident-2026-08-20', expectCandidate: true },\n"
+          addition = anchor + "  { id: 'allow-limitation-10', text: 'The assessment reflects management’s own responses and the MK scoring method rather than independent verification of operating effectiveness.', source: 'siyakhula-v1.2-final-html-incident-2026-08-23', expectCandidate: true },\n"
+          if anchor not in s: raise SystemExit('assurance corpus anchor not found')
+          p.write_text(s.replace(anchor, addition, 1))
+
+          p = Path('src/lib/reports/essential-commercial-output-closure.ts')
+          s = p.read_text()
+          anchor = "  closed = closed\n    .replace(/Evidence mapped to G28-?D\\d+-Q\\d+/gi, 'Evidence mapped to the named risk and value population')\n"
+          replacement = "  const customerDomainNames: Record<string, string> = {\n    D1: 'Fraud Leadership and Governance',\n    D2: 'Fraud Risk Identification',\n    D3: 'Operational Fraud Controls',\n    D4: 'Fraud Detection Capability',\n    D5: 'Third-Party and Supply Chain Fraud Risk',\n    D6: 'Fraud Culture and Awareness',\n    D7: 'Fraud Incident Response',\n    D8: 'Digital and Identity Fraud Risk',\n    D9: 'Whistleblowing and Reporting Culture',\n    D10: 'Continuous Improvement and Fraud Risk Monitoring'\n  };\n\n  closed = closed\n    .replace(/\\s*\\((?:D(?:10|[1-9])(?:\\s*,\\s*D(?:10|[1-9]))*)\\)/g, '')\n    .replace(/\\bD(?:10|[1-9])\\b/g, (code) => customerDomainNames[code] ?? code);\n\n  closed = closed\n    .replace(/Evidence mapped to G28-?D\\d+-Q\\d+/gi, 'Evidence mapped to the named risk and value population')\n"
+          if anchor not in s: raise SystemExit('commercial closure anchor not found')
+          p.write_text(s.replace(anchor, replacement, 1))
+
+          p = Path('src/app/score/api/qa/v12-essential-safety-proof/route.ts')
+          s = p.read_text()
+          anchor = "  const unsafeAllow = run(\n    'This report provides independent assurance that the controls are effective.',\n    'ALLOW',\n    'grounded'\n  );\n"
+          addition = anchor + "  const ratherThanLimitation = run(\n    'The assessment reflects management’s own responses and the MK scoring method rather than independent verification of operating effectiveness.',\n    'ALLOW',\n    'grounded'\n  );\n"
+          if anchor not in s: raise SystemExit('safety proof declaration anchor not found')
+          s = s.replace(anchor, addition, 1)
+          anchor = "    && unsafeAllow.publishable === false\n    && unsafeAllow.finalDisposition === 'REJECT'\n"
+          replacement = "    && unsafeAllow.publishable === false\n    && unsafeAllow.finalDisposition === 'REJECT'\n    && ratherThanLimitation.publishable === true\n    && ratherThanLimitation.finalDisposition === 'ACCEPT'\n"
+          if anchor not in s: raise SystemExit('safety proof pass anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          anchor = "    unsafeReviewerAllow: unsafeAllow,\n"
+          replacement = "    unsafeReviewerAllow: unsafeAllow,\n    ratherThanAssuranceLimitation: ratherThanLimitation,\n"
+          if anchor not in s: raise SystemExit('safety proof output anchor not found')
+          p.write_text(s.replace(anchor, replacement, 1))
+          PY
+
+      - name: Run bounded regressions
+        shell: bash
+        run: |
+          npm ci
+          npm run v11:narrative-assurance
+          npm run v11:semantic-validation-architecture
+          npm run typecheck
+          npm run build
+          node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs - <<'NODE'
+          import { closeEssentialCommercialOutputDefects } from './src/lib/reports/essential-commercial-output-closure.ts';
+          const source = '<p>Fraud Detection Capability (D4), Digital and Identity Fraud Risk (D8), together with several operational controls (D3, D5).</p>';
+          const closed = closeEssentialCommercialOutputDefects(source);
+          if (/\bD(?:10|[1-9])\b/.test(closed)) throw new Error(`customer domain code leaked: ${closed}`);
+          console.log(closed);
+          NODE
+
+      - name: Commit bounded correction
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/assurance-adjudication.ts src/lib/reports/narrative/assurance-corpus.ts src/lib/reports/essential-commercial-output-closure.ts src/app/score/api/qa/v12-essential-safety-proof/route.ts
+          git commit -m "fix: close negated assurance and customer domain-code leakage"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
