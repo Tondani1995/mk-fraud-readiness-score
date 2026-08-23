@@ -1,0 +1,77 @@
+name: Essential V1.2 Bokamoso Vhutshilo Capture
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-bokamoso-vhutshilo-capture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-git-qa-v12-essential-577a04-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+
+      - name: Require corrected V1.2 safety architecture
+        shell: bash
+        run: |
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          safety=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-safety-proof")
+          printf '%s' "$safety" | grep -Fq '"ok":true'
+          mkdir -p qa-output/v12-essential-five-layer
+
+      - name: Capture Bokamoso and Vhutshilo exactly once each
+        shell: bash
+        run: |
+          set -u
+          for profile in bokamoso vhutshilo; do
+            meta=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile?format=meta")
+            printf '%s\n' "$meta" > "qa-output/v12-essential-five-layer/${profile}-meta.json"
+            code=$(curl -sS -w '%{http_code}' -D "qa-output/v12-essential-five-layer/${profile}-headers.txt" -o "qa-output/v12-essential-five-layer/${profile}-response.bin" -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile")
+            if [ "$code" = "200" ]; then
+              case "$profile" in
+                bokamoso) name='Bokamoso_Skills_Institute_Essential_V1_2.pdf' ;;
+                vhutshilo) name='Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' ;;
+              esac
+              mv "qa-output/v12-essential-five-layer/${profile}-response.bin" "qa-output/v12-essential-five-layer/$name"
+              sha=$(sha256sum "qa-output/v12-essential-five-layer/$name" | awk '{print $1}')
+              bytes=$(wc -c < "qa-output/v12-essential-five-layer/$name" | tr -d ' ')
+              node -e "require('fs').writeFileSync('qa-output/v12-essential-five-layer/${profile}-latest-run.json',JSON.stringify({runId:process.env.GITHUB_RUN_ID,sha:process.env.GITHUB_SHA,httpCode:'200',success:true,file:process.argv[1],bytes:Number(process.argv[2]),sha256:process.argv[3],capturedAt:new Date().toISOString()},null,2)+'\\n')" "$name" "$bytes" "$sha"
+              echo "$profile PASS $bytes bytes $sha"
+            else
+              mv "qa-output/v12-essential-five-layer/${profile}-response.bin" "qa-output/v12-essential-five-layer/${profile}-diagnostic.json"
+              node -e "require('fs').writeFileSync('qa-output/v12-essential-five-layer/${profile}-latest-run.json',JSON.stringify({runId:process.env.GITHUB_RUN_ID,sha:process.env.GITHUB_SHA,httpCode:process.argv[1],success:false,capturedAt:new Date().toISOString()},null,2)+'\\n')" "$code"
+              echo "$profile FAILED HTTP $code"
+              cat "qa-output/v12-essential-five-layer/${profile}-diagnostic.json"
+            fi
+          done
+          exit 0
+
+      - name: Commit exact outputs and diagnostics
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin qa/v12-essential-five-layer-proof-20260823
+          git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
+          git add qa-output/v12-essential-five-layer
+          git commit -m "record Bokamoso and Vhutshilo V1.2 outputs" || exit 0
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
+
+      - name: Upload capture evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v12-bokamoso-vhutshilo-capture
+          path: qa-output/v12-essential-five-layer/*
+          retention-days: 14
