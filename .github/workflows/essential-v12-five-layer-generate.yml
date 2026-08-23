@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      # Owner-review generation is pinned to the exact READY deployment below. Do not substitute
-      # the branch alias: later QA commits must not silently change the source under comparison.
-      PREVIEW_URL: https://mk-fraud-platform-2q8knezwy-tondanis-projects.vercel.app
+      # Pin to the exact READY source deployment that contains the full advisory five-layer logic,
+      # including REJECT/HOLD/REPAIR as reviewer signals rather than automatic release verdicts.
+      PREVIEW_URL: https://mk-fraud-platform-5h09luenx-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -92,11 +92,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p qa-output/v12-essential-five-layer
-          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('v12-reports/summary.json','utf8')); fs.writeFileSync('qa-output/v12-essential-five-layer/latest-success.json', JSON.stringify({runId:process.env.GITHUB_RUN_ID,sourceDeployment:'dpl_D78z3HfTqzdoCs3CWqMLmmrBHBY4',sourceSha:'d63478e0ab1b835b6f86fa0190f6492673b99a52',completedAt:new Date().toISOString(),summary},null,2)+'\n')"
+          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('v12-reports/summary.json','utf8')); fs.writeFileSync('qa-output/v12-essential-five-layer/latest-success.json', JSON.stringify({runId:process.env.GITHUB_RUN_ID,sourceDeployment:'dpl_3BMQiDbeF9Pv8y8TBtd4VKzUJ1t1',sourceSha:'18e851df89e17a9dcc8550be0ae30c42c147f3ff',completedAt:new Date().toISOString(),summary},null,2)+'\n')"
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git fetch origin qa/v12-essential-five-layer-proof-20260823
           git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
           git add qa-output/v12-essential-five-layer/latest-success.json
-          git commit -m "record final successful V1.2 three-report proof after inference hardening"
+          git commit -m "record same-SHA V1.2 three-report proof"
           git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
