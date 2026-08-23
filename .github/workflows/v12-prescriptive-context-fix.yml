@@ -1,0 +1,85 @@
+name: V1.2 Prescriptive Context Safety Calibration
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-prescriptive-context-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+
+      - name: Calibrate prescriptive advisory context without weakening current-state safety
+        shell: python
+        run: |
+          from pathlib import Path
+
+          cascade = Path('src/lib/reports/essential-validation-cascade.ts')
+          s = cascade.read_text()
+          anchor = """  const semanticDecisionByCandidateId = new Map((input.semanticDecisions ?? []).map((decision) => [decision.candidateId, decision]));\n\n  function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {\n"""
+          helper = """  const semanticDecisionByCandidateId = new Map((input.semanticDecisions ?? []).map((decision) => [decision.candidateId, decision]));\n\n  // Prescriptive target-state language is advisory content, not a claim that the organisation\n  // already operates this way. Keep the classifier deliberately narrow: it must read as an action\n  // for management/future delivery, not as a present-state assertion.\n  function isPrescriptiveManagementDesignContext(source: string): boolean {\n    const text = source.trim();\n    if (!text) return false;\n    const prescriptiveLead = /^(?:by\\s+(?:30|60|90)\\s+days\\b|management\\s+(?:should|must|needs?\\s+to)\\b|the\\s+priority\\s+for\\s+management\\s+is\\s+to\\b|to\\s+support\\s+(?:these|the)\\s+(?:responses?|priorities|controls?),?\\s+|(?:establish|adopt|implement|introduce|approve|confirm|define|document|assign|create|require|preserve|record|configure|test|strengthen|formalise|formalize|embed|sequence)\\b)/i;\n    const currentStateLead = /^(?:the|this|management|finance|operations|procurement|fraud|staff|employees?|the\\s+organisation|the\\s+organization)\\s+(?:is|are|has|have|performs?|uses?|operates?|maintains?|reviews?|monitors?|records?|requires?|relies?|sits?|provides?)\\b/i;\n    return prescriptiveLead.test(text) && !currentStateLead.test(text);\n  }\n\n  function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {\n"""
+          if 'isPrescriptiveManagementDesignContext' not in s:
+              if anchor not in s: raise SystemExit('cascade insertion anchor missing')
+              s = s.replace(anchor, helper, 1)
+
+          old = """      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n"""
+          new = """      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        if (reviewed.reasonCode === 'unsupported_operating_detail' && isPrescriptiveManagementDesignContext(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_prescriptive_target_state_context', repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'reviewer_adverse_signal_cleared_by_prescriptive_target_state_context' not in s:
+              raise SystemExit('REJECT mapping anchor missing')
+          cascade.write_text(s)
+
+          writer = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
+          s = writer.read_text()
+          old = """    'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',\n"""
+          new = """    'ALLOW means every customer-specific factual proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. Distinguish descriptive current/past claims from prescriptive advisory content: a target-state recommendation, roadmap action or management instruction does not assert that the organisation already operates that way. Prescriptive control design may elaborate the deterministic requiredManagementTakeaway and Blueprint role using generic implementation mechanics, but it must not invent client-specific actors, systems, locations, populations, frequencies, costs or completed evidence states. REPAIR means the management implication is valid but the target prose overstates the evidence. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',\n"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'Distinguish descriptive current/past claims from prescriptive advisory content' not in s:
+              raise SystemExit('semantic prompt anchor missing')
+          writer.write_text(s)
+
+          route = Path('src/app/score/api/qa/v12-essential-safety-proof/route.ts')
+          s = route.read_text()
+          old = """  const unconfirmedReject = run(\n    'The finance team performs daily exception reviews across all sites.',\n    'REJECT',\n    'unsupported_frequency'\n  );\n\n  const pass = safeReject.publishable === true\n    && safeReject.finalDisposition === 'ACCEPT'\n    && unsafeAllow.publishable === false\n    && unsafeAllow.finalDisposition === 'REJECT'\n    && unconfirmedReject.publishable === false\n    && unconfirmedReject.finalDisposition === 'HELD_FOR_REVIEW'\n    && unconfirmedReject.blockingCodes.length === 0;\n\n  return NextResponse.json({\n    ok: pass,\n    policy: 'semantic-review-advisory-to-five-layer-cascade',\n    safeReviewerReject: safeReject,\n    unsafeReviewerAllow: unsafeAllow,\n    unconfirmedReviewerReject: unconfirmedReject\n  }, { status: pass ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });\n"""
+          new = """  const prescriptiveOperatingReject = run(\n    'By 60 days establish the evidence register, adopt chain-of-custody forms and place preserved items in an access-controlled repository.',\n    'REJECT',\n    'unsupported_operating_detail'\n  );\n  const unconfirmedReject = run(\n    'The finance team performs daily exception reviews across all sites.',\n    'REJECT',\n    'unsupported_frequency'\n  );\n\n  const pass = safeReject.publishable === true\n    && safeReject.finalDisposition === 'ACCEPT'\n    && prescriptiveOperatingReject.publishable === true\n    && prescriptiveOperatingReject.finalDisposition === 'ACCEPT'\n    && unsafeAllow.publishable === false\n    && unsafeAllow.finalDisposition === 'REJECT'\n    && unconfirmedReject.publishable === false\n    && unconfirmedReject.finalDisposition === 'HELD_FOR_REVIEW'\n    && unconfirmedReject.blockingCodes.length === 0;\n\n  return NextResponse.json({\n    ok: pass,\n    policy: 'semantic-review-advisory-to-five-layer-cascade',\n    safeReviewerReject: safeReject,\n    prescriptiveOperatingReject,\n    unsafeReviewerAllow: unsafeAllow,\n    unconfirmedReviewerReject: unconfirmedReject\n  }, { status: pass ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });\n"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'prescriptiveOperatingReject' not in s:
+              raise SystemExit('safety proof anchor missing')
+          route.write_text(s)
+
+      - name: Prove safety corpus and compile
+        shell: bash
+        run: |
+          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
+          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          npm run typecheck
+          git diff --check
+
+      - name: Commit calibrated source
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/essential-validation-cascade.ts src/lib/reports/narrative/whole-manuscript-writer.ts src/app/score/api/qa/v12-essential-safety-proof/route.ts
+          git commit -m "calibrate semantic review for prescriptive advisory context"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
