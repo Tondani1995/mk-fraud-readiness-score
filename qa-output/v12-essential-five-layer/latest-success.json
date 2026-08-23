@@ -1,0 +1,32 @@
+{
+  "runId": "32648816876",
+  "sourceDeployment": "dpl_3snK8f5pKfGCfc9JBEvhCPVNV8tj",
+  "sourceSha": "25261df021df21e2b5f704f5024786abcdf8774f",
+  "completedAt": "2026-08-23T15:35:47.386Z",
+  "summary": [
+    {
+      "profile": "bokamoso",
+      "file": "Bokamoso_Skills_Institute_Essential_V1_2.pdf",
+      "score": 30.12,
+      "maturity": "Reactive",
+      "bytes": 599793,
+      "sha256": "a0bb2c8dd71ede2c48f1f83c2be2165f3e7142eeebcbbce521c9dcd63663e43d"
+    },
+    {
+      "profile": "siyakhula",
+      "file": "Siyakhula_Community_Foundation_Essential_V1_2.pdf",
+      "score": 42.73,
+      "maturity": "Developing",
+      "bytes": 586832,
+      "sha256": "12c708d8f416089442bee2350788ccba074a418d63088692db4075b2deb2e976"
+    },
+    {
+      "profile": "vhutshilo",
+      "file": "Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf",
+      "score": 43.33,
+      "maturity": "Developing",
+      "bytes": 550639,
+      "sha256": "338908529d7e6defd724741fbad3e32f706f47992558633705f99d198319bf62"
+    }
+  ]
+}
