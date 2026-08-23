@@ -1,0 +1,103 @@
+name: V1.2 Vhutshilo Essential vs Comprehensive Capture
+
+on:
+  push:
+    branches:
+      - qa/v12-vhutshilo-pair-85fd-20260823
+    paths:
+      - .github/workflows/v12-vhutshilo-pair-capture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-bmx7xthxl-tondanis-projects.vercel.app
+      SOURCE_DEPLOYMENT: dpl_7tWGAohr369NobGztgc9w63Pc9RN
+      ENGINE_SOURCE_SHA: 85fd2a0e21a6221bbd6b5032cc0bd271ebe7d26d
+      HARNESS_SHA: 3f9974a86b8c524c2a75e2756fb041172fe8f22d
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-vhutshilo-pair-85fd-20260823
+          fetch-depth: 0
+
+      - name: Prepare evidence directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          rm -rf qa-output/v12-vhutshilo-pair-85fd
+          mkdir -p qa-output/v12-vhutshilo-pair-85fd
+          printf '{"sourceDeployment":"%s","engineSourceSha":"%s","harnessSha":"%s"}\n' "$SOURCE_DEPLOYMENT" "$ENGINE_SOURCE_SHA" "$HARNESS_SHA" > qa-output/v12-vhutshilo-pair-85fd/source.json
+
+      - name: Verify same assessment and model routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --max-time 60 -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/v12-vhutshilo-product-pair/meta" \
+            -o qa-output/v12-vhutshilo-pair-85fd/meta.json
+          grep -Fq '"score":43.33' qa-output/v12-vhutshilo-pair-85fd/meta.json
+          grep -Fq '"finalMaturity":"Developing"' qa-output/v12-vhutshilo-pair-85fd/meta.json
+          grep -Fq '"essentialModel":"openai/gpt-5-mini"' qa-output/v12-vhutshilo-pair-85fd/meta.json
+          grep -Fq '"comprehensiveModel":"openai/gpt-5.6-luna"' qa-output/v12-vhutshilo-pair-85fd/meta.json
+
+      - name: Reuse proven Vhutshilo Essential artefact from 85fd source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin qa/v12-essential-five-layer-proof-20260823
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf \
+            > qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/vhutshilo-sha256.txt \
+            > qa-output/v12-vhutshilo-pair-85fd/essential-sha256.txt
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/source.json \
+            > qa-output/v12-vhutshilo-pair-85fd/essential-source-proof.json
+          test "$(head -c 4 qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf)" = '%PDF'
+          echo SUCCESS_PROVEN_CAPTURE > qa-output/v12-vhutshilo-pair-85fd/essential-outcome.txt
+
+      - name: Generate Comprehensive with GPT-5.6 Luna
+        shell: bash
+        run: |
+          set +e
+          code=$(curl --max-time 280 -sS -w '%{http_code}' \
+            -D qa-output/v12-vhutshilo-pair-85fd/comprehensive-headers.txt \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/v12-vhutshilo-product-pair/comprehensive" \
+            -o qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin)
+          printf '%s\n' "$code" > qa-output/v12-vhutshilo-pair-85fd/comprehensive-http-code.txt
+          if [ "$code" = "200" ] && file qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin | grep -qi 'tar archive'; then
+            mkdir -p qa-output/v12-vhutshilo-pair-85fd/comprehensive-package
+            tar -xf qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin -C qa-output/v12-vhutshilo-pair-85fd/comprehensive-package
+            sha256sum qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin > qa-output/v12-vhutshilo-pair-85fd/comprehensive-tar-sha256.txt
+            mv qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin qa-output/v12-vhutshilo-pair-85fd/vhutshilo-comprehensive-package.tar
+            echo SUCCESS > qa-output/v12-vhutshilo-pair-85fd/comprehensive-outcome.txt
+            exit 0
+          fi
+          mv qa-output/v12-vhutshilo-pair-85fd/comprehensive-response.bin qa-output/v12-vhutshilo-pair-85fd/comprehensive-diagnostic.json
+          echo FAIL > qa-output/v12-vhutshilo-pair-85fd/comprehensive-outcome.txt
+          exit 1
+
+      - name: Upload customer artefact bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vhutshilo-essential-vs-comprehensive-85fd
+          path: qa-output/v12-vhutshilo-pair-85fd
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit captured evidence
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add qa-output/v12-vhutshilo-pair-85fd
+          git commit -m "capture Vhutshilo Essential vs Comprehensive artefacts on 85fd" || true
+          git push origin HEAD:qa/v12-vhutshilo-pair-85fd-20260823
