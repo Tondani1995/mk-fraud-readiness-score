@@ -1,4 +1,4 @@
-name: Essential V1.2 Three-Report Generation
+name: Essential V1.2 Bokamoso Safety Proof
 
 on:
   push:
@@ -11,11 +11,11 @@ permissions:
   contents: write
 
 jobs:
-  generate-three:
+  bokamoso-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     env:
-      PREVIEW_URL: https://mk-fraud-platform-ius6r6vcj-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-guykix6lf-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -32,85 +32,64 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add qa-output/v12-essential/latest-run-id.txt
           if ! git diff --cached --quiet; then
-            git commit -m "record V1.2 report generation run"
+            git commit -m "record V1.2 Bokamoso proof run"
             git push origin HEAD:qa/v12-essential-comparison-20260823
           fi
 
-      - name: Preview access preflight
+      - name: Generate Bokamoso V1.2 Essential once
         shell: bash
         run: |
-          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
-            echo "VERCEL_PROTECTION_BYPASS secret is missing; refusing generation."
-            exit 1
-          fi
-          curl -fsS \
-            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
-            "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" \
-            | tee /tmp/v12-meta.json
-          grep -F 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821' /tmp/v12-meta.json
-          grep -F 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION' /tmp/v12-meta.json
-
-      - name: Generate three exact V1.2 Essential PDFs
-        shell: bash
-        run: |
-          mkdir -p v12-reports
+          mkdir -p v12-reports qa-output/v12-essential
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import crypto from 'node:crypto';
-
           const base = process.env.PREVIEW_URL.replace(/\/$/, '');
           const bypass = process.env.VERCEL_PROTECTION_BYPASS;
           if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS is missing.');
           const headers = { 'x-vercel-protection-bypass': bypass };
-          const reports = [
-            { profile: 'bokamoso', name: 'Bokamoso_Skills_Institute_Essential_V1_2.pdf' },
-            { profile: 'siyakhula', name: 'Siyakhula_Community_Foundation_Essential_V1_2.pdf' },
-            { profile: 'vhutshilo', name: 'Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' }
-          ];
-          const summary = [];
-
-          for (let index = 0; index < reports.length; index += 1) {
-            const report = reports[index];
-            const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}?format=meta`, { headers });
-            const metaText = await metaResponse.text();
-            if (!metaResponse.ok) throw new Error(`${report.profile}: metadata HTTP ${metaResponse.status}: ${metaText.slice(0,700)}`);
-            const meta = JSON.parse(metaText);
-            if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`${report.profile}: wrong graph ${meta.graphVersion}`);
-            if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`${report.profile}: wrong methodology ${meta.methodology}`);
-
-            console.log(`[${index + 1}/3] ${report.profile}: ${meta.score} ${meta.finalMaturity}; issuing exactly one report-generation request.`);
-            const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/${report.profile}`, { headers });
-            if (!response.ok) {
-              const text = await response.text();
-              throw new Error(`${report.profile}: generation HTTP ${response.status}: ${text.slice(0,1500)}`);
-            }
-            const bytes = Buffer.from(await response.arrayBuffer());
-            if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') throw new Error(`${report.profile}: invalid PDF (${bytes.length} bytes)`);
-            fs.writeFileSync(`v12-reports/${report.name}`, bytes);
-            const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-            summary.push({ ...meta, file: report.name, bytes: bytes.length, sha256 });
-            console.log(`[${index + 1}/3] PASS ${report.name}: ${bytes.length} bytes; ${sha256}`);
+          const metaResponse = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso?format=meta`, { headers });
+          const metaText = await metaResponse.text();
+          if (!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}: ${metaText.slice(0,1000)}`);
+          const meta = JSON.parse(metaText);
+          if (meta.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`wrong graph ${meta.graphVersion}`);
+          if (meta.methodology !== 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`wrong methodology ${meta.methodology}`);
+          console.log(`Bokamoso V1.2: score ${meta.score}, ${meta.finalMaturity}; one generation request.`);
+          const response = await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso`, { headers });
+          const contentType = response.headers.get('content-type') || '';
+          if (!response.ok) {
+            const text = await response.text();
+            fs.writeFileSync('qa-output/v12-essential/bokamoso-latest-failure.json', text);
+            console.error(text);
+            throw new Error(`Bokamoso generation failed HTTP ${response.status}`);
           }
-
-          fs.writeFileSync('v12-reports/summary.json', JSON.stringify(summary, null, 2));
-          console.log('ESSENTIAL V1.2 THREE-REPORT GENERATION: PASS 3/3');
+          if (!contentType.includes('application/pdf')) throw new Error(`unexpected content-type ${contentType}`);
+          const bytes = Buffer.from(await response.arrayBuffer());
+          if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') throw new Error(`invalid PDF (${bytes.length} bytes)`);
+          const file = 'Bokamoso_Skills_Institute_Essential_V1_2.pdf';
+          fs.writeFileSync(`v12-reports/${file}`, bytes);
+          const summary = { ...meta, file, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
+          fs.writeFileSync('v12-reports/summary.json', JSON.stringify([summary], null, 2));
+          console.log(`BOKAMOSO V1.2 ESSENTIAL: PASS ${bytes.length} bytes ${summary.sha256}`);
           NODE
 
-      - name: Upload V1.2 Essential reports
+      - name: Upload Bokamoso proof
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: essential-v12-three-report-pack
+          name: essential-v12-bokamoso-proof
           path: v12-reports/*
           if-no-files-found: error
           retention-days: 14
 
-      - name: Commit generation summary
+      - name: Commit failure diagnostic
+        if: failure()
         shell: bash
         run: |
-          mkdir -p qa-output/v12-essential
-          cp v12-reports/summary.json qa-output/v12-essential/latest-summary.json
+          if [ ! -f qa-output/v12-essential/bokamoso-latest-failure.json ]; then exit 0; fi
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
           git fetch origin qa/v12-essential-comparison-20260823
           git reset --soft origin/qa/v12-essential-comparison-20260823
-          git add qa-output/v12-essential/latest-summary.json
-          git commit -m "record V1.2 three-report summary" || exit 0
+          git add qa-output/v12-essential/bokamoso-latest-failure.json
+          git commit -m "record Bokamoso V1.2 safety diagnostic" || exit 0
           git push origin HEAD:qa/v12-essential-comparison-20260823
