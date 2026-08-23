@@ -1,0 +1,54 @@
+name: V1.2 Vercel OIDC Provider Fix
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-comparison-20260823
+    paths:
+      - .github/workflows/v12-oidc-provider-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-comparison-20260823
+          fetch-depth: 0
+
+      - name: Allow Vercel OIDC in narrative provider preflight
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
+          s = p.read_text()
+          old = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) throw new NarrativeWriterUnavailableError();"
+          new = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
+          if old not in s:
+            if new in s:
+              print('OIDC provider preflight already applied.')
+            else:
+              raise SystemExit('Expected provider preflight not found; refusing broad rewrite.')
+          else:
+            s = s.replace(old, new, 1)
+            p.write_text(s)
+
+      - name: Verify narrow auth change
+        shell: bash
+        run: |
+          grep -F "process.env.VERCEL_OIDC_TOKEN" src/lib/reports/narrative/whole-manuscript-writer.ts
+          git diff --check
+
+      - name: Commit narrow fix
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/whole-manuscript-writer.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "allow Vercel OIDC for report provider"
+          git push origin HEAD:qa/v12-essential-comparison-20260823
