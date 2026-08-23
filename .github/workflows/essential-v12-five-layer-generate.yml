@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      PREVIEW_URL: https://mk-fraud-platform-c72r2kltd-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-2q8knezwy-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -90,11 +90,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p qa-output/v12-essential-five-layer
-          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('v12-reports/summary.json','utf8')); fs.writeFileSync('qa-output/v12-essential-five-layer/latest-success.json', JSON.stringify({runId:process.env.GITHUB_RUN_ID,sourceDeployment:'dpl_EJCwtAPcctjeCQdhwpqzHtBpkwbn',sourceSha:'fb0bc6717028e714eba68a153f12c799d5156002',completedAt:new Date().toISOString(),summary},null,2)+'\n')"
+          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('v12-reports/summary.json','utf8')); fs.writeFileSync('qa-output/v12-essential-five-layer/latest-success.json', JSON.stringify({runId:process.env.GITHUB_RUN_ID,sourceDeployment:'dpl_D78z3HfTqzdoCs3CWqMLmmrBHBY4',sourceSha:'d63478e0ab1b835b6f86fa0190f6492673b99a52',completedAt:new Date().toISOString(),summary},null,2)+'\n')"
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git fetch origin qa/v12-essential-five-layer-proof-20260823
           git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
           git add qa-output/v12-essential-five-layer/latest-success.json
-          git commit -m "record final successful V1.2 three-report proof"
+          git commit -m "record final successful V1.2 three-report proof after inference hardening"
           git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
