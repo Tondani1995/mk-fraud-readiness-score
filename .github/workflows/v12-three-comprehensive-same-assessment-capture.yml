@@ -1,0 +1,126 @@
+name: V1.2 Same-Assessment Comprehensive Three-Report Capture
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-three-comprehensive-same-assessment-capture.yml
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-pls1k5z39-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      ENGINE_SHA: 85fd2a0e21a6221bbd6b5032cc0bd271ebe7d26d
+      ROUTE_SHA: 90c83cf784402acfc0a7815c8e6104b26c6818f8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/essential-v12-bible-85fd2a0
+          fetch-depth: 1
+
+      - name: Require protected-preview bypass
+        shell: bash
+        run: |
+          test -n "$VERCEL_PROTECTION_BYPASS" || { echo "VERCEL_PROTECTION_BYPASS missing"; exit 1; }
+
+      - name: Confirm frozen-source relationship
+        shell: bash
+        run: |
+          echo "Commercial engine source: $ENGINE_SHA"
+          echo "QA route deployment: $ROUTE_SHA"
+          echo "The QA route deployment is $ENGINE_SHA plus capture-only workflow/output changes and the Comprehensive package route."
+
+      - name: Capture three same-assessment Comprehensive packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pair-output
+          printf '[\n' > pair-output/summary.json
+          first=1
+          for profile in vhutshilo bokamoso siyakhula; do
+            case "$profile" in
+              vhutshilo) expected_score='43.33'; expected_maturity='Developing'; essential_file='Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' ;;
+              bokamoso) expected_score='30.12'; expected_maturity='Reactive'; essential_file='Bokamoso_Skills_Institute_Essential_V1_2.pdf' ;;
+              siyakhula) expected_score='42.73'; expected_maturity='Developing'; essential_file='Siyakhula_Community_Foundation_Essential_V1_2.pdf' ;;
+            esac
+            echo "Generating Comprehensive for $profile..."
+            code=$(curl -sS -w '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+              -o "pair-output/${profile}-package.json" \
+              "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile?format=comprehensive-package")
+            echo "$code" > "pair-output/${profile}-http-code.txt"
+            if [ "$code" != "200" ]; then
+              echo "Comprehensive generation failed for $profile with HTTP $code"
+              cat "pair-output/${profile}-package.json"
+              exit 1
+            fi
+            node - "$profile" "$expected_score" "$expected_maturity" <<'NODE'
+          const fs = require('fs');
+          const [profile, expectedScore, expectedMaturity] = process.argv.slice(2);
+          const p = `pair-output/${profile}-package.json`;
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          if (!j.ok) throw new Error(`${profile}: response not ok`);
+          if (j.graphVersion !== 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`${profile}: wrong graph ${j.graphVersion}`);
+          if (Math.abs(Number(j.score) - Number(expectedScore)) > 0.001) throw new Error(`${profile}: score ${j.score} != ${expectedScore}`);
+          if (j.maturity !== expectedMaturity) throw new Error(`${profile}: maturity ${j.maturity} != ${expectedMaturity}`);
+          if (j.interpretation?.model !== 'openai/gpt-5.6-luna') throw new Error(`${profile}: wrong model ${j.interpretation?.model}`);
+          if (Number(j.interpretation?.repairs ?? -1) !== 0) throw new Error(`${profile}: repairs not zero`);
+          if ((j.interpretation?.issues ?? []).length !== 0) throw new Error(`${profile}: unresolved interpretation issues`);
+          const pdf = Buffer.from(j.pdfBase64, 'base64');
+          const xlsx = Buffer.from(j.xlsxBase64, 'base64');
+          if (pdf.subarray(0,4).toString() !== '%PDF') throw new Error(`${profile}: invalid PDF`);
+          if (xlsx.subarray(0,2).toString() !== 'PK') throw new Error(`${profile}: invalid XLSX`);
+          const names = {
+            vhutshilo: 'Vhutshilo_Foods_Manufacturing_Comprehensive_V1_2',
+            bokamoso: 'Bokamoso_Skills_Institute_Comprehensive_V1_2',
+            siyakhula: 'Siyakhula_Community_Foundation_Comprehensive_V1_2'
+          };
+          fs.writeFileSync(`pair-output/${names[profile]}.pdf`, pdf);
+          fs.writeFileSync(`pair-output/${names[profile]}.xlsx`, xlsx);
+          const meta = { ...j };
+          delete meta.pdfBase64;
+          delete meta.xlsxBase64;
+          fs.writeFileSync(`pair-output/${profile}-comprehensive-meta.json`, JSON.stringify(meta, null, 2));
+          NODE
+
+            cp "qa-output/v12-final-same-sha/$essential_file" "pair-output/$essential_file"
+
+            pdf=$(find pair-output -maxdepth 1 -type f -iname "*${profile^}*Comprehensive*.pdf" | head -1 || true)
+            # Resolve actual names deterministically instead of relying on case matching.
+            case "$profile" in
+              vhutshilo) comp_pdf='pair-output/Vhutshilo_Foods_Manufacturing_Comprehensive_V1_2.pdf'; comp_xlsx='pair-output/Vhutshilo_Foods_Manufacturing_Comprehensive_V1_2.xlsx' ;;
+              bokamoso) comp_pdf='pair-output/Bokamoso_Skills_Institute_Comprehensive_V1_2.pdf'; comp_xlsx='pair-output/Bokamoso_Skills_Institute_Comprehensive_V1_2.xlsx' ;;
+              siyakhula) comp_pdf='pair-output/Siyakhula_Community_Foundation_Comprehensive_V1_2.pdf'; comp_xlsx='pair-output/Siyakhula_Community_Foundation_Comprehensive_V1_2.xlsx' ;;
+            esac
+            comp_pdf_sha=$(sha256sum "$comp_pdf" | awk '{print $1}')
+            comp_xlsx_sha=$(sha256sum "$comp_xlsx" | awk '{print $1}')
+            essential_sha=$(sha256sum "pair-output/$essential_file" | awk '{print $1}')
+            meta="pair-output/${profile}-comprehensive-meta.json"
+            if [ "$first" -eq 0 ]; then printf ',\n' >> pair-output/summary.json; fi
+            first=0
+            node - "$profile" "$expected_score" "$expected_maturity" "$essential_file" "$essential_sha" "$comp_pdf" "$comp_pdf_sha" "$comp_xlsx" "$comp_xlsx_sha" "$meta" <<'NODE'
+          const fs=require('fs');
+          const [profile,score,maturity,essentialFile,essentialSha,compPdf,compPdfSha,compXlsx,compXlsxSha,metaPath]=process.argv.slice(2);
+          const m=JSON.parse(fs.readFileSync(metaPath,'utf8'));
+          const out={profile,score:Number(score),maturity,essential:{file:essentialFile,sha256:essentialSha},comprehensive:{pdf:compPdf.replace('pair-output/',''),pdfSha256:compPdfSha,xlsx:compXlsx.replace('pair-output/',''),xlsxSha256:compXlsxSha,interpretation:m.interpretation,workbook:m.workbook,source:m.source}};
+          process.stdout.write(JSON.stringify(out));
+          NODE
+            >> pair-output/summary.json
+          done
+          printf '\n]\n' >> pair-output/summary.json
+          cat pair-output/summary.json
+
+      - name: Upload same-assessment Essential vs Comprehensive pairs
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-essential-vs-comprehensive-three-pairs
+          path: pair-output/*
+          if-no-files-found: error
+          retention-days: 14
