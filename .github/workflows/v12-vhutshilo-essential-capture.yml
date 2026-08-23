@@ -1,0 +1,105 @@
+name: V1.2 Vhutshilo Exact-Candidate Essential Capture
+
+on:
+  push:
+    branches:
+      - qa/v12-vhutshilo-product-pair-20260823
+    paths:
+      - .github/workflows/v12-vhutshilo-essential-capture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture-essential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_URL: https://mk-fraud-platform-e9ha9lgwm-tondanis-projects.vercel.app
+      CANDIDATE_SHA: 089d226c119d269ff79cefddc944297e008d6f97
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-vhutshilo-product-pair-20260823
+          fetch-depth: 0
+
+      - name: Verify exact candidate metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS" || { echo 'VERCEL_PROTECTION_BYPASS missing'; exit 1; }
+          mkdir -p qa-output/v12-product-pair
+          curl -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$CANDIDATE_URL/score/api/qa/v12-essential-comparison/vhutshilo?format=meta" \
+            -o qa-output/v12-product-pair/essential-meta-source.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const meta=JSON.parse(fs.readFileSync('qa-output/v12-product-pair/essential-meta-source.json','utf8'));
+          const fail=[];
+          if(meta.score!==43.33) fail.push(`score=${meta.score}`);
+          if(meta.finalMaturity!=='Developing') fail.push(`maturity=${meta.finalMaturity}`);
+          if(meta.coveragePct!==100) fail.push(`coverage=${meta.coveragePct}`);
+          if(meta.applicableControls!==60) fail.push(`applicable=${meta.applicableControls}`);
+          if(meta.excludedControls!==8) fail.push(`excluded=${meta.excludedControls}`);
+          if(meta.graphVersion!=='MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') fail.push(`graph=${meta.graphVersion}`);
+          if(fail.length) throw new Error(`Exact-candidate metadata drift: ${fail.join(', ')}`);
+          console.log(JSON.stringify(meta,null,2));
+          NODE
+
+      - name: Generate Vhutshilo Essential exactly once through candidate Mini path
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='qa-output/v12-product-pair/RPT-MKFRS-V12-COMP-VHUTSHILO-V1-ESSENTIAL.pdf'
+          headers='qa-output/v12-product-pair/essential-response-headers.txt'
+          status=$(curl -sS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            -D "$headers" \
+            -o "$out" \
+            -w '%{http_code}' \
+            "$CANDIDATE_URL/score/api/qa/v12-essential-comparison/vhutshilo")
+          if [ "$status" != '200' ]; then
+            mv "$out" qa-output/v12-product-pair/essential-generation-failure.json || true
+            echo "Essential generation failed HTTP $status"
+            cat qa-output/v12-product-pair/essential-generation-failure.json || true
+            exit 1
+          fi
+          test "$(head -c 4 "$out")" = '%PDF' || { echo 'Response is not PDF'; exit 1; }
+          bytes=$(wc -c < "$out" | tr -d ' ')
+          sha=$(sha256sum "$out" | awk '{print $1}')
+          score=$(tr -d '\r' < "$headers" | awk -F': ' 'tolower($1)=="x-mk-score" {print $2}' | tail -1)
+          maturity=$(tr -d '\r' < "$headers" | awk -F': ' 'tolower($1)=="x-mk-maturity" {print $2}' | tail -1)
+          graph=$(tr -d '\r' < "$headers" | awk -F': ' 'tolower($1)=="x-mk-graph" {print $2}' | tail -1)
+          node --input-type=module <<NODE
+          import fs from 'node:fs';
+          const source=JSON.parse(fs.readFileSync('qa-output/v12-product-pair/essential-meta-source.json','utf8'));
+          const capture={
+            sourceSha:process.env.CANDIDATE_SHA,
+            sourceDeployment:process.env.CANDIDATE_URL,
+            tier:'Essential',
+            model:'openai/gpt-5-mini',
+            generatedThrough:'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts',
+            fiveLayerValidation:'production Essential validation cascade completed before PDF response',
+            sourceMeta:source,
+            response:{score:Number('$score'),maturity:'$maturity',graphVersion:'$graph'},
+            pdf:{fileName:'RPT-MKFRS-V12-COMP-VHUTSHILO-V1-ESSENTIAL.pdf',bytes:Number('$bytes'),sha256:'$sha'}
+          };
+          fs.writeFileSync('qa-output/v12-product-pair/essential-capture.json',JSON.stringify(capture,null,2));
+          console.log(JSON.stringify(capture,null,2));
+          NODE
+
+      - name: Commit captured customer artifact
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MK V1.2 QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add qa-output/v12-product-pair/essential-meta-source.json \
+                  qa-output/v12-product-pair/essential-response-headers.txt \
+                  qa-output/v12-product-pair/essential-capture.json \
+                  qa-output/v12-product-pair/RPT-MKFRS-V12-COMP-VHUTSHILO-V1-ESSENTIAL.pdf
+          git commit -m 'capture exact-candidate Vhutshilo Essential report'
+          git push origin HEAD:qa/v12-vhutshilo-product-pair-20260823
