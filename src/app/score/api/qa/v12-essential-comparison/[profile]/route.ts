@@ -11,6 +11,7 @@ import { buildEssentialNarrativeFactPack } from '@/lib/reports/narrative/fact-pa
 import { composeEssentialManuscript } from '@/lib/reports/narrative/essential-manuscript-coordinator';
 import { createV11WholeManuscriptWriter } from '@/lib/reports/narrative/whole-manuscript-writer';
 import { renderValidatedCommercialPdf } from '@/lib/reports/render-validated-commercial-pdf';
+import { EssentialValidationCascadeError } from '@/lib/reports/essential-validation-cascade';
 import type { AssembledReportData, MaturityCapEventRecord, QuestionTraceRecord } from '@/lib/reports/types';
 
 export const runtime = 'nodejs';
@@ -91,5 +92,12 @@ export async function GET(request:Request, props:{params:Promise<{profile:string
     const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer:createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false})});
     const pdf=await renderValidatedCommercialPdf({data,content,narrative:composed.narrative,roadmap,evidenceModel:reportEvidenceModel,carryForwardAssuranceSpanHashes:composed.acceptedAssuranceSpanHashes,carryForwardSemanticDecisions:composed.acceptedSemanticDecisions});
     return new Response(new Uint8Array(pdf),{status:200,headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${data.reportReference}.pdf"`,'Cache-Control':'no-store','X-MK-Score':String(data.scoreRun.overallScore),'X-MK-Maturity':String(data.scoreRun.finalMaturity),'X-MK-Graph':graph.graphVersion}});
-  } catch (error) { const message=error instanceof Error ? error.message : String(error); console.error('v12_essential_comparison_failed',{profile:profileKey,message}); return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500)},{status:500,headers:{'Cache-Control':'no-store'}}); }
+  } catch (error) {
+    const message=error instanceof Error ? error.message : String(error);
+    const validation = error instanceof EssentialValidationCascadeError ? error.result.candidates
+      .filter((item)=>item.finalDisposition==='HELD_FOR_REVIEW'||item.finalDisposition==='REJECT')
+      .map((item)=>({ruleCode:item.ruleCode,path:item.path,span:item.span,spanHash:item.spanHash,finalDisposition:item.finalDisposition,decisions:item.decisions})) : undefined;
+    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});
+    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});
+  }
 }
