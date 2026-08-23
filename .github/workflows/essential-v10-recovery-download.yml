@@ -6,6 +6,12 @@ on:
       - qa/essential-v10-fullpath-proof-20260823
     paths:
       - scripts/commercial-quality/.essential-v10-download-trigger
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/commercial-quality/.essential-v10-download-trigger
+      - .github/workflows/essential-v10-recovery-download.yml
 
 permissions:
   contents: read
