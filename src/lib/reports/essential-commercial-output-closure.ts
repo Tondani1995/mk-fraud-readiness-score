@@ -22,6 +22,45 @@ function lowerFirst(value: string): string {
 }
 
 /**
+ * Provider-authored narrative is already adjudicated at manuscript checkpoint and is carried into
+ * final acceptance by exact path + content hash. The deterministic customer-output closure must
+ * therefore never rewrite text inside data-narrative-block paragraphs after that adjudication.
+ *
+ * Protect the complete HTML element, run closed-set fixes only over deterministic presentation
+ * content, then restore the exact original element byte-for-byte. The final five-layer binding gate
+ * will still reject any later mutation, missing block or duplicate path.
+ */
+function protectProviderNarrativeBlocks(html: string): {
+  protectedHtml: string;
+  restore: (value: string) => string;
+} {
+  const blocks: string[] = [];
+  const protectedHtml = html.replace(
+    /<p\b[^>]*data-narrative-block="[^"]+"[^>]*>[\s\S]*?<\/p>/gi,
+    (block) => {
+      const index = blocks.push(block) - 1;
+      return `<!--MK_PROVIDER_NARRATIVE_BLOCK_${index}-->`;
+    }
+  );
+
+  return {
+    protectedHtml,
+    restore: (value: string) => {
+      let restored = value;
+      for (let index = 0; index < blocks.length; index += 1) {
+        const token = `<!--MK_PROVIDER_NARRATIVE_BLOCK_${index}-->`;
+        const occurrences = restored.split(token).length - 1;
+        if (occurrences !== 1) {
+          throw new Error(`essential-commercial-output-closure: provider narrative protection token ${index} was ${occurrences === 0 ? 'lost' : 'duplicated'}.`);
+        }
+        restored = restored.replace(token, blocks[index]!);
+      }
+      return restored;
+    }
+  };
+}
+
+/**
  * Customer-facing proof purpose by evidence-artefact family.
  *
  * The old generic fallback joined an artefact title to a questionnaire prompt and produced prose
@@ -128,7 +167,8 @@ function replaceThirtyDayDecisionCompletionTests(html: string): string {
 }
 
 export function closeEssentialCommercialOutputDefects(html: string): string {
-  let closed = html;
+  const protectedNarrative = protectProviderNarrativeBlocks(html);
+  let closed = protectedNarrative.protectedHtml;
 
   const customerDomainNames: Record<string, string> = {
     D1: 'Fraud Leadership and Governance', D2: 'Fraud Risk Identification', D3: 'Operational Fraud Controls',
@@ -193,5 +233,5 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
     .replaceAll('Risk priority is produced by the deterministic qualitative likelihood/impact matrix.', 'Risk priority is produced by the MK qualitative likelihood/impact matrix.')
     .replaceAll('Risk priority uses the deterministic qualitative likelihood/impact matrix.', 'Risk priority uses the MK qualitative likelihood/impact matrix.');
 
-  return closed;
+  return protectedNarrative.restore(closed);
 }
