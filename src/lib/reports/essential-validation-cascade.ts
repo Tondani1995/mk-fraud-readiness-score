@@ -319,13 +319,30 @@ export function adjudicateTextFirstValidation(input: {
   function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {
     const reviewed = semanticDecisionByCandidateId.get(item.id);
     if (reviewed) {
-      return {
-        disposition: reviewed.disposition === 'ALLOW' ? 'ALLOW_CONTEXT'
-          : reviewed.disposition === 'REPAIR' ? 'REPAIRABLE'
-            : reviewed.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS',
-        reasonCode: reviewed.reasonCode,
-        repair: reviewed.disposition === 'REPAIR'
-      };
+      // Semantic review is advisory to the five-layer cascade, never a release verdict by itself.
+      // Deterministic hard gates have already run. The shared assurance core independently checks
+      // actor, modality, tense, negation and customer-control context so neither a false REJECT nor
+      // an unsafe ALLOW can override the canonical safety decision.
+      const assurance = adjudicateAssuranceSentence(source);
+      if (assurance.disposition === 'CONFIRMED_VIOLATION') {
+        return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };
+      }
+      if (reviewed.disposition === 'REPAIR') {
+        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };
+      }
+      if (reviewed.disposition === 'HOLD') {
+        return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };
+      }
+      if (reviewed.disposition === 'REJECT') {
+        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };
+        }
+        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };
+      }
+      if (assurance.disposition === 'AMBIGUOUS') {
+        return { disposition: 'AMBIGUOUS', reasonCode: assurance.reasonCode, repair: false };
+      }
+      return { disposition: 'ALLOW_CONTEXT', reasonCode: reviewed.reasonCode, repair: false };
     }
     if (input.requireSemanticReviewer) return { disposition: 'AMBIGUOUS', reasonCode: 'semantic_reviewer_decision_missing', repair: false };
     // Compatibility behaviour for the pre-existing provider-free cascade unit tests. Production

@@ -784,13 +784,9 @@ export async function composeEssentialManuscript(input: {
   }
 
   const semanticDecisions = reviewed?.decisions ?? [];
-  const rejectedDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REJECT');
-  const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');
   const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');
   const semanticPolicyDiagnostics = reviewed?.accounting?.diagnostics;
   const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);
-  const rejectedPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, rejectedDecisions);
-  const heldPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, heldDecisions);
   const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);
   const semanticPolicyBase = {
     ...diagnosticsFrom('semantic_review', writerIdentity, manuscript),
@@ -802,30 +798,8 @@ export async function composeEssentialManuscript(input: {
         ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})
       }
     : semanticPolicyBase.semanticReviewDiagnostics;
-  if (rejectedDecisions.length > 0) {
-    throw new EssentialManuscriptError(
-      'semantic_review',
-      'The semantic reviewer rejected one or more provider-authored narrative blocks.',
-      {
-        ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
-        validationCode: 'semantic_reject',
-        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')
-      }
-    );
-  }
-  if (heldDecisions.length > 0) {
-    throw new EssentialManuscriptError(
-      'semantic_review',
-      'The semantic reviewer held one or more provider-authored narrative blocks for review.',
-      {
-        ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
-        validationCode: 'semantic_hold',
-        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')
-      }
-    );
-  }
+  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the
+  // canonical five-layer cascade, which alone may ACCEPT, REPAIR, HOLD or confirm REJECT.
   if (repairDecisions.length > 1) {
     throw new EssentialManuscriptError(
       'semantic_review',
@@ -873,7 +847,9 @@ export async function composeEssentialManuscript(input: {
         ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
         parseOk: true,
         validationCode: failure.codes[0],
-        validationIssues: failure.validationIssues
+        validationIssues: failure.validationIssues,
+        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
+        ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})
       }
     );
   }
