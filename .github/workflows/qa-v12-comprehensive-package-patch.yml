@@ -1,0 +1,50 @@
+name: QA V1.2 Comprehensive Package Patch
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/qa-v12-comprehensive-package-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+
+      - name: Patch protected V1.2 QA route with Comprehensive package output
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts';
+          let s = fs.readFileSync(p, 'utf8');
+          const importMarker = "import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';\n";
+          const newImport = "import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';\nimport { renderComprehensiveReportPackage } from '@/lib/reports/comprehensive/manual-generation';\n";
+          if (!s.includes("renderComprehensiveReportPackage")) {
+            if (!s.includes(importMarker)) throw new Error('import marker not found');
+            s = s.replace(importMarker, newImport);
+          }
+
+          const metaBlock = `  if (format === 'meta') {\n    return NextResponse.json({ ok: true, ...metadata(profileKey) }, { headers: { 'Cache-Control': 'no-store' } });\n  }\n`;
+          const packageBlock = `  if (format === 'comprehensive-package') {\n    try {\n      const { data: essentialData } = assembledFor(profileKey);\n      const comprehensiveReportReference = essentialData.reportReference.replace(/-V1$/, '-COMPREHENSIVE-V1');\n      const comprehensiveData: AssembledReportData = {\n        ...essentialData,\n        reportReference: comprehensiveReportReference,\n        packageName: 'Comprehensive',\n        productCode: 'mk_validated_assessment',\n        amountCents: 3500000,\n        productPriceCents: 3500000\n      };\n      const evidenceModel = buildAdvisoryEvidenceModel(comprehensiveData);\n      const result = await renderComprehensiveReportPackage({\n        assembled: comprehensiveData,\n        evidenceModel,\n        maxRepairsPerSlot: 0,\n        orderReference: comprehensiveData.orderReference,\n        reportReference: comprehensiveReportReference,\n        versionNumber: 1\n      });\n      return NextResponse.json({\n        ok: true,\n        profile: profileKey,\n        organisationName: comprehensiveData.organisationName,\n        assessmentReference: comprehensiveData.assessmentReference,\n        reportReference: comprehensiveReportReference,\n        graphVersion: graph.graphVersion,\n        graphFingerprint: graph.graphFingerprint,\n        score: comprehensiveData.scoreRun.overallScore,\n        maturity: comprehensiveData.scoreRun.finalMaturity,\n        product: 'Comprehensive',\n        interpretation: {\n          model: result.interpretationRun.accounting.model,\n          calls: result.interpretationRun.accounting.calls,\n          repairs: result.interpretationRun.accounting.repairs,\n          inputTokens: result.interpretationRun.accounting.inputTokens,\n          outputTokens: result.interpretationRun.accounting.outputTokens,\n          totalTokens: result.interpretationRun.accounting.totalTokens,\n          costMicros: result.interpretationRun.accounting.costMicros,\n          durationMs: result.interpretationRun.accounting.durationMs,\n          issues: result.interpretationRun.issues\n        },\n        source: result.source,\n        workbook: {\n          fileName: result.workbook.fileName,\n          checksumSha256: result.workbook.checksumSha256,\n          mimeType: result.workbook.mimeType,\n          sheetNames: result.workbook.sheetNames,\n          rowCounts: result.workbook.rowCounts\n        },\n        pdfBase64: result.pdf.toString('base64'),\n        xlsxBase64: result.workbook.bytes.toString('base64')\n      }, { headers: { 'Cache-Control': 'no-store' } });\n    } catch (error) {\n      const message = error instanceof Error ? error.message : String(error);\n      console.error('v12_comprehensive_comparison_failed', { profile: profileKey, message });\n      return NextResponse.json({ ok: false, profile: profileKey, error: message.slice(0, 1000) }, { status: 500, headers: { 'Cache-Control': 'no-store' } });\n    }\n  }\n`;
+          if (!s.includes("format === 'comprehensive-package'")) {
+            if (!s.includes(metaBlock)) throw new Error('meta block marker not found');
+            s = s.replace(metaBlock, metaBlock + '\n' + packageBlock);
+          }
+          fs.writeFileSync(p, s);
+          NODE
+
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          git diff --cached --quiet && { echo 'No patch needed'; exit 0; }
+          git commit -m "add same-assessment Comprehensive V1.2 package proof"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
