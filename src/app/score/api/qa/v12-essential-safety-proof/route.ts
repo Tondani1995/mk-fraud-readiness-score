@@ -68,6 +68,11 @@ export function GET() {
     'ALLOW',
     'grounded'
   );
+  const prescriptiveOperatingReject = run(
+    'By 60 days establish the evidence register, adopt chain-of-custody forms and place preserved items in an access-controlled repository.',
+    'REJECT',
+    'unsupported_operating_detail'
+  );
   const unconfirmedReject = run(
     'The finance team performs daily exception reviews across all sites.',
     'REJECT',
@@ -76,6 +81,8 @@ export function GET() {
 
   const pass = safeReject.publishable === true
     && safeReject.finalDisposition === 'ACCEPT'
+    && prescriptiveOperatingReject.publishable === true
+    && prescriptiveOperatingReject.finalDisposition === 'ACCEPT'
     && unsafeAllow.publishable === false
     && unsafeAllow.finalDisposition === 'REJECT'
     && unconfirmedReject.publishable === false
@@ -86,6 +93,7 @@ export function GET() {
     ok: pass,
     policy: 'semantic-review-advisory-to-five-layer-cascade',
     safeReviewerReject: safeReject,
+    prescriptiveOperatingReject,
     unsafeReviewerAllow: unsafeAllow,
     unconfirmedReviewerReject: unconfirmedReject
   }, { status: pass ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });

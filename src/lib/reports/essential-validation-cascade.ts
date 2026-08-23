@@ -316,6 +316,17 @@ export function adjudicateTextFirstValidation(input: {
 
   const semanticDecisionByCandidateId = new Map((input.semanticDecisions ?? []).map((decision) => [decision.candidateId, decision]));
 
+  // Prescriptive target-state language is advisory content, not a claim that the organisation
+  // already operates this way. Keep the classifier deliberately narrow: it must read as an action
+  // for management/future delivery, not as a present-state assertion.
+  function isPrescriptiveManagementDesignContext(source: string): boolean {
+    const text = source.trim();
+    if (!text) return false;
+    const prescriptiveLead = /^(?:by\s+(?:30|60|90)\s+days\b|management\s+(?:should|must|needs?\s+to)\b|the\s+priority\s+for\s+management\s+is\s+to\b|to\s+support\s+(?:these|the)\s+(?:responses?|priorities|controls?),?\s+|(?:establish|adopt|implement|introduce|approve|confirm|define|document|assign|create|require|preserve|record|configure|test|strengthen|formalise|formalize|embed|sequence)\b)/i;
+    const currentStateLead = /^(?:the|this|management|finance|operations|procurement|fraud|staff|employees?|the\s+organisation|the\s+organization)\s+(?:is|are|has|have|performs?|uses?|operates?|maintains?|reviews?|monitors?|records?|requires?|relies?|sits?|provides?)\b/i;
+    return prescriptiveLead.test(text) && !currentStateLead.test(text);
+  }
+
   function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {
     const reviewed = semanticDecisionByCandidateId.get(item.id);
     if (reviewed) {
@@ -336,6 +347,9 @@ export function adjudicateTextFirstValidation(input: {
       if (reviewed.disposition === 'REJECT') {
         if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {
           return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };
+        }
+        if (reviewed.reasonCode === 'unsupported_operating_detail' && isPrescriptiveManagementDesignContext(source)) {
+          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_prescriptive_target_state_context', repair: false };
         }
         return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };
       }
