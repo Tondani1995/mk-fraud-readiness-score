@@ -8,6 +8,7 @@ import {
 } from '@/lib/adaptive/engine';
 import { calculateAdaptiveReadinessScore } from '@/lib/scoring/adaptive-scoring';
 import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';
+import { renderComprehensiveReportPackage } from '@/lib/reports/comprehensive/manual-generation';
 import { adaptEssentialEvidenceModel } from '@/lib/reports/essential-presentation-adaptation';
 import { buildEssentialProjection } from '@/lib/reports/essential-projection';
 import { selectContent } from '@/lib/reports/select-content-blocks';
@@ -382,6 +383,67 @@ export async function GET(request: Request, props: { params: Promise<{ profile: 
   const format = new URL(request.url).searchParams.get('format') ?? 'pdf';
   if (format === 'meta') {
     return NextResponse.json({ ok: true, ...metadata(profileKey) }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (format === 'comprehensive-package') {
+    try {
+      const { data: essentialData } = assembledFor(profileKey);
+      const comprehensiveReportReference = essentialData.reportReference.replace(/-V1$/, '-COMPREHENSIVE-V1');
+      const comprehensiveData: AssembledReportData = {
+        ...essentialData,
+        reportReference: comprehensiveReportReference,
+        packageName: 'Comprehensive',
+        productCode: 'mk_validated_assessment',
+        amountCents: 3500000,
+        productPriceCents: 3500000
+      };
+      const evidenceModel = buildAdvisoryEvidenceModel(comprehensiveData);
+      const result = await renderComprehensiveReportPackage({
+        assembled: comprehensiveData,
+        evidenceModel,
+        maxRepairsPerSlot: 0,
+        orderReference: comprehensiveData.orderReference,
+        reportReference: comprehensiveReportReference,
+        versionNumber: 1
+      });
+      return NextResponse.json({
+        ok: true,
+        profile: profileKey,
+        organisationName: comprehensiveData.organisationName,
+        assessmentReference: comprehensiveData.assessmentReference,
+        reportReference: comprehensiveReportReference,
+        graphVersion: graph.graphVersion,
+        graphFingerprint: graph.graphFingerprint,
+        score: comprehensiveData.scoreRun.overallScore,
+        maturity: comprehensiveData.scoreRun.finalMaturity,
+        product: 'Comprehensive',
+        interpretation: {
+          model: result.interpretationRun.accounting.model,
+          calls: result.interpretationRun.accounting.calls,
+          repairs: result.interpretationRun.accounting.repairs,
+          inputTokens: result.interpretationRun.accounting.inputTokens,
+          outputTokens: result.interpretationRun.accounting.outputTokens,
+          totalTokens: result.interpretationRun.accounting.totalTokens,
+          costMicros: result.interpretationRun.accounting.costMicros,
+          durationMs: result.interpretationRun.accounting.durationMs,
+          issues: result.interpretationRun.issues
+        },
+        source: result.source,
+        workbook: {
+          fileName: result.workbook.fileName,
+          checksumSha256: result.workbook.checksumSha256,
+          mimeType: result.workbook.mimeType,
+          sheetNames: result.workbook.sheetNames,
+          rowCounts: result.workbook.rowCounts
+        },
+        pdfBase64: result.pdf.toString('base64'),
+        xlsxBase64: result.workbook.bytes.toString('base64')
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('v12_comprehensive_comparison_failed', { profile: profileKey, message });
+      return NextResponse.json({ ok: false, profile: profileKey, error: message.slice(0, 1000) }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    }
   }
 
   let semanticAudit: SemanticAuditRow[] | undefined;
