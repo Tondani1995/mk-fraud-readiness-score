@@ -24,7 +24,7 @@ jobs:
           ref: qa/v12-vhutshilo-product-pair-20260823
           fetch-depth: 0
 
-      - name: Verify exact candidate metadata
+      - name: Fetch exact candidate metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -34,6 +34,22 @@ jobs:
             -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
             "$CANDIDATE_URL/score/api/qa/v12-essential-comparison/vhutshilo?format=meta" \
             -o qa-output/v12-product-pair/essential-meta-source.json
+          cat qa-output/v12-product-pair/essential-meta-source.json
+
+      - name: Persist metadata before any paid provider call
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MK V1.2 QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add qa-output/v12-product-pair/essential-meta-source.json
+          git commit -m 'capture exact-candidate Vhutshilo metadata'
+          git push origin HEAD:qa/v12-vhutshilo-product-pair-20260823
+
+      - name: Verify exact candidate metadata
+        shell: bash
+        run: |
+          set -euo pipefail
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const meta=JSON.parse(fs.readFileSync('qa-output/v12-product-pair/essential-meta-source.json','utf8'));
@@ -95,10 +111,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'MK V1.2 QA'
-          git config user.email 'actions@users.noreply.github.com'
-          git add qa-output/v12-product-pair/essential-meta-source.json \
-                  qa-output/v12-product-pair/essential-response-headers.txt \
+          git add qa-output/v12-product-pair/essential-response-headers.txt \
                   qa-output/v12-product-pair/essential-capture.json \
                   qa-output/v12-product-pair/RPT-MKFRS-V12-COMP-VHUTSHILO-V1-ESSENTIAL.pdf
           git commit -m 'capture exact-candidate Vhutshilo Essential report'
