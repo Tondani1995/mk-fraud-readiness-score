@@ -1,18 +1,18 @@
 import crypto from 'node:crypto';
+import { generateText, Output } from 'ai';
 import { NextResponse } from 'next/server';
 import { buildVhutshiloV12Assembled, VHUTSHILO_V12_GRAPH, VHUTSHILO_V12_SOURCE_SHA } from '@/lib/qa/v12-vhutshilo-fixture';
 import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';
-import { adaptEssentialEvidenceModel } from '@/lib/reports/essential-presentation-adaptation';
-import { buildEssentialProjection } from '@/lib/reports/essential-projection';
-import { selectContent } from '@/lib/reports/select-content-blocks';
-import { adaptAdvisoryRoadmapToLegacyAgenda } from '@/lib/reports/roadmap';
-import { buildEssentialNarrativeFactPack } from '@/lib/reports/narrative/fact-pack';
-import { composeEssentialManuscript } from '@/lib/reports/narrative/essential-manuscript-coordinator';
-import type { EssentialSemanticReviewer } from '@/lib/reports/narrative/semantic-reviewer';
-import { createV11WholeManuscriptWriter } from '@/lib/reports/narrative/whole-manuscript-writer';
-import { renderValidatedCommercialPdfWithNavigation } from '@/lib/reports/render-validated-commercial-pdf';
 import { renderComprehensiveReportPackage } from '@/lib/reports/comprehensive/manual-generation';
-import { generateComprehensiveInterpretation } from '@/lib/reports/comprehensive/interpretation';
+import {
+  buildInterpretationPrompt,
+  interpretationSchema,
+  validateInterpretation,
+  type ComprehensiveInterpretation,
+  type InterpretationBrief,
+  type InterpretationRun,
+  type InterpretationSlotId
+} from '@/lib/reports/comprehensive/interpretation';
 import { assertEssentialFinalHtml, type EssentialValidationCascadeResult } from '@/lib/reports/essential-validation-cascade';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 
@@ -23,6 +23,7 @@ export const maxDuration = 300;
 const ENGINE_SOURCE_SHA = '85fd2a0e21a6221bbd6b5032cc0bd271ebe7d26d';
 const ESSENTIAL_MODEL = 'openai/gpt-5-mini';
 const COMPREHENSIVE_MODEL = 'openai/gpt-5.6-luna';
+const SYSTEM = 'You are the MK Fraud Readiness Comprehensive interpretation writer. The deterministic analysis you are given is the only authority. RETURN EXACTLY ONE JSON OBJECT as plain text: no commentary, no Markdown, no code fences, no additional keys.';
 
 function sha256(bytes: Uint8Array | Buffer | string): string {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -80,28 +81,96 @@ function deterministicMeta() {
   };
 }
 
-async function renderEssential(): Promise<Buffer> {
-  const { data } = buildVhutshiloV12Assembled();
-  const advisoryModel = buildAdvisoryEvidenceModel(data);
-  const reportEvidenceModel = adaptEssentialEvidenceModel(advisoryModel, data.adaptiveGatewayAnswers);
-  const projection = buildEssentialProjection(data, reportEvidenceModel);
-  const content = selectContent(data, [], projection);
-  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(projection.roadmapActions);
-  const factPack = buildEssentialNarrativeFactPack(data, reportEvidenceModel, projection);
-  const writer = createV11WholeManuscriptWriter(ESSENTIAL_MODEL, { allowTailRecovery: false });
-  const semanticReviewer: EssentialSemanticReviewer | undefined = writer.reviewSemanticCandidates
-    ? { review: (reviewRequest) => writer.reviewSemanticCandidates!(reviewRequest) }
-    : undefined;
-  const composed = await composeEssentialManuscript({ factPack, writer, semanticReviewer });
-  return renderValidatedCommercialPdfWithNavigation({
-    data,
-    content,
-    narrative: composed.narrative,
-    roadmap,
-    evidenceModel: reportEvidenceModel,
-    carryForwardAssuranceSpanHashes: composed.acceptedAssuranceSpanHashes,
-    carryForwardSemanticDecisions: composed.acceptedSemanticDecisions
-  });
+function parseObject(raw: string): Record<string, unknown> {
+  const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('No JSON object in provider output.');
+  return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
+}
+
+async function generateComprehensiveInterpretationViaOidc(
+  brief: InterpretationBrief,
+  options?: { model?: string; maxRepairsPerSlot?: number; timeoutMs?: number }
+): Promise<InterpretationRun> {
+  const model = options?.model ?? COMPREHENSIVE_MODEL;
+  const provider = model.split('/')[0]?.trim() || 'openai';
+  const maxRepairs = options?.maxRepairsPerSlot ?? 2;
+  const timeoutMs = options?.timeoutMs ?? 240_000;
+  const accounting = {
+    calls: 0,
+    repairs: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    costMicros: 0,
+    durationMs: 0,
+    model,
+    repairedSlots: [] as InterpretationSlotId[]
+  };
+  const startedAt = Date.now();
+
+  const call = async (prompt: string): Promise<Record<string, unknown>> => {
+    accounting.calls += 1;
+    const response: any = await generateText({
+      model,
+      system: SYSTEM,
+      prompt,
+      output: Output.text(),
+      maxOutputTokens: 6_000,
+      maxRetries: 0,
+      providerOptions: { gateway: { only: [provider] } },
+      abortSignal: AbortSignal.timeout(timeoutMs)
+    });
+    accounting.inputTokens += Number(response?.usage?.inputTokens ?? 0);
+    accounting.outputTokens += Number(response?.usage?.outputTokens ?? 0);
+    accounting.totalTokens += Number(response?.usage?.totalTokens ?? 0);
+    const cost = Number(response?.providerMetadata?.gateway?.cost ?? 0);
+    if (Number.isFinite(cost)) accounting.costMicros += Math.round(cost * 1e6);
+    const text = typeof response.output === 'string' ? response.output : typeof response.text === 'string' ? response.text : '';
+    return parseObject(text);
+  };
+
+  const initial = await call(buildInterpretationPrompt(brief));
+  let current = interpretationSchema.partial().parse(initial) as Partial<ComprehensiveInterpretation>;
+  let issues = validateInterpretation(current, brief);
+
+  for (let attempt = 1; attempt <= maxRepairs; attempt += 1) {
+    const failing = [...new Set(issues.map((issue) => issue.slot))];
+    if (!failing.length) break;
+    const reasons = failing
+      .map((slot) => `- ${slot}: ${issues.filter((issue) => issue.slot === slot).map((issue) => `${issue.code} (${issue.detail})`).join('; ')}`)
+      .join('\n');
+    const prompt = [
+      buildInterpretationPrompt(brief, failing),
+      '',
+      '================ REPAIR ================',
+      'Your previous attempt at these fields was rejected. Correct only these reasons. Keep the meaning; change what the reasons name.',
+      reasons,
+      '',
+      'PREVIOUS TEXT:',
+      JSON.stringify(Object.fromEntries(failing.map((slot) => [slot, current[slot] ?? '']))),
+      '',
+      `Return exactly one JSON object with exactly these keys: ${failing.join(', ')}.`
+    ].join('\n');
+    const repaired = await call(prompt);
+    accounting.repairs += 1;
+    for (const slot of failing) {
+      const value = repaired[slot];
+      if (typeof value === 'string' && value.trim()) {
+        current = { ...current, [slot]: value };
+        if (!accounting.repairedSlots.includes(slot)) accounting.repairedSlots.push(slot);
+      }
+    }
+    issues = validateInterpretation(current, brief);
+  }
+
+  accounting.durationMs = Date.now() - startedAt;
+  return {
+    interpretation: interpretationSchema.parse(current),
+    issues,
+    accounting
+  };
 }
 
 async function renderComprehensiveTar(): Promise<Buffer> {
@@ -116,7 +185,7 @@ async function renderComprehensiveTar(): Promise<Buffer> {
     reportReference: data.reportReference,
     versionNumber: 1,
     generateInterpretation: async (brief, options) => {
-      const run = await generateComprehensiveInterpretation(brief, {
+      const run = await generateComprehensiveInterpretationViaOidc(brief, {
         ...options,
         model: COMPREHENSIVE_MODEL
       });
@@ -174,25 +243,13 @@ export async function GET(_request: Request, props: { params: Promise<{ artifact
   const { artifact } = await props.params;
   try {
     if (artifact === 'meta') {
-      return NextResponse.json({ ok: true, ...deterministicMeta(), essentialModel: ESSENTIAL_MODEL, comprehensiveModel: COMPREHENSIVE_MODEL }, { headers: { 'Cache-Control': 'no-store' } });
-    }
-    if (artifact === 'essential') {
-      const pdf = await renderEssential();
-      const meta = deterministicMeta();
-      return new Response(new Uint8Array(pdf), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${meta.reportReference}-ESSENTIAL.pdf"`,
-          'Cache-Control': 'no-store',
-          'X-MK-Source-SHA': ENGINE_SOURCE_SHA,
-          'X-MK-Assessment-Baseline-SHA': VHUTSHILO_V12_SOURCE_SHA,
-          'X-MK-Model': ESSENTIAL_MODEL,
-          'X-MK-PDF-SHA256': sha256(pdf),
-          'X-MK-Score': String(meta.score),
-          'X-MK-Maturity': String(meta.finalMaturity)
-        }
-      });
+      return NextResponse.json({
+        ok: true,
+        ...deterministicMeta(),
+        essentialModel: ESSENTIAL_MODEL,
+        comprehensiveModel: COMPREHENSIVE_MODEL,
+        comprehensiveAuth: 'vercel-oidc'
+      }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (artifact === 'comprehensive') {
       const tar = await renderComprehensiveTar();
