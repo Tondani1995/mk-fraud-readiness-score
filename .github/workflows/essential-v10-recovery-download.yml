@@ -1,0 +1,59 @@
+name: Essential V10 Recovery Artifact Download
+
+on:
+  push:
+    branches:
+      - qa/essential-v10-fullpath-proof-20260823
+    paths:
+      - scripts/commercial-quality/.essential-v10-download-trigger
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Download exact generated PDFs from certified deployment
+        shell: bash
+        run: |
+          mkdir -p recovery-artifacts
+          node <<'NODE'
+          const fs = require('node:fs');
+          const preview = process.env.PREVIEW_URL.replace(/\/$/, '');
+          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
+          if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS secret is missing.');
+          const reports = [
+            { name: 'Bokamoso_Skills_Institute_Essential_V3.pdf', reportId: '0974f32b-46da-4e72-bca4-03fe0860beae', order: 'MKORD-2026-4790A29D' },
+            { name: 'Siyakhula_Community_Foundation_Essential_V6.pdf', reportId: '3090a54b-8f2b-4893-8789-808f83fe90c5', order: 'MKORD-2026-912225EC' },
+            { name: 'Vhutshilo_Foods_Manufacturing_Essential_V5.pdf', reportId: '277827a0-8d94-4082-a02f-00783eca410e', order: 'MKORD-2026-FAA9331C' }
+          ];
+          for (const r of reports) {
+            const access = await fetch(`${preview}/score/api/admin/reports/${r.reportId}/download?order=${encodeURIComponent(r.order)}`, {
+              headers: { 'x-vercel-protection-bypass': bypass, Accept: 'application/json' },
+              redirect: 'manual'
+            });
+            const accessText = await access.text();
+            if (!access.ok) throw new Error(`${r.name}: access HTTP ${access.status}: ${accessText.slice(0,500)}`);
+            const body = JSON.parse(accessText);
+            if (!body?.ok || !body?.url) throw new Error(`${r.name}: no signed URL returned.`);
+            const pdf = await fetch(body.url);
+            if (!pdf.ok) throw new Error(`${r.name}: signed download HTTP ${pdf.status}`);
+            const bytes = Buffer.from(await pdf.arrayBuffer());
+            if (bytes.length < 100000 || bytes.subarray(0,4).toString() !== '%PDF') throw new Error(`${r.name}: invalid PDF (${bytes.length} bytes).`);
+            fs.writeFileSync(`recovery-artifacts/${r.name}`, bytes);
+            console.log(`${r.name}: ${bytes.length} bytes`);
+          }
+          NODE
+
+      - name: Upload recovered Essential PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v10-fullpath-recovery-pdfs
+          path: recovery-artifacts/*.pdf
+          if-no-files-found: error
+          retention-days: 7
