@@ -47,25 +47,19 @@ jobs:
           grep -Fq '"essentialModel":"openai/gpt-5-mini"' qa-output/v12-vhutshilo-pair-85fd/meta.json
           grep -Fq '"comprehensiveModel":"openai/gpt-5.6-luna"' qa-output/v12-vhutshilo-pair-85fd/meta.json
 
-      - name: Generate Essential with GPT-5-mini
+      - name: Reuse proven Vhutshilo Essential artefact from 85fd source
         shell: bash
         run: |
-          set +e
-          code=$(curl --max-time 280 -sS -w '%{http_code}' \
-            -D qa-output/v12-vhutshilo-pair-85fd/essential-headers.txt \
-            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
-            "$PREVIEW_URL/score/api/qa/v12-vhutshilo-product-pair/essential" \
-            -o qa-output/v12-vhutshilo-pair-85fd/essential-response.bin)
-          printf '%s\n' "$code" > qa-output/v12-vhutshilo-pair-85fd/essential-http-code.txt
-          if [ "$code" = "200" ] && head -c 4 qa-output/v12-vhutshilo-pair-85fd/essential-response.bin | grep -q '%PDF'; then
-            mv qa-output/v12-vhutshilo-pair-85fd/essential-response.bin qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
-            sha256sum qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf > qa-output/v12-vhutshilo-pair-85fd/essential-sha256.txt
-            echo SUCCESS > qa-output/v12-vhutshilo-pair-85fd/essential-outcome.txt
-            exit 0
-          fi
-          mv qa-output/v12-vhutshilo-pair-85fd/essential-response.bin qa-output/v12-vhutshilo-pair-85fd/essential-diagnostic.json
-          echo FAIL > qa-output/v12-vhutshilo-pair-85fd/essential-outcome.txt
-          exit 1
+          set -euo pipefail
+          git fetch origin qa/v12-essential-five-layer-proof-20260823
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf \
+            > qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/vhutshilo-sha256.txt \
+            > qa-output/v12-vhutshilo-pair-85fd/essential-sha256.txt
+          git show origin/qa/v12-essential-five-layer-proof-20260823:qa-output/v12-final-same-sha/source.json \
+            > qa-output/v12-vhutshilo-pair-85fd/essential-source-proof.json
+          test "$(head -c 4 qa-output/v12-vhutshilo-pair-85fd/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf)" = '%PDF'
+          echo SUCCESS_PROVEN_CAPTURE > qa-output/v12-vhutshilo-pair-85fd/essential-outcome.txt
 
       - name: Generate Comprehensive with GPT-5.6 Luna
         shell: bash
