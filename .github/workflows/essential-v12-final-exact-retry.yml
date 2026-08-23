@@ -1,0 +1,85 @@
+name: Essential V1.2 Final Exact Retry
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-final-exact-retry.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-cbz0nevjk-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      SOURCE_DEPLOYMENT: dpl_C6tBFLmu2PjUXpFLykkgR8aCuLD1
+      SOURCE_SHA: 8779a6ae9a679536f34261ef4327c8f06ca8d511
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require protected-preview bypass
+        shell: bash
+        run: |
+          test -n "$VERCEL_PROTECTION_BYPASS" || { echo "VERCEL_PROTECTION_BYPASS missing"; exit 1; }
+
+      - name: Prove exact V1.2 deployment and five-layer policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          safety=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-safety-proof")
+          meta=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta")
+          printf '%s\n' "$safety" | tee safety.json
+          printf '%s\n' "$meta" | tee bokamoso-meta-preflight.json
+          printf '%s' "$safety" | grep -Fq '"ok":true'
+          printf '%s' "$safety" | grep -Fq '"policy":"semantic-review-advisory-to-five-layer-cascade"'
+          printf '%s' "$meta" | grep -Fq '"graphVersion":"MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821"'
+
+      - name: Generate all three through real Mini and final PDF path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          printf '[\n' > out/summary.json
+          first=1
+          for profile in bokamoso siyakhula vhutshilo; do
+            echo "Generating $profile from $SOURCE_DEPLOYMENT / $SOURCE_SHA"
+            meta=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile?format=meta")
+            printf '%s\n' "$meta" > "out/${profile}-meta.json"
+            code=$(curl -sS -w '%{http_code}' -D "out/${profile}-headers.txt" -o "out/${profile}.bin" -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile")
+            if [ "$code" != "200" ]; then
+              echo "Generation failed for $profile with HTTP $code"
+              cat "out/${profile}.bin"
+              exit 1
+            fi
+            grep -qi '^content-type: application/pdf' "out/${profile}-headers.txt"
+            head -c 4 "out/${profile}.bin" | grep -q '%PDF'
+            case "$profile" in
+              bokamoso) file='Bokamoso_Skills_Institute_Essential_V1_2_FINAL.pdf' ;;
+              siyakhula) file='Siyakhula_Community_Foundation_Essential_V1_2_FINAL.pdf' ;;
+              vhutshilo) file='Vhutshilo_Foods_Manufacturing_Essential_V1_2_FINAL.pdf' ;;
+            esac
+            mv "out/${profile}.bin" "out/$file"
+            sha=$(sha256sum "out/$file" | awk '{print $1}')
+            bytes=$(wc -c < "out/$file" | tr -d ' ')
+            score=$(node -e "const m=JSON.parse(require('fs').readFileSync('out/${profile}-meta.json')); process.stdout.write(String(m.score))")
+            maturity=$(node -e "const m=JSON.parse(require('fs').readFileSync('out/${profile}-meta.json')); process.stdout.write(String(m.finalMaturity))")
+            if [ "$first" -eq 0 ]; then printf ',\n' >> out/summary.json; fi
+            first=0
+            node -e "process.stdout.write(JSON.stringify({profile:process.argv[1],file:process.argv[2],score:Number(process.argv[3]),maturity:process.argv[4],bytes:Number(process.argv[5]),sha256:process.argv[6],sourceDeployment:process.argv[7],sourceSha:process.argv[8]}))" "$profile" "$file" "$score" "$maturity" "$bytes" "$sha" "$SOURCE_DEPLOYMENT" "$SOURCE_SHA" >> out/summary.json
+          done
+          printf '\n]\n' >> out/summary.json
+          cp safety.json out/safety.json
+          cat out/summary.json
+
+      - name: Upload exact three-report proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v12-final-exact-8779a6a
+          path: out/*
+          if-no-files-found: error
+          retention-days: 14
