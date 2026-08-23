@@ -1,0 +1,78 @@
+name: V1.2 Semantic Repair Advisory Hardening
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-semantic-repair-advisory-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Patch cascade, coordinator and safety proof
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          cascade = Path('src/lib/reports/essential-validation-cascade.ts')
+          s = cascade.read_text()
+          anchor = "  function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {\n"
+          helper = """  // A reviewer REPAIR is also advisory. Relative-strength language that is explicitly bounded\n  // to the self-assessment is not a present-state operating claim and should not be rewritten.\n  function isBoundedRelativeStrengthContext(source: string): boolean {\n    const text = source.trim();\n    if (!text) return false;\n    const bounded = /\\b(?:self[-‑ ]assessed|reported|comparatively stronger|relative strength|relative strengths|stronger reported position|stronger self[-‑ ]assessed position)\\b/i.test(text);\n    const unsupportedOperatingUpgrade = /\\b(?:functioning|effective|operational|embedded|operating in practice|established (?:capability|foundation|foundations)|functioning foundation|workable foundation|foundation already in place|leadership attention|management commitment|mobilisation capacity|mobilization capacity)\\b/i.test(text);\n    return bounded && !unsupportedOperatingUpgrade;\n  }\n\n"""
+          if anchor not in s:
+              raise SystemExit('cascade semanticDisposition anchor missing')
+          s = s.replace(anchor, helper + anchor, 1)
+          old = """      if (reviewed.disposition === 'REPAIR') {\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n"""
+          new = """      if (reviewed.disposition === 'REPAIR') {\n        if (reviewed.reasonCode === 'repairable_overstatement' && isBoundedRelativeStrengthContext(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_bounded_relative_strength_context', repair: false };\n        }\n        if (isPrescriptiveManagementDesignContext(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_prescriptive_target_state_context', repair: false };\n        }\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n"""
+          if old not in s:
+              raise SystemExit('cascade REPAIR anchor missing')
+          s = s.replace(old, new, 1)
+          cascade.write_text(s)
+
+          coord = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
+          c = coord.read_text()
+          oldc = "  const repairDecision = reviewed?.decisions.find((decision) => decision.disposition === 'REPAIR');\n"
+          newc = "  const repairDecision = firstCascade.repairCodes.length > 0\n    ? reviewed?.decisions.find((decision) => decision.disposition === 'REPAIR')\n    : undefined;\n"
+          if oldc not in c:
+              raise SystemExit('coordinator repairDecision anchor missing')
+          c = c.replace(oldc, newc, 1)
+          coord.write_text(c)
+
+          proof = Path('src/app/score/api/qa/v12-essential-safety-proof/route.ts')
+          p = proof.read_text()
+          p = p.replace("function run(text: string, disposition: 'ALLOW' | 'REJECT' | 'HOLD', reasonCode: string)", "function run(text: string, disposition: 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD', reasonCode: string)")
+          marker = """  const unsafeAllow = run(\n    'This report provides independent assurance that the controls are effective.',\n    'ALLOW',\n    'grounded'\n  );\n"""
+          insert = marker + """  const boundedRelativeStrengthRepair = run(\n    'Whistleblowing and Reporting Culture is a comparatively stronger self-assessed area and represents the clearest positive signal in the profile.',\n    'REPAIR',\n    'repairable_overstatement'\n  );\n"""
+          if marker not in p:
+              raise SystemExit('proof insertion anchor missing')
+          p = p.replace(marker, insert, 1)
+          pass_anchor = """    && unsafeAllow.publishable === false\n    && unsafeAllow.finalDisposition === 'REJECT'\n"""
+          pass_insert = pass_anchor + """    && boundedRelativeStrengthRepair.publishable === true\n    && boundedRelativeStrengthRepair.finalDisposition === 'ACCEPT'\n"""
+          if pass_anchor not in p:
+              raise SystemExit('proof pass anchor missing')
+          p = p.replace(pass_anchor, pass_insert, 1)
+          json_anchor = """    unsafeReviewerAllow: unsafeAllow,\n"""
+          json_insert = json_anchor + """    boundedRelativeStrengthRepair,\n"""
+          if json_anchor not in p:
+              raise SystemExit('proof json anchor missing')
+          p = p.replace(json_anchor, json_insert, 1)
+          proof.write_text(p)
+          PY
+          git diff --check
+      - name: Commit source correction
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/essential-validation-cascade.ts src/lib/reports/narrative/essential-manuscript-coordinator.ts src/app/score/api/qa/v12-essential-safety-proof/route.ts
+          git commit -m "make bounded semantic repairs advisory to five-layer cascade"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
