@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      PREVIEW_URL: https://mk-fraud-platform-5h09luenx-tondanis-projects.vercel.app
-      SOURCE_DEPLOYMENT: dpl_3BMQiDbeF9Pv8y8TBtd4VKzUJ1t1
-      SOURCE_SHA: 18e851df89e17a9dcc8550be0ae30c42c147f3ff
+      PREVIEW_URL: https://mk-fraud-platform-rb6dzovfn-tondanis-projects.vercel.app
+      SOURCE_DEPLOYMENT: dpl_6NPFZCc9qmWGJtX2NkuQtFvtUMQD
+      SOURCE_SHA: 85fd2a0e21a6221bbd6b5032cc0bd271ebe7d26d
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$VERCEL_PROTECTION_BYPASS"
+          rm -rf qa-output/v12-final-same-sha
           mkdir -p qa-output/v12-final-same-sha
           curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-safety-proof" > qa-output/v12-final-same-sha/safety.json
           curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" > qa-output/v12-final-same-sha/bokamoso-meta.json
@@ -74,5 +75,5 @@ jobs:
           git fetch origin qa/v12-essential-five-layer-proof-20260823
           git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
           git add qa-output/v12-final-same-sha
-          git commit -m "capture final same-SHA V1.2 Essential evidence" || true
+          git commit -m "capture final V1.2 evidence after provider binding fix" || true
           git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
