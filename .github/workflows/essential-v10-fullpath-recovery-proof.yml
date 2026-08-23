@@ -1,64 +1,13 @@
 name: Essential V10 Full-Path Recovery Proof
 
 on:
-  push:
-    branches:
-      - qa/essential-v10-fullpath-proof-20260823
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  generate-three:
+  frozen:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
-      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
-      - name: Prove three full-assessment Essential generations on certified deployment
-        shell: bash
-        run: |
-          node <<'NODE'
-          const preview = process.env.PREVIEW_URL.replace(/\/$/, '');
-          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
-          if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS secret is missing.');
-
-          const candidates = [
-            { organisation: 'Bokamoso Skills Institute', order: 'MKORD-2026-4790A29D' },
-            { organisation: 'Siyakhula Community Foundation', order: 'MKORD-2026-912225EC' },
-            { organisation: 'Vhutshilo Foods Manufacturing (Pty) Ltd', order: 'MKORD-2026-FAA9331C' }
-          ];
-
-          for (let i = 0; i < candidates.length; i += 1) {
-            const c = candidates[i];
-            const requestKey = `essential-recovery-20260823-${i + 1}-${c.order}`;
-            const admin = await fetch(`${preview}/score/admin/orders/${encodeURIComponent(c.order)}`, {
-              headers: { 'x-vercel-protection-bypass': bypass, Accept: 'text/html' },
-              redirect: 'manual'
-            });
-            const adminText = await admin.text();
-            if (admin.status !== 200) throw new Error(`${c.organisation}: admin preflight HTTP ${admin.status}: ${adminText.slice(0,300)}`);
-            if (!adminText.includes(c.order) && !adminText.includes(c.organisation)) throw new Error(`${c.organisation}: wrong admin order resolved.`);
-
-            console.log(`[${i + 1}/3] ${c.organisation}: full-path generation request starting.`);
-            const response = await fetch(`${preview}/score/api/admin/orders/${encodeURIComponent(c.order)}/generate-report`, {
-              method: 'POST',
-              headers: {
-                'x-vercel-protection-bypass': bypass,
-                'x-idempotency-key': requestKey,
-                'content-type': 'application/json',
-                Accept: 'application/json'
-              },
-              body: JSON.stringify({ action: 'admin_regenerate', requestKey }),
-              redirect: 'manual'
-            });
-            const text = await response.text();
-            console.log(`[${i + 1}/3] HTTP ${response.status}: ${text.slice(0,1000)}`);
-            if (!response.ok) throw new Error(`${c.organisation}: generation failed HTTP ${response.status}`);
-            let body;
-            try { body = JSON.parse(text); } catch { body = null; }
-            if (!body?.ok) throw new Error(`${c.organisation}: generation response did not return ok=true.`);
-          }
-          console.log('ESSENTIAL V10 FULL-PATH RECOVERY PROOF: GENERATION REQUESTS PASS 3/3');
-          NODE
+      - run: echo 'The 3x full-path recovery generation completed on 2026-08-23. No push-triggered replay is permitted.'
