@@ -39,9 +39,10 @@ jobs:
       - name: Prove bounded assurance safety regressions
         shell: bash
         run: |
-          node --test scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
-          node --test scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
-          node --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
+          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
 
       - name: Generate Bokamoso V1.2 Essential once
         shell: bash
