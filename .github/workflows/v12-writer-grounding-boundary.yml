@@ -1,0 +1,60 @@
+name: V1.2 Writer Grounding Boundary
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-writer-grounding-boundary.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+
+      - name: Add generic current-state and prescriptive-causality boundaries
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
+          s = p.read_text()
+          anchor = """    'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with \"one or two people\", \"a single employee\" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',\n"""
+          addition = anchor + """    'RELATIVE-STRENGTH BOUNDARY. A comparatively stronger self-assessed score, domain or response pattern does not by itself establish that a control, reporting channel, process or capability is functioning, established, workable, effective, operational, embedded or operating in practice. Unless the permitted deterministic facts explicitly establish that present operating state, describe it only as a reported relative strength, a comparatively stronger self-assessed area or a stronger reported position.',\n    'PRESCRIPTIVE CAUSALITY BOUNDARY. Recommendations and roadmap actions may describe the target control design and implementation steps, but do not claim that a proposed action will ensure, guarantee, prove or necessarily produce an operating outcome. Use bounded language such as supports, enables, helps establish or is intended to improve unless a deterministic fact states the outcome.',\n"""
+          if 'RELATIVE-STRENGTH BOUNDARY.' not in s:
+              if anchor not in s:
+                  raise SystemExit('generation prompt boundary anchor missing')
+              s = s.replace(anchor, addition, 1)
+          p.write_text(s)
+
+      - name: Prove compile and existing safety corpus
+        shell: bash
+        run: |
+          grep -F 'RELATIVE-STRENGTH BOUNDARY.' src/lib/reports/narrative/whole-manuscript-writer.ts
+          grep -F 'PRESCRIPTIVE CAUSALITY BOUNDARY.' src/lib/reports/narrative/whole-manuscript-writer.ts
+          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
+          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          npm run typecheck
+          git diff --check
+
+      - name: Commit grounded writer boundary
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/whole-manuscript-writer.ts
+          git commit -m "bound self-assessed strength and prescriptive causality claims"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
