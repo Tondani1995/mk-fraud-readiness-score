@@ -53,7 +53,7 @@ function numeric(value: unknown): number | undefined { return typeof value === '
 function textValue(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
 
 function requireProvider(model = selectNarrativeModel().requestedModel): { model: string; provider: string } {
-  if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) throw new NarrativeWriterUnavailableError();
+  if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();
   return { model, provider: providerFromModel(model) };
 }
 
