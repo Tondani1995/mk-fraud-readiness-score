@@ -20,17 +20,17 @@ jobs:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Allow Vercel OIDC in narrative provider preflight
+      - name: Allow native Vercel AI Gateway OIDC runtime
         shell: python
         run: |
           from pathlib import Path
           p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
           s = p.read_text()
-          old = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) throw new NarrativeWriterUnavailableError();"
-          new = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
+          old = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
+          new = """const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);\n  if (!model || (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) && !runningOnVercel)) throw new NarrativeWriterUnavailableError();"""
           if old not in s:
             if new in s:
-              print('OIDC provider preflight already applied.')
+              print('Native Vercel OIDC runtime allowance already applied.')
             else:
               raise SystemExit('Expected provider preflight not found; refusing broad rewrite.')
           else:
@@ -40,7 +40,8 @@ jobs:
       - name: Verify narrow auth change
         shell: bash
         run: |
-          grep -F "process.env.VERCEL_OIDC_TOKEN" src/lib/reports/narrative/whole-manuscript-writer.ts
+          grep -F "const runningOnVercel" src/lib/reports/narrative/whole-manuscript-writer.ts
+          grep -F "process.env.VERCEL_ENV" src/lib/reports/narrative/whole-manuscript-writer.ts
           git diff --check
 
       - name: Commit narrow fix
@@ -50,5 +51,5 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add src/lib/reports/narrative/whole-manuscript-writer.ts
           git diff --cached --quiet && exit 0
-          git commit -m "allow Vercel OIDC for report provider"
+          git commit -m "allow native Vercel OIDC for report provider"
           git push origin HEAD:qa/v12-essential-comparison-20260823
