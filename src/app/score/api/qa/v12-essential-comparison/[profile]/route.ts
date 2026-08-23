@@ -19,7 +19,7 @@ import {
 } from '@/lib/reports/narrative/essential-manuscript-coordinator';
 import type { EssentialSemanticReviewer } from '@/lib/reports/narrative/semantic-reviewer';
 import { createV11WholeManuscriptWriter } from '@/lib/reports/narrative/whole-manuscript-writer';
-import { renderValidatedCommercialPdf } from '@/lib/reports/render-validated-commercial-pdf';
+import { renderValidatedCommercialPdfWithNavigation } from '@/lib/reports/render-validated-commercial-pdf';
 import { EssentialValidationCascadeError } from '@/lib/reports/essential-validation-cascade';
 import type {
   AssembledReportData,
@@ -421,7 +421,7 @@ export async function GET(request: Request, props: { params: Promise<{ profile: 
       : undefined;
 
     const composed = await composeEssentialManuscript({ factPack, writer, semanticReviewer });
-    const pdf = await renderValidatedCommercialPdf({
+    const pdf = await renderValidatedCommercialPdfWithNavigation({
       data,
       content,
       narrative: composed.narrative,

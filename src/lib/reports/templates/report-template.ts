@@ -286,7 +286,7 @@ export function renderReportHtml(
       <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
-    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'The result reflects the control areas applicable to the organisation. Valid scope exclusions and oversight-routed controls are part of the adaptive assessment design; differences in assessed scope may limit direct comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
     ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} completed using the assessment's oversight question set rather than the standard question set. ${adaptiveScope.redirectedCount === 1 ? 'It remains' : 'They remain'} in the scored scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
@@ -758,7 +758,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       <div>
         <div class="cover-brand">MK FRAUD INSIGHTS</div>
         <div class="cover-rule"></div>
-        <div class="cover-eyebrow">Independent fraud risk advisory</div>
+        <div class="cover-eyebrow">Fraud readiness advisory</div>
         <h1>Essential Fraud Readiness<br/>Review</h1>
         <p class="cover-subtitle">An evidence-linked view of reported readiness, material risk, control priorities and leadership decisions.</p>
       </div>
