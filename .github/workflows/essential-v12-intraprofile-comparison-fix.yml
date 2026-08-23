@@ -1,0 +1,47 @@
+name: Essential V1.2 Intra-Profile Comparison Fix
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-intraprofile-comparison-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Add bounded intra-profile comparison adjudication
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/lib/reports/essential-validation-cascade.ts')
+          s = p.read_text()
+          needle = """  function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {\n"""
+          helper = """  // Comparing deterministic scores or relative positions inside this same assessment is not an\n  // external benchmark claim. Keep this narrow: any reference to peers, industry, benchmarks,\n  // averages, medians or percentiles remains outside this allowance.\n  function isBoundedIntraProfileComparison(source: string): boolean {\n    const text = source.trim();\n    if (!text) return false;\n    const internalFrame = /\\b(?:within (?:that|this|the) profile|assessed profile|domain(?:s)?|score(?:s)?|reported position(?:s)?)\\b/i.test(text);\n    const comparative = /\\b(?:higher|lower|stronger|weaker|comparatively stronger|relatively stronger|materially weaker|above|below)\\b/i.test(text);\n    const externalFrame = /\\b(?:peer(?:s)?|similar[- ]sized|industry|benchmark(?:s|ed|ing)?|average(?:s)?|median(?:s)?|percentile(?:s)?)\\b/i.test(text);\n    return internalFrame && comparative && !externalFrame;\n  }\n\n"""
+          if helper not in s:
+              if needle not in s: raise SystemExit('semanticDisposition insertion point not found')
+              s = s.replace(needle, helper + needle, 1)
+          old_repair = """      if (reviewed.disposition === 'REPAIR') {\n        if (reviewed.reasonCode === 'repairable_overstatement' && isBoundedRelativeStrengthContext(source)) {\n"""
+          new_repair = """      if (reviewed.disposition === 'REPAIR') {\n        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n        if (reviewed.reasonCode === 'repairable_overstatement' && isBoundedRelativeStrengthContext(source)) {\n"""
+          if old_repair not in s: raise SystemExit('REPAIR branch not found')
+          s = s.replace(old_repair,new_repair,1)
+          old_reject = """      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n"""
+          new_reject = """      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n"""
+          if old_reject not in s: raise SystemExit('REJECT branch not found')
+          p.write_text(s.replace(old_reject,new_reject,1))
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/essential-validation-cascade.ts
+          git commit -m "clear bounded intra-profile score comparisons in five-layer adjudication"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
