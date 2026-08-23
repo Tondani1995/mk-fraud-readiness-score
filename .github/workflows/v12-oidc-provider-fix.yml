@@ -20,67 +20,52 @@ jobs:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Apply narrow V1.2 report safety corrections
+      - name: Apply narrow V1.2 assurance false-positive correction
         shell: python
         run: |
           from pathlib import Path
 
-          # 1. Native Vercel runtime is allowed to use Vercel AI Gateway OIDC. Keep non-Vercel
-          # environments fail-closed unless an explicit Gateway credential exists.
-          p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
-          s = p.read_text()
-          old_auth = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
-          new_auth = """const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);\n  if (!model || (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) && !runningOnVercel)) throw new NarrativeWriterUnavailableError();"""
-          if old_auth in s:
-              s = s.replace(old_auth, new_auth, 1)
-              p.write_text(s)
-          elif new_auth not in s:
-              raise SystemExit('Expected provider preflight not found; refusing broad rewrite.')
+          core = Path('src/lib/reports/narrative/assurance-adjudication.ts')
+          text = core.read_text()
+          anchor = "const CONTROL_DESIGN_INDEPENDENT_REVIEW = /(?:\\b(?:separation|segregation|oversight|challenge|route|function|responsibilit(?:y|ies)|role|approval)\\b[^.!?]{0,180}\\bindependent review\\b|\\bindependent review\\b[^.!?]{0,180}\\b(?:role|function|responsibilit(?:y|ies)|route|requirement|separation|oversight|challenge)\\b)/i;"
+          addition = anchor + "\n// V1.2 Bokamoso runtime incident (2026-08-23): deterministic customer control wording such as\n// refunds/credits/overrides receiving independent review and cash counts performed with independent\n// review is a control requirement, not a claim that MK/the report performed assurance. Tier E actor\n// checks run first, so report/MK-as-verifier claims remain rejected before this narrow allow rule.\nconst CUSTOMER_CONTROL_REVIEW_ACTIVITY = /\\b(?:refunds?|credits?|write-?offs?|stock adjustments?|manual journals?|overrides?|cash|cash custodians?|counts?|reconciliations?|bankings?|payments?|supplier|bank[- ]detail|profile|access|recertification|activation|changes?|approvals?|exceptions?|reported concerns?|cases?)\\b[^.!?]{0,220}\\bindependent review\\b/i;"
+          if 'const CUSTOMER_CONTROL_REVIEW_ACTIVITY' not in text:
+              if anchor not in text:
+                  raise SystemExit('CONTROL_DESIGN_INDEPENDENT_REVIEW anchor missing; refusing broad rewrite.')
+              text = text.replace(anchor, addition, 1)
 
-          # 2. V1.2 only: replace one inherited V1.1 categorical fraud-mechanism sentence which the
-          # high-recall final scanner correctly refuses to auto-publish. Preserve V1.1 historical text.
-          q = Path('src/lib/reports/evidence-model/question-playbooks.ts')
-          t = q.read_text()
-          marker = "  'D4-Q05': { ...v12Base('D4-Q05'), controlObjective: 'Monitor fraud and control misuse by people inside the organisation.'"
-          d4q03 = "  'D4-Q03': { ...v12Base('D4-Q03'), fraudMechanism: 'As transaction volume grows, manual review may leave parts of the population without systematic scrutiny; risk-based data checks help surface suspicious patterns for investigation.' },\n"
-          if d4q03 not in t:
-              if marker not in t:
-                  raise SystemExit('V1.2 D4 override insertion point not found; refusing broad rewrite.')
-              t = t.replace(marker, d4q03 + marker, 1)
-              q.write_text(t)
+          list_anchor = "    CONTROL_DESIGN_INDEPENDENT_REVIEW,\n    DIRECT_CONTROL_ACTIVITY,"
+          list_replacement = "    CONTROL_DESIGN_INDEPENDENT_REVIEW,\n    CUSTOMER_CONTROL_REVIEW_ACTIVITY,\n    DIRECT_CONTROL_ACTIVITY,"
+          if '    CUSTOMER_CONTROL_REVIEW_ACTIVITY,' not in text:
+              if list_anchor not in text:
+                  raise SystemExit('Tier F allow-list anchor missing; refusing broad rewrite.')
+              text = text.replace(list_anchor, list_replacement, 1)
+          core.write_text(text)
 
-          # 3. Synthetic QA route only: expose the exact held/rejected candidate spans when the
-          # validation cascade fails. This does not change any release decision or customer route.
-          r = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
-          u = r.read_text()
-          import_line = "import { EssentialValidationCascadeError } from '@/lib/reports/essential-validation-cascade';\n"
-          anchor = "import { renderValidatedCommercialPdf } from '@/lib/reports/render-validated-commercial-pdf';\n"
-          if import_line not in u:
-              if anchor not in u:
-                  raise SystemExit('QA route import anchor missing.')
-              u = u.replace(anchor, anchor + import_line, 1)
-          old_catch = "  } catch (error) { const message=error instanceof Error ? error.message : String(error); console.error('v12_essential_comparison_failed',{profile:profileKey,message}); return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500)},{status:500,headers:{'Cache-Control':'no-store'}}); }"
-          new_catch = """  } catch (error) {\n    const message=error instanceof Error ? error.message : String(error);\n    const validation = error instanceof EssentialValidationCascadeError ? error.result.candidates\n      .filter((item)=>item.finalDisposition==='HELD_FOR_REVIEW'||item.finalDisposition==='REJECT')\n      .map((item)=>({ruleCode:item.ruleCode,path:item.path,span:item.span,spanHash:item.spanHash,finalDisposition:item.finalDisposition,decisions:item.decisions})) : undefined;\n    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});\n    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});\n  }"""
-          if old_catch in u:
-              u = u.replace(old_catch, new_catch, 1)
-              r.write_text(u)
-          elif new_catch not in u:
-              raise SystemExit('QA route catch seam not found; refusing broad rewrite.')
+          test = Path('scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs')
+          suite = test.read_text()
+          marker = "  'The report guides the organisation toward independent verification of operating effectiveness.'\n];"
+          replacement = "  'The report guides the organisation toward independent verification of operating effectiveness.',\n  'Close the material control weakness recorded for \\\"Refunds, credits, write-offs, stock adjustments, manual journals and overrides receive independent review where used\\\".',\n  'Finance and site managers must assign cash custodians, perform opening and closing counts with independent review, reconcile takings to receipts and bankings, record sealed transfers and investigate every shortage or overage against a defined threshold before the next cycle closes.'\n];"
+          if 'Close the material control weakness recorded for' not in suite:
+              if marker not in suite:
+                  raise SystemExit('MUST_ALLOW marker missing; refusing broad test rewrite.')
+              suite = suite.replace(marker, replacement, 1)
+          test.write_text(suite)
 
-      - name: Verify narrow changes
+      - name: Run bounded assurance regressions
         shell: bash
         run: |
-          grep -F "const runningOnVercel" src/lib/reports/narrative/whole-manuscript-writer.ts
-          grep -F "As transaction volume grows" src/lib/reports/evidence-model/question-playbooks.ts
-          grep -F "EssentialValidationCascadeError" 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          node --test scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          node --test scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          node --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
           git diff --check
 
-      - name: Commit narrow fix
+      - name: Commit proven narrow fix
         shell: bash
         run: |
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
-          git add src/lib/reports/narrative/whole-manuscript-writer.ts src/lib/reports/evidence-model/question-playbooks.ts 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          git add src/lib/reports/narrative/assurance-adjudication.ts scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
           git diff --cached --quiet && exit 0
-          git commit -m "diagnose V1.2 final safety holds"
+          git commit -m "allow deterministic customer control review language"
           git push origin HEAD:qa/v12-essential-comparison-20260823
