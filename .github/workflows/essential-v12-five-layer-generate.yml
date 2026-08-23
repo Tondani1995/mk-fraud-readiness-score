@@ -8,7 +8,7 @@ on:
       - .github/workflows/essential-v12-five-layer-generate.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
 
       - name: Require protected-preview bypass
         shell: bash
@@ -90,3 +91,16 @@ jobs:
           path: v12-reports/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Record successful run pointer
+        shell: bash
+        run: |
+          mkdir -p qa-output/v12-essential-five-layer
+          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('v12-reports/summary.json','utf8')); fs.writeFileSync('qa-output/v12-essential-five-layer/latest-success.json', JSON.stringify({runId:process.env.GITHUB_RUN_ID,sha:process.env.GITHUB_SHA,completedAt:new Date().toISOString(),summary},null,2)+'\n')"
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin qa/v12-essential-five-layer-proof-20260823
+          git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
+          git add qa-output/v12-essential-five-layer/latest-success.json
+          git commit -m "record successful V1.2 three-report proof"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
