@@ -1,0 +1,13 @@
+HTTP/2 500 
+age: 0
+cache-control: no-store
+content-type: application/json
+date: Sun, 23 Aug 2026 19:31:59 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /score/api/qa/v12-vhutshilo-product-pair/[artifact]
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-vercel-id: cle1::iad1::mcfzt-1787513432631-23fb020fc2c6
+
