@@ -1,2 +1,2 @@
-QA-only deployment trigger for Vhutshilo Comprehensive Luna generation via Vercel OIDC.
+QA-only deployment trigger for the three-profile same-assessment Essential vs Comprehensive V1.2 proof.
 Commercial engine source remains 85fd2a0e21a6221bbd6b5032cc0bd271ebe7d26d.
