@@ -1,0 +1,49 @@
+name: V1.2 Relative Strength Foundation Hardening
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-relative-strength-foundation-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Patch writer and reviewer boundaries
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
+          s = p.read_text()
+          old = "Do not upgrade self-assessed strength into present-state capability language.'"
+          new = "Do not upgrade self-assessed strength into present-state capability language. In particular, do not describe a relative strength as an established foundation, some established foundations, a foundation already in place, a functioning foundation, or equivalent present-state foundation language unless a permitted deterministic fact explicitly establishes that operating state.'"
+          if old not in s:
+              raise SystemExit('generation boundary anchor missing')
+          s = s.replace(old, new, 1)
+          old2 = "Unless a permitted fact explicitly establishes that present operating state, such wording must be REPAIR rather than ALLOW; retain the management implication but rewrite it as a reported relative strength or comparatively stronger self-assessed position. REPAIR means"
+          new2 = "Unless a permitted fact explicitly establishes that present operating state, such wording must be REPAIR rather than ALLOW; this includes phrases such as established foundation, established foundations, foundation already in place, functioning foundation, workable foundation or equivalent present-state foundation claims. Retain the management implication but rewrite it as a reported relative strength or comparatively stronger self-assessed position. REPAIR means"
+          if old2 not in s:
+              raise SystemExit('semantic reviewer boundary anchor missing')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          git diff -- src/lib/reports/narrative/whole-manuscript-writer.ts
+      - name: Commit source correction
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/whole-manuscript-writer.ts
+          git commit -m "bound relative-strength foundation language"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
