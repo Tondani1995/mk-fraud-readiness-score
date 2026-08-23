@@ -1,0 +1,55 @@
+name: V1.2 Final PDF Package
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-final-pdf-package.yml
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Verify final same-SHA PDFs exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s qa-output/v12-final-same-sha/Bokamoso_Skills_Institute_Essential_V1_2.pdf
+          test -s qa-output/v12-final-same-sha/Siyakhula_Community_Foundation_Essential_V1_2.pdf
+          test -s qa-output/v12-final-same-sha/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+          cat qa-output/v12-final-same-sha/source.json
+          cat qa-output/v12-final-same-sha/*-sha256.txt
+      - name: Upload final owner-review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v12-final-owner-review
+          path: |
+            qa-output/v12-final-same-sha/Bokamoso_Skills_Institute_Essential_V1_2.pdf
+            qa-output/v12-final-same-sha/Siyakhula_Community_Foundation_Essential_V1_2.pdf
+            qa-output/v12-final-same-sha/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+            qa-output/v12-final-same-sha/*-meta.json
+            qa-output/v12-final-same-sha/*-sha256.txt
+            qa-output/v12-final-same-sha/source.json
+            qa-output/v12-final-same-sha/safety.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record package run
+        shell: bash
+        run: |
+          mkdir -p qa-output/v12-final-package
+          printf '{"runId":"%s","sourceEvidence":"qa-output/v12-final-same-sha","artifact":"essential-v12-final-owner-review"}\n' "$GITHUB_RUN_ID" > qa-output/v12-final-package/latest.json
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin qa/v12-essential-five-layer-proof-20260823
+          git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
+          git add qa-output/v12-final-package/latest.json
+          git commit -m "record final V1.2 owner-review artifact package"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
