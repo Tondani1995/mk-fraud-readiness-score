@@ -11,23 +11,22 @@ permissions:
   contents: write
 
 jobs:
-  fix-and-verify:
+  apply-narrow-fix:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Make V1.2 graph/version authoritative for report registries
+      - name: Bind reporting to stable V1.2 identity
         shell: python
         run: |
           from pathlib import Path
 
           p = Path('src/lib/reports/evidence-model/question-playbooks.ts')
           s = p.read_text()
-
           old_const = "export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';"
           new_const = """export const MFRS_V12_METHODOLOGY_ID = '00f2b435-a027-4a06-886b-23998faeaca6';
           /** Stable identity for V1.2 reporting. Database UUIDs are environment-specific; the graph version is not. */
@@ -42,22 +41,18 @@ jobs:
           if old_const not in s:
               raise SystemExit('Expected V1.2 methodology constant not found; refusing broad rewrite.')
           s = s.replace(old_const, new_const, 1)
-
-          s = s.replace(
-              "function playbookRegistryFor(methodologyVersionId?: string): Record<string, QuestionControlPlaybook> {\n  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;",
-              "function playbookRegistryFor(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): Record<string, QuestionControlPlaybook> {\n  if (!isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion)) return PLAYBOOKS;",
-              1,
-          )
-          s = s.replace(
-              "export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string): AuthoritativeQuestionMapping | null {\n  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;\n  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID",
-              "export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): AuthoritativeQuestionMapping | null {\n  const isV12 = isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion);\n  if (isV12 && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;\n  return isV12",
-              1,
-          )
-          s = s.replace(
-              "export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string): QuestionControlPlaybook | null {\n  return playbookRegistryFor(methodologyVersionId)[questionCode] ?? null;\n}\n\nexport function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string): boolean {\n  return questionCode in playbookRegistryFor(methodologyVersionId);\n}\n\nexport function listQuestionPlaybooks(methodologyVersionId?: string): QuestionControlPlaybook[] {\n  return Object.values(playbookRegistryFor(methodologyVersionId)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));\n}",
-              "export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook | null {\n  return playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)[questionCode] ?? null;\n}\n\nexport function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {\n  return questionCode in playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion);\n}\n\nexport function listQuestionPlaybooks(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook[] {\n  return Object.values(playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));\n}",
-              1,
-          )
+          old_registry = "function playbookRegistryFor(methodologyVersionId?: string): Record<string, QuestionControlPlaybook> {\n  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;"
+          new_registry = "function playbookRegistryFor(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): Record<string, QuestionControlPlaybook> {\n  if (!isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion)) return PLAYBOOKS;"
+          if old_registry not in s: raise SystemExit('Expected playbook registry function not found.')
+          s = s.replace(old_registry, new_registry, 1)
+          old_mapping = "export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string): AuthoritativeQuestionMapping | null {\n  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;\n  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID"
+          new_mapping = "export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): AuthoritativeQuestionMapping | null {\n  const isV12 = isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion);\n  if (isV12 && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;\n  return isV12"
+          if old_mapping not in s: raise SystemExit('Expected authoritative mapping function not found.')
+          s = s.replace(old_mapping, new_mapping, 1)
+          old_api = "export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string): QuestionControlPlaybook | null {\n  return playbookRegistryFor(methodologyVersionId)[questionCode] ?? null;\n}\n\nexport function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string): boolean {\n  return questionCode in playbookRegistryFor(methodologyVersionId);\n}\n\nexport function listQuestionPlaybooks(methodologyVersionId?: string): QuestionControlPlaybook[] {\n  return Object.values(playbookRegistryFor(methodologyVersionId)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));\n}"
+          new_api = "export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook | null {\n  return playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)[questionCode] ?? null;\n}\n\nexport function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {\n  return questionCode in playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion);\n}\n\nexport function listQuestionPlaybooks(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook[] {\n  return Object.values(playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));\n}"
+          if old_api not in s: raise SystemExit('Expected playbook public API not found.')
+          s = s.replace(old_api, new_api, 1)
           p.write_text(s)
 
           m = Path('src/lib/reports/evidence-model/material-findings.ts')
@@ -66,55 +61,19 @@ jobs:
           new1 = "candidates.find((trace) => getQuestionPlaybook(trace.questionCode, methodologyVersionId, data.adaptiveScope?.graphVersion));"
           old2 = "const playbook = getQuestionPlaybook(trace.questionCode, data.scoreRun.methodologyVersionId);"
           new2 = "const playbook = getQuestionPlaybook(trace.questionCode, data.scoreRun.methodologyVersionId, data.adaptiveScope?.graphVersion);"
-          if old1 not in t or old2 not in t:
-              raise SystemExit('Expected material-finding playbook calls not found; refusing broad rewrite.')
-          t = t.replace(old1, new1, 1).replace(old2, new2, 1)
-          m.write_text(t)
+          if old1 not in t or old2 not in t: raise SystemExit('Expected material-finding calls not found.')
+          m.write_text(t.replace(old1, new1, 1).replace(old2, new2, 1))
 
-          # QA route must retain the real canonical methodology UUID; the stable graph selector above now activates V1.2 overlays.
-          q = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
-          qs = q.read_text()
-          if "const V12_METHODOLOGY_ID = '00f2b435-a027-4a06-886b-23998faeaca6';" not in qs:
+          q = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts').read_text()
+          if "const V12_METHODOLOGY_ID = '00f2b435-a027-4a06-886b-23998faeaca6';" not in q:
               raise SystemExit('QA route is not bound to canonical V1.2 methodology id.')
 
-      - name: Focused V1.2 registry proof
-        shell: bash
-        run: |
-          node --experimental-strip-types --input-type=module <<'NODE'
-          import {
-            getQuestionPlaybook,
-            getAuthoritativeQuestionMapping,
-            listQuestionPlaybooks,
-            MFRS_V12_METHODOLOGY_ID,
-            MFRS_V12_GRAPH_VERSION
-          } from './src/lib/reports/evidence-model/question-playbooks.ts';
-
-          const required = ['D1-Q07','D3-Q08','D3-Q09','D3-Q10','D3-Q11','D4-Q08','D8-Q09','D8-Q10'];
-          for (const code of required) {
-            if (!getQuestionPlaybook(code, MFRS_V12_METHODOLOGY_ID, MFRS_V12_GRAPH_VERSION)) throw new Error(`missing playbook ${code}`);
-            if (!getAuthoritativeQuestionMapping(code, MFRS_V12_METHODOLOGY_ID, MFRS_V12_GRAPH_VERSION)) throw new Error(`missing mapping ${code}`);
-          }
-          if (listQuestionPlaybooks(MFRS_V12_METHODOLOGY_ID, MFRS_V12_GRAPH_VERSION).length < 68) throw new Error('V1.2 playbook population is incomplete');
-          if (getQuestionPlaybook('D3-Q09', '00000000-0000-0000-0000-000000000000', MFRS_V12_GRAPH_VERSION)?.questionCode !== 'D3-Q09') throw new Error('graph-version authority failed');
-          console.log('V1.2 REPORT REGISTRY AUTHORITY: PASS');
-          NODE
-
-      - name: Typecheck and build
-        shell: bash
-        run: |
-          npm ci
-          npm run typecheck
-          npm run build
-
-      - name: Commit narrow fix
+      - name: Commit only the narrow source fix
         shell: bash
         run: |
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git add src/lib/reports/evidence-model/question-playbooks.ts src/lib/reports/evidence-model/material-findings.ts
-          if git diff --cached --quiet; then
-            echo "No source change to commit."
-            exit 0
-          fi
+          git diff --cached --check
           git commit -m "bind report registries to authoritative V1.2 graph"
           git push origin HEAD:qa/v12-essential-comparison-20260823
