@@ -1,0 +1,17 @@
+HTTP/2 200 
+age: 0
+cache-control: no-store
+content-disposition: attachment; filename="RPT-MKFRS-V12-COMP-SIYAKHULA-V1.pdf"
+content-type: application/pdf
+date: Sun, 23 Aug 2026 17:53:08 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /score/api/qa/v12-essential-comparison/[profile]
+x-mk-graph: MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821
+x-mk-maturity: Developing
+x-mk-score: 42.73
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-vercel-id: cle1::iad1::jdxfd-1787507512121-9ad005e8142e
+
