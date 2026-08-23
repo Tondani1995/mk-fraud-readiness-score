@@ -14,7 +14,9 @@ const MUST_ALLOW = [
   'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.',
   'The assessment points management toward independent verification.',
   'This assessment directs management towards independent review before closure.',
-  'The report guides the organisation toward independent verification of operating effectiveness.'
+  'The report guides the organisation toward independent verification of operating effectiveness.',
+  'Close the material control weakness recorded for "Refunds, credits, write-offs, stock adjustments, manual journals and overrides receive independent review where used".',
+  'Finance and site managers must assign cash custodians, perform opening and closing counts with independent review, reconcile takings to receipts and bankings, record sealed transfers and investigate every shortage or overage against a defined threshold before the next cycle closes.'
 ];
 const MUST_REPAIR = [
   'This assessment has independently verified that evidence exists.',
