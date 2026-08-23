@@ -1,0 +1,47 @@
+name: Essential V1.2 Siyakhula Smoke
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-siyakhula-smoke.yml
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-58wsaga36-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Generate Siyakhula only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          mkdir -p qa-output/v12-siyakhula-smoke
+          code=$(curl -sS -w '%{http_code}' -D qa-output/v12-siyakhula-smoke/headers.txt -o qa-output/v12-siyakhula-smoke/result.bin -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/siyakhula")
+          echo "$code" > qa-output/v12-siyakhula-smoke/http-code.txt
+          if [ "$code" = "200" ] && head -c 4 qa-output/v12-siyakhula-smoke/result.bin | grep -q '%PDF'; then
+            mv qa-output/v12-siyakhula-smoke/result.bin qa-output/v12-siyakhula-smoke/Siyakhula_Community_Foundation_Essential_V1_2.pdf
+          else
+            mv qa-output/v12-siyakhula-smoke/result.bin qa-output/v12-siyakhula-smoke/diagnostic.json
+            cat qa-output/v12-siyakhula-smoke/diagnostic.json
+            exit 1
+          fi
+      - name: Commit successful smoke binary
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add qa-output/v12-siyakhula-smoke
+          git commit -m "capture successful Siyakhula V1.2 smoke after intra-profile adjudication"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
