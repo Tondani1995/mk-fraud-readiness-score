@@ -20,28 +20,59 @@ jobs:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - name: Allow native Vercel AI Gateway OIDC runtime
+      - name: Apply narrow V1.2 report safety corrections
         shell: python
         run: |
           from pathlib import Path
+
+          # 1. Native Vercel runtime is allowed to use Vercel AI Gateway OIDC. Keep non-Vercel
+          # environments fail-closed unless an explicit Gateway credential exists.
           p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
           s = p.read_text()
-          old = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
-          new = """const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);\n  if (!model || (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) && !runningOnVercel)) throw new NarrativeWriterUnavailableError();"""
-          if old not in s:
-            if new in s:
-              print('Native Vercel OIDC runtime allowance already applied.')
-            else:
+          old_auth = "if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) throw new NarrativeWriterUnavailableError();"
+          new_auth = """const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);\n  if (!model || (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) && !runningOnVercel)) throw new NarrativeWriterUnavailableError();"""
+          if old_auth in s:
+              s = s.replace(old_auth, new_auth, 1)
+              p.write_text(s)
+          elif new_auth not in s:
               raise SystemExit('Expected provider preflight not found; refusing broad rewrite.')
-          else:
-            s = s.replace(old, new, 1)
-            p.write_text(s)
 
-      - name: Verify narrow auth change
+          # 2. V1.2 only: replace one inherited V1.1 categorical fraud-mechanism sentence which the
+          # high-recall final scanner correctly refuses to auto-publish. Preserve V1.1 historical text.
+          q = Path('src/lib/reports/evidence-model/question-playbooks.ts')
+          t = q.read_text()
+          marker = "  'D4-Q05': { ...v12Base('D4-Q05'), controlObjective: 'Monitor fraud and control misuse by people inside the organisation.'"
+          d4q03 = "  'D4-Q03': { ...v12Base('D4-Q03'), fraudMechanism: 'As transaction volume grows, manual review may leave parts of the population without systematic scrutiny; risk-based data checks help surface suspicious patterns for investigation.' },\n"
+          if d4q03 not in t:
+              if marker not in t:
+                  raise SystemExit('V1.2 D4 override insertion point not found; refusing broad rewrite.')
+              t = t.replace(marker, d4q03 + marker, 1)
+              q.write_text(t)
+
+          # 3. Synthetic QA route only: expose the exact held/rejected candidate spans when the
+          # validation cascade fails. This does not change any release decision or customer route.
+          r = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
+          u = r.read_text()
+          import_line = "import { EssentialValidationCascadeError } from '@/lib/reports/essential-validation-cascade';\n"
+          anchor = "import { renderValidatedCommercialPdf } from '@/lib/reports/render-validated-commercial-pdf';\n"
+          if import_line not in u:
+              if anchor not in u:
+                  raise SystemExit('QA route import anchor missing.')
+              u = u.replace(anchor, anchor + import_line, 1)
+          old_catch = "  } catch (error) { const message=error instanceof Error ? error.message : String(error); console.error('v12_essential_comparison_failed',{profile:profileKey,message}); return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500)},{status:500,headers:{'Cache-Control':'no-store'}}); }"
+          new_catch = """  } catch (error) {\n    const message=error instanceof Error ? error.message : String(error);\n    const validation = error instanceof EssentialValidationCascadeError ? error.result.candidates\n      .filter((item)=>item.finalDisposition==='HELD_FOR_REVIEW'||item.finalDisposition==='REJECT')\n      .map((item)=>({ruleCode:item.ruleCode,path:item.path,span:item.span,spanHash:item.spanHash,finalDisposition:item.finalDisposition,decisions:item.decisions})) : undefined;\n    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});\n    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});\n  }"""
+          if old_catch in u:
+              u = u.replace(old_catch, new_catch, 1)
+              r.write_text(u)
+          elif new_catch not in u:
+              raise SystemExit('QA route catch seam not found; refusing broad rewrite.')
+
+      - name: Verify narrow changes
         shell: bash
         run: |
           grep -F "const runningOnVercel" src/lib/reports/narrative/whole-manuscript-writer.ts
-          grep -F "process.env.VERCEL_ENV" src/lib/reports/narrative/whole-manuscript-writer.ts
+          grep -F "As transaction volume grows" src/lib/reports/evidence-model/question-playbooks.ts
+          grep -F "EssentialValidationCascadeError" 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
           git diff --check
 
       - name: Commit narrow fix
@@ -49,7 +80,7 @@ jobs:
         run: |
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
-          git add src/lib/reports/narrative/whole-manuscript-writer.ts
+          git add src/lib/reports/narrative/whole-manuscript-writer.ts src/lib/reports/evidence-model/question-playbooks.ts 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
           git diff --cached --quiet && exit 0
-          git commit -m "allow native Vercel OIDC for report provider"
+          git commit -m "diagnose V1.2 final safety holds"
           git push origin HEAD:qa/v12-essential-comparison-20260823
