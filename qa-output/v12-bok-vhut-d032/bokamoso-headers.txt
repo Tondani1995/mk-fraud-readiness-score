@@ -1,0 +1,17 @@
+HTTP/2 200 
+age: 0
+cache-control: no-store
+content-disposition: attachment; filename="RPT-MKFRS-V12-COMP-BOKAMOSO-V1.pdf"
+content-type: application/pdf
+date: Sun, 23 Aug 2026 17:56:36 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /score/api/qa/v12-essential-comparison/[profile]
+x-mk-graph: MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821
+x-mk-maturity: Reactive
+x-mk-score: 30.12
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-vercel-id: sfo1::iad1::jzpdg-1787507712718-6bdc0170e0b1
+
