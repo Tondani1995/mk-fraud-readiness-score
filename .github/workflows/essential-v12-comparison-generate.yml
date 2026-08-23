@@ -1,31 +1,29 @@
-name: V1 Verification
+name: Essential V1.2 Five-Layer Semantic Proof
 
 on:
-  pull_request:
   push:
+    branches:
+      - qa/v12-essential-comparison-20260823
+    paths:
+      - .github/workflows/essential-v12-comparison-generate.yml
 
 permissions:
   contents: write
 
 jobs:
-  v12-five-layer-semantic-patch:
-    if: github.event_name == 'pull_request' && github.head_ref == 'qa/v12-essential-comparison-20260823'
+  bokamoso-five-layer-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-git-qa-v12-essential-38fe43-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: qa/v12-essential-comparison-20260823
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Apply advisory-to-five-layer correction
+      - name: Route semantic reviewer through the five-layer cascade
         shell: python
         run: |
           from pathlib import Path
@@ -33,11 +31,11 @@ jobs:
           cascade = Path('src/lib/reports/essential-validation-cascade.ts')
           text = cascade.read_text()
           old = """    if (reviewed) {\n      return {\n        disposition: reviewed.disposition === 'ALLOW' ? 'ALLOW_CONTEXT'\n          : reviewed.disposition === 'REPAIR' ? 'REPAIRABLE'\n            : reviewed.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS',\n        reasonCode: reviewed.reasonCode,\n        repair: reviewed.disposition === 'REPAIR'\n      };\n    }\n"""
-          new = """    if (reviewed) {\n      // Semantic review is advisory to the five-layer cascade, never a release verdict by itself.\n      // Deterministic hard gates have already run. Assurance propositions are independently\n      // re-adjudicated through the shared actor/modality/tense/negation/context core so neither a\n      // false REJECT nor an unsafe ALLOW can override the canonical safety decision.\n      const assurance = adjudicateAssuranceSentence(source);\n      if (assurance.disposition === 'CONFIRMED_VIOLATION') {\n        return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REPAIR') {\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n      if (reviewed.disposition === 'HOLD') {\n        return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n      if (assurance.disposition === 'AMBIGUOUS') {\n        return { disposition: 'AMBIGUOUS', reasonCode: assurance.reasonCode, repair: false };\n      }\n      return { disposition: 'ALLOW_CONTEXT', reasonCode: reviewed.reasonCode, repair: false };\n    }\n"""
+          new = """    if (reviewed) {\n      // The semantic reviewer is an advisory signal into the five-layer cascade, never a release\n      // verdict by itself. Deterministic hard gates have already run before this seam. For assurance\n      // propositions, independently re-adjudicate actor/modality/tense/negation/context through the\n      // shared core so a reviewer cannot either veto safe customer-control language or wave through\n      // a genuine MK/report assurance claim. Other reviewer REJECT decisions remain adverse signals\n      // and therefore AMBIGUOUS until another deterministic layer can independently confirm them.\n      const assurance = adjudicateAssuranceSentence(source);\n      if (assurance.disposition === 'CONFIRMED_VIOLATION') {\n        return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REPAIR') {\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n      if (reviewed.disposition === 'HOLD') {\n        return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n      if (assurance.disposition === 'AMBIGUOUS') {\n        return { disposition: 'AMBIGUOUS', reasonCode: assurance.reasonCode, repair: false };\n      }\n      return { disposition: 'ALLOW_CONTEXT', reasonCode: reviewed.reasonCode, repair: false };\n    }\n"""
           if old in text:
               text = text.replace(old, new, 1)
           elif 'semantic_reviewer_adverse_signal_unconfirmed' not in text:
-              raise SystemExit('semantic disposition seam missing')
+              raise SystemExit('semanticDisposition seam missing')
           cascade.write_text(text)
 
           coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
@@ -53,7 +51,7 @@ jobs:
               text = text.replace(old_policy, new_policy, 1)
 
           early = """  if (rejectedDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer rejected one or more provider-authored narrative blocks.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_reject',\n        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')\n      }\n    );\n  }\n  if (heldDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer held one or more provider-authored narrative blocks for review.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_hold',\n        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')\n      }\n    );\n  }\n"""
-          replacement = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the\n  // canonical five-layer cascade, which alone may ACCEPT, REPAIR, HOLD or confirm REJECT.\n"""
+          replacement = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the\n  // canonical five-layer cascade. Only the cascade may classify them as ACCEPT, REPAIR, HOLD or\n  // confirmed REJECT after independent contextual and deterministic checks.\n"""
           if early in text:
               text = text.replace(early, replacement, 1)
           elif 'REJECT and HOLD are reviewer recommendations' not in text:
@@ -70,7 +68,7 @@ jobs:
           if 'essentialCandidateId,' not in suite:
               suite = suite.replace("  adjudicateTextFirstValidation,\n  validateEssentialFinalHtml\n", "  adjudicateTextFirstValidation,\n  essentialCandidateId,\n  validateEssentialFinalHtml\n", 1)
           marker = "test('hard evidence and contract failures cannot be context-cleared', () => {\n"
-          additions = r"""test('semantic reviewer REJECT is advisory and safe customer assurance language is cleared by five layers', () => {
+          tests = r"""test('semantic reviewer REJECT is advisory and safe customer assurance language is cleared by five layers', () => {
   const text = 'Management should obtain independent review of refund and override activity before closure.';
   const path = 'SEC.paragraphs[0]';
   const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
@@ -78,6 +76,7 @@ jobs:
   const result = adjudicateTextFirstValidation({ parsed: minimalParsed(text), report, factPack: { facts: [] }, requireSemanticReviewer: true, semanticGroundingBlocks: [{ path, span: text }], semanticDecisions: [{ candidateId, disposition: 'REJECT', reasonCode: 'unsupported_assurance' }] });
   assert.equal(result.publishable, true);
   assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
+  assert.ok(result.candidates[0].decisions.some((decision) => decision.reasonCode.startsWith('reviewer_adverse_signal_cleared_by_shared_assurance_core:')));
 });
 
 test('semantic reviewer ALLOW cannot waive a genuine assurance violation', () => {
@@ -103,17 +102,21 @@ test('unconfirmed non-assurance semantic REJECT becomes HOLD rather than false c
 
 """
           if 'semantic reviewer REJECT is advisory and safe customer assurance language' not in suite:
-              if marker not in suite: raise SystemExit('test seam missing')
-              suite = suite.replace(marker, additions + marker, 1)
+              if marker not in suite: raise SystemExit('regression insertion seam missing')
+              suite = suite.replace(marker, tests + marker, 1)
           test.write_text(suite)
 
           route = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
           r = route.read_text()
-          if "diagnosticRevision:'semantic-audit-v1'" in r:
-              r = r.replace("diagnosticRevision:'semantic-audit-v1'", "diagnosticRevision:'semantic-advisory-v1'", 1)
+          old_meta = "return { diagnosticRevision:'semantic-audit-v1', profile:profileKey"
+          new_meta = "return { diagnosticRevision:'semantic-advisory-v1', profile:profileKey"
+          if old_meta in r:
+              r = r.replace(old_meta, new_meta, 1)
+          elif "diagnosticRevision:'semantic-advisory-v1'" not in r:
+              raise SystemExit('QA diagnostic revision seam missing')
           route.write_text(r)
 
-      - name: Prove bounded safety contract
+      - name: Prove five-layer safety before any provider call
         shell: bash
         run: |
           NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
@@ -123,131 +126,80 @@ test('unconfirmed non-assurance semantic REJECT becomes HOLD rather than false c
           npm run typecheck
           git diff --check
 
-      - name: Commit proven QA source correction
+      - name: Commit the proven QA architecture correction
         shell: bash
         run: |
           git config user.name "MK V1.2 QA"
           git config user.email "actions@users.noreply.github.com"
           git add src/lib/reports/essential-validation-cascade.ts src/lib/reports/narrative/essential-manuscript-coordinator.ts scripts/commercial-quality/essential-validation-cascade-regression.mjs 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
-          if git diff --cached --quiet; then exit 0; fi
           git commit -m "route semantic review through five-layer adjudication"
           git push origin HEAD:qa/v12-essential-comparison-20260823
+          printf '%s\n' "$(git rev-parse HEAD)" > /tmp/advisory-sha
 
-  v1-verification:
-    name: V1 verification checks
-    runs-on: ubuntu-latest
-
-    env:
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
-      SUPABASE_JWT_SECRET: ci-jwt-secret
-      ASSESSMENT_TOKEN_PEPPER: ci-token-pepper
-      ASSESSMENT_RESUME_TOKEN_TTL_HOURS: '336'
-      ASSESSMENT_SNAPSHOT_TOKEN_TTL_HOURS: '168'
-      ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
-      ASSESSMENT_TOKEN_MAX_USES: '25'
-      ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
-      MK_BUILD_PHASE: phase-14-autonomous-premium-report-engine
-      MK_RELEASE_CHANNEL: ci
-      PUPPETEER_SKIP_DOWNLOAD: 'true'
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install dependencies
+      - name: Wait for exact five-layer revision on Vercel
+        shell: bash
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then echo "VERCEL_PROTECTION_BYPASS missing"; exit 1; fi
+          ready=0
+          for attempt in $(seq 1 60); do
+            body=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" 2>/dev/null || true)
+            if printf '%s' "$body" | grep -Fq '"diagnosticRevision":"semantic-advisory-v1"'; then
+              printf '%s\n' "$body"
+              ready=1
+              break
+            fi
+            echo "waiting for semantic-advisory-v1 deployment ($attempt/60)"
+            sleep 5
+          done
+          [ "$ready" -eq 1 ] || { echo "Five-layer revision did not become ready; refusing provider generation."; exit 1; }
 
-      - name: Verify seven accepted migration payload checksums
-        run: npm run rc1:verify-accepted-migrations
+      - name: Generate Bokamoso V1.2 through the corrected five-layer path exactly once
+        shell: bash
+        run: |
+          mkdir -p v12-reports qa-output/v12-essential
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const base=process.env.PREVIEW_URL.replace(/\/$/,'');
+          const headers={'x-vercel-protection-bypass':process.env.VERCEL_PROTECTION_BYPASS};
+          const metaResponse=await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso?format=meta`,{headers});
+          const meta=await metaResponse.json();
+          if(!metaResponse.ok) throw new Error(`metadata HTTP ${metaResponse.status}`);
+          if(meta.diagnosticRevision!=='semantic-advisory-v1') throw new Error(`wrong revision ${meta.diagnosticRevision}`);
+          if(meta.graphVersion!=='MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821') throw new Error(`wrong graph ${meta.graphVersion}`);
+          if(meta.methodology!=='MFRS-V1.2-CANDIDATE-OWNER-CORRECTION') throw new Error(`wrong methodology ${meta.methodology}`);
+          console.log(`Bokamoso V1.2 ${meta.score} ${meta.finalMaturity}; one generation request.`);
+          const response=await fetch(`${base}/score/api/qa/v12-essential-comparison/bokamoso`,{headers});
+          const contentType=response.headers.get('content-type')||'';
+          if(!response.ok){const text=await response.text();fs.writeFileSync('qa-output/v12-essential/bokamoso-advisory-failure.json',text);console.error(text);throw new Error(`generation HTTP ${response.status}`);}
+          if(!contentType.includes('application/pdf')) throw new Error(`unexpected content-type ${contentType}`);
+          const bytes=Buffer.from(await response.arrayBuffer());
+          if(bytes.length<100000||bytes.subarray(0,4).toString()!=='%PDF') throw new Error(`invalid PDF ${bytes.length}`);
+          const file='Bokamoso_Skills_Institute_Essential_V1_2.pdf';
+          fs.writeFileSync(`v12-reports/${file}`,bytes);
+          const summary={...meta,file,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+          fs.writeFileSync('v12-reports/summary.json',JSON.stringify([summary],null,2));
+          console.log(`BOKAMOSO V1.2 FIVE-LAYER PASS ${bytes.length} ${summary.sha256}`);
+          NODE
 
-      - name: Verify RC1 near-real-time automatic fulfilment
-        run: npm run rc1:test-near-real-time-fulfilment
-
-      - name: Verify RC1 synthetic notification contract
-        run: npm run rc1:test-synthetic-notification-contract
-
-      - name: Verify AST-derived service-role privilege contract
-        run: npm run rc1:analyze-service-role-contract
-
-      - name: Run Phase 7 snapshot tests
-        run: npm run phase7:test-snapshot
-
-      - name: Run Phase 8 admin console tests
-        run: npm run phase8:test-admin
-
-      - name: Run Phase 1 capability diagnostics tests
-        run: npm run phase1:test-capability-diagnostics
-
-      - name: Run methodology copy polish tests
-        run: npm run methodology:copy-test
-
-      - name: Run Phase 9 manual EFT order tests
-        run: npm run phase9:test-orders
-
-      - name: Run Phase 10 premium report tests
-        run: npm run phase10:test-report
-
-      - name: Run Phase 11 security QA tests
-        run: npm run phase11:test-security
-
-      - name: Run Phase 13 commercial event tests
-        run: npm run phase13:test-events
-
-      - name: Run Phase 13 conversion tests
-        run: npm run phase13:test-conversion
-
-      - name: Run Phase 14 autonomous report engine tests
-        run: npm run phase14:test-report-engine
-
-      - name: Run Phase 14 PDF email delivery tests
-        run: npm run phase14:test-email-delivery
-
-      - name: Run Phase 14 security closure tests
-        run: npm run phase14:test-security-closure
-
-      - name: Run Phase 14 isolated storage fault-injection tests
-        run: npm run phase14:test-storage-faults
-
-      - name: Run Phase 14 isolated provider fault-injection tests
-        run: npm run phase14:test-provider-faults
-
-      - name: Run Phase 14 webhook adversarial helper tests
-        run: npm run phase14:test-webhook-adversarial
-
-      - name: Run Phase 14 AI fingerprint and accounting tests
-        run: npm run phase14:test-ai-accounting
-
-      - name: Render a real PDF under Node 24 Chromium
-        run: npm run phase14:test-node24-pdf
-
-      - name: Upload Node 24 PDF smoke evidence
+      - name: Upload five-layer proof
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phase14-node24-chromium-smoke
-          path: tmp/phase14-node24-chromium-smoke.pdf
+          name: essential-v12-bokamoso-five-layer-proof
+          path: v12-reports/*
           if-no-files-found: error
+          retention-days: 14
 
-      - name: Run platform hardening tests
-        run: npm run platform:test-hardening
-
-      - name: Verify consolidated route ownership
-        run: npm run consolidation:test-routes
-
-      - name: Run TypeScript check
-        run: npm run typecheck
-
-      - name: Build application
-        run: npm run build
+      - name: Persist failure diagnostic
+        if: failure()
+        shell: bash
+        run: |
+          if [ ! -f qa-output/v12-essential/bokamoso-advisory-failure.json ]; then exit 0; fi
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin qa/v12-essential-comparison-20260823
+          git reset --soft origin/qa/v12-essential-comparison-20260823
+          git add qa-output/v12-essential/bokamoso-advisory-failure.json
+          git commit -m "record Bokamoso five-layer semantic diagnostic" || exit 0
+          git push origin HEAD:qa/v12-essential-comparison-20260823

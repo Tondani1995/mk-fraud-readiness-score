@@ -1,0 +1,90 @@
+name: V1.2 Semantic Reject Diagnostics
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-comparison-20260823
+    paths:
+      - .github/workflows/v12-semantic-reject-diagnostics.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-comparison-20260823
+          fetch-depth: 0
+
+      - name: Add QA-only exact semantic rejection visibility
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts')
+          s = p.read_text()
+
+          old_import = "import { composeEssentialManuscript } from '@/lib/reports/narrative/essential-manuscript-coordinator';"
+          new_import = "import { composeEssentialManuscript, EssentialManuscriptError } from '@/lib/reports/narrative/essential-manuscript-coordinator';\nimport type { EssentialSemanticReviewer } from '@/lib/reports/narrative/semantic-reviewer';"
+          if new_import not in s:
+            if old_import not in s:
+              raise SystemExit('Coordinator import seam missing; refusing broad rewrite.')
+            s = s.replace(old_import, new_import, 1)
+
+          old_start = "  try {\n    const {data}=assembledFor(profileKey);"
+          new_start = "  let semanticAudit: Array<Record<string, unknown>> | undefined;\n  try {\n    const {data}=assembledFor(profileKey);"
+          if new_start not in s:
+            if old_start not in s:
+              raise SystemExit('Route try seam missing; refusing broad rewrite.')
+            s = s.replace(old_start, new_start, 1)
+
+          old_compose = "    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer:createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false})});"
+          new_compose = """    const writer=createV11WholeManuscriptWriter(MODEL,{allowTailRecovery:false});
+    const semanticReviewer: EssentialSemanticReviewer | undefined = writer.reviewSemanticCandidates ? {
+      review: async (reviewRequest) => {
+        const result=await writer.reviewSemanticCandidates!(reviewRequest);
+        semanticAudit=result.decisions.filter((decision)=>decision.disposition!=='ALLOW').map((decision)=>{
+          const candidate=reviewRequest.candidates.find((item)=>item.candidateId===decision.candidateId);
+          return { candidateId:decision.candidateId, disposition:decision.disposition, reasonCode:decision.reasonCode, ruleCode:candidate?.ruleCode, path:candidate?.path, blueprintPath:candidate?.blueprintPath, chapterTitle:candidate?.chapterTitle, sectionTitle:candidate?.sectionTitle, subsectionTitle:candidate?.subsectionTitle, span:candidate?.paragraph };
+        });
+        return result;
+      }
+    } : undefined;
+    const composed=await composeEssentialManuscript({factPack:buildEssentialNarrativeFactPack(data,reportEvidenceModel,projection),writer,semanticReviewer});"""
+          if new_compose not in s:
+            if old_compose not in s:
+              raise SystemExit('Compose seam missing; refusing broad rewrite.')
+            s = s.replace(old_compose, new_compose, 1)
+
+          old_catch = """    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation});
+    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation},{status:500,headers:{'Cache-Control':'no-store'}});"""
+          new_catch = """    const manuscriptDiagnostics=error instanceof EssentialManuscriptError ? error.diagnostics : undefined;
+    console.error('v12_essential_comparison_failed',{profile:profileKey,message,validation,semanticAudit,manuscriptDiagnostics});
+    return NextResponse.json({ok:false,profile:profileKey,error:message.slice(0,500),validation,semanticAudit,manuscriptDiagnostics},{status:500,headers:{'Cache-Control':'no-store'}});"""
+          if new_catch not in s:
+            if old_catch not in s:
+              raise SystemExit('Route catch seam missing; refusing broad rewrite.')
+            s = s.replace(old_catch, new_catch, 1)
+
+          p.write_text(s)
+
+      - name: Verify QA-only diagnostic change
+        shell: bash
+        run: |
+          grep -F "EssentialManuscriptError" 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          grep -F "semanticAudit" 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          npm run typecheck
+          git diff --check
+
+      - name: Commit diagnostic only
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts'
+          git diff --cached --quiet && exit 0
+          git commit -m "expose V1.2 semantic rejection diagnostics"
+          git push origin HEAD:qa/v12-essential-comparison-20260823

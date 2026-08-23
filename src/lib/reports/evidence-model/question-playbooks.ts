@@ -814,7 +814,16 @@ const PLAYBOOKS: Record<string, QuestionControlPlaybook> = {
 };
 
 export const MFRS_V11_METHODOLOGY_ID = 'df96e242-9625-4b2a-bc62-615ae402483a';
-export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
+export const MFRS_V12_METHODOLOGY_ID = '00f2b435-a027-4a06-886b-23998faeaca6';
+/** Stable identity for V1.2 reporting. Database UUIDs are environment-specific; the graph version is not. */
+export const MFRS_V12_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
+const MFRS_V12_LEGACY_METHODOLOGY_IDS = new Set(['c9c40448-8035-4bcc-9804-d5b08a604289']);
+
+export function isV12ReportMethodology(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {
+  return adaptiveGraphVersion === MFRS_V12_GRAPH_VERSION
+    || methodologyVersionId === MFRS_V12_METHODOLOGY_ID
+    || Boolean(methodologyVersionId && MFRS_V12_LEGACY_METHODOLOGY_IDS.has(methodologyVersionId));
+}
 
 /** V1.2 merged/retired V1.1 IDs are not part of the active V1.2 customer pathway. */
 const V12_NON_ACTIVE_QUESTION_CODES = new Set([
@@ -861,6 +870,7 @@ const V12_PLAYBOOK_OVERRIDES: Record<string, QuestionControlPlaybook> = {
   'D1-Q04': { ...v12Base('D1-Q04'), controlObjective: 'Keep management accountable for fraud-risk decisions and control action while preserving independent challenge.', expectedStandard: 'Management owns fraud-risk decisions, control action and resources; independent assurance reviews the design and operation without taking management responsibility.', recommendedControlDesign: 'The CEO must approve a fraud-risk RACI that gives management clear decision rights, action ownership and resource authority, while the audit committee or equivalent assurance function receives independent review reports and tracks overdue control action to closure.', relatedScenarioTypes: ['governance_accountability_failure'] },
   'D1-Q07': { questionCode: 'D1-Q07', domainCode: 'D1', controlObjective: 'Give fraud risk and key controls independent review proportionate to the organisation’s size and operating model.', expectedStandard: 'An independent reviewer periodically evaluates fraud risk and key-control design or operation using a scope and frequency proportionate to the organisation, with findings reported to an appropriate governance forum.', fraudMechanism: 'Without independent review, control design or operating gaps can remain accepted as effective because management sees only its own evidence.', currentStateDiagnosis: diagnosis('Independent review of fraud risk and key controls'), recommendedControlDesign: 'The audit committee or equivalent governance owner must approve a proportionate independent-review plan covering fraud risk and key controls, define reviewer independence and scope, record findings and management responses, and track overdue actions through the governance route.', executiveAccountability: 'CEO / Managing Director', processOwnership: 'Risk and control owners', oversightFunction: 'Audit Committee / Internal Audit or equivalent independent reviewer', supportingFunctions: ['Company Secretary', 'Finance', 'Operations'], operatingFrequency: 'At least annually and after material change', evidenceRequired: ['Independent-review plan', 'Review scope and working papers', 'Governance report and management response', 'Action tracker with closure evidence'], minimumAcceptableEvidenceCharacteristics: ['Reviewer is independent of control operation', 'Scope covers the material risk and key controls', 'Findings and actions are reported and tracked'], dependencies: ['Key-control inventory', 'Governance reporting calendar'], implementationDifficulty: 'Moderate', targetPeriod: '90 days', effectivenessMeasure: 'The approved review plan covers all material fraud risks and key controls at the required proportionate frequency, with actions tracked to closure.', escalationThreshold: 'A material risk or key control omitted from the review plan, an independence conflict or an overdue action without escalation.', relatedScenarioTypes: ['governance_accountability_failure'] },
   'D3-Q04': { ...v12Base('D3-Q04'), controlObjective: 'Grant system and data access only against current role requirements.', expectedStandard: 'Access requests are approved against a current role design and least-privilege basis before access is granted.', fraudMechanism: 'Access granted without a current role basis can enable a person to initiate, approve or alter activity beyond legitimate responsibility.', recommendedControlDesign: 'System owners must maintain a current role-to-access matrix, require business-owner approval against the requester’s current duties before granting access, separate incompatible initiation and approval rights, and retain the request, approval and provisioning trail.', evidenceRequired: ['Current role-to-access matrix', 'Access requests and approvals', 'Provisioning audit trail', 'Segregation-of-duties exception decisions'], minimumAcceptableEvidenceCharacteristics: ['Approval predates provisioning', 'The role requirement is explicit', 'Incompatible access is identified and resolved or formally approved'], relatedScenarioTypes: ['access_abuse', 'segregation_of_duties_bypass'] },
+  'D4-Q03': { ...v12Base('D4-Q03'), fraudMechanism: 'As transaction volume grows, manual review may leave parts of the population without systematic scrutiny; risk-based data checks help surface suspicious patterns for investigation.' },
   'D4-Q05': { ...v12Base('D4-Q05'), controlObjective: 'Monitor fraud and control misuse by people inside the organisation.', expectedStandard: 'Internal misuse scenarios are mapped to relevant people, access, transaction and override signals, with named review and escalation ownership.', fraudMechanism: 'An insider can misuse an apparently legitimate role when internal activity and control overrides are not monitored and challenged.', recommendedControlDesign: 'The monitoring owner must define internal-misuse scenarios for privileged use, overrides, unusual approvals, manual adjustments and other value-bearing activity; reconcile the monitored population to source systems, assign alerts to an independent reviewer and retain disposition and escalation evidence.', relatedScenarioTypes: ['privileged_access_exploitation', 'transaction_anomaly'] },
   'D8-Q04': { ...v12Base('D8-Q04'), controlObjective: 'Restrict access to sensitive systems, administrator rights and confidential data.', expectedStandard: 'Sensitive and privileged access is least-privileged, strongly authenticated, attributable, logged and limited to a justified business need.', fraudMechanism: 'Excess or unmanaged sensitive access allows records, controls or confidential data to be altered or concealed.', recommendedControlDesign: 'IT Security must maintain a complete sensitive-access inventory, require named identities and strong authentication, enforce least privilege and session logging, and remove access when the business justification ends; periodic recertification is handled by the separate access-review control.', relatedScenarioTypes: ['privileged_access_exploitation'] },
   'D8-Q08': { ...v12Base('D8-Q08'), controlObjective: 'Detect identity misuse, account takeover or impersonation.', expectedStandard: 'Material identity-bearing systems and digital channels produce sufficient authentication, profile and activity signals to identify suspected identity misuse promptly.', fraudMechanism: 'Identity misuse can continue when takeover, impersonation and unusual identity-bearing activity are not surfaced for timely challenge.', recommendedControlDesign: 'Security Operations must monitor authentication, credential, profile, device and transaction signals across material identity-bearing systems, define takeover indicators and alert thresholds, and route suspected identity misuse into the separate investigation and containment process.', relatedScenarioTypes: ['account_takeover', 'identity_misuse'] },
@@ -876,28 +886,29 @@ const V12_PLAYBOOK_OVERRIDES: Record<string, QuestionControlPlaybook> = {
   'D8-Q10': { questionCode: 'D8-Q10', domainCode: 'D8', controlObjective: 'Investigate and contain identity misuse, account takeover or impersonation.', expectedStandard: 'Suspected identity misuse has a named response owner, defined containment actions, investigation steps, evidence requirements and closure or recovery decisions.', fraudMechanism: 'Without a tested response route, an identity compromise can continue after detection and its scope, losses and affected parties may remain unclear.', currentStateDiagnosis: diagnosis('Identity-misuse investigation and containment'), recommendedControlDesign: 'Security Operations and Fraud Operations must maintain a response runbook for identity misuse covering session revocation, credential reset, account hold, customer or employee contact, evidence preservation, scope assessment, recovery, escalation and closure; the runbook is exercised periodically and material cases receive independent review.', executiveAccountability: 'Chief Technology Officer / Chief Operating Officer', processOwnership: 'Security Operations and Fraud Operations', oversightFunction: 'Information Security / Risk', supportingFunctions: ['Customer Operations', 'HR', 'Legal', 'Finance'], operatingFrequency: 'On every suspected case; annual or post-incident exercise', evidenceRequired: ['Identity-misuse response runbook', 'Containment and investigation case records', 'Authentication and activity evidence', 'Recovery or notification decisions', 'Exercise and lessons-learned records'], minimumAcceptableEvidenceCharacteristics: ['Containment action is time-stamped and attributable', 'Investigation reconstructs scope and affected activity', 'Closure or recovery decision is recorded'], dependencies: ['Identity and activity logging', 'Incident-response process'], implementationDifficulty: 'High', targetPeriod: '90 days', effectivenessMeasure: 'Every suspected identity-misuse case has timely containment, a recorded investigation and an accountable closure decision.', escalationThreshold: 'Suspected takeover not contained within the defined SLA, incomplete evidence or unresolved affected-party exposure.', relatedScenarioTypes: ['account_takeover', 'incident_response_breakdown'] }
 };
 
-function playbookRegistryFor(methodologyVersionId?: string): Record<string, QuestionControlPlaybook> {
-  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;
+function playbookRegistryFor(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): Record<string, QuestionControlPlaybook> {
+  if (!isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion)) return PLAYBOOKS;
   const registry = { ...PLAYBOOKS, ...V12_PLAYBOOK_OVERRIDES };
   for (const questionCode of V12_NON_ACTIVE_QUESTION_CODES) delete registry[questionCode];
   return registry;
 }
 
-export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string): AuthoritativeQuestionMapping | null {
-  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
-  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID
+export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): AuthoritativeQuestionMapping | null {
+  const isV12 = isV12ReportMethodology(methodologyVersionId, adaptiveGraphVersion);
+  if (isV12 && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
+  return isV12
     ? V12_AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null
     : AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null;
 }
 
-export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string): QuestionControlPlaybook | null {
-  return playbookRegistryFor(methodologyVersionId)[questionCode] ?? null;
+export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook | null {
+  return playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)[questionCode] ?? null;
 }
 
-export function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string): boolean {
-  return questionCode in playbookRegistryFor(methodologyVersionId);
+export function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string, adaptiveGraphVersion?: string | null): boolean {
+  return questionCode in playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion);
 }
 
-export function listQuestionPlaybooks(methodologyVersionId?: string): QuestionControlPlaybook[] {
-  return Object.values(playbookRegistryFor(methodologyVersionId)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
+export function listQuestionPlaybooks(methodologyVersionId?: string, adaptiveGraphVersion?: string | null): QuestionControlPlaybook[] {
+  return Object.values(playbookRegistryFor(methodologyVersionId, adaptiveGraphVersion)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
 }

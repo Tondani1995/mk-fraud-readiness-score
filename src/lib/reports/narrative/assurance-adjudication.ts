@@ -62,26 +62,8 @@ function ambiguous(reasonCode: string, matched: string): AssuranceAdjudication {
   return { disposition: 'AMBIGUOUS', isCandidate: true, reasonCode, matched };
 }
 
-// ---------------------------------------------------------------------------------------------
-// Tier 0 -- narrow disclaimer-template strip. Must run before Tier A: "not a statement that
-// existing evidence has been validated" (a hedge-clause template naming a target control design,
-// not an assurance claim) would otherwise satisfy Tier A's context-free "evidence ... has been ...
-// validated" vocabulary check on its own literal words, negation notwithstanding. Tier A is
-// intentionally unconditional for everything else, so the one shape that has a legitimate negated
-// form has to be removed before Tier A ever looks at the text -- exactly mirroring
-// narrative/validation.ts's original NEGATED_ASSURANCE_DISCLAIMER strip, which ran before its own
-// absolute-vocabulary checks for the same reason.
-// ---------------------------------------------------------------------------------------------
 const NEGATED_DISCLAIMER_TEMPLATE = /\b(?:not|does not|do not|without)\s+(?:a\s+statement\s+that\s+)?(?:existing\s+)?(?:evidence|controls?|operating effectiveness)\s+(?:has been|was|were|is|are)\s+(?:independently\s+)?(?:validated|verified|confirmed|established|assured)\b/i;
 
-// ---------------------------------------------------------------------------------------------
-// Tier A -- absolute, context-free hard vocabulary. No actor, no negation-clearing applies: none
-// of these phrasings has a legitimate negated or normative form anywhere in the consolidated
-// corpus (once the Tier 0 disclaimer-template strip above has run), and each fires regardless of
-// whether the narrower Tier B candidate gate below would otherwise have let the text through
-// untouched. This mirrors narrative/validation.ts's original ABSOLUTELY_PROHIBITED_ASSURANCE,
-// minus the actor-bearing patterns (moved to Tier E -- see the module doc comment on ordering).
-// ---------------------------------------------------------------------------------------------
 const TIER_A_HARD_VOCABULARY: RegExp[] = [
   /\b(?:evidence-linked|evidence-based)\b.{0,100}\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b/i,
   /\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b.{0,100}\b(?:evidence-linked|evidence-based)\b/i,
@@ -91,97 +73,32 @@ const TIER_A_HARD_VOCABULARY: RegExp[] = [
   /\b(?:the\s+)?evidence\b.{0,40}\b(?:was|were|has been|have been)\s+validated\b/i
 ];
 
-// ---------------------------------------------------------------------------------------------
-// Tier B -- candidate gate. Deliberately narrower than a bare "operating effectiveness" or bare
-// "confirmed" scan: the deterministic evidence-proof-purpose table and its own repaired output
-// (assurance-boundary-normalisation.ts) both contain "operating effectiveness" and "evidence" as
-// ordinary domain vocabulary with no nearby assurance verb at all, and must not become candidates
-// merely for containing those words. A text that fails this gate is not an assurance proposition;
-// it never reaches Tier C onward.
-//
-// Vhutshilo Customer-1 acceptance incident (2026-08-19): the prior gate treated any occurrence of
-// "evidence" followed somewhere within 100 characters by "confirmed" as assurance-flavoured. That
-// incorrectly captured ordinary forward-looking control prose ending "evidence, and rules should be
-// tuned monthly from confirmed ...". Evidence is therefore a candidate actor only when it is the
-// grammatical subject of the confirmation ("the evidence confirmed ..." / "the evidence has been
-// confirmed"), while report/assessment/finding actors retain the wider completed-claim gate.
-// ---------------------------------------------------------------------------------------------
 const CANDIDATE_GATE = /\bindependent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?|assurance)\b|\b(?:MK|the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,100}\b(?:confirmed|provides?\s+(?:independent\s+)?assurance)\b|\b(?:the\s+)?evidence\b\s+(?:(?:was|were|has been|have been)\s+)?(?:independently\s+)?confirmed\b|\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
 
-// ---------------------------------------------------------------------------------------------
-// Tier C -- evidence/epistemic criterion. Evidence tables and recommended-next-step prose
-// deliberately use epistemic criteria such as "Whether X was independently verified" and "Confirm
-// whether X was independently verified" -- see essential-commercial-output-closure.ts's
-// essentialEvidenceProofPurpose(). Those clauses describe what evidence must establish; they do not
-// assert that verification was completed. This is the exact pattern family the Bokamoso incident
-// was missing (commit d2a83c6). Checked before completed-assertion and negation tiers because its
-// "whether" framing is unambiguous regardless of what surrounds it.
-// ---------------------------------------------------------------------------------------------
 const EVIDENCE_CRITERION = /\b(?:confirm\s+|determine\s+|establish\s+|verify\s+)?whether\b[^.!?]{0,260}\b(?:independent assurance|independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|operating effectiveness)\b/i;
 
-// ---------------------------------------------------------------------------------------------
-// Tier D -- explicit negated limitation. Must run BEFORE any completed-assertion or actor check.
-// This is the exact ordering fix for the two highest-volume false-positive families found while
-// consolidating the two engines:
-//   - "This/the assessment/report does not independently verify operating effectiveness" (active
-//     voice) was previously misread by narrative/validation.ts's actor+verb check, which had no
-//     negation guard at all.
-//   - "This assessment has not independently verified operating effectiveness" (present perfect)
-//     was previously misread by BOTH engines' completed-assertion checks, which matched the
-//     actor+"...verified" span without checking whether a negator sat in between.
-// EXPLICIT_LIMITATION's gap-based tail already generalises across both active and present-perfect
-// phrasing. The narrower disclaimer-template shape ("not a statement that existing evidence has
-// been validated") is handled earlier, by the Tier 0 strip above, since it also has to run before
-// Tier A.
-//
-// Vhutshilo final-output acceptance incident (2026-08-20) exposed two additional grammatical
-// negation forms present in deterministic customer copy: "Neither measure is independent
-// assurance" and "no ... evidence has been independently verified". They are explicit limitations,
-// not completed assurance. Keep them as narrow grammatical patterns instead of treating every
-// occurrence of "no" or "neither" near assurance vocabulary as safe.
-// ---------------------------------------------------------------------------------------------
 const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\b/i;
 const NEITHER_ASSURANCE_LIMITATION = /\bneither\b[^.!?]{0,80}\b(?:is|are|was|were)\s+(?:an?\s+)?independent\s+assurance\b/i;
 const NO_COMPLETED_ASSURANCE_LIMITATION = /\bno\b[^.!?]{0,120}\b(?:has been|have been|was|were|is|are)\s+independently\s+(?:verified|reviewed|confirmed)\b/i;
 
-// ---------------------------------------------------------------------------------------------
-// Tier E -- actor-based completed-assertion checks. Everything here runs only after Tier D has
-// already cleared genuine limitations, so an actor+verb match here is never a misread negation.
-// ---------------------------------------------------------------------------------------------
-/** MK named as the actor who performed or must perform the verification (any voice). */
 const MK_SUBJECT_ACTOR = /\bMK\b[^.!?]{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|reviewed evidence|tested\s+(?:the\s+)?(?:operation|operating effectiveness|controls?)|independently confirmed)\b/i;
-/**
- * MK named as the trailing actor of a passive construction -- "...must be independently verified
- * by MK before closure." Consolidation gap: essential-validation-cascade.ts's
- * CUSTOMER_NORMATIVE_VERIFICATION matched this on subject+modal shape alone and had no equivalent
- * of narrative/validation.ts's trailing-actor check, so it incorrectly allowed this sentence. Must
- * be checked as an override before Tier F's normative-verification allow rules, not folded into
- * them, or the same gap reopens.
- */
 const MK_TRAILING_ACTOR = /\b(?:by|from)\s+MK\b/i;
 const COMPLETED_ASSURANCE_ACTOR = /\b(?:the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,160}\b(?:independently\s+(?:verified|reviewed)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i;
 const COMPLETED_EFFECTIVENESS = /\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
-/** Assessment/report/MK proposed as the reviewer/verifier itself, rather than directing a third party toward review. */
 const REPORT_AS_VERIFIER = /\b(?:the report|this report|the assessment|this assessment|MK)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)?\s*independently\s+(?:verify|review)\b/i;
-/** The assessment/report may direct management toward future independent verification without claiming it performed that verification itself. */
 const ASSESSMENT_DIRECTIONAL = /\b(?:the assessment|this assessment|the findings?|the report|this report)\b[^.!?]{0,120}\b(?:points?|directs?|guides?|recommends?|signals?)\b[^.!?]{0,100}\b(?:management|the organisation|the organization)\b[^.!?]{0,80}\bindependent\s+(?:verification|review)\b/i;
-/** Independent verification/review claimed to have already confirmed/established/demonstrated/shown control effectiveness. */
 const VERIFICATION_CONFIRMED_EFFECTIVENESS = /\b(?:independent\s+(?:verification|review)|independently\s+(?:verified|reviewed))\b.{0,100}\b(?:confirmed|established|demonstrates?|shows?)\b.{0,100}\b(?:control|operating effectiveness|operates? effectively)\b/i;
 const REVIEWER_REVIEW_CONFIRMED = /\b(?:MK(?:'s)?|the reviewer(?:'s)?)\s+review\b.{0,100}\b(?:confirmed|established|assured|operating effectiveness)\b/i;
 const REPORT_PROVIDES_ASSURANCE = /\b(?:the report|this report)\b.{0,80}\bprovides?\s+(?:independent\s+)?assurance\b/i;
 
-// ---------------------------------------------------------------------------------------------
-// Tier F -- customer-owned / control-design context. Checked only once Tier E has found no
-// completed assertion or invalid actor. Union of both engines' allow-context pattern sets.
-// ---------------------------------------------------------------------------------------------
 const CUSTOMER_NORMATIVE_VERIFICATION = /\b(?:management|the organisation|the organization|control owner|process owner|internal audit|assurance function|supplier|bank[- ]detail|payment|identity|access|control(?:s)?|operating effectiveness|evidence)\b[^.!?]{0,180}\b(?:should|must|needs? to|is required to|are required to|before|prior to)\b[^.!?]{0,100}\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b/i;
 const PASSIVE_NORMATIVE_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|evidence|implementation|remediation|closure)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)\s+be\s+independently\s+(?:verified|reviewed)\b/i;
 const CONTROL_DESIGN_INDEPENDENT_REVIEW = /(?:\b(?:separation|segregation|oversight|challenge|route|function|responsibilit(?:y|ies)|role|approval)\b[^.!?]{0,180}\bindependent review\b|\bindependent review\b[^.!?]{0,180}\b(?:role|function|responsibilit(?:y|ies)|route|requirement|separation|oversight|challenge)\b)/i;
-// Vhutshilo Customer-1 final-output incident (2026-08-20): curated Whistleblowing copy describes
-// trust in a reporting channel as depending on consistent independent review. That is a customer
-// control activity, not completed assurance performed by MK/the report. Include reporting/case
-// subjects here so the existing subject+action context rule can clear that deterministic prose,
-// while Tier E still rejects report/MK-as-verifier claims before this tier is reached.
+// V1.2 Bokamoso runtime incident (2026-08-23): deterministic customer control wording such as
+// refunds/credits/overrides receiving independent review and cash counts performed with independent
+// review is a control requirement, not a claim that MK/the report performed assurance. Tier E actor
+// checks run first, so report/MK-as-verifier claims remain rejected before this narrow allow rule.
+const CUSTOMER_CONTROL_REVIEW_ACTIVITY = /\b(?:refunds?|credits?|write-?offs?|stock adjustments?|manual journals?|overrides?|cash|cash custodians?|counts?|reconciliations?|bankings?|payments?|supplier|bank[- ]detail|profile|access|recertification|activation|changes?|approvals?|exceptions?|reported concerns?|cases?)\b[^.!?]{0,220}\bindependent review\b/i;
 const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|activation|change(?:s)?|approval|callback|verification step|control(?:s)? activity|control design|payment release|release|reporting channel|whistleblowing channel|reported concern|case(?:s)?)\b/i;
 const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
 const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
@@ -189,16 +106,7 @@ const CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW = /(?:^|[.!?]\s+)\s*independently\
 const CUSTOMER_PASSIVE_CONTROL_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|control environment|control design|control operation|implementation|remediation|evidence(?: package)?|closure)\b.{0,180}\b(?:(?:should|must|can|could)\s+(?:then\s+)?be|(?:need(?:s)?\s+to|is required to|are required to)\s+be)\s+independently\s+(?:verified|reviewed)\b/i;
 const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equivalent assurance function|assurance function)\b.{0,180}\bindependent review(?: responsibilities)?\b|\bindependent review(?: responsibilities)?\b.{0,180}\b(?:management|internal audit|equivalent assurance function|assurance function)\b/i;
 
-/**
- * Adjudicates one customer-facing text block or sentence for prohibited assurance language.
- *
- * Returns the honest three-way verdict (ALLOW / REJECT / AMBIGUOUS); it does not decide what a
- * caller does with AMBIGUOUS (that is the caller's fail-safe-vs-blocking policy, tracked separately
- * per owner decision 6 in essential-validation-cascade.ts's EssentialCandidateDisposition).
- */
 export function adjudicateAssuranceProposition(text: string): AssuranceAdjudication {
-  // Tier 0: strip the narrow disclaimer-template shape before any other tier looks at the text
-  // (see the constant's doc comment for why this specific shape cannot wait for Tier D).
   const value = text.trim().replace(NEGATED_DISCLAIMER_TEMPLATE, '');
 
   for (const pattern of TIER_A_HARD_VOCABULARY) {
@@ -240,6 +148,7 @@ export function adjudicateAssuranceProposition(text: string): AssuranceAdjudicat
     PASSIVE_NORMATIVE_VERIFICATION,
     ASSESSMENT_DIRECTIONAL,
     CONTROL_DESIGN_INDEPENDENT_REVIEW,
+    CUSTOMER_CONTROL_REVIEW_ACTIVITY,
     DIRECT_CONTROL_ACTIVITY,
     CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW,
     CUSTOMER_PASSIVE_CONTROL_VERIFICATION,
@@ -255,14 +164,6 @@ export function adjudicateAssuranceProposition(text: string): AssuranceAdjudicat
   return ambiguous('assurance_context_unresolved', candidate[0]);
 }
 
-/**
- * High-recall pre-filter: does this text even resemble an assurance proposition at all. Exported
- * so every candidate-detection call site (essential-validation-cascade.ts's CANDIDATE_SCAN layer
- * for both the manuscript and final-HTML cascades) uses the exact same gate that
- * adjudicateAssuranceProposition itself uses internally, rather than each maintaining its own
- * partial copy. Equivalent to checking `adjudicateAssuranceProposition(text).isCandidate` but
- * without computing a full disposition when the caller only needs the yes/no answer.
- */
 export function isAssuranceCandidate(text: string): boolean {
   const stripped = text.trim().replace(NEGATED_DISCLAIMER_TEMPLATE, '');
   return TIER_A_HARD_VOCABULARY.some((pattern) => pattern.test(stripped)) || CANDIDATE_GATE.test(stripped);
