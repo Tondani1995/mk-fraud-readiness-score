@@ -28,8 +28,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p recovery-artifacts
-          node <<'NODE'
-          const fs = require('node:fs');
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
           const preview = process.env.PREVIEW_URL.replace(/\/$/, '');
           const bypass = process.env.VERCEL_PROTECTION_BYPASS;
           if (!bypass) throw new Error('VERCEL_PROTECTION_BYPASS secret is missing.');
