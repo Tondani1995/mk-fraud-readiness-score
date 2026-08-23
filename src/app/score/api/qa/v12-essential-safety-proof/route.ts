@@ -78,6 +78,16 @@ export function GET() {
     'REJECT',
     'unsupported_operating_detail'
   );
+  const intraProfileStructureRepair = run(
+    'The strongest reported position appears in Digital and Identity Fraud Risk, while Operational Fraud Controls and Third-Party and Supply Chain Fraud Risk are also comparatively higher than other domains; by contrast, Fraud Leadership and Governance is materially weaker in the self-assessment profile.',
+    'REPAIR',
+    'unsupported_structure'
+  );
+  const inventedStructureRepair = run(
+    'The fraud team is structurally stronger than the finance department within this domain profile.',
+    'REPAIR',
+    'unsupported_structure'
+  );
   const unconfirmedReject = run(
     'The finance team performs daily exception reviews across all sites.',
     'REJECT',
@@ -88,6 +98,10 @@ export function GET() {
     && safeReject.finalDisposition === 'ACCEPT'
     && prescriptiveOperatingReject.publishable === true
     && prescriptiveOperatingReject.finalDisposition === 'ACCEPT'
+    && intraProfileStructureRepair.publishable === true
+    && intraProfileStructureRepair.finalDisposition === 'ACCEPT'
+    && inventedStructureRepair.publishable === false
+    && inventedStructureRepair.finalDisposition === 'REPAIR'
     && unsafeAllow.publishable === false
     && unsafeAllow.finalDisposition === 'REJECT'
     && boundedRelativeStrengthRepair.publishable === true
@@ -101,6 +115,8 @@ export function GET() {
     policy: 'semantic-review-advisory-to-five-layer-cascade',
     safeReviewerReject: safeReject,
     prescriptiveOperatingReject,
+    intraProfileStructureRepair,
+    inventedStructureRepair,
     unsafeReviewerAllow: unsafeAllow,
     boundedRelativeStrengthRepair,
     unconfirmedReviewerReject: unconfirmedReject
