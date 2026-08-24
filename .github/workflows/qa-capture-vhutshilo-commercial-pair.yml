@@ -1,0 +1,126 @@
+name: QA Capture Vhutshilo Commercial Pair
+
+on:
+  push:
+    branches:
+      - qa/v12-vhutshilo-oidc-redeploy-20260824
+    paths:
+      - .github/workflows/qa-capture-vhutshilo-commercial-pair.yml
+
+permissions:
+  contents: read
+  actions: write
+  id-token: write
+  statuses: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      BASE_URL: https://mk-fraud-platform-jj6zaqlnf-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mint GitHub OIDC token for trusted-source fallback
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token);
+
+      - name: Capture deterministic metadata
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qa-pair
+          curl -fsS \
+            -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+            -H "x-vercel-trusted-oidc-idp-token: ${OIDC_TOKEN}" \
+            "${BASE_URL}/score/api/qa/v12-vhutshilo-product-pair/meta" \
+            -o qa-pair/meta.json
+          cat qa-pair/meta.json | jq .
+          jq -e '.ok == true' qa-pair/meta.json >/dev/null
+          jq -e '.score == 43.33' qa-pair/meta.json >/dev/null
+          jq -e '.finalMaturity == "Developing"' qa-pair/meta.json >/dev/null
+          jq -e '.comprehensiveModel == "openai/gpt-5.6-luna"' qa-pair/meta.json >/dev/null
+          jq -e '.comprehensiveAuth == "vercel-oidc"' qa-pair/meta.json >/dev/null
+
+      - name: Generate Comprehensive package once
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+            -H "x-vercel-trusted-oidc-idp-token: ${OIDC_TOKEN}" \
+            "${BASE_URL}/score/api/qa/v12-vhutshilo-product-pair/comprehensive" \
+            -o qa-pair/comprehensive.tar
+          tar -xf qa-pair/comprehensive.tar -C qa-pair
+          find qa-pair -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Prove Comprehensive acceptance
+        run: |
+          set -euo pipefail
+          test -s qa-pair/comprehensive-meta.json
+          PDF="$(find qa-pair -maxdepth 1 -type f -name '*COMPREHENSIVE.pdf' -print -quit)"
+          XLSX="$(find qa-pair -maxdepth 1 -type f -name '*.xlsx' -print -quit)"
+          test -n "$PDF" && test -s "$PDF"
+          test -n "$XLSX" && test -s "$XLSX"
+          head -c 4 "$PDF" | grep -q '%PDF'
+          head -c 2 "$XLSX" | grep -q 'PK'
+          jq -e '.model == "openai/gpt-5.6-luna"' qa-pair/comprehensive-meta.json >/dev/null
+          jq -e '(.interpretationIssues | length) == 0' qa-pair/comprehensive-meta.json >/dev/null
+          jq -e '.finalValidation.publishable == true' qa-pair/comprehensive-meta.json >/dev/null
+          jq -e '(.finalValidation.blockingCodes | length) == 0' qa-pair/comprehensive-meta.json >/dev/null
+          sha256sum "$PDF" "$XLSX" qa-pair/comprehensive-meta.json > qa-pair/comprehensive-checksums.txt
+          cat qa-pair/comprehensive-meta.json | jq '{model, interpretationAccounting, interpretationIssues, finalValidation, pdf, workbook}'
+
+      - name: Add proven Essential PDF from final same-SHA capture
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin qa/v12-essential-five-layer-proof-20260823
+          git show FETCH_HEAD:qa-output/v12-final-same-sha/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf > qa-pair/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+          test -s qa-pair/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+          head -c 4 qa-pair/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf | grep -q '%PDF'
+          sha256sum qa-pair/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf > qa-pair/essential-checksum.txt
+
+      - name: Upload buyer-facing pair
+        uses: actions/upload-artifact@v4
+        with:
+          name: vhutshilo-v12-commercial-pair-${{ github.run_id }}
+          path: |
+            qa-pair/Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf
+            qa-pair/*COMPREHENSIVE.pdf
+            qa-pair/*.xlsx
+            qa-pair/meta.json
+            qa-pair/comprehensive-meta.json
+            qa-pair/*checksum*.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish success status
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=success \
+            -f context='QA Vhutshilo Commercial Pair' \
+            -f description='Validated Essential + Comprehensive PDF/XLSX captured' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Publish failure status
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=failure \
+            -f context='QA Vhutshilo Commercial Pair' \
+            -f description='Commercial pair capture failed; inspect run' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
