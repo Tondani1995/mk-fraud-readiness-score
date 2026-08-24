@@ -73,8 +73,9 @@ export async function GET(request: Request) {
     internalUrl.pathname = '/score/api/qa/recovery-v10-v12-vhutshilo';
     internalUrl.search = '?format=pdf';
 
-    // The certified V10 writer now recognises the native Vercel runtime/OIDC path directly.
-    // No API key is injected, copied, logged or persisted by this recovery wrapper.
+    // The certified V10 writer recognises the native Vercel runtime/OIDC path directly.
+    // A validated manuscript is cached before rendering, so a later rerender may legitimately
+    // complete with zero provider calls.
     const generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
     if (!generated.ok) {
       const body = await generated.text();
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
     const score = generated.headers.get('x-mk-score');
     const maturity = generated.headers.get('x-mk-maturity');
     const proof = generated.headers.get('x-mk-recovery-proof');
-    if (providerCalls !== 1 || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
+    if (![0, 1].includes(providerCalls) || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
       throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
     }
 
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
         sha256: checksum,
         reportReference: EXPECTED_REPORT_REFERENCE,
         purpose: 'synthetic-v10-v12-recovery-acceptance',
-        providerCalls: '1'
+        providerCalls: String(providerCalls)
       }
     });
     if (uploadError) throw new Error(`recovery_storage_upload_failed:${uploadError.message}`);
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
       throw new Error(`recovery_storage_verify_mismatch:${checksum}:${storedChecksum}:${bytes.length}:${storedBytes.length}`);
     }
 
-    return signedResult(db, { bytes: storedBytes, providerCalls: 1, reused: false });
+    return signedResult(db, { bytes: storedBytes, providerCalls, reused: false });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('recovery_v10_v12_vhutshilo_store_failed', { message });
