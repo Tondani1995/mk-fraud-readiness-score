@@ -1,0 +1,207 @@
+name: Harden final V10 V1.2 recovery artifact path
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Apply bounded recovery-only hardening
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          route = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts')
+          text = route.read_text()
+
+          old_import = "import { NextResponse } from 'next/server';\n"
+          new_import = "import { NextResponse } from 'next/server';\nimport { createSupabaseServiceClient } from '@/lib/supabase/server';\n"
+          if "createSupabaseServiceClient" not in text:
+              if old_import not in text:
+                  raise SystemExit('NextResponse import anchor missing')
+              text = text.replace(old_import, new_import, 1)
+
+          old_strip = """function stripRetiredRegisterPromise(html: string): string {
+            const scrubbed = html.replace(
+              /<p\\b[^>]*>[\\s\\S]*?(?:Essential Supporting Register|supporting-register\\.xlsx|supporting register)[\\s\\S]*?<\\/p>/gi,
+              ''
+            );
+            if (/(?:Essential Supporting Register|supporting-register\\.xlsx|\\.xlsx\\b)/i.test(scrubbed)) {
+              throw new Error('retired_essential_register_promise_survived_render');
+            }
+            return scrubbed;
+          }
+          """
+          new_strip = """function stripRetiredRegisterPromise(html: string): string {
+            // Remove only the individual paragraph that contains the retired Essential-register
+            // promise. Never allow the scrubber to span across sibling paragraphs or headings.
+            const scrubbed = html.replace(/<p\\b[^>]*>[\\s\\S]*?<\\/p>/gi, (paragraph) =>
+              /(?:Essential Supporting Register|supporting-register\\.xlsx|supporting register)/i.test(paragraph) ? '' : paragraph
+            );
+            if (/(?:Essential Supporting Register|supporting-register\\.xlsx|\\.xlsx\\b)/i.test(scrubbed)) {
+              throw new Error('retired_essential_register_promise_survived_render');
+            }
+            return scrubbed;
+          }
+          """
+          if old_strip not in text:
+              raise SystemExit('old register scrubber block missing')
+          text = text.replace(old_strip, new_strip, 1)
+
+          old_generation = """    const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
+              const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
+              const groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
+              const pdf = await renderValidatedCommercialPdfWithNavigation(
+                {
+                  data: chain.data,
+                  content: chain.content,
+                  roadmap: chain.roadmap,
+                  evidenceModel: chain.evidenceModel,
+                  narrative: groundedNarrative
+                },
+                { renderHtml: renderPdfOnlyHtml, renderPdf: renderHtmlToPdfBuffer }
+              );
+
+              const providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
+              if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
+          """
+          new_generation = """    const db = createSupabaseServiceClient();
+              const manuscriptBucket = 'generated-reports';
+              const manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json';
+              let groundedNarrative: ParsedBlueprintMarkdown;
+              let providerCalls = 0;
+              let manuscriptReused = false;
+
+              const { data: cachedManuscript, error: cachedManuscriptError } = await db.storage
+                .from(manuscriptBucket)
+                .download(manuscriptPath);
+              if (cachedManuscript && !cachedManuscriptError) {
+                const cached = JSON.parse(await cachedManuscript.text()) as {
+                  reportReference?: string;
+                  graphFingerprint?: string;
+                  score?: number;
+                  groundedNarrative?: ParsedBlueprintMarkdown;
+                };
+                if (cached.reportReference !== chain.data.reportReference
+                  || cached.graphFingerprint !== graph.graphFingerprint
+                  || cached.score !== chain.data.scoreRun.overallScore
+                  || !cached.groundedNarrative) {
+                  throw new Error('cached_recovery_manuscript_truth_mismatch');
+                }
+                groundedNarrative = cached.groundedNarrative;
+                manuscriptReused = true;
+              } else {
+                const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
+                const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
+                groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
+                providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
+                if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
+
+                const cacheBytes = Buffer.from(JSON.stringify({
+                  reportReference: chain.data.reportReference,
+                  graphFingerprint: graph.graphFingerprint,
+                  score: chain.data.scoreRun.overallScore,
+                  finalMaturity: chain.data.scoreRun.finalMaturity,
+                  groundedNarrative,
+                  writerMetadata: composed.manuscript.writerMetadata
+                }), 'utf8');
+                const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
+                  manuscriptPath,
+                  cacheBytes,
+                  { contentType: 'application/json', upsert: false }
+                );
+                if (cacheUploadError) throw new Error(`recovery_manuscript_cache_failed:${cacheUploadError.message}`);
+                const { data: verifiedCache, error: verifiedCacheError } = await db.storage
+                  .from(manuscriptBucket)
+                  .download(manuscriptPath);
+                if (verifiedCacheError || !verifiedCache) {
+                  throw new Error(`recovery_manuscript_cache_verify_failed:${verifiedCacheError?.message ?? 'missing_cache'}`);
+                }
+                const verified = JSON.parse(await verifiedCache.text()) as {
+                  reportReference?: string;
+                  graphFingerprint?: string;
+                  score?: number;
+                };
+                if (verified.reportReference !== chain.data.reportReference
+                  || verified.graphFingerprint !== graph.graphFingerprint
+                  || verified.score !== chain.data.scoreRun.overallScore) {
+                  throw new Error('recovery_manuscript_cache_verify_truth_mismatch');
+                }
+              }
+
+              const pdf = await renderValidatedCommercialPdfWithNavigation(
+                {
+                  data: chain.data,
+                  content: chain.content,
+                  roadmap: chain.roadmap,
+                  evidenceModel: chain.evidenceModel,
+                  narrative: groundedNarrative
+                },
+                { renderHtml: renderPdfOnlyHtml, renderPdf: renderHtmlToPdfBuffer }
+              );
+          """
+          if old_generation not in text:
+              raise SystemExit('generation/render block anchor missing')
+          text = text.replace(old_generation, new_generation, 1)
+
+          old_header = """        'X-MK-Provider-Calls': String(providerCalls),
+                  'X-MK-Score': String(chain.data.scoreRun.overallScore),
+          """
+          new_header = """        'X-MK-Provider-Calls': String(providerCalls),
+                  'X-MK-Manuscript-Reused': manuscriptReused ? 'true' : 'false',
+                  'X-MK-Score': String(chain.data.scoreRun.overallScore),
+          """
+          if old_header not in text:
+              raise SystemExit('provider header anchor missing')
+          text = text.replace(old_header, new_header, 1)
+          route.write_text(text)
+
+          store = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts')
+          store_text = store.read_text()
+          old_check = """    if (providerCalls !== 1 || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
+              throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
+            }
+          """
+          new_check = """    if (![0, 1].includes(providerCalls) || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
+              throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
+            }
+          """
+          if old_check not in store_text:
+              raise SystemExit('store provider-call check anchor missing')
+          store.write_text(store_text.replace(old_check, new_check, 1))
+          PY
+
+          git diff --check
+          grep -q "manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json'" src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          grep -q "manuscriptReused" src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          grep -q "\[0, 1\].includes(providerCalls)" src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+      - name: Commit bounded hardening
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts
+          git commit -m "Harden one-shot V10 V1.2 artifact recovery"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
