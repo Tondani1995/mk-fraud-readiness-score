@@ -203,6 +203,7 @@ async function renderComprehensiveTar(): Promise<Buffer> {
   const result = await renderComprehensiveReportPackage({
     assembled: data,
     evidenceModel: advisoryModel,
+    maxRepairsPerSlot: 2,
     orderReference: data.orderReference,
     reportReference: data.reportReference,
     versionNumber: 1,

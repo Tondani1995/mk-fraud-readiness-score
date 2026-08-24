@@ -6,6 +6,7 @@ on:
       - qa/v12-vhutshilo-oidc-redeploy-20260824
     paths:
       - .github/workflows/qa-capture-vhutshilo-commercial-pair.yml
+      - src/app/score/api/qa/v12-vhutshilo-product-pair/[artifact]/route.ts
 
 permissions:
   contents: read
