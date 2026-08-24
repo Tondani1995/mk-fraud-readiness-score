@@ -1,0 +1,455 @@
+=== TYPECHECK ===
+
+> mk-fraud-platform@1.0.0-consolidation-preview typecheck
+> tsc --noEmit
+
+=== VHUTSHILO TRUTH ===
+npm warn exec The following package was not found and will be installed: tsx@4.23.12
+/home/runner/work/mk-fraud-readiness-score/mk-fraud-readiness-score/src/lib/reports/evidence-model/material-findings.ts:272
+    if (!playbook) throw new QuestionPlaybookMissingError(trace.questionCode, data.scoreRun.methodologyVersionId);
+                         ^
+
+QuestionPlaybookMissingError: No exact question playbook is registered for D3-Q08.
+    at buildMaterialFindings (/home/runner/work/mk-fraud-readiness-score/mk-fraud-readiness-score/src/lib/reports/evidence-model/material-findings.ts:272:26)
+    at buildAdvisoryEvidenceModel (/home/runner/work/mk-fraud-readiness-score/mk-fraud-readiness-score/src/lib/reports/evidence-model/index.ts:24:28)
+    at file:///home/runner/work/mk-fraud-readiness-score/mk-fraud-readiness-score/scripts/recovery/v12-vhutshilo-score-proof.mjs:177:18
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'question_playbook_missing',
+  questionCode: 'D3-Q08',
+  methodologyVersionId: '00f2b435-a027-4a06-886b-23998faeaca6'
+}
+
+Node.js v24.19.0
+=== V10 REGRESSIONS ===
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/. Input:
+
+"import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';\n" +
+  "import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturity-band';\n" +
+  "import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';\n" +
+  "import { assertCommercialReportQuality } from '../commercial-quality';\n" +
+  "import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';\n" +
+  "import type { TocEntry } from '../pdf-navigation';\n" +
+  "import { MK_CSS_VARIABLES } from '../design/tokens';\n" +
+  "import { renderCoverLogo } from '../design/brand-assets';\n" +
+  "import { SeverityBudget } from '../design/severity-budget';\n" +
+  "import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';\n" +
+  '\n' +
+  'const BAND_COLOR: Record<string, string> = {\n' +
+  "  Reactive: 'var(--mk-critical)',\n" +
+  "  Developing: 'var(--mk-major)',\n" +
+  "  Structured: 'var(--mk-navy-500)',\n" +
+  "  Strategic: 'var(--mk-confirmed)',\n" +
+  "  'Not scored': 'var(--mk-muted)'\n" +
+  '};\n' +
+  '\n' +
+  'const DOMAIN_GROUPS = [\n' +
+  '  {\n' +
+  "    title: 'Foundations: ownership, awareness and reporting culture',\n" +
+  "    subtitle: 'Executive ownership, risk identification, workforce awareness and safe reporting.',\n" +
+  "    domains: ['Fraud Leadership and Governance', 'Fraud Risk Identification', 'Fraud Culture and Awareness', 'Whistleblowing and Reporting Culture']\n" +
+  '  },\n' +
+  '  {\n' +
+  "    title: 'Operational defence: controls, detection and third parties',\n" +
+  "    subtitle: 'Day-to-day prevention, detection and supplier-facing control operation.',\n" +
+  "    domains: ['Operational Fraud Controls', 'Fraud Detection Capability', 'Third-Party and Supply Chain Fraud Risk']\n" +
+  '  },\n' +
+  '  {\n' +
+  "    title: 'Response and evolution: incidents, digital risk and improvement',\n" +
+  "    subtitle: 'Incident response, digital and identity defence, and continuous control improvement.',\n" +
+  "    domains: ['Fraud Incident Response', 'Digital and Identity Fraud Risk', 'Continuous Improvement and Fraud Risk Monitoring']\n" +
+  '  }\n' +
+  '];\n' +
+  '\n' +
+  '/**\n' +
+  ' * Checkpoint F controller review blocker 4 -- executive core vs. implementation appendix.\n' +
+  ' * Only the highest-materiality findings/risks are rendered in full narrative-card form in the\n' +
+  ' * core; every finding/risk/control/evidence-item/agenda-item is still rendered, in compact-table\n' +
+  ' * form, in the appendix (see buildAppendixSections()) -- nothing is dropped, only the *depth* of\n' +
+  ' * presentation differs by priority.\n' +
+  ' */\n' +
+  'const TOP_FINDINGS_COUNT = 5;\n' +
+  'const TOP_RISKS_COUNT = 4;\n' +
+  'const TOP_CONTRADICTIONS_COUNT = 2;\n' +
+  'const TOP_SCENARIOS_COUNT = 3;\n' +
+  '\n' +
+  '/**\n' +
+  ' * Checkpoint F controller review blocker 7 -- the exact heading strings used for both the\n' +
+  ' * customer-facing contents page and the PDF bookmark tree, and the lookup keys\n' +
+  ' * extractHeadingPageMap() (pdf-navigation.ts) searches for in the rendered PDF text. Keep every\n' +
+  ' * key unique and stable; renderReportHtml() renders each as the literal h2 text of its section.\n' +
+  ' */\n' +
+  'export const REPORT_TOC_ENTRIES: TocEntry[] = [\n' +
+  "  { key: 'Executive summary', label: 'Executive summary' },\n" +
+  "  { key: 'What the result means', label: 'What the result means' },\n" +
+  "  { key: 'Domain overview', label: 'Domain overview' },\n" +
+  "  { key: 'Priority findings, contradictions and scenarios', label: 'Priority findings, contradictions and scenarios' },\n" +
+  "  { key: 'Priority risks', label: 'Priority risks' },\n" +
+  "  { key: 'Leadership decisions and roadmap', label: 'Leadership decisions and roadmap' },\n" +
+  "  { key: 'Proof requirements', label: 'Proof requirements' },\n" +
+  "  { key: 'Methodology, limitations and next steps', label: 'Methodology, limitations and next steps' },\n" +
+  "  // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference\n" +
+  '  // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the\n' +
+  '  // appendix bookmark root it no longer belongs to.\n' +
+  '  // key is deliberately not the bare word "Appendix" -- the core sections cross-reference the\n' +
+  '  // appendix by name, so a plain "Appendix" search key would match that cross-reference text on an\n' +
+  '  // earlier page instead of the actual appendix divider page.\n' +
+  "  // One canonical mapping: the printed TOC label, the rendered h2 and the audit's required-section\n" +
+  '  // heading are the SAME string. checkpoint-f-pdf-audit.py keys tocPrinted by the printed row text\n' +
+  '  // and looks it up by REQUIRED_SECTIONS heading, so a divergent label silently breaks the contract.\n' +
+  "  { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },\n" +
+  "  { key: 'Complete supporting detail', label: 'Complete supporting detail', appendix: true },\n" +
+  "  { key: 'E1. Supporting control actions', label: 'E1. Supporting control actions', appendix: true },\n" +
+  "  { key: 'E2. Definitions and score basis', label: 'E2. Definitions and score basis', appendix: true }\n" +
+  '];\n' +
+  '\n' +
+  '/** The exact marker text that begins the appendix -- used by the audit script to scope its\n' +
+  ' * internal-question-code check to the core report only (the appendix mapping table is the one\n' +
+  ' * place question codes are intentionally shown). */\n' +
+  "export const APPENDIX_START_MARKER = 'Appendix';\n" +
+  '\n' +
+  'function esc(value: unknown): string {\n' +
+  "  return String(value ?? '')\n" +
+  "    .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')\n" +
+  "    .replace(/\\s+(?:for|on)\\s+D\\d+-Q\\d+/g, '')\n" +
+  "    .replace(/\\bD\\d+-Q\\d+\\b/g, '')\n" +
+  "    .replaceAll('&', '&amp;')\n" +
+  "    .replaceAll('<', '&lt;')\n" +
+  "    .replaceAll('>', '&gt;')\n" +
+  `    .replaceAll('"', '&quot;')\n` +
+  `    .replaceAll("'", '&#39;');\n` +
+  '}\n' +
+  '\n' +
+  '/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */\n' +
+  'function escNarrative(value: unknown): string {\n' +
+  "  return String(value ?? '')\n" +
+  "    .replaceAll('&', '&amp;')\n" +
+  "    .replaceAll('<', '&lt;')\n" +
+  "    .replaceAll('>', '&gt;')\n" +
+  `    .replaceAll('"', '&quot;')\n` +
+  `    .replaceAll("'", '&#39;');\n` +
+  '}\n' +
+  '\n' +
+  'function score(value: number | null | undefined): string {\n' +
+  "  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';\n" +
+  '  return String(Math.round(Number(value)));\n' +
+  '}\n' +
+  '\n' +
+  'function pct(value: number | null | undefined): string {\n' +
+  '  const rendered = score(value);\n' +
+  "  return rendered === '—' ? rendered : `${rendered}%`;\n" +
+  '}\n' +
+  '\n' +
+  'function bandFor(value: number | null): string {\n' +
+  "  if (value === null) return 'Not scored';\n" +
+  '  return getMaturityBand(value);\n' +
+  '}\n' +
+  '\n' +
+  'function customerSentence(value: string): string {\n' +
+  '  const trimmed = value.trim();\n' +
+  '  if (!trimmed) return trimmed;\n' +
+  '  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);\n' +
+  '  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`;\n' +
+  '}\n' +
+  '\n' +
+  'function customerFindingWhyItMatters(value: string): string {\n' +
+  '  return value\n' +
+  '    .replace(\n' +
+  '      /This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\\./gi,\n' +
+  "      'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.'\n" +
+  '    )\n' +
+  '    .replace(\n' +
+  '      /This recorded weakness affects a methodology critical control and warrants priority treatment\\./gi,\n' +
+  "      'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'\n" +
+  '    );\n' +
+  '}\n' +
+  '\n' +
+  'function customerRiskTitle(title: string, riskEvent: string): string {\n' +
+  '  return /control effectiveness risk$/i.test(title.trim()) ? customerSentence(riskEvent) : title;\n' +
+  '}\n' +
+  '\n' +
+  'function list(items: string[]): string {\n' +
+  '  return items.length > 0\n' +
+  "    ? `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`\n" +
+  "    : '';\n" +
+  '}\n' +
+  '\n' +
+  'function labelled(label: string, value: unknown): string {\n' +
+  "  const rendered = String(value ?? '').trim();\n" +
+  '  return rendered.length > 0\n' +
+  '    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(rendered)}</div></div>`\n' +
+  "    : '';\n" +
+  '}\n' +
+  '\n' +
+  'function labelledList(label: string, items: string[]): string {\n' +
+  '  return items.length > 0\n' +
+  '    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${list(items)}</div></div>`\n' +
+  "    : '';\n" +
+  '}\n' +
+  '\n' +
+  "function section(title: string, heading: string, body: string, className = ''): string {\n" +
+  '  return `<section class="report-section ${className}">\n' +
+  '    <div class="section-kicker">${esc(title)}</div>\n' +
+  '    <h2>${esc(heading)}</h2>\n' +
+  '    ${body}\n' +
+  '  </section>`;\n' +
+  '}\n' +
+  '\n' +
+  '/** A subsection heading inside a merged section -- does not force a new PDF page (unlike h2/section()\n' +
+  ' * above), which is the main lever used to remove pages 4 previously spent purely on forced breaks\n' +
+  ' * between short, related sections. */\n' +
+  'function subsection(heading: string, body: string): string {\n' +
+  '  return `<div class="subsection-heading"><h2>${esc(heading)}</h2></div>${body}`;\n' +
+  '}\n' +
+  '\n' +
+  "function table(headers: string[], rows: string[], className = 'compact-register'): string {\n" +
+  '  return `<table class="continuing-table ${className}"><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join(\'\')}</tr></thead><tbody>${rows.join(\'\')}</tbody></table>`;\n' +
+  '}\n' +
+  '\n' +
+  'function lowercaseFirst(text: string): string {\n' +
+  '  return text.length > 0 ? text.charAt(0).toLowerCase() + text.slice(1) : text;\n' +
+  '}\n' +
+  '\n' +
+  '/**\n' +
+  ' * Final controller review round: the "Recommended next step" callout (Methodology, limitations and\n' +
+  ' * next steps) previously concatenated an evidence artefact title with the raw internal proof\n' +
+  ' * sentence -- `Commission independent validation of <artefact> -- Whether <clause> operates to the\n' +
+  ' * exact expected control standard...` -- which reads as a database-field join, not advisory prose.\n' +
+  ' *\n' +
+  ' * provesWhat is *always* generated by buildEvidenceChecklist() (evidence-model/registers.ts) from\n' +
+  ' * exactly one template: `Whether ${clause} operate(s) to the exact expected control standard across\n' +
+  ' * the complete in-scope population.` -- there is no other code path that produces an\n' +
+  ' * EvidenceChecklistItem. That means the raw proof clause can be deterministically extracted and\n' +
+  ' * re-embedded in natural grammar (lowercased, since it was only ever capitalised because it opened\n' +
+  ' * tha'... 64698 more characters
+
+    at file:///home/runner/work/mk-fraud-readiness-score/mk-fraud-readiness-score/scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs:63:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: "import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';\n" +
+    "import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturity-band';\n" +
+    "import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';\n" +
+    "import { assertCommercialReportQuality } from '../commercial-quality';\n" +
+    "import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';\n" +
+    "import type { TocEntry } from '../pdf-navigation';\n" +
+    "import { MK_CSS_VARIABLES } from '../design/tokens';\n" +
+    "import { renderCoverLogo } from '../design/brand-assets';\n" +
+    "import { SeverityBudget } from '../design/severity-budget';\n" +
+    "import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';\n" +
+    '\n' +
+    'const BAND_COLOR: Record<string, string> = {\n' +
+    "  Reactive: 'var(--mk-critical)',\n" +
+    "  Developing: 'var(--mk-major)',\n" +
+    "  Structured: 'var(--mk-navy-500)',\n" +
+    "  Strategic: 'var(--mk-confirmed)',\n" +
+    "  'Not scored': 'var(--mk-muted)'\n" +
+    '};\n' +
+    '\n' +
+    'const DOMAIN_GROUPS = [\n' +
+    '  {\n' +
+    "    title: 'Foundations: ownership, awareness and reporting culture',\n" +
+    "    subtitle: 'Executive ownership, risk identification, workforce awareness and safe reporting.',\n" +
+    "    domains: ['Fraud Leadership and Governance', 'Fraud Risk Identification', 'Fraud Culture and Awareness', 'Whistleblowing and Reporting Culture']\n" +
+    '  },\n' +
+    '  {\n' +
+    "    title: 'Operational defence: controls, detection and third parties',\n" +
+    "    subtitle: 'Day-to-day prevention, detection and supplier-facing control operation.',\n" +
+    "    domains: ['Operational Fraud Controls', 'Fraud Detection Capability', 'Third-Party and Supply Chain Fraud Risk']\n" +
+    '  },\n' +
+    '  {\n' +
+    "    title: 'Response and evolution: incidents, digital risk and improvement',\n" +
+    "    subtitle: 'Incident response, digital and identity defence, and continuous control improvement.',\n" +
+    "    domains: ['Fraud Incident Response', 'Digital and Identity Fraud Risk', 'Continuous Improvement and Fraud Risk Monitoring']\n" +
+    '  }\n' +
+    '];\n' +
+    '\n' +
+    '/**\n' +
+    ' * Checkpoint F controller review blocker 4 -- executive core vs. implementation appendix.\n' +
+    ' * Only the highest-materiality findings/risks are rendered in full narrative-card form in the\n' +
+    ' * core; every finding/risk/control/evidence-item/agenda-item is still rendered, in compact-table\n' +
+    ' * form, in the appendix (see buildAppendixSections()) -- nothing is dropped, only the *depth* of\n' +
+    ' * presentation differs by priority.\n' +
+    ' */\n' +
+    'const TOP_FINDINGS_COUNT = 5;\n' +
+    'const TOP_RISKS_COUNT = 4;\n' +
+    'const TOP_CONTRADICTIONS_COUNT = 2;\n' +
+    'const TOP_SCENARIOS_COUNT = 3;\n' +
+    '\n' +
+    '/**\n' +
+    ' * Checkpoint F controller review blocker 7 -- the exact heading strings used for both the\n' +
+    ' * customer-facing contents page and the PDF bookmark tree, and the lookup keys\n' +
+    ' * extractHeadingPageMap() (pdf-navigation.ts) searches for in the rendered PDF text. Keep every\n' +
+    ' * key unique and stable; renderReportHtml() renders each as the literal h2 text of its section.\n' +
+    ' */\n' +
+    'export const REPORT_TOC_ENTRIES: TocEntry[] = [\n' +
+    "  { key: 'Executive summary', label: 'Executive summary' },\n" +
+    "  { key: 'What the result means', label: 'What the result means' },\n" +
+    "  { key: 'Domain overview', label: 'Domain overview' },\n" +
+    "  { key: 'Priority findings, contradictions and scenarios', label: 'Priority findings, contradictions and scenarios' },\n" +
+    "  { key: 'Priority risks', label: 'Priority risks' },\n" +
+    "  { key: 'Leadership decisions and roadmap', label: 'Leadership decisions and roadmap' },\n" +
+    "  { key: 'Proof requirements', label: 'Proof requirements' },\n" +
+    "  { key: 'Methodology, limitations and next steps', label: 'Methodology, limitations and next steps' },\n" +
+    "  // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference\n" +
+    '  // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the\n' +
+    '  // appendix bookmark root it no longer belongs to.\n' +
+    '  // key is deliberately not the bare word "Appendix" -- the core sections cross-reference the\n' +
+    '  // appendix by name, so a plain "Appendix" search key would match that cross-reference text on an\n' +
+    '  // earlier page instead of the actual appendix divider page.\n' +
+    "  // One canonical mapping: the printed TOC label, the rendered h2 and the audit's required-section\n" +
+    '  // heading are the SAME string. checkpoint-f-pdf-audit.py keys tocPrinted by the printed row text\n' +
+    '  // and looks it up by REQUIRED_SECTIONS heading, so a divergent label silently breaks the contract.\n' +
+    "  { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },\n" +
+    "  { key: 'Complete supporting detail', label: 'Complete supporting detail', appendix: true },\n" +
+    "  { key: 'E1. Supporting control actions', label: 'E1. Supporting control actions', appendix: true },\n" +
+    "  { key: 'E2. Definitions and score basis', label: 'E2. Definitions and score basis', appendix: true }\n" +
+    '];\n' +
+    '\n' +
+    '/** The exact marker text that begins the appendix -- used by the audit script to scope its\n' +
+    ' * internal-question-code check to the core report only (the appendix mapping table is the one\n' +
+    ' * place question codes are intentionally shown). */\n' +
+    "export const APPENDIX_START_MARKER = 'Appendix';\n" +
+    '\n' +
+    'function esc(value: unknown): string {\n' +
+    "  return String(value ?? '')\n" +
+    "    .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')\n" +
+    "    .replace(/\\s+(?:for|on)\\s+D\\d+-Q\\d+/g, '')\n" +
+    "    .replace(/\\bD\\d+-Q\\d+\\b/g, '')\n" +
+    "    .replaceAll('&', '&amp;')\n" +
+    "    .replaceAll('<', '&lt;')\n" +
+    "    .replaceAll('>', '&gt;')\n" +
+    `    .replaceAll('"', '&quot;')\n` +
+    `    .replaceAll("'", '&#39;');\n` +
+    '}\n' +
+    '\n' +
+    '/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */\n' +
+    'function escNarrative(value: unknown): string {\n' +
+    "  return String(value ?? '')\n" +
+    "    .replaceAll('&', '&amp;')\n" +
+    "    .replaceAll('<', '&lt;')\n" +
+    "    .replaceAll('>', '&gt;')\n" +
+    `    .replaceAll('"', '&quot;')\n` +
+    `    .replaceAll("'", '&#39;');\n` +
+    '}\n' +
+    '\n' +
+    'function score(value: number | null | undefined): string {\n' +
+    "  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';\n" +
+    '  return String(Math.round(Number(value)));\n' +
+    '}\n' +
+    '\n' +
+    'function pct(value: number | null | undefined): string {\n' +
+    '  const rendered = score(value);\n' +
+    "  return rendered === '—' ? rendered : `${rendered}%`;\n" +
+    '}\n' +
+    '\n' +
+    'function bandFor(value: number | null): string {\n' +
+    "  if (value === null) return 'Not scored';\n" +
+    '  return getMaturityBand(value);\n' +
+    '}\n' +
+    '\n' +
+    'function customerSentence(value: string): string {\n' +
+    '  const trimmed = value.trim();\n' +
+    '  if (!trimmed) return trimmed;\n' +
+    '  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);\n' +
+    '  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`;\n' +
+    '}\n' +
+    '\n' +
+    'function customerFindingWhyItMatters(value: string): string {\n' +
+    '  return value\n' +
+    '    .replace(\n' +
+    '      /This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\\./gi,\n' +
+    "      'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.'\n" +
+    '    )\n' +
+    '    .replace(\n' +
+    '      /This recorded weakness affects a methodology critical control and warrants priority treatment\\./gi,\n' +
+    "      'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'\n" +
+    '    );\n' +
+    '}\n' +
+    '\n' +
+    'function customerRiskTitle(title: string, riskEvent: string): string {\n' +
+    '  return /control effectiveness risk$/i.test(title.trim()) ? customerSentence(riskEvent) : title;\n' +
+    '}\n' +
+    '\n' +
+    'function list(items: string[]): string {\n' +
+    '  return items.length > 0\n' +
+    "    ? `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`\n" +
+    "    : '';\n" +
+    '}\n' +
+    '\n' +
+    'function labelled(label: string, value: unknown): string {\n' +
+    "  const rendered = String(value ?? '').trim();\n" +
+    '  return rendered.length > 0\n' +
+    '    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(rendered)}</div></div>`\n' +
+    "    : '';\n" +
+    '}\n' +
+    '\n' +
+    'function labelledList(label: string, items: string[]): string {\n' +
+    '  return items.length > 0\n' +
+    '    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${list(items)}</div></div>`\n' +
+    "    : '';\n" +
+    '}\n' +
+    '\n' +
+    "function section(title: string, heading: string, body: string, className = ''): string {\n" +
+    '  return `<section class="report-section ${className}">\n' +
+    '    <div class="section-kicker">${esc(title)}</div>\n' +
+    '    <h2>${esc(heading)}</h2>\n' +
+    '    ${body}\n' +
+    '  </section>`;\n' +
+    '}\n' +
+    '\n' +
+    '/** A subsection heading inside a merged section -- does not force a new PDF page (unlike h2/section()\n' +
+    ' * above), which is the main lever used to remove pages 4 previously spent purely on forced breaks\n' +
+    ' * between short, related sections. */\n' +
+    'function subsection(heading: string, body: string): string {\n' +
+    '  return `<div class="subsection-heading"><h2>${esc(heading)}</h2></div>${body}`;\n' +
+    '}\n' +
+    '\n' +
+    "function table(headers: string[], rows: string[], className = 'compact-register'): string {\n" +
+    '  return `<table class="continuing-table ${className}"><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join(\'\')}</tr></thead><tbody>${rows.join(\'\')}</tbody></table>`;\n' +
+    '}\n' +
+    '\n' +
+    'function lowercaseFirst(text: string): string {\n' +
+    '  return text.length > 0 ? text.charAt(0).toLowerCase() + text.slice(1) : text;\n' +
+    '}\n' +
+    '\n' +
+    '/**\n' +
+    ' * Final controller review round: the "Recommended next step" callout (Methodology, limitations and\n' +
+    ' * next steps) previously concatenated an evidence artefact title with the raw internal proof\n' +
+    ' * sentence -- `Commission independent validation of <artefact> -- Whether <clause> operates to the\n' +
+    ' * exact expected control standard...` -- which reads as a database-field join, not advisory prose.\n' +
+    ' *\n' +
+    ' * provesWhat is *always* generated by buildEvidenceChecklist() (evidence-model/registers.ts) from\n' +
+    ' * exactly one template: `Whether ${clause} operate(s) to the exact expected control standard across\n' +
+    ' * the complete in-scope population.` -- there is no other code path that produces an\n' +
+    ' * EvidenceChecklistItem. That means the raw proof clause can be deterministically extracted and\n' +
+    ' * re-embedded in natural grammar (lowercased, since it was only ever capitalised because it opened\n' +
+    ' * tha'... 64698 more characters,
+  expected: /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v24.19.0
+✖ scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs (96.538387ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105.720859
+
+✖ failing tests:
+
+test at scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs:1:1
+✖ scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs (96.538387ms)
+  'test failed'
