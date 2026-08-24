@@ -6,7 +6,13 @@ import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-mode
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
 import { REPORTING_BIBLE_VERSION } from '../reporting-bible';
 import { buildNarrativeMaturationSteps, type NarrativeMaturationStep } from './maturation';
-import { deriveSupportedOperatingExposures, hasExposure, type OperatingExposureId, type SupportedExposure } from './operating-exposures';
+import { exposuresFromContext, hasExposure, type OperatingExposureId, type SupportedExposure } from './operating-exposures';
+import {
+  adaptiveGraphVersionForAssessment,
+  deriveNarrativeOperatingContext,
+  describeOperatingContextFact,
+  type OperatingContextFact
+} from './operating-context';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -91,6 +97,8 @@ export interface NarrativeRiskFact {
 export interface NarrativeScenarioFact {
   factRef: string;
   sourceId: string;
+  /** Canonical scenario identity used by Comprehensive output. */
+  canonicalScenarioId: string;
   scenarioFamily: FraudPathwayFamily;
   title: string;
   /**
@@ -109,6 +117,9 @@ export interface NarrativeScenarioFact {
   warningIndicators: string[];
   immediateContainment: string;
   longTermResponse: string;
+  /** Canonical domain identifiers; Fact Pack factRefs remain narrative-only. */
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
   linkedFindingRefs: string[];
   linkedRiskRefs: string[];
 }
@@ -214,7 +225,13 @@ export interface NarrativeFactPack {
   bibleVersion: typeof REPORTING_BIBLE_VERSION;
   productTier: NarrativeProductTier;
   narrativeMode: NarrativeMode;
-  organisation: { name: string; sectorFacts: string[] };
+  organisation: {
+    name: string;
+    /** Backward-compatible string projection derived only from operatingContext. */
+    sectorFacts: string[];
+    /** Canonical operating facts with graph/question/option provenance. */
+    operatingContext: OperatingContextFact[];
+  };
   assessment: {
     reference: string;
     generatedAt: string;
@@ -308,7 +325,11 @@ const SCENARIO_FAMILY_LANGUAGE: Record<string, ScenarioFamilyLanguage> = {
   evidence_compromise: { actorClass: 'An internal or external actor seeking to delay or weaken investigation', opportunity: 'Records relating to suspected fraud are not yet consistently preserved, access-controlled and handled through a clear custody process.', entryPoint: 'A suspected matter generates records before a retention, legal-hold or custody decision is made.', mechanism: 'An actor delays, alters or fragments relevant records so that the scope, timing or responsibility for the suspected matter becomes harder to establish.' },
   incident_response_breakdown: { actorClass: 'An internal or external actor benefiting from delayed incident escalation', opportunity: 'Incident intake, severity decisions and response ownership are not yet sufficiently clear to contain a suspected matter quickly.', entryPoint: 'A suspected-fraud report enters intake without a timely severity decision or named incident owner.', mechanism: 'An actor benefits while a suspected matter moves between teams without a clear containment, investigation or escalation decision.' },
   suppressed_reporting: { actorClass: 'An insider benefiting from a reporting channel that lacks independent protection', opportunity: 'Reporting channels and escalation routes are not yet sufficiently independent to protect concerns from influence or closure by an implicated manager.', entryPoint: 'A concern is raised through a channel visible to, controlled by or dependent on the person implicated in the concern.', mechanism: 'An insider discourages, filters or delays a concern before it reaches an independent decision-maker who can protect the reporter and initiate review.' },
-  access_abuse: { actorClass: 'An internal actor using access beyond approved role requirements', opportunity: 'Access rights and exception review are not yet sufficiently aligned to current role requirements.', entryPoint: 'A user entitlement is exercised outside the approved role matrix without independent review.', mechanism: 'An actor uses excess access to initiate, change or approve a value-bearing activity beyond the role’s intended authority.' }
+  access_abuse: { actorClass: 'An internal actor using access beyond approved role requirements', opportunity: 'Access rights and exception review are not yet sufficiently aligned to current role requirements.', entryPoint: 'A user entitlement is exercised outside the approved role matrix without independent review.', mechanism: 'An actor uses excess access to initiate, change or approve a value-bearing activity beyond the role’s intended authority.' },
+  payroll_master_file_manipulation: { actorClass: 'An insider manipulating payroll data or payment preparation', opportunity: 'Payroll master-file changes and unusual records are not yet independently reviewed before payment.', entryPoint: 'A bank, pay-rate, joiner or leaver change, duplicate or unusual payroll record enters a payment run.', mechanism: 'An actor alters a payroll record or introduces a duplicate or ghost record and relies on weak pre-payment reconciliation to release value.' },
+  cash_custody_shortage_or_overage: { actorClass: 'An insider using weak physical-cash custody or reconciliation', opportunity: 'Cash counts, banking and difference investigation are not yet consistently attributable and timely.', entryPoint: 'A cash count, banking or reconciliation difference arises at a cash point or site.', mechanism: 'An actor diverts or withholds cash and relies on ordinary variance, delayed banking or incomplete reconciliation to avoid challenge.' },
+  stock_asset_shrinkage_or_adjustment: { actorClass: 'An insider using weak stock or physical-asset custody', opportunity: 'Physical-asset movement, counting, reconciliation and write-off review are not yet consistently controlled.', entryPoint: 'A stock movement, count difference, disposal or write-off occurs without complete custody evidence.', mechanism: 'An actor removes or redirects physical value and relies on incomplete movement records, delayed counts or unsupported adjustments to conceal the loss.' },
+  external_fraud_monitoring_gap: { actorClass: 'An external actor using a customer, supplier, partner or provider-operated channel', opportunity: 'External-party threat coverage and provider reporting are not yet connected to timely organisational review.', entryPoint: 'A relevant external channel produces a fraud signal or provider exception.', mechanism: 'An actor uses a channel or service boundary where the organisation’s own monitoring and provider reporting are not joined or escalated promptly.' }
 };
 
 /**
@@ -394,6 +415,7 @@ const THEME_RULES: ThemeRule[] = [
   { themeFamily: 'IDENTITY_ACCESS_GOVERNANCE', title: 'Identity and access governance', managementQuestion: 'How will management restrict, recertify and challenge access that can alter value-bearing records?', anchorFamilies: ['ORDINARY_ACCESS', 'PRIVILEGED_ACCESS'], whyTogether: 'These findings connect access entitlement, privilege and recertification to the ability to alter value-bearing records, entitlements or audit trails.' },
   { themeFamily: 'IDENTITY_VERIFICATION_SENSITIVE_CHANGE', title: 'Identity verification and sensitive change', managementQuestion: 'How will management verify identity and challenge sensitive changes before authority is misused?', anchorFamilies: ['IDENTITY_VERIFICATION'], whyTogether: 'These findings connect identity verification and sensitive-change evidence to the risk of misuse under a legitimate identity.' },
   { themeFamily: 'DETECTION_MONITORING', title: 'Monitoring, escalation and detection coverage', managementQuestion: 'How will management ensure unusual activity is monitored, assigned, investigated and escalated on time?', anchorFamilies: ['DETECTION_MONITORING'], whyTogether: 'These findings connect monitoring coverage, exception review and escalation authority to the risk that unusual activity remains below timely challenge.' },
+  { themeFamily: 'OPERATIONAL_VALUE_CUSTODY', title: 'Payroll, cash and physical-asset integrity', managementQuestion: 'How will management keep operational value reconciled before payroll, cash or asset differences become loss?', anchorFamilies: ['PAYROLL_INTEGRITY', 'CASH_CUSTODY', 'STOCK_ASSET_CUSTODY'], whyTogether: 'These findings connect payroll changes, physical cash and stock or asset custody to independent review, reconciliation and timely exception action.' },
   { themeFamily: 'INCIDENT_RESPONSE_EVIDENCE_INTEGRITY', title: 'Incident response and evidence integrity', managementQuestion: 'How will management contain suspected fraud, preserve evidence and prevent repeat exposure?', anchorFamilies: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING'], whyTogether: 'These findings connect reporting, incident response and evidence preservation to the organisation’s ability to contain a matter and prevent repeat exposure.' }
 ];
 
@@ -432,6 +454,27 @@ const FRAUD_PATHWAY_RULES: FraudPathwayRule[] = [
     whyTogether: 'These findings connect reporting, evidence preservation and incident escalation to the organisation’s ability to contain a matter and prevent repeat exposure.',
     anchorFamilies: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING'],
     language: SCENARIO_FAMILY_LANGUAGE.evidence_compromise
+  },
+  {
+    family: 'PAYROLL_MANIPULATION',
+    title: 'Payroll integrity',
+    whyTogether: 'These findings connect payroll master-file change, pre-payment review and unusual-record controls to the point at which payroll value can be diverted.',
+    anchorFamilies: ['PAYROLL_INTEGRITY'],
+    language: SCENARIO_FAMILY_LANGUAGE.payroll_master_file_manipulation
+  },
+  {
+    family: 'CASH_CUSTODY_MISUSE',
+    title: 'Cash custody and reconciliation',
+    whyTogether: 'These findings connect cash custody, counting, banking and reconciliation to the point at which shortages or diversion should be identified.',
+    anchorFamilies: ['CASH_CUSTODY'],
+    language: SCENARIO_FAMILY_LANGUAGE.cash_custody_shortage_or_overage
+  },
+  {
+    family: 'STOCK_ASSET_MISUSE',
+    title: 'Stock and physical-asset custody',
+    whyTogether: 'These findings connect physical-asset custody, movement, counting, reconciliation and write-off review to the point at which shrinkage should be challenged.',
+    anchorFamilies: ['STOCK_ASSET_CUSTODY'],
+    language: SCENARIO_FAMILY_LANGUAGE.stock_asset_shrinkage_or_adjustment
   }
 ];
 
@@ -587,7 +630,10 @@ function qualitativeConsequence(family: FraudPathwayFamily, findings: MaterialFi
     privileged_access_misuse: 'Unauthorised changes to a value-bearing record, entitlement or audit trail can create loss and weaken investigation.',
     detection_evasion: 'Delayed detection allows suspicious activity or losses to continue and exceptions to accumulate.',
     identity_impersonation: 'Unauthorised access, payment, benefit or profile change can occur before the identity or transaction is challenged.',
-    incident_concealment: 'Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified.'
+    incident_concealment: 'Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified.',
+    payroll_manipulation: 'Unauthorised payroll changes or unusual records can divert value before payment release.',
+    cash_custody_misuse: 'Unresolved cash differences can conceal shortage or diversion across sites or cash points.',
+    stock_asset_misuse: 'Unreconciled movement, shrinkage or write-off can conceal loss of stock or physical assets.'
   };
   return unique([base[family.toLowerCase()], ...financial.slice(0, 1), ...operational.slice(0, 1)]).join(' ');
 }
@@ -613,21 +659,30 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     privileged_access_misuse: 'Privileged access is used to alter a value-bearing record, entitlement or audit trail',
     detection_evasion: 'Unusual activity avoids timely challenge because monitoring or escalation coverage is incomplete',
     identity_impersonation: 'A compromised or impersonated identity is used to change a sensitive profile, instruction or transaction',
-    incident_concealment: 'Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat'
+    incident_concealment: 'Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat',
+    payroll_manipulation: 'Payroll master-file manipulation reaches payment release',
+    cash_custody_misuse: 'Cash custody difference remains unresolved',
+    stock_asset_misuse: 'Stock or physical-asset movement is not reconciled'
   };
   const fallbackContainment: Record<string, string> = {
     supplier_payment_diversion: 'Pause the affected supplier or payment instruction, independently confirm the trusted beneficiary details and preserve the approval trail.',
     privileged_access_misuse: 'Suspend or restrict the affected entitlement, preserve access and audit logs, and route the change for accountable review.',
     detection_evasion: 'Assign and triage the affected alerts or exceptions, preserve the relevant activity record and escalate overdue items.',
     identity_impersonation: 'Pause the sensitive change or transaction, re-perform identity verification through a trusted route and preserve authentication records.',
-    incident_concealment: 'Open an incident record, preserve relevant records under controlled custody and assign a named containment and investigation owner.'
+    incident_concealment: 'Open an incident record, preserve relevant records under controlled custody and assign a named containment and investigation owner.',
+    payroll_manipulation: 'Hold the affected payroll run or payment instruction, independently verify the master-file change, preserve the change trail and escalate the exception to Finance and People leadership.',
+    cash_custody_misuse: 'Secure the cash point, perform an independent recount and banking reconciliation, preserve custody records and escalate the difference under the defined threshold.',
+    stock_asset_misuse: 'Secure the affected stock or asset population, pause unsupported movement or disposal, perform an independent count and preserve the movement and write-off trail.'
   };
   const fallbackLongTerm: Record<string, string> = {
     supplier_payment_diversion: 'Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.',
     privileged_access_misuse: 'Implement role-based access, privileged-session logging, periodic recertification and exception escalation.',
     detection_evasion: 'Define monitoring coverage, red flags, review ownership, closure evidence and threshold-change governance.',
     identity_impersonation: 'Implement risk-based identity verification, profile-change controls, authentication evidence and takeover investigation.',
-    incident_concealment: 'Implement protected reporting, severity-based escalation, evidence preservation and repeat-exposure review.'
+    incident_concealment: 'Implement protected reporting, severity-based escalation, evidence preservation and repeat-exposure review.',
+    payroll_manipulation: 'Implement complete payroll-population reconciliation, independent pre-payment change review, anomaly testing and tracked exception closure.',
+    cash_custody_misuse: 'Implement defined cash custodians, attributable counts, sealed transfers, banking reconciliation and difference escalation.',
+    stock_asset_misuse: 'Implement complete stock and asset registers, authorised movement, periodic counts, reconciliation and independent write-off review.'
   };
   const sourceWarnings = source?.earlyWarningIndicators.filter(Boolean) ?? [];
   const usableSourceResponse = (value: string | undefined, fallback: string): string => {
@@ -639,12 +694,17 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     privileged_access_misuse: 'Privileged access is not consistently restricted, logged and independently recertified.',
     identity_impersonation: 'Identity verification and sensitive-change monitoring are partially designed.',
     detection_evasion: 'Monitoring and exception review are at an initial or ad hoc stage.',
-    incident_concealment: 'Evidence preservation, reporting and custody are at an initial or ad hoc stage.'
+    incident_concealment: 'Evidence preservation, reporting and custody are at an initial or ad hoc stage.',
+    payroll_manipulation: 'Payroll master-file change review and unusual-record challenge are at an initial or ad hoc stage.',
+    cash_custody_misuse: 'Cash custody, counting and reconciliation are at an initial or ad hoc stage.',
+    stock_asset_misuse: 'Stock and physical-asset custody, movement and reconciliation are at an initial or ad hoc stage.'
   };
   const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} is recorded as ${text(finding.responseLabel, 'not consistently in place').toLowerCase()}.`)).join(' ');
+  const canonicalScenarioId = source?.id ?? `SC-${rule.family.toUpperCase()}`;
   return {
     factRef: `SCENARIO-${String(index + 1).padStart(3, '0')}`,
     sourceId: source?.id ?? `SYNTH-${rule.family.toUpperCase()}`,
+    canonicalScenarioId,
     scenarioFamily: rule.family,
     title: title[rule.family.toLowerCase()],
     actorClass: contextVariant?.actorClass ?? rule.language.actorClass,
@@ -659,6 +719,8 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     warningIndicators: unique([...sourceWarnings, ...fallbackWarnings(rule.family)]).slice(0, 5),
     immediateContainment: usableSourceResponse(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
     longTermResponse: fallbackLongTerm[rule.family.toLowerCase()],
+    linkedFindingIds,
+    linkedRiskIds: linkedRisks.map((risk) => risk.id),
     linkedFindingRefs: linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     linkedRiskRefs: linkedRisks.map((risk) => riskRefs.get(risk.id) ?? '').filter(Boolean)
   };
@@ -706,7 +768,7 @@ function buildControlFacts(controls: ControlImprovementEntry[], findings: Materi
 
 function decisionSemanticFamily(decision: LeadershipDecision, findings: MaterialFinding[]): string {
   const linked = findings.filter((finding) => decision.linkedFindingIds.includes(finding.id));
-  const priority: PrimarySemanticFamily[] = ['PRIVILEGED_ACCESS', 'IDENTITY_VERIFICATION', 'DETECTION_MONITORING', 'EVIDENCE_INTEGRITY', 'INCIDENT_RESPONSE', 'SUPPLIER_PAYMENT_CHANGE', 'SUPPLIER_ONBOARDING', 'FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'];
+  const priority: PrimarySemanticFamily[] = ['PAYROLL_INTEGRITY', 'CASH_CUSTODY', 'STOCK_ASSET_CUSTODY', 'PRIVILEGED_ACCESS', 'IDENTITY_VERIFICATION', 'DETECTION_MONITORING', 'EVIDENCE_INTEGRITY', 'INCIDENT_RESPONSE', 'SUPPLIER_PAYMENT_CHANGE', 'SUPPLIER_ONBOARDING', 'FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'];
   const family = priority.find((candidate) => linked.some((finding) => finding.primarySemanticFamily === candidate));
   const mapping: Partial<Record<PrimarySemanticFamily, string>> = {
     FRAUD_GOVERNANCE: 'FRAUD_GOVERNANCE_MODEL',
@@ -720,7 +782,10 @@ function decisionSemanticFamily(decision: LeadershipDecision, findings: Material
     DETECTION_MONITORING: 'DETECTION_OPERATING_MODEL',
     INCIDENT_RESPONSE: 'INCIDENT_AND_EVIDENCE_MODEL',
     EVIDENCE_INTEGRITY: 'INCIDENT_AND_EVIDENCE_MODEL',
-    WHISTLEBLOWING: 'INCIDENT_AND_EVIDENCE_MODEL'
+    WHISTLEBLOWING: 'INCIDENT_AND_EVIDENCE_MODEL',
+    PAYROLL_INTEGRITY: 'PAYROLL_INTEGRITY_MODEL',
+    CASH_CUSTODY: 'CASH_CUSTODY_MODEL',
+    STOCK_ASSET_CUSTODY: 'STOCK_ASSET_CUSTODY_MODEL'
   };
   return (family ? mapping[family] : undefined) ?? 'CONTROL_EFFECTIVENESS_CADENCE';
 }
@@ -790,7 +855,10 @@ function roadmapOutcomeFor(finding: MaterialFinding): string {
     EVIDENCE_INTEGRITY: 'Fraud evidence is identified, preserved and handled through controlled custody.',
     WHISTLEBLOWING: 'Reporting channels are trusted, protected and independently routed when concerns are raised.',
     FRAUD_AWARENESS: 'People in relevant roles recognise fraud indicators and act through the required reporting route.',
-    CONTINUOUS_IMPROVEMENT: 'Fraud-risk and control learning is refreshed through a repeatable management review cycle.'
+    CONTINUOUS_IMPROVEMENT: 'Fraud-risk and control learning is refreshed through a repeatable management review cycle.',
+    PAYROLL_INTEGRITY: 'Payroll changes and unusual records are independently reviewed before payment release.',
+    CASH_CUSTODY: 'Cash custody, counting and reconciliation operate with defined ownership and difference escalation.',
+    STOCK_ASSET_CUSTODY: 'Stock and physical-asset custody, movement and reconciliation operate with independent write-off review.'
   };
   return outcomes[finding.primarySemanticFamily];
 }
@@ -810,7 +878,10 @@ function roadmapWorkFor(finding: MaterialFinding): string {
     EVIDENCE_INTEGRITY: 'Establish evidence preservation, integrity checks, access controls and custody-transfer records.',
     WHISTLEBLOWING: 'Protect reporting channels, define independent routing and track retaliation or closure exceptions.',
     FRAUD_AWARENESS: 'Map role-specific scenarios to learning, test understanding and escalate overdue completion.',
-    CONTINUOUS_IMPROVEMENT: 'Schedule fraud-risk and control-environment review, record lessons and refresh treatment after change.'
+    CONTINUOUS_IMPROVEMENT: 'Schedule fraud-risk and control-environment review, record lessons and refresh treatment after change.',
+    PAYROLL_INTEGRITY: 'Reconcile the payroll population, review master-file changes before payment and close every anomaly or exception.',
+    CASH_CUSTODY: 'Assign cash custodians, reconcile counts and banking, and investigate or escalate every difference.',
+    STOCK_ASSET_CUSTODY: 'Reconcile stock and physical assets across locations, authorise movements and independently review write-offs and shrinkage.'
   };
   return work[finding.primarySemanticFamily];
 }
@@ -1077,7 +1148,14 @@ function buildPack(input: {
   const findingRefs = new Map(findings.map((finding) => [finding.sourceId, finding.factRef]));
   const risks = buildRiskFacts(narrativeRisks, narrativeFindings, findingRefs);
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
-  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier, deriveSupportedOperatingExposures(input.data?.adaptiveGatewayAnswers));
+  const operatingContext = input.data?.adaptiveGatewayAnswers && Object.keys(input.data.adaptiveGatewayAnswers).length > 0
+    ? deriveNarrativeOperatingContext({
+      graphVersion: input.data ? adaptiveGraphVersionForAssessment(input.data) : undefined,
+      gatewayAnswers: input.data.adaptiveGatewayAnswers
+    })
+    : [];
+  const operatingExposures = exposuresFromContext(operatingContext);
+  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier, operatingExposures);
   const controls = sustainment ? buildSustainmentControls(sustainmentPriorityFacts) : buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
   const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
@@ -1102,6 +1180,7 @@ function buildPack(input: {
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),
     ...domains.map((domain) => makeFact(domain.factRef, 'domain', domain, [domain.code])),
+    ...operatingContext.map((fact) => makeFact(`OPERATING-CONTEXT-${fact.key}`, 'operating_context', fact, [fact.sourceGatewayCode, fact.sourceQuestionId])),
     ...relativeStrengths.map((strength) => makeFact(strength.factRef, 'relative_strength', strength, [strength.domainCode])),
     ...themes.map((theme) => makeFact(theme.factRef, 'systemic_theme', theme, [...theme.findingRefs, ...theme.riskRefs, ...theme.scenarioRefs])),
     ...findings.map((finding) => makeFact(finding.factRef, 'finding', finding, finding.sourceRefs)),
@@ -1118,7 +1197,14 @@ function buildPack(input: {
     bibleVersion: REPORTING_BIBLE_VERSION,
     productTier: input.tier,
     narrativeMode: input.narrativeMode,
-    organisation: { name: input.organisationName, sectorFacts: [] },
+    organisation: {
+      name: input.organisationName,
+      operatingContext,
+      sectorFacts: operatingContext
+        .filter((fact) => fact.customerNarrativeAllowed)
+        .map(describeOperatingContextFact)
+        .filter(Boolean)
+    },
     assessment: {
       ...input.score,
       reference: text(input.assessmentReference, 'Recorded assessment'),
@@ -1233,6 +1319,18 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
   const ids = pack.facts.map((fact) => fact.id);
   if (new Set(ids).size !== ids.length) throw new Error('Narrative Fact Pack contains duplicate stable fact IDs.');
   for (const fact of pack.facts) if (!fact.id || !fact.kind || fact.value === undefined) throw new Error(`Narrative Fact Pack fact ${fact.id || '<missing>'} is incomplete.`);
+  const operatingContextFacts = pack.organisation.operatingContext;
+  for (const fact of operatingContextFacts) {
+    if (!fact.key || !fact.value || !fact.sourceGatewayCode || !fact.sourceQuestionId || !fact.sourcePrompt || !fact.sourceOptionId || !fact.sourceOptionLabel || !fact.graphVersion || !fact.provenance || !fact.customerNarrativeAllowed) {
+      throw new Error(`Narrative operating-context fact ${fact.key || '<missing>'} is missing provenance.`);
+    }
+    if (fact.sourceOptionId !== fact.value) throw new Error(`Narrative operating-context fact ${fact.key} lost its recorded option identity.`);
+    if (!pack.facts.some((candidate) => candidate.id === `OPERATING-CONTEXT-${fact.key}` && JSON.stringify(candidate.value) === JSON.stringify(fact))) {
+      throw new Error(`Narrative operating-context fact ${fact.key} is not present in the canonical Fact Pack facts.`);
+    }
+  }
+  const expectedSectorFacts = operatingContextFacts.filter((fact) => fact.customerNarrativeAllowed).map(describeOperatingContextFact).filter(Boolean);
+  if (JSON.stringify(pack.organisation.sectorFacts) !== JSON.stringify(expectedSectorFacts)) throw new Error('Narrative sectorFacts projection is not derived from operatingContext.');
   if (pack.narrativeMode === 'SUSTAINMENT') {
     if (pack.sustainmentPriorities.length === 0) throw new Error('Sustainment Fact Pack requires at least one sustainment priority.');
     if (pack.findings.length !== 0 || pack.risks.length !== 0 || pack.scenarios.length !== 0 || pack.systemicThemeInputs.length !== 0) throw new Error('Sustainment Fact Pack must separate priorities from findings, risks, scenarios and themes.');
@@ -1253,7 +1351,8 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
     IDENTITY_ACCESS_GOVERNANCE: ['ORDINARY_ACCESS', 'PRIVILEGED_ACCESS'],
     IDENTITY_VERIFICATION_SENSITIVE_CHANGE: ['IDENTITY_VERIFICATION'],
     DETECTION_MONITORING: ['DETECTION_MONITORING'],
-    INCIDENT_RESPONSE_EVIDENCE_INTEGRITY: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING']
+    INCIDENT_RESPONSE_EVIDENCE_INTEGRITY: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING'],
+    OPERATIONAL_VALUE_CUSTODY: ['PAYROLL_INTEGRITY', 'CASH_CUSTODY', 'STOCK_ASSET_CUSTODY']
   };
   if (pack.systemicThemeInputs.some((theme) => !(themeAnchors[theme.themeFamily] ?? []).some((family) => theme.semanticFamilies.includes(family)))) throw new Error('Narrative theme is not compatible with its explicit semantic-family anchor.');
   for (let index = 0; index < pack.systemicThemeInputs.length; index += 1) {

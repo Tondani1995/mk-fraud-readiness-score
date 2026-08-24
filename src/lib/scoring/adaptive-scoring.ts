@@ -2,8 +2,7 @@ import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { loadAssessmentMethodology } from '@/lib/respondent/assessment-methodology';
 import {
-  PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT,
-  PREVIEW_ADAPTIVE_GRAPH_VERSION,
+  isSupportedAdaptiveGraph,
   resolveAdaptivePath,
   type AdaptiveControlResponses,
   type AdaptiveGatewayAnswers,
@@ -360,7 +359,9 @@ export async function scoreAdaptiveSubmittedAssessment(assessmentReference: stri
     db.from('assessment_integrity_signals').select('signal_id,blocking').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id)
   ]);
   if (graphError || gatewaysError || controlsError || historyError || signalsError || !graphRow) throw graphError ?? gatewaysError ?? controlsError ?? historyError ?? signalsError ?? new Error('adaptive_graph_not_found');
-  if (assessment.graph_version_snapshot !== PREVIEW_ADAPTIVE_GRAPH_VERSION || assessment.graph_fingerprint_snapshot !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT || graphRow.graph_fingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) throw new Error('adaptive_graph_pin_invalid');
+  if (!isSupportedAdaptiveGraph(assessment.graph_version_snapshot, assessment.graph_fingerprint_snapshot)
+    || graphRow.graph_version !== assessment.graph_version_snapshot
+    || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot) throw new Error('adaptive_graph_pin_invalid');
   const methodology = await loadAssessmentMethodology(assessment.methodology_version_id);
   const result = calculateAdaptiveReadinessScore({
     graph: graphRow.compiled_graph_json as AdaptiveGraph,

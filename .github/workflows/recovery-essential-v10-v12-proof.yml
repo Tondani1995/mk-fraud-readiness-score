@@ -1,0 +1,32 @@
+name: Recovery Essential V10 + V1.2 Provider-Free Proof
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-minimal-20260824
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-minimal-20260824
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck recovered V10 + V1.2 engine
+        run: npm run typecheck
+      - name: Prove frozen Vhutshilo V1.2 truth and deterministic report compatibility
+        run: npx tsx scripts/recovery/v12-vhutshilo-score-proof.mjs
+      - name: Prove V10 report regressions still hold
+        run: |
+          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs

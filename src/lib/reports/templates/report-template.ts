@@ -5,9 +5,9 @@ import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
 import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
+import { renderCoverLogo } from '../design/brand-assets';
 import { SeverityBudget } from '../design/severity-budget';
 import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
-import { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -87,6 +87,16 @@ function esc(value: unknown): string {
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
     .replace(/\bD\d+-Q\d+\b/g, '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */
+function escNarrative(value: unknown): string {
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -382,10 +392,6 @@ export function renderReportHtml(
 
   // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
   // report appended after methodology. Bind each chapter to the section it was written to explain.
-  const narrativeBlockText = (chapterId: string, value: string): string =>
-    chapterId === 'EXPOSURE-COULD-MATERIALISE'
-      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
-      : value;
   const narrativeChapterBody = (
     chapterId: string,
     sectionFilter: (title: string) => boolean = () => true
@@ -393,11 +399,11 @@ export function renderReportHtml(
     const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
     if (!chapter) return '';
     return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('');
+      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('');
       const childBlocks = chapterSection.subsections.map((item) => `
         <div class="manuscript-subsection">
           <div class="field-label">${esc(item.title)}</div>
-          ${item.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('')}
+          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('')}
         </div>`).join('');
       return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
     }).join('');
@@ -751,9 +757,9 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const parts = [
     `<section class="cover">
       <div>
-        <div class="cover-brand">MK FRAUD INSIGHTS</div>
+        <div class="cover-brand">${renderCoverLogo()}</div>
         <div class="cover-rule"></div>
-        <div class="cover-eyebrow">Independent fraud risk advisory</div>
+        <div class="cover-eyebrow">Fraud readiness advisory</div>
         <h1>Essential Fraud Readiness<br/>Review</h1>
         <p class="cover-subtitle">An evidence-linked view of reported readiness, material risk, control priorities and leadership decisions.</p>
       </div>
@@ -809,8 +815,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   :root { ${MK_CSS_VARIABLES} }
-  body { color: var(--mk-ink); font: 9.2pt/1.42 Georgia, 'Times New Roman', serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  h1, h2, h3, strong, b, th, .cover-brand, .cover-eyebrow, .section-kicker, .field-label, .record-number, .priority-badge { font-family: Arial, Helvetica, sans-serif; }
+  body { color: var(--mk-ink); font: 9.2pt/1.42 'Open Sans', 'Noto Sans', 'Helvetica Neue', Arial, sans-serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  h1, h2, h3, strong, b, th, .cover-brand, .cover-eyebrow, .section-kicker, .field-label, .record-number, .priority-badge { font-family: 'Open Sans', 'Noto Sans', 'Helvetica Neue', Arial, sans-serif; }
   h1, h2, h3, p { margin-top: 0; }
   h2 { color: var(--mk-navy-900); font-size: 20pt; line-height: 1.15; margin-bottom: 5mm; }
   h3 { color: var(--mk-navy-700); font-size: 10.5pt; line-height: 1.25; margin-bottom: 2mm; }
