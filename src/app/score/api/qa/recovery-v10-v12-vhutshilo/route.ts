@@ -350,6 +350,22 @@ function groundScenarioNarrative(
   };
 }
 
+const RECOVERY_RAW_ID = /\b(?:D\d+-Q\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/g;
+const RECOVERY_RAW_ID_TEST = /\b(?:D\d+-Q\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/;
+
+function sanitiseRecoveryMachineIdentifiers(markdown: string): { markdown: string; replacements: number } {
+  let replacements = 0;
+  const cleaned = markdown.replace(RECOVERY_RAW_ID, (token) => {
+    replacements += 1;
+    if (/^D\d+-Q\d+$/.test(token)) return 'the relevant assessed control';
+    if (/^(?:RA|ROADMAP)-/.test(token)) return 'the relevant roadmap action';
+    if (/^(?:PROOF|CI)-/.test(token)) return 'the relevant evidence requirement';
+    return 'the relevant control';
+  });
+  if (RECOVERY_RAW_ID_TEST.test(cleaned)) throw new Error('recovery_raw_internal_id_survived_normalisation');
+  return { markdown: cleaned, replacements };
+}
+
 function stripRetiredRegisterPromise(html: string): string {
   // Remove only the individual paragraph that contains the retired Essential-register promise.
   // Never allow the scrubber to span across sibling paragraphs or headings.
@@ -408,16 +424,17 @@ export async function GET(request: Request) {
 
     const db = createSupabaseServiceClient();
     const manuscriptBucket = 'generated-reports';
-    const manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json';
+    const validatedManuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json';
+    const rawManuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-raw-manuscript.json';
     let groundedNarrative: ParsedBlueprintMarkdown;
     let providerCalls = 0;
     let manuscriptReused = false;
 
-    const { data: cachedManuscript, error: cachedManuscriptError } = await db.storage
+    const { data: cachedValidated, error: cachedValidatedError } = await db.storage
       .from(manuscriptBucket)
-      .download(manuscriptPath);
-    if (cachedManuscript && !cachedManuscriptError) {
-      const cached = JSON.parse(await cachedManuscript.text()) as {
+      .download(validatedManuscriptPath);
+    if (cachedValidated && !cachedValidatedError) {
+      const cached = JSON.parse(await cachedValidated.text()) as {
         reportReference?: string;
         graphFingerprint?: string;
         score?: number;
@@ -432,11 +449,54 @@ export async function GET(request: Request) {
       groundedNarrative = cached.groundedNarrative;
       manuscriptReused = true;
     } else {
-      const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
+      const baseWriter = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
+      const writer = new Proxy(baseWriter, {
+        get(target, prop, receiver) {
+          if (prop === 'writeManuscript') {
+            return async (writerInput: Parameters<typeof target.writeManuscript>[0]) => {
+              const { data: cachedRaw, error: cachedRawError } = await db.storage
+                .from(manuscriptBucket)
+                .download(rawManuscriptPath);
+              let rawResult: Awaited<ReturnType<typeof target.writeManuscript>>;
+              if (cachedRaw && !cachedRawError) {
+                rawResult = JSON.parse(await cachedRaw.text()) as Awaited<ReturnType<typeof target.writeManuscript>>;
+                manuscriptReused = true;
+              } else {
+                rawResult = await target.writeManuscript(writerInput);
+                providerCalls = Number(rawResult.writerMetadata?.recovery?.totalCalls ?? 1);
+                if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
+
+                const rawBytes = Buffer.from(JSON.stringify(rawResult), 'utf8');
+                const { error: rawUploadError } = await db.storage.from(manuscriptBucket).upload(
+                  rawManuscriptPath,
+                  rawBytes,
+                  { contentType: 'application/json', upsert: false }
+                );
+                if (rawUploadError) throw new Error(`recovery_raw_manuscript_cache_failed:${rawUploadError.message}`);
+                const { data: rawVerified, error: rawVerifyError } = await db.storage
+                  .from(manuscriptBucket)
+                  .download(rawManuscriptPath);
+                if (rawVerifyError || !rawVerified) {
+                  throw new Error(`recovery_raw_manuscript_cache_verify_failed:${rawVerifyError?.message ?? 'missing_cache'}`);
+                }
+                const verifiedRaw = JSON.parse(await rawVerified.text()) as { markdown?: string; blueprint?: unknown };
+                if (!verifiedRaw.markdown || !verifiedRaw.blueprint) throw new Error('recovery_raw_manuscript_cache_verify_invalid');
+              }
+
+              const sanitised = sanitiseRecoveryMachineIdentifiers(String(rawResult.markdown ?? ''));
+              if (sanitised.replacements > 0) {
+                console.info('recovery_raw_internal_id_normalisation', { replacements: sanitised.replacements });
+              }
+              return { ...rawResult, markdown: sanitised.markdown };
+            };
+          }
+          const value = Reflect.get(target, prop, receiver);
+          return typeof value === 'function' ? value.bind(target) : value;
+        }
+      });
+
       const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
       groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
-      providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
-      if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
 
       const cacheBytes = Buffer.from(JSON.stringify({
         reportReference: chain.data.reportReference,
@@ -447,14 +507,14 @@ export async function GET(request: Request) {
         writerMetadata: composed.manuscript.writerMetadata
       }), 'utf8');
       const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
-        manuscriptPath,
+        validatedManuscriptPath,
         cacheBytes,
         { contentType: 'application/json', upsert: false }
       );
       if (cacheUploadError) throw new Error(`recovery_manuscript_cache_failed:${cacheUploadError.message}`);
       const { data: verifiedCache, error: verifiedCacheError } = await db.storage
         .from(manuscriptBucket)
-        .download(manuscriptPath);
+        .download(validatedManuscriptPath);
       if (verifiedCacheError || !verifiedCache) {
         throw new Error(`recovery_manuscript_cache_verify_failed:${verifiedCacheError?.message ?? 'missing_cache'}`);
       }
