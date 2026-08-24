@@ -23,27 +23,55 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Typecheck recovered V10 + V1.2 engine
-        run: npm run typecheck
-      - name: Prove frozen Vhutshilo V1.2 truth and deterministic report compatibility
+      - id: typecheck
+        name: Typecheck recovered V10 + V1.2 engine
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
-          npx tsx scripts/recovery/v12-vhutshilo-score-proof.mjs | tee /tmp/vhutshilo-proof.json
-      - name: Prove V10 report regressions still hold
-        run: |
-          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
-      - name: Persist successful provider-free proof
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/typecheck.log
+      - id: truth
+        name: Prove frozen Vhutshilo V1.2 truth and deterministic report compatibility
+        continue-on-error: true
         shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/recovery/v12-vhutshilo-score-proof.mjs 2>&1 | tee /tmp/vhutshilo-proof.log
+      - id: regressions
+        name: Prove V10 report regressions still hold
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
+            npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+          } 2>&1 | tee /tmp/regressions.log
+      - name: Persist provider-free proof diagnostics
+        if: always()
+        shell: bash
+        env:
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TRUTH_OUTCOME: ${{ steps.truth.outcome }}
+          REGRESSIONS_OUTCOME: ${{ steps.regressions.outcome }}
         run: |
           set -euo pipefail
           mkdir -p scripts/recovery
-          cp /tmp/vhutshilo-proof.json scripts/recovery/v12-vhutshilo-proof-status.json
-          printf 'source_sha=%s\nrun_id=%s\nstatus=PASS\nprovider_calls=0\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > scripts/recovery/.v12-vhutshilo-proof-status
+          status=PASS
+          if [ "$TYPECHECK_OUTCOME" != success ] || [ "$TRUTH_OUTCOME" != success ] || [ "$REGRESSIONS_OUTCOME" != success ]; then status=FAIL; fi
+          {
+            printf 'source_sha=%s\nrun_id=%s\nstatus=%s\nprovider_calls=0\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$status"
+            printf 'typecheck=%s\ntruth=%s\nregressions=%s\n' "$TYPECHECK_OUTCOME" "$TRUTH_OUTCOME" "$REGRESSIONS_OUTCOME"
+          } > scripts/recovery/.v12-vhutshilo-proof-status
+          {
+            echo '=== TYPECHECK ==='; cat /tmp/typecheck.log 2>/dev/null || true
+            echo '=== VHUTSHILO TRUTH ==='; cat /tmp/vhutshilo-proof.log 2>/dev/null || true
+            echo '=== V10 REGRESSIONS ==='; cat /tmp/regressions.log 2>/dev/null || true
+          } > scripts/recovery/v12-vhutshilo-proof-diagnostics.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/recovery/v12-vhutshilo-proof-status.json scripts/recovery/.v12-vhutshilo-proof-status
-          git commit -m "Record recovery provider-free proof"
+          git add scripts/recovery/.v12-vhutshilo-proof-status scripts/recovery/v12-vhutshilo-proof-diagnostics.txt
+          git commit -m "Record recovery provider-free proof diagnostics"
           git pull --rebase origin recovery/essential-v10-v12-minimal-20260824
           git push origin HEAD:recovery/essential-v10-v12-minimal-20260824
+          if [ "$status" != PASS ]; then exit 1; fi
