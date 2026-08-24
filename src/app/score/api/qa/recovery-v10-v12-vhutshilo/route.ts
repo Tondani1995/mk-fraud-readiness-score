@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import graphJson from '@/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json';
 import { resolveAdaptivePath, type AdaptiveControlResponses, type AdaptiveGraph } from '@/lib/adaptive/engine';
 import { calculateAdaptiveReadinessScore } from '@/lib/scoring/adaptive-scoring';
@@ -350,9 +351,10 @@ function groundScenarioNarrative(
 }
 
 function stripRetiredRegisterPromise(html: string): string {
-  const scrubbed = html.replace(
-    /<p\b[^>]*>[\s\S]*?(?:Essential Supporting Register|supporting-register\.xlsx|supporting register)[\s\S]*?<\/p>/gi,
-    ''
+  // Remove only the individual paragraph that contains the retired Essential-register promise.
+  // Never allow the scrubber to span across sibling paragraphs or headings.
+  const scrubbed = html.replace(/<p\b[^>]*>[\s\S]*?<\/p>/gi, (paragraph) =>
+    /(?:Essential Supporting Register|supporting-register\.xlsx|supporting register)/i.test(paragraph) ? '' : paragraph
   );
   if (/(?:Essential Supporting Register|supporting-register\.xlsx|\.xlsx\b)/i.test(scrubbed)) {
     throw new Error('retired_essential_register_promise_survived_render');
@@ -404,9 +406,70 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: 'unsupported_format' }, { status: 400 });
     }
 
-    const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
-    const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
-    const groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
+    const db = createSupabaseServiceClient();
+    const manuscriptBucket = 'generated-reports';
+    const manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json';
+    let groundedNarrative: ParsedBlueprintMarkdown;
+    let providerCalls = 0;
+    let manuscriptReused = false;
+
+    const { data: cachedManuscript, error: cachedManuscriptError } = await db.storage
+      .from(manuscriptBucket)
+      .download(manuscriptPath);
+    if (cachedManuscript && !cachedManuscriptError) {
+      const cached = JSON.parse(await cachedManuscript.text()) as {
+        reportReference?: string;
+        graphFingerprint?: string;
+        score?: number;
+        groundedNarrative?: ParsedBlueprintMarkdown;
+      };
+      if (cached.reportReference !== chain.data.reportReference
+        || cached.graphFingerprint !== graph.graphFingerprint
+        || cached.score !== chain.data.scoreRun.overallScore
+        || !cached.groundedNarrative) {
+        throw new Error('cached_recovery_manuscript_truth_mismatch');
+      }
+      groundedNarrative = cached.groundedNarrative;
+      manuscriptReused = true;
+    } else {
+      const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
+      const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
+      groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
+      providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
+      if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
+
+      const cacheBytes = Buffer.from(JSON.stringify({
+        reportReference: chain.data.reportReference,
+        graphFingerprint: graph.graphFingerprint,
+        score: chain.data.scoreRun.overallScore,
+        finalMaturity: chain.data.scoreRun.finalMaturity,
+        groundedNarrative,
+        writerMetadata: composed.manuscript.writerMetadata
+      }), 'utf8');
+      const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
+        manuscriptPath,
+        cacheBytes,
+        { contentType: 'application/json', upsert: false }
+      );
+      if (cacheUploadError) throw new Error(`recovery_manuscript_cache_failed:${cacheUploadError.message}`);
+      const { data: verifiedCache, error: verifiedCacheError } = await db.storage
+        .from(manuscriptBucket)
+        .download(manuscriptPath);
+      if (verifiedCacheError || !verifiedCache) {
+        throw new Error(`recovery_manuscript_cache_verify_failed:${verifiedCacheError?.message ?? 'missing_cache'}`);
+      }
+      const verified = JSON.parse(await verifiedCache.text()) as {
+        reportReference?: string;
+        graphFingerprint?: string;
+        score?: number;
+      };
+      if (verified.reportReference !== chain.data.reportReference
+        || verified.graphFingerprint !== graph.graphFingerprint
+        || verified.score !== chain.data.scoreRun.overallScore) {
+        throw new Error('recovery_manuscript_cache_verify_truth_mismatch');
+      }
+    }
+
     const pdf = await renderValidatedCommercialPdfWithNavigation(
       {
         data: chain.data,
@@ -418,9 +481,6 @@ export async function GET(request: Request) {
       { renderHtml: renderPdfOnlyHtml, renderPdf: renderHtmlToPdfBuffer }
     );
 
-    const providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
-    if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
-
     return new Response(new Uint8Array(pdf), {
       status: 200,
       headers: {
@@ -430,6 +490,7 @@ export async function GET(request: Request) {
         'X-Robots-Tag': 'noindex',
         'X-MK-Recovery-Proof': 'PASS',
         'X-MK-Provider-Calls': String(providerCalls),
+        'X-MK-Manuscript-Reused': manuscriptReused ? 'true' : 'false',
         'X-MK-Score': String(chain.data.scoreRun.overallScore),
         'X-MK-Maturity': String(chain.data.scoreRun.finalMaturity),
         'X-MK-Graph': graph.graphVersion
