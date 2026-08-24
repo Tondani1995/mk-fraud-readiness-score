@@ -28,41 +28,39 @@ jobs:
           from pathlib import Path
           route = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts')
           text = route.read_text()
-
           old = "const renderPdfOnlyHtml: typeof renderReportHtml = (...args) => stripRetiredRegisterPromise(renderReportHtml(...args));"
           new = r'''function normaliseRecoveryCustomerHtml(html: string): string {
-  let cleaned = html;
+            let cleaned = html;
 
-  cleaned = cleaned
-    .replace(/\s*\((?:D\d+|SCENARIO-\d+)\)/g, '')
-    .replace(/\s*\(the relevant control(?:,\s*the relevant control)*\)/gi, '')
-    .replace(/\s*\(the relevant roadmap action(?:\s+and\s+the relevant roadmap action)?\)/gi, '');
+            cleaned = cleaned
+              .replace(/\s*\((?:D\d+|SCENARIO-\d+)\)/g, '')
+              .replace(/\s*\(the relevant control(?:,\s*the relevant control)*\)/gi, '')
+              .replace(/\s*\(the relevant roadmap action(?:\s+and\s+the relevant roadmap action)?\)/gi, '');
 
-  cleaned = cleaned
-    .replace(/Execute the the relevant roadmap action stabilisation item:/gi, 'Execute the priority supplier-onboarding stabilisation action:')
-    .replace(/Implement the the relevant roadmap action,\s*the relevant roadmap action and the relevant roadmap action items:/gi, 'Implement the priority 60-day actions:')
-    .replace(/the relevant control and the relevant control guide the sequencing and design standard applied to these changes\./gi, 'The agreed sequencing and control standards guide the design of these changes.')
-    .replace(/Use authoritative roadmap dependency IDs and escalate threatened prerequisites\./gi, 'Sequence dependent improvements explicitly and escalate any threatened prerequisite.')
-    .replace(/\bERP activation\b/gi, 'supplier-record activation')
-    .replace(/activated in the ERP/gi, 'activated in the supplier record');
+            cleaned = cleaned
+              .replace(/Execute the the relevant roadmap action stabilisation item:/gi, 'Execute the priority supplier-onboarding stabilisation action:')
+              .replace(/Implement the the relevant roadmap action,\s*the relevant roadmap action and the relevant roadmap action items:/gi, 'Implement the priority 60-day actions:')
+              .replace(/the relevant control and the relevant control guide the sequencing and design standard applied to these changes\./gi, 'The agreed sequencing and control standards guide the design of these changes.')
+              .replace(/Use authoritative roadmap dependency IDs and escalate threatened prerequisites\./gi, 'Sequence dependent improvements explicitly and escalate any threatened prerequisite.')
+              .replace(/\bERP activation\b/gi, 'supplier-record activation')
+              .replace(/activated in the ERP/gi, 'activated in the supplier record');
 
-  cleaned = cleaned
-    .replace(/Manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
-      'Partly designed detection can leave material anomalies outside consistent data-driven review.')
-    .replace(/risk that manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\. Consequence pathway: Alert backlogs can conceal important anomalies;\s*unreviewed exceptions can allow losses to compound\./gi,
-      'risk that partly designed detection leaves material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge. Consequence pathway: unreviewed exceptions can leave important anomalies unresolved and allow losses to compound.')
-    .replace(/security and personal-data obligations may be breached/gi,
-      'security and confidentiality obligations may be breached');
+            cleaned = cleaned
+              .replace(/Manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
+                'Partly designed detection can leave material anomalies outside consistent data-driven review.')
+              .replace(/risk that manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\. Consequence pathway: Alert backlogs can conceal important anomalies;\s*unreviewed exceptions can allow losses to compound\./gi,
+                'risk that partly designed detection leaves material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge. Consequence pathway: unreviewed exceptions can leave important anomalies unresolved and allow losses to compound.')
+              .replace(/security and personal-data obligations may be breached/gi,
+                'security and confidentiality obligations may be breached');
 
-  if (/\bSCENARIO-\d+\b|\(D\d+\)|the relevant control|the relevant roadmap action|authoritative roadmap dependency IDs|\bERP\b|personal-data obligations may be breached|majority of activity is never examined/i.test(cleaned)) {
-    throw new Error('recovery_customer_output_normalisation_incomplete');
-  }
-  return cleaned;
-}
+            if (/\bSCENARIO-\d+\b|\(D\d+\)|the relevant control|the relevant roadmap action|authoritative roadmap dependency IDs|\bERP\b|personal-data obligations may be breached|majority of activity is never examined/i.test(cleaned)) {
+              throw new Error('recovery_customer_output_normalisation_incomplete');
+            }
+            return cleaned;
+          }
 
-const renderPdfOnlyHtml: typeof renderReportHtml = (...args) =>
-  normaliseRecoveryCustomerHtml(stripRetiredRegisterPromise(renderReportHtml(...args)));'''
-
+          const renderPdfOnlyHtml: typeof renderReportHtml = (...args) =>
+            normaliseRecoveryCustomerHtml(stripRetiredRegisterPromise(renderReportHtml(...args)));'''
           if old in text:
               route.write_text(text.replace(old, new, 1))
           elif 'normaliseRecoveryCustomerHtml' not in text:
