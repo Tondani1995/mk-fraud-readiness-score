@@ -1,0 +1,25 @@
+HTTP/2 200 
+age: 0
+cache-control: no-store
+content-disposition: attachment; filename="RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf"
+content-type: application/pdf
+date: Mon, 24 Aug 2026 20:24:19 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /score/api/qa/recovery-v10-v12-vhutshilo-store
+x-mk-generation-attempts: 1
+x-mk-maturity: Developing
+x-mk-provider-calls: 1
+x-mk-raw-provider-captured: true
+x-mk-recovery-proof: PASS
+x-mk-recovery-storage: request-local-memory
+x-mk-reported-provider-calls: 1
+x-mk-score: 43.33
+x-mk-sha256: a7015be35159465d85146cdab7980dd197468570504ad57bdca4a4c28e748491
+x-mk-size-bytes: 321825
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-vercel-id: sfo1::iad1::6j6kv-1787603010979-d64b861b3799
+content-length: 321825
+
