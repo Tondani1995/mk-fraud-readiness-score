@@ -1,7 +1,3 @@
-source_sha=e6d73ed6913076e1c20edc8fff018c080beeed0e
-run_id=32764127661
-status=FAIL
+status=RERUN_REQUESTED
 provider_calls=0
-typecheck=success
-truth=failure
-regressions=failure
+reason=apply_two_bounded_compatibility_fixes
