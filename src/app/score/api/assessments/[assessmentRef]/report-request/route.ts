@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { createOrGetOrderForReportRequest } from '@/lib/orders/manual-eft-orders';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('order_create');
-  if (frozen) return frozen;
-
   const service = createSupabaseServiceClient() as any;
   let body: any = {};
   try {

@@ -118,17 +118,3 @@ export async function getRc1OperationFreezeResponse(
     : undefined;
   return NextResponse.json(frozenPayload(kind), { status, headers });
 }
-
-/** Customer-safe projection used by order and enquiry routes; internal freeze identifiers stay in operator diagnostics. */
-export async function getRc1CustomerFreezeResponse(
-  _surface: Rc1OperationSurface,
-): Promise<NextResponse | null> {
-  if (!(await isRc1OperationFrozen())) return null;
-  return NextResponse.json({
-    ok: false,
-    errors: ['Orders and enquiries are temporarily unavailable while MK completes a controlled launch check. Please try again later or contact MK Fraud Insights.']
-  }, {
-    status: 423,
-    headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' }
-  });
-}

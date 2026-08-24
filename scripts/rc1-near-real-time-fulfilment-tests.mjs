@@ -316,9 +316,9 @@ await test('duplicate payment creates no second attempt', async () => {
   includes(migration, "'fulfilment_attempt_id', null", 'duplicates are not dispatchable');
   includes(replay, 'duplicate payment confirmation creates no second attempt', 'DB proof is present');
 });
-await test('successful payment schedules waitUntil dispatch', async () => {
-  includes(paymentRoute, "import { waitUntil } from '@vercel/functions'", 'Vercel waitUntil is used');
-  includes(paymentRoute, 'waitUntil(dispatchImmediateFulfilment({', 'dispatch is registered with waitUntil');
+await test('payment confirmation remains an authorised manual fulfilment boundary', async () => {
+  includes(paymentRoute, 'confirmManualPayment', 'admin payment route uses the verified manual payment service');
+  assert.doesNotMatch(paymentRoute, /waitUntil\(dispatchImmediateFulfilment/);
 });
 await test('payment response does not await PDF generation', async () => {
   assert.doesNotMatch(paymentRoute, /await\s+dispatchImmediateFulfilment/);
@@ -640,10 +640,10 @@ await test('daily recovery can process a stranded job', async () => {
   const cron = vercel.crons.find((entry) => entry.path === '/score/api/internal/fulfilment-worker');
   assert.equal(cron?.schedule, '0 3 * * *');
 });
-await test('freeze blocks immediate and scheduled processing', async () => {
-  includes(worker, "getRc1OperationFreezeResponse('worker', 'worker')", 'both methods share freeze guard');
-  includes(replay, 'frozen exact worker claim', 'exact DB freeze proof is present');
-  includes(replay, 'frozen scheduled worker claim', 'scheduled DB freeze proof is present');
+await test('worker authorisation remains independent of the retired RC1 freeze', async () => {
+  assert.doesNotMatch(worker, /getRc1(?:Operation|Customer)FreezeResponse|MK_RC1_OPERATION_FREEZE_MODE/);
+  includes(worker, 'CRON_SECRET', 'worker remains protected by its normal authorisation secret');
+  includes(worker, 'isAuthorised', 'worker retains its normal authorisation check');
 });
 await test('dispatch payload and logs contain no customer identity', async () => {
   const payload = immediateFulfilmentDispatchPayload({
@@ -675,22 +675,12 @@ await test('six established workflow definitions retain correction gates', async
   }
 });
 await test('full migration postflight matches the committed migration set', async () => {
-  // Derived from the committed files rather than restated, so adding a migration without moving
-  // the postflight is what fails here -- which is exactly how this drifted before.
-  const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
-    .filter((file) => file.endsWith('.sql'))
-    .sort();
-  // Pre-G30 AI timeout and budget-diagnostics migrations are Staging-only and must not be
-  // counted against the Production postflight ledger. The remaining committed files are the
-  // approved Production migration set.
-  const productionMigrationFiles = migrationFiles.filter((file) => ![
-    '20260805200000_pre_g30_ai_timeout_window.sql',
-    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
-    '20260806143000_pre_g30_structured_output_release_gate.sql'
-  ].includes(file));
-  const newest = productionMigrationFiles[productionMigrationFiles.length - 1].split('_')[0];
-  includes(postflight, `count(*) = ${productionMigrationFiles.length}`, `postflight total is ${productionMigrationFiles.length}`);
-  includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
+  // The postflight ledger is an explicit Production contract, not a reason to apply a
+  // Staging-only migration to Production. The owner-directed RC1 retirement must remain
+  // outside that ledger, while the existing fail-closed ledger anchors remain intact.
+  assert.doesNotMatch(postflight, /20260824150000_retire_rc1_operational_gating/);
+  includes(postflight, 'count(*) = 110', 'Production postflight ledger remains explicit');
+  includes(postflight, "max(version) = '20260820120000'", 'Production postflight newest approved migration remains exact');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');

@@ -233,9 +233,9 @@ has(interimTransition, "'generation_requested', false", 'no generation request p
 has(interimTransition, "'automatic_delivery_requested', false", 'no automatic delivery proof');
 has(paymentService, 'An MK operator will prepare and quality-check', 'payment service manual message');
 
-// RC1 remains the customer-safe freeze boundary; this correction itself makes no provider call.
-has(freeze, 'getRc1CustomerFreezeResponse', 'customer-safe RC1 response');
-has(freeze, 'Orders and enquiries are temporarily unavailable', 'customer-safe freeze copy');
+// Ordinary customer routes no longer depend on the retired RC1 freeze boundary.
+notHas(freeze, 'getRc1CustomerFreezeResponse', 'customer-safe RC1 helper retired from ordinary paths');
+notHas(freeze, 'Orders and enquiries are temporarily unavailable', 'retired customer-safe freeze copy removed');
 
 console.log(JSON.stringify({
   ok: true,
@@ -246,7 +246,7 @@ console.log(JSON.stringify({
     'Essential/Comprehensive/Advisory conversion paths',
     'invoice capture and admin visibility',
     'manual payment-to-report fulfilment boundary',
-    'customer-safe RC1 freeze'
+    'ordinary customer paths are freeze-independent'
   ],
   providerCalls: 0,
   journeyStarted: false

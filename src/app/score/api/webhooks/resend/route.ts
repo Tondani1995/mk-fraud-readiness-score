@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { isPremiumReportDevelopmentMode } from '@/lib/reports/email/premium-report-development-mode';
@@ -44,10 +43,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const previewDevelopmentMode = isPremiumReportDevelopmentMode();
-  if (!previewDevelopmentMode) {
-    const frozen = await getRc1OperationFreezeResponse('resend_webhook', 'provider_webhook');
-    if (frozen) return frozen;
-  }
 
   const receiptTimeMs = Date.now();
   // L5: global volumetric ceiling, checked before any request-body work. Deliberately not

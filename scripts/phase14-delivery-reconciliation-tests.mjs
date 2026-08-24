@@ -155,7 +155,7 @@ try {
     '0001_phase2_v1_1_schema_rls', '0002_phase4_dev_seed', '0003_phase5_methodology_seed',
     '0004_phase4_v1_2_rate_limiting', '0005_phase5_v1_1_guards', '0006_phase6_scoring_guards',
     '0007_phase6_v1_1_atomic_scoring', '0009_methodology_copy_polish', '0010_phase9_manual_eft_order_flow',
-    '0011_phase10_pdf_report_engine_additions', '0012_phase13_commercial_event_foundation',
+    '20260708193238_phase10_report_engine_additions', '0012_phase13_commercial_event_foundation',
     '0013_phase13_event_index_cleanup', '0014_phase13_customer_commercial_conversion',
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',

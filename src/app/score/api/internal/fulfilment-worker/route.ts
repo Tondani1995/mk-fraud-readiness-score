@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { processOneDelivery } from '@/lib/fulfilment/delivery-worker';
 import { recordAutomaticFulfilmentExceptionAlert } from '@/lib/notifications/phase1-order-notifications';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   generateManualPhase1Report,
   Phase1GenerationError
@@ -338,8 +337,6 @@ async function processWorkerInvocation(exactAttemptId?: string) {
 }
 
 async function guardWorker(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('worker', 'worker');
-  if (frozen) return frozen;
   if (!isAuthorised(request)) {
     return NextResponse.json(
       { ok: false, error: 'forbidden' },

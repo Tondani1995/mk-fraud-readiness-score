@@ -26,7 +26,7 @@ assert.equal(isPremiumReportDevelopmentMode({ ...base, MK_EMAIL_PROVIDER_MODE: '
 assert.equal(isPremiumReportDevelopmentMode({ ...base, MK_EMAIL_RECIPIENT_ALLOWLIST: 'other@example.invalid' }), false);
 
 assert.match(route, /const previewDevelopmentMode = isPremiumReportDevelopmentMode\(\);/);
-assert.match(route, /if \(!previewDevelopmentMode\) \{[\s\S]*?getRc1OperationFreezeResponse/);
+assert.doesNotMatch(route, /getRc1(?:Operation|Customer)FreezeResponse|MK_RC1_OPERATION_FREEZE_MODE/);
 assert.match(route, /previewDevelopmentMode\s*\?\s*'preview_development_ingest_phase14_provider_webhook'/);
 assert.match(route, /:\s*'ingest_phase14_provider_webhook'/);
 

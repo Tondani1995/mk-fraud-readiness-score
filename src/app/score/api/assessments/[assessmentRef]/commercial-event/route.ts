@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { trackAssessmentEvent, type AssessmentEventType } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
@@ -49,9 +48,6 @@ function cleanOptionCode(value: unknown) {
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('assessment_write');
-  if (frozen) return frozen;
-
   let body: any = {};
   try {
     body = await request.json();

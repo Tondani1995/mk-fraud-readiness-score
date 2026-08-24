@@ -1,6 +1,5 @@
 import { headers } from 'next/headers';
 import { after, NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { submitAssessment } from '@/lib/respondent/assessment-save';
 import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreSubmittedAssessment } from '@/lib/scoring/score-assessment';
@@ -39,9 +38,6 @@ function buildSnapshotUrl(request: Request, assessmentReference: string, rawToke
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('assessment_submit');
-  if (frozen) return frozen;
-
   let body: any;
   try {
     body = await request.json();

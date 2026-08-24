@@ -444,7 +444,9 @@ check('every admin Comprehensive route authenticates and authorises before actin
     assert.match(source, /status: 403/, `${file} must deny unauthenticated callers`);
     assert.match(source, /'Cache-Control': 'no-store'/, `${file} must not cache engagement state`);
   }
-  // Every mutating route respects the RC1 operation freeze.
+  // The Comprehensive review surface retains its isolated RC1 boundary; the shared
+  // customer paid-order route is an ordinary commercial path and is intentionally
+  // independent of the retired freeze.
   for (const file of [
     'src/app/score/api/admin/comprehensive/[orderReference]/reviewer/route.ts',
     'src/app/score/api/admin/comprehensive/[orderReference]/transition/route.ts',
@@ -452,10 +454,11 @@ check('every admin Comprehensive route authenticates and authorises before actin
     'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
     'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts'
   ]) {
-    const freeze = file.endsWith('/paid-order/route.ts')
-      ? /getRc1CustomerFreezeResponse/
-      : /getRc1OperationFreezeResponse/;
-    assert.match(read(file), freeze, `${file} must honour the RC1 freeze`);
+    if (file.endsWith('/paid-order/route.ts')) {
+      assert.doesNotMatch(read(file), /getRc1(?:Operation|Customer)FreezeResponse/, `${file} must use the ordinary customer path`);
+    } else {
+      assert.match(read(file), /getRc1OperationFreezeResponse/, `${file} must retain the isolated Comprehensive RC1 boundary`);
+    }
   }
 });
 

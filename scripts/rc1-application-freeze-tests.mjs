@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const originalMode = process.env.MK_RC1_OPERATION_FREEZE_MODE;
 const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -78,86 +80,60 @@ async function assertCoreFailClosedRules() {
   }), true);
 }
 
-const routeProbes = [
-  ['../src/app/score/api/assessments/start/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/resume/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/[assessmentRef]/answers/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/[assessmentRef]/submit/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/assessments/[assessmentRef]/score/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/[assessmentRef]/report-request/route.ts', 'POST', 423],
-  ['../src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts', 'POST', 423],
-  ['../src/app/score/api/payments/[orderReference]/session/route.ts', 'POST', 423],
-  ['../src/app/score/admin/orders/[orderReference]/status/route.ts', 'POST', 423],
-  ['../src/app/score/api/webhooks/stitch/route.ts', 'POST', 503],
-  ['../src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/backlog-reconciliation/route.ts', 'POST', 423],
-  ['../src/app/score/api/internal/fulfilment-worker/route.ts', 'GET', 423],
-  ['../src/app/score/api/internal/phase14-storage-cleanup/route.ts', 'GET', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/fulfilment/recover/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/fulfilment/retry/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/fulfilment/approve/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/fulfilment/reject/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/delivery/retry/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/delivery/reissue-token/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/delivery/revoke-token/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/orders/[orderReference]/delivery/correct-recipient/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/reports/[reportId]/send-email/route.ts', 'POST', 423],
-  ['../src/app/score/api/webhooks/resend/route.ts', 'POST', 503],
-  ['../src/app/score/api/admin/operational-alerts/[alertId]/transition/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/phase14-activation/ai-route-policy/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/phase14-activation/feature-policy/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/phase14-activation/gate/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/phase14-activation/runtime-secret/route.ts', 'POST', 423],
-  ['../src/app/score/api/admin/phase14-activation/settings/route.ts', 'POST', 423],
-  ['../src/app/score/api/internal/uat-start-check/route.ts', 'GET', 423],
-  ['../src/app/score/api/readiness-runtime-check/route.ts', 'GET', 423],
-  ['../src/app/score/report/access/[token]/route.ts', 'GET', 423],
+const ordinaryRouteFiles = [
+  'src/app/score/api/assessments/start/route.ts',
+  'src/app/score/api/assessments/resume/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/answers/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/submit/route.ts',
+  'src/app/score/api/admin/assessments/[assessmentRef]/score/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
+  'src/app/score/api/payments/[orderReference]/session/route.ts',
+  'src/app/score/admin/orders/[orderReference]/status/route.ts',
+  'src/app/score/api/webhooks/stitch/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts',
+  'src/app/score/api/admin/backlog-reconciliation/route.ts',
+  'src/app/score/api/internal/fulfilment-worker/route.ts',
+  'src/app/score/api/internal/phase14-storage-cleanup/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/fulfilment/recover/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/fulfilment/retry/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/fulfilment/approve/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/fulfilment/reject/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/delivery/retry/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/delivery/reissue-token/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/delivery/revoke-token/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/delivery/correct-recipient/route.ts',
+  'src/app/score/api/admin/reports/[reportId]/send-email/route.ts',
+  'src/app/score/api/webhooks/resend/route.ts',
+  'src/app/score/api/admin/operational-alerts/[alertId]/transition/route.ts',
+  'src/app/score/api/internal/uat-start-check/route.ts',
+  'src/app/score/api/readiness-runtime-check/route.ts',
+  'src/app/score/report/access/[token]/route.ts',
 ];
 
-async function assertActualRoutesStopBeforeDependencies() {
-  process.env.MK_RC1_OPERATION_FREEZE_MODE = 'frozen';
-  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+const retainedRc1Files = [
+  'src/lib/rc1/control-plane.ts',
+  'src/app/score/api/admin/phase14-activation/ai-route-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/feature-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/gate/route.ts',
+  'src/app/score/api/admin/phase14-activation/runtime-secret/route.ts',
+  'src/app/score/api/admin/phase14-activation/settings/route.ts',
+  'src/app/score/api/admin/comprehensive/[orderReference]/reviewer/route.ts',
+  'src/app/score/api/admin/comprehensive/[orderReference]/transition/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts',
+];
 
-  for (const [specifier, method, expectedStatus] of routeProbes) {
-    const route = await import(specifier);
-    assert.equal(typeof route[method], 'function', `${specifier} must export ${method}`);
-    const response = await route[method](
-      new Request('http://127.0.0.1/score/rc1-frozen-probe', {
-        method,
-        headers: { 'content-type': 'application/json' },
-        body: method === 'GET' ? undefined : '{}',
-      }),
-      {
-        params: {
-          assessmentRef: 'synthetic',
-          orderReference: 'synthetic',
-          reportId: 'synthetic',
-          alertId: 'synthetic',
-          token: 'synthetic',
-        },
-      }
-    );
-    assert.equal(response.status, expectedStatus, `${specifier} must fail frozen`);
-    const payload = await response.json();
-    assert.equal(payload.error, 'RC1_OPERATION_FROZEN');
-    assert.equal(
-      JSON.stringify(payload).match(
-        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|@/i
-      ),
-      null,
-      `${specifier} must not expose customer identifiers`
-    );
-    if (expectedStatus === 503) {
-      assert.equal(response.headers.get('retry-after'), '60');
-    }
-    if (
-      specifier.includes('/internal/fulfilment-worker/')
-      || specifier.includes('/internal/phase14-storage-cleanup/')
-    ) {
-      assert.equal(payload.claimed, false);
-    }
+function assertOrdinaryRoutesDoNotUseRc1Freeze() {
+  const freezeDependency = /getRc1(?:Operation|Customer)FreezeResponse|MK_RC1_OPERATION_FREEZE_MODE/;
+  for (const file of ordinaryRouteFiles) {
+    const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+    assert.doesNotMatch(source, freezeDependency, `${file} must not depend on the RC1 freeze`);
+  }
+  for (const file of retainedRc1Files) {
+    const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+    assert.match(source, /getRc1OperationFreezeResponse|MK_RC1_OPERATION_FREEZE_MODE/, `${file} retains its isolated RC1 control boundary`);
   }
 }
 
@@ -175,9 +151,9 @@ async function assertReadOnlyDiagnosticsRemainAvailable() {
 try {
   assert.equal(RC1_OPERATION_SURFACES.length, 18);
   await assertCoreFailClosedRules();
-  await assertActualRoutesStopBeforeDependencies();
+  assertOrdinaryRoutesDoNotUseRc1Freeze();
   await assertReadOnlyDiagnosticsRemainAvailable();
-  console.log(`PASS RC1 application freeze: ${routeProbes.length} actual mutation routes`);
+  console.log(`PASS RC1 retirement boundary: ${ordinaryRouteFiles.length} ordinary routes are freeze-independent; ${retainedRc1Files.length} isolated control files retain RC1 checks`);
 } finally {
   if (originalMode === undefined) delete process.env.MK_RC1_OPERATION_FREEZE_MODE;
   else process.env.MK_RC1_OPERATION_FREEZE_MODE = originalMode;

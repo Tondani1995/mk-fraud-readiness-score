@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
@@ -16,9 +15,6 @@ const VALID_TARGET_STATUSES = new Set(['open', 'acknowledged', 'resolved']);
 // enforcement -- this app-layer check exists for a fast, clear error, not as the only gate.
 export async function POST(request: Request, props: { params: Promise<{ alertId: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('operational_alert');
-  if (frozen) return frozen;
-
   await requireAdmin(['platform_admin', 'reviewer']);
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {

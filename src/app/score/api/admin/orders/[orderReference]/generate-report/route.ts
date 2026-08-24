@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { logPremiumReportPhase } from '@/lib/reports/automation/phase-timing';
 import {
@@ -49,12 +48,6 @@ export async function POST(request: Request, context: HandlerContext) {
   const routeStartedAt = Date.now();
   const technicalReference = crypto.randomUUID();
   logPremiumReportPhase({ phase: 'route_received', status: 'started', startedAt: routeStartedAt, technicalReference });
-  const frozen = await getRc1OperationFreezeResponse('generation');
-  if (frozen) {
-    logPremiumReportPhase({ phase: 'request_completed', status: 'failed', startedAt: routeStartedAt, technicalReference });
-    return frozen;
-  }
-
   const admin = await getAdminSession();
   logPremiumReportPhase({ phase: 'admin_authenticated', status: admin ? 'completed' : 'failed', startedAt: routeStartedAt, technicalReference });
   const { orderReference } = (await context.params);

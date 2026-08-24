@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { DELIVERY_RETRY_ROLES, retryDelivery } from '@/lib/reports/delivery-recovery-service';
 
@@ -11,9 +10,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('delivery');
-  if (frozen) return frozen;
-
   const admin = await getAdminSession();
   if (!admin || !DELIVERY_RETRY_ROLES.includes(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'forbidden', message: 'You are not authorised to retry report delivery.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

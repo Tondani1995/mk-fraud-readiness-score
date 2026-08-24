@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { validateResumeToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 
 export async function POST(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('assessment_write');
-  if (frozen) return frozen;
-
   let body: { assessmentReference?: string; token?: string };
   try {
     body = await request.json();
