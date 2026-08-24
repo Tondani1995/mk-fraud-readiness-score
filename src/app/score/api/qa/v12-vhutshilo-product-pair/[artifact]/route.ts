@@ -61,14 +61,14 @@ function buildTar(files: Array<{ name: string; bytes: Buffer }>): Buffer {
 
 /**
  * Comprehensive keeps raw assessment question codes internally for traceability,
- * but a buyer-facing report should use its own clean register references. This
- * presentation-only map preserves every cross-link while preventing MF-Dx-Qxx,
- * CI-Dx-Qxx and bare Dx-Qxx engine identifiers from leaking into the PDF.
+ * but a buyer-facing report should use its own clean register references. The same
+ * presentation seam also makes deterministic target-state assurance wording explicit:
+ * a control requirement must not read like a claim that MK already verified it.
  */
-function customerFacingRegisterIds(html: string): string {
+function customerFacingPresentation(html: string): string {
   const aliases = new Map<string, string>();
   const counters = { F: 0, C: 0, A: 0 };
-  return html.replace(/\b(?:MF-|CI-)?D\d+-Q\d+\b/g, (raw) => {
+  const deInternalised = html.replace(/\b(?:MF-|CI-)?D\d+-Q\d+\b/g, (raw) => {
     const family: keyof typeof counters = raw.startsWith('MF-') ? 'F' : raw.startsWith('CI-') ? 'C' : 'A';
     const key = `${family}:${raw}`;
     const existing = aliases.get(key);
@@ -78,6 +78,16 @@ function customerFacingRegisterIds(html: string): string {
     aliases.set(key, alias);
     return alias;
   });
+
+  return deInternalised
+    .replaceAll(
+      'All material stock and physical assets are counted and reconciled on schedule, with shrinkage and write-offs independently reviewed.',
+      'Target state: management should count and reconcile all material stock and physical assets on schedule, with shrinkage and write-offs subject to independent review.'
+    )
+    .replaceAll(
+      'Independent review scope and report',
+      'Independent review requirement: defined scope and review report'
+    );
 }
 
 function deterministicMeta() {
@@ -218,7 +228,7 @@ async function renderComprehensiveTar(): Promise<Buffer> {
       return run;
     },
     renderPdf: async (html, options) => {
-      const customerHtml = customerFacingRegisterIds(html);
+      const customerHtml = customerFacingPresentation(html);
       const validation = validateEssentialFinalHtml({ html: customerHtml, data });
       if (!validation.publishable) {
         const diagnostics = validation.candidates
