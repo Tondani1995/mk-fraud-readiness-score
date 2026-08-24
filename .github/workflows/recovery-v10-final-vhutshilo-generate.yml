@@ -1,0 +1,113 @@
+name: Recovery V10 Final Vhutshilo Generation
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-minimal-20260824
+    paths:
+      - .github/workflows/recovery-v10-final-vhutshilo-generate.yml
+
+permissions:
+  contents: write
+
+jobs:
+  generate-once:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-8s3i1zmeq-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      OUTPUT_PDF: qa-output/recovery/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-minimal-20260824
+          fetch-depth: 0
+
+      - name: Require preview access secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS" || { echo 'VERCEL_PROTECTION_BYPASS missing; refusing generation.'; exit 1; }
+
+      - name: Re-prove frozen V1.2 truth with zero provider calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-output/recovery
+          curl -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo?format=meta" \
+            -o qa-output/recovery/vhutshilo-meta.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const meta = JSON.parse(fs.readFileSync('qa-output/recovery/vhutshilo-meta.json', 'utf8'));
+          const expectedDomains = {D1:42,D2:39.43,D3:40.54,D4:40.59,D5:43.85,D6:60.83,D7:47.06,D8:38.18,D9:56.67,D10:40.95};
+          const checks = [
+            [meta.ok, true, 'ok'], [meta.proof, 'PASS', 'proof'], [meta.providerCalls, 0, 'providerCalls'],
+            [meta.score, 43.33, 'score'], [meta.finalMaturity, 'Developing', 'maturity'], [meta.coveragePct, 100, 'coverage'],
+            [meta.applicableControls, 60, 'applicable'], [meta.excludedControls, 8, 'excluded'], [meta.redirectedControls, 4, 'redirected'],
+            [meta.unknownControls, 0, 'unknown'], [meta.criticalGaps, 6, 'critical'], [meta.majorGaps, 3, 'major'],
+            [meta.graphVersion, 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821', 'graph'],
+            [meta.graphFingerprint, '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7', 'fingerprint'],
+            [meta.methodology, 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION', 'methodology'],
+            [meta.reportReference, 'RPT-MKFRS-V12-ESS-VHUTSHILO-V1', 'reportReference'],
+            [meta.packageContract, 'PDF_ONLY_NO_XLSX_REGISTER', 'packageContract'],
+            [JSON.stringify(meta.domainScores), JSON.stringify(expectedDomains), 'domains']
+          ];
+          for (const [actual, expected, label] of checks) if (actual !== expected) throw new Error(`${label}: expected ${expected}, received ${actual}`);
+          console.log('provider-free frozen Vhutshilo proof PASS');
+          NODE
+
+      - name: Generate exactly once through certified V10 writer
+        id: generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Intentionally one curl, no --retry. If this request fails we stop; we do not spend again.
+          status=$(curl -sS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            -D qa-output/recovery/vhutshilo-pdf.headers \
+            -o qa-output/recovery/vhutshilo-pdf.response \
+            -w '%{http_code}' \
+            "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo?format=pdf")
+          printf '%s\n' "$status" > qa-output/recovery/vhutshilo-pdf.http-status
+          if [ "$status" != "200" ]; then
+            echo "Generation returned HTTP $status. Refusing any retry."
+            cat qa-output/recovery/vhutshilo-pdf.response || true
+            exit 1
+          fi
+          mv qa-output/recovery/vhutshilo-pdf.response "$OUTPUT_PDF"
+
+      - name: Verify the single generated artefact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$OUTPUT_PDF"
+          test "$(head -c 4 "$OUTPUT_PDF")" = '%PDF'
+          size=$(wc -c < "$OUTPUT_PDF" | tr -d ' ')
+          test "$size" -gt 100000 || { echo "PDF unexpectedly small: $size"; exit 1; }
+          grep -Eiq '^content-type: application/pdf' qa-output/recovery/vhutshilo-pdf.headers
+          grep -Eiq '^x-mk-recovery-proof: PASS' qa-output/recovery/vhutshilo-pdf.headers
+          grep -Eiq '^x-mk-provider-calls: 1' qa-output/recovery/vhutshilo-pdf.headers
+          grep -Eiq '^x-mk-score: 43\.33' qa-output/recovery/vhutshilo-pdf.headers
+          grep -Eiq '^x-mk-maturity: Developing' qa-output/recovery/vhutshilo-pdf.headers
+          sha256sum "$OUTPUT_PDF" | tee qa-output/recovery/vhutshilo-pdf.sha256
+          printf 'size_bytes=%s\nprovider_calls=1\nscore=43.33\nmaturity=Developing\nreport_reference=RPT-MKFRS-V12-ESS-VHUTSHILO-V1\n' "$size" > qa-output/recovery/vhutshilo-pdf.acceptance
+
+      - name: Persist the one-shot acceptance artefact
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa-output/recovery/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf \
+                  qa-output/recovery/vhutshilo-meta.json \
+                  qa-output/recovery/vhutshilo-pdf.headers \
+                  qa-output/recovery/vhutshilo-pdf.http-status \
+                  qa-output/recovery/vhutshilo-pdf.sha256 \
+                  qa-output/recovery/vhutshilo-pdf.acceptance
+          git commit -m "Capture final recovered Vhutshilo Essential PDF"
+          git pull --rebase origin recovery/essential-v10-v12-minimal-20260824
+          git push origin HEAD:recovery/essential-v10-v12-minimal-20260824
