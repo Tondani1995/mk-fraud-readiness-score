@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { buildVhutshiloV12Assembled, VHUTSHILO_V12_GRAPH, VHUTSHILO_V12_SOURCE_SHA } from '@/lib/qa/v12-vhutshilo-fixture';
 import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';
 import { renderComprehensiveReportPackage } from '@/lib/reports/comprehensive/manual-generation';
+import { validateComprehensiveFinalHtml } from '@/lib/reports/comprehensive/final-validation';
 import {
   buildInterpretationPrompt,
   interpretationSchema,
@@ -13,7 +14,7 @@ import {
   type InterpretationRun,
   type InterpretationSlotId
 } from '@/lib/reports/comprehensive/interpretation';
-import { validateEssentialFinalHtml, type EssentialValidationCascadeResult } from '@/lib/reports/essential-validation-cascade';
+import type { EssentialValidationCascadeResult } from '@/lib/reports/essential-validation-cascade';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 
 export const runtime = 'nodejs';
@@ -61,14 +62,17 @@ function buildTar(files: Array<{ name: string; bytes: Buffer }>): Buffer {
 
 /**
  * Comprehensive keeps raw assessment question codes internally for traceability,
- * but a buyer-facing report should use its own clean register references. The same
- * presentation seam also makes deterministic target-state assurance wording explicit:
- * a control requirement must not read like a claim that MK already verified it.
+ * but a buyer-facing report should use its own clean register references. This
+ * presentation-only map preserves every cross-link while preventing MF-Dx-Qxx,
+ * CI-Dx-Qxx and bare Dx-Qxx engine identifiers from leaking into the PDF.
+ *
+ * Assurance wording is deliberately NOT rewritten here. The five-layer validator
+ * must understand the document context rather than forcing advisory copy around a detector.
  */
-function customerFacingPresentation(html: string): string {
+function customerFacingRegisterIds(html: string): string {
   const aliases = new Map<string, string>();
   const counters = { F: 0, C: 0, A: 0 };
-  const deInternalised = html.replace(/\b(?:MF-|CI-)?D\d+-Q\d+\b/g, (raw) => {
+  return html.replace(/\b(?:MF-|CI-)?D\d+-Q\d+\b/g, (raw) => {
     const family: keyof typeof counters = raw.startsWith('MF-') ? 'F' : raw.startsWith('CI-') ? 'C' : 'A';
     const key = `${family}:${raw}`;
     const existing = aliases.get(key);
@@ -78,16 +82,6 @@ function customerFacingPresentation(html: string): string {
     aliases.set(key, alias);
     return alias;
   });
-
-  return deInternalised
-    .replaceAll(
-      'All material stock and physical assets are counted and reconciled on schedule, with shrinkage and write-offs independently reviewed.',
-      'Target state: management should count and reconcile all material stock and physical assets on schedule, with shrinkage and write-offs subject to independent review.'
-    )
-    .replaceAll(
-      'Independent review scope and report',
-      'Independent review requirement: defined scope and review report'
-    );
 }
 
 function deterministicMeta() {
@@ -228,8 +222,8 @@ async function renderComprehensiveTar(): Promise<Buffer> {
       return run;
     },
     renderPdf: async (html, options) => {
-      const customerHtml = customerFacingPresentation(html);
-      const validation = validateEssentialFinalHtml({ html: customerHtml, data });
+      const customerHtml = customerFacingRegisterIds(html);
+      const validation = validateComprehensiveFinalHtml({ html: customerHtml, data });
       if (!validation.publishable) {
         const diagnostics = validation.candidates
           .filter((candidate) => candidate.finalDisposition !== 'ACCEPT')
