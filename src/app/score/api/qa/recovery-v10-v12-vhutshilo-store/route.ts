@@ -72,7 +72,31 @@ export async function GET(request: Request) {
     const internalUrl = new URL(request.url);
     internalUrl.pathname = '/score/api/qa/recovery-v10-v12-vhutshilo';
     internalUrl.search = '?format=pdf';
-    const generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
+
+    // Vercel AI Gateway supports deployment OIDC without a separately provisioned API key.
+    // The recovered V10 writer still contains an older constructor guard that only recognises
+    // API-key variables, so this recovery-only wrapper exposes the deployment OIDC token through
+    // the documented AI_GATEWAY_API_KEY fallback for the duration of this one request. The token is
+    // never logged or persisted and the original environment is restored immediately afterwards.
+    const priorGatewayKey = process.env.AI_GATEWAY_API_KEY;
+    const explicitVercelGatewayKey = process.env.VERCEL_AI_GATEWAY_API_KEY;
+    const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+    const usingOidcFallback = !priorGatewayKey && !explicitVercelGatewayKey && Boolean(oidcToken);
+    if (!priorGatewayKey && !explicitVercelGatewayKey && !oidcToken) {
+      throw new Error('recovery_ai_gateway_auth_unavailable');
+    }
+    if (usingOidcFallback) process.env.AI_GATEWAY_API_KEY = oidcToken;
+
+    let generated: Response;
+    try {
+      generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
+    } finally {
+      if (usingOidcFallback) {
+        if (priorGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+        else process.env.AI_GATEWAY_API_KEY = priorGatewayKey;
+      }
+    }
+
     if (!generated.ok) {
       const body = await generated.text();
       return NextResponse.json(
