@@ -5,7 +5,9 @@ import { buildEssentialNarrativeFactPack } from '../narrative/fact-pack';
 import { getMaturityBand } from '@/lib/scoring/maturity-band';
 import { assembleComprehensive } from './assembly';
 import { buildComprehensiveManagementModel } from './management-model';
-import { renderComprehensiveManagementReportHtml } from './render-comprehensive-html';
+import { renderComprehensiveManagementReportHtml, comprehensiveSectionPlan, COMPREHENSIVE_REGISTER_TITLES } from './render-comprehensive-html';
+import { addPdfBookmarks, extractHeadingPageMap, type BookmarkNode, type TocEntry } from '../pdf-navigation';
+import type { ComprehensiveManagementModel } from './management-model';
 import { buildComprehensiveDeliveryModel, assertComprehensiveBlueprintContract } from './contract';
 import { buildComprehensiveRegisterWorkbook, type ComprehensiveRegisterWorkbook } from './workbook-builder';
 import {
@@ -291,6 +293,10 @@ export async function renderComprehensiveReportPackage(input: {
     pdf = await pdfRenderer(html, {
       footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
     });
+    // A 49-page management report with no outline is a navigation defect, not a design
+    // choice. Bookmarks are metadata written into the finished bytes: no page is
+    // re-laid-out and nothing visible moves.
+    pdf = await withComprehensiveBookmarks(pdf, model, html);
 
     workbook = await buildComprehensiveRegisterWorkbook(deliveryModel, {
       orderReference: input.orderReference,
@@ -322,4 +328,61 @@ export async function renderComprehensiveReportPdf(input: {
 }): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
   const result = await renderComprehensiveReportPackage(input);
   return { pdf: result.pdf, interpretationRun: result.interpretationRun };
+}
+
+/**
+ * Write the PDF outline for a rendered Comprehensive report.
+ *
+ * The tree follows the document's own numbered management architecture, with the appendix
+ * registers nested under one parent, mirroring how Essential already presents its appendix.
+ * Headings are located by scanning the rendered bytes, so the outline can only ever point at
+ * pages the render actually produced.
+ *
+ * The scan starts at page 3 because the contents page prints every section label as plain
+ * text; starting earlier resolves every entry to the contents page.
+ *
+ * A failure here must never cost the customer their report. The document is complete and
+ * correct without an outline, so a scan that cannot find its headings returns the original
+ * bytes rather than throwing.
+ */
+async function withComprehensiveBookmarks(pdf: Buffer, model: ComprehensiveManagementModel, html: string): Promise<Buffer> {
+  try {
+    const sections = comprehensiveSectionPlan(model);
+    // Anchor each section on the first real heading of its opening page, not on the numbered
+    // kicker above it. The kicker is 6.8pt, below the size at which the heading scanner will
+    // consider an item a heading at all, so keying on it finds nothing. The opening <h1> is
+    // large, unique and already the thing a reader would call the start of the section.
+    const sectionEntries: TocEntry[] = [];
+    for (const [index, section] of sections.entries()) {
+      // Most sections open with a small numbered kicker followed by a full-size heading.
+      // A few -- the scenario portfolio among them -- use the register-style head instead,
+      // whose own heading is already the section title. Try the kicker first, fall back to
+      // the title itself, so the outline does not quietly lose a section to markup variance.
+      const at = html.indexOf(`class="q">${index + 1} · ${section.title}<`);
+      const heading = at >= 0 ? /<h1[^>]*>([^<]+)<\/h1>/.exec(html.slice(at)) : null;
+      sectionEntries.push({ key: (heading?.[1] ?? section.title).trim(), label: section.title });
+    }
+    const registerEntries: TocEntry[] = COMPREHENSIVE_REGISTER_TITLES.map(([letter, title]) => ({
+      key: title,
+      label: `Appendix ${letter} · ${title}`
+    }));
+    const pageMap = await extractHeadingPageMap(new Uint8Array(pdf), [...sectionEntries, ...registerEntries], 3);
+    const located = (entry: TocEntry): boolean => Number.isInteger(pageMap[entry.key]);
+    const bookmarks: BookmarkNode[] = sectionEntries.filter(located).map((entry) => ({
+      title: entry.label,
+      pageNumber: pageMap[entry.key]!
+    }));
+    const registers = registerEntries.filter(located);
+    if (registers.length) {
+      bookmarks.push({
+        title: 'Appendices',
+        pageNumber: pageMap[registers[0]!.key]!,
+        children: registers.map((entry) => ({ title: entry.label, pageNumber: pageMap[entry.key]! }))
+      });
+    }
+    if (!bookmarks.length) return pdf;
+    return Buffer.from(await addPdfBookmarks(new Uint8Array(pdf), bookmarks));
+  } catch {
+    return pdf;
+  }
 }

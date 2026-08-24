@@ -1,6 +1,8 @@
 import { PROGRAMME_WORK_TYPE_LABEL } from './assembly';
 import type { ComprehensiveManagementModel } from './management-model';
 import { compareDomainCodes } from './ordering';
+import { MK_TOKENS } from '../design/tokens';
+import { renderCoverLogo } from '../design/brand-assets';
 
 /**
  * Comprehensive report composition.
@@ -43,14 +45,14 @@ function interpretationSlot(label: string, commentary?: string, path?: string): 
 
 const STYLES = `
 :root{
-  --navy-900:#0B1B33;--navy-700:#142F4C;--navy-500:#2C4A6B;--navy-300:#8FA3B5;
-  --ink:#1A2634;--muted:#5A6B7C;--rule:#D9E1E7;--rule-soft:#EDF1F4;
-  --cream:#FBF9F5;--white:#FFFFFF;--brass:#C9A227;--brass-soft:#F0E6C8;
-  --weak:#A32020;--mid:#B8761F;--strong:#1F6B4A;
+  --navy-900:${MK_TOKENS.navy900};--navy-700:${MK_TOKENS.navy700};--navy-500:${MK_TOKENS.navy500};--navy-300:#8FA3B5;
+  --ink:${MK_TOKENS.ink};--muted:${MK_TOKENS.muted};--slate:${MK_TOKENS.slate};--rule:${MK_TOKENS.rule};--rule-soft:#EDF1F4;
+  --cream:${MK_TOKENS.cream};--white:${MK_TOKENS.white};--brass:${MK_TOKENS.brass};--brass-text:${MK_TOKENS.brassText};--brass-soft:${MK_TOKENS.brassSoft};
+  --weak:${MK_TOKENS.critical};--mid:${MK_TOKENS.major};--strong:${MK_TOKENS.confirmed};
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);
+body{font-family:'Open Sans','Noto Sans','Helvetica Neue',Arial,sans-serif;color:var(--ink);
   font-size:9.4pt;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 @page{size:A4;margin:16mm 14mm 18mm 14mm}
 
@@ -97,7 +99,7 @@ td.tight{white-space:nowrap}
 .tag{display:inline-block;font-size:6.2pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   padding:.6mm 1.4mm;border-radius:1mm;background:var(--rule-soft);color:var(--navy-700)}
 .tag.crit{background:#FBEDED;color:var(--weak)}
-.tag.gate{background:var(--brass-soft);color:#7a6011}
+.tag.gate{background:var(--brass-soft);color:var(--brass-text)}
 
 /* core exhibits */
 .stats{display:flex;gap:8mm;border-top:2px solid var(--navy-900);border-bottom:1px solid var(--rule);padding:4mm 0;margin-top:3mm}
@@ -132,7 +134,7 @@ td.tight{white-space:nowrap}
 .contradiction-field{font-size:7.5pt;line-height:1.35}
 .contradiction-field .label{display:block;font-size:6.2pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy-500);margin-bottom:.6mm}
 .interp{border-left:3px solid var(--brass);background:#FDFBF4;padding:3.5mm 4.5mm;margin-top:4mm}
-.interp-l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7a6011;margin-bottom:1.5mm}
+.interp-l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brass-text);margin-bottom:1.5mm}
 .interp--pending p{font-size:7.6pt}
 .toc{font-size:8.6pt;margin-top:4mm}
 .toc .row{display:flex;justify-content:space-between;padding:1.6mm 0;border-bottom:1px solid var(--rule-soft)}
@@ -142,6 +144,53 @@ td.tight{white-space:nowrap}
 `;
 
 const BASIS = 'This report is produced by automated analysis of the recorded MK Fraud Readiness assessment. It has not been independently reviewed. No evidence has been examined, no control has been tested for operating effectiveness, no personnel have been interviewed, and no assurance opinion is given. Assessment positions are self-reported by the organisation. Recommended control designs, evidence requirements and operating measures are MK methodology — what good practice requires — not observations of what the organisation currently does.';
+
+/**
+ * The document's section plan.
+ *
+ * Exported because the PDF outline has to describe the same document the renderer emits.
+ * Deriving the bookmark tree from a second, parallel list is how a contents page and an
+ * outline drift apart; there is one list and both consumers read it.
+ */
+export function comprehensiveSectionPlan(model: ComprehensiveManagementModel): Array<{ key: string; title: string }> {
+  const sustainment = model.narrativeMode === 'SUSTAINMENT';
+  const reg = model.registers;
+  const sectionPlan: Array<{ key: string; title: string; rendered: boolean }> = sustainment
+    ? [
+      { key: 'POSITION', title: 'Where the organisation stands', rendered: true },
+      { key: 'DRIVERS', title: 'What is driving the position', rendered: true },
+      { key: 'CONFIRM', title: 'What management should confirm', rendered: true },
+      { key: 'COVERAGE', title: 'Assurance coverage across the control environment', rendered: reg.assuranceCoverage.length > 0 },
+      { key: 'DEEP_DIVE', title: 'Deep-dive assurance priorities', rendered: reg.assurancePriorities.length > 0 },
+      { key: 'RESILIENCE', title: 'Control resilience tests', rendered: reg.resilienceTests.length > 0 },
+      { key: 'GOVERNANCE', title: 'Who owns sustainment', rendered: true },
+      { key: 'DECISIONS', title: 'Decisions leadership must make', rendered: true },
+      { key: 'PROGRAMME', title: 'What should happen over 12 months', rendered: true },
+      { key: 'MEASUREMENT', title: 'How management will know the position remains dependable', rendered: true }
+    ]
+    : [
+      { key: 'POSITION', title: 'Where the organisation stands', rendered: true },
+      { key: 'DRIVERS', title: 'What is driving the position', rendered: true },
+      { key: 'EXPOSURE', title: 'Where the material fraud exposure sits', rendered: true },
+      { key: 'SCENARIOS', title: 'Fraud scenario portfolio', rendered: reg.scenarios.length > 0 },
+      { key: 'CONTROLS', title: 'The control environment management should build', rendered: true },
+      { key: 'GOVERNANCE', title: 'Who must own the response', rendered: true },
+      { key: 'DECISIONS', title: 'Decisions leadership must make', rendered: true },
+      { key: 'PROGRAMME', title: 'What should happen, and in what order', rendered: true },
+      { key: 'MEASUREMENT', title: 'How management will know it is working', rendered: true }
+    ];
+  return sectionPlan.filter((entry) => entry.rendered).map(({ key, title }) => ({ key, title }));
+}
+
+/** Appendix letters and titles, in emitted order. */
+export const COMPREHENSIVE_REGISTER_TITLES: ReadonlyArray<[string, string]> = [
+  ['A', 'Finding register'],
+  ['B', 'Fraud risk register'],
+  ['C', 'Control blueprint register'],
+  ['D', 'Evidence requirement register'],
+  ['E', '12-month action and assurance register'],
+  ['F', 'Measurement register']
+];
 
 export function renderComprehensiveManagementReportHtml(input: {
   model: ComprehensiveManagementModel;
@@ -169,7 +218,7 @@ export function renderComprehensiveManagementReportHtml(input: {
 
   // ---- 1. Cover -------------------------------------------------------------
   pages.push(`<section class="page page--navy">
-    <div style="font-size:7.2pt;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-weight:600">MK Fraud Insights</div>
+    <div>${renderCoverLogo(10.4)}</div>
     <div style="height:16mm"></div>
     <div style="font-size:7.6pt;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)">Comprehensive Fraud Readiness Report</div>
     <h1 style="color:#fff;font-size:27pt;line-height:1.16;max-width:165mm;margin-top:6mm">Fraud exposure, target control environment and implementation programme</h1>
@@ -184,7 +233,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     <div style="font-size:8pt;color:rgba(255,255,255,.7);margin-top:3mm">Assessment reference · ${esc(input.assessmentReference)}</div>
     ${input.reportReference ? `<div style="font-size:8pt;color:rgba(255,255,255,.7)">Report reference · ${esc(input.reportReference)}</div>` : ''}
     <div style="height:6mm"></div>
-    <div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)">Confidential · Automated analysis · Not independently reviewed</div>
+    <div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)">Confidential · Self-assessment advisory · Not an independent assurance opinion</div>
   </section>`);
 
   // ---- 2. Contents and basis ------------------------------------------------
