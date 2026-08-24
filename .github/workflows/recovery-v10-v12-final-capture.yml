@@ -1,0 +1,103 @@
+name: V10 V1.2 final recovery capture
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/recovery-v10-v12-final-capture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-7ntfcqx8r-tondanis-projects.vercel.app
+      SOURCE_DEPLOYMENT: dpl_HVhYp4M1b4mHJvxuMPMofV6DJYxB
+      SOURCE_SHA: 3acc67fcd0eb7b5d400c457d0679c6fac8666b55
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      OUT_DIR: qa-output/recovered-vhutshilo-essential-final
+      PDF_NAME: RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Confirm exact recovery source and frozen truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          mkdir -p "$OUT_DIR"
+          curl --max-time 60 -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo?format=meta" \
+            > "$OUT_DIR/meta.json"
+          grep -Fq '"proof":"PASS"' "$OUT_DIR/meta.json"
+          grep -Fq '"providerCalls":0' "$OUT_DIR/meta.json"
+          grep -Fq '"score":43.33' "$OUT_DIR/meta.json"
+          grep -Fq '"finalMaturity":"Developing"' "$OUT_DIR/meta.json"
+          grep -Fq '"coveragePct":100' "$OUT_DIR/meta.json"
+          grep -Fq '"applicableControls":60' "$OUT_DIR/meta.json"
+          grep -Fq '"excludedControls":8' "$OUT_DIR/meta.json"
+          grep -Fq '"redirectedControls":4' "$OUT_DIR/meta.json"
+          grep -Fq '"unknownControls":0' "$OUT_DIR/meta.json"
+          grep -Fq '"criticalGaps":6' "$OUT_DIR/meta.json"
+          grep -Fq '"majorGaps":3' "$OUT_DIR/meta.json"
+          grep -Fq '"graphVersion":"MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821"' "$OUT_DIR/meta.json"
+          printf '{"sourceDeployment":"%s","sourceSha":"%s"}\n' "$SOURCE_DEPLOYMENT" "$SOURCE_SHA" > "$OUT_DIR/source.json"
+
+      - name: Generate and capture Essential exactly once
+        id: generate
+        shell: bash
+        run: |
+          set +e
+          code=$(curl --max-time 300 -sS -w '%{http_code}' \
+            -D "$OUT_DIR/headers.txt" \
+            -o "$OUT_DIR/response.bin" \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo-store?confirm=one-shot-v10-v12-vhutshilo-20260824")
+          printf '%s\n' "$code" > "$OUT_DIR/http-code.txt"
+
+          if [ "$code" = "200" ] && [ "$(head -c 4 "$OUT_DIR/response.bin")" = '%PDF' ]; then
+            mv "$OUT_DIR/response.bin" "$OUT_DIR/$PDF_NAME"
+            sha256sum "$OUT_DIR/$PDF_NAME" > "$OUT_DIR/sha256.txt"
+            wc -c < "$OUT_DIR/$PDF_NAME" > "$OUT_DIR/bytes.txt"
+            grep -i '^x-mk-recovery-proof: PASS' "$OUT_DIR/headers.txt"
+            grep -i '^x-mk-score: 43.33' "$OUT_DIR/headers.txt"
+            grep -i '^x-mk-maturity: Developing' "$OUT_DIR/headers.txt"
+            grep -i '^x-mk-provider-calls:' "$OUT_DIR/headers.txt"
+            echo SUCCESS > "$OUT_DIR/outcome.txt"
+            exit 0
+          fi
+
+          mv "$OUT_DIR/response.bin" "$OUT_DIR/diagnostic.json"
+          echo FAIL > "$OUT_DIR/outcome.txt"
+          exit 1
+
+      - name: Commit capture evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MK Recovery QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_DIR"
+          if git diff --cached --quiet; then
+            echo 'No capture evidence to commit.'
+            exit 0
+          fi
+          git commit -m "Capture final recovered Vhutshilo Essential PDF"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
+
+      - name: Require successful PDF capture
+        if: always()
+        shell: bash
+        run: |
+          test -f "$OUT_DIR/outcome.txt"
+          grep -Fxq SUCCESS "$OUT_DIR/outcome.txt"
+          test -f "$OUT_DIR/$PDF_NAME"
