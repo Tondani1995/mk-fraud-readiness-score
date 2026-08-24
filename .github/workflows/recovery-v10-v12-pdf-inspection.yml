@@ -13,65 +13,78 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      PDF: qa-output/recovered-vhutshilo-essential-final/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
-      OUT: qa-output/recovered-vhutshilo-essential-final/inspection
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
           ref: recovery/essential-v10-v12-brand-20260824
           fetch-depth: 0
 
-      - name: Install PDF inspection tools
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
-
-      - name: Inspect existing PDF only
+      - name: Apply customer-visible recovery correction only
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$OUT"
-          test -f "$PDF"
-          sha256sum "$PDF" > "$OUT/sha256.txt"
-          pdfinfo "$PDF" > "$OUT/pdfinfo.txt"
-          pdffonts "$PDF" > "$OUT/fonts.txt"
-          pdftotext -layout "$PDF" "$OUT/report-layout.txt"
-          pdftotext "$PDF" "$OUT/report-text.txt"
-          pdfimages -list "$PDF" > "$OUT/images.txt"
-          grep -E '^Pages:' "$OUT/pdfinfo.txt" > "$OUT/page-count.txt"
-          grep -Ein 'supporting register|\.xlsx|synthetic|qa-|provider|openai|gpt|internal id|roadmap-[A-Z0-9]|D[0-9]+-Q[0-9]+' "$OUT/report-text.txt" > "$OUT/leakage-scan.txt" || true
-          grep -Ein '43\.33|Developing|60 applicable|8 excluded|4 redirected|6 critical|3 major|Fraud Leadership|Fraud Risk Identification|Operational Fraud|Detection|Incident Response|Whistleblowing|Third-Party|Digital and Identity|Culture and Awareness|Continuous Improvement' "$OUT/report-text.txt" > "$OUT/truth-scan.txt" || true
           python - <<'PY'
           from pathlib import Path
-          import re, json
-          text = Path('qa-output/recovered-vhutshilo-essential-final/inspection/report-text.txt').read_text(errors='replace')
-          layout = Path('qa-output/recovered-vhutshilo-essential-final/inspection/report-layout.txt').read_text(errors='replace')
-          pages = layout.split('\f')
-          targets = [
-            'Executive summary','What the result means','Domain overview',
-            'Priority findings, contradictions and scenarios','Priority risks',
-            'Leadership decisions and roadmap','Proof requirements',
-            'Methodology, limitations and next steps'
-          ]
-          result = {
-            'characterCount': len(text),
-            'wordCount': len(re.findall(r"\b\w+\b", text)),
-            'pageTextLengths': [len(p.strip()) for p in pages if p.strip()],
-            'headings': {t: bool(re.search(re.escape(t), text, re.I)) for t in targets},
-            'registerPromise': bool(re.search(r'supporting register|\.xlsx', text, re.I)),
-            'rawQuestionIds': sorted(set(re.findall(r'\bD\d+-Q\d+\b', text))),
-            'rawInternalIds': sorted(set(re.findall(r'\b(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+\b', text))),
-            'qaLeakage': bool(re.search(r'\b(?:synthetic|provider|openai|gpt|qa[- /]|test fixture)\b', text, re.I)),
-          }
-          Path('qa-output/recovered-vhutshilo-essential-final/inspection/summary.json').write_text(json.dumps(result, indent=2))
+          route = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts')
+          text = route.read_text()
+          old = "const renderPdfOnlyHtml: typeof renderReportHtml = (...args) => stripRetiredRegisterPromise(renderReportHtml(...args));"
+          new = r'''function normaliseRecoveryCustomerHtml(html: string): string {
+  let cleaned = html;
+  cleaned = cleaned
+    .replace(/\s*\((?:D\d+|SCENARIO-\d+)\)/g, '')
+    .replace(/\s*\(the relevant control(?:,\s*the relevant control)*\)/gi, '')
+    .replace(/\s*\(the relevant roadmap action(?:\s+and\s+the relevant roadmap action)?\)/gi, '');
+  cleaned = cleaned
+    .replace(/Execute the the relevant roadmap action stabilisation item:/gi, 'Execute the priority supplier-onboarding stabilisation action:')
+    .replace(/Implement the the relevant roadmap action,\s*the relevant roadmap action and the relevant roadmap action items:/gi, 'Implement the priority 60-day actions:')
+    .replace(/the relevant control and the relevant control guide the sequencing and design standard applied to these changes\./gi, 'The agreed sequencing and control standards guide the design of these changes.')
+    .replace(/Use authoritative roadmap dependency IDs and escalate threatened prerequisites\./gi, 'Sequence dependent improvements explicitly and escalate any threatened prerequisite.');
+  cleaned = cleaned.replace(/\bERP activation\b/gi, 'supplier-record activation');
+  cleaned = cleaned
+    .replace(/Manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
+      'Partly designed detection can leave material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge.')
+    .replace(/manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected/gi,
+      'partly designed detection can leave material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge')
+    .replace(/Alert backlogs can conceal important anomalies;\s*unreviewed exceptions can allow losses to compound\./gi,
+      'Unreviewed exceptions can leave important anomalies unresolved and allow losses to compound.')
+    .replace(/security and personal-data obligations may be breached/gi,
+      'security and confidentiality obligations may be breached');
+  if (/\bSCENARIO-\d+\b|\(D\d+\)|the relevant control|the relevant roadmap action|authoritative roadmap dependency IDs|\bERP activation\b|personal-data obligations may be breached|majority of activity is never examined/i.test(cleaned)) {
+    throw new Error('recovery_customer_output_normalisation_incomplete');
+  }
+  return cleaned;
+}
+
+const renderPdfOnlyHtml: typeof renderReportHtml = (...args) =>
+  normaliseRecoveryCustomerHtml(stripRetiredRegisterPromise(renderReportHtml(...args)));'''
+          if old in text:
+              route.write_text(text.replace(old, new, 1))
+          elif 'normaliseRecoveryCustomerHtml' not in text:
+              raise SystemExit('renderPdfOnlyHtml anchor missing')
           PY
 
-      - name: Commit inspection evidence
+          git diff --check
+          grep -q 'normaliseRecoveryCustomerHtml' src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          grep -q 'supplier-record activation' src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+      - name: Commit bounded correction
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "MK Recovery QA"
           git config user.email "actions@users.noreply.github.com"
-          git add "$OUT"
-          git commit -m "Inspect recovered Vhutshilo Essential PDF"
+          git add src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          if git diff --cached --quiet; then
+            echo 'Correction already present.'
+            exit 0
+          fi
+          git commit -m "Fix final Essential customer-visible leakage and unsupported wording"
           git push origin HEAD:recovery/essential-v10-v12-brand-20260824
