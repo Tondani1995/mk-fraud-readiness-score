@@ -1,9 +1,11 @@
-name: Harden final V10 V1.2 recovery artifact path
+name: Final fail-safe V10 V1.2 recovery
 
 on:
   push:
     branches:
       - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - scripts/recovery/.v12-vhutshilo-proof-status
 
 permissions:
   contents: write
@@ -12,14 +14,14 @@ jobs:
   harden:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           ref: recovery/essential-v10-v12-brand-20260824
           fetch-depth: 0
 
-      - name: Apply bounded recovery-only hardening
+      - name: Apply recovery-only fail-safe persistence
         shell: bash
         run: |
           python - <<'PY'
@@ -28,167 +30,299 @@ jobs:
           route = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts')
           text = route.read_text()
 
-          old_import = "import { NextResponse } from 'next/server';\n"
-          new_import = "import { NextResponse } from 'next/server';\nimport { createSupabaseServiceClient } from '@/lib/supabase/server';\n"
-          if "createSupabaseServiceClient" not in text:
-              if old_import not in text:
-                  raise SystemExit('NextResponse import anchor missing')
-              text = text.replace(old_import, new_import, 1)
+          anchor = "  const format = new URL(request.url).searchParams.get('format') ?? 'meta';\n  try {"
+          replacement = "  const format = new URL(request.url).searchParams.get('format') ?? 'meta';\n  let recoveryRawFallback: unknown = null;\n  try {"
+          if 'let recoveryRawFallback: unknown = null;' not in text:
+              if anchor not in text:
+                  raise SystemExit('GET fallback anchor missing')
+              text = text.replace(anchor, replacement, 1)
 
-          old_strip = """function stripRetiredRegisterPromise(html: string): string {
-            const scrubbed = html.replace(
-              /<p\\b[^>]*>[\\s\\S]*?(?:Essential Supporting Register|supporting-register\\.xlsx|supporting register)[\\s\\S]*?<\\/p>/gi,
-              ''
-            );
-            if (/(?:Essential Supporting Register|supporting-register\\.xlsx|\\.xlsx\\b)/i.test(scrubbed)) {
-              throw new Error('retired_essential_register_promise_survived_render');
-            }
-            return scrubbed;
-          }
-          """
-          new_strip = """function stripRetiredRegisterPromise(html: string): string {
-            // Remove only the individual paragraph that contains the retired Essential-register
-            // promise. Never allow the scrubber to span across sibling paragraphs or headings.
-            const scrubbed = html.replace(/<p\\b[^>]*>[\\s\\S]*?<\\/p>/gi, (paragraph) =>
-              /(?:Essential Supporting Register|supporting-register\\.xlsx|supporting register)/i.test(paragraph) ? '' : paragraph
-            );
-            if (/(?:Essential Supporting Register|supporting-register\\.xlsx|\\.xlsx\\b)/i.test(scrubbed)) {
-              throw new Error('retired_essential_register_promise_survived_render');
-            }
-            return scrubbed;
-          }
-          """
-          if old_strip not in text:
-              raise SystemExit('old register scrubber block missing')
-          text = text.replace(old_strip, new_strip, 1)
-
-          old_generation = """    const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
-              const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
-              const groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
-              const pdf = await renderValidatedCommercialPdfWithNavigation(
-                {
-                  data: chain.data,
-                  content: chain.content,
-                  roadmap: chain.roadmap,
-                  evidenceModel: chain.evidenceModel,
-                  narrative: groundedNarrative
-                },
-                { renderHtml: renderPdfOnlyHtml, renderPdf: renderHtmlToPdfBuffer }
-              );
-
-              const providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
-              if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
-          """
-          new_generation = """    const db = createSupabaseServiceClient();
-              const manuscriptBucket = 'generated-reports';
-              const manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json';
-              let groundedNarrative: ParsedBlueprintMarkdown;
-              let providerCalls = 0;
-              let manuscriptReused = false;
-
-              const { data: cachedManuscript, error: cachedManuscriptError } = await db.storage
-                .from(manuscriptBucket)
-                .download(manuscriptPath);
-              if (cachedManuscript && !cachedManuscriptError) {
-                const cached = JSON.parse(await cachedManuscript.text()) as {
-                  reportReference?: string;
-                  graphFingerprint?: string;
-                  score?: number;
-                  groundedNarrative?: ParsedBlueprintMarkdown;
-                };
-                if (cached.reportReference !== chain.data.reportReference
-                  || cached.graphFingerprint !== graph.graphFingerprint
-                  || cached.score !== chain.data.scoreRun.overallScore
-                  || !cached.groundedNarrative) {
-                  throw new Error('cached_recovery_manuscript_truth_mismatch');
-                }
-                groundedNarrative = cached.groundedNarrative;
+          cached_anchor = """                rawResult = JSON.parse(await cachedRaw.text()) as Awaited<ReturnType<typeof target.writeManuscript>>;
                 manuscriptReused = true;
-              } else {
-                const writer = createV11WholeManuscriptWriter(undefined, { providerCallBudget: 1 });
-                const composed = await composeEssentialManuscript({ factPack: chain.factPack, writer });
-                groundedNarrative = groundScenarioNarrative(composed.narrative, chain.evidenceModel.materialFindings);
-                providerCalls = Number(composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1);
+"""
+          cached_replacement = """                rawResult = JSON.parse(await cachedRaw.text()) as Awaited<ReturnType<typeof target.writeManuscript>>;
+                recoveryRawFallback = rawResult;
+                manuscriptReused = true;
+"""
+          if cached_replacement not in text:
+              if cached_anchor not in text:
+                  raise SystemExit('cached raw anchor missing')
+              text = text.replace(cached_anchor, cached_replacement, 1)
+
+          fresh_anchor = """                rawResult = await target.writeManuscript(writerInput);
+                providerCalls = Number(rawResult.writerMetadata?.recovery?.totalCalls ?? 1);
                 if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
 
-                const cacheBytes = Buffer.from(JSON.stringify({
-                  reportReference: chain.data.reportReference,
-                  graphFingerprint: graph.graphFingerprint,
-                  score: chain.data.scoreRun.overallScore,
-                  finalMaturity: chain.data.scoreRun.finalMaturity,
-                  groundedNarrative,
-                  writerMetadata: composed.manuscript.writerMetadata
-                }), 'utf8');
-                const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
-                  manuscriptPath,
-                  cacheBytes,
+                const rawBytes = Buffer.from(JSON.stringify(rawResult), 'utf8');
+                const { error: rawUploadError } = await db.storage.from(manuscriptBucket).upload(
+                  rawManuscriptPath,
+                  rawBytes,
                   { contentType: 'application/json', upsert: false }
                 );
-                if (cacheUploadError) throw new Error(`recovery_manuscript_cache_failed:${cacheUploadError.message}`);
-                const { data: verifiedCache, error: verifiedCacheError } = await db.storage
+                if (rawUploadError) throw new Error(`recovery_raw_manuscript_cache_failed:${rawUploadError.message}`);
+                const { data: rawVerified, error: rawVerifyError } = await db.storage
                   .from(manuscriptBucket)
-                  .download(manuscriptPath);
-                if (verifiedCacheError || !verifiedCache) {
-                  throw new Error(`recovery_manuscript_cache_verify_failed:${verifiedCacheError?.message ?? 'missing_cache'}`);
+                  .download(rawManuscriptPath);
+                if (rawVerifyError || !rawVerified) {
+                  throw new Error(`recovery_raw_manuscript_cache_verify_failed:${rawVerifyError?.message ?? 'missing_cache'}`);
                 }
-                const verified = JSON.parse(await verifiedCache.text()) as {
-                  reportReference?: string;
-                  graphFingerprint?: string;
-                  score?: number;
-                };
-                if (verified.reportReference !== chain.data.reportReference
-                  || verified.graphFingerprint !== graph.graphFingerprint
-                  || verified.score !== chain.data.scoreRun.overallScore) {
-                  throw new Error('recovery_manuscript_cache_verify_truth_mismatch');
+                const verifiedRaw = JSON.parse(await rawVerified.text()) as { markdown?: string; blueprint?: unknown };
+                if (!verifiedRaw.markdown || !verifiedRaw.blueprint) throw new Error('recovery_raw_manuscript_cache_verify_invalid');
+"""
+          fresh_replacement = """                rawResult = await target.writeManuscript(writerInput);
+                recoveryRawFallback = rawResult;
+                providerCalls = Number(rawResult.writerMetadata?.recovery?.totalCalls ?? 1);
+                if (providerCalls !== 1) throw new Error(`unexpected_provider_call_count:${providerCalls}`);
+
+                // Persistence is important evidence, but a transient storage failure must never
+                // discard an otherwise valid in-memory provider result. Retry boundedly, then
+                // continue with the same manuscript and expose it in the recovery-only error
+                // response if a later stage fails.
+                const rawBytes = Buffer.from(JSON.stringify(rawResult), 'utf8');
+                let rawCacheError: string | null = null;
+                for (let attempt = 1; attempt <= 3; attempt += 1) {
+                  const { error: rawUploadError } = await db.storage.from(manuscriptBucket).upload(
+                    rawManuscriptPath,
+                    rawBytes,
+                    { contentType: 'application/json', upsert: true }
+                  );
+                  if (!rawUploadError) {
+                    rawCacheError = null;
+                    break;
+                  }
+                  rawCacheError = rawUploadError.message;
+                  console.warn('recovery_raw_manuscript_cache_retry', { attempt, error: rawCacheError });
                 }
-              }
+                if (rawCacheError) {
+                  console.warn('recovery_raw_manuscript_cache_unavailable_continuing_in_memory', { error: rawCacheError });
+                } else {
+                  const { data: rawVerified, error: rawVerifyError } = await db.storage
+                    .from(manuscriptBucket)
+                    .download(rawManuscriptPath);
+                  if (rawVerifyError || !rawVerified) {
+                    console.warn('recovery_raw_manuscript_cache_verify_unavailable_continuing_in_memory', {
+                      error: rawVerifyError?.message ?? 'missing_cache'
+                    });
+                  } else {
+                    const verifiedRaw = JSON.parse(await rawVerified.text()) as { markdown?: string; blueprint?: unknown };
+                    if (!verifiedRaw.markdown || !verifiedRaw.blueprint) {
+                      console.warn('recovery_raw_manuscript_cache_verify_invalid_continuing_in_memory');
+                    }
+                  }
+                }
+"""
+          if fresh_anchor not in text:
+              raise SystemExit('fresh raw persistence block missing')
+          text = text.replace(fresh_anchor, fresh_replacement, 1)
 
-              const pdf = await renderValidatedCommercialPdfWithNavigation(
-                {
-                  data: chain.data,
-                  content: chain.content,
-                  roadmap: chain.roadmap,
-                  evidenceModel: chain.evidenceModel,
-                  narrative: groundedNarrative
-                },
-                { renderHtml: renderPdfOnlyHtml, renderPdf: renderHtmlToPdfBuffer }
-              );
-          """
-          if old_generation not in text:
-              raise SystemExit('generation/render block anchor missing')
-          text = text.replace(old_generation, new_generation, 1)
+          validated_anchor = """      const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
+        validatedManuscriptPath,
+        cacheBytes,
+        { contentType: 'application/json', upsert: false }
+      );
+      if (cacheUploadError) throw new Error(`recovery_manuscript_cache_failed:${cacheUploadError.message}`);
+      const { data: verifiedCache, error: verifiedCacheError } = await db.storage
+        .from(manuscriptBucket)
+        .download(validatedManuscriptPath);
+      if (verifiedCacheError || !verifiedCache) {
+        throw new Error(`recovery_manuscript_cache_verify_failed:${verifiedCacheError?.message ?? 'missing_cache'}`);
+      }
+      const verified = JSON.parse(await verifiedCache.text()) as {
+        reportReference?: string;
+        graphFingerprint?: string;
+        score?: number;
+      };
+      if (verified.reportReference !== chain.data.reportReference
+        || verified.graphFingerprint !== graph.graphFingerprint
+        || verified.score !== chain.data.scoreRun.overallScore) {
+        throw new Error('recovery_manuscript_cache_verify_truth_mismatch');
+      }
+"""
+          validated_replacement = """      let validatedCacheError: string | null = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const { error: cacheUploadError } = await db.storage.from(manuscriptBucket).upload(
+          validatedManuscriptPath,
+          cacheBytes,
+          { contentType: 'application/json', upsert: true }
+        );
+        if (!cacheUploadError) {
+          validatedCacheError = null;
+          break;
+        }
+        validatedCacheError = cacheUploadError.message;
+        console.warn('recovery_validated_manuscript_cache_retry', { attempt, error: validatedCacheError });
+      }
+      if (validatedCacheError) {
+        console.warn('recovery_validated_manuscript_cache_unavailable_continuing_in_memory', { error: validatedCacheError });
+      } else {
+        const { data: verifiedCache, error: verifiedCacheError } = await db.storage
+          .from(manuscriptBucket)
+          .download(validatedManuscriptPath);
+        if (verifiedCacheError || !verifiedCache) {
+          console.warn('recovery_validated_manuscript_cache_verify_unavailable_continuing_in_memory', {
+            error: verifiedCacheError?.message ?? 'missing_cache'
+          });
+        } else {
+          const verified = JSON.parse(await verifiedCache.text()) as {
+            reportReference?: string;
+            graphFingerprint?: string;
+            score?: number;
+          };
+          if (verified.reportReference !== chain.data.reportReference
+            || verified.graphFingerprint !== graph.graphFingerprint
+            || verified.score !== chain.data.scoreRun.overallScore) {
+            throw new Error('recovery_manuscript_cache_verify_truth_mismatch');
+          }
+        }
+      }
+"""
+          if validated_anchor not in text:
+              raise SystemExit('validated persistence block missing')
+          text = text.replace(validated_anchor, validated_replacement, 1)
 
-          old_header = """        'X-MK-Provider-Calls': String(providerCalls),
-                  'X-MK-Score': String(chain.data.scoreRun.overallScore),
-          """
-          new_header = """        'X-MK-Provider-Calls': String(providerCalls),
-                  'X-MK-Manuscript-Reused': manuscriptReused ? 'true' : 'false',
-                  'X-MK-Score': String(chain.data.scoreRun.overallScore),
-          """
-          if old_header not in text:
-              raise SystemExit('provider header anchor missing')
-          text = text.replace(old_header, new_header, 1)
+          catch_anchor = """    return NextResponse.json(
+      { ok: false, error: message.slice(0, 600), diagnostics },
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+    );
+"""
+          catch_replacement = """    return NextResponse.json(
+      {
+        ok: false,
+        error: message.slice(0, 600),
+        diagnostics,
+        recoveryRawFallbackAvailable: Boolean(recoveryRawFallback),
+        recoveryRawFallback
+      },
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+    );
+"""
+          if catch_anchor not in text:
+              raise SystemExit('route catch response anchor missing')
+          text = text.replace(catch_anchor, catch_replacement, 1)
           route.write_text(text)
 
           store = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts')
           store_text = store.read_text()
-          old_check = """    if (providerCalls !== 1 || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
-              throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
-            }
-          """
-          new_check = """    if (![0, 1].includes(providerCalls) || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
-              throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
-            }
-          """
-          if old_check not in store_text:
-              raise SystemExit('store provider-call check anchor missing')
-          store.write_text(store_text.replace(old_check, new_check, 1))
+
+          generated_failure = """    if (!generated.ok) {
+      const body = await generated.text();
+      return NextResponse.json(
+        { ok: false, generationStatus: generated.status, error: body.slice(0, 1200), retryAttempted: false },
+        { status: generated.status, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+      );
+    }
+"""
+          generated_failure_replacement = """    if (!generated.ok) {
+      const body = await generated.text();
+      // Recovery-only path: preserve the complete synthetic failure envelope, including an
+      // in-memory raw manuscript fallback when storage was unavailable. Never truncate the
+      // only surviving copy of a paid provider result.
+      return new Response(body, {
+        status: generated.status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          'X-Robots-Tag': 'noindex'
+        }
+      });
+    }
+"""
+          if generated_failure not in store_text:
+              raise SystemExit('generated failure forwarding anchor missing')
+          store_text = store_text.replace(generated_failure, generated_failure_replacement, 1)
+
+          pdf_upload = """    const { error: uploadError } = await db.storage.from(BUCKET).upload(STORAGE_PATH, bytes, {
+      contentType: 'application/pdf',
+      upsert: false,
+      metadata: {
+        sha256: checksum,
+        reportReference: EXPECTED_REPORT_REFERENCE,
+        purpose: 'synthetic-v10-v12-recovery-acceptance',
+        providerCalls: String(providerCalls)
+      }
+    });
+    if (uploadError) throw new Error(`recovery_storage_upload_failed:${uploadError.message}`);
+
+    const { data: stored, error: downloadError } = await db.storage.from(BUCKET).download(STORAGE_PATH);
+    if (downloadError || !stored) throw new Error(`recovery_storage_verify_download_failed:${downloadError?.message ?? 'missing_object'}`);
+    const storedBytes = Buffer.from(await stored.arrayBuffer());
+    const storedChecksum = sha256(storedBytes);
+    if (storedChecksum !== checksum || storedBytes.length !== bytes.length) {
+      throw new Error(`recovery_storage_verify_mismatch:${checksum}:${storedChecksum}:${bytes.length}:${storedBytes.length}`);
+    }
+
+    return signedResult(db, { bytes: storedBytes, providerCalls, reused: false });
+"""
+          pdf_upload_replacement = """    let pdfUploadError: string | null = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const { error: uploadError } = await db.storage.from(BUCKET).upload(STORAGE_PATH, bytes, {
+        contentType: 'application/pdf',
+        upsert: true,
+        metadata: {
+          sha256: checksum,
+          reportReference: EXPECTED_REPORT_REFERENCE,
+          purpose: 'synthetic-v10-v12-recovery-acceptance',
+          providerCalls: String(providerCalls)
+        }
+      });
+      if (!uploadError) {
+        pdfUploadError = null;
+        break;
+      }
+      pdfUploadError = uploadError.message;
+      console.warn('recovery_pdf_storage_retry', { attempt, error: pdfUploadError });
+    }
+
+    if (!pdfUploadError) {
+      const { data: stored, error: downloadError } = await db.storage.from(BUCKET).download(STORAGE_PATH);
+      if (!downloadError && stored) {
+        const storedBytes = Buffer.from(await stored.arrayBuffer());
+        const storedChecksum = sha256(storedBytes);
+        if (storedChecksum === checksum && storedBytes.length === bytes.length) {
+          return signedResult(db, { bytes: storedBytes, providerCalls, reused: false });
+        }
+        console.warn('recovery_storage_verify_mismatch_returning_direct_pdf', {
+          checksum,
+          storedChecksum,
+          expectedBytes: bytes.length,
+          storedBytes: storedBytes.length
+        });
+      } else {
+        console.warn('recovery_storage_verify_download_failed_returning_direct_pdf', {
+          error: downloadError?.message ?? 'missing_object'
+        });
+      }
+    } else {
+      console.warn('recovery_storage_unavailable_returning_direct_pdf', { error: pdfUploadError });
+    }
+
+    // Last-resort recovery transport. The PDF bytes are already complete and validated; a
+    // storage outage must not destroy them. The response remains preview-only and synthetic.
+    return new Response(new Uint8Array(bytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=\"${EXPECTED_REPORT_REFERENCE}.pdf\"`,
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex',
+        'X-MK-Recovery-Proof': 'PASS',
+        'X-MK-Provider-Calls': String(providerCalls),
+        'X-MK-Storage-Fallback': 'direct-pdf',
+        'X-MK-SHA256': checksum,
+        'X-MK-Size-Bytes': String(bytes.length)
+      }
+    });
+"""
+          if pdf_upload not in store_text:
+              raise SystemExit('PDF persistence block missing')
+          store_text = store_text.replace(pdf_upload, pdf_upload_replacement, 1)
+          store.write_text(store_text)
           PY
 
           git diff --check
-          grep -q "manuscriptPath = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1-manuscript.json'" src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
-          grep -q "manuscriptReused" src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
-          grep -q "\[0, 1\].includes(providerCalls)" src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts
+          grep -q 'recoveryRawFallback' src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          grep -q 'continuing_in_memory' src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
+          grep -q 'X-MK-Storage-Fallback' src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts
 
       - uses: actions/setup-node@v4
         with:
@@ -197,11 +331,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
-      - name: Commit bounded hardening
+      - name: Commit fail-safe recovery patch
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts src/app/score/api/qa/recovery-v10-v12-vhutshilo-store/route.ts
-          git commit -m "Harden one-shot V10 V1.2 artifact recovery"
+          if git diff --cached --quiet; then
+            echo 'No recovery patch required.'
+            exit 0
+          fi
+          git commit -m "Make one-shot V10 recovery fail-safe"
           git push origin HEAD:recovery/essential-v10-v12-brand-20260824
