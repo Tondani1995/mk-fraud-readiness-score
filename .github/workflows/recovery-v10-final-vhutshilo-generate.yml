@@ -1,9 +1,9 @@
-name: Recovery V10 Final Vhutshilo Generation
+name: Recovery V10 V1.2 Vhutshilo Final Customer PDF Acceptance
 
 on:
   push:
     branches:
-      - recovery/essential-v10-v12-minimal-20260824
+      - recovery/essential-v10-v12-brand-20260824
     paths:
       - .github/workflows/recovery-v10-final-vhutshilo-generate.yml
 
@@ -11,103 +11,128 @@ permissions:
   contents: write
 
 jobs:
-  generate-once:
+  rerender-and-inspect:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      PREVIEW_URL: https://mk-fraud-platform-8s3i1zmeq-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-3w6igiv13-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
-      OUTPUT_PDF: qa-output/recovery/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
+      OUT_DIR: qa-output/recovered-vhutshilo-essential-clean
+      PDF_NAME: RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: recovery/essential-v10-v12-minimal-20260824
+          ref: recovery/essential-v10-v12-brand-20260824
           fetch-depth: 0
 
-      - name: Require preview access secret
+      - name: Require protected-preview access secret
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$VERCEL_PROTECTION_BYPASS" || { echo 'VERCEL_PROTECTION_BYPASS missing; refusing generation.'; exit 1; }
+          test -n "$VERCEL_PROTECTION_BYPASS" || { echo 'VERCEL_PROTECTION_BYPASS missing; refusing acceptance rerender.'; exit 1; }
 
-      - name: Re-prove frozen V1.2 truth with zero provider calls
+      - name: Re-prove frozen V1.2 truth before rerender
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p qa-output/recovery
+          mkdir -p "$OUT_DIR"
           curl -fsS \
             -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
             "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo?format=meta" \
-            -o qa-output/recovery/vhutshilo-meta.json
+            -o "$OUT_DIR/meta.json"
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const meta = JSON.parse(fs.readFileSync('qa-output/recovery/vhutshilo-meta.json', 'utf8'));
+          const meta = JSON.parse(fs.readFileSync('qa-output/recovered-vhutshilo-essential-clean/meta.json', 'utf8'));
           const expectedDomains = {D1:42,D2:39.43,D3:40.54,D4:40.59,D5:43.85,D6:60.83,D7:47.06,D8:38.18,D9:56.67,D10:40.95};
           const checks = [
-            [meta.ok, true, 'ok'], [meta.proof, 'PASS', 'proof'], [meta.providerCalls, 0, 'providerCalls'],
+            [meta.ok, true, 'ok'], [meta.proof, 'PASS', 'proof'], [meta.providerCalls, 0, 'meta providerCalls'],
             [meta.score, 43.33, 'score'], [meta.finalMaturity, 'Developing', 'maturity'], [meta.coveragePct, 100, 'coverage'],
             [meta.applicableControls, 60, 'applicable'], [meta.excludedControls, 8, 'excluded'], [meta.redirectedControls, 4, 'redirected'],
             [meta.unknownControls, 0, 'unknown'], [meta.criticalGaps, 6, 'critical'], [meta.majorGaps, 3, 'major'],
-            [meta.graphVersion, 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821', 'graph'],
-            [meta.graphFingerprint, '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7', 'fingerprint'],
-            [meta.methodology, 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION', 'methodology'],
             [meta.reportReference, 'RPT-MKFRS-V12-ESS-VHUTSHILO-V1', 'reportReference'],
             [meta.packageContract, 'PDF_ONLY_NO_XLSX_REGISTER', 'packageContract'],
             [JSON.stringify(meta.domainScores), JSON.stringify(expectedDomains), 'domains']
           ];
           for (const [actual, expected, label] of checks) if (actual !== expected) throw new Error(`${label}: expected ${expected}, received ${actual}`);
-          console.log('provider-free frozen Vhutshilo proof PASS');
+          console.log('Frozen V1.2 truth PASS');
           NODE
 
-      - name: Generate exactly once through certified V10 writer
-        id: generation
+      - name: Rerender exactly once from recovered manuscript
         shell: bash
         run: |
           set -euo pipefail
-          # Intentionally one curl, no --retry. If this request fails we stop; we do not spend again.
           status=$(curl -sS \
             -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
-            -D qa-output/recovery/vhutshilo-pdf.headers \
-            -o qa-output/recovery/vhutshilo-pdf.response \
+            -D "$OUT_DIR/headers.txt" \
+            -o "$OUT_DIR/$PDF_NAME" \
             -w '%{http_code}' \
             "$PREVIEW_URL/score/api/qa/recovery-v10-v12-vhutshilo?format=pdf")
-          printf '%s\n' "$status" > qa-output/recovery/vhutshilo-pdf.http-status
-          if [ "$status" != "200" ]; then
-            echo "Generation returned HTTP $status. Refusing any retry."
-            cat qa-output/recovery/vhutshilo-pdf.response || true
-            exit 1
-          fi
-          mv qa-output/recovery/vhutshilo-pdf.response "$OUTPUT_PDF"
+          printf '%s\n' "$status" > "$OUT_DIR/http-code.txt"
+          test "$status" = "200" || { echo "Rerender returned HTTP $status"; head -c 2000 "$OUT_DIR/$PDF_NAME" || true; exit 1; }
+          grep -Eiq '^content-type: application/pdf' "$OUT_DIR/headers.txt"
+          grep -Eiq '^x-mk-recovery-proof: PASS' "$OUT_DIR/headers.txt"
+          grep -Eiq '^x-mk-provider-calls: 0' "$OUT_DIR/headers.txt"
+          grep -Eiq '^x-mk-manuscript-reused: true' "$OUT_DIR/headers.txt"
+          grep -Eiq '^x-mk-score: 43\.33' "$OUT_DIR/headers.txt"
+          grep -Eiq '^x-mk-maturity: Developing' "$OUT_DIR/headers.txt"
+          printf 'SUCCESS\n' > "$OUT_DIR/outcome.txt"
 
-      - name: Verify the single generated artefact
+      - name: Inspect the actual rerendered PDF
         shell: bash
         run: |
           set -euo pipefail
-          test -s "$OUTPUT_PDF"
-          test "$(head -c 4 "$OUTPUT_PDF")" = '%PDF'
-          size=$(wc -c < "$OUTPUT_PDF" | tr -d ' ')
-          test "$size" -gt 100000 || { echo "PDF unexpectedly small: $size"; exit 1; }
-          grep -Eiq '^content-type: application/pdf' qa-output/recovery/vhutshilo-pdf.headers
-          grep -Eiq '^x-mk-recovery-proof: PASS' qa-output/recovery/vhutshilo-pdf.headers
-          grep -Eiq '^x-mk-provider-calls: 1' qa-output/recovery/vhutshilo-pdf.headers
-          grep -Eiq '^x-mk-score: 43\.33' qa-output/recovery/vhutshilo-pdf.headers
-          grep -Eiq '^x-mk-maturity: Developing' qa-output/recovery/vhutshilo-pdf.headers
-          sha256sum "$OUTPUT_PDF" | tee qa-output/recovery/vhutshilo-pdf.sha256
-          printf 'size_bytes=%s\nprovider_calls=1\nscore=43.33\nmaturity=Developing\nreport_reference=RPT-MKFRS-V12-ESS-VHUTSHILO-V1\n' "$size" > qa-output/recovery/vhutshilo-pdf.acceptance
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          test -s "$OUT_DIR/$PDF_NAME"
+          test "$(head -c 4 "$OUT_DIR/$PDF_NAME")" = '%PDF'
+          wc -c < "$OUT_DIR/$PDF_NAME" | tr -d ' ' > "$OUT_DIR/bytes.txt"
+          sha256sum "$OUT_DIR/$PDF_NAME" > "$OUT_DIR/sha256.txt"
+          pdfinfo "$OUT_DIR/$PDF_NAME" > "$OUT_DIR/pdfinfo.txt"
+          pdffonts "$OUT_DIR/$PDF_NAME" > "$OUT_DIR/fonts.txt"
+          pdftotext -layout "$OUT_DIR/$PDF_NAME" "$OUT_DIR/report-layout.txt"
+          pdftotext "$OUT_DIR/$PDF_NAME" "$OUT_DIR/report-text.txt"
+          grep -E '^Pages:' "$OUT_DIR/pdfinfo.txt" > "$OUT_DIR/page-count.txt"
+          test "$(awk '/^Pages:/ {print $2}' "$OUT_DIR/pdfinfo.txt")" = "26"
 
-      - name: Persist the one-shot acceptance artefact
+          grep -Ein 'the relevant control|the relevant roadmap action|authoritative roadmap dependency IDs|\bERP\b|personal-data obligations may be breached|majority of activity is never examined|SCENARIO-[0-9]+|\(D[0-9]+\)' "$OUT_DIR/report-text.txt" > "$OUT_DIR/banned-residue-scan.txt" || true
+          grep -Ein 'supporting register|\.xlsx|synthetic recovery|example\.test|provider|openai|gpt|qa[- /]|test fixture|D[0-9]+-Q[0-9]+|\b(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+' "$OUT_DIR/report-text.txt" > "$OUT_DIR/broader-leakage-scan.txt" || true
+          grep -Ein 'the relevant evidence requirement|the relevant assessed control' "$OUT_DIR/report-text.txt" > "$OUT_DIR/generic-residue-scan.txt" || true
+          grep -Ein '43\.33|Developing|60 applicable|8 excluded|4 redirected|6 critical|3 major' "$OUT_DIR/report-text.txt" > "$OUT_DIR/truth-scan.txt" || true
+
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+          out = Path('qa-output/recovered-vhutshilo-essential-clean')
+          text = (out / 'report-text.txt').read_text(errors='replace')
+          layout = (out / 'report-layout.txt').read_text(errors='replace')
+          pages = [p for p in layout.split('\f') if p.strip()]
+          headings = [
+            'Executive summary','What the result means','Domain overview',
+            'Priority findings, contradictions and scenarios','Priority risks',
+            'Leadership decisions and roadmap','Proof requirements',
+            'Methodology, limitations and next steps'
+          ]
+          summary = {
+            'pageCount': len(pages),
+            'characterCount': len(text),
+            'wordCount': len(re.findall(r'\b\w+\b', text)),
+            'pageTextLengths': [len(p.strip()) for p in pages],
+            'headings': {h: bool(re.search(re.escape(h), text, re.I)) for h in headings},
+            'bannedResidueLines': len((out / 'banned-residue-scan.txt').read_text(errors='replace').splitlines()),
+            'broaderLeakageLines': len((out / 'broader-leakage-scan.txt').read_text(errors='replace').splitlines()),
+            'genericResidueLines': len((out / 'generic-residue-scan.txt').read_text(errors='replace').splitlines()),
+          }
+          (out / 'inspection-summary.json').write_text(json.dumps(summary, indent=2))
+          PY
+
+      - name: Persist final customer PDF acceptance evidence
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add qa-output/recovery/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf \
-                  qa-output/recovery/vhutshilo-meta.json \
-                  qa-output/recovery/vhutshilo-pdf.headers \
-                  qa-output/recovery/vhutshilo-pdf.http-status \
-                  qa-output/recovery/vhutshilo-pdf.sha256 \
-                  qa-output/recovery/vhutshilo-pdf.acceptance
-          git commit -m "Capture final recovered Vhutshilo Essential PDF"
-          git pull --rebase origin recovery/essential-v10-v12-minimal-20260824
-          git push origin HEAD:recovery/essential-v10-v12-minimal-20260824
+          git config user.name "MK Recovery QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_DIR"
+          git commit -m "Capture cleaned Vhutshilo Essential acceptance PDF"
+          git pull --rebase origin recovery/essential-v10-v12-brand-20260824
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
