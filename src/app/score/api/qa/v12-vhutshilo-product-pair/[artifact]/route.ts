@@ -13,7 +13,7 @@ import {
   type InterpretationRun,
   type InterpretationSlotId
 } from '@/lib/reports/comprehensive/interpretation';
-import { assertEssentialFinalHtml, type EssentialValidationCascadeResult } from '@/lib/reports/essential-validation-cascade';
+import { validateEssentialFinalHtml, type EssentialValidationCascadeResult } from '@/lib/reports/essential-validation-cascade';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 
 export const runtime = 'nodejs';
@@ -59,11 +59,33 @@ function buildTar(files: Array<{ name: string; bytes: Buffer }>): Buffer {
   return Buffer.concat(chunks);
 }
 
+/**
+ * Comprehensive keeps raw assessment question codes internally for traceability,
+ * but a buyer-facing report should use its own clean register references. This
+ * presentation-only map preserves every cross-link while preventing MF-Dx-Qxx,
+ * CI-Dx-Qxx and bare Dx-Qxx engine identifiers from leaking into the PDF.
+ */
+function customerFacingRegisterIds(html: string): string {
+  const aliases = new Map<string, string>();
+  const counters = { F: 0, C: 0, A: 0 };
+  return html.replace(/\b(?:MF-|CI-)?D\d+-Q\d+\b/g, (raw) => {
+    const family: keyof typeof counters = raw.startsWith('MF-') ? 'F' : raw.startsWith('CI-') ? 'C' : 'A';
+    const key = `${family}:${raw}`;
+    const existing = aliases.get(key);
+    if (existing) return existing;
+    counters[family] += 1;
+    const alias = `${family}-${String(counters[family]).padStart(2, '0')}`;
+    aliases.set(key, alias);
+    return alias;
+  });
+}
+
 function deterministicMeta() {
   const { data, score, path, controlResponses } = buildVhutshiloV12Assembled();
   return {
     sourceSha: ENGINE_SOURCE_SHA,
     assessmentBaselineSha: VHUTSHILO_V12_SOURCE_SHA,
+    deploymentSourceSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     graphVersion: VHUTSHILO_V12_GRAPH,
     organisationName: data.organisationName,
     assessmentReference: data.assessmentReference,
@@ -195,8 +217,22 @@ async function renderComprehensiveTar(): Promise<Buffer> {
       return run;
     },
     renderPdf: async (html, options) => {
-      finalValidation = assertEssentialFinalHtml({ html, data });
-      return renderHtmlToPdfBuffer(html, options);
+      const customerHtml = customerFacingRegisterIds(html);
+      const validation = validateEssentialFinalHtml({ html: customerHtml, data });
+      if (!validation.publishable) {
+        const diagnostics = validation.candidates
+          .filter((candidate) => candidate.finalDisposition !== 'ACCEPT')
+          .map((candidate) => ({
+            ruleCode: candidate.ruleCode,
+            disposition: candidate.finalDisposition,
+            path: candidate.path,
+            span: candidate.span,
+            decisions: candidate.decisions
+          }));
+        throw new Error(`Comprehensive final validation blocked: ${JSON.stringify(diagnostics)}`);
+      }
+      finalValidation = validation;
+      return renderHtmlToPdfBuffer(customerHtml, options);
     }
   });
 
@@ -270,6 +306,6 @@ export async function GET(_request: Request, props: { params: Promise<{ artifact
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('v12_vhutshilo_product_pair_failed', { artifact, message });
-    return NextResponse.json({ ok: false, artifact, error: message.slice(0, 4000) }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: false, artifact, error: message.slice(0, 12000) }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
