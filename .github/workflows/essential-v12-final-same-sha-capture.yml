@@ -1,9 +1,9 @@
-name: Essential V1.2 Final Same-SHA Capture
+name: Recovered V1.2 Vhutshilo Essential Capture
 
 on:
   push:
     branches:
-      - qa/v12-essential-five-layer-proof-20260823
+      - recovery/essential-v10-v12-brand-20260824
     paths:
       - .github/workflows/essential-v12-final-same-sha-capture.yml
 
@@ -13,66 +13,76 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
-      PREVIEW_URL: https://mk-fraud-platform-5h09luenx-tondanis-projects.vercel.app
-      SOURCE_DEPLOYMENT: dpl_3BMQiDbeF9Pv8y8TBtd4VKzUJ1t1
-      SOURCE_SHA: 18e851df89e17a9dcc8550be0ae30c42c147f3ff
+      PREVIEW_URL: https://mk-fraud-platform-dr2pjhebk-tondanis-projects.vercel.app
+      SOURCE_DEPLOYMENT: dpl_7EQZykBKsG71e2n9XjMN7BpDvqbA
+      SOURCE_SHA: b6ee7c89d74e1492eaa5f290aae8bed80a00185c
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: qa/v12-essential-five-layer-proof-20260823
+          ref: recovery/essential-v10-v12-brand-20260824
           fetch-depth: 0
 
-      - name: Preflight exact V1.2 source and five-layer policy
+      - name: Prove frozen Vhutshilo truth
         shell: bash
         run: |
           set -euo pipefail
           test -n "$VERCEL_PROTECTION_BYPASS"
-          mkdir -p qa-output/v12-final-same-sha
-          curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-safety-proof" > qa-output/v12-final-same-sha/safety.json
-          curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta" > qa-output/v12-final-same-sha/bokamoso-meta.json
-          grep -Fq '"ok":true' qa-output/v12-final-same-sha/safety.json
-          grep -Fq '"policy":"semantic-review-advisory-to-five-layer-cascade"' qa-output/v12-final-same-sha/safety.json
-          grep -Fq '"graphVersion":"MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821"' qa-output/v12-final-same-sha/bokamoso-meta.json
-          printf '{"sourceDeployment":"%s","sourceSha":"%s"}\n' "$SOURCE_DEPLOYMENT" "$SOURCE_SHA" > qa-output/v12-final-same-sha/source.json
+          rm -rf qa-output/recovered-vhutshilo-essential
+          mkdir -p qa-output/recovered-vhutshilo-essential
+          curl --max-time 60 -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/v12-essential-comparison/vhutshilo?format=meta" \
+            > qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"score":43.33' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"finalMaturity":"Developing"' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"applicableControls":60' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"excludedControls":8' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"redirectedControls":4' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"unknownControls":0' qa-output/recovered-vhutshilo-essential/meta.json
+          grep -Fq '"graphVersion":"MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821"' qa-output/recovered-vhutshilo-essential/meta.json
+          printf '{"sourceDeployment":"%s","sourceSha":"%s"}\n' "$SOURCE_DEPLOYMENT" "$SOURCE_SHA" > qa-output/recovered-vhutshilo-essential/source.json
 
-      - name: Generate and capture all three independently
+      - name: Generate Vhutshilo Essential exactly once
         shell: bash
         run: |
-          set -u
-          overall=0
-          for profile in bokamoso siyakhula vhutshilo; do
-            case "$profile" in
-              bokamoso) name='Bokamoso_Skills_Institute_Essential_V1_2.pdf' ;;
-              siyakhula) name='Siyakhula_Community_Foundation_Essential_V1_2.pdf' ;;
-              vhutshilo) name='Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' ;;
-            esac
-            echo "=== $profile ==="
-            curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile?format=meta" > "qa-output/v12-final-same-sha/${profile}-meta.json" || true
-            code=$(curl -sS -w '%{http_code}' -D "qa-output/v12-final-same-sha/${profile}-headers.txt" -o "qa-output/v12-final-same-sha/${profile}-response.bin" -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile")
-            printf '%s\n' "$code" > "qa-output/v12-final-same-sha/${profile}-http-code.txt"
-            if [ "$code" = "200" ] && head -c 4 "qa-output/v12-final-same-sha/${profile}-response.bin" | grep -q '%PDF'; then
-              mv "qa-output/v12-final-same-sha/${profile}-response.bin" "qa-output/v12-final-same-sha/$name"
-              sha256sum "qa-output/v12-final-same-sha/$name" > "qa-output/v12-final-same-sha/${profile}-sha256.txt"
-              echo SUCCESS > "qa-output/v12-final-same-sha/${profile}-outcome.txt"
-            else
-              mv "qa-output/v12-final-same-sha/${profile}-response.bin" "qa-output/v12-final-same-sha/${profile}-diagnostic.json"
-              echo FAIL > "qa-output/v12-final-same-sha/${profile}-outcome.txt"
-              overall=1
-            fi
-          done
-          exit "$overall"
+          set +e
+          code=$(curl --max-time 300 -sS -w '%{http_code}' \
+            -D qa-output/recovered-vhutshilo-essential/headers.txt \
+            -o qa-output/recovered-vhutshilo-essential/response.bin \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/api/qa/v12-essential-comparison/vhutshilo")
+          printf '%s\n' "$code" > qa-output/recovered-vhutshilo-essential/http-code.txt
+          if [ "$code" = "200" ] && [ "$(head -c 4 qa-output/recovered-vhutshilo-essential/response.bin)" = '%PDF' ]; then
+            mv qa-output/recovered-vhutshilo-essential/response.bin qa-output/recovered-vhutshilo-essential/Vhutshilo_Foods_Manufacturing_Essential_V1_2_Recovered.pdf
+            sha256sum qa-output/recovered-vhutshilo-essential/Vhutshilo_Foods_Manufacturing_Essential_V1_2_Recovered.pdf > qa-output/recovered-vhutshilo-essential/sha256.txt
+            wc -c < qa-output/recovered-vhutshilo-essential/Vhutshilo_Foods_Manufacturing_Essential_V1_2_Recovered.pdf > qa-output/recovered-vhutshilo-essential/bytes.txt
+            echo SUCCESS > qa-output/recovered-vhutshilo-essential/outcome.txt
+            exit 0
+          fi
+          mv qa-output/recovered-vhutshilo-essential/response.bin qa-output/recovered-vhutshilo-essential/diagnostic.json
+          echo FAIL > qa-output/recovered-vhutshilo-essential/outcome.txt
+          exit 1
 
-      - name: Commit captured evidence even on failure
+      - name: Commit capture
         if: always()
         shell: bash
         run: |
-          git config user.name "MK V1.2 QA"
+          git config user.name "MK Recovery QA"
           git config user.email "actions@users.noreply.github.com"
-          git fetch origin qa/v12-essential-five-layer-proof-20260823
-          git reset --soft origin/qa/v12-essential-five-layer-proof-20260823
-          git add qa-output/v12-final-same-sha
-          git commit -m "capture final same-SHA V1.2 Essential evidence" || true
-          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823
+          git fetch origin recovery/essential-v10-v12-brand-20260824
+          git reset --soft origin/recovery/essential-v10-v12-brand-20260824
+          git add qa-output/recovered-vhutshilo-essential
+          git commit -m "capture recovered Vhutshilo Essential artefact" || true
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
+
+      - name: Upload capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovered-vhutshilo-essential
+          path: qa-output/recovered-vhutshilo-essential
+          if-no-files-found: error
+          retention-days: 14
