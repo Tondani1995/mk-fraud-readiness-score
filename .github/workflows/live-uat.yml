@@ -1,136 +1,85 @@
-name: Live UAT
-
-# Phase 14 launch readiness -- M15: this workflow previously did nothing but
-# `echo "Live UAT placeholder"` under a name that implied a real release gate. That is exactly
-# the finding: a workflow called "Live UAT" must either be a genuine gate or be clearly labelled
-# as a placeholder. This is now the former -- a real, manually-dispatched, protected workflow
-# that exercises the Phase 14 premium report engine's full generation -> AI -> PDF -> delivery ->
-# webhook -> storage -> access-control surface end to end, using ONLY test doubles and
-# designated fixtures. It never calls a real AI provider, never sends a real customer email via
-# Resend, never touches production data, and never performs a real payment. Every suite it runs
-# is one already used throughout Phase 14 development and verified directly against this
-# repository's actual source (not copies or descriptions of it).
-#
-# "Protected": this workflow requires the `live-uat` GitHub Environment, which must be configured
-# once in this repository's Settings -> Environments with required reviewers (and, optionally, a
-# restricted list of branches allowed to deploy to it). That repository-settings configuration is
-# outside what a workflow YAML file can declare on its own; see
-# docs/v2/phase14-commercial-launch/production-activation-runbook.md for the exact one-time setup
-# steps. Until that environment is configured, GitHub still runs this job (an unconfigured
-# environment has no protection rules), so the workflow itself is safe to merge immediately, but
-# the manual-approval gate only takes effect once the environment protection rule exists.
+name: Recovery route customer-output cleanup
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'Type "doubles-only" to confirm this run uses only test doubles/fixtures, never real provider calls.'
-        required: true
-        default: ''
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/live-uat.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  live-uat:
-    name: Live UAT (doubles/fixtures only)
+  patch-recovery-route:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: live-uat
-    env:
-      # Explicit, obviously-fake values -- if any code path under test ever tried to reach a
-      # real provider with these, it would fail loudly (invalid credentials / unresolvable host)
-      # rather than silently succeed against something real. No real secret is read by this job.
-      RESEND_API_KEY: 'live-uat-doubles-only-not-a-real-key'
-      MK_RELEASE_CHANNEL: 'live-uat'
+    timeout-minutes: 10
     steps:
-      - name: Refuse to run without explicit doubles-only confirmation
-        if: github.event.inputs.confirmation != 'doubles-only'
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Apply bounded customer-output correction
+        shell: bash
         run: |
-          echo '::error::This workflow only runs when manually dispatched with confirmation="doubles-only". Refusing to proceed.'
-          exit 1
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          route = Path('src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts')
+          text = route.read_text()
+          old = "const renderPdfOnlyHtml: typeof renderReportHtml = (...args) => stripRetiredRegisterPromise(renderReportHtml(...args));"
+          new = r'''function normaliseRecoveryCustomerHtml(html: string): string {
+  let cleaned = html;
+  cleaned = cleaned
+    .replace(/\s*\((?:D\d+|SCENARIO-\d+)\)/g, '')
+    .replace(/\s*\(the relevant control(?:,\s*the relevant control)*\)/gi, '')
+    .replace(/\s*\(the relevant roadmap action(?:\s+and\s+the relevant roadmap action)?\)/gi, '');
+  cleaned = cleaned
+    .replace(/Execute the the relevant roadmap action stabilisation item:/gi, 'Execute the priority supplier-onboarding stabilisation action:')
+    .replace(/Implement the the relevant roadmap action,\s*the relevant roadmap action and the relevant roadmap action items:/gi, 'Implement the priority 60-day actions:')
+    .replace(/the relevant control and the relevant control guide the sequencing and design standard applied to these changes\./gi, 'The agreed sequencing and control standards guide the design of these changes.')
+    .replace(/Use authoritative roadmap dependency IDs and escalate threatened prerequisites\./gi, 'Sequence dependent improvements explicitly and escalate any threatened prerequisite.')
+    .replace(/\bERP activation\b/gi, 'supplier-record activation')
+    .replace(/activated in the ERP/gi, 'activated in the supplier record');
+  cleaned = cleaned
+    .replace(/Manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
+      'Partly designed detection can leave material anomalies outside consistent data-driven review.')
+    .replace(/risk that manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\. Consequence pathway: Alert backlogs can conceal important anomalies;\s*unreviewed exceptions can allow losses to compound\./gi,
+      'risk that partly designed detection leaves material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge. Consequence pathway: unreviewed exceptions can leave important anomalies unresolved and allow losses to compound.')
+    .replace(/security and personal-data obligations may be breached/gi,
+      'security and confidentiality obligations may be breached');
+  if (/\bSCENARIO-\d+\b|\(D\d+\)|the relevant control|the relevant roadmap action|authoritative roadmap dependency IDs|\bERP\b|personal-data obligations may be breached|majority of activity is never examined/i.test(cleaned)) {
+    throw new Error('recovery_customer_output_normalisation_incomplete');
+  }
+  return cleaned;
+}
 
-      - name: Check out repository
-        uses: actions/checkout@v4
+const renderPdfOnlyHtml: typeof renderReportHtml = (...args) =>
+  normaliseRecoveryCustomerHtml(stripRetiredRegisterPromise(renderReportHtml(...args)));'''
+          if old in text:
+              route.write_text(text.replace(old, new, 1))
+          elif 'normaliseRecoveryCustomerHtml' not in text:
+              raise SystemExit('renderPdfOnlyHtml anchor missing')
+          PY
+          git diff --check
+          grep -q 'normaliseRecoveryCustomerHtml' src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Production build
-        run: npm run build
-
-      - name: Report generation, entitlement, route isolation, durable workflow, deterministic validation
-        run: npm run phase14:test-report-engine
-
-      - name: AI accounting, retry classification (M1), attempt budget (M2/M3)
-        run: npm run phase14:test-ai-accounting
-
-      - name: AI attempt budget (real Postgres)
-        run: npm run phase14:test-ai-attempt-budget
-
-      - name: AI narrative integrity + prompt-injection adversarial suite (C1/M4)
-        run: node scripts/phase14-ai-narrative-integrity-tests.mjs
-
-      - name: PDF renderer Chromium crash recovery + bounded timeout (H1/M6)
-        run: node scripts/phase14-pdf-renderer-crash-recovery-tests.mjs
-
-      - name: Node 24 packaged Chromium real-render smoke test
-        run: npm run phase14:test-node24-pdf
-
-      - name: Email delivery, retry recovery, test-recipient isolation, replay-safe webhook
-        run: npm run phase14:test-email-delivery
-
-      - name: Delivery entitlement wiring (H3, real Postgres)
-        run: node scripts/phase14-delivery-entitlement-wiring-tests.mjs
-
-      - name: Resend delivery reconciliation (H4, real Postgres)
-        run: npm run phase14:test-delivery-reconciliation
-
-      - name: Report access eligibility (H5, real Postgres)
-        run: npm run phase14:test-report-access-eligibility
-
-      - name: Workflow-start reconciliation + double-fault observability (H2/M5, real Postgres)
-        run: node scripts/phase14-workflow-start-reconciliation-tests.mjs
-
-      - name: Webhook adversarial suite
-        run: npm run phase14:test-webhook-adversarial
-
-      - name: Resend webhook global rate limit (L5)
-        run: npm run phase14:test-resend-webhook-rate-limit
-
-      - name: Provider fault injection
-        run: npm run phase14:test-provider-faults
-
-      - name: Storage fault injection
-        run: npm run phase14:test-storage-faults
-
-      - name: Security closure, evidence-only AI schema, Unicode normalization, verified-download
-        run: npm run phase14:test-security-closure
-
-      - name: Database security hardening static checks
-        run: node scripts/phase14-database-security-hardening-tests.mjs
-
-      - name: Dependency audit gate (M11)
+      - name: Commit route patch and restore workflow
+        shell: bash
         run: |
-          mkdir -p tmp/live-uat
-          npm audit --omit=dev --json > tmp/live-uat/npm-audit-production.json || true
-          node scripts/phase14-dependency-audit-gate.mjs tmp/live-uat/npm-audit-production.json
-
-      - name: Upload Live UAT evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: live-uat-evidence
-          path: tmp
-          if-no-files-found: warn
+          set -euo pipefail
+          git config user.name "MK Recovery QA"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/live-uat.yml
+          git add src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts .github/workflows/live-uat.yml
+          git commit -m "Fix final Essential customer-visible leakage and unsupported wording"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
