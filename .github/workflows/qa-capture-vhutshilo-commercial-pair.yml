@@ -16,9 +16,9 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     env:
-      BASE_URL: https://mk-fraud-platform-jj6zaqlnf-tondanis-projects.vercel.app
+      BASE_URL: https://mk-fraud-platform-git-qa-v12-vhutshilo-77cf6a-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
@@ -32,18 +32,32 @@ jobs:
             core.setSecret(token);
             core.setOutput('token', token);
 
-      - name: Capture deterministic metadata
+      - name: Wait for this exact branch deployment
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p qa-pair
-          curl -fsS \
-            -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
-            -H "x-vercel-trusted-oidc-idp-token: ${OIDC_TOKEN}" \
-            "${BASE_URL}/score/api/qa/v12-vhutshilo-product-pair/meta" \
-            -o qa-pair/meta.json
-          cat qa-pair/meta.json | jq .
+          for attempt in $(seq 1 60); do
+            if curl -fsS \
+              -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+              -H "x-vercel-trusted-oidc-idp-token: ${OIDC_TOKEN}" \
+              "${BASE_URL}/score/api/qa/v12-vhutshilo-product-pair/meta" \
+              -o qa-pair/meta.json; then
+              if jq -e --arg sha "${GITHUB_SHA}" '.deploymentSourceSha == $sha' qa-pair/meta.json >/dev/null; then
+                cat qa-pair/meta.json | jq .
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Branch alias did not reach ${GITHUB_SHA}" >&2
+          cat qa-pair/meta.json 2>/dev/null || true
+          exit 1
+
+      - name: Prove deterministic metadata
+        run: |
+          set -euo pipefail
           jq -e '.ok == true' qa-pair/meta.json >/dev/null
           jq -e '.score == 43.33' qa-pair/meta.json >/dev/null
           jq -e '.finalMaturity == "Developing"' qa-pair/meta.json >/dev/null
@@ -55,11 +69,17 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
-          curl -fsS \
+          HTTP_CODE="$(curl -sS -w '%{http_code}' \
             -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
             -H "x-vercel-trusted-oidc-idp-token: ${OIDC_TOKEN}" \
             "${BASE_URL}/score/api/qa/v12-vhutshilo-product-pair/comprehensive" \
-            -o qa-pair/comprehensive.tar
+            -o qa-pair/comprehensive-response.bin)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Comprehensive endpoint returned HTTP ${HTTP_CODE}" >&2
+            cat qa-pair/comprehensive-response.bin >&2 || true
+            exit 1
+          fi
+          mv qa-pair/comprehensive-response.bin qa-pair/comprehensive.tar
           tar -xf qa-pair/comprehensive.tar -C qa-pair
           find qa-pair -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
 
