@@ -6,7 +6,13 @@ import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-mode
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
 import { REPORTING_BIBLE_VERSION } from '../reporting-bible';
 import { buildNarrativeMaturationSteps, type NarrativeMaturationStep } from './maturation';
-import { deriveSupportedOperatingExposures, hasExposure, type OperatingExposureId, type SupportedExposure } from './operating-exposures';
+import { exposuresFromContext, hasExposure, type OperatingExposureId, type SupportedExposure } from './operating-exposures';
+import {
+  adaptiveGraphVersionForAssessment,
+  deriveNarrativeOperatingContext,
+  describeOperatingContextFact,
+  type OperatingContextFact
+} from './operating-context';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -219,7 +225,13 @@ export interface NarrativeFactPack {
   bibleVersion: typeof REPORTING_BIBLE_VERSION;
   productTier: NarrativeProductTier;
   narrativeMode: NarrativeMode;
-  organisation: { name: string; sectorFacts: string[] };
+  organisation: {
+    name: string;
+    /** Backward-compatible string projection derived only from operatingContext. */
+    sectorFacts: string[];
+    /** Canonical operating facts with graph/question/option provenance. */
+    operatingContext: OperatingContextFact[];
+  };
   assessment: {
     reference: string;
     generatedAt: string;
@@ -1136,7 +1148,14 @@ function buildPack(input: {
   const findingRefs = new Map(findings.map((finding) => [finding.sourceId, finding.factRef]));
   const risks = buildRiskFacts(narrativeRisks, narrativeFindings, findingRefs);
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
-  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier, deriveSupportedOperatingExposures(input.data?.adaptiveGatewayAnswers));
+  const operatingContext = input.data?.adaptiveGatewayAnswers && Object.keys(input.data.adaptiveGatewayAnswers).length > 0
+    ? deriveNarrativeOperatingContext({
+      graphVersion: input.data ? adaptiveGraphVersionForAssessment(input.data) : undefined,
+      gatewayAnswers: input.data.adaptiveGatewayAnswers
+    })
+    : [];
+  const operatingExposures = exposuresFromContext(operatingContext);
+  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier, operatingExposures);
   const controls = sustainment ? buildSustainmentControls(sustainmentPriorityFacts) : buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
   const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
@@ -1161,6 +1180,7 @@ function buildPack(input: {
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),
     ...domains.map((domain) => makeFact(domain.factRef, 'domain', domain, [domain.code])),
+    ...operatingContext.map((fact) => makeFact(`OPERATING-CONTEXT-${fact.key}`, 'operating_context', fact, [fact.sourceGatewayCode, fact.sourceQuestionId])),
     ...relativeStrengths.map((strength) => makeFact(strength.factRef, 'relative_strength', strength, [strength.domainCode])),
     ...themes.map((theme) => makeFact(theme.factRef, 'systemic_theme', theme, [...theme.findingRefs, ...theme.riskRefs, ...theme.scenarioRefs])),
     ...findings.map((finding) => makeFact(finding.factRef, 'finding', finding, finding.sourceRefs)),
@@ -1177,7 +1197,14 @@ function buildPack(input: {
     bibleVersion: REPORTING_BIBLE_VERSION,
     productTier: input.tier,
     narrativeMode: input.narrativeMode,
-    organisation: { name: input.organisationName, sectorFacts: [] },
+    organisation: {
+      name: input.organisationName,
+      operatingContext,
+      sectorFacts: operatingContext
+        .filter((fact) => fact.customerNarrativeAllowed)
+        .map(describeOperatingContextFact)
+        .filter(Boolean)
+    },
     assessment: {
       ...input.score,
       reference: text(input.assessmentReference, 'Recorded assessment'),
@@ -1292,6 +1319,18 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
   const ids = pack.facts.map((fact) => fact.id);
   if (new Set(ids).size !== ids.length) throw new Error('Narrative Fact Pack contains duplicate stable fact IDs.');
   for (const fact of pack.facts) if (!fact.id || !fact.kind || fact.value === undefined) throw new Error(`Narrative Fact Pack fact ${fact.id || '<missing>'} is incomplete.`);
+  const operatingContextFacts = pack.organisation.operatingContext;
+  for (const fact of operatingContextFacts) {
+    if (!fact.key || !fact.value || !fact.sourceGatewayCode || !fact.sourceQuestionId || !fact.sourcePrompt || !fact.sourceOptionId || !fact.sourceOptionLabel || !fact.graphVersion || !fact.provenance || !fact.customerNarrativeAllowed) {
+      throw new Error(`Narrative operating-context fact ${fact.key || '<missing>'} is missing provenance.`);
+    }
+    if (fact.sourceOptionId !== fact.value) throw new Error(`Narrative operating-context fact ${fact.key} lost its recorded option identity.`);
+    if (!pack.facts.some((candidate) => candidate.id === `OPERATING-CONTEXT-${fact.key}` && JSON.stringify(candidate.value) === JSON.stringify(fact))) {
+      throw new Error(`Narrative operating-context fact ${fact.key} is not present in the canonical Fact Pack facts.`);
+    }
+  }
+  const expectedSectorFacts = operatingContextFacts.filter((fact) => fact.customerNarrativeAllowed).map(describeOperatingContextFact).filter(Boolean);
+  if (JSON.stringify(pack.organisation.sectorFacts) !== JSON.stringify(expectedSectorFacts)) throw new Error('Narrative sectorFacts projection is not derived from operatingContext.');
   if (pack.narrativeMode === 'SUSTAINMENT') {
     if (pack.sustainmentPriorities.length === 0) throw new Error('Sustainment Fact Pack requires at least one sustainment priority.');
     if (pack.findings.length !== 0 || pack.risks.length !== 0 || pack.scenarios.length !== 0 || pack.systemicThemeInputs.length !== 0) throw new Error('Sustainment Fact Pack must separate priorities from findings, risks, scenarios and themes.');

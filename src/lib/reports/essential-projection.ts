@@ -1,4 +1,5 @@
 import { adaptEssentialText, buildEssentialAdaptationContext } from './essential-presentation-adaptation';
+import { adaptiveGraphVersionForAssessment } from './narrative/operating-context';
 import type { AssembledReportData } from './types';
 import type {
   AdvisoryEvidenceModel,
@@ -401,7 +402,10 @@ export function buildEssentialProjection(
   // projection is shared with both the renderer and the writer brief. Illustrative
   // operating routes and formal titles the customer never evidenced are neutralised here
   // rather than in the authoritative playbooks, which Comprehensive also consumes.
-  const adaptation = buildEssentialAdaptationContext(data.adaptiveGatewayAnswers);
+  const adaptation = buildEssentialAdaptationContext({
+    gatewayAnswers: data.adaptiveGatewayAnswers,
+    graphVersion: adaptiveGraphVersionForAssessment(data)
+  });
   const adapt = (value: unknown): string => adaptEssentialText(String(value ?? ''), adaptation);
   /**
    * Adapt the customer-facing strings of an Essential-only copy of an object.

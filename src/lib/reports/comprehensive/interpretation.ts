@@ -6,6 +6,11 @@ import type { AdvisoryEvidenceModel, Contradiction } from '../evidence-model/typ
 import type { ComprehensiveManagementModel } from './management-model';
 import type { DomainDiagnosticRow } from './assembly';
 import { claimsVerification } from './product-contract';
+import {
+  adaptiveGraphVersionForAssessment,
+  deriveNarrativeOperatingContext,
+  type OperatingContextFact
+} from '../narrative/operating-context';
 
 /**
  * Bounded interpretation for the Comprehensive management core.
@@ -164,7 +169,10 @@ export interface InterpretationEvidencePack {
     majorGapCount: number;
   };
   operatingContext: {
+    /** Technical trace retained for the evidence register; never used as semantic input to AI. */
     gatewayAnswers: Array<{ gatewayCode: string; recordedValue: string }>;
+    /** Canonical semantic facts used for any operating-context interpretation. */
+    facts?: OperatingContextFact[];
     exposureFactors: Array<{ factorCode: string; factor: string; selectedValue: string; pointsAwarded: number; maxPoints: number }>;
   };
   materialQuestionPositions: Array<{
@@ -240,6 +248,12 @@ function buildInterpretationEvidencePack(input: {
   evidenceModel?: AdvisoryEvidenceModel;
 }): InterpretationEvidencePack {
   const { model, assembled, evidenceModel } = input;
+  const operatingContextFacts = assembled?.adaptiveGatewayAnswers && Object.keys(assembled.adaptiveGatewayAnswers).length > 0
+    ? deriveNarrativeOperatingContext({
+      graphVersion: assembled ? adaptiveGraphVersionForAssessment(assembled) : undefined,
+      gatewayAnswers: assembled.adaptiveGatewayAnswers
+    })
+    : [];
   const adaptive = assembled?.scoreRun.adaptiveMetrics ?? assembled?.adaptiveScope;
   const traces = assembled?.questionTraces ?? [];
   const traceByQuestion = new Map(traces.map((trace) => [trace.questionCode, trace]));
@@ -366,6 +380,7 @@ function buildInterpretationEvidencePack(input: {
     },
     operatingContext: {
       gatewayAnswers: Object.entries(assembled?.adaptiveGatewayAnswers ?? {}).map(([gatewayCode, recordedValue]) => ({ gatewayCode, recordedValue: String(recordedValue) })),
+      facts: operatingContextFacts,
       exposureFactors: (assembled?.exposureAnswers ?? []).map((answer) => ({ factorCode: answer.factorCode, factor: answer.name, selectedValue: answer.selectedLabel, pointsAwarded: answer.pointsAwarded, maxPoints: answer.maxPoints }))
     },
     materialQuestionPositions,
@@ -659,7 +674,17 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
   const contracts = INTERPRETATION_CONTRACTS.filter((contract) => !only || only.includes(contract.id));
   // narrativeMode is retained on the brief for validation and withheld here.
   const { narrativeMode, ...visible } = brief;
-  const promptBrief = { ...visible, posture: POSTURE[narrativeMode] ?? '' };
+  // Keep the raw gateway trace available on the returned evidence pack for technical audit, but
+  // do not put positional answers in the provider payload. The provider receives the canonical
+  // provenance-carrying facts instead, so it cannot silently apply a V1.1 meaning to a V1.2 G-code.
+  const promptEvidencePack = {
+    ...visible.evidencePack,
+    operatingContext: {
+      ...visible.evidencePack.operatingContext,
+      gatewayAnswers: []
+    }
+  };
+  const promptBrief = { ...visible, evidencePack: promptEvidencePack, posture: POSTURE[narrativeMode] ?? '' };
   return [
     'You are writing the management interpretation for an MK Fraud Readiness Comprehensive report.',
     '',
@@ -669,6 +694,7 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
     '- Every number you use must appear in the analysis below. Do not compute new ones, including percentages.',
     '- Do not invent a finding, risk, control, owner, action, measure, date, cost, incident or organisational fact. If the curated evidence pack does not record it, do not infer it.',
     '- The evidencePack is a curated executive evidence contract: use it to ground the interpretation, but do not treat technical IDs as customer prose and do not ask for or reconstruct the omitted raw assessment.',
+    '- Use operatingContext.facts for operating-context meaning. The technical gateway trace is not a semantic mapping and is intentionally withheld from the writer payload.',
     '- Domain diagnostics are deterministic anchors for choosing the most important relationships. Use them selectively; do not write ten mini-essays or recite the domain table.',
     '- Never state or imply that MK examined evidence, tested a control, interviewed anyone or verified anything. The assessment is self-reported by the organisation.',
     '- Never state that a control currently exists or currently operates. Recommended designs are what good practice requires, not what the organisation does.',

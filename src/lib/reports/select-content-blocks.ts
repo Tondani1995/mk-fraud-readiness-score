@@ -2,6 +2,7 @@ import type { EssentialProjection } from './essential-projection';
 import { getMaturityBand } from '../scoring/maturity-band';
 import { detectSystemicCondition } from './essential-projection';
 import { adaptEssentialText, buildEssentialAdaptationContext } from './essential-presentation-adaptation';
+import { adaptiveGraphVersionForAssessment } from './narrative/operating-context';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
   FALLBACK_CAPPED_DIAGNOSIS,
@@ -24,7 +25,10 @@ function applyTokens(text: string, data: AssembledReportData) {
   // pages. It does not pass through the v1.1 manuscript validator, which is how unsupported peer,
   // headcount and formal-structure claims survived a passing manuscript gate. Apply the same
   // Essential customer boundary here so every visible deterministic narrative surface is bounded.
-  return adaptEssentialText(tokenised, buildEssentialAdaptationContext(data.adaptiveGatewayAnswers));
+  return adaptEssentialText(tokenised, buildEssentialAdaptationContext({
+    gatewayAnswers: data.adaptiveGatewayAnswers,
+    graphVersion: adaptiveGraphVersionForAssessment(data)
+  }));
 }
 
 function activeBlocks(blocks: ContentBlock[]) {

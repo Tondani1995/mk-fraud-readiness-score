@@ -43,6 +43,8 @@ function packText(pack: NarrativeFactPack): string {
 }
 
 function proseText(value: unknown, key = ''): string {
+  if (/operatingContext/i.test(key)) return '';
+  if (/^(key|certainty|sourceGatewayCode|sourceQuestionId|sourcePrompt|sourceOptionId|sourceOptionLabel|graphVersion|graphFingerprint|provenance|customerNarrativeAllowed)$/i.test(key)) return '';
   if (typeof value === 'string') return /(?:id|ref|code|family|category|source|questionCode|targetPeriod|phase|semantic|materiality|decisionFamily|fraudPathway)/i.test(key) ? '' : value;
   if (Array.isArray(value)) return value.map((item) => proseText(item, key)).join(' ');
   if (value && typeof value === 'object') return Object.entries(value).map(([childKey, childValue]) => proseText(childValue, childKey)).join(' ');

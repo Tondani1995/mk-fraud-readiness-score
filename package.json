@@ -16,6 +16,7 @@
     "v12:comprehensive-navigation": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-closure/comprehensive-navigation-tests.mjs",
     "v12:increment2": "npm run v12:brand-conformance && npm run v12:comprehensive-navigation",
     "v12:vhutshilo-regression": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-closure/vhutshilo-v12-regression.mjs",
+    "v12:operating-context": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-closure/operating-context-regression.mjs",
     "v12:provenance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-closure/artefact-provenance-tests.mjs",
     "v12:increment0": "npm run v12:vhutshilo-regression && npm run v12:provenance",
     "adaptive:v1-2:compile": "node scripts/adaptive-v1-2-instrument.mjs",

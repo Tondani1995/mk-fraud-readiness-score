@@ -31,6 +31,7 @@ import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
 import type { EssentialSemanticReviewer } from './narrative/semantic-reviewer';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
+import { adaptiveGraphVersionForAssessment } from './narrative/operating-context';
 import { renderComprehensiveReportPackage } from './comprehensive/manual-generation';
 import { persistComprehensiveInterpretationAccounting } from './comprehensive/interpretation-accounting';
 
@@ -547,7 +548,12 @@ export async function generateManualPhase1Report(
     // so its accepted output is unchanged.
     const reportEvidenceModel = isComprehensive
       ? advisoryModel
-      : adaptEssentialEvidenceModel(advisoryModel, assembled.adaptiveGatewayAnswers);
+      : adaptEssentialEvidenceModel(
+        advisoryModel,
+        assembled.adaptiveGatewayAnswers,
+        [],
+        adaptiveGraphVersionForAssessment(assembled)
+      );
     // ONE bounded projection instance for this generation: the deterministic fallback content,
     // the narrative brief, the renderer and the commercial-quality validator all consume it.
     const essentialProjection = buildEssentialProjection(assembled, reportEvidenceModel);

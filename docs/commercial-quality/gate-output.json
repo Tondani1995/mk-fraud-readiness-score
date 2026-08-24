@@ -1,4 +1,7 @@
 {
+  "artefactStatus": "historical_non_authoritative",
+  "authoritative": false,
+  "statusNote": "Retained historical Increment 2 output. Do not treat this committed generated artefact as current Comprehensive certification evidence; rerun the current quality gate before relying on its status.",
   "generatedAt": "2026-08-12T14:53:26.526Z",
   "fixtures": [
     "F1",

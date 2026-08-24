@@ -1,5 +1,6 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
+import type { OperatingContextFact } from './operating-context';
 import { positionAssertion } from '../essential/evidence-support';
 import { familyPresentation } from '../essential/content-families';
 
@@ -159,7 +160,7 @@ export interface ReportBlueprint {
   reportTitle: string;
   reportTier: ReportBlueprintTier;
   narrativeMode: NarrativeFactPack['narrativeMode'] | 'SNAPSHOT';
-  organisation: { name: string; sectorFacts: string[] };
+  organisation: { name: string; sectorFacts: string[]; operatingContext?: OperatingContextFact[] };
   assessmentPosition: {
     reference: string;
     score: number | null;

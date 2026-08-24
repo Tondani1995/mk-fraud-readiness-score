@@ -1,15 +1,25 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
 import type { NarrativeMode } from '../evidence-model/types';
 import type { NarrativeStoryPlan } from './story-plan';
+import { describeOperatingContextFact, type OperatingContextFact } from './operating-context';
 
 export const NARRATIVE_WRITER_BRIEF_SCHEMA_VERSION = 'mk-reporting-bible-1.1-writer-brief-v1';
+
+export type NarrativeWriterOperatingContextFact = OperatingContextFact & {
+  /** Bounded wording the writer may use; provenance fields remain attached for audit. */
+  customerLanguage: string;
+};
 
 export interface NarrativeWriterBrief {
   schemaVersion: typeof NARRATIVE_WRITER_BRIEF_SCHEMA_VERSION;
   bibleVersion: '1.1';
   productTier: NarrativeProductTier;
   narrativeMode: NarrativeMode;
-  organisation: { name: string; sectorFacts: string[] };
+  organisation: {
+    name: string;
+    sectorFacts: string[];
+    operatingContext: NarrativeWriterOperatingContextFact[];
+  };
   assessmentBasis: string;
   assuranceBoundary: string;
   highReadinessSparseNarrativeReason?: string;
@@ -318,7 +328,14 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
     bibleVersion: '1.1',
     productTier: pack.productTier,
     narrativeMode: pack.narrativeMode,
-    organisation: { name: pack.organisation.name, sectorFacts: pack.organisation.sectorFacts.filter(Boolean) },
+    organisation: {
+      name: pack.organisation.name,
+      sectorFacts: pack.organisation.sectorFacts.filter(Boolean),
+      operatingContext: pack.organisation.operatingContext
+        .filter((fact) => fact.customerNarrativeAllowed)
+        .map((fact) => ({ ...fact, customerLanguage: describeOperatingContextFact(fact) }))
+        .filter((fact) => Boolean(fact.customerLanguage))
+    },
     assessmentBasis: 'The assessment is based on management’s recorded self-assessment and deterministic scoring inputs.',
     assuranceBoundary: 'The assessment does not independently verify operating effectiveness, evidence or every in-scope control.',
     highReadinessSparseNarrativeReason: pack.highReadinessSparseNarrativeReason,
@@ -414,6 +431,7 @@ export function assertNarrativeWriterBrief(brief: NarrativeWriterBrief): void {
     throw new Error('Narrative Writer Brief contains internal provenance, scoring enums or methodology language.');
   }
   if (brief.findings.some((finding) => !finding.factRef || !finding.semanticFamilyLabel || !finding.materialityLabel)) throw new Error('Narrative Writer Brief contains an incomplete finding.');
+  if (brief.organisation.operatingContext.some((fact) => !fact.key || !fact.value || !fact.sourceGatewayCode || !fact.sourceQuestionId || !fact.sourcePrompt || !fact.sourceOptionId || !fact.sourceOptionLabel || !fact.graphVersion || !fact.provenance || !fact.customerLanguage)) throw new Error('Narrative Writer Brief contains an operating-context fact without complete provenance.');
   if (!brief.assessmentBasis || !brief.assuranceBoundary) throw new Error('Narrative Writer Brief is missing its global assessment basis or assurance boundary.');
   if (brief.narrativeMode === 'SUSTAINMENT') {
     if (brief.sustainmentPriorities.length === 0 || brief.findings.length !== 0 || brief.risks.length !== 0 || brief.scenarios.length !== 0) throw new Error('Sustainment Writer Brief must separate priorities from findings, risks and scenarios.');
