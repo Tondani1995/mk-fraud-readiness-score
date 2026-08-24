@@ -1,4 +1,8 @@
-import { deriveSupportedOperatingExposures, hasExposure, type SupportedExposure } from './narrative/operating-exposures';
+import { exposuresFromContext, hasExposure, type SupportedExposure } from './narrative/operating-exposures';
+import {
+  deriveNarrativeOperatingContext,
+  type OperatingContextFact
+} from './narrative/operating-context';
 
 /**
  * Essential-only presentation adaptation.
@@ -58,16 +62,31 @@ const EXPOSURE_GATED_PHRASES: ReadonlyArray<{ pattern: RegExp; requires: string;
 ];
 
 export interface EssentialAdaptationContext {
+  /** The canonical source facts used to derive every exposure below. */
+  operatingContext: readonly OperatingContextFact[];
   exposures: SupportedExposure[];
   /** Titles the assessment itself evidences may stand; nothing else is invented. */
   evidencedTitles: readonly string[];
 }
 
+export interface EssentialAdaptationInput {
+  gatewayAnswers?: Readonly<Record<string, string>> | null;
+  graphVersion?: string | null;
+}
+
 export function buildEssentialAdaptationContext(
-  gatewayAnswers: Readonly<Record<string, string>> | undefined,
+  input: EssentialAdaptationInput | Readonly<Record<string, string>> | undefined,
   evidencedTitles: readonly string[] = []
 ): EssentialAdaptationContext {
-  return { exposures: deriveSupportedOperatingExposures(gatewayAnswers), evidencedTitles };
+  const isStructured = Boolean(input && Object.prototype.hasOwnProperty.call(input, 'gatewayAnswers'));
+  const gatewayAnswers = isStructured
+    ? (input as EssentialAdaptationInput).gatewayAnswers
+    : input as Readonly<Record<string, string>> | undefined;
+  const graphVersion = isStructured ? (input as EssentialAdaptationInput).graphVersion : undefined;
+  const operatingContext = graphVersion && gatewayAnswers && Object.keys(gatewayAnswers).length > 0
+    ? deriveNarrativeOperatingContext({ graphVersion, gatewayAnswers })
+    : [];
+  return { operatingContext, exposures: exposuresFromContext(operatingContext), evidencedTitles };
 }
 
 /**
@@ -320,7 +339,7 @@ function ensureEssentialThirtyDayOwnershipDecision<T>(model: T): T {
 /**
  * An Essential-only adapted copy of the advisory evidence model.
  *
- * Every Essential consumer -- projection, Fact Pack, renderer and supporting register -- must read
+ * Every Essential consumer -- projection, Fact Pack, renderer and PDF quality gates -- must read
  * the same adapted text, or the PDF suppresses a claim the writer still sees. The shared model is
  * deep-copied rather than mutated, because Comprehensive consumes the original and its accepted
  * output must not change.
@@ -328,9 +347,10 @@ function ensureEssentialThirtyDayOwnershipDecision<T>(model: T): T {
 export function adaptEssentialEvidenceModel<T>(
   model: T,
   gatewayAnswers: Readonly<Record<string, string>> | undefined,
-  evidencedTitles: readonly string[] = []
+  evidencedTitles: readonly string[] = [],
+  graphVersion?: string | null
 ): T {
-  const context = buildEssentialAdaptationContext(gatewayAnswers, evidencedTitles);
+  const context = buildEssentialAdaptationContext({ gatewayAnswers, graphVersion }, evidencedTitles);
   const walk = (value: unknown): unknown => {
     if (typeof value === 'string') return adaptEssentialText(value, context);
     if (Array.isArray(value)) return value.map(walk);
