@@ -89,16 +89,11 @@ export const VHUTSHILO_V12_EXPECTED_SCOPE = Object.freeze({
 });
 
 /**
- * The owner-stated deterministic result.
+ * The owner-approved deterministic result, reproduced from the recovered fixture.
  *
- * NOT YET REPRODUCIBLE. A score needs the 60 in-scope control responses, and those are not
- * derivable from the V1.1 assessment: the V1.1 to V1.2 crosswalk merges several controls
- * into one target (D6-Q02 receives three V1.1 sources; D2-Q03, D2-Q06, D9-Q03 and D10-Q03
- * each receive two) and no response-combination rule exists in the graph, the crosswalk or
- * the engine. `mergedQuestionIds` in the compiled graph is traceability metadata, not a
- * scoring rule. Inventing a rule here would manufacture the very truth this fixture exists
- * to protect, so the regression asserts scope now and reports the score as UNPROVEN until
- * the 60 V1.2 control responses are supplied.
+ * These values are not asserted from the owner's message; they are recomputed from the
+ * recovered response set against the frozen graph on every regression run. If the engine
+ * stops producing them, the regression fails rather than the expectation moving.
  */
 export const VHUTSHILO_V12_EXPECTED_RESULT = Object.freeze({
   overallScore: 43.33,
@@ -124,3 +119,124 @@ export const VHUTSHILO_V11_HISTORICAL = Object.freeze({
   excluded: 7,
   redirected: 3
 });
+
+/**
+ * The recovered deterministic source values.
+ *
+ * Lifted verbatim from the QA comparison route at the commit that produced the accepted
+ * 43.33 V1.2 proof, rather than reconstructed. Recovering the original beats reconstructing
+ * an equivalent: an owner-rebuilt response vector would be a new artefact asserting the same
+ * numbers, whereas this is the artefact that produced them.
+ *
+ * Per-domain arrays index to `<domain>-Q01..Qnn` in order, matching the original `expand`
+ * helper. The three additional D3 entries are the V1.2 controls with no V1.1 ancestor and
+ * carry their original explicit values.
+ */
+export const VHUTSHILO_V12_FIXTURE_RECOVERY = Object.freeze({
+  recoveredFromSourceSha: '25261df021df21e2b5f704f5024786abcdf8774f',
+  recoveredFromPath: 'src/app/score/api/qa/v12-essential-comparison/[profile]/route.ts',
+  recoveredProfileKey: 'vhutshilo',
+  assessmentReference: 'MKFRS-V12-COMP-VHUTSHILO',
+  reportReference: 'RPT-MKFRS-V12-COMP-VHUTSHILO-V1',
+  orderReference: 'MKORD-V12-COMP-VHUTSHILO',
+  organisationName: 'Vhutshilo Foods Manufacturing (Pty) Ltd',
+  seed: '000000000003'
+});
+
+const DOMAIN_SOURCE_VALUES: Readonly<Record<string, readonly number[]>> = Object.freeze({
+  D1: [3, 1, 2, 3, 1, 2],
+  D2: [3, 1, 2, 3, 1, 2, 2, 2],
+  D3: [3, 1, 2, 2, 2, 3, 1],
+  D4: [3, 1, 2, 3, 1, 2, 2],
+  D5: [3, 1, 2, 3, 1, 2, 2],
+  D6: [4, 2, 3, 4, 2, 3],
+  D7: [3, 3, 1, 3, 2, 3, 1],
+  D8: [2, 2, 3, 1, 2, 2, 2, 2],
+  D9: [4, 2, 3, 4, 2, 3],
+  D10: [3, 1, 2, 3, 1, 2]
+});
+
+/** V1.2 D3 controls with no V1.1 ancestor; explicit in the original fixture. */
+const D3_NEW_CONTROL_VALUES: Readonly<Record<string, number>> = Object.freeze({
+  'D3-Q09': 2, 'D3-Q10': 2, 'D3-Q11': 2
+});
+
+/** Oversight variants substituted where supplier management sits with an external provider. */
+export const VHUTSHILO_V12_OVERSIGHT_VALUES: Readonly<Record<string, number>> = Object.freeze({
+  'OV-D3-Q03': 2, 'OV-D7-Q01': 3, 'OV-D7-Q04': 3
+});
+
+/** Split children inherit their V1.1 parent's recorded response. Not a merge rule. */
+export const VHUTSHILO_V12_SPLIT_SOURCE: Readonly<Record<string, string>> = Object.freeze({
+  'D1-Q07': 'D1-Q04',
+  'D3-Q08': 'D3-Q04',
+  'D4-Q08': 'D4-Q05',
+  'D8-Q09': 'D8-Q04',
+  'D8-Q10': 'D8-Q08'
+});
+
+/** The flat question-code to response-value map, expanded exactly as the original did. */
+export const VHUTSHILO_V12_SOURCE_VALUES: Readonly<Record<string, number>> = Object.freeze({
+  ...Object.fromEntries(
+    Object.entries(DOMAIN_SOURCE_VALUES).flatMap(([domain, values]) =>
+      values.map((value, index) => [`${domain}-Q${String(index + 1).padStart(2, '0')}`, value])
+    )
+  ),
+  ...D3_NEW_CONTROL_VALUES
+});
+
+/**
+ * The original fixture's value resolution, reproduced exactly.
+ *
+ * Order matters and is load-bearing: oversight value, then the explicit value for the
+ * canonical node, then split inheritance, then the fixture's default. Reordering these
+ * changes the score, so this function is a transcription and not a redesign.
+ */
+export function vhutshiloV12ResponseValue(
+  nodeId: string,
+  replacementFor: string | null,
+  domainCode: string | null
+): number {
+  const oversight = VHUTSHILO_V12_OVERSIGHT_VALUES[nodeId];
+  if (Number.isInteger(oversight)) return oversight;
+  const canonical = replacementFor ?? nodeId;
+  const explicit = VHUTSHILO_V12_SOURCE_VALUES[canonical];
+  if (Number.isInteger(explicit)) return explicit;
+  const source = VHUTSHILO_V12_SPLIT_SOURCE[canonical];
+  if (source && Number.isInteger(VHUTSHILO_V12_SOURCE_VALUES[source])) return VHUTSHILO_V12_SOURCE_VALUES[source];
+  return domainCode === 'D3' ? 2 : 2;
+}
+
+/** The methodology projection the scorer expects, as the original fixture built it. */
+export function vhutshiloV12Methodology(graph: any) {
+  return {
+    domains: graph.domains.map((domain: any, domainIndex: number) => ({
+      id: `00000000-0000-4000-8000-${String(domainIndex + 1).padStart(12, '0')}`,
+      domainCode: domain.domainCode,
+      name: domain.name,
+      weightPct: domain.weightPct,
+      domainType: 'control',
+      isCore: Boolean(domain.isCore),
+      sortOrder: domain.sortOrder ?? domainIndex + 1,
+      questions: graph.questions
+        .filter((question: any) => question.domainCode === domain.domainCode)
+        .map((question: any, questionIndex: number) => ({
+          id: `10000000-0000-4000-8000-${String(graph.questions.indexOf(question) + 1).padStart(12, '0')}`,
+          questionCode: question.questionCode,
+          domainCode: question.domainCode,
+          domainName: domain.name,
+          prompt: question.prompt,
+          helpText: null,
+          weight: question.weight,
+          isCritical: Boolean(question.isCritical),
+          isHardGate: Boolean(question.isHardGate),
+          nAAllowed: false,
+          nARuleKey: null,
+          triggerKey: null,
+          sortOrder: questionIndex
+        }))
+    })),
+    responseScale: [],
+    exposureFactors: []
+  };
+}

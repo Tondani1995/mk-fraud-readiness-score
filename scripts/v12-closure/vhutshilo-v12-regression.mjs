@@ -9,10 +9,9 @@
  * graph, and reproduces the owner's applicability signature exactly (60/8/4/0) including
  * which controls are excluded and which are redirected to oversight variants.
  *
- * What it cannot prove yet: the score. See the note on VHUTSHILO_V12_EXPECTED_RESULT — the
- * 60 in-scope control responses are not derivable from the V1.1 assessment because the
- * crosswalk merges several controls with no combination rule. The score assertions are
- * reported as UNPROVEN rather than skipped, so the gap stays visible in every run.
+ * The score is recomputed, never asserted from a stated number: the responses come from the
+ * fixture recovered at the commit that produced the accepted 43.33 proof, and the engine is
+ * asked for the answer on every run. If the engine drifts, this fails.
  *
  *   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs \
  *     scripts/v12-closure/vhutshilo-v12-regression.mjs
@@ -21,10 +20,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveAdaptivePath } from '../../src/lib/adaptive/engine.ts';
+import { calculateAdaptiveReadinessScore } from '../../src/lib/scoring/adaptive-scoring.ts';
 import {
   VHUTSHILO_V12_GRAPH_VERSION, VHUTSHILO_V12_GRAPH_FINGERPRINT, VHUTSHILO_V12_METHODOLOGY_VERSION,
   VHUTSHILO_V12_GATEWAY_ANSWERS, VHUTSHILO_V12_GATEWAY_MAP, VHUTSHILO_V12_EXPECTED_SCOPE,
-  VHUTSHILO_V12_EXPECTED_RESULT, VHUTSHILO_V11_HISTORICAL
+  VHUTSHILO_V12_EXPECTED_RESULT, VHUTSHILO_V11_HISTORICAL,
+  VHUTSHILO_V12_FIXTURE_RECOVERY, vhutshiloV12ResponseValue, vhutshiloV12Methodology
 } from '../../src/lib/adaptive/fixtures/vhutshilo-v12.ts';
 
 const graph = JSON.parse(readFileSync(resolve(process.cwd(), 'src/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json'), 'utf8'));
@@ -94,16 +95,58 @@ check('V1.1 is recorded as history only, never as a target', () => {
 });
 
 /**
- * The score is stated, asserted against nothing, and reported as unproven. This is the
- * honest state: the expected values are frozen and will be enforced the moment the 60 V1.2
- * control responses arrive, and until then no run may claim the fixture is certified.
+ * The score, recomputed rather than asserted from a stated number.
+ *
+ * Responses are built by the recovered mechanism: walk the resolved path, prefer the
+ * oversight value, fall back to the explicit value for the canonical node, then to split
+ * inheritance. No response is written by hand and no combination rule is invented.
  */
-const unproven = [{
-  name: 'deterministic score and domain scores',
-  status: 'UNPROVEN',
-  detail: 'Requires the 60 in-scope V1.2 control responses. Not derivable from V1.1: the crosswalk merges D5-Q02/D6-Q02/D6-Q06 into D6-Q02, and pairs into D2-Q03, D2-Q06, D9-Q03 and D10-Q03, with no response-combination rule defined in the graph, crosswalk or engine.',
-  expected: { overallScore: VHUTSHILO_V12_EXPECTED_RESULT.overallScore, maturity: VHUTSHILO_V12_EXPECTED_RESULT.maturity, domains: VHUTSHILO_V12_EXPECTED_RESULT.domains }
-}];
+const controlResponses = {};
+for (const node of active) {
+  controlResponses[node.nodeId] = {
+    responseState: 'maturity',
+    responseValue: vhutshiloV12ResponseValue(node.nodeId, node.replacementFor, node.domainCode)
+  };
+}
+
+const scored = calculateAdaptiveReadinessScore({
+  graph,
+  methodology: vhutshiloV12Methodology(graph),
+  gatewayAnswers: VHUTSHILO_V12_GATEWAY_MAP,
+  controlResponses,
+  integritySignals: []
+});
+const domainByCode = Object.fromEntries(
+  scored.domainResults.map((domain) => [domain.domainCode, Number(domain.rawScore)])
+);
+
+check('the recovered fixture yields exactly 60 responses', () => {
+  assert.equal(Object.keys(controlResponses).length, VHUTSHILO_V12_EXPECTED_SCOPE.applicable);
+});
+check(`overall score is ${VHUTSHILO_V12_EXPECTED_RESULT.overallScore}`, () => {
+  assert.equal(Number(scored.summary.overallScore), VHUTSHILO_V12_EXPECTED_RESULT.overallScore);
+});
+check(`final maturity is ${VHUTSHILO_V12_EXPECTED_RESULT.maturity}`, () => {
+  assert.equal(scored.summary.finalMaturity, VHUTSHILO_V12_EXPECTED_RESULT.maturity);
+});
+check('coverage is 100%', () => {
+  assert.equal(Number(scored.summary.coveragePct), VHUTSHILO_V12_EXPECTED_RESULT.coveragePct);
+});
+check(`critical gaps are ${VHUTSHILO_V12_EXPECTED_RESULT.criticalGaps}`, () => {
+  assert.equal(Number(scored.summary.criticalGapCount), VHUTSHILO_V12_EXPECTED_RESULT.criticalGaps);
+});
+check(`major gaps are ${VHUTSHILO_V12_EXPECTED_RESULT.majorGaps}`, () => {
+  assert.equal(Number(scored.summary.majorGapCount), VHUTSHILO_V12_EXPECTED_RESULT.majorGaps);
+});
+for (const [code, expected] of Object.entries(VHUTSHILO_V12_EXPECTED_RESULT.domains)) {
+  check(`${code} scores ${expected}`, () => {
+    assert.equal(domainByCode[code], expected);
+  });
+}
+check('the fixture records where it was recovered from', () => {
+  assert.equal(VHUTSHILO_V12_FIXTURE_RECOVERY.recoveredFromSourceSha, '25261df021df21e2b5f704f5024786abcdf8774f');
+  assert.match(VHUTSHILO_V12_FIXTURE_RECOVERY.recoveredFromPath, /v12-essential-comparison/);
+});
 
 const failed = checks.filter((entry) => entry.status === 'FAIL');
 console.log(JSON.stringify({
@@ -111,8 +154,16 @@ console.log(JSON.stringify({
   graphVersion: graph.graphVersion,
   graphFingerprint: graph.graphFingerprint,
   scopeProven: { applicable: path.activePathCount, excluded: path.excludedCount, redirected: path.redirectedCount, unknown: 0 },
+  recomputed: {
+    overallScore: Number(scored.summary.overallScore),
+    finalMaturity: scored.summary.finalMaturity,
+    coveragePct: Number(scored.summary.coveragePct),
+    criticalGaps: Number(scored.summary.criticalGapCount),
+    majorGaps: Number(scored.summary.majorGapCount),
+    domains: domainByCode
+  },
+  recoveredFrom: VHUTSHILO_V12_FIXTURE_RECOVERY,
   checks,
-  unproven,
-  status: failed.length ? 'FAIL' : 'PASS_SCOPE_ONLY'
+  status: failed.length ? 'FAIL' : 'PASS'
 }, null, 2));
 process.exit(failed.length ? 1 : 0);
