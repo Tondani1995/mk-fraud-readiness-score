@@ -399,6 +399,8 @@ function normaliseRecoveryCustomerHtml(html: string): string {
       'Partly designed detection can leave material anomalies outside consistent data-driven review.')
     .replace(/risk that manual review cannot cover transaction volume,\s*so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\. Consequence pathway: Alert backlogs can conceal important anomalies;\s*unreviewed exceptions can allow losses to compound\./gi,
       'risk that partly designed detection leaves material anomalies outside consistent data-driven review, allowing structured schemes to persist without timely challenge. Consequence pathway: unreviewed exceptions can leave important anomalies unresolved and allow losses to compound.')
+    .replace(/This recorded condition is considered in the diagnosis, priority findings, risks and roadmap that follow where it is material to the executive priority set\./gi, '')
+    .replace(/<p>\s*<\/p>/gi, '')
     .replace(/security and personal-data obligations may be breached/gi,
       'security and confidentiality obligations may be breached');
 
