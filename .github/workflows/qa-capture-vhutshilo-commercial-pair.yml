@@ -29,7 +29,7 @@ jobs:
       - name: Prove five-layer Comprehensive document-context adjudication
         run: |
           set -euo pipefail
-          node scripts/commercial-quality/comprehensive-final-assurance-context-regression.mjs
+          node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-final-assurance-context-regression.mjs
 
       - name: Mint GitHub OIDC token for trusted-source fallback
         id: oidc
