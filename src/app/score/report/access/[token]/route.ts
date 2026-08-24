@@ -29,7 +29,8 @@ const CUSTOMER_SAFE_MESSAGES: Record<string, string> = {
   stored_file_missing: 'Your report file could not be found. Contact support.',
   integrity_failed: 'Your report failed a verification check. Contact support.',
   signed_link_creation_failed: 'We could not prepare your report right now. Try again shortly or contact support.',
-  access_unavailable: 'Secure report access is temporarily unavailable. Please try again later or contact support.'
+  access_unavailable: 'Secure report access is temporarily unavailable. Please try again later or contact support.',
+  unsupported_artifact: 'This Essential product includes the report PDF only.'
 };
 
 // RFC 6266: quoted-string with the risky characters removed, so a stored file name can never break
@@ -76,8 +77,8 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
   }
 
   // Selector only -- report-level token authority is evaluated first inside
-  // grantCustomerReportAccess(). The active product has exactly two deliverables; legacy package
-  // selectors are rejected rather than silently resolving to the PDF.
+  // grantCustomerReportAccess(). Comprehensive may expose its governed register; Essential is
+  // deliberately PDF-only and rejects the register selector there.
   const requested = new URL(request.url).searchParams.get('artefact');
   if (requested && requested !== 'pdf' && requested !== 'register') {
     return errorPage('This file is not available for this product.', 'unsupported-artifact', 409);

@@ -32,7 +32,6 @@
     "v11:narrative-section-identity": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-section-identity-tests.mjs",
     "v11:report-blueprint": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/report-blueprint-tests.mjs",
     "v11:essential-content-quality": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-customer-content-quality-tests.mjs",
-    "v11:essential-companion-register": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-companion-register-tests.mjs",
     "v11:build-report-blueprint-owner-review": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-report-blueprint-owner-review.mjs",
     "v11:blueprint-reproducibility": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-report-blueprint-reproducibility.mjs",
     "v11:narrative-provenance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-provenance-boundary-tests.mjs",

@@ -36,7 +36,7 @@ export function CustomerOrderStatusWorkspace({
   const pdf = fulfilment?.customerAccessToken
     ? `/score/report/access/${encodeURIComponent(fulfilment.customerAccessToken)}`
     : null;
-  const register = fulfilment?.customerAccessToken
+  const register = order.tier === 'comprehensive' && fulfilment?.customerAccessToken
     ? `${pdf}?artefact=register`
     : null;
   const copy = getCustomerOrderStatusCopy(order.tier === 'comprehensive' ? 'comprehensive' : 'essential');
@@ -83,7 +83,7 @@ export function CustomerOrderStatusWorkspace({
         <CardHeader><CardTitle>Report delivery</CardTitle></CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           <DownloadLink label={copy.pdfLabel} href={pdf} />
-          {register ? <DownloadLink label={copy.registerLabel} href={register} /> : null}
+          {register ? <DownloadLink label={copy.registerLabel ?? 'Supporting register XLSX'} href={register} /> : null}
         </CardContent>
       </Card> : <Card>
         <CardHeader><CardTitle>Next step</CardTitle></CardHeader>

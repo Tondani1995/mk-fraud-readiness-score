@@ -4,7 +4,6 @@ import { getPhase1SchemaCapability } from './phase1-schema-capability';
 import { assertReportAccessEligible, resolveCurrentReportId, ReportAccessEligibilityError } from './report-access-eligibility';
 
 export type ReportAccessMode = 'preview' | 'download';
-export type ReportAccessArtefact = 'pdf' | 'register';
 export type ReportAccessReason =
   | 'permission_denied'
   | 'report_record_missing'
@@ -37,10 +36,9 @@ export class ReportAccessError extends Error {
 }
 
 const ACCESS_TTL_SECONDS = 60;
-const REGISTER_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-function safeFileName(value: string, extension = 'pdf') {
-  return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.${extension}`;
+function safeFileName(value: string) {
+  return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`;
 }
 
 async function recordAccess(input: {
@@ -48,7 +46,6 @@ async function recordAccess(input: {
   report: any;
   adminId: string;
   mode: ReportAccessMode;
-  artefact: ReportAccessArtefact;
   success: boolean;
   reason?: ReportAccessReason;
   technicalReference: string;
@@ -58,7 +55,6 @@ async function recordAccess(input: {
     report_id: input.report.id,
     technical_reference: input.technicalReference,
     success: input.success,
-    artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf',
     error_category: input.reason ?? null,
     signed_url_ttl_seconds: input.success ? ACCESS_TTL_SECONDS : null
   };
@@ -113,10 +109,8 @@ export async function createSecurePhase1ReportAccess(input: {
   orderReference: string;
   adminId: string;
   mode: ReportAccessMode;
-  artefact?: ReportAccessArtefact;
 }) {
   const technicalReference = crypto.randomUUID();
-  const requestedArtefact: ReportAccessArtefact = input.artefact ?? 'pdf';
   const db = createSupabaseServiceClient() as any;
   const capability = await getPhase1SchemaCapability(db);
   if (capability.status !== 'available') {
@@ -132,7 +126,7 @@ export async function createSecurePhase1ReportAccess(input: {
 
   const linkedOrder = Array.isArray(report.orders) ? report.orders[0] : report.orders;
   if (!input.orderReference || linkedOrder?.order_reference !== input.orderReference) {
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'report_order_mismatch', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'report_order_mismatch', technicalReference });
     throw new ReportAccessError('report_order_mismatch', 'The report does not belong to the requested order.', 409, technicalReference);
   }
   // H5: application-layer defense-in-depth -- status eligibility and currentness, mirroring
@@ -163,7 +157,7 @@ export async function createSecurePhase1ReportAccess(input: {
     if (eligibilityError instanceof ReportAccessEligibilityError && STATUS_OR_CURRENTNESS_REASONS.has(eligibilityError.reason)) {
       const reason: ReportAccessReason = eligibilityError.reason === 'report_not_current_version'
         ? 'report_not_current_version' : 'report_status_ineligible';
-      await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason, technicalReference });
+      await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason, technicalReference });
       throw new ReportAccessError(reason, eligibilityError.message, 409, technicalReference);
     }
     if (!(eligibilityError instanceof ReportAccessEligibilityError)) throw eligibilityError;
@@ -173,12 +167,12 @@ export async function createSecurePhase1ReportAccess(input: {
     // below, which classify and record it with their own established, tested reasons.
   }
   if (!report.storage_bucket || !report.storage_path || !report.checksum || ['MISSING', 'FAILED'].includes(report.storage_status)) {
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'storage_path_mismatch', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'storage_path_mismatch', technicalReference });
     throw new ReportAccessError('storage_path_mismatch', 'The report record does not contain verified private storage metadata.', 409, technicalReference);
   }
   const expectedPrefix = `${report.order_id}/`;
   if (!String(report.storage_path).includes(expectedPrefix) || !String(report.storage_path).endsWith('.pdf')) {
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'storage_path_mismatch', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'storage_path_mismatch', technicalReference });
     throw new ReportAccessError('storage_path_mismatch', 'The stored path does not match the report record.', 409, technicalReference);
   }
 
@@ -186,7 +180,7 @@ export async function createSecurePhase1ReportAccess(input: {
   if (objectError || !object) {
     const { error: stateError } = await db.from('reports').update({ storage_status: 'MISSING' }).eq('id', report.id);
     if (stateError) console.error('phase1_report_storage_state', { technicalReference, reportId: report.id, state: 'MISSING', errorCategory: 'state_update_failed' });
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'stored_file_missing', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'stored_file_missing', technicalReference });
     throw new ReportAccessError('stored_file_missing', 'The report record exists, but the stored PDF is missing.', 404, technicalReference);
   }
   const bytes = Buffer.from(await object.arrayBuffer());
@@ -196,7 +190,7 @@ export async function createSecurePhase1ReportAccess(input: {
     || checksum !== report.checksum || (report.file_size_bytes && bytes.length !== Number(report.file_size_bytes))) {
     const { error: stateError } = await db.from('reports').update({ storage_status: 'FAILED' }).eq('id', report.id);
     if (stateError) console.error('phase1_report_storage_state', { technicalReference, reportId: report.id, state: 'FAILED', errorCategory: 'state_update_failed' });
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'integrity_failed', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'integrity_failed', technicalReference });
     throw new ReportAccessError('integrity_failed', 'The stored PDF failed its integrity check.', 409, technicalReference);
   }
   if (report.storage_status !== 'VERIFIED') {
@@ -212,68 +206,18 @@ export async function createSecurePhase1ReportAccess(input: {
     }
   }
 
-  let servedStorageBucket = report.storage_bucket;
-  let servedStoragePath = report.storage_path;
-  let servedFileName = report.file_name || safeFileName(report.report_reference);
-
-  if (requestedArtefact === 'register') {
-    const { data: artefact, error: artefactError } = await db
-      .from('report_artifacts')
-      .select('report_id,storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,release_state,artefact_type,file_name,mime_type,artifact_version')
-      .eq('report_id', report.id)
-      .eq('artefact_type', 'supporting_register')
-      .eq('artifact_version', report.version_number)
-      .in('storage_status', ['VERIFIED'])
-      .in('release_state', ['verified', 'released'])
-      .maybeSingle();
-    const expectedRegisterPrefix = `/${report.order_id}/v${report.version_number}/`;
-    if (artefactError || !artefact || artefact.report_id !== report.id
-      || artefact.storage_status !== 'VERIFIED'
-      || !['verified', 'released'].includes(String(artefact.release_state))
-      || artefact.artefact_type !== 'supporting_register'
-      || artefact.mime_type !== REGISTER_MIME
-      || !artefact.storage_bucket || !artefact.storage_path
-      || !String(artefact.storage_path).includes(expectedRegisterPrefix)
-      || !String(artefact.storage_path).endsWith('.xlsx')
-      || !artefact.checksum_sha256 || !/^[0-9a-f]{64}$/.test(artefact.checksum_sha256)
-      || Number(artefact.file_size_bytes) <= 0
-      || Number(artefact.artifact_version) !== Number(report.version_number)) {
-      await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'storage_path_mismatch', technicalReference });
-      throw new ReportAccessError('storage_path_mismatch', 'The supporting register has no verified private storage metadata.', 409, technicalReference);
-    }
-    const { data: registerObject, error: registerError } = await db.storage.from(artefact.storage_bucket).download(artefact.storage_path);
-    if (registerError || !registerObject) {
-      await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'stored_file_missing', technicalReference });
-      throw new ReportAccessError('stored_file_missing', 'The supporting register file is missing.', 404, technicalReference);
-    }
-    const registerBytes = Buffer.from(await registerObject.arrayBuffer());
-    const registerChecksum = crypto.createHash('sha256').update(registerBytes).digest('hex');
-    if (registerBytes.length < 2 || registerBytes.subarray(0, 2).toString('ascii') !== 'PK'
-      || (registerObject.type && registerObject.type !== REGISTER_MIME)
-      || registerChecksum !== artefact.checksum_sha256
-      || registerBytes.length !== Number(artefact.file_size_bytes)) {
-      await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'integrity_failed', technicalReference });
-      throw new ReportAccessError('integrity_failed', 'The supporting register failed its integrity check.', 409, technicalReference);
-    }
-    servedStorageBucket = artefact.storage_bucket;
-    servedStoragePath = artefact.storage_path;
-    servedFileName = artefact.file_name || `${report.report_reference}-action-register.xlsx`;
-  }
-
   const options = input.mode === 'download'
-    ? requestedArtefact === 'pdf'
-      ? { download: report.file_name || safeFileName(report.report_reference) }
-      : { download: servedFileName }
+    ? { download: report.file_name || safeFileName(report.report_reference) }
     : undefined;
   const { data: signed, error: signError } = await db.storage
-    .from(servedStorageBucket)
-    .createSignedUrl(servedStoragePath, ACCESS_TTL_SECONDS, options);
+    .from(report.storage_bucket)
+    .createSignedUrl(report.storage_path, ACCESS_TTL_SECONDS, options);
   if (signError || !signed?.signedUrl) {
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: false, reason: 'signed_link_creation_failed', technicalReference });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'signed_link_creation_failed', technicalReference });
     throw new ReportAccessError('signed_link_creation_failed', 'A secure report link could not be created.', 500, technicalReference);
   }
 
-  await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, artefact: requestedArtefact, success: true, technicalReference });
+  await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: true, technicalReference });
   console.info('phase1_report_access', {
     technicalReference,
     reportId: report.id,
@@ -286,7 +230,6 @@ export async function createSecurePhase1ReportAccess(input: {
     url: signed.signedUrl,
     expiresInSeconds: ACCESS_TTL_SECONDS,
     reportReference: report.report_reference,
-    technicalReference,
-    artefact: requestedArtefact
+    technicalReference
   };
 }

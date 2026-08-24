@@ -447,10 +447,12 @@ await test('PDF_LEGACY_FULL_REGISTER_PRESENT detects structure, not prose', () =
     'Complete control improvement register', 'Complete evidence checklist',
     'A5. Functional agenda', 'A6. Methodology question-code mapping'
   ]) assert.ok(audit.includes(legacy), `prohibition must still list ${legacy}`);
-  // The legitimate prose the old check would have tripped on is present in the template.
+  // The PDF is self-contained; the old register promise is not permitted to return.
   const template = readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');
-  assert.ok(template.includes('The complete evidence checklist is not reproduced in this report'),
-    'explanatory prose referencing the old register must remain permitted');
+  assert.ok(template.includes('This Essential PDF is self-contained'),
+    'the Essential PDF must state its self-contained scope');
+  assert.doesNotMatch(template, /Essential Supporting Register|companion workbook|supporting spreadsheet|downloadable register/i,
+    'the old separate-register promise must not return');
 });
 
 

@@ -75,8 +75,9 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
         .maybeSingle()
     ]);
 
+    const requiresSupportingRegister = product?.product_code === 'mk_validated_assessment';
     const [{ data: register }, { data: authorization }] = await Promise.all([
-      report
+      report && requiresSupportingRegister
         ? db.from('report_artifacts')
           .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,storage_status,release_state,engagement_id')
           .eq('report_id', report.id)
@@ -99,10 +100,12 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
         && report.status === 'released'
         && report.storage_status === 'VERIFIED'
         && Number(report.file_size_bytes) > 0
-        && register
-        && register.storage_status === 'VERIFIED'
-        && register.release_state === 'released'
-        && Number(register.artifact_version) === Number(report.version_number)
+        && (!requiresSupportingRegister || (
+          register
+          && register.storage_status === 'VERIFIED'
+          && register.release_state === 'released'
+          && Number(register.artifact_version) === Number(report.version_number)
+        ))
     );
     let customerAccessToken: string | null = null;
     let customerAccessTokenExpiresAt: string | null = null;

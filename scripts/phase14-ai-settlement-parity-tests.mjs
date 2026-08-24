@@ -162,18 +162,17 @@ test('durable-ai-attempts still forwards the diagnostic status into settlement',
   assert.match(durable, /status/, 'the durable wrapper must forward a status');
 });
 
-test('the paid Essential path has no fallback to the old completion RPC', () => {
+test('Essential and Comprehensive use their governed finalisation boundaries', () => {
   const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
-  // A missing atomic-finalisation contract must fail closed. Falling back to
-  // complete_manual_report_generation() would reinstate the ordering defect that let a completed,
-  // VERIFIED report lose its PDF when the supporting register failed.
-  assert.ok(!caller.includes("rpc('complete_manual_report_generation'"),
-    'the paid path must not call the old completion RPC');
+  assert.ok(caller.includes("rpc('complete_manual_report_generation'"),
+    'Essential must complete through the existing PDF-only RPC');
+  assert.ok(caller.includes("rpc('finalise_comprehensive_report_package'"),
+    'Comprehensive must retain its atomic PDF+register RPC');
+  assert.ok(!caller.includes('buildAndStoreSupportingRegister'),
+    'Essential must not build or upload a register');
   assert.ok(!caller.includes("rpc('complete_report_secondary_artefact'"),
-    'the paid path must not complete the artefact separately after the report');
-  assert.ok(caller.includes("'finalise_manual_report_with_supporting_register'"),
-    'the paid path must complete through the atomic finalisation RPC');
-  // No absence-detection fallback around the finalisation call.
+    'the paid path must not complete a second artefact separately');
+  // No absence-detection fallback around either finalisation call.
   for (const marker of ['PGRST202', '42883', 'isFinalisationAbsent', 'finalisation_absent']) {
     assert.ok(!caller.includes(marker),
       `the paid path must not branch on finalisation-RPC absence (${marker})`);
@@ -197,21 +196,18 @@ test('cleanup can never delete a committed customer artefact', () => {
   assert.ok(!/\blet uploaded\b/.test(caller), 'the ambiguous single `uploaded` flag must be gone');
 });
 
-test('both physical artefacts are stored and verified before finalisation', () => {
+test('Essential stores and verifies the PDF before finalisation while Comprehensive retains its register path', () => {
   const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
-  const storeRegister = caller.indexOf('buildAndStoreSupportingRegister');
-  const finalise = caller.indexOf("'finalise_manual_report_with_supporting_register'");
-  assert.ok(storeRegister > 0 && finalise > storeRegister,
-    'the register must be stored and verified before the finalisation call');
+  const pdfVerify = caller.indexOf('await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length)');
+  const essentialFinalise = caller.indexOf("rpc('complete_manual_report_generation'");
+  assert.ok(pdfVerify > 0 && essentialFinalise > pdfVerify,
+    'the Essential PDF must be verified before the PDF-only finalisation call');
+  assert.match(caller, /if \(isComprehensive\)[\s\S]*storeVerifiedRegisterWorkbook/,
+    'the Comprehensive register must remain inside its own branch');
   const register = read('src/lib/reports/supporting-register-delivery.ts');
   assert.match(register, /verifyStoredObject\(/, 'stored register bytes must be verified');
-  // Scope to the new helper's own body: the legacy generateAndPersistSupportingRegister() still
-  // exists below it and legitimately calls the completion RPC for the non-paid capability path.
-  const helperStart = register.indexOf('export async function buildAndStoreSupportingRegister');
-  const helperBody = register.slice(helperStart, register.indexOf('export async function', helperStart + 10));
-  assert.ok(helperStart > 0 && !helperBody.includes('complete_report_secondary_artefact'),
-    'the store helper must not create the database artefact row');
-  assert.ok(!helperBody.includes('.rpc('), 'the store helper must perform no database completion');
+  assert.match(caller, /p_register_storage_path: storedRegister!\.storagePath/,
+    'Comprehensive must bind its verified register through its atomic RPC');
 });
 
 test('an ambiguous finalisation is reconciled against authoritative state, never assumed', () => {
@@ -318,10 +314,13 @@ test('the historical compatibility seam is test-only and never a product fallbac
     'the seam must not be a migration');
   const postflight = read('scripts/rc1-production-postflight.sql');
   assert.ok(!postflight.includes('atomic_finalisation_seam'), 'the seam must not enter the ledger');
-  // And the deployed application must still contain no fallback of its own.
+  // The deployed application uses the PDF-only completion RPC for Essential and has no legacy
+  // register builder in that path.
   const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
-  assert.ok(!caller.includes("rpc('complete_manual_report_generation'"),
-    'product code must not fall back to the old completion RPC');
+  assert.ok(caller.includes("rpc('complete_manual_report_generation'"),
+    'Essential must use the PDF-only completion RPC');
+  assert.ok(!caller.includes('buildAndStoreSupportingRegister'),
+    'Essential must not build a register');
 });
 
 test('customer access separates authoritative denial from operational failure', () => {

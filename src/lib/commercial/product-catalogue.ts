@@ -27,7 +27,7 @@ export type CommercialProductCode = 'free_snapshot' | 'essential_self_assessment
 export type CommercialFulfilmentModel =
   /** No paid entitlement; rendered immediately from the score run. */
   | 'instant_snapshot'
-  /** Automated/self-service diagnostic: MK-controlled PDF plus supporting register. */
+  /** Automated/self-service diagnostic: one MK-controlled PDF. */
   | 'automated_diagnostic'
   /**
    * Automated in-depth analysis: MK-controlled PDF plus supporting registers.
@@ -140,13 +140,12 @@ const ESSENTIAL: OrderableProduct = {
   requiresPaymentVerification: true,
   fulfilmentModel: 'automated_diagnostic',
   deliveryMode: 'mk_controlled_pdf',
-  summary: 'Self-service fraud readiness diagnostic, prepared by MK as a PDF report with its supporting register after payment is confirmed.',
+  summary: 'Self-service fraud readiness diagnostic, prepared by MK as a single PDF report after payment is confirmed.',
   includes: [
     'Detailed analysis across all applicable domains',
     'Critical weaknesses and false-comfort risks',
     'Prioritised management actions and a 30/60/90-day roadmap',
-    'Professionally prepared PDF report',
-    'Supporting evidence register'
+    'Professionally prepared PDF report'
   ]
 };
 

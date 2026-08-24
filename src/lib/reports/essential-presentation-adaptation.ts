@@ -339,7 +339,7 @@ function ensureEssentialThirtyDayOwnershipDecision<T>(model: T): T {
 /**
  * An Essential-only adapted copy of the advisory evidence model.
  *
- * Every Essential consumer -- projection, Fact Pack, renderer and supporting register -- must read
+ * Every Essential consumer -- projection, Fact Pack, renderer and PDF quality gates -- must read
  * the same adapted text, or the PDF suppresses a claim the writer still sees. The shared model is
  * deep-copied rather than mutated, because Comprehensive consumes the original and its accepted
  * output must not change.

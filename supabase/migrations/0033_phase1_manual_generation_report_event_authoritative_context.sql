@@ -77,7 +77,11 @@ begin
   end if;
   select * into v_previous from public.reports where order_id=v_order.id
     and status not in ('superseded','voided') order by version_number desc limit 1 for update;
-  v_reference := 'RPT-' || v_assessment.assessment_reference || '-V' || v_attempt.report_version;
+  v_reference := case
+    when p_report_type = 'essential_self_assessment'::public.report_type
+      then 'RPT-' || replace(v_assessment.assessment_reference, '-COMP-', '-ESS-') || '-V' || v_attempt.report_version
+    else 'RPT-' || v_assessment.assessment_reference || '-V' || v_attempt.report_version
+  end;
 
   insert into public.reports (
     assessment_id,organisation_id,order_id,score_run_id,template_id,report_type,status,

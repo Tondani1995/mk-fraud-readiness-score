@@ -25,6 +25,14 @@ function test(name, fn) {
 const template = readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');
 const projection = readFileSync('src/lib/reports/essential-projection.ts', 'utf8');
 const blocks = readFileSync('src/lib/reports/select-content-blocks.ts', 'utf8');
+const fulfilment = readFileSync('src/lib/reports/phase1-manual-fulfilment.ts', 'utf8');
+const customerStatus = readFileSync('src/lib/commercial/customer-order-status.ts', 'utf8');
+const customerAccess = readFileSync('src/lib/reports/customer-report-access.ts', 'utf8');
+const catalogue = readFileSync('src/lib/commercial/product-catalogue.ts', 'utf8');
+const essentialReferenceMigrations = [
+  readFileSync('supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql', 'utf8'),
+  readFileSync('supabase/migrations/0033_phase1_manual_generation_report_event_authoritative_context.sql', 'utf8')
+];
 
 // ------------------------------------------------------------------ roadmap source and cap
 test('the template renders the bounded projection roadmap, never the full L1 set', () => {
@@ -79,8 +87,28 @@ test('the E1 cap remains 40 and unrelated control actions are still retained', (
 test('no reference to a non-existent Appendix A1 or A2 survives', () => {
   assert.ok(!/Appendix A1/.test(template), 'the PDF has no Appendix A1');
   assert.ok(!/Appendix A2/.test(template), 'the PDF has no Appendix A2');
-  assert.match(template, /complete authoritative registers are provided in the supporting register/,
-    'the complete registers must be pointed at the supporting register');
+  assert.match(template, /assessment detail needed to interpret the priorities remains in this PDF/,
+    'the assessment detail must remain inside the Essential PDF');
+  assert.doesNotMatch(template, /Essential Supporting Register|companion workbook|supporting spreadsheet|downloadable register/i,
+    'the Essential PDF must not promise a separate customer artefact');
+});
+
+test('Essential fulfils as one PDF and uses the ESS report-reference convention', () => {
+  assert.match(catalogue, /single PDF report/);
+  assert.match(fulfilment, /reportReferenceFor/);
+  assert.match(fulfilment, /replace\(\/-COMP\(\?=-\|\$\)\/i, '-ESS'/);
+  assert.match(fulfilment, /rpc\('complete_manual_report_generation'/);
+  assert.doesNotMatch(fulfilment, /buildAndStoreSupportingRegister/);
+  assert.match(fulfilment, /await verifyPrivateObject\(db, storageBucket, storagePath, checksum, pdf\.length\)/,
+    'the PDF must be read back and verified before completion');
+  assert.match(customerStatus, /const requiresSupportingRegister = product\?\.product_code === 'mk_validated_assessment'/);
+  assert.match(customerStatus, /!requiresSupportingRegister/);
+  assert.match(customerAccess, /requestedArtefact === 'register' && report\.report_type !== 'mk_validated'/,
+    'Essential register requests must be rejected');
+  for (const migration of essentialReferenceMigrations) {
+    assert.match(migration, /p_report_type = 'essential_self_assessment'::public\.report_type/);
+    assert.match(migration, /replace\(v_assessment\.assessment_reference, '-COMP-', '-ESS-'\)/);
+  }
 });
 
 // ------------------------------------------------------------------ pagination boundaries

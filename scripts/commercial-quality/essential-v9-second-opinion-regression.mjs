@@ -48,10 +48,9 @@ assert.match(template, /Fraud Leadership and Governance/);
 assert.ok(template.includes('Management response:</strong> see the leadership roadmap section'));
 assert.doesNotMatch(template, /see Leadership decisions and roadmap/);
 
-// Supporting register is named precisely and the commercial package contract is explicit.
-assert.match(template, /supportingRegisterFileName = `\$\{data\.reportReference\}-supporting-register\.xlsx`/);
-assert.match(template, /Essential Supporting Register/);
-assert.doesNotMatch(template, /supporting register issued with this report/i);
+// Essential is self-contained and makes no promise of a second customer artefact.
+assert.match(template, /This Essential PDF is self-contained/);
+assert.doesNotMatch(template, /Essential Supporting Register|supporting register issued with this report|companion workbook|supporting spreadsheet|downloadable register/i);
 assert.doesNotMatch(template, /see the closing section of this report/i);
 
 // Vhutshilo V2 acceptance regression: a 0-2 response selected only because it represents a weakest
@@ -169,8 +168,10 @@ assert.match(template, /\.section-kicker \+ h2 \{ break-before: avoid; page-brea
 // Upstream organisation specificity is a launch requirement; no Mahlori-specific facts are hard-coded.
 for (const field of ['sector', 'size band', 'material value-bearing processes', 'systems and channels', 'operating footprint', 'third-party']) assert.match(launch, new RegExp(field, 'i'));
 assert.match(launch, /must not infer or invent/i);
-assert.match(launch, /report_artifacts/i);
-assert.match(launch, /hard launch blocker/i);
+assert.match(launch, /PDF-only package contract/i);
+assert.match(launch, /self-contained/i);
+assert.match(launch, /verified PDF/i);
+assert.doesNotMatch(launch, /Essential Supporting Register|companion workbook|report_artifacts|hard launch blocker/i);
 assert.doesNotMatch(template, /Mahlori Advisory|Mahlori/);
 
 console.log(JSON.stringify({

@@ -316,7 +316,8 @@ export async function getOrderProductState(orderReference: string): Promise<Orde
       .limit(1)
       .maybeSingle()
     : { data: null };
-  const { data: register } = report && product?.product_code === 'mk_validated_assessment'
+  const requiresSupportingRegister = product?.product_code === 'mk_validated_assessment';
+  const { data: register } = report && requiresSupportingRegister
     ? await db
       .from('report_artifacts')
       .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,storage_status,release_state,engagement_id')
@@ -339,10 +340,12 @@ export async function getOrderProductState(orderReference: string): Promise<Orde
     report
       && report.status === 'released'
       && report.storage_status === 'VERIFIED'
-        && register
+      && (!requiresSupportingRegister || (
+        register
         && register.storage_status === 'VERIFIED'
         && register.release_state === 'released'
-      && Number(register.artifact_version) === Number(report.version_number)
+        && Number(register.artifact_version) === Number(report.version_number)
+      ))
   );
   const generationStatus = attempt?.status ?? null;
   const recoveryRequired = Boolean(

@@ -6,7 +6,6 @@ import {
   buildSupportingRegisterWorkbook
 } from './supporting-register-workbook';
 import type { ComprehensiveRegisterWorkbook } from './comprehensive/workbook-builder';
-import { buildEssentialActionProofRegisterWorkbook } from './essential/action-proof-register-workbook';
 
 /**
  * min-M8 -- supporting-register persistence.
@@ -73,13 +72,7 @@ export interface StoredSupportingRegister {
  */
 export async function storeVerifiedRegisterWorkbook(input: {
   db: any;
-  workbook: Pick<ComprehensiveRegisterWorkbook, 'bytes' | 'fileName' | 'mimeType' | 'checksumSha256' | 'rowCounts'> | {
-    bytes: Buffer;
-    fileName: string;
-    mimeType: string;
-    checksumSha256: string;
-    rowCounts: Record<string, number>;
-  };
+  workbook: Pick<ComprehensiveRegisterWorkbook, 'bytes' | 'fileName' | 'mimeType' | 'checksumSha256' | 'rowCounts'>;
   storageBucket: string;
   organisationId: string;
   orderId: string;
@@ -146,36 +139,6 @@ export async function buildAndStoreSupportingRegister(input: {
   ) => Promise<void>;
 }): Promise<StoredSupportingRegister> {
   const workbook = await buildSupportingRegisterWorkbook(input.data, input.model, input.projection);
-  return storeVerifiedRegisterWorkbook({
-    db: input.db,
-    workbook,
-    storageBucket: input.storageBucket,
-    organisationId: input.organisationId,
-    orderId: input.orderId,
-    versionNumber: input.versionNumber,
-    verifyStoredObject: input.verifyStoredObject
-  });
-}
-
-/**
- * Essential's customer companion is a focused action/proof projection. It shares the exact
- * adapted model and bounded projection used by the PDF, but it does not flow through the legacy
- * complete analytical-universe workbook builder above.
- */
-export async function buildAndStoreEssentialActionRegister(input: {
-  db: any;
-  data: AssembledReportData;
-  model: AdvisoryEvidenceModel;
-  projection: EssentialProjection;
-  storageBucket: string;
-  organisationId: string;
-  orderId: string;
-  versionNumber: number;
-  verifyStoredObject: (
-    db: any, bucket: string, path: string, checksum: string, size: number
-  ) => Promise<void>;
-}): Promise<StoredSupportingRegister> {
-  const workbook = await buildEssentialActionProofRegisterWorkbook(input.data, input.model, input.projection);
   return storeVerifiedRegisterWorkbook({
     db: input.db,
     workbook,

@@ -211,7 +211,8 @@ for (const field of ['invoice_requested', 'invoice_details']) has(conversionMigr
 for (const field of ['invoice_requested', 'invoice_details']) has(adminOrder, field, `admin invoice view ${field}`);
 
 // Customer order/status copy is tier-aware while the fulfilment sequence is explicitly manual.
-for (const copy of ['Comprehensive automated assessment', 'Comprehensive report PDF', 'Comprehensive supporting register XLSX', 'Essential automated diagnostic', 'Essential report PDF', 'Essential supporting register XLSX', 'MK confirms payment manually', 'emails the final files manually']) has(statusCopy, copy, `status copy ${copy}`);
+for (const copy of ['Comprehensive automated assessment', 'Comprehensive report PDF', 'Comprehensive supporting register XLSX', 'Essential automated diagnostic', 'Essential report PDF', 'MK confirms payment manually', 'emails the final files manually']) has(statusCopy, copy, `status copy ${copy}`);
+notHas(statusCopy, 'Essential supporting register XLSX', 'Essential status copy must not promise a register');
 has(statusWorkspace, '<CardTitle>Report delivery</CardTitle>', 'manual report delivery heading');
 has(orderStatusPage, 'Your order, its payment status and what happens next.', 'order status entry copy');
 notHas(statusCopy, 'automated package is released', 'automatic release promise');

@@ -3,12 +3,6 @@ import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturit
 import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
-import {
-  buildEssentialActionProofRegisterProjection,
-  customerManagementAction,
-  ESSENTIAL_ACTION_REGISTER_PROMISE,
-  priorityIdForIndex
-} from '../essential/action-proof-register';
 import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { renderCoverLogo } from '../design/brand-assets';
@@ -267,12 +261,6 @@ export function renderReportHtml(
     day: 'numeric',
     timeZone: 'UTC'
   });
-  // Keep the legacy variable for source-level compatibility with older audit scripts; the
-  // customer-visible reference below comes from the focused Essential companion projection.
-  const supportingRegisterFileName = `${data.reportReference}-supporting-register.xlsx`;
-  const actionProofRegister = buildEssentialActionProofRegisterProjection({ data, model: evidenceModel, projection });
-  const customerSupportingRegisterFileName = actionProofRegister.registerFileName || supportingRegisterFileName;
-  const supportingRegisterReference = `focused Action & Proof Register (${customerSupportingRegisterFileName})`;
   const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? 'var(--mk-navy-500)';
   const severityBudget = new SeverityBudget();
   const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
@@ -535,7 +523,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(decision.consequenceOfDelay)}</td>
   </tr>`);
   const decisionsBlock = subsection('Leadership decisions required', `
-    <p class="section-note">Every decision below carries a defined accountable executive role and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and linked to the priority management actions in the companion ${esc(supportingRegisterReference)}.</p>
+    <p class="section-note">Every decision below carries a defined accountable executive role and a fixed target period; each is grounded in the material findings, risks and controls set out in this report.</p>
     ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
 
   // Bounded L2, exactly as the evidence-priority block below already does. This read
@@ -543,12 +531,15 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // actions against the accepted 12-target/15-ceiling the projection's dependency-closed roadmap
   // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
   // the accepted ordering; never render the full L1 roadmap here.
-  const roadmapDeliverableForDisplay = (action: { deliverable: string; domainName: string }): string => customerManagementAction(action);
-  const roadmapActionIndex = new Map(projection.roadmapActions.map((action, index) => [action.id, index]));
+  const roadmapDeliverableForDisplay = (action: { deliverable: string; domainName: string }): string => {
+    const match = action.deliverable.match(/^Apply immediate escalation at "([^"]+)" and deliver the exact control design:\s*/i);
+    if (!match) return action.deliverable;
+    const trigger = match[1].trim().replace(/[.;]+$/, '');
+    return `Implement the target control design for ${action.domainName}. Escalation trigger: ${trigger}.`;
+  };
   const roadmapRowsForPeriod = (period: '30 days' | '60 days' | '90 days') => projection.roadmapActions
     .filter((action) => action.period === period)
     .map((action) => `<tr>
-      <td>${esc(priorityIdForIndex(roadmapActionIndex.get(action.id) ?? 0))}</td>
       <td>${esc(action.domainName)}</td>
       <td>${esc(roadmapDeliverableForDisplay(action))}</td>
       <td>${esc(action.accountableExecutive)}</td>
@@ -566,7 +557,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       <td>Decision recorded, accountable owner confirmed and escalation route documented.</td>
     </tr>`);
   const roadmapActionTable = (rows: string[]) => table(
-    ['Priority ID', 'Domain', 'Management action', 'Accountable executive', 'Success measure'],
+    ['Domain', 'Deliverable', 'Accountable executive', 'Success measure'],
     rows,
     'compact-register roadmap-table'
   );
@@ -601,22 +592,16 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
          contents-page scan locates each entry by its heading text, so a prose copy of that text on
          an earlier page is found first and the printed page number and bookmark then point at the
          mention rather than the section. -->
-    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. The focused companion carries the population, retained evidence and completion test for each priority 30/60/90 action.</p>
+    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. This report sets out the required population, retained evidence and completion test for the priority actions.</p>
     <div class="evidence-priority-table">
     ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
     <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require a separately scoped review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
     </div>`;
-  // Legacy audit contract only: this historical phrase is retained in source comments so the
-  // PDF audit can demonstrate structural-title detection. It is intentionally not rendered; the
-  // customer-facing sentence above promises the focused companion instead.
-  // The complete evidence checklist is not reproduced in this report
-  // Legacy source label retained for the v9 static contract: Essential Supporting Register.
-  // Legacy composition contract wording (source-only): complete authoritative registers are provided in the supporting register.
 
   const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity ceilings and advisory model use only the recorded assessment inputs and the MK Fraud Readiness methodology.</p>
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain the specified operating proof before treating a control as effective or a finding as resolved.</p>
     <p><strong>Control design standard.</strong> Priority controls are specified by responsibility, population or scope, operating frequency, retained evidence, independent challenge, escalation trigger, service level, effectiveness measure and response to failure.</p>
-    <p><strong>Companion register.</strong> ${esc(ESSENTIAL_ACTION_REGISTER_PROMISE)} The workbook starts each action at "Not started" and carries the accountable role, target period, required population, evidence to retain, completion/effectiveness test and escalation trigger.</p>
+    <p><strong>Report scope.</strong> This Essential PDF is self-contained: the priority management actions, required evidence and 30/60/90 guidance are set out in the report and should be used as the management action plan.</p>
     <p class="section-note">Assessment basis: submitted self-assessment responses and the MK Fraud Readiness methodology.</p>
     `;
 
@@ -629,7 +614,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // least one validation item), so this always has real, varying-per-report content to show.
   const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
   const recommendedNextStep = topEvidenceItem
-    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the focused sequence is set out in the 30/60/90 roadmap and the companion ${esc(supportingRegisterReference)}.</p>`
+    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in the Proof requirements and 30/60/90 roadmap above.</p>`
     : '';
 
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
@@ -740,12 +725,11 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(record.accountableOwner)} / ${esc(record.targetPeriod)}</td>
   </tr>`);
   const u = projection.universe;
-  // Invariant I3: the bounded report must state the complete authoritative L1 counts and say
-  // exactly where the omitted detail lives. It must never claim detail is available that the
-  // supporting register does not actually contain.
+  // Invariant I3: the report states the complete authoritative L1 counts and keeps the
+  // assessment detail needed to interpret the priorities inside the PDF itself.
   const supportingReferenceBlock = `
     <p class="lede">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
-    <p>${esc(ESSENTIAL_ACTION_REGISTER_PROMISE)} The report retains the broader assessment detail in its own bounded supporting material; the companion workbook is deliberately limited to the priority management actions and their proof fields.</p>`;
+    <p>The assessment detail needed to interpret the priorities remains in this PDF. No identified weakness has been discarded.</p>`;
   // The appendix root opens the same physical page as E1. The former standalone
   // `.appendix-divider` section carried `min-height: 250mm`, which -- proportionate when the
   // appendix held ~60 pages of full L1 registers -- spent an entire page on ~240 characters once
@@ -754,7 +738,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // discoverable subsection headings.
   const appendixSections = [
     section('Appendix', 'Appendix: supporting material', `
-      <p class="lede">Bounded supporting material for the priority matters above. The separate ${esc(supportingRegisterReference)} carries the management follow-up fields for the priority roadmap actions.</p>
+      <p class="lede">Supporting material for the priority matters above. The assessment detail, control actions and roadmap context needed to interpret the report remain in this PDF.</p>
       ${subsection('Complete supporting detail', supportingReferenceBlock)}
       ${subsection('E1. Supporting control actions', `
         <p class="section-note">Further control actions beyond the priority set above, in materiality order.</p>
@@ -801,14 +785,14 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
       : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section continue-after-short-tail'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
-      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The focused ${esc(supportingRegisterReference)} links the priority 30/60/90 actions to the conditions requiring management attention.</p>
+      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The findings and their management implications are set out in this PDF.</p>
       <p class="section-note"><strong>Role distinction:</strong> Control owner identifies the role responsible for implementing or operating the control. Accountable executive identifies the executive role responsible for sponsorship, decision rights and escalation. The two roles may legitimately differ.</p>
       ${exposureNarrative ? `<div class="manuscript-panel">${exposureNarrative}</div>` : ''}
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
       ${priorityScenariosBlock}`, 'long-section continue-after-short-tail splittable-finding-section'),
     section('Priority risks', 'Priority risks', `
-      <p class="section-note">Risk priority is produced by the deterministic qualitative likelihood/impact matrix. Risks sharing the same priority class are not more finely ranked by their display order. Likelihood and impact are qualitative descriptors, not statistical probabilities. The focused companion carries the management actions linked to the priority risks; it is not a complete risk register.</p>
+      <p class="section-note">Risk priority is produced by the deterministic qualitative likelihood/impact matrix. Risks sharing the same priority class are not more finely ranked by their display order. Likelihood and impact are qualitative descriptors, not statistical probabilities. The risks and their treatment direction are set out in this PDF.</p>
       ${priorityRisksBlock}`, 'long-section continue-after-short-tail splittable-risk-section'),
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${targetControlNarrative ? subsection('Target control environment', `<div class="manuscript-panel">${targetControlNarrative}</div>`) : ''}${systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`

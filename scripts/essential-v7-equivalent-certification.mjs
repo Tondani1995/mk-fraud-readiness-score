@@ -294,7 +294,10 @@ check('no obsolete appendix cross-reference survives', () => {
 
 check('the supporting-detail statement reports the authoritative L1 counts', () => {
   assert.ok(text.includes(String(l1.materialFindings)), 'L1 finding count must be disclosed');
-  assert.ok(/supporting register/i.test(text), 'the complete registers must be directed to the register');
+  assert.ok(/assessment detail needed to interpret the priorities remains in this PDF/i.test(text),
+    'the assessment detail must remain in the Essential PDF');
+  assert.ok(!/Essential Supporting Register|companion workbook|supporting spreadsheet|downloadable register/i.test(text),
+    'the rendered PDF must not promise a separate register');
   assert.ok(!/discarded/i.test(text) || /No identified weakness has been discarded/.test(text));
 });
 

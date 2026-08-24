@@ -16,7 +16,8 @@ export type CustomerAccessReason =
   | 'stored_file_missing'
   | 'integrity_failed'
   | 'signed_link_creation_failed'
-  | 'access_unavailable';
+  | 'access_unavailable'
+  | 'unsupported_artifact';
 
 export class CustomerReportAccessError extends Error {
   readonly reason: CustomerAccessReason;
@@ -85,8 +86,7 @@ export type CustomerArtefact = 'pdf' | 'register';
 /**
  * The possession token authorises one exact order/report pair. The selector is applied only after
  * that report-level authority, product binding, current-version check and PDF integrity check have
- * passed. Both customer report tiers expose the PDF and the bound supporting register through this
- * same authorised artefact path.
+ * passed. Comprehensive exposes the PDF and its governed register; Essential exposes the PDF only.
  */
 export async function grantCustomerReportAccess(input: { rawToken: string; ipAddress?: string | null; artefact?: CustomerArtefact }) {
   const technicalReference = crypto.randomUUID();
@@ -158,6 +158,10 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
   if (orderIdentityError || !orderIdentity || !expectedProductCode || orderProduct?.product_code !== expectedProductCode) {
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_order_mismatch', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('report_order_mismatch', 'This link is not valid for the selected product.', 409, technicalReference);
+  }
+  if (requestedArtefact === 'register' && report.report_type !== 'mk_validated') {
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'unsupported_artifact', technicalReference, artefact: requestedArtefact });
+    throw new CustomerReportAccessError('unsupported_artifact', 'This Essential product includes the report PDF only.', 409, technicalReference);
   }
 
   try {
@@ -244,11 +248,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     servedBytes = registerBytes;
     servedChecksum = registerChecksum;
     servedMimeType = REGISTER_MIME;
-    servedFileName = artefact.file_name || (
-      report.report_type === 'mk_validated'
-        ? `${report.report_reference}-comprehensive-supporting-register.xlsx`
-        : `${report.report_reference}-action-register.xlsx`
-    );
+    servedFileName = artefact.file_name || `${report.report_reference}-comprehensive-supporting-register.xlsx`;
   }
 
   await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: requestedArtefact });
