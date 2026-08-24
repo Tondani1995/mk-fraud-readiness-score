@@ -12,13 +12,19 @@ export async function GET(request: Request, props: { params: Promise<{ reportId:
   if (!REPORT_PREVIEW_ROLES.has(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Your role cannot preview reports.' }, { status: 403 });
   }
-  const orderReference = new URL(request.url).searchParams.get('order') ?? '';
+  const searchParams = new URL(request.url).searchParams;
+  const requestedArtefact = searchParams.get('artefact');
+  if (requestedArtefact && requestedArtefact !== 'pdf' && requestedArtefact !== 'register') {
+    return NextResponse.json({ ok: false, reason: 'unsupported_artifact', message: 'This file is not available for this report.' }, { status: 409 });
+  }
+  const orderReference = searchParams.get('order') ?? '';
   try {
     const result = await createSecurePhase1ReportAccess({
       reportId: params.reportId,
       orderReference,
       adminId: admin.id,
-      mode: 'preview'
+      mode: 'preview',
+      artefact: requestedArtefact === 'register' ? 'register' : 'pdf'
     });
     if (request.headers.get('accept')?.includes('text/html')) return NextResponse.redirect(result.url, { status: 303 });
     return NextResponse.json({ ok: true, ...result }, { headers: { 'Cache-Control': 'private, no-store' } });

@@ -8,7 +8,17 @@ import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { DeterministicAdvisoryError, isDeterministicAdvisoryError } from './evidence-model/deterministic-errors';
 import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
-import { buildAndStoreSupportingRegister, storeVerifiedRegisterWorkbook } from './supporting-register-delivery';
+import {
+  buildAndStoreEssentialActionRegister,
+  buildAndStoreSupportingRegister,
+  storeVerifiedRegisterWorkbook
+} from './supporting-register-delivery';
+import {
+  assertEssentialPackageComplete,
+  buildEssentialCustomerPdfFileName,
+  buildEssentialReportReference,
+  EssentialPackageCompletenessError
+} from './essential/action-proof-register';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import { EssentialValidationCascadeError } from './essential-validation-cascade';
@@ -56,6 +66,8 @@ export interface ManualPhase1Dependencies {
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
   buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
+  /** Essential-only focused Action & Proof Register builder; the complete workbook remains separate. */
+  buildAndStoreEssentialActionRegister?: typeof buildAndStoreEssentialActionRegister;
   /** Provider-free seam for the frozen Comprehensive PDF + XLSX package builder. */
   renderComprehensiveReportPackage?: typeof renderComprehensiveReportPackage;
   /** Persists bounded Comprehensive provider accounting before rendering and storage. */
@@ -493,7 +505,9 @@ export async function generateManualPhase1Report(
     // rendered report itself, so the PDF's own footer/title page match the
     // reports.report_reference value stored for this version instead of the
     // bare assessment reference assembleReportData() defaults to.
-    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+    assembled.reportReference = reportType === COMPREHENSIVE_REPORT_TYPE
+      ? `RPT-${assembled.assessmentReference}-V${versionNumber}`
+      : buildEssentialReportReference(assembled.assessmentReference, versionNumber);
 
     const { data: template, error: templateError } = await db
       .from('report_templates')
@@ -808,7 +822,9 @@ export async function generateManualPhase1Report(
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
     pdfChecksumForReconciliation = checksum;
     const reportReference = assembled.reportReference;
-    const fileName = `${sanitiseReference(reportReference)}.pdf`;
+    const fileName = isComprehensive
+      ? `${sanitiseReference(reportReference)}.pdf`
+      : buildEssentialCustomerPdfFileName(assembled.organisationName);
     storageBucket = 'generated-reports';
     storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
 
@@ -837,7 +853,13 @@ export async function generateManualPhase1Report(
         versionNumber,
         verifyStoredObject: verifyPrivateObject
       })
-      : await (dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister)({
+      : await (
+        dependencies.buildAndStoreEssentialActionRegister
+          // Retain the older injection seam for provider-free failure tests; production never
+          // supplies it, so the default Essential path is always the focused builder above.
+          ?? dependencies.buildAndStoreSupportingRegister
+          ?? buildAndStoreEssentialActionRegister
+      )({
         db,
         data: assembled,
         model: reportEvidenceModel,
@@ -855,6 +877,13 @@ export async function generateManualPhase1Report(
       status: 'stored',
       fileSizeBytes: storedRegister.fileSizeBytes
     });
+
+    // The Essential customer promise is PDF + focused Action & Proof Register. Keep this
+    // explicit at the application boundary as well as in the atomic SQL function so a future
+    // builder or test double cannot accidentally turn a PDF-only result into a successful package.
+    if (!isComprehensive) {
+      assertEssentialPackageComplete({ pdfBytes: pdf, register: storedRegister });
+    }
 
     // ONE authoritative completion boundary. The report row, its VERIFIED supporting-register row,
     // the supersede of the previous current report and the REPORT_READY transition all happen in a
@@ -937,6 +966,8 @@ export async function generateManualPhase1Report(
     }
     const mapped = error instanceof Phase1GenerationError
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
+      : error instanceof EssentialPackageCompletenessError
+        ? new Phase1GenerationError('stored_file_missing', 'The complete Essential package could not be verified.', 500, technicalReference)
       : isDeterministicAdvisoryError(error)
         ? mapPreflightFailure(error, technicalReference)
         : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);

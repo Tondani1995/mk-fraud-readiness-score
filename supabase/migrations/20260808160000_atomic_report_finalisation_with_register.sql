@@ -95,7 +95,14 @@ begin
 
   select * into v_previous from public.reports where order_id=v_order.id
     and status not in ('superseded','voided') order by version_number desc limit 1 for update;
-  v_reference := 'RPT-' || v_assessment.assessment_reference || '-V' || v_attempt.report_version;
+  -- The assessment reference is intentionally frozen as the V1.2 COMP truth reference. The
+  -- customer report reference is tier-specific, so Essential must not inherit the COMP segment
+  -- while Comprehensive keeps the accepted reference unchanged.
+  v_reference := case
+    when p_report_type = 'essential_self_assessment'::public.report_type
+      then 'RPT-' || replace(v_assessment.assessment_reference, '-COMP-', '-ESS-') || '-V' || v_attempt.report_version
+    else 'RPT-' || v_assessment.assessment_reference || '-V' || v_attempt.report_version
+  end;
 
   -- Supersede the previous current report FIRST. reports_one_current_assessment_type_uidx is a
   -- partial UNIQUE INDEX on (assessment_id, report_type) covering generated/under_review/approved/

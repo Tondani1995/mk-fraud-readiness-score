@@ -85,7 +85,8 @@ export type CustomerArtefact = 'pdf' | 'register';
 /**
  * The possession token authorises one exact order/report pair. The selector is applied only after
  * that report-level authority, product binding, current-version check and PDF integrity check have
- * passed. Comprehensive has exactly two customer deliverables: the PDF and its register.
+ * passed. Both customer report tiers expose the PDF and the bound supporting register through this
+ * same authorised artefact path.
  */
 export async function grantCustomerReportAccess(input: { rawToken: string; ipAddress?: string | null; artefact?: CustomerArtefact }) {
   const technicalReference = crypto.randomUUID();
@@ -243,7 +244,11 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     servedBytes = registerBytes;
     servedChecksum = registerChecksum;
     servedMimeType = REGISTER_MIME;
-    servedFileName = artefact.file_name || `${report.report_reference}-comprehensive-supporting-register.xlsx`;
+    servedFileName = artefact.file_name || (
+      report.report_type === 'mk_validated'
+        ? `${report.report_reference}-comprehensive-supporting-register.xlsx`
+        : `${report.report_reference}-action-register.xlsx`
+    );
   }
 
   await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: requestedArtefact });
