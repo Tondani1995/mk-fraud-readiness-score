@@ -1,0 +1,22 @@
+Title:           MK Fraud Readiness — Essential — Vhutshilo Foods Manufacturing (Pty) Ltd
+Subject:         Fraud readiness advisory report
+Keywords:        fraud readiness MK Fraud Insights advisory report
+Author:          MK Fraud Insights
+Creator:         MK Fraud Insights
+Producer:        pdf-lib (https://github.com/Hopding/pdf-lib)
+CreationDate:    Mon Aug 24 20:24:17 2026 UTC
+ModDate:         Mon Aug 24 20:24:19 2026 UTC
+Custom Metadata: no
+Metadata Stream: no
+Tagged:          yes
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           26
+Encrypted:       no
+Page size:       594.96 x 841.92 pts (A4)
+Page rot:        0
+File size:       321825 bytes
+Optimized:       no
+PDF version:     1.7

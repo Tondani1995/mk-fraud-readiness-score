@@ -1,0 +1,17 @@
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+AAAAAA+OpenSans-Regular              CID TrueType      Identity-H       yes yes yes      5  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes      6  0
+AAAAAA+OpenSans-Regular              CID TrueType      Identity-H       yes yes yes      8  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     11  0
+AAAAAA+OpenSans-Regular              CID TrueType      Identity-H       yes yes yes     12  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     15  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     19  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     22  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     25  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     26  0
+BAAAAA+OpenSans-Bold                 CID TrueType      Identity-H       yes yes yes     29  0
+CAAAAA+OpenSans-Italic               Type 3            Custom           yes yes yes     32  0
+CAAAAA+OpenSans-Italic               CID TrueType      Identity-H       yes yes yes     33  0
+AAAAAA+OpenSans-Regular              CID TrueType      Identity-H       yes yes yes     34  0
+AAAAAA+OpenSans-Regular              CID TrueType      Identity-H       yes yes yes     47  0

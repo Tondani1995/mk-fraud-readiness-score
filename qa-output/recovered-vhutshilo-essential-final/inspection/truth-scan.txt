@@ -1,0 +1,142 @@
+86:Developing
+89:The assessment places the organisation at 43.33/100 with a Developing maturity. This
+91:Whistleblowing and Reporting Culture (D6) — while several control and detection
+94:but the lower-scoring domains in identity and digital risk (D8), fraud risk identification
+95:(D2), operational controls (D3), detection (D4) and continuous improvement (D10) limit
+113:and rule-based detection only partly designed and not yet tuned into a cycle that forces
+166:The Developing result describes the reported self-assessment position. It does not, by itself, establish
+168:Fraud Leadership and
+171:Fraud Risk Identification
+173:Operational Fraud
+176:Fraud Detection
+179:Fraud Incident Response
+191:Developing
+195:Developing
+197:Developing
+199:Developing
+201:Whistleblowing and
+204:Third-Party and Supply
+207:Digital and Identity Fraud
+213:Continuous Improvement
+229:Developing
+233:Developing
+235:Developing
+239:CRITICAL CONTROL GAP · FRAUD RISK IDENTIFICATION
+245:CRITICAL CONTROL GAP · OPERATIONAL FRAUD CONTROLS
+252:CRITICAL CONTROL GAP · OPERATIONAL FRAUD CONTROLS
+262:CRITICAL CONTROL GAP · FRAUD DETECTION CAPABILITY
+269:CRITICAL CONTROL GAP · FRAUD INCIDENT RESPONSE
+275:CRITICAL CONTROL GAP · DIGITAL AND IDENTITY FRAUD RISK
+282:MATURITY CEILING · FRAUD RISK IDENTIFICATION
+285:This rule sets a maximum maturity of Developing. More than one ceiling may apply at the same time; the strictest
+289:MATURITY CEILING · OPERATIONAL FRAUD CONTROLS
+300:This rule sets a maximum maturity of Developing. More than one ceiling may apply at the same time; the strictest
+304:MATURITY CEILING · FRAUD RISK IDENTIFICATION
+306:Core domain Fraud Risk Identification scored below 40.
+307:This rule sets a maximum maturity of Developing. More than one ceiling may apply at the same time; the strictest
+315:MATURITY CEILING · FRAUD LEADERSHIP AND GOVERNANCE
+317:Core domain Fraud Leadership and Governance scored below 60.
+338:At the same time, analytics and rule-based detection remain partly designed (the relevant control), so exceptions do not
+340:relevant control), weakening containment when concerns are raised. The relative strength in whistleblowing and reporting
+344:detection and fragile incident containment — and that chain is the priority management question to close.
+349:Fraud Leadership and Governance
+353:Developing reported position.
+355:Fraud Risk Identification
+366:Fraud Culture and Awareness
+370:Developing reported position.
+372:Whistleblowing and Reporting Culture
+378:Operational defence: controls, detection and third parties
+379:Day-to-day prevention, detection and supplier-facing control operation.
+381:Operational Fraud Controls
+385:Developing reported position.
+390:Fraud Detection Capability
+394:Developing reported position.
+397:Third-Party and Supply Chain Fraud Risk
+401:Developing reported position.
+404:Incident response, digital and identity defence, and continuous control improvement.
+406:Fraud Incident Response
+410:Developing reported position.
+413:Digital and Identity Fraud Risk
+424:Continuous Improvement and Fraud Risk Monitoring
+428:Developing reported position.
+444:Analytics and rule-based detection are partly designed (the relevant control), and role- and privileged-access governance
+464:control). Management implication: treat privileged and ordinary access governance and third-party conflict declarations as
+471:Fraud Risk Identification: Fraud risks are mapped to the organisation’s
+477:Fraud Risk Identification
+532:Operational Fraud Controls: The organisation retains assurance over
+539:Operational Fraud Controls
+594:Digital and Identity Fraud Risk: Access to sensitive systems,
+600:Digital and Identity Fraud Risk
+650:Fraud Incident Response: Evidence linked to suspected fraud is
+656:Fraud Incident Response
+711:Operational Fraud Controls: System and data access is granted against
+717:Operational Fraud Controls
+771:Fraud Detection Capability: Analytics, rules, reports or data checks are
+778:Fraud Detection Capability
+788:Analytics and rule-based detection was self-assessed as "Partly
+832:Third-Party and Supply Chain Fraud Risk: Employees are required to
+839:Third-Party and Supply Chain Fraud Risk
+896:Whistleblowing and Reporting Culture: Employees know how to
+902:Whistleblowing and Reporting Culture
+956:Digital and Identity Fraud Risk — Informal / reactive — Some activity occurs, but it is informal, reactive or
+957:dependent on individual effort; Operational Fraud Controls — Partly designed — The capability has been
+977:management tests of prevention, detection and containment.
+1009:RISK 1 · FRAUD RISK IDENTIFICATION
+1042:Fraud Risk Identification: Informal / reactive — Some activity occurs,
+1060:RISK 2 · FRAUD DETECTION CAPABILITY
+1088:Fraud Detection Capability: Partly designed — The capability has
+1109:RISK 3 · FRAUD INCIDENT RESPONSE
+1139:Fraud Incident Response: Informal / reactive — Some activity occurs,
+1157:RISK 4 · OPERATIONAL FRAUD CONTROLS
+1184:Operational Fraud Controls: Partly designed — The capability has
+1202:RISK 5 · OPERATIONAL FRAUD CONTROLS, DIGITAL AND IDENTITY FRAUD RISK
+1209:without timely detection. Consequence pathway: confidence in digital controls is damaged; critical systems and audit trails
+1233:Digital and Identity Fraud Risk: Informal / reactive — Some activity
+1235:Operational Fraud Controls: Partly designed — The capability has
+1256:RISK 6 · WHISTLEBLOWING AND REPORTING CULTURE
+1284:Whistleblowing and Reporting Culture: Partly designed — The
+1642:Implement the target control design for Operational Fraud
+1683:Incident Response. Escalation trigger: Any
+1709:Operational Fraud Controls. Escalation trigger: Any
+1736:Third-Party
+1756:Whistleblowing
+1761:Whistleblowing and Reporting Culture. Escalation
+1778:operating detection tests against priority scenarios, completed recertifications, and evidence of preserved custody for any
+1820:Detection
+1823:Detection Capability. Escalation trigger: A priority
+1835:The assessed position is a practical starting point for management action: a Developing maturity with a clear relative
+1837:detection (D4), and digital and identity risk (D8). Management should convert the existing reporting capability into a
+2143:(60 applicable and 8 excluded). The full assessment identified 25 material findings, 24 risks, 25 control
+2228:Fraud Detection
+2253:Fraud Detection
+2311:Fraud Detection
+2314:Third-Party and
+2475:Fraud Detection
+2478:Fraud Detection
+2533:"Detection controls are
+2539:detection effectiveness covering coverage against the
+2547:detection of deliberately seeded test conditions where
+2674:Whistleblowing
+2678:Third-Party and
+2687:The weighted overall score is 43.33/100, which maps numerically to Developing. The final maturity shown in this report is
+2688:Developing. The next numerical band begins at 60/100; a higher numerical score alone does not override a stricter applicable
+2704:Developing
+2724:maximum of Developing; a hard-gate control scored 2 sets a maximum of Structured; three or more critical controls scored 0, 1
+2725:or 2 set a maximum of Developing; any core domain below 40 sets a maximum of Developing; and any core domain below 60
+2740:Fraud Leadership and Governance
+2744:Developing
+2746:Fraud Risk Identification
+2752:Operational Fraud Controls
+2756:Developing
+2758:Fraud Detection Capability
+2762:Developing
+2764:Fraud Incident Response
+2768:Developing
+2770:Whistleblowing and Reporting Culture
+2776:Third-Party and Supply Chain Fraud Risk
+2780:Developing
+2782:Digital and Identity Fraud Risk
+2788:Fraud Culture and Awareness
+2792:Developing
+2794:Continuous Improvement and Fraud Risk Monitoring
+2798:Developing
