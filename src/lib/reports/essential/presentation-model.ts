@@ -36,6 +36,12 @@ import {
   type ExposureCluster,
   type ExposureFamily
 } from './content-families';
+import {
+  buildEssentialOrganisationContext,
+  contextRationaleForFamily,
+  contextScopeForFamily,
+  type EssentialOrganisationContext
+} from './customer-context';
 
 export const ESSENTIAL_PRESENTATION_MODEL_VERSION = 'mk-essential-presentation-v2';
 
@@ -337,6 +343,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     : 'REMEDIATION';
   const sustainment = mode === 'SUSTAINMENT';
   const hasSustainmentMaterial = Array.isArray(factPack.sustainmentPriorities) && factPack.sustainmentPriorities.length > 0;
+  const organisationContext: EssentialOrganisationContext = buildEssentialOrganisationContext(
+    factPack.organisation?.operatingContext
+  );
 
   const domains: any[] = Array.isArray(factPack.domains) ? factPack.domains : [];
   const score: number = thesis.overallPosition?.score ?? factPack.assessment?.score ?? 0;
@@ -441,13 +450,21 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
      */
     const operating = signals.length > 0 && signals.every((signal) => getMaturityBand(signal.score) !== 'Reactive' && getMaturityBand(signal.score) !== 'Developing');
     const patternText = operating ? pattern.whyItMattersWhenOperating : pattern.whyItMatters;
+    const contextDetail = pattern.semanticFamilies
+      .map((family) => contextRationaleForFamily(organisationContext, family))
+      .find(Boolean);
+    const suppliedCommentary = commentary[`DIAGNOSIS-${pattern.patternId}`];
     return {
       patternId: pattern.patternId,
       pattern: pattern.displayTitle,
       signals,
       supportingFindings,
       assessedState: operating ? 'OPERATING' : 'DEVELOPING_OR_ABSENT',
-      whyItMatters: sentence(commentary[`DIAGNOSIS-${pattern.patternId}`] ?? patternText)
+      // A governed operating context turns a generic diagnostic sentence into
+      // an organisation-specific management implication. Bounded commentary is
+      // retained when present, with the deterministic context anchor appended
+      // so the sentence remains useful to this customer.
+      whyItMatters: sentence([suppliedCommentary ?? patternText, contextDetail].filter(Boolean).join(' '))
     };
   })
     // A pattern needs more than one present signal to be a pattern. Padding a row
@@ -594,9 +611,169 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
 
   // ---- Management priorities, from the roadmap's distinct outcomes ----
   const roadmapItems: any[] = Array.isArray(factPack.roadmap) ? factPack.roadmap : [];
+  const findingsByRef = new Map(findings.map((finding) => [String(finding.factRef ?? ''), finding]));
+  const controlsByFamily = new Map(controls.map((control) => [String(control.primarySemanticFamily ?? '').toUpperCase(), control]));
+
+  function relatedFindingRefsFor(item: any): string[] {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    const cluster = clusterForSemanticFamily(clusters, family);
+    // Supplier onboarding and payment-change challenge are one customer-facing
+    // control story. The source model keeps two findings so their evidence can
+    // be governed separately; the Essential priority must explain both sides of
+    // the hand-off or it reads as narrower than the exposure page.
+    const clusterRefs = family === 'SUPPLIER_ONBOARDING' ? (cluster?.findingRefs ?? []) : [];
+    return unique([item.sourceFindingRef, ...clusterRefs].map((ref) => String(ref ?? '')).filter(Boolean));
+  }
+
+  function relatedFindingsFor(item: any): any[] {
+    return relatedFindingRefsFor(item)
+      .map((ref) => findingsByRef.get(ref))
+      .filter(Boolean);
+  }
+
+  function controlForFamily(semanticFamily: string): any | undefined {
+    return controlsByFamily.get(String(semanticFamily ?? '').toUpperCase());
+  }
+
+  function evidenceRequirementsFor(item: any): string[] {
+    const control = controlForFamily(item.primarySemanticFamily);
+    const linked = proofOfProgress.filter((proof) =>
+      Array.isArray(proof.linkedFindingRefs)
+      && proof.linkedFindingRefs.some((ref: string) => relatedFindingRefsFor(item).includes(String(ref)))
+    );
+    const roadmapProof = String(item.proofOfCompletion ?? '')
+      .split(/;\s*/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return unique([
+      ...(Array.isArray(control?.proofRetained) ? control.proofRetained : []),
+      ...linked.map((proof) => proof.requirement),
+      ...roadmapProof
+    ].map((value) => customerText(value)).filter(Boolean));
+  }
+
+  function evidencePopulationFor(item: any): string {
+    const contextual = contextScopeForFamily(organisationContext, item.primarySemanticFamily);
+    if (contextual) return contextual;
+    const control = controlForFamily(item.primarySemanticFamily);
+    const linked = proofOfProgress.find((proof) =>
+      Array.isArray(proof.linkedFindingRefs)
+      && proof.linkedFindingRefs.some((ref: string) => relatedFindingRefsFor(item).includes(String(ref)))
+    );
+    return customerText(control?.population ?? linked?.requiredPopulation ?? '');
+  }
+
+  function firstLower(value: string): string {
+    return value ? value.charAt(0).toLowerCase() + value.slice(1) : value;
+  }
+
+  function firstUpper(value: string): string {
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+  }
+
+  function stripMatterLead(value: string): string {
+    return firstUpper(value.replace(/^The condition matters because\s*/i, '').trim());
+  }
+
+  const PRIORITY_TITLES: Record<string, string> = {
+    FRAUD_GOVERNANCE: 'Name fraud-risk ownership and escalation',
+    FRAUD_RISK_IDENTIFICATION: 'Map fraud risk across material processes',
+    SUPPLIER_ONBOARDING: 'Verify suppliers before activation and payment',
+    IDENTITY_VERIFICATION: 'Verify sensitive changes before activation',
+    DETECTION_MONITORING: 'Monitor material activity and exceptions',
+    EVIDENCE_INTEGRITY: 'Preserve evidence from first report',
+    CONTINUOUS_IMPROVEMENT: 'Refresh risk and controls after change'
+  };
+
+  function priorityTitle(item: any): string {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    return PRIORITY_TITLES[family]
+      ?? familyPresentation(family)?.shortLabel
+      ?? customerText(item.managementOutcome);
+  }
+
+  function priorityRationale(item: any): string {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    const control = controlForFamily(family);
+    const linkedFindings = relatedFindingsFor(item);
+    const leadFinding = linkedFindings[0];
+    const rawState = String(control?.currentState ?? leadFinding?.recordedPosition ?? '').trim();
+    const state = customerText(rawState.split(/\s+[—-]\s+/)[0] ?? rawState).toLowerCase();
+    const interpretation = customerText(String(leadFinding?.interpretation ?? '').replace(/\s+was\s+self-assessed.*$/i, ''));
+    const subject = interpretation || priorityTitle(item);
+    const reasons = linkedFindings
+      .map((finding) => stripMatterLead(customerText(finding.whyItMatters ?? '')))
+      .filter(Boolean)
+      .slice(0, 2);
+    const contextDetail = contextRationaleForFamily(organisationContext, family);
+    const suppliedCommentary = customerText(commentary[`PRIORITY-${item.primarySemanticFamily}`] ?? '');
+    const lead = suppliedCommentary || `${subject} is assessed as ${state || 'not consistently established'}.`;
+    return sentence([lead, contextDetail, ...reasons].filter(Boolean).join(' '));
+  }
+
+  function scopedDeliverable(item: any): string {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    const scope = evidencePopulationFor(item);
+    const shortWork: Record<string, string> = {
+      FRAUD_GOVERNANCE: 'Approve the fraud-risk mandate, reporting rhythm, escalation authority and decision record',
+      FRAUD_RISK_IDENTIFICATION: 'Refresh the fraud-risk map and assign treatment owners',
+      SUPPLIER_ONBOARDING: 'Verify supplier identity, ownership, banking and conflicts before activation or payment',
+      IDENTITY_VERIFICATION: 'Define risk-based verification at sensitive change points',
+      DETECTION_MONITORING: 'Set monitoring coverage, red flags, review ownership, closure evidence and overdue escalation',
+      EVIDENCE_INTEGRITY: 'Route suspected matters to intake and preserve records from first report',
+      CONTINUOUS_IMPROVEMENT: 'Run a scheduled fraud-risk and control review after material change or incident'
+    };
+    const work = shortWork[family] ?? customerText(item.priorityWork ?? item.managementOutcome);
+    if (!scope) return sentence(work);
+    return sentence(/\bacross\b/i.test(scope) ? `${work} for ${scope}` : `${work} across ${scope}`);
+  }
+
+  function completionTestFor(item: any): string {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    const control = controlForFamily(family);
+    const linked = proofOfProgress.filter((proof) =>
+      Array.isArray(proof.linkedFindingRefs)
+      && proof.linkedFindingRefs.some((ref: string) => relatedFindingRefsFor(item).includes(String(ref)))
+    );
+    const measure = customerText(control?.effectivenessMeasure ?? item.successMeasure ?? '');
+    const population = evidencePopulationFor(item);
+    const requirements = evidenceRequirementsFor(item).slice(0, 3);
+    const recency = customerText(control?.frequency ?? linked[0]?.expectedRecency ?? '');
+    const parts = [
+      measure ? `Complete when ${firstLower(measure)}` : '',
+      population ? `Population: ${population}.` : '',
+      requirements.length ? `Retain ${requirements.join(', ')}.` : '',
+      recency ? `Cadence: ${firstLower(recency)}.` : ''
+    ].filter(Boolean);
+    return parts.join(' ') || nodeLabel(String(item.proofOfCompletion ?? ''), 130);
+  }
+
+  function periodRank(value: unknown): number {
+    const parsed = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  }
+
+  function effectiveTargetPeriod(item: any): string {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    const relatedPeriods = relatedFindingsFor(item).map((finding) => String(finding.targetPeriod ?? ''));
+    // These are first-window stabilisers in the roadmap, so the priority list
+    // must not present their source 60/90-day marker as if it were the delivery
+    // sequence management is being asked to follow.
+    if (isStabilisationFamily(family)) return '30 days';
+    // Payment-change challenge is an immediate loss-prevention control even
+    // when the broader supplier-onboarding design is scheduled for day 60.
+    if (family === 'SUPPLIER_ONBOARDING' && relatedPeriods.some((period) => /^30\b/.test(period))) return '30 days';
+    return String(item.targetPeriod ?? '');
+  }
+
+  const sourceOrder = new Map(roadmapItems.map((item, index) => [item.factRef, index]));
+  const orderedRoadmapItems = [...roadmapItems].sort((left, right) =>
+    periodRank(effectiveTargetPeriod(left)) - periodRank(effectiveTargetPeriod(right))
+    || (sourceOrder.get(left.factRef) ?? 0) - (sourceOrder.get(right.factRef) ?? 0)
+  );
   /** The assessed maturity condition for a control family, e.g. "Initial / ad hoc". */
   function assessedCondition(semanticFamily: string): string {
-    const control = controls.find((c) => String(c.primarySemanticFamily ?? '') === semanticFamily);
+    const control = controlForFamily(semanticFamily);
     const state = String(control?.currentState ?? '').split(/\s+[—-]\s+/)[0]?.trim();
     return state ? customerText(state) : 'Not assessed';
   }
@@ -629,7 +806,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   }
 
   const seenOutcome = new Set<string>();
-  const priorityRows = roadmapItems
+  const priorityRows = orderedRoadmapItems
     .filter((item) => {
       const key = customerText(item.managementOutcome);
       if (!key || seenOutcome.has(key)) return false;
@@ -641,8 +818,8 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       const presentation = familyPresentation(item.primarySemanticFamily);
       return {
         rank: index + 1,
-        outcome: presentation?.shortLabel ?? customerText(item.managementOutcome),
-        whyNow: sentence(commentary[`PRIORITY-${item.primarySemanticFamily}`] ?? firstSentence(item.managementOutcome ?? '')),
+        outcome: priorityTitle(item) || presentation?.shortLabel || customerText(item.managementOutcome),
+        whyNow: priorityRationale(item),
         accountableRole: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
         // The operating state management is aiming at. The artefact that proves
         // it -- a RACI, a callback record, a coverage report -- is evidence, and
@@ -650,7 +827,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         semanticFamily: String(item.primarySemanticFamily ?? ''),
         betterLooksLike: organisationTargetState(String(item.primarySemanticFamily ?? '')),
         targetStateBasis: targetStateBasisFor(String(item.primarySemanticFamily ?? '')),
-        evidenceArtefact: customerText(item.proofOfCompletion ?? '')
+        evidenceArtefact: evidenceRequirementsFor(item).join('; ') || customerText(item.proofOfCompletion ?? '')
       };
     })
     .filter((row) => row.outcome && row.betterLooksLike);
@@ -673,7 +850,10 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     const perFamily = pointFamilies.map((family) => targetStateTemplate(family)?.processPoints ?? []);
     const breadth = perFamily.map((points) => points[0]).filter((point): point is string => Boolean(point));
     const remainder = perFamily.flatMap((points) => points.slice(1));
-    const processPoints = unique([...breadth, ...remainder]).slice(0, 3);
+    const contextualScope = contextScopeForFamily(organisationContext, semanticFamily)
+      ?.replace(/\s+across operating locations$/i, '')
+      .trim();
+    const processPoints = unique(contextualScope ? [contextualScope] : [...breadth, ...remainder]).slice(0, 3);
     return { weakSignals, leverage: leverageFor(weakSignals), processPoints };
   }
 
@@ -730,19 +910,15 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   // to do one thing, not the same thing twice in two windows. Merge identical
   // work into the earliest window that asked for it and keep every source
   // reference, so nothing is lost from the evidence trail.
-  const periodRank = (value: unknown) => {
-    const parsed = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
-    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
-  };
   const mergedRoadmapItems = (() => {
     const byWork = new Map<string, any>();
-    for (const item of roadmapItems) {
+    for (const item of orderedRoadmapItems) {
       const key = [item.primarySemanticFamily, item.managementOutcome, item.priorityWork]
         .map((value) => String(value ?? '').trim().toLowerCase()).join('|');
       const existing = byWork.get(key);
       if (!existing) { byWork.set(key, { ...item, mergedFactRefs: [item.factRef].filter(Boolean) }); continue; }
       const refs = [...existing.mergedFactRefs, item.factRef].filter(Boolean);
-      byWork.set(key, periodRank(item.targetPeriod) < periodRank(existing.targetPeriod)
+      byWork.set(key, periodRank(effectiveTargetPeriod(item)) < periodRank(effectiveTargetPeriod(existing))
         ? { ...item, mergedFactRefs: refs }
         : { ...existing, mergedFactRefs: refs });
     }
@@ -772,7 +948,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         // is invented; existing actions are reclassified by what they achieve.
         if (stageIndex === 0 && isStabilisationFamily(item.primarySemanticFamily)) return true;
         if (stageIndex > 0 && isStabilisationFamily(item.primarySemanticFamily)) return false;
-        return match.test(String(item.targetPeriod ?? '').trim());
+        return match.test(effectiveTargetPeriod(item).trim());
       });
       for (const item of items) claimedRefs.add(item.factRef);
       const staged = [...items];
@@ -827,12 +1003,12 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         actions: staged.slice(0, 5).map((item) => ({
           action: ((actionsPerFamily[String(item.primarySemanticFamily ?? '').toUpperCase()] ?? 0) > 1
             ? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150)
-            : familyPresentation(item.primarySemanticFamily)?.shortLabel) ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
+            : priorityTitle(item)) ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
           owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
           // What is handed over, and the test that closes it. Themes alone do
           // not make an implementation plan.
-          deliverable: nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
-          completionTest: nodeLabel(String(item.proofOfCompletion ?? '').split(/;\s*/)[0] ?? '', 130),
+          deliverable: scopedDeliverable(item),
+          completionTest: completionTestFor(item),
           dependsOn: (Array.isArray(item.dependencies) ? item.dependencies : []).map((d: string) => customerText(d)).filter(Boolean)
         }))
       };
@@ -922,15 +1098,16 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       .map((row) => (row.family ? CAPABILITY_NAME[row.family] : undefined))
       .filter((name): name is string => Boolean(name))]);
     const cycle = capabilities.length > 1
-      ? `${capabilities.slice(0, -1).join(', ')} and ${capabilities[capabilities.length - 1]}`
-      : capabilities[0] ?? 'prevention, detection and response';
+      ? `the ${capabilities.slice(0, -1).join(', ')} and ${capabilities[capabilities.length - 1]} disciplines`
+      : `the ${capabilities[0] ?? 'prevention, detection and response'} discipline`;
+    const cycleVerb = capabilities.length > 1 ? 'operate' : 'operates';
     if (sustainment) {
-      return sentence(`${org} is operating from a strong position, supported by ${foundationClause}. The management question is no longer whether capability exists but whether it holds as the business changes. The next checkpoint should test whether ${cycle} still operate as one system`);
+      return sentence(`${org} is operating from a strong position, supported by ${foundationClause}. The management question is no longer whether capability exists but whether it holds as the business changes. The next checkpoint should test whether ${cycle} still ${cycleVerb} as one system`);
     }
     if (!support.supported.FOUNDATION) {
-      return sentence(`${org} is starting from a low base: no assessed domain yet shows an established fraud-control capability, so the first task is to put ownership, challenge, detection and response in place rather than to connect existing strengths. The next 90-day checkpoint should test whether ${cycle} exist at all and who owns each of them`);
+      return sentence(`${org} is starting from a low base: no assessed domain yet shows an established fraud-control capability, so the first task is to put ownership, challenge, detection and response in place rather than to connect existing strengths. The next 90-day checkpoint should test whether ${cycle} ${cycleVerb} at all and who owns each of them`);
     }
-    return sentence(`${org} is not starting from zero. Its ${foundationClause} provide a useful foundation. The weakness is that these capabilities are not yet connected into a repeatable fraud-risk cycle, so ownership, challenge, detection and response do not yet reinforce one another. The next 90-day checkpoint should test whether ${cycle} now operate as one system rather than as separate activities`);
+    return sentence(`${org} is not starting from zero. Its ${foundationClause} provide a useful foundation. The weakness is that these capabilities are not yet connected into a repeatable fraud-risk cycle, so ownership, challenge, detection and response do not yet reinforce one another. The next 90-day checkpoint should test whether ${cycle} now ${cycleVerb} as one system rather than as separate activities`);
   }
 
   // ---- Pages ----

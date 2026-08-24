@@ -126,7 +126,10 @@ function customerSurfaces(model: EssentialReportPresentationModel): string[] {
   for (const s of model.scenarios?.scenarios ?? []) out.push(s.title, s.entryPoint, s.controlBreak, s.howItUnfolds, s.immediateInterruption, ...s.warningIndicators);
   if (model.scenarios) out.push(model.scenarios.assuranceNote);
   for (const r of model.priorities.rows) out.push(r.outcome, r.whyNow, r.accountableRole, r.betterLooksLike);
-  for (const st of model.roadmap.stages) { out.push(st.stage, st.primaryOutcome); for (const a of st.actions) out.push(a.action, a.owner, ...a.dependsOn); }
+  for (const st of model.roadmap.stages) {
+    out.push(st.stage, st.primaryOutcome);
+    for (const a of st.actions) out.push(a.action, a.owner, a.deliverable, a.completionTest, ...a.dependsOn);
+  }
   if (model.roadmap.interpretation) out.push(model.roadmap.interpretation);
   for (const r of model.dashboard.rows) out.push(r.measure, r.current, r.expectation);
   for (const p of model.pages) { out.push(p.question, p.heading); if (p.commentary) out.push(p.commentary); }
