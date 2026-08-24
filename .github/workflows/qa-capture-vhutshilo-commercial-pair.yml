@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/qa-capture-vhutshilo-commercial-pair.yml
       - src/app/score/api/qa/v12-vhutshilo-product-pair/[artifact]/route.ts
+      - src/lib/reports/comprehensive/final-validation.ts
+      - scripts/commercial-quality/comprehensive-final-assurance-context-regression.mjs
 
 permissions:
   contents: read
@@ -23,6 +25,11 @@ jobs:
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prove five-layer Comprehensive document-context adjudication
+        run: |
+          set -euo pipefail
+          node scripts/commercial-quality/comprehensive-final-assurance-context-regression.mjs
 
       - name: Mint GitHub OIDC token for trusted-source fallback
         id: oidc
@@ -98,6 +105,7 @@ jobs:
           jq -e '(.interpretationIssues | length) == 0' qa-pair/comprehensive-meta.json >/dev/null
           jq -e '.finalValidation.publishable == true' qa-pair/comprehensive-meta.json >/dev/null
           jq -e '(.finalValidation.blockingCodes | length) == 0' qa-pair/comprehensive-meta.json >/dev/null
+          jq -e '(.finalValidation.heldForReviewCodes | length) == 0' qa-pair/comprehensive-meta.json >/dev/null
           sha256sum "$PDF" "$XLSX" qa-pair/comprehensive-meta.json > qa-pair/comprehensive-checksums.txt
           cat qa-pair/comprehensive-meta.json | jq '{model, interpretationAccounting, interpretationIssues, finalValidation, pdf, workbook}'
 
