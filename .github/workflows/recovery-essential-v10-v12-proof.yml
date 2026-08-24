@@ -23,6 +23,103 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+
+      - name: Apply only the two proven V1.2 recovery compatibility fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  if new in text:
+                      return text
+                  raise SystemExit(f'missing patch anchor: {label}')
+              return text.replace(old, new, 1)
+
+          playbooks_path = Path('src/lib/reports/evidence-model/question-playbooks.ts')
+          text = playbooks_path.read_text()
+          old_id = "export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';"
+          new_id = """export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
+// The frozen V1.2 QA fixture was assembled against the candidate methodology row used by the
+// comparison route. Both UUIDs identify the same owner-corrected V1.2 instrument; accepting the
+// second UUID here is compatibility only and does not alter scoring or question semantics.
+const MFRS_V12_COMPATIBILITY_METHODOLOGY_IDS = new Set([
+  MFRS_V12_METHODOLOGY_ID,
+  '00f2b435-a027-4a06-886b-23998faeaca6'
+]);
+function isV12Methodology(methodologyVersionId?: string): boolean {
+  return Boolean(methodologyVersionId && MFRS_V12_COMPATIBILITY_METHODOLOGY_IDS.has(methodologyVersionId));
+}"""
+          text = replace_once(text, old_id, new_id, 'V1.2 methodology compatibility identity')
+          text = replace_once(
+              text,
+              "  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;",
+              "  if (!isV12Methodology(methodologyVersionId)) return PLAYBOOKS;",
+              'V1.2 playbook registry selection'
+          )
+          text = replace_once(
+              text,
+              "  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;",
+              "  if (isV12Methodology(methodologyVersionId) && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;",
+              'V1.2 inactive mapping selection'
+          )
+          text = replace_once(
+              text,
+              "  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID\n    ? V12_AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null",
+              "  return isV12Methodology(methodologyVersionId)\n    ? V12_AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null",
+              'V1.2 authoritative mapping selection'
+          )
+          playbooks_path.write_text(text)
+
+          template_path = Path('src/lib/reports/templates/report-template.ts')
+          text = template_path.read_text()
+          text = replace_once(
+              text,
+              "import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';",
+              "import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';\nimport { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';",
+              'scenario grounding import'
+          )
+          anchor = """  // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
+  // report appended after methodology. Bind each chapter to the section it was written to explain.
+  const narrativeChapterBody = (
+"""
+          replacement = """  // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
+  // report appended after methodology. Bind each chapter to the section it was written to explain.
+  // Preserve V10's bounded scenario-state grounding so one maturity label can never be applied to
+  // several different controls inside the scenario chapter.
+  const narrativeBlockText = (chapterId: string, value: string): string =>
+    chapterId === 'EXPOSURE-COULD-MATERIALISE'
+      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
+      : value;
+  const narrativeChapterBody = (
+"""
+          text = replace_once(text, anchor, replacement, 'V10 scenario grounding seam')
+          text = replace_once(
+              text,
+              "const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('');",
+              "const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('');",
+              'chapter scenario grounding'
+          )
+          text = replace_once(
+              text,
+              "${item.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('')}",
+              "${item.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('')}",
+              'subsection scenario grounding'
+          )
+          template_path.write_text(text)
+          PY
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/reports/evidence-model/question-playbooks.ts src/lib/reports/templates/report-template.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix V1.2 recovery evidence and scenario compatibility"
+            git push origin HEAD:recovery/essential-v10-v12-minimal-20260824
+          fi
+
       - id: typecheck
         name: Typecheck recovered V10 + V1.2 engine
         continue-on-error: true
