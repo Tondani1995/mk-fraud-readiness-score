@@ -1,0 +1,77 @@
+name: Inspect recovered Vhutshilo Essential PDF
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/recovery-v10-v12-pdf-inspection.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PDF: qa-output/recovered-vhutshilo-essential-final/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf
+      OUT: qa-output/recovered-vhutshilo-essential-final/inspection
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Install PDF inspection tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+
+      - name: Inspect existing PDF only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          test -f "$PDF"
+          sha256sum "$PDF" > "$OUT/sha256.txt"
+          pdfinfo "$PDF" > "$OUT/pdfinfo.txt"
+          pdffonts "$PDF" > "$OUT/fonts.txt"
+          pdftotext -layout "$PDF" "$OUT/report-layout.txt"
+          pdftotext "$PDF" "$OUT/report-text.txt"
+          pdfimages -list "$PDF" > "$OUT/images.txt"
+          grep -E '^Pages:' "$OUT/pdfinfo.txt" > "$OUT/page-count.txt"
+          grep -Ein 'supporting register|\.xlsx|synthetic|qa-|provider|openai|gpt|internal id|roadmap-[A-Z0-9]|D[0-9]+-Q[0-9]+' "$OUT/report-text.txt" > "$OUT/leakage-scan.txt" || true
+          grep -Ein '43\.33|Developing|60 applicable|8 excluded|4 redirected|6 critical|3 major|Fraud Leadership|Fraud Risk Identification|Operational Fraud|Detection|Incident Response|Whistleblowing|Third-Party|Digital and Identity|Culture and Awareness|Continuous Improvement' "$OUT/report-text.txt" > "$OUT/truth-scan.txt" || true
+          python - <<'PY'
+          from pathlib import Path
+          import re, json
+          text = Path('qa-output/recovered-vhutshilo-essential-final/inspection/report-text.txt').read_text(errors='replace')
+          layout = Path('qa-output/recovered-vhutshilo-essential-final/inspection/report-layout.txt').read_text(errors='replace')
+          pages = layout.split('\f')
+          targets = [
+            'Executive summary','What the result means','Domain overview',
+            'Priority findings, contradictions and scenarios','Priority risks',
+            'Leadership decisions and roadmap','Proof requirements',
+            'Methodology, limitations and next steps'
+          ]
+          result = {
+            'characterCount': len(text),
+            'wordCount': len(re.findall(r"\b\w+\b", text)),
+            'pageTextLengths': [len(p.strip()) for p in pages if p.strip()],
+            'headings': {t: bool(re.search(re.escape(t), text, re.I)) for t in targets},
+            'registerPromise': bool(re.search(r'supporting register|\.xlsx', text, re.I)),
+            'rawQuestionIds': sorted(set(re.findall(r'\bD\d+-Q\d+\b', text))),
+            'rawInternalIds': sorted(set(re.findall(r'\b(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+\b', text))),
+            'qaLeakage': bool(re.search(r'\b(?:synthetic|provider|openai|gpt|qa[- /]|test fixture)\b', text, re.I)),
+          }
+          Path('qa-output/recovered-vhutshilo-essential-final/inspection/summary.json').write_text(json.dumps(result, indent=2))
+          PY
+
+      - name: Commit inspection evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MK Recovery QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT"
+          git commit -m "Inspect recovered Vhutshilo Essential PDF"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
