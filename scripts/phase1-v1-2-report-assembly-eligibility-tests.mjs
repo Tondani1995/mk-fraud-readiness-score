@@ -26,6 +26,7 @@ const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const ASSESSMENT_ID = '22222222-2222-4222-8222-222222222222';
 const SCORE_RUN_ID = '33333333-3333-4333-8333-333333333333';
 const METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
+const METHODOLOGY_VERSION_CODE = 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION';
 const PRODUCT_ID = '44444444-4444-4444-8444-444444444444';
 const PRICE_VERSION_ID = '55555555-5555-4555-8555-555555555555';
 const ADMIN_ID = '66666666-6666-4666-8666-666666666666';
@@ -167,6 +168,7 @@ function createFixtureRows() {
     processing_result: 'applied'
   };
   return {
+    methodology_versions: [{ id: METHODOLOGY_ID, version_code: METHODOLOGY_VERSION_CODE }],
     orders: [order],
     assessments: [assessment],
     score_runs: [scoreRun],
@@ -240,6 +242,7 @@ const { db } = createFixtureDb();
 
 const assembled = await assembleReportData(ORDER_REFERENCE, { db });
 assert.equal(assembled.scoreRun.methodologyVersionId, METHODOLOGY_ID);
+assert.equal(assembled.scoreRun.methodologyVersionCode, METHODOLOGY_VERSION_CODE);
 assert.equal(assembled.scoreRun.status, 'completed');
 assert.ok(assembled.scoreRun.lockedAt);
 assert.match(assembled.scoreRun.inputHash, /^[0-9a-f]{64}$/);
@@ -295,6 +298,7 @@ console.log(JSON.stringify({
   stagingMutations: 0,
   assembly: {
     methodologyVersionId: METHODOLOGY_ID,
+    methodologyVersionCode: METHODOLOGY_VERSION_CODE,
     responseDisplayOrder: assembled.officialResponseLabels.map((row) => row.displayOrder),
     responseValues: assembled.officialResponseLabels.map((row) => row.responseValue),
     expectedDomainResults: assembled.expectedDomainResultCount,

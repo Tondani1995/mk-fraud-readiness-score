@@ -132,6 +132,21 @@ export async function assembleReportData(
     adaptive_metrics_json?: AdaptiveResultMetrics | null;
   };
 
+  // The UUID remains the locked score-run traceability key. Content registries select their
+  // advisory methodology family from the stable persisted version_code, because database UUIDs
+  // differ between environments.
+  const { data: methodologyVersion, error: methodologyVersionError } = await supabase
+    .from('methodology_versions')
+    .select('id,version_code')
+    .eq('id', scoreRunRow.methodology_version_id)
+    .maybeSingle();
+  if (methodologyVersionError || !methodologyVersion?.version_code) {
+    throw new ReportAssemblyError(
+      'assessment_not_scored',
+      `Methodology version ${scoreRunRow.methodology_version_id} could not be resolved for the locked score run.`
+    );
+  }
+
   const { data: adaptiveColumns, error: adaptiveColumnsError } = await supabase
     .from('score_runs')
     .select('adaptive_result_status,adaptive_metrics_json')
@@ -476,6 +491,7 @@ export async function assembleReportData(
       id: scoreRunRow.id,
       assessmentId: scoreRunRow.assessment_id,
       methodologyVersionId: scoreRunRow.methodology_version_id,
+      methodologyVersionCode: methodologyVersion.version_code,
       status: scoreRunRow.status,
       lockedAt: scoreRunRow.locked_at ?? null,
       inputHash: scoreRunRow.input_hash ?? null,

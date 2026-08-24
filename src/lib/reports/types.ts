@@ -56,6 +56,8 @@ export interface ScoreRunRecord {
    * reported against that same version.
    */
   methodologyVersionId: string;
+  /** Stable persisted methodology identity used to select version-specific advisory content. */
+  methodologyVersionCode?: string | null;
   status: string;
   lockedAt: string | null;
   inputHash: string | null;

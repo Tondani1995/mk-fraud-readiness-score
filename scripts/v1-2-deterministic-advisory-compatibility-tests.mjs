@@ -15,7 +15,7 @@ import {
   getQuestionPlaybook,
   listQuestionPlaybooks,
   MFRS_V11_METHODOLOGY_ID,
-  MFRS_V12_METHODOLOGY_ID
+  MFRS_V12_METHODOLOGY_VERSION_CODE
 } from '../src/lib/reports/evidence-model/question-playbooks.ts';
 import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
 import { buildEssentialNarrativeFactPack } from '../src/lib/reports/narrative/fact-pack.ts';
@@ -32,7 +32,9 @@ const uniqueActiveCodes = [...new Set(activeCodes)];
 assert.equal(activeQuestions.length, 68);
 assert.equal(uniqueActiveCodes.length, 68, 'V1.2 active question IDs must be unique');
 
-const V12 = MFRS_V12_METHODOLOGY_ID;
+// Deliberately differs from the source-era UUID: the stable version code must select V1.2.
+const V12 = 'environment-specific-v12-methodology-id';
+const V12_CODE = MFRS_V12_METHODOLOGY_VERSION_CODE;
 const V11 = MFRS_V11_METHODOLOGY_ID;
 const semanticRegistryCodes = new Set(PRIMARY_SEMANTIC_MAPPING_ENTRIES.map((entry) => entry.questionCode));
 const semanticCounts = new Map();
@@ -41,13 +43,13 @@ const v12MappingMissing = activeCodes.filter((code) => !semanticRegistryCodes.ha
 assert.deepEqual(v12MappingMissing, [], 'every active V1.2 control must have a primary semantic mapping');
 assert.deepEqual(activeCodes.filter((code) => semanticCounts.get(code) !== 1), [], 'each active V1.2 control has exactly one primary mapping');
 
-const v12Playbooks = activeCodes.map((code) => getQuestionPlaybook(code, V12));
+const v12Playbooks = activeCodes.map((code) => getQuestionPlaybook(code, V12, V12_CODE));
 assert.equal(v12Playbooks.filter(Boolean).length, 68, 'every active V1.2 control must have a version-specific playbook');
 assert.equal(v12Playbooks.some((playbook) => playbook?.fallbackStatus), false);
-assert.equal(listQuestionPlaybooks(V12).length, 68, 'the V1.2 resolver exposes exactly the active 68-control playbook surface');
-assert.deepEqual(['D5-Q02', 'D5-Q07', 'D6-Q06', 'D8-Q05', 'D9-Q04', 'D9-Q06', 'D10-Q04', 'D10-Q05'].filter((code) => getQuestionPlaybook(code, V12)), [], 'merged/retired V1.1 IDs are not resolved as active V1.2 playbooks');
-assert.equal(activeCodes.every((code) => getAuthoritativeQuestionMapping(code, V12)), true, 'every active V1.2 control must have an authoritative version-specific mapping');
-for (const question of activeQuestions) assert.equal(getAuthoritativeQuestionMapping(question.questionCode, V12).prompt, question.prompt, `${question.questionCode} prompt mapping must match the active V1.2 graph`);
+assert.equal(listQuestionPlaybooks(V12, V12_CODE).length, 68, 'the V1.2 resolver exposes exactly the active 68-control playbook surface');
+assert.deepEqual(['D5-Q02', 'D5-Q07', 'D6-Q06', 'D8-Q05', 'D9-Q04', 'D9-Q06', 'D10-Q04', 'D10-Q05'].filter((code) => getQuestionPlaybook(code, V12, V12_CODE)), [], 'merged/retired V1.1 IDs are not resolved as active V1.2 playbooks');
+assert.equal(activeCodes.every((code) => getAuthoritativeQuestionMapping(code, V12, V12_CODE)), true, 'every active V1.2 control must have an authoritative version-specific mapping');
+for (const question of activeQuestions) assert.equal(getAuthoritativeQuestionMapping(question.questionCode, V12, V12_CODE).prompt, question.prompt, `${question.questionCode} prompt mapping must match the active V1.2 graph`);
 assert.ok(listQuestionPlaybooks().length >= 68, 'the immutable V1.1 registry remains available');
 assert.equal(getQuestionPlaybook('D3-Q09', V11), null, 'V1.1 does not receive V1.2-only playbooks');
 assert.ok(getQuestionPlaybook('D3-Q04', V11));
@@ -60,22 +62,22 @@ const splitPairs = [
   ['D8-Q08', 'D8-Q10']
 ];
 for (const [left, right] of splitPairs) {
-  const a = getQuestionPlaybook(left, V12);
-  const b = getQuestionPlaybook(right, V12);
+  const a = getQuestionPlaybook(left, V12, V12_CODE);
+  const b = getQuestionPlaybook(right, V12, V12_CODE);
   assert.ok(a && b, `${left}/${right} split pair has playbooks`);
   assert.notEqual(a.controlObjective, b.controlObjective, `${left}/${right} must have distinct objectives`);
   assert.notEqual(a.recommendedControlDesign, b.recommendedControlDesign, `${left}/${right} must have distinct advice`);
 }
 
-assert.equal(getQuestionPlaybook('D3-Q09', V12).controlObjective.includes('payroll'), true);
-assert.equal(getQuestionPlaybook('D3-Q09', V12).recommendedControlDesign.includes('joiner, mover and leaver'), true);
-assert.equal(getQuestionPlaybook('D3-Q10', V12).controlObjective.includes('cash'), true);
-assert.equal(getQuestionPlaybook('D3-Q11', V12).controlObjective.includes('stock'), true);
-assert.equal(getQuestionPlaybook('D4-Q08', V12).controlObjective.includes('external'), true);
-assert.equal(getAuthoritativeQuestionMapping('D6-Q05', V12).prompt, 'Relevant external stakeholders have an appropriate way to report suspected fraud or misconduct.');
-assert.equal(getAuthoritativeQuestionMapping('D5-Q03', V12).prompt, 'Roles and decision rights are defined for fraud triage, investigation, escalation and case closure.');
-assert.equal(getAuthoritativeQuestionMapping('D5-Q04', V12).prompt, 'Fraud investigations follow documented procedures that protect confidentiality and fair treatment and record key facts, decisions and actions.');
-assert.equal(getAuthoritativeQuestionMapping('D9-Q03', V12).prompt, 'Leadership communicates clear expectations on ethical conduct, conflicts of interest, fraud prevention and the consequences of misconduct.');
+assert.equal(getQuestionPlaybook('D3-Q09', V12, V12_CODE).controlObjective.includes('payroll'), true);
+assert.equal(getQuestionPlaybook('D3-Q09', V12, V12_CODE).recommendedControlDesign.includes('joiner, mover and leaver'), true);
+assert.equal(getQuestionPlaybook('D3-Q10', V12, V12_CODE).controlObjective.includes('cash'), true);
+assert.equal(getQuestionPlaybook('D3-Q11', V12, V12_CODE).controlObjective.includes('stock'), true);
+assert.equal(getQuestionPlaybook('D4-Q08', V12, V12_CODE).controlObjective.includes('external'), true);
+assert.equal(getAuthoritativeQuestionMapping('D6-Q05', V12, V12_CODE).prompt, 'Relevant external stakeholders have an appropriate way to report suspected fraud or misconduct.');
+assert.equal(getAuthoritativeQuestionMapping('D5-Q03', V12, V12_CODE).prompt, 'Roles and decision rights are defined for fraud triage, investigation, escalation and case closure.');
+assert.equal(getAuthoritativeQuestionMapping('D5-Q04', V12, V12_CODE).prompt, 'Fraud investigations follow documented procedures that protect confidentiality and fair treatment and record key facts, decisions and actions.');
+assert.equal(getAuthoritativeQuestionMapping('D9-Q03', V12, V12_CODE).prompt, 'Leadership communicates clear expectations on ethical conduct, conflicts of interest, fraud prevention and the consequences of misconduct.');
 
 const labels = [
   ['Not in place', 'The capability is absent or is not recognised as required.', 0],
@@ -142,6 +144,7 @@ function fixture(high = false) {
     maturityCapEvents: high ? [] : [{ ruleCode: 'any_hard_gate_critical_control_lte_1', capTo: 'Developing', reason: 'A synthetic V1.2 hard-gate control is weak.', relatedQuestionCode: 'D8-Q10', relatedQuestionPrompt: 'The organisation can investigate and contain identity misuse, account takeover or impersonation.', relatedDomainCode: 'D8', relatedDomainName: domainNames.D8 }], recommendationRules: [], expectedDomainResultCount: 10, actualDomainResultCount: 10, expectedQuestionTraceCount: 68, actualQuestionTraceCount: 68,
     adaptiveScope: { exposureAssessed: true, scoreComparabilityStatement: 'Synthetic provider-free fixture.', visibilityGaps: [] }, adaptiveGatewayAnswers: { G01: 'organisation', G03: 'yes', G04: 'internal', G06: 'yes', G08: 'organisation', G10: 'yes' }
   };
+  data.scoreRun.methodologyVersionCode = V12_CODE;
   return data;
 }
 

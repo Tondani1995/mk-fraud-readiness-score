@@ -12,7 +12,14 @@ import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult }
 export * from './types';
 export { getDomainPlaybook, hasDomainPlaybook } from './domain-playbooks';
 export { getQuestionPlaybook, hasQuestionPlaybook, listQuestionPlaybooks, AUTHORITATIVE_QUESTION_MAPPINGS } from './question-playbooks';
-export { getAuthoritativeQuestionMapping, MFRS_V11_METHODOLOGY_ID, MFRS_V12_METHODOLOGY_ID, V12_AUTHORITATIVE_QUESTION_MAPPINGS } from './question-playbooks';
+export {
+  getAuthoritativeQuestionMapping,
+  MFRS_V11_METHODOLOGY_ID,
+  MFRS_V12_METHODOLOGY_ID,
+  MFRS_V11_METHODOLOGY_VERSION_CODE,
+  MFRS_V12_METHODOLOGY_VERSION_CODE,
+  V12_AUTHORITATIVE_QUESTION_MAPPINGS
+} from './question-playbooks';
 export { PRIMARY_SEMANTIC_MAPPING_ENTRIES } from './semantic-mappings';
 export { DeterministicAdvisoryError, SemanticMappingMissingError, QuestionPlaybookMissingError, isDeterministicAdvisoryError } from './deterministic-errors';
 export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
