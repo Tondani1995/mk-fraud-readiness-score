@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import graphJson from '@/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json';
-import { resolveAdaptivePath, type AdaptiveControlResponses, type AdaptiveGatewayAnswers, type AdaptiveGraph } from '@/lib/adaptive/engine';
+import { resolveAdaptivePath, type AdaptiveControlResponses, type AdaptiveGraph } from '@/lib/adaptive/engine';
 import { calculateAdaptiveReadinessScore } from '@/lib/scoring/adaptive-scoring';
 import { buildAdvisoryEvidenceModel } from '@/lib/reports/evidence-model';
 import { adaptEssentialEvidenceModel, groundEssentialScenarioStateLanguage } from '@/lib/reports/essential-presentation-adaptation';
@@ -23,9 +23,6 @@ export const maxDuration = 300;
 
 const graph = graphJson as unknown as AdaptiveGraph;
 const GENERATED_AT = '2026-08-24T20:00:00.000Z';
-// Recovery-only synthetic identity. The V1.2 report registry on the certified V10 branch recognises
-// this V1.2 methodology row; scoring truth is independently pinned to the graph version,
-// fingerprint and methodology code below. No database record is read or written by this route.
 const V12_REPORT_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
 const EXPECTED = {
   score: 43.33,
@@ -46,7 +43,7 @@ const EXPECTED = {
   }
 } as const;
 
-const gateways: AdaptiveGatewayAnswers = {
+const gateways: Readonly<Record<string, string>> = {
   G01: 'manufacturing_production', G02: 'employees_50_249', G03: 'yes', G04: 'external_provider',
   G05: 'dedicated_internal', G06: 'yes', G07: 'yes', G08: 'organisation', G09: 'none',
   G10: 'no', G11: 'no', G12: 'no', G13: 'yes', G14: 'yes', G15: 'no',
@@ -301,9 +298,7 @@ function buildDeterministicChain() {
     expectedQuestionTraceCount: 68,
     actualQuestionTraceCount: traces.length,
     adaptiveScope: score.metrics,
-    adaptiveGatewayAnswers: Object.fromEntries(
-      Object.entries(gateways).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
-    )
+    adaptiveGatewayAnswers: gateways
   };
 
   const advisory = buildAdvisoryEvidenceModel(data);
@@ -355,9 +350,6 @@ function groundScenarioNarrative(
 }
 
 function stripRetiredRegisterPromise(html: string): string {
-  // Essential is a self-contained PDF. V10 predates that commercial correction and still contains
-  // customer-facing paragraphs promising a companion XLSX/register. Remove only paragraphs that
-  // make that retired promise; actions, evidence, findings, roadmap and appendix content remain.
   const scrubbed = html.replace(
     /<p\b[^>]*>[\s\S]*?(?:Essential Supporting Register|supporting-register\.xlsx|supporting register)[\s\S]*?<\/p>/gi,
     ''
