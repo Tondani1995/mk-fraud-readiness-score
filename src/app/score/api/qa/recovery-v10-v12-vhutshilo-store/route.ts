@@ -1,50 +1,61 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { GET as generateRecoveryPdf } from '../recovery-v10-v12-vhutshilo/route';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const BUCKET = 'generated-reports';
-const STORAGE_PATH = 'recovery-qa/v10-v12/RPT-MKFRS-V12-ESS-VHUTSHILO-V1.pdf';
 const EXPECTED_REPORT_REFERENCE = 'RPT-MKFRS-V12-ESS-VHUTSHILO-V1';
-const SIGNED_URL_SECONDS = 24 * 60 * 60;
+const RECOVERY_PATH_MARKER = 'recovery-qa/v10-v12/';
+const RAW_MANUSCRIPT_SUFFIX = '-raw-manuscript.json';
 
-function sha256(bytes: Buffer): string {
+type MemoryObject = {
+  bytes: Uint8Array;
+  contentType: string;
+};
+
+function sha256(bytes: Uint8Array | Buffer): string {
   return crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
-async function signedResult(db: ReturnType<typeof createSupabaseServiceClient>, input: {
-  bytes: Buffer;
-  providerCalls: number;
-  reused: boolean;
-}) {
-  const checksum = sha256(input.bytes);
-  const { data: signed, error: signedError } = await db.storage
-    .from(BUCKET)
-    .createSignedUrl(STORAGE_PATH, SIGNED_URL_SECONDS);
-  if (signedError || !signed?.signedUrl) {
-    throw new Error(`recovery_signed_url_failed:${signedError?.message ?? 'missing_signed_url'}`);
+function requestUrl(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
+function requestMethod(input: Parameters<typeof fetch>[0], init?: RequestInit): string {
+  if (init?.method) return init.method.toUpperCase();
+  if (input instanceof Request) return input.method.toUpperCase();
+  return 'GET';
+}
+
+function recoveryStorageKey(urlText: string): string | null {
+  const url = new URL(urlText);
+  if (!url.pathname.includes('/storage/v1/object')) return null;
+  const decoded = decodeURIComponent(url.pathname);
+  const markerIndex = decoded.indexOf(RECOVERY_PATH_MARKER);
+  return markerIndex >= 0 ? decoded.slice(markerIndex) : null;
+}
+
+async function requestBodyBytes(input: Parameters<typeof fetch>[0], init?: RequestInit): Promise<Uint8Array> {
+  const body = init?.body;
+  if (typeof body === 'string') return new TextEncoder().encode(body);
+  if (body instanceof Blob) return new Uint8Array(await body.arrayBuffer());
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (ArrayBuffer.isView(body)) return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+
+  const request = input instanceof Request ? input.clone() : new Request(input, init);
+  return new Uint8Array(await request.arrayBuffer());
+}
+
+function contentType(init?: RequestInit): string {
+  try {
+    return new Headers(init?.headers).get('content-type') ?? 'application/octet-stream';
+  } catch {
+    return 'application/octet-stream';
   }
-  return NextResponse.json({
-    ok: true,
-    stored: true,
-    reused: input.reused,
-    providerCalls: input.providerCalls,
-    reportReference: EXPECTED_REPORT_REFERENCE,
-    bucket: BUCKET,
-    storagePath: STORAGE_PATH,
-    sizeBytes: input.bytes.length,
-    sha256: checksum,
-    signedUrl: signed.signedUrl,
-    expiresInSeconds: SIGNED_URL_SECONDS,
-    productionMutations: 0,
-    customerMutations: 0,
-    paymentMutations: 0,
-    emailDispatches: 0
-  }, { headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
 }
 
 export async function GET(request: Request) {
@@ -57,75 +68,144 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'explicit_recovery_confirmation_required' }, { status: 400 });
   }
 
-  try {
-    const db = createSupabaseServiceClient();
+  const originalFetch = globalThis.fetch;
+  const memory = new Map<string, MemoryObject>();
+  let rawProviderResultCaptured = false;
+  let generationAttempts = 0;
 
-    // Idempotency comes before generation. Once the synthetic acceptance PDF exists, every later
-    // request returns the exact stored bytes and cannot spend another provider call.
-    const { data: existing, error: existingError } = await db.storage.from(BUCKET).download(STORAGE_PATH);
-    if (existing && !existingError) {
-      const bytes = Buffer.from(await existing.arrayBuffer());
-      if (bytes.subarray(0, 4).toString() !== '%PDF') throw new Error('recovery_existing_object_is_not_pdf');
-      return signedResult(db, { bytes, providerCalls: 0, reused: true });
-    }
+  const recoveryFetch: typeof fetch = async (input, init) => {
+    const urlText = requestUrl(input);
+    const key = recoveryStorageKey(urlText);
+    if (!key) return originalFetch(input, init);
 
-    const internalUrl = new URL(request.url);
-    internalUrl.pathname = '/score/api/qa/recovery-v10-v12-vhutshilo';
-    internalUrl.search = '?format=pdf';
-
-    // The certified V10 writer recognises the native Vercel runtime/OIDC path directly.
-    // A validated manuscript is cached before rendering, so a later rerender may legitimately
-    // complete with zero provider calls.
-    const generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
-    if (!generated.ok) {
-      const body = await generated.text();
-      return NextResponse.json(
-        { ok: false, generationStatus: generated.status, error: body.slice(0, 1200), retryAttempted: false },
-        { status: generated.status, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
-      );
-    }
-
-    const providerCalls = Number(generated.headers.get('x-mk-provider-calls') ?? '0');
-    const score = generated.headers.get('x-mk-score');
-    const maturity = generated.headers.get('x-mk-maturity');
-    const proof = generated.headers.get('x-mk-recovery-proof');
-    if (![0, 1].includes(providerCalls) || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
-      throw new Error(`recovery_generation_header_mismatch:calls=${providerCalls}:score=${score}:maturity=${maturity}:proof=${proof}`);
-    }
-
-    const bytes = Buffer.from(await generated.arrayBuffer());
-    if (bytes.length < 100000 || bytes.subarray(0, 4).toString() !== '%PDF') {
-      throw new Error(`recovery_generated_pdf_invalid:${bytes.length}`);
-    }
-    const checksum = sha256(bytes);
-
-    const { error: uploadError } = await db.storage.from(BUCKET).upload(STORAGE_PATH, bytes, {
-      contentType: 'application/pdf',
-      upsert: false,
-      metadata: {
-        sha256: checksum,
-        reportReference: EXPECTED_REPORT_REFERENCE,
-        purpose: 'synthetic-v10-v12-recovery-acceptance',
-        providerCalls: String(providerCalls)
+    const method = requestMethod(input, init);
+    if (method === 'GET' || method === 'HEAD') {
+      const stored = memory.get(key);
+      if (!stored) {
+        return new Response(
+          JSON.stringify({ statusCode: '404', error: 'not_found', message: 'Synthetic recovery object not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
       }
-    });
-    if (uploadError) throw new Error(`recovery_storage_upload_failed:${uploadError.message}`);
-
-    const { data: stored, error: downloadError } = await db.storage.from(BUCKET).download(STORAGE_PATH);
-    if (downloadError || !stored) throw new Error(`recovery_storage_verify_download_failed:${downloadError?.message ?? 'missing_object'}`);
-    const storedBytes = Buffer.from(await stored.arrayBuffer());
-    const storedChecksum = sha256(storedBytes);
-    if (storedChecksum !== checksum || storedBytes.length !== bytes.length) {
-      throw new Error(`recovery_storage_verify_mismatch:${checksum}:${storedChecksum}:${bytes.length}:${storedBytes.length}`);
+      return new Response(method === 'HEAD' ? null : stored.bytes.slice(), {
+        status: 200,
+        headers: {
+          'Content-Type': stored.contentType,
+          'Content-Length': String(stored.bytes.byteLength)
+        }
+      });
     }
 
-    return signedResult(db, { bytes: storedBytes, providerCalls, reused: false });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('recovery_v10_v12_vhutshilo_store_failed', { message });
+    if (method === 'POST' || method === 'PUT') {
+      const bytes = await requestBodyBytes(input, init);
+      memory.set(key, { bytes, contentType: contentType(init) });
+      if (key.endsWith(RAW_MANUSCRIPT_SUFFIX)) rawProviderResultCaptured = true;
+      return new Response(JSON.stringify({ Key: `generated-reports/${key}` }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (method === 'DELETE') {
+      memory.delete(key);
+      return new Response(JSON.stringify({ message: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return originalFetch(input, init);
+  };
+
+  const internalUrl = new URL(request.url);
+  internalUrl.pathname = '/score/api/qa/recovery-v10-v12-vhutshilo';
+  internalUrl.search = '?format=pdf';
+
+  let generated: Response;
+  try {
+    globalThis.fetch = recoveryFetch;
+
+    generationAttempts = 1;
+    generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
+
+    // If the provider result was captured but a deterministic post-provider stage failed,
+    // retry once in the same request. The generator now reads the captured raw manuscript
+    // from request-local memory, so this second pass cannot dispatch another provider call.
+    if (!generated.ok && rawProviderResultCaptured) {
+      generationAttempts = 2;
+      generated = await generateRecoveryPdf(new Request(internalUrl.toString(), { method: 'GET' }));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  if (!generated.ok) {
+    const generatorError = await generated.text();
+    const rawEntry = [...memory.entries()].find(([key]) => key.endsWith(RAW_MANUSCRIPT_SUFFIX));
+    const rawBytes = rawEntry?.[1].bytes;
     return NextResponse.json(
-      { ok: false, error: message.slice(0, 800), retryAttempted: false },
+      {
+        ok: false,
+        generationStatus: generated.status,
+        generationAttempts,
+        rawProviderResultCaptured,
+        rawProviderResultBytes: rawBytes?.byteLength ?? 0,
+        rawProviderResultSha256: rawBytes ? sha256(rawBytes) : null,
+        generatorError: generatorError.slice(0, 4000),
+        retryUsedProvider: false
+      },
+      { status: generated.status, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+    );
+  }
+
+  const reportedProviderCalls = Number(generated.headers.get('x-mk-provider-calls') ?? '0');
+  const providerCalls = rawProviderResultCaptured ? 1 : reportedProviderCalls;
+  const score = generated.headers.get('x-mk-score');
+  const maturity = generated.headers.get('x-mk-maturity');
+  const proof = generated.headers.get('x-mk-recovery-proof');
+  if (![0, 1].includes(reportedProviderCalls) || providerCalls > 1 || score !== '43.33' || maturity !== 'Developing' || proof !== 'PASS') {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'recovery_generation_header_mismatch',
+        reportedProviderCalls,
+        providerCalls,
+        score,
+        maturity,
+        proof,
+        generationAttempts
+      },
       { status: 500, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
     );
   }
+
+  const bytes = Buffer.from(await generated.arrayBuffer());
+  if (bytes.length < 100000 || bytes.subarray(0, 4).toString() !== '%PDF') {
+    return NextResponse.json(
+      { ok: false, error: 'recovery_generated_pdf_invalid', sizeBytes: bytes.length, generationAttempts },
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+    );
+  }
+
+  const checksum = sha256(bytes);
+  return new Response(new Uint8Array(bytes), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${EXPECTED_REPORT_REFERENCE}.pdf"`,
+      'Content-Length': String(bytes.length),
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex',
+      'X-MK-Recovery-Proof': 'PASS',
+      'X-MK-Provider-Calls': String(providerCalls),
+      'X-MK-Reported-Provider-Calls': String(reportedProviderCalls),
+      'X-MK-Generation-Attempts': String(generationAttempts),
+      'X-MK-Raw-Provider-Captured': rawProviderResultCaptured ? 'true' : 'false',
+      'X-MK-Score': String(score),
+      'X-MK-Maturity': String(maturity),
+      'X-MK-SHA256': checksum,
+      'X-MK-Size-Bytes': String(bytes.length),
+      'X-MK-Recovery-Storage': 'request-local-memory'
+    }
+  });
 }
