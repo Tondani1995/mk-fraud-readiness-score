@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 109 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 110 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260810160000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260820120000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 75
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 76
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -149,14 +149,15 @@ with authorised(version, name) as (
     ('20260810131000','joint_launch_last_mile_customer_operability'),
     ('20260810140000','final_pre_staging_comprehensive_closure'),
     ('20260810150000','fix_paid_order_catalogue_lock_privilege'),
-    ('20260810160000','fix_comprehensive_package_event_context_and_template')
+    ('20260810160000','fix_comprehensive_package_event_context_and_template'),
+    ('20260820120000','comprehensive_automated_launch_closure')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 75 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 76 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (

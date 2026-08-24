@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
+import { isAutomatedComprehensiveOrder, AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED } from '@/lib/commercial/legacy-comprehensive-admin-route';
 import { getEngagementByOrderReference } from '@/lib/comprehensive/engagement-service';
 import { recordEvidenceValidation } from '@/lib/comprehensive/evidence-service';
 
@@ -27,6 +28,9 @@ export async function POST(
   const admin = await getAdminSession();
   if (!admin) {
     return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (await isAutomatedComprehensiveOrder(params.orderReference)) {
+    return NextResponse.json({ ok: false, reason: AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED }, { status: 410, headers: { 'Cache-Control': 'no-store' } });
   }
 
   const engagement = await getEngagementByOrderReference(params.orderReference);

@@ -32,14 +32,41 @@ jobs:
       - name: Run provider-free Essential diagnostics
         run: npm run v11:narrative-diagnostics
 
-      - name: Prove Essential output budget and one-call guard
+      - name: Prove Mini-first model precedence and technical fallback declaration
+        run: npm run v11:ai-model-policy
+
+      - name: Prove narrative call accounting remains deterministic
+        run: npm run v11:narrative-call-accounting
+
+      - name: Prove Essential output budget and bounded-attempt guard
         run: npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
 
       - name: Prove Essential assurance boundary provider-free
         run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
 
+      - name: Prove semantic validation architecture provider-free
+        run: npm run v11:semantic-validation-architecture
+
+      - name: Prove Mini-first retries, fallback order, output bounds and semantic input preservation
+        run: npm run v11:narrative-provider-attempts
+
       - name: Prove MUST_ALLOW / MUST_REPAIR / MUST_REJECT false-positive safety net
         run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+
+      - name: Prove canonical layered validation cascade
+        run: npx tsx --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
+
+      - name: Prove shared assurance/context adjudication core against the consolidated corpus
+        run: npx tsx --test scripts/commercial-quality/assurance-adjudication-corpus-regression.mjs
+
+      - name: Prove cascade layer semantics (NOT_APPLICABLE, live evidence comparison, carry-forward, HELD_FOR_REVIEW)
+        run: npx tsx --test scripts/commercial-quality/essential-layer-semantics-regression.mjs
+
+      - name: Prove deterministic evidence-proof-purpose and Recommended Next Step prose against the shared corpus
+        run: npx tsx --test scripts/commercial-quality/essential-deterministic-prose-adjudication-regression.mjs
+
+      - name: Prove repair-then-immutable-final-acceptance allows no post-acceptance mutation
+        run: npx tsx --test scripts/commercial-quality/essential-final-acceptance-immutability-regression.mjs
 
       - name: Prove Essential numeric claim equivalence provider-free
         run: npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
@@ -61,6 +88,12 @@ jobs:
 
       - name: Prove Essential V9 second-opinion closure provider-free
         run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Prove Siyakhula V2 commercial closure provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-siyakhula-v2-regression.mjs
+
+      - name: Prove Bokamoso commercial closure provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-bokamoso-commercial-closure-regression.mjs
 
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs

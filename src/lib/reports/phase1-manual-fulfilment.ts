@@ -1,14 +1,17 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
+import { ResponseLabelSourceError } from './response-labels';
 import { COMPREHENSIVE_REPORT_TYPE, ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
+import { DeterministicAdvisoryError, isDeterministicAdvisoryError } from './evidence-model/deterministic-errors';
 import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
-import { buildAndStoreSupportingRegister } from './supporting-register-delivery';
+import { buildAndStoreSupportingRegister, storeVerifiedRegisterWorkbook } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
+import { EssentialValidationCascadeError } from './essential-validation-cascade';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -26,7 +29,10 @@ import { logPremiumReportPhase } from './automation/phase-timing';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
+import type { EssentialSemanticReviewer } from './narrative/semantic-reviewer';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
+import { renderComprehensiveReportPackage } from './comprehensive/manual-generation';
+import { persistComprehensiveInterpretationAccounting } from './comprehensive/interpretation-accounting';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -43,10 +49,18 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   /** Injected for provider-free proof; production uses the real v1.1 writer. */
   wholeManuscriptWriter?: WholeManuscriptWriter;
+  /** Injected semantic adjudicator for provider-free tests; production uses the writer seam. */
+  semanticReviewer?: EssentialSemanticReviewer;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
   buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
+  /** Provider-free seam for the frozen Comprehensive PDF + XLSX package builder. */
+  renderComprehensiveReportPackage?: typeof renderComprehensiveReportPackage;
+  /** Persists bounded Comprehensive provider accounting before rendering and storage. */
+  persistComprehensiveInterpretationAccounting?: typeof persistComprehensiveInterpretationAccounting;
+  /** Publishes the already-built Comprehensive workbook without invoking Essential's builder. */
+  storeVerifiedRegisterWorkbook?: typeof storeVerifiedRegisterWorkbook;
   getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
   createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
   narrativeGenerator?: PremiumReportNarrativeGenerator;
@@ -93,6 +107,18 @@ export type Phase1GenerationReason =
   | 'report_persistence_failed'
   | 'phase1_schema_unavailable'
   | 'commercial_quality_failed'
+  /**
+   * Owner decision 6: the final-customer validation cascade (essential-validation-cascade.ts) is a
+   * content-acceptance gate, not a PDF renderer. These two reasons keep a confirmed content
+   * rejection and an unresolved-ambiguity hold distinguishable from each other and from a genuine
+   * `pdf_render_failed` renderer/infrastructure fault (see the render_pdf catch block below).
+   */
+  | 'essential_final_validation_rejected'
+  | 'essential_final_validation_held_for_review'
+  | 'response_scale_source_invalid'
+  | 'semantic_mapping_missing'
+  | 'question_playbook_missing'
+  | 'deterministic_advisory_invalid'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
@@ -151,7 +177,23 @@ function mapRpcFailure(error: unknown, technicalReference: string): Phase1Genera
   return new Phase1GenerationError('generation_failed', 'Report generation could not be started. Retry or use the technical reference for support.', 500, technicalReference);
 }
 
-function mapPreflightFailure(error: unknown, technicalReference: string): Phase1GenerationError {
+export function mapPreflightFailure(error: unknown, technicalReference: string): Phase1GenerationError {
+  if (isDeterministicAdvisoryError(error)) {
+    const safeMessage = error.code === 'semantic_mapping_missing'
+      ? 'The assessment semantic mappings could not be validated for report generation.'
+      : error.code === 'question_playbook_missing'
+        ? 'The assessment control guidance could not be validated for report generation.'
+        : 'The report analytical preparation could not be validated.';
+    return new Phase1GenerationError(error.code, safeMessage, 409, technicalReference);
+  }
+  if (error instanceof ResponseLabelSourceError) {
+    return new Phase1GenerationError(
+      'response_scale_source_invalid',
+      'The assessment response scale could not be validated for report generation.',
+      409,
+      technicalReference
+    );
+  }
   if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) {
     if (error.reason === 'order_not_found') {
       return new Phase1GenerationError('order_not_found', error.message, 404, technicalReference);
@@ -424,6 +466,7 @@ export async function generateManualPhase1Report(
   let finalisationCommitted = false;
   let registerStoragePath: string | null = null;
   let pdfChecksumForReconciliation: string | null = null;
+  let comprehensiveWorkbook: Awaited<ReturnType<typeof renderComprehensiveReportPackage>>['workbook'] | undefined;
   let generationStage = 'start_generation';
   try {
     // Payment confirmation queues an attempt, and under manual fulfilment nothing drains
@@ -479,7 +522,20 @@ export async function generateManualPhase1Report(
       status: block.status
     }));
     generationStage = 'build_deterministic_advisory';
-    const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    let advisoryModel: ReturnType<typeof buildAdvisoryEvidenceModel>;
+    try {
+      advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    } catch (error) {
+      // Preserve the narrowly typed source failures above. Any other failure in this deterministic
+      // preparation boundary is still fail-closed, but remains inside the closed operator vocabulary
+      // and never exposes narrative, labels or database details to the customer.
+      if (error instanceof ResponseLabelSourceError || isDeterministicAdvisoryError(error)) throw error;
+      throw new DeterministicAdvisoryError(
+        'deterministic_advisory_invalid',
+        'The deterministic advisory model could not be validated.',
+        { methodologyVersionId: assembled.scoreRun.methodologyVersionId }
+      );
+    }
     // Comprehensive is a different product with its own certified pipeline, not a variant
     // of the Essential one. It has its own bounded interpretation contracts and its own
     // renderer, so it branches here and rejoins at storage, where both tiers share the
@@ -537,16 +593,36 @@ export async function generateManualPhase1Report(
     // fallback: if the manuscript cannot be produced or validated, generation fails
     // rather than silently reopening a retired pipeline.
     let essentialNarrative: ParsedBlueprintMarkdown | undefined;
+    // Owner decision 4: carried forward into the render call below so the final-HTML validation
+    // stage can inherit already-accepted assurance sentences instead of re-adjudicating them.
+    let essentialAcceptedAssuranceSpanHashes: string[] | undefined;
+    let essentialAcceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }> | undefined;
     let comprehensivePdf: Buffer | undefined;
     if (isComprehensive) {
       // One bounded interpretation call against the certified Comprehensive pipeline.
       // Repairs are additional paid calls and are not authorised here, so a slot that
       // fails surfaces as a visible generation failure rather than more spend.
       try {
-        const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
+        const buildComprehensivePackage = dependencies.renderComprehensiveReportPackage ?? renderComprehensiveReportPackage;
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
-        const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
+        const comprehensive = await buildComprehensivePackage({
+          assembled,
+          evidenceModel: advisoryModel,
+          orderReference: input.orderReference,
+          reportReference: assembled.reportReference,
+          versionNumber,
+          onInterpretationComplete: async ({ accounting }) => {
+            const persistAccounting = dependencies.persistComprehensiveInterpretationAccounting
+              ?? persistComprehensiveInterpretationAccounting;
+            await persistAccounting({
+              db,
+              manualGenerationAttemptId: attemptId,
+              accounting
+            });
+          }
+        });
         comprehensivePdf = comprehensive.pdf;
+        comprehensiveWorkbook = comprehensive.workbook;
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
         console.info('comprehensive_manual_generation', {
           technicalReference,
@@ -561,7 +637,7 @@ export async function generateManualPhase1Report(
       }
     } else {
     try {
-      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null, requestedModel: flags.model, modelSelectionSource: flags.modelSelectionSource ?? null, configuredModelOverride: flags.configuredModelOverride ?? null, modelOverrideRejected: flags.modelOverrideRejected ?? null });
       // v1.1 whole-manuscript composition. The blueprint decides structure and order,
       // the existing validator decides acceptability, and deterministic analytics remain
       // the sole source of every number, finding, risk, control and action on the page.
@@ -569,17 +645,58 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
-        // One provider request per Generate. Tail, repair and coherence remain available
-        // globally; they simply cannot be spent silently inside an acceptance generation.
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
+        // Essential owns a bounded Mini-first attempt chain per logical stage. Tail, regeneration
+        // and coherence recovery remain disabled in acceptance mode, while technical retries and
+        // the ordered Luna/Terra/Sol fallback are fully accounted for by the writer.
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { allowTailRecovery: false }),
+        semanticReviewer: dependencies.semanticReviewer
       });
       essentialNarrative = composed.narrative;
+      essentialAcceptedAssuranceSpanHashes = composed.acceptedAssuranceSpanHashes;
+      essentialAcceptedSemanticDecisions = composed.acceptedSemanticDecisions;
       console.info('essential_manuscript_generation', {
         technicalReference, orderReference: input.orderReference, stage: 'accepted',
         model: composed.manuscript.writerMetadata?.model,
         generationId: composed.manuscript.writerMetadata?.generationId,
         totalTokens: composed.manuscript.writerMetadata?.totalTokens,
-        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1
+        manuscriptProviderCalls: composed.manuscript.writerMetadata?.manuscriptProviderCalls ?? 1,
+        semanticReviewProviderCalls: composed.manuscript.writerMetadata?.semanticReviewProviderCalls ?? 0,
+        totalProviderCalls: composed.manuscript.writerMetadata?.totalProviderCalls ?? composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1,
+        requestedModel: flags.model,
+        primaryModel: composed.manuscript.writerMetadata?.primaryModel ?? 'openai/gpt-5-mini',
+        modelSelectionSource: flags.modelSelectionSource ?? composed.manuscript.writerMetadata?.modelSelectionSource,
+        configuredModelOverride: flags.configuredModelOverride ?? composed.manuscript.writerMetadata?.configuredModelOverride,
+        modelOverrideRejected: flags.modelOverrideRejected ?? composed.manuscript.writerMetadata?.modelOverrideRejected,
+        totalMiniAttempts: composed.manuscript.writerMetadata?.totalMiniAttempts,
+        totalFallbackAttempts: composed.manuscript.writerMetadata?.totalFallbackAttempts,
+        totalPhysicalProviderRequests: composed.manuscript.writerMetadata?.totalPhysicalProviderRequests,
+        totalGenerationCostMicros: composed.manuscript.writerMetadata?.totalGenerationCostMicros,
+        manuscriptInputTokens: composed.manuscript.writerMetadata?.manuscriptInputTokens,
+        manuscriptOutputTokens: composed.manuscript.writerMetadata?.manuscriptOutputTokens,
+        manuscriptTotalTokens: composed.manuscript.writerMetadata?.manuscriptTotalTokens,
+        manuscriptProviderCostMicros: composed.manuscript.writerMetadata?.manuscriptProviderCostMicros,
+        semanticReviewBlockCount: composed.manuscript.writerMetadata?.semanticReviewBlockCount,
+        semanticReviewCandidateCount: composed.manuscript.writerMetadata?.semanticReviewCandidateCount,
+        semanticReviewAllowCount: composed.manuscript.writerMetadata?.semanticReviewAllowCount,
+        semanticReviewRepairCount: composed.manuscript.writerMetadata?.semanticReviewRepairCount,
+        semanticReviewRejectCount: composed.manuscript.writerMetadata?.semanticReviewRejectCount,
+        semanticReviewHoldCount: composed.manuscript.writerMetadata?.semanticReviewHoldCount,
+        semanticReviewInputTokens: composed.manuscript.writerMetadata?.semanticReviewInputTokens,
+        semanticReviewOutputTokens: composed.manuscript.writerMetadata?.semanticReviewOutputTokens,
+        semanticReviewReasoningTokens: composed.manuscript.writerMetadata?.semanticReviewReasoningTokens,
+        semanticReviewVisibleOutputTokens: composed.manuscript.writerMetadata?.semanticReviewVisibleOutputTokens,
+        semanticReviewTotalTokens: composed.manuscript.writerMetadata?.semanticReviewTotalTokens,
+        semanticReviewProviderCostMicros: composed.manuscript.writerMetadata?.semanticReviewProviderCostMicros,
+        semanticReviewProvider: composed.manuscript.writerMetadata?.semanticReviewProvider,
+        semanticReviewModel: composed.manuscript.writerMetadata?.semanticReviewModel,
+        semanticReviewDispatchOccurred: composed.manuscript.writerMetadata?.semanticReviewDispatchOccurred,
+        semanticReviewGenerationId: composed.manuscript.writerMetadata?.semanticReviewGenerationId,
+        semanticReviewResponseId: composed.manuscript.writerMetadata?.semanticReviewResponseId,
+        semanticReviewElapsedMs: composed.manuscript.writerMetadata?.semanticReviewElapsedMs,
+        semanticReviewFinishReason: composed.manuscript.writerMetadata?.semanticReviewFinishReason,
+        semanticReviewProviderFinishReason: composed.manuscript.writerMetadata?.semanticReviewProviderFinishReason,
+        semanticReviewResponseSchemaValid: composed.manuscript.writerMetadata?.semanticReviewResponseSchemaValid,
+        semanticReviewFailureCode: composed.manuscript.writerMetadata?.semanticReviewFailureCode
       });
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {
@@ -632,7 +749,9 @@ export async function generateManualPhase1Report(
         content: deterministicContent,
         narrative: essentialNarrative,
         roadmap,
-        evidenceModel: reportEvidenceModel
+        evidenceModel: reportEvidenceModel,
+        carryForwardAssuranceSpanHashes: essentialAcceptedAssuranceSpanHashes,
+        carryForwardSemanticDecisions: essentialAcceptedSemanticDecisions
       });
       logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {
@@ -646,6 +765,32 @@ export async function generateManualPhase1Report(
         });
         await recordQualityDiagnostics(db, attemptId, error);
         throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      if (error instanceof EssentialValidationCascadeError) {
+        // Owner decision 6, and the concrete root cause of the Bokamoso order MKORD-2026-4790A29D
+        // symptom: before this fix, an EssentialValidationCascadeError thrown by the final-HTML
+        // acceptance gate (essential-validation-cascade.ts, invoked inside
+        // renderValidatedCommercialPdf/-WithNavigation above) fell through to the generic branch
+        // below and was reported as "The PDF renderer failed" -- a content-acceptance rejection
+        // hidden behind a misleading infrastructure-failure message. A confirmed violation and an
+        // unresolved held-for-review candidate are surfaced here under their own reasons instead,
+        // and neither is ever treated as, or reported as, a successful render.
+        const heldForReview = error.result.heldForReviewCodes.length > 0;
+        console.error('essential_final_validation_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          blockingCodes: error.result.blockingCodes,
+          heldForReviewCodes: error.result.heldForReviewCodes,
+          disposition: heldForReview ? 'held_for_review' : 'rejected'
+        });
+        throw new Phase1GenerationError(
+          heldForReview ? 'essential_final_validation_held_for_review' : 'essential_final_validation_rejected',
+          heldForReview
+            ? 'The report requires review before it can be published. Inspect the technical reference.'
+            : 'The report content did not pass final validation. Inspect the technical reference.',
+          422,
+          technicalReference
+        );
       }
       if (error instanceof Phase1GenerationError) throw error;
       console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'render', error: messageOf(error) });
@@ -676,18 +821,27 @@ export async function generateManualPhase1Report(
 
     // Both physical artefacts must exist and be verified before anything becomes customer-final.
     generationStage = 'store_supporting_register';
-    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
-    const storedRegister = await storeSupportingRegister({
-      db,
-      data: assembled,
-      model: reportEvidenceModel,
-      projection: essentialProjection,
-      storageBucket,
-      organisationId: assembled.organisationId,
-      orderId: assembled.orderId,
-      versionNumber,
-      verifyStoredObject: verifyPrivateObject
-    });
+    const storedRegister = isComprehensive
+      ? await (dependencies.storeVerifiedRegisterWorkbook ?? storeVerifiedRegisterWorkbook)({
+        db,
+        workbook: comprehensiveWorkbook!,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      })
+      : await (dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister)({
+        db,
+        data: assembled,
+        model: reportEvidenceModel,
+        projection: essentialProjection,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      });
     registerUploaded = true;
     registerStoragePath = storedRegister.storagePath;
     console.info('supporting_register', {
@@ -704,8 +858,7 @@ export async function generateManualPhase1Report(
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
     finalisationInvoked = true;
-    const { data: completed, error: completeError } = await db.rpc(
-      'finalise_manual_report_with_supporting_register', {
+    const finaliseArguments = {
       p_attempt_id: attemptId,
       p_template_id: template.id,
       p_report_type: reportType,
@@ -720,7 +873,10 @@ export async function generateManualPhase1Report(
       p_register_mime_type: storedRegister.mimeType,
       p_register_file_size_bytes: storedRegister.fileSizeBytes,
       p_register_checksum: storedRegister.checksumSha256
-    });
+    };
+    const { data: completed, error: completeError } = isComprehensive
+      ? await db.rpc('finalise_comprehensive_report_package', finaliseArguments)
+      : await db.rpc('finalise_manual_report_with_supporting_register', finaliseArguments);
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
       // (report_persistence_failed / "verified PDF could not be linked")
@@ -765,9 +921,19 @@ export async function generateManualPhase1Report(
       message: `Report version ${completed.report.version_number} generated and verified successfully.`
     };
   } catch (error) {
+    if (isDeterministicAdvisoryError(error)) {
+      console.error('deterministic_advisory_failure', {
+        technicalReference,
+        code: error.code,
+        questionCode: error.questionCode ?? null,
+        methodologyVersionId: error.methodologyVersionId ?? null
+      });
+    }
     const mapped = error instanceof Phase1GenerationError
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
-      : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
+      : isDeterministicAdvisoryError(error)
+        ? mapPreflightFailure(error, technicalReference)
+        : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
     // Cleanup is only ever safe BEFORE the authoritative finalisation commits. After it, both the
     // PDF and the register are committed customer artefacts referenced by authoritative database
     // state, and no generation-failure path -- logging, audit, or anything else -- may delete them.

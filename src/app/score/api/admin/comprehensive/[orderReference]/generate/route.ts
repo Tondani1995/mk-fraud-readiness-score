@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
+import { isAutomatedComprehensiveOrder, AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED } from '@/lib/commercial/legacy-comprehensive-admin-route';
 import { generateComprehensivePackage } from '@/lib/comprehensive/generation-service';
 
 export const runtime = 'nodejs';
@@ -13,6 +14,7 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
   if (frozen) return frozen;
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+  if (await isAutomatedComprehensiveOrder(params.orderReference)) return NextResponse.json({ ok: false, reason: AUTOMATED_COMPREHENSIVE_ROUTE_RETIRED }, { status: 410, headers: { 'Cache-Control': 'no-store' } });
   let presentation;
   const contentType = request.headers.get('content-type') ?? '';
   if (contentType.includes('multipart/form-data')) {

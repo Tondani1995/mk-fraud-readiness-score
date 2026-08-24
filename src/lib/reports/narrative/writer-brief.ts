@@ -206,7 +206,10 @@ const familyLabels: Record<string, string> = {
   EVIDENCE_INTEGRITY: 'Evidence integrity',
   WHISTLEBLOWING: 'Protected reporting',
   FRAUD_AWARENESS: 'Fraud awareness',
-  CONTINUOUS_IMPROVEMENT: 'Continuous improvement'
+  CONTINUOUS_IMPROVEMENT: 'Continuous improvement',
+  PAYROLL_INTEGRITY: 'Payroll integrity',
+  CASH_CUSTODY: 'Cash custody and reconciliation',
+  STOCK_ASSET_CUSTODY: 'Stock and physical-asset integrity'
 };
 
 const pathwayLabels: Record<string, string> = {
@@ -214,7 +217,10 @@ const pathwayLabels: Record<string, string> = {
   PRIVILEGED_ACCESS_MISUSE: 'Privileged access misuse',
   IDENTITY_IMPERSONATION: 'Identity impersonation',
   DETECTION_EVASION: 'Detection evasion',
-  INCIDENT_CONCEALMENT: 'Incident containment and evidence integrity'
+  INCIDENT_CONCEALMENT: 'Incident containment and evidence integrity',
+  PAYROLL_MANIPULATION: 'Payroll master-file manipulation',
+  CASH_CUSTODY_MISUSE: 'Cash custody misuse',
+  STOCK_ASSET_MISUSE: 'Stock and physical-asset misuse'
 };
 
 const decisionLabels: Record<string, string> = {
@@ -225,6 +231,9 @@ const decisionLabels: Record<string, string> = {
   INCIDENT_AND_EVIDENCE_MODEL: 'Incident and evidence model',
   SUPPLIER_VERIFICATION_MODEL: 'Supplier verification model',
   CONTROL_EFFECTIVENESS_CADENCE: 'Control-effectiveness cadence',
+  PAYROLL_INTEGRITY_MODEL: 'Payroll integrity model',
+  CASH_CUSTODY_MODEL: 'Cash custody model',
+  STOCK_ASSET_CUSTODY_MODEL: 'Stock and physical-asset custody model',
   accountable_executive_mandate: 'Accountable executive ownership',
   risk_acceptance_or_remediation: 'Risk treatment',
   control_design_standard: 'Target control standard',

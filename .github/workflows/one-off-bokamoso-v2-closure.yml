@@ -1,0 +1,129 @@
+name: One-off Bokamoso V2 commercial closure
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Decide whether this is the one-off trigger
+        id: guard
+        shell: bash
+        run: |
+          subject="$(git log -1 --pretty=%s)"
+          if [ "$subject" = "Apply Bokamoso V2 closure" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: npm ci
+
+      - name: Apply bounded commercial corrections
+        if: steps.guard.outputs.run == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one anchor, found {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          template = 'src/lib/reports/templates/report-template.ts'
+          replace_once(
+              template,
+              "function customerFindingWhyItMatters(value: string): string {\n  return value\n    .replace(\n      /This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\\./gi,\n      'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.'\n    )\n    .replace(\n      /This recorded weakness affects a methodology critical control and warrants priority treatment\\./gi,\n      'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'\n    );\n}",
+              "function customerFindingWhyItMatters(finding: AdvisoryEvidenceModel['materialFindings'][number]): string {\n  if (finding.maturityCapStatus === 'capping' || finding.materialityClass === 'maturity_constraint') {\n    return 'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.';\n  }\n  if (finding.isHardGate) {\n    return 'This is a hard-gate control weakness under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.';\n  }\n  return finding.whyItMatters.replace(\n    /This recorded weakness affects a methodology critical control and warrants priority treatment\\./gi,\n    'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'\n  );\n}",
+              'finding why-it-matters semantics'
+          )
+          replace_once(template, "customerFindingWhyItMatters(finding.whyItMatters)", "customerFindingWhyItMatters(finding)", 'finding card call')
+          replace_once(template, "['Domain', 'Weight', 'Score', 'Controls in scope', 'Recorded absent']", "['Domain', 'Weight', 'Score', 'Controls in scope', 'Partially designed or below']", 'systemic domain header')
+          replace_once(
+              template,
+              'This assessment records an absence of foundational fraud controls across ${systemic.domainsFailing} of ${systemic.domainsScored} assessed domains, covering ${Math.round(systemic.failedShare * 100)}% of the applicable controls.',
+              'This assessment records foundational fraud controls at Partially designed or below across ${systemic.domainsFailing} of ${systemic.domainsScored} assessed domains, covering ${Math.round(systemic.failedShare * 100)}% of the applicable controls.',
+              'systemic summary wording'
+          )
+          replace_once(template, '.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }', '.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; break-inside: avoid; page-break-inside: avoid; }', 'metric grid pagination')
+
+          registers = 'src/lib/reports/evidence-model/registers.ts'
+          replace_once(
+              registers,
+              "  const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/[.]$/, '')));\n  const shown = prompts.slice(0, 2);\n  const remainder = prompts.length - shown.length;\n  const tail = remainder > 0 ? `, together with ${remainder} further linked control${remainder === 1 ? '' : 's'}` : '';\n  return `Whether the ${lowerFirst(name)} provides operating evidence that ${shown.join('; ')}${tail} is implemented across the complete in-scope population.`;",
+              "  const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/[.]$/, '')));\n  const shown = prompts.slice(0, 2).map(lowerFirst);\n  const remainder = prompts.length - shown.length;\n  const tail = remainder > 0 ? `, with ${remainder} further linked control${remainder === 1 ? '' : 's'} also evidenced` : '';\n  return `Whether operating evidence in the ${lowerFirst(name)} demonstrates that ${shown.join('; ')} across the complete in-scope population${tail}.`;",
+              'evidence proof fallback grammar'
+          )
+
+          playbooks = 'src/lib/reports/evidence-model/question-playbooks.ts'
+          replace_once(
+              playbooks,
+              "    fraudMechanism: 'Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.',",
+              "    fraudMechanism: 'Suspicious patterns and structured schemes may not be consistently surfaced for review or escalation where data-driven detection is not defined and operated reliably.',",
+              'D4-Q03 unsupported absolute risk claim'
+          )
+
+          diagnostics = '.github/workflows/essential-provider-diagnostics.yml'
+          replace_once(
+              diagnostics,
+              "      - name: Prove Essential V9 second-opinion closure provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs\n\n      - name: Run provider-free Comprehensive customer-visible regressions",
+              "      - name: Prove Essential V9 second-opinion closure provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs\n\n      - name: Prove Bokamoso V2 commercial closure provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-bokamoso-v2-closure-regression.mjs\n\n      - name: Run provider-free Comprehensive customer-visible regressions",
+              'provider-free workflow regression step'
+          )
+
+          regression = Path('scripts/commercial-quality/essential-bokamoso-v2-closure-regression.mjs')
+          regression.write_text("""import assert from 'node:assert/strict';\nimport test from 'node:test';\nimport fs from 'node:fs';\n\nconst template = fs.readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');\nconst registers = fs.readFileSync('src/lib/reports/evidence-model/registers.ts', 'utf8');\nconst playbooks = fs.readFileSync('src/lib/reports/evidence-model/question-playbooks.ts', 'utf8');\n\ntest('systemic domain summary does not call partially designed controls absent', () => {\n  assert.doesNotMatch(template, /Recorded absent/);\n  assert.doesNotMatch(template, /records an absence of foundational fraud controls/);\n  assert.match(template, /Partially designed or below/);\n});\n\ntest('finding classification and why-it-matters semantics agree', () => {\n  assert.match(template, /finding\.maturityCapStatus === 'capping'/);\n  assert.match(template, /This is a hard-gate control weakness under the MK methodology/);\n  assert.match(template, /customerFindingWhyItMatters\(finding\)/);\n});\n\ntest('proof-purpose fallback is grammatical and artefact-number neutral', () => {\n  assert.match(registers, /Whether operating evidence in the/);\n  assert.match(registers, /demonstrates that/);\n  assert.doesNotMatch(registers, /provides operating evidence that \$\{shown\.join/);\n});\n\ntest('D4-Q03 does not invent transaction-volume coverage facts', () => {\n  assert.doesNotMatch(playbooks, /Manual review cannot cover transaction volume/);\n  assert.doesNotMatch(playbooks, /majority of activity is never examined/);\n  assert.match(playbooks, /Suspicious patterns and structured schemes may not be consistently surfaced/);\n});\n\ntest('executive metric grids cannot split across pages', () => {\n  assert.match(template, /\.metric-grid \{[^}]*break-inside: avoid;[^}]*page-break-inside: avoid;/);\n});\n""")
+          PY
+          git diff --check
+
+      - name: Prove bounded corrections provider-free
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          npx tsx --test scripts/commercial-quality/essential-bokamoso-v2-closure-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npm run typecheck
+
+      - name: Commit proven correction and remove one-off harness
+        if: steps.guard.outputs.run == 'true'
+        shell: bash
+        run: |
+          git rm .github/workflows/one-off-bokamoso-v2-closure.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/reports/templates/report-template.ts \
+            src/lib/reports/evidence-model/registers.ts \
+            src/lib/reports/evidence-model/question-playbooks.ts \
+            scripts/commercial-quality/essential-bokamoso-v2-closure-regression.mjs \
+            .github/workflows/essential-provider-diagnostics.yml
+          git commit -m "Close Bokamoso V2 commercial defects"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality

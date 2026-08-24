@@ -1,10 +1,12 @@
 import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { submitAssessment } from '@/lib/respondent/assessment-save';
 import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreSubmittedAssessment } from '@/lib/scoring/score-assessment';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
+import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
+import { queueSnapshotNarrative } from '@/lib/snapshot/narrative';
 import { getOptionalServerEnv } from '@/lib/env/server';
 
 function normaliseScoreBase(value: string) {
@@ -65,6 +67,8 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
   if (!snapshot) {
     return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the free snapshot could not be loaded from the persisted score run.'], assessmentReference: submitted.assessmentReference, scoreRunId: scored.scoreRunId, progress: submitted.progress }, { status: 500 });
   }
+
+  after(() => queueSnapshotNarrative({ snapshot, insights: buildCommercialSnapshotInsights(snapshot) }).catch(() => null));
 
   const requestHeaders = await headers();
   const snapshotToken = await createSnapshotTokenForAssessment({

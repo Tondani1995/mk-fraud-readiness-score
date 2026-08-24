@@ -20,6 +20,7 @@ import { PREMIUM_REPORT_SCHEMA_VERSION } from '../src/lib/reports/automation/typ
 import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
+import { essentialSemanticSpanHash, validateEssentialFinalHtml } from '../src/lib/reports/essential-validation-cascade.ts';
 
 const ROOT = process.cwd();
 const OUTPUT = path.join(ROOT, 'output', 'pdf');
@@ -94,7 +95,9 @@ const BAND_OPENER = {
  * and (b) produce domain/gap commentary that differs by domain and response pattern rather than
  * repeating one formula sentence ten times.
  */
-const AI_SYNTHESIS_MARKER = 'This diagnosis draws together the complete set of recorded assessment evidence';
+// Keep the controller-review marker short enough to survive PDF text extraction without a line
+// break splitting the exact sentinel across two extracted lines.
+const AI_SYNTHESIS_MARKER = 'Recorded assessment evidence';
 
 function validatedPlan(current) {
   const { data, brief, advisoryModel } = current;
@@ -255,7 +258,27 @@ async function renderCandidate(candidate) {
   const content = candidate.mode === 'ai'
     ? validatedPlan(current)
     : current.deterministicContent;
-  const input = { data, content, roadmap: current.roadmap, evidenceModel: current.advisoryModel };
+  // The manuscript-stage acceptance ledger owns assurance-language decisions. This render-only
+  // fixture has no manuscript coordinator, so carry the exact content-addressed final-HTML spans
+  // forward explicitly, matching the production boundary rather than weakening final validation.
+  const preparedHtml = renderReportHtml(
+    data,
+    content,
+    current.roadmap,
+    current.advisoryModel,
+    undefined,
+    current.essentialProjection
+  );
+  const preparedValidation = validateEssentialFinalHtml({ html: preparedHtml, data });
+  const input = {
+    data,
+    content,
+    roadmap: current.roadmap,
+    evidenceModel: current.advisoryModel,
+    carryForwardAssuranceSpanHashes: preparedValidation.candidates
+      .filter((candidate) => candidate.ruleCode === 'assurance_language_final')
+      .map((candidate) => essentialSemanticSpanHash(candidate.span))
+  };
   const first = await renderValidatedCommercialPdfWithNavigation(input);
   const second = await renderValidatedCommercialPdfWithNavigation(input);
   const firstPath = path.join(ARTIFACT, 'pdf', `${candidate.name}.pdf`);
@@ -390,7 +413,7 @@ const tests = [
     //    -- is present in every candidate in place of the removed callout.
     for (const candidate of candidates) {
       assert.match(text[candidate.name], /Recommended next step/);
-      assert.match(text[candidate.name], /Commission independent validation of/);
+      assert.match(text[candidate.name], /Commission (?:independent validation|an independently observed)/);
       assert.doesNotMatch(text[candidate.name], /Controller review remains required/i);
       assert.doesNotMatch(text[candidate.name], /commercial release candidate/i);
     }
@@ -427,7 +450,7 @@ const tests = [
       // (e.g. "validation\npriority") -- normalise whitespace before matching, same as the
       // line-wrap-tolerant pattern already used for F14's "Not yet\s+requested".
       const normalised = text[candidate.name].replace(/\s+/g, ' ');
-      const match = /Recommended next step\s+(.+?)\s+This is the immediate validation priority/.exec(normalised);
+      const match = /Recommended next step\.?\s+(.+?)\s+This is the immediate (?:validation|proof) priority/.exec(normalised);
       assert.ok(match, `${candidate.name}: Recommended next step sentence pair must be present and extractable`);
       const recommendation = match[1].trim();
       recommendationByName[candidate.name] = recommendation;

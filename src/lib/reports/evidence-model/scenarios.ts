@@ -74,6 +74,26 @@ const SCENARIO_MECHANISMS: Record<string, { rank: number; title: string; entryPo
     rank: 4,
     title: 'Concerns go unreported or are routed to an implicated party',
     entryPoint: 'A concern raised through a channel that an implicated manager can see, influence or close.'
+  },
+  payroll_master_file_manipulation: {
+    rank: 8,
+    title: 'Payroll master-file manipulation reaches a payment run',
+    entryPoint: 'A bank, pay-rate, joiner or leaver change, duplicate or unusual payroll record before payment release.'
+  },
+  cash_custody_shortage_or_overage: {
+    rank: 7,
+    title: 'Cash custody difference remains unresolved',
+    entryPoint: 'A cash count, banking or reconciliation difference at a site or cash point.'
+  },
+  stock_asset_shrinkage_or_adjustment: {
+    rank: 7,
+    title: 'Stock or physical-asset movement is not reconciled',
+    entryPoint: 'A stock movement, count difference, write-off or disposal without complete custody evidence.'
+  },
+  external_fraud_monitoring_gap: {
+    rank: 6,
+    title: 'External-party fraud signal is not connected to timely review',
+    entryPoint: 'A customer, supplier, partner or provider-operated channel produces an external-fraud signal.'
   }
 };
 

@@ -9,7 +9,7 @@ import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
-import { buildSnapshotNarrative } from '@/lib/snapshot/narrative';
+import { deterministicSnapshotNarrative, loadCachedSnapshotNarrative } from '@/lib/snapshot/narrative';
 
 type SnapshotPageProps = {
   params: Promise<{ assessmentRef: string }>;
@@ -117,7 +117,11 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
   const requestOrigin = requestOriginFor(requestHeaders);
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
-  const snapshotNarrative = await buildSnapshotNarrative({ snapshot, insights: commercialInsights });
+  // The page never calls a provider. A newly completed assessment gets its single Mini enrichment
+  // after submission; reopen/refresh reads the immutable cache and otherwise renders the strong
+  // deterministic fallback immediately.
+  const snapshotNarrative = await loadCachedSnapshotNarrative(snapshot)
+    ?? deterministicSnapshotNarrative(snapshot, commercialInsights, 'snapshot_enrichment_pending');
 
   return (
     <SectionShell className="py-12">

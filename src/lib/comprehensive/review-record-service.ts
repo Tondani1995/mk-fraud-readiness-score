@@ -1,3 +1,4 @@
+/** LEGACY / ADVISORY-ONLY: persisted reviewer records are outside automated Comprehensive. */
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminRole } from '@/lib/types/domain';
 import type { PersistedComprehensiveReviewRecordRow } from '@/lib/advisory/persisted-review-adapter';

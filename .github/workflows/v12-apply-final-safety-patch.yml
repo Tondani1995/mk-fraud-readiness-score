@@ -1,0 +1,65 @@
+name: V1.2 Apply Final Bounded Safety Patch
+on:
+  push:
+    branches: [qa/v12-essential-five-layer-proof-20260823]
+    paths: [.github/workflows/v12-apply-final-safety-patch.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Patch four bounded files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('src/lib/reports/narrative/assurance-adjudication.ts'); s=p.read_text()
+          a="const EXPLICIT_LIMITATION = /\\b(?:does not|do not|did not|has not|have not|not|without)\\b[^.!?]{0,80}\\b(?:independent(?:ly)?\\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\\b/i;"
+          b=a+"\nconst RATHER_THAN_ASSURANCE_LIMITATION = /\\brather than\\b[^.!?]{0,80}\\b(?:independent(?:ly)?\\s+(?:verification|verify|verified|review|reviewed|assurance)|operating effectiveness)\\b/i;"
+          assert a in s and 'RATHER_THAN_ASSURANCE_LIMITATION' not in s
+          s=s.replace(a,b,1)
+          a="  const limitation = value.match(EXPLICIT_LIMITATION)\n    ?? value.match(NEITHER_ASSURANCE_LIMITATION)"
+          b="  const limitation = value.match(EXPLICIT_LIMITATION)\n    ?? value.match(RATHER_THAN_ASSURANCE_LIMITATION)\n    ?? value.match(NEITHER_ASSURANCE_LIMITATION)"
+          assert a in s
+          p.write_text(s.replace(a,b,1))
+
+          p=Path('src/lib/reports/narrative/assurance-corpus.ts'); s=p.read_text()
+          a="  { id: 'allow-limitation-09', text: 'This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.', source: 'vhutshilo-customer-1-final-template-incident-2026-08-20', expectCandidate: true },"
+          b=a+"\n  { id: 'allow-limitation-10', text: 'The assessment reflects management’s own responses and the MK scoring method rather than independent verification of operating effectiveness.', source: 'siyakhula-v1.2-final-html-incident-2026-08-23', expectCandidate: true },"
+          assert a in s and 'allow-limitation-10' not in s
+          p.write_text(s.replace(a,b,1))
+
+          p=Path('src/lib/reports/essential-commercial-output-closure.ts'); s=p.read_text()
+          a="  closed = closed\n    .replace(/Evidence mapped to G28-?D\\d+-Q\\d+/gi, 'Evidence mapped to the named risk and value population')"
+          b="  const customerDomainNames: Record<string, string> = {\n    D1: 'Fraud Leadership and Governance', D2: 'Fraud Risk Identification', D3: 'Operational Fraud Controls',\n    D4: 'Fraud Detection Capability', D5: 'Third-Party and Supply Chain Fraud Risk', D6: 'Fraud Culture and Awareness',\n    D7: 'Fraud Incident Response', D8: 'Digital and Identity Fraud Risk', D9: 'Whistleblowing and Reporting Culture',\n    D10: 'Continuous Improvement and Fraud Risk Monitoring'\n  };\n  closed = closed\n    .replace(/\\s*\\((?:D(?:10|[1-9])(?:\\s*,\\s*D(?:10|[1-9]))*)\\)/g, '')\n    .replace(/\\bD(?:10|[1-9])\\b/g, (code) => customerDomainNames[code] ?? code);\n\n  closed = closed\n    .replace(/Evidence mapped to G28-?D\\d+-Q\\d+/gi, 'Evidence mapped to the named risk and value population')"
+          assert a in s and 'customerDomainNames' not in s
+          p.write_text(s.replace(a,b,1))
+
+          p=Path('src/app/score/api/qa/v12-essential-safety-proof/route.ts'); s=p.read_text()
+          a="  const unsafeAllow = run(\n    'This report provides independent assurance that the controls are effective.',\n    'ALLOW',\n    'grounded'\n  );"
+          b=a+"\n  const ratherThanLimitation = run(\n    'The assessment reflects management’s own responses and the MK scoring method rather than independent verification of operating effectiveness.',\n    'ALLOW',\n    'grounded'\n  );"
+          assert a in s and 'ratherThanLimitation' not in s
+          s=s.replace(a,b,1)
+          a="    && unsafeAllow.finalDisposition === 'REJECT'"
+          b=a+"\n    && ratherThanLimitation.publishable === true\n    && ratherThanLimitation.finalDisposition === 'ACCEPT'"
+          assert a in s
+          s=s.replace(a,b,1)
+          a="    unsafeReviewerAllow: unsafeAllow,"
+          b=a+"\n    ratherThanAssuranceLimitation: ratherThanLimitation,"
+          assert a in s
+          p.write_text(s.replace(a,b,1))
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'MK V1.2 QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/lib/reports/narrative/assurance-adjudication.ts src/lib/reports/narrative/assurance-corpus.ts src/lib/reports/essential-commercial-output-closure.ts src/app/score/api/qa/v12-essential-safety-proof/route.ts
+          git commit -m 'fix: close V1.2 negated-assurance and domain-code gaps'
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823

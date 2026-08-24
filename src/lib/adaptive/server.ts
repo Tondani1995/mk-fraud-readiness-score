@@ -4,6 +4,7 @@ import { hashAssessmentToken } from '@/lib/security/hash';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { parseStartAssessmentInput, type StartAssessmentInput } from '@/lib/respondent/validation';
 import {
+  isSupportedAdaptiveGraph,
   PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT,
   PREVIEW_ADAPTIVE_GRAPH_VERSION,
   PREVIEW_STAGING_PROJECT_REF,
@@ -100,7 +101,13 @@ async function loadAdaptiveByToken(assessmentReference: string, rawToken: string
     .eq('id', token.assessment_id).eq('assessment_reference', assessmentReference).maybeSingle();
   if (assessmentError || !assessment) throw new Error('adaptive_assessment_not_found');
   if (assessment.assessment_mode !== 'adaptive') throw new Error('adaptive_mode_required');
-  if (!assessment.graph_version_id || assessment.graph_version_snapshot !== PREVIEW_ADAPTIVE_GRAPH_VERSION || assessment.graph_fingerprint_snapshot !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) throw new Error('adaptive_graph_pin_invalid');
+  if (!assessment.graph_version_id || !isSupportedAdaptiveGraph(assessment.graph_version_snapshot, assessment.graph_fingerprint_snapshot)) throw new Error('adaptive_graph_pin_invalid');
+  const { data: graphPin, error: graphPinError } = await db.from('adaptive_graph_versions')
+    .select('graph_version,graph_fingerprint,status')
+    .eq('id', assessment.graph_version_id).maybeSingle();
+  if (graphPinError || !graphPin || graphPin.status === 'retired'
+    || graphPin.graph_version !== assessment.graph_version_snapshot
+    || graphPin.graph_fingerprint !== assessment.graph_fingerprint_snapshot) throw new Error('adaptive_graph_pin_invalid');
   const [{ data: organisation }, { data: respondent }] = await Promise.all([
     db.from('organisations').select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band').eq('id', assessment.organisation_id).maybeSingle(),
     assessment.primary_respondent_id ? db.from('respondents').select('id,full_name,email,role_title').eq('id', assessment.primary_respondent_id).maybeSingle() : Promise.resolve({ data: null })
@@ -138,6 +145,9 @@ function publicState(input: Awaited<ReturnType<typeof loadState>>) {
   return {
     graphVersion: input.graph.graphVersion,
     graphFingerprint: input.graph.graphFingerprint,
+    // The customer client uses the exact pinned graph for local optimistic routing.
+    // This is routing metadata only; scoring and submission remain server-authoritative.
+    routingGraph: input.graph,
     responseScale: input.graph.responseScale,
     gateways: input.graph.gateways,
     navigation: input.navigation,
@@ -244,7 +254,9 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
     return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   }
   const current = await loadState(access.db, access.assessment);
-  const missingGateways = current.graph.gateways.filter((gateway) => !current.gatewayAnswers[gateway.questionId]).map((gateway) => gateway.questionId);
+  const missingGateways = current.path.nodes
+    .filter((node) => node.kind === 'gateway' && node.state === 'active' && !current.gatewayAnswers[node.nodeId])
+    .map((node) => node.nodeId);
   const signals = deriveAdaptiveIntegritySignals({ graph: current.graph, path: current.path, navigation: current.navigation, gatewayAnswers: current.gatewayAnswers });
   const errors = missingGateways.length ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`] : [];
   if (current.path.unansweredApplicableCount > 0) errors.push(`Complete the remaining applicable controls (${current.path.unansweredApplicableCount}).`);

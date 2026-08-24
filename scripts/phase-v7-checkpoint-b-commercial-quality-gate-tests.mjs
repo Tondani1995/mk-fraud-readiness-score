@@ -20,9 +20,14 @@ import {
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
+import { adaptEssentialEvidenceModel } from '../src/lib/reports/essential-presentation-adaptation.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
 import { gapKey } from '../src/lib/reports/select-content-blocks.ts';
 import { generateManualPhase1Report, Phase1GenerationError } from '../src/lib/reports/phase1-manual-fulfilment.ts';
+import { buildBlueprintMarkdownSkeleton } from '../src/lib/reports/narrative/blueprint-text.ts';
+import { emptyNarrativeRecoveryBudget } from '../src/lib/reports/narrative/recovery-policy.ts';
+import { essentialSemanticSpanHash, validateEssentialFinalHtml } from '../src/lib/reports/essential-validation-cascade.ts';
 import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org-fixture.ts';
 import { officialResponseLabelsFixture } from '../src/lib/reports/evidence-model/__fixtures__/official-response-labels.ts';
 
@@ -90,12 +95,12 @@ function buildCommerciallyViolatingFixture() {
     officialResponseLabels: officialResponseLabelsFixture,
     exposureAnswers: [],
     criticalMajorGaps: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
+      questionCode: 'D1-Q01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
       prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1,
       isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
     }],
     questionTraces: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
+      questionCode: 'D1-Q01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
       prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1, normalisedScore: 20,
       applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
     }],
@@ -133,6 +138,37 @@ function emptySelectedContentFor(data) {
  * rendered-content/rendered-roadmap checks (validateRenderedContent/validateRenderedRoadmap).
  * "Passing" is verified by actually running the gate below (test 0), not assumed.
  */
+function essentialEvidenceModelFor(data) {
+  return adaptEssentialEvidenceModel(buildAdvisoryEvidenceModel(data), data.adaptiveGatewayAnswers);
+}
+
+function essentialProjectionFor(data, evidenceModel = essentialEvidenceModelFor(data)) {
+  return buildEssentialProjection(data, evidenceModel);
+}
+
+function essentialRoadmapFor(data) {
+  return adaptAdvisoryRoadmapToLegacyAgenda(essentialProjectionFor(data).roadmapActions);
+}
+
+function providerFreeRenderInput(data, content, roadmap) {
+  const evidenceModel = essentialEvidenceModelFor(data);
+  const projection = essentialProjectionFor(data, evidenceModel);
+  // The final HTML contains deterministic assurance-boundary sentences. In production these are
+  // carried through from the accepted manuscript-stage decision ledger; this provider-free test
+  // supplies the same exact, content-addressed identities without invoking a provider.
+  const html = renderReportHtml(data, content, roadmap, evidenceModel, undefined, projection);
+  const finalValidation = validateEssentialFinalHtml({ html, data });
+  return {
+    data,
+    content,
+    roadmap,
+    evidenceModel,
+    carryForwardAssuranceSpanHashes: finalValidation.candidates
+      .filter((candidate) => candidate.ruleCode === 'assurance_language_final')
+      .map((candidate) => essentialSemanticSpanHash(candidate.span))
+  };
+}
+
 function buildCommerciallyPassingFixture() {
   const src = syntheticOrgFixture;
   const domainResults = src.domainResults.map((d, i) => ({
@@ -206,7 +242,7 @@ function buildCommerciallyPassingFixture() {
     gapCommentary
   };
 
-  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(data).roadmapActions);
+  const roadmap = essentialRoadmapFor(data);
 
   return { data, content, roadmap };
 }
@@ -238,7 +274,7 @@ function buildWarningsOnlyPayload() {
   return {
     data: warningData,
     content,
-    roadmap: adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(warningData).roadmapActions)
+    roadmap: essentialRoadmapFor(warningData)
   };
 }
 
@@ -385,6 +421,84 @@ async function fakePrepareNarrative(input) {
   };
 }
 
+// The production Essential lane is now the v1.1 whole-manuscript coordinator. These lifecycle
+// tests stay provider-free by injecting a complete, blueprint-bound manuscript and an explicit
+// ALLOW result for every provider-authored block; the test remains about the real claim/render/
+// upload/verify/finalise orchestration rather than reopening the retired narrative seam.
+function alphaMarker(index) {
+  let value = index;
+  let marker = '';
+  do {
+    marker = String.fromCharCode(65 + (value % 26)) + marker;
+    value = Math.floor(value / 26) - 1;
+  } while (value >= 0);
+  return marker;
+}
+
+function providerFreeEssentialDependencies() {
+  const writerMetadata = {
+    contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+    architecture: 'whole-manuscript',
+    provider: 'test-injected',
+    model: 'test-injected/provider-free',
+    promptVersion: 'test',
+    generationMode: 'test-injected',
+    generatedAt: new Date(0).toISOString(),
+    inputFactPackSha256: 'fixture',
+    inputStoryPlanSha256: 'fixture',
+    manuscriptProviderCalls: 0,
+    semanticReviewProviderCalls: 0,
+    totalProviderCalls: 0,
+    totalPhysicalProviderRequests: 0,
+    totalGenerationCostMicros: 0,
+    recovery: { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1 }
+  };
+  const wholeManuscriptWriter = {
+    provider: 'test-injected',
+    model: 'test-injected/provider-free',
+    promptVersion: 'test',
+    async writeManuscript({ blueprint }) {
+      const skeleton = buildBlueprintMarkdownSkeleton(blueprint);
+      const markdown = skeleton.headings.map((heading, index) => {
+        const headingLine = `${'#'.repeat(heading.level)} ${heading.title}`;
+        if (heading.kind === 'chapter') return headingLine;
+        return `${headingLine}\n\nManagement should retain the recorded position and consider the next supported control action for context ${alphaMarker(index)}.`;
+      }).join('\n\n');
+      return {
+        contractVersion: writerMetadata.contractVersion,
+        architecture: 'whole-manuscript',
+        markdown,
+        blueprint,
+        writerMetadata
+      };
+    },
+    async completeTail() { throw new Error('tail recovery must not be called'); },
+    async repairBlock() { throw new Error('semantic repair must not be called'); },
+    async coherencePass() { throw new Error('coherence recovery must not be called'); }
+  };
+  const semanticReviewer = {
+    async review(input) {
+      return {
+        decisions: input.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          disposition: 'ALLOW',
+          reasonCode: 'grounded'
+        })),
+        repair: null,
+        accounting: {
+          providerCalls: 0,
+          repairCount: 0,
+          candidateCount: input.candidates.length,
+          allowCount: input.candidates.length,
+          rejectCount: 0,
+          holdCount: 0
+        }
+      };
+    }
+  };
+  return { wholeManuscriptWriter, semanticReviewer };
+}
+
 console.log('V7 Checkpoint B -- commercial quality gate suite');
 
 // ------------------------------------------------------------------------------------------------
@@ -393,8 +507,9 @@ console.log('V7 Checkpoint B -- commercial quality gate suite');
 
 test('0a. buildCommerciallyPassingFixture() genuinely satisfies every currently implemented gate (no bypass used)', () => {
   const { data, content, roadmap } = buildCommerciallyPassingFixture();
-  const evidenceModel = buildAdvisoryEvidenceModel(data);
-  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
+  const evidenceModel = essentialEvidenceModelFor(data);
+  const projection = essentialProjectionFor(data, evidenceModel);
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel, projection });
   assert.equal(quality.passed, true);
   assert.equal(quality.violations.length, 0);
   console.log(`    (passing fixture: ${evidenceModel.materialFindings.length} findings, ${evidenceModel.scenarios.length} scenarios, ${quality.warnings.length} warnings, 0 violations)`);
@@ -409,8 +524,9 @@ test('0b. buildCommerciallyViolatingFixture() genuinely trips at least one real 
 
 test('0c. buildWarningsOnlyPayload() trips exactly the expected warning and zero violations', () => {
   const { data, content, roadmap } = buildWarningsOnlyPayload();
-  const evidenceModel = buildAdvisoryEvidenceModel(data);
-  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
+  const evidenceModel = essentialEvidenceModelFor(data);
+  const projection = essentialProjectionFor(data, evidenceModel);
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel, projection });
   assert.equal(quality.passed, true);
   assert.equal(quality.violations.length, 0);
   assert.ok(quality.warnings.some((w) => w.code === 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK'), 'Expected the two-cap-event warning to fire.');
@@ -485,8 +601,9 @@ test('A10. An unexpected quality-evaluation exception becomes a blocking QG_QUAL
 
 test('A11/A12. A warnings-only payload does not throw, and warnings do not cause passed to become false', () => {
   const { data, content, roadmap } = buildWarningsOnlyPayload();
-  const evidenceModel = buildAdvisoryEvidenceModel(data);
-  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
+  const evidenceModel = essentialEvidenceModelFor(data);
+  const projection = essentialProjectionFor(data, evidenceModel);
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel, projection });
   assert.equal(quality.passed, true);
   assert.ok(quality.warnings.length > 0);
   assert.equal(quality.violations.length, 0);
@@ -494,11 +611,13 @@ test('A11/A12. A warnings-only payload does not throw, and warnings do not cause
 
 test('A13/A14. Warnings are logged exactly once, with only safe structured fields (no full report payload)', () => {
   const { data, content, roadmap } = buildWarningsOnlyPayload();
+  const evidenceModel = essentialEvidenceModelFor(data);
+  const projection = essentialProjectionFor(data, evidenceModel);
   const originalWarn = console.warn;
   const warnCalls = [];
   console.warn = (...args) => warnCalls.push(args);
   try {
-    const html = renderReportHtml(data, content, roadmap);
+    const html = renderReportHtml(data, content, roadmap, evidenceModel, undefined, projection);
     assert.equal(typeof html, 'string');
     assert.ok(html.length > 0);
   } finally {
@@ -541,7 +660,7 @@ function makeRenderSpies({ pdfShouldReject = false, pdfBytes = Buffer.from('%PDF
 await asyncTest('B1/B2. HTML preparation and PDF rendering are each called exactly once for a passing payload', async () => {
   const { data, content, roadmap } = buildCommerciallyPassingFixture();
   const { calls, dependencies } = makeRenderSpies();
-  const pdf = await renderValidatedCommercialPdf({ data, content, roadmap }, dependencies);
+  const pdf = await renderValidatedCommercialPdf(providerFreeRenderInput(data, content, roadmap), dependencies);
   assert.equal(calls.html, 1);
   assert.equal(calls.pdf, 1);
   assert.ok(Buffer.isBuffer(pdf));
@@ -564,7 +683,7 @@ await asyncTest('B5. A renderer exception (not a quality failure) still propagat
   const { calls, dependencies } = makeRenderSpies({ pdfShouldReject: true });
   await assert.rejects(async () => {
     try {
-      await renderValidatedCommercialPdf({ data, content, roadmap }, dependencies);
+      await renderValidatedCommercialPdf(providerFreeRenderInput(data, content, roadmap), dependencies);
     } catch (error) {
       assert.ok(!(error instanceof ReportCommercialQualityError), 'A renderer failure must not be reported as a quality failure.');
       throw error;
@@ -577,7 +696,7 @@ await asyncTest('B5. A renderer exception (not a quality failure) still propagat
 await asyncTest('B6. Warnings-only output follows the normal render path (resolves, does not throw)', async () => {
   const { data, content, roadmap } = buildWarningsOnlyPayload();
   const { calls, dependencies } = makeRenderSpies();
-  const pdf = await renderValidatedCommercialPdf({ data, content, roadmap }, dependencies);
+  const pdf = await renderValidatedCommercialPdf(providerFreeRenderInput(data, content, roadmap), dependencies);
   assert.ok(Buffer.isBuffer(pdf));
   assert.equal(calls.html, 1);
   assert.equal(calls.pdf, 1);
@@ -592,20 +711,24 @@ await asyncTest('B6. Warnings-only output follows the normal render path (resolv
 // ------------------------------------------------------------------------------------------------
 
 await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/completion RPC, previous report untouched, failure RPC called once with commercial_quality_failed, no cleanup needed', async () => {
-  const violatingData = buildCommerciallyViolatingFixture();
-  const violatingContent = emptySelectedContentFor(violatingData);
+  // The real v1.1 whole-manuscript preflight requires a complete assembled report. Keep the
+  // assembled fixture valid, and make the rendered payload deliberately violating at the exact
+  // commercial-quality seam this lifecycle test is proving.
+  const { data: lifecycleData } = buildCommerciallyPassingFixture();
+  const violatingContent = emptySelectedContentFor(lifecycleData);
   const { db, calls } = createRecordingDb();
 
   await assert.rejects(
     () => generateManualPhase1Report(
-      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'req-key-violating', action: 'admin_generate' },
+      { orderReference: lifecycleData.orderReference, requestedBy: 'admin-1', requestKey: 'req-key-violating', action: 'admin_generate' },
       {
         db,
-        assembleReportData: fakeAssembleReportData(violatingData),
+        assembleReportData: fakeAssembleReportData(lifecycleData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        ...providerFreeEssentialDependencies(),
         renderValidatedCommercialPdf: async ({ data }) => {
           // Exercise the REAL seam/quality-gate logic (not a stub that just throws) so this proves
           // the actual orchestration, not a contrived rejection. Deliberately ignores the real
@@ -636,20 +759,21 @@ await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/comp
 });
 
 await asyncTest('C10. output_report_id is never observed as set on a quality failure (completion RPC, which would set it, is never reached)', async () => {
-  const violatingData = buildCommerciallyViolatingFixture();
-  const violatingContent = emptySelectedContentFor(violatingData);
+  const { data: lifecycleData } = buildCommerciallyPassingFixture();
+  const violatingContent = emptySelectedContentFor(lifecycleData);
   const { db, calls } = createRecordingDb();
   let sawSuccessfulResult = false;
   try {
     const result = await generateManualPhase1Report(
-      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'c10', action: 'admin_generate' },
+      { orderReference: lifecycleData.orderReference, requestedBy: 'admin-1', requestKey: 'c10', action: 'admin_generate' },
       {
         db,
-        assembleReportData: fakeAssembleReportData(violatingData),
+        assembleReportData: fakeAssembleReportData(lifecycleData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        ...providerFreeEssentialDependencies(),
         renderValidatedCommercialPdf: async ({ data }) => renderValidatedCommercialPdf({ data, content: violatingContent, roadmap: { agenda: [] } })
       }
     );
@@ -677,6 +801,7 @@ await asyncTest('C12. A genuine renderer exception (not a quality failure) maps 
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        ...providerFreeEssentialDependencies(),
         renderValidatedCommercialPdf: async () => { throw new Error('Simulated real PDF renderer crash.'); }
       }
     ),
@@ -706,6 +831,7 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
       getPhase1SchemaCapability: fakeSchemaCapability(),
       getPremiumReportAutomationFlags: fakeAutomationFlags(),
       preparePremiumReportNarrative: fakePrepareNarrative,
+      ...providerFreeEssentialDependencies(),
       // Deliberately substitutes the known-passing content/roadmap from buildCommerciallyPassingFixture()
       // rather than the real selectContent()/selectRoadmap() output computed inside
       // generateManualPhase1Report() from this synthetic fixture (which has no matching
@@ -714,7 +840,7 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
       // orchestration* (claim -> render -> upload -> verify -> complete), which is what Checkpoint B
       // is about, not the PDF binary itself.
       renderValidatedCommercialPdf: async ({ data: d }) => renderValidatedCommercialPdf(
-        { data: d, content, roadmap },
+        providerFreeRenderInput(d, content, roadmap),
         { renderHtml: renderReportHtml, renderPdf: async () => Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) }
       )
     }
@@ -788,10 +914,11 @@ async function runGeneration(overrides = {}, deps = {}) {
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        ...providerFreeEssentialDependencies(),
         // Same shape C13 uses: the PDF renderer is faked (no real Chromium) and emits the exact
         // bytes the storage double stores, so checksum/size verification is genuine.
         renderValidatedCommercialPdf: async ({ data: d }) => renderValidatedCommercialPdf(
-          { data: d, content, roadmap },
+          providerFreeRenderInput(d, content, roadmap),
           { renderHtml: renderReportHtml, renderPdf: async () => Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) }
         ),
         ...deps

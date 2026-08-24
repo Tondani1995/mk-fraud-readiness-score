@@ -1,0 +1,85 @@
+name: Essential V1.2 Final Owner Capture
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-final-capture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-cbz0nevjk-tondanis-projects.vercel.app
+      SOURCE_DEPLOYMENT: dpl_C6tBFLmu2PjUXpFLykkgR8aCuLD1
+      SOURCE_SHA: 8779a6ae9a679536f34261ef4327c8f06ca8d511
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Verify exact V1.2 five-layer deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          safety=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-safety-proof")
+          meta=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/bokamoso?format=meta")
+          printf '%s\n' "$safety" > safety-proof.json
+          printf '%s\n' "$meta" > bokamoso-meta-check.json
+          printf '%s' "$safety" | grep -Fq '"ok":true'
+          printf '%s' "$safety" | grep -Fq '"policy":"semantic-review-advisory-to-five-layer-cascade"'
+          printf '%s' "$meta" | grep -Fq '"graphVersion":"MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821"'
+      - name: Generate final three PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf qa-output/v12-final-capture
+          mkdir -p qa-output/v12-final-capture
+          cp safety-proof.json qa-output/v12-final-capture/safety-proof.json
+          node -e "require('fs').writeFileSync('qa-output/v12-final-capture/source.json', JSON.stringify({sourceDeployment:process.env.SOURCE_DEPLOYMENT,sourceSha:process.env.SOURCE_SHA,previewUrl:process.env.PREVIEW_URL,graphVersion:'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'},null,2)+'\n')"
+          printf '[\n' > qa-output/v12-final-capture/summary.json
+          first=1
+          for profile in bokamoso siyakhula vhutshilo; do
+            echo "Generating $profile on $SOURCE_SHA / $SOURCE_DEPLOYMENT"
+            meta=$(curl -fsS -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile?format=meta")
+            printf '%s\n' "$meta" > "qa-output/v12-final-capture/${profile}-meta.json"
+            case "$profile" in
+              bokamoso) name='Bokamoso_Skills_Institute_Essential_V1_2.pdf' ;;
+              siyakhula) name='Siyakhula_Community_Foundation_Essential_V1_2.pdf' ;;
+              vhutshilo) name='Vhutshilo_Foods_Manufacturing_Essential_V1_2.pdf' ;;
+            esac
+            code=$(curl -sS -w '%{http_code}' -D "qa-output/v12-final-capture/${profile}-headers.txt" -o "qa-output/v12-final-capture/$name" -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$PREVIEW_URL/score/api/qa/v12-essential-comparison/$profile")
+            test "$code" = "200" || { echo "$profile failed HTTP $code"; cat "qa-output/v12-final-capture/$name"; exit 1; }
+            head -c 4 "qa-output/v12-final-capture/$name" | grep -q '%PDF'
+            sha=$(sha256sum "qa-output/v12-final-capture/$name" | awk '{print $1}')
+            bytes=$(wc -c < "qa-output/v12-final-capture/$name" | tr -d ' ')
+            score=$(node -e "const m=JSON.parse(process.argv[1]); process.stdout.write(String(m.score))" "$meta")
+            maturity=$(node -e "const m=JSON.parse(process.argv[1]); process.stdout.write(String(m.finalMaturity))" "$meta")
+            if [ "$first" -eq 0 ]; then printf ',\n' >> qa-output/v12-final-capture/summary.json; fi
+            first=0
+            node -e "process.stdout.write(JSON.stringify({profile:process.argv[1],file:process.argv[2],score:Number(process.argv[3]),maturity:process.argv[4],bytes:Number(process.argv[5]),sha256:process.argv[6]}))" "$profile" "$name" "$score" "$maturity" "$bytes" "$sha" >> qa-output/v12-final-capture/summary.json
+          done
+          printf '\n]\n' >> qa-output/v12-final-capture/summary.json
+          cat qa-output/v12-final-capture/summary.json
+      - name: Upload owner-review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v12-final-owner-review-8779a6a
+          path: qa-output/v12-final-capture/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Commit owner-review binaries
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add qa-output/v12-final-capture
+          git commit -m "capture final V1.2 Essential owner-review reports from 8779a6a"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823

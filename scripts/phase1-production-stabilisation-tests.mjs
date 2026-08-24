@@ -91,12 +91,10 @@ assert.ok(notifications.indexOf('getPhase1SchemaCapability') < notifications.ind
 assert.ok(notifications.includes('customer_order_confirmation'), 'customer order confirmation is recorded');
 assert.ok(notifications.includes('admin_new_order_notification'), 'admin new-order notification is recorded');
 assert.ok(notifications.includes('dedupeKey'), 'notifications are idempotent');
-// Joint launch: the Comprehensive next step now names the actual reviewer-led boundary
-// (evidence intake -> named-reviewer validation -> sign-off) instead of the generic
-// "consultant review and engagement" wording. The boundary being asserted is unchanged:
-// a human review step stands between payment and any deliverable.
-assert.ok(notifications.includes('COMPREHENSIVE_PRODUCT_CODE'), 'Comprehensive next step is keyed off the authoritative product code');
-assert.ok(notifications.includes('named-reviewer validation and reviewer sign-off before any deliverable is released'), 'professional assessment communication preserves the human review boundary');
+// Interim launch: both paid tiers follow the same operator-led preparation and manual delivery
+// boundary after payment confirmation; no automatic generation or report email is promised.
+assert.ok(notifications.includes('operator will prepare and quality-check the purchased report'), 'paid-order next step explains operator preparation');
+assert.ok(notifications.includes('email the final files manually and mark the order delivered'), 'paid-order next step explains manual delivery');
 
 const actions = read('src/components/admin/FulfilmentActions.tsx');
 for (const label of ['Generating report…', 'Retry Generation', 'Preview Report', 'Download Report', 'Initiate Delivery', 'Retry Delivery', 'Create New Version']) {

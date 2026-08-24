@@ -342,7 +342,7 @@ check('order creation refuses any tier that is not self-service paid', () => {
   // Creation goes through the one transactional primitive. The amount is never sent as a value to
   // store -- it is sent as the contract this build compiled against, and the database refuses the
   // write if its own current price version disagrees.
-  assert.match(service, /db\.rpc\('create_paid_order'/);
+  assert.match(service, /db\.rpc\('create_paid_order(?:_with_invoice)?'/);
   assert.match(service, /p_expected_amount_cents: product\.priceCents/);
   assert.match(service, /p_expected_product_code: product\.productCode/);
   assert.match(service, /paid_order_catalogue_contract_mismatch/);

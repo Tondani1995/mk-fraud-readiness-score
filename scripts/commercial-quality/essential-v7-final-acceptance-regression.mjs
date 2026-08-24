@@ -60,7 +60,12 @@ assert.match(template, /long-section continue-after-short-tail'\)\n  \]\.join/);
 assert.match(template, /\.report-section\.continue-after-short-tail \{ break-before: auto; page-break-before: auto; \}/);
 assert.match(template, /\.splittable-risk-section \.risk-record \{ break-inside: auto; page-break-inside: auto; \}/);
 assert.match(template, /\.splittable-finding-section \.finding-record \{ break-inside: auto; page-break-inside: auto; \}/);
-assert.match(template, /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/);
+assert.doesNotMatch(
+  template,
+  /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/,
+  'reviewed provider narrative must not be rewritten at render time'
+);
+assert.match(template, /data-narrative-block=/, 'reviewed provider narrative must carry exact block identities into final HTML');
 assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \{ break-after: avoid; page-break-after: avoid; \}/);
 assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \+ p \{ break-before: avoid; page-break-before: avoid; \}/);
 

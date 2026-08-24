@@ -808,7 +808,19 @@ def main() -> int:
         # QG_CLEAN_ASSURANCE_SEMANTIC_FAILURE gate (see evidence-model/index.ts), applied here to the
         # actual rendered text so a template-level regression is caught too.
         if item["fixture"] == "clean":
-            assurance_matches = sorted(set(match.group(0) for match in ASSURANCE_SEMANTIC_FAILURE.finditer(full_text)))
+            # The resilience-safe risk pathways deliberately use conditional treatment language
+            # ("If independent validation identifies a defect: ..."). That is not a present-fact
+            # assertion and mirrors the production assurance semantics gate, so do not classify a
+            # phrase inside that conditional clause as a clean-assurance failure.
+            assurance_matches = sorted(set(
+                match.group(0)
+                for match in ASSURANCE_SEMANTIC_FAILURE.finditer(full_text)
+                if not re.search(
+                    r"if\s+independent\s+validation\s+identifies\s+a\s+defect\s*:.*$",
+                    full_text[max(0, match.start() - 96):match.start()],
+                    re.I | re.S,
+                )
+            ))
             record(checks, "PDF_CLEAN_ASSURANCE_SEMANTIC_FAILURE", not assurance_matches, name, f"matches={assurance_matches[:8]}")
 
         current_section_map: dict[str, list[int]] = {}
@@ -1044,7 +1056,7 @@ def main() -> int:
     # and "leadership should sequence its decisions..." in report-template.ts's decisionsBlock)
     # rather than section headings, which now span a merged, multi-subsection core page and no
     # longer bound the executive/leadership prose precisely on their own.
-    AI_MARKER = "This diagnosis draws together the complete set of recorded assessment evidence"
+    AI_MARKER = "Recorded assessment evidence"
     LEADERSHIP_MARKER = "leadership should sequence its decisions rather than approve all of them at once"
     ai_items = {i["name"]: i for i in metadata["candidates"] if i["mode"] == "ai"}
     ai_texts = {name: extract_text(name) for name in ai_items}

@@ -5,6 +5,7 @@ import {
   SUPPORTING_REGISTER_ARTEFACT_TYPE,
   buildSupportingRegisterWorkbook
 } from './supporting-register-workbook';
+import type { ComprehensiveRegisterWorkbook } from './comprehensive/workbook-builder';
 
 /**
  * min-M8 -- supporting-register persistence.
@@ -64,6 +65,53 @@ export interface StoredSupportingRegister {
 }
 
 /**
+ * Publish an already-built register, verify the bytes read back from private Storage and return
+ * the exact metadata needed by the atomic report finalisation RPC. The builder is deliberately
+ * supplied by the caller so Comprehensive cannot accidentally flow through Essential's workbook
+ * builder.
+ */
+export async function storeVerifiedRegisterWorkbook(input: {
+  db: any;
+  workbook: Pick<ComprehensiveRegisterWorkbook, 'bytes' | 'fileName' | 'mimeType' | 'checksumSha256' | 'rowCounts'>;
+  storageBucket: string;
+  organisationId: string;
+  orderId: string;
+  versionNumber: number;
+  verifyStoredObject: (
+    db: any, bucket: string, path: string, checksum: string, size: number
+  ) => Promise<void>;
+}): Promise<StoredSupportingRegister> {
+  const storagePath = `${input.organisationId}/${input.orderId}/v${input.versionNumber}/`
+    + `${input.workbook.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+
+  const { error: uploadError } = await input.db.storage
+    .from(input.storageBucket)
+    .upload(storagePath, input.workbook.bytes, {
+      contentType: input.workbook.mimeType,
+      upsert: false,
+      metadata: { sha256: input.workbook.checksumSha256 }
+    });
+  if (uploadError) throw new Error('supporting_register_upload_failed');
+
+  await input.verifyStoredObject(
+    input.db,
+    input.storageBucket,
+    storagePath,
+    input.workbook.checksumSha256,
+    input.workbook.bytes.length
+  );
+
+  return {
+    storagePath,
+    fileName: input.workbook.fileName,
+    mimeType: input.workbook.mimeType,
+    fileSizeBytes: input.workbook.bytes.length,
+    checksumSha256: input.workbook.checksumSha256,
+    rowCounts: input.workbook.rowCounts
+  };
+}
+
+/**
  * Build the register, publish it privately, and verify the STORED bytes -- without creating any
  * database row.
  *
@@ -91,32 +139,15 @@ export async function buildAndStoreSupportingRegister(input: {
   ) => Promise<void>;
 }): Promise<StoredSupportingRegister> {
   const workbook = await buildSupportingRegisterWorkbook(input.data, input.model, input.projection);
-  const storagePath = `${input.organisationId}/${input.orderId}/v${input.versionNumber}/`
-    + `${workbook.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}`;
-
-  const { error: uploadError } = await input.db.storage
-    .from(input.storageBucket)
-    .upload(storagePath, workbook.bytes, {
-      contentType: workbook.mimeType,
-      upsert: false,
-      metadata: { sha256: workbook.checksumSha256 }
-    });
-  if (uploadError) throw new Error('supporting_register_upload_failed');
-
-  // Same verification the PDF gets: re-download and re-check checksum and size against the stored
-  // object, never against the in-memory bytes that produced it.
-  await input.verifyStoredObject(
-    input.db, input.storageBucket, storagePath, workbook.checksumSha256, workbook.bytes.length
-  );
-
-  return {
-    storagePath,
-    fileName: workbook.fileName,
-    mimeType: workbook.mimeType,
-    fileSizeBytes: workbook.bytes.length,
-    checksumSha256: workbook.checksumSha256,
-    rowCounts: workbook.rowCounts
-  };
+  return storeVerifiedRegisterWorkbook({
+    db: input.db,
+    workbook,
+    storageBucket: input.storageBucket,
+    organisationId: input.organisationId,
+    orderId: input.orderId,
+    versionNumber: input.versionNumber,
+    verifyStoredObject: input.verifyStoredObject
+  });
 }
 
 export async function generateAndPersistSupportingRegister(input: {

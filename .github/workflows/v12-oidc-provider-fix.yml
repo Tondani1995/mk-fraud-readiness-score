@@ -1,0 +1,181 @@
+name: V1.2 Semantic Review Advisory Fix
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-comparison-20260823
+    paths:
+      - .github/workflows/v12-oidc-provider-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-comparison-20260823
+          fetch-depth: 0
+
+      - name: Make semantic reviewer advisory to five-layer adjudication
+        shell: python
+        run: |
+          from pathlib import Path
+
+          cascade = Path('src/lib/reports/essential-validation-cascade.ts')
+          text = cascade.read_text()
+          old = """    if (reviewed) {\n      return {\n        disposition: reviewed.disposition === 'ALLOW' ? 'ALLOW_CONTEXT'\n          : reviewed.disposition === 'REPAIR' ? 'REPAIRABLE'\n            : reviewed.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS',\n        reasonCode: reviewed.reasonCode,\n        repair: reviewed.disposition === 'REPAIR'\n      };\n    }\n"""
+          new = """    if (reviewed) {\n      // The semantic reviewer is an advisory signal into the five-layer cascade, never a release\n      // verdict by itself. Deterministic hard gates have already run before this seam. For assurance\n      // propositions, independently re-adjudicate actor/modality/tense/negation/context through the\n      // shared core so a reviewer cannot either veto safe customer-control language or wave through\n      // a genuine MK/report assurance claim. Other reviewer REJECT decisions remain adverse signals\n      // and therefore AMBIGUOUS until another deterministic layer can independently confirm them.\n      const assurance = adjudicateAssuranceSentence(source);\n      if (assurance.disposition === 'CONFIRMED_VIOLATION') {\n        return { disposition: 'CONFIRMED_VIOLATION', reasonCode: assurance.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REPAIR') {\n        return { disposition: 'REPAIRABLE', reasonCode: reviewed.reasonCode, repair: true };\n      }\n      if (reviewed.disposition === 'HOLD') {\n        return { disposition: 'AMBIGUOUS', reasonCode: reviewed.reasonCode, repair: false };\n      }\n      if (reviewed.disposition === 'REJECT') {\n        if (reviewed.reasonCode === 'unsupported_assurance' && assurance.disposition === 'ALLOW_CONTEXT') {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: `reviewer_adverse_signal_cleared_by_shared_assurance_core:${assurance.reasonCode}`, repair: false };\n        }\n        return { disposition: 'AMBIGUOUS', reasonCode: `semantic_reviewer_adverse_signal_unconfirmed:${reviewed.reasonCode}`, repair: false };\n      }\n      if (assurance.disposition === 'AMBIGUOUS') {\n        return { disposition: 'AMBIGUOUS', reasonCode: assurance.reasonCode, repair: false };\n      }\n      return { disposition: 'ALLOW_CONTEXT', reasonCode: reviewed.reasonCode, repair: false };\n    }\n"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'semantic_reviewer_adverse_signal_unconfirmed' not in text:
+              raise SystemExit('semanticDisposition mapping anchor missing; refusing broad rewrite')
+          cascade.write_text(text)
+
+          coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
+          text = coordinator.read_text()
+          old_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const rejectedDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REJECT');\n  const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          new_locals = """  const semanticDecisions = reviewed?.decisions ?? [];\n  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');\n"""
+          if old_locals in text:
+              text = text.replace(old_locals, new_locals, 1)
+
+          old_policy_locals = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const rejectedPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, rejectedDecisions);\n  const heldPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, heldDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          new_policy_locals = """  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);\n  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);\n"""
+          if old_policy_locals in text:
+              text = text.replace(old_policy_locals, new_policy_locals, 1)
+
+          old = """  if (rejectedDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer rejected one or more provider-authored narrative blocks.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_reject',\n        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')\n      }\n    );\n  }\n  if (heldDecisions.length > 0) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'The semantic reviewer held one or more provider-authored narrative blocks for review.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'semantic_hold',\n        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')\n      }\n    );\n  }\n"""
+          new = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. Pass both into the\n  // canonical five-layer cascade so context, deterministic evidence checks, document review and\n  // final acceptance decide the outcome. The reviewer diagnostics remain attached below if the\n  // cascade ultimately holds or rejects the manuscript.\n"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'REJECT and HOLD are reviewer recommendations' not in text:
+              raise SystemExit('early semantic reject/hold anchor missing; refusing broad rewrite')
+
+          old_diag = """        validationCode: failure.codes[0],\n        validationIssues: failure.validationIssues\n"""
+          new_diag = """        validationCode: failure.codes[0],\n        validationIssues: failure.validationIssues,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})\n"""
+          if old_diag in text:
+              text = text.replace(old_diag, new_diag, 1)
+          elif 'semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions }' not in text:
+              raise SystemExit('cascade failure diagnostic anchor missing; refusing broad rewrite')
+          coordinator.write_text(text)
+
+          test = Path('scripts/commercial-quality/essential-validation-cascade-regression.mjs')
+          suite = test.read_text()
+          if 'essentialCandidateId,' not in suite:
+              suite = suite.replace(
+                  "  adjudicateTextFirstValidation,\n  validateEssentialFinalHtml\n",
+                  "  adjudicateTextFirstValidation,\n  essentialCandidateId,\n  validateEssentialFinalHtml\n",
+                  1
+              )
+          marker = "test('hard evidence and contract failures cannot be context-cleared', () => {\n"
+          addition = r"""test('semantic reviewer REJECT is an adverse suggestion that five-layer assurance adjudication can clear', () => {
+  const text = 'Management should obtain independent review of refund and override activity before closure.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = {
+    ok: true,
+    hardTruth: { status: 'PASS', issues: [] },
+    semanticCandidates: { status: 'PASS', issues: [] },
+    repairableSemantic: { status: 'PASS', issues: [] },
+    quality: { status: 'PASS', issues: [] },
+    sectionCount: 1,
+    subsectionCount: 0,
+    paragraphCount: 1
+  };
+  const result = adjudicateTextFirstValidation({
+    parsed: minimalParsed(text),
+    report,
+    factPack: { facts: [] },
+    requireSemanticReviewer: true,
+    semanticGroundingBlocks: [{ path, span: text }],
+    semanticDecisions: [{ candidateId, disposition: 'REJECT', reasonCode: 'unsupported_assurance' }]
+  });
+  assert.equal(result.publishable, true);
+  assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
+  assert.ok(result.candidates[0].decisions.some((decision) => decision.reasonCode.startsWith('reviewer_adverse_signal_cleared_by_shared_assurance_core:')));
+});
+
+test('semantic reviewer cannot ALLOW a genuine report assurance claim past the five-layer core', () => {
+  const text = 'This report provides independent assurance that the controls are effective.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = {
+    ok: true,
+    hardTruth: { status: 'PASS', issues: [] },
+    semanticCandidates: { status: 'PASS', issues: [] },
+    repairableSemantic: { status: 'PASS', issues: [] },
+    quality: { status: 'PASS', issues: [] },
+    sectionCount: 1,
+    subsectionCount: 0,
+    paragraphCount: 1
+  };
+  const result = adjudicateTextFirstValidation({
+    parsed: minimalParsed(text),
+    report,
+    factPack: { facts: [] },
+    requireSemanticReviewer: true,
+    semanticGroundingBlocks: [{ path, span: text }],
+    semanticDecisions: [{ candidateId, disposition: 'ALLOW', reasonCode: 'grounded' }]
+  });
+  assert.equal(result.publishable, false);
+  assert.equal(result.candidates[0].finalDisposition, 'REJECT');
+  assert.ok(result.blockingCodes.includes('semantic_grounding_block'));
+});
+
+test('unconfirmed non-assurance semantic REJECT becomes HOLD rather than a false confirmed violation', () => {
+  const text = 'The finance team performs daily exception reviews across all sites.';
+  const path = 'SEC.paragraphs[0]';
+  const candidateId = essentialCandidateId('semantic_grounding_block', path, text);
+  const report = {
+    ok: true,
+    hardTruth: { status: 'PASS', issues: [] },
+    semanticCandidates: { status: 'PASS', issues: [] },
+    repairableSemantic: { status: 'PASS', issues: [] },
+    quality: { status: 'PASS', issues: [] },
+    sectionCount: 1,
+    subsectionCount: 0,
+    paragraphCount: 1
+  };
+  const result = adjudicateTextFirstValidation({
+    parsed: minimalParsed(text),
+    report,
+    factPack: { facts: [] },
+    requireSemanticReviewer: true,
+    semanticGroundingBlocks: [{ path, span: text }],
+    semanticDecisions: [{ candidateId, disposition: 'REJECT', reasonCode: 'unsupported_frequency' }]
+  });
+  assert.equal(result.publishable, false);
+  assert.equal(result.candidates[0].finalDisposition, 'HELD_FOR_REVIEW');
+  assert.equal(result.blockingCodes.length, 0);
+  assert.ok(result.heldForReviewCodes.includes('semantic_grounding_block'));
+});
+
+"""
+          if 'semantic reviewer REJECT is an adverse suggestion' not in suite:
+              if marker not in suite:
+                  raise SystemExit('test insertion anchor missing')
+              suite = suite.replace(marker, addition + marker, 1)
+          test.write_text(suite)
+
+      - name: Prove five-layer safety contract
+        shell: bash
+        run: |
+          NODE_TEST="node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs"
+          $NODE_TEST scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          $NODE_TEST scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          $NODE_TEST scripts/commercial-quality/narrative-assurance-semantics-tests.mjs
+          npm run typecheck
+          git diff --check
+
+      - name: Commit proven correction
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/essential-validation-cascade.ts src/lib/reports/narrative/essential-manuscript-coordinator.ts scripts/commercial-quality/essential-validation-cascade-regression.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "route semantic review through five-layer adjudication"
+          git push origin HEAD:qa/v12-essential-comparison-20260823

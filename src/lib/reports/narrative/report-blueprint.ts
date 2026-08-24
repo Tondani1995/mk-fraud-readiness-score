@@ -335,7 +335,10 @@ const FAMILY_TITLES: Record<string, string> = {
   EVIDENCE_INTEGRITY: 'Evidence preservation and custody',
   WHISTLEBLOWING: 'Protected reporting and escalation',
   FRAUD_AWARENESS: 'Fraud awareness and reporting practice',
-  CONTINUOUS_IMPROVEMENT: 'Control learning and continuous improvement'
+  CONTINUOUS_IMPROVEMENT: 'Control learning and continuous improvement',
+  PAYROLL_INTEGRITY: 'Payroll master-file and pre-payment review',
+  CASH_CUSTODY: 'Cash custody and reconciliation',
+  STOCK_ASSET_CUSTODY: 'Stock and physical-asset custody'
 };
 
 function customerTitleForFamily(family: string, role: NarrativeRole, mode: NarrativeFactPack['narrativeMode']): string {

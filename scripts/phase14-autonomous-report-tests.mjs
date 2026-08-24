@@ -427,8 +427,12 @@ const eligibleReport = {
   }
 };
 assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), 'essential_self_assessment');
+assert.equal(
+  validatePremiumReportGenerationEntitlement({ ...eligibleReport, productCode: 'mk_validated_assessment' }),
+  'mk_validated',
+  'Comprehensive order is entitled to the Comprehensive report'
+);
 for (const testCase of [
-  ['Comprehensive order cannot claim the Essential report', { productCode: 'mk_validated_assessment' }, 'order_not_eligible'],
   ['free product code', { productCode: 'free_snapshot' }, 'order_not_eligible'],
   ['awaiting payment', { orderStatus: 'awaiting_payment' }, 'order_not_eligible'],
   ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],

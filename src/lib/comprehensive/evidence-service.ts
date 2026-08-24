@@ -1,3 +1,4 @@
+/** LEGACY / ADVISORY-ONLY: customer evidence intake is not part of automated Comprehensive. */
 import { randomUUID } from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';

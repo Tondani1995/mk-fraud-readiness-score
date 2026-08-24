@@ -1,0 +1,48 @@
+name: V1.2 Relative Strength Inference Hardening
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/v12-relative-strength-inference-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Patch writer and reviewer boundaries
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/reports/narrative/whole-manuscript-writer.ts')
+          s = p.read_text()
+          anchor = "In particular, do not describe a relative strength as an established foundation, some established foundations, a foundation already in place, a functioning foundation, or equivalent present-state foundation language unless a permitted deterministic fact explicitly establishes that operating state.'"
+          replacement = "In particular, do not describe a relative strength as an established foundation, some established foundations, a foundation already in place, a functioning foundation, or equivalent present-state foundation language unless a permitted deterministic fact explicitly establishes that operating state. Do not infer leadership attention, management commitment, organisational intent, mobilisation capacity, a functioning reporting culture, or a basis/foundation for corrective work from a higher self-assessed score. A relative strength should normally be stated only as a comparatively stronger reported or self-assessed position.'"
+          if anchor not in s:
+              raise SystemExit('generation inference anchor missing')
+          s = s.replace(anchor, replacement, 1)
+          anchor2 = "Retain the management implication but rewrite it as a reported relative strength or comparatively stronger self-assessed position. REPAIR means"
+          replacement2 = "Do not infer leadership attention, management commitment, organisational intent, mobilisation capacity, functioning reporting culture or a corrective-work foundation from a higher score alone. Retain the management implication but rewrite it as a reported relative strength or comparatively stronger self-assessed position. REPAIR means"
+          if anchor2 not in s:
+              raise SystemExit('reviewer inference anchor missing')
+          s = s.replace(anchor2, replacement2, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Commit source correction
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/whole-manuscript-writer.ts
+          git commit -m "bound relative-strength inference language"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823

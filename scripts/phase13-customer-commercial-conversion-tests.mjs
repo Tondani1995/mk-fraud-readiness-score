@@ -285,15 +285,16 @@ assertIncludes(files.freeSnapshot, 'respondentEmail: respondent?.email ?? null',
 
 assertIncludes(files.snapshot, 'Assessment complete', 'Snapshot uses approved result eyebrow');
 assertIncludes(files.snapshot, 'Your organisation&apos;s fraud readiness position', 'Snapshot uses approved result heading');
-assert(
-  read(files.snapshot).includes("Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation\\'s fraud-exposure profile.")
-    || read(files.snapshot).includes('Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.'),
-  'Snapshot uses approved result support copy'
-);
-assertIncludes(files.snapshot, '68 controlled questions', 'Snapshot trust strip includes question count');
-assertIncludes(files.snapshot, '10 fraud-readiness domains', 'Snapshot trust strip includes domain count');
+assertIncludes(files.snapshot, 'Your assessment has been scored using the MK Fraud Readiness methodology. The result below reflects the information you provided.', 'Snapshot uses plain result support copy');
+assertNotIncludes(files.snapshot, '68 controlled questions', 'Snapshot does not expose the internal control total');
+assertNotIncludes(files.snapshot, '10 fraud-readiness domains', 'Snapshot does not expose the internal domain total');
 assertIncludes(files.snapshot, 'Exposure profile included', 'Snapshot trust strip includes exposure profile');
 assertIncludes(files.snapshot, 'Deterministic scoring', 'Snapshot trust strip includes deterministic scoring');
+assertIncludes(files.snapshot, 'Self-assessment result', 'Snapshot trust strip states the result boundary');
+assertIncludes(files.snapshot, 'No independent validation', 'Snapshot trust strip states the validation boundary');
+assertNotIncludes(files.snapshot, 'Assessment scope and visibility', 'Snapshot does not expose scope diagnostics');
+assertNotIncludes(files.snapshot, 'Coverage status', 'Snapshot does not expose coverage diagnostics');
+assertNotIncludes(files.snapshot, 'Excluded areas', 'Snapshot does not expose exclusion diagnostics');
 assertIncludes(files.snapshot, 'Executive interpretation', 'Snapshot has executive interpretation section');
 assertIncludes(files.snapshot, 'Priority areas for management focus', 'Snapshot has approved priority heading');
 assertIncludes(files.snapshot, 'Foundations you can build on', 'Snapshot has approved strength heading');
@@ -331,8 +332,8 @@ assertIncludes(files.snapshot, 'fetch(scorePath(`/api/assessments/${snapshot.ass
 assertNotIncludes(files.snapshot, 'requestDetailedReport', 'Current snapshot must not use the superseded generic report-request handler');
 assertNotIncludes(files.snapshot, 'selectFullReport', 'Current snapshot must not use the superseded R5 selection handler');
 assertNotIncludes(files.snapshot, 'selectPersonalisedReport', 'Current snapshot must not use the superseded R50 selection handler');
-assertIncludes(files.snapshot, 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Only order-summary confirmation calls the current paid-order handler');
-assertSourceOrder(files.snapshot, 'Choose Essential', 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Paid-tier selection appears before order confirmation action');
+assertIncludes(files.snapshot, 'onConfirm={(invoiceRequested, invoiceDetails) => requestPaidOrder(selectedOption, invoiceRequested, invoiceDetails)}', 'Only order-summary confirmation calls the current paid-order handler');
+assertSourceOrder(files.snapshot, 'Choose Essential', 'onConfirm={(invoiceRequested, invoiceDetails) => requestPaidOrder(selectedOption, invoiceRequested, invoiceDetails)}', 'Paid-tier selection appears before order confirmation action');
 
 assertIncludes(files.paidOrderRoute, 'createPaidOrderForAssessment', 'Current paid-order route uses the commercial order service');
 assertIncludes(files.paidOrderRoute, 'isSelfServicePaidTier', 'Current paid-order route accepts only current self-service tiers');

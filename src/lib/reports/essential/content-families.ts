@@ -75,7 +75,10 @@ const SCENARIO_TO_SEMANTIC: Record<string, string[]> = {
   // not own its scenario, and the pathway was silently dropped from the report.
   PRIVILEGED_ACCESS_MISUSE: ['PRIVILEGED_ACCESS', 'ACCESS_CONTROL', 'IDENTITY_VERIFICATION'],
   INCIDENT_CONCEALMENT: ['EVIDENCE_INTEGRITY', 'INCIDENT_RESPONSE'],
-  EVIDENCE_DEGRADATION: ['EVIDENCE_INTEGRITY']
+  EVIDENCE_DEGRADATION: ['EVIDENCE_INTEGRITY'],
+  PAYROLL_MANIPULATION: ['PAYROLL_INTEGRITY'],
+  CASH_CUSTODY_MISUSE: ['CASH_CUSTODY'],
+  STOCK_ASSET_MISUSE: ['STOCK_ASSET_CUSTODY']
 };
 
 /**
@@ -238,6 +241,30 @@ const FAMILY_PRESENTATION: Record<string, FamilyPresentation> = {
     scenarioEntry: 'A matter closes without structured review',
     scenarioControlBreak: 'No route from lesson to control change',
     scenarioExposure: 'The same exposure recurs'
+  },
+  PAYROLL_INTEGRITY: {
+    shortLabel: 'Payroll master-file and pre-payment review',
+    targetState: 'Payroll changes and unusual records are reconciled and independently reviewed before each payment run.',
+    interruptionPoint: 'Independent pre-payment review of payroll changes and exceptions.',
+    scenarioEntry: 'A payroll master-file change or unusual record enters a payment run',
+    scenarioControlBreak: 'No independent pre-payment reconciliation or exception decision',
+    scenarioExposure: 'Unauthorised payroll value is released'
+  },
+  CASH_CUSTODY: {
+    shortLabel: 'Cash custody, counting and reconciliation',
+    targetState: 'Cash is assigned to defined custodians, counted, banked and reconciled, with differences investigated promptly.',
+    interruptionPoint: 'An attributable count and reconciliation before cash differences accumulate.',
+    scenarioEntry: 'A cash count, banking or reconciliation difference arises',
+    scenarioControlBreak: 'Custody or difference review is informal or delayed',
+    scenarioExposure: 'Shortage or diversion remains within normal variance'
+  },
+  STOCK_ASSET_CUSTODY: {
+    shortLabel: 'Stock and physical-asset custody',
+    targetState: 'Stock and physical assets have defined custodians, authorised movements, periodic counts and independent reconciliation.',
+    interruptionPoint: 'A complete movement, count and write-off reconciliation.',
+    scenarioEntry: 'A stock movement, count difference or disposal occurs',
+    scenarioControlBreak: 'Custody, movement or write-off evidence is incomplete',
+    scenarioExposure: 'Physical value is diverted or written off without challenge'
   }
 };
 
@@ -404,7 +431,10 @@ export const SEMANTIC_CONSEQUENCE: Record<string, string> = {
   DETECTION_MONITORING: 'Unusual activity accumulates below review, widening the period of exposure.',
   EVIDENCE_INTEGRITY: 'Containment, recovery and disciplinary options narrow as evidence degrades.',
   CONTINUOUS_IMPROVEMENT: 'The same exposure recurs because findings do not reach the control set.',
-  FRAUD_RISK_IDENTIFICATION: 'New exposure enters the business unassessed.'
+  FRAUD_RISK_IDENTIFICATION: 'New exposure enters the business unassessed.',
+  PAYROLL_INTEGRITY: 'Unauthorised payroll value is released before a sensitive change or unusual record is challenged.',
+  CASH_CUSTODY: 'Physical cash loss or diversion remains unrecovered when custody differences are not resolved promptly.',
+  STOCK_ASSET_CUSTODY: 'Stock or physical-asset value is lost or diverted when movement, count and write-off differences are not challenged.'
 };
 
 /**
@@ -489,6 +519,27 @@ const TARGET_STATE_TEMPLATES: Record<string, TargetStateTemplate> = {
     allowsLeverage: false,
     mechanism: 'assigned actions and a re-tested control position',
     processPoints: ['fraud risks, their treatments and the controls they rely on']
+  },
+  PAYROLL_INTEGRITY: {
+    lead: 'Payroll integrity applies across',
+    connector: 'through',
+    allowsLeverage: false,
+    mechanism: 'pre-payment reconciliation, independent change review and exception closure',
+    processPoints: ['payroll master-file changes', 'joiner, mover and leaver reconciliation', 'unusual payroll records']
+  },
+  CASH_CUSTODY: {
+    lead: 'Cash custody is controlled across',
+    connector: 'through',
+    allowsLeverage: false,
+    mechanism: 'defined custodians, attributable counts, banking reconciliation and shortage escalation',
+    processPoints: ['cash points and shifts', 'sealed transfers and banking', 'shortage and overage investigation']
+  },
+  STOCK_ASSET_CUSTODY: {
+    lead: 'Stock and physical-asset custody is controlled across',
+    connector: 'through',
+    allowsLeverage: false,
+    mechanism: 'authorised movement, periodic counts, reconciliation and independent write-off review',
+    processPoints: ['all operating locations', 'stock and asset movements', 'counts, disposals and shrinkage exceptions']
   }
 };
 
@@ -510,7 +561,10 @@ const SPECIFICITY_SCOPE: Record<string, SpecificityScope> = {
   DETECTION_MONITORING: 'CROSS_PROCESS',
   FRAUD_GOVERNANCE: 'ORGANISATION_WIDE',
   FRAUD_RISK_IDENTIFICATION: 'ORGANISATION_WIDE',
-  CONTINUOUS_IMPROVEMENT: 'ORGANISATION_WIDE'
+  CONTINUOUS_IMPROVEMENT: 'ORGANISATION_WIDE',
+  PAYROLL_INTEGRITY: 'PROCESS_SPECIFIC',
+  CASH_CUSTODY: 'PROCESS_SPECIFIC',
+  STOCK_ASSET_CUSTODY: 'PROCESS_SPECIFIC'
 };
 
 export function specificityScope(semanticFamily: string | undefined | null): SpecificityScope {

@@ -1,5 +1,7 @@
 /**
- * Joint launch Comprehensive lifecycle, evidence-intake and security tests.
+ * Legacy reviewed-engagement/Advisory compatibility lifecycle, evidence-intake and security tests.
+ * NON-AUTHORITATIVE for the active automated Comprehensive launch; see
+ * scripts/comprehensive-launch-closure-tests.mjs for the authoritative launch contract.
  * Credential-free: no database, no network, no storage provider.
  *
  * Covers the COMPREHENSIVE and SECURITY requirements: payment is required before an engagement can
@@ -46,7 +48,7 @@ function check(label, fn) {
 
 const READY = { paymentVerified: true, reviewerAssigned: true, unreviewedEvidenceCount: 0, note: 'note' };
 
-console.log('joint-launch comprehensive lifecycle, evidence and security');
+console.log('legacy reviewed-engagement/Advisory compatibility (non-authoritative)');
 
 // --- LIFECYCLE ------------------------------------------------------------------------------------
 
@@ -450,7 +452,10 @@ check('every admin Comprehensive route authenticates and authorises before actin
     'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
     'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts'
   ]) {
-    assert.match(read(file), /getRc1OperationFreezeResponse/, `${file} must honour the RC1 freeze`);
+    const freeze = file.endsWith('/paid-order/route.ts')
+      ? /getRc1CustomerFreezeResponse/
+      : /getRc1OperationFreezeResponse/;
+    assert.match(read(file), freeze, `${file} must honour the RC1 freeze`);
   }
 });
 

@@ -76,12 +76,13 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
   }
 
   // Selector only -- report-level token authority is evaluated first inside
-  // grantCustomerReportAccess(). Unknown values fall back to the PDF; they never widen access.
+  // grantCustomerReportAccess(). The active product has exactly two deliverables; legacy package
+  // selectors are rejected rather than silently resolving to the PDF.
   const requested = new URL(request.url).searchParams.get('artefact');
-  const artefact = requested === 'register' ? 'register' as const
-    : requested === 'board' ? 'board' as const
-      : requested === 'presentation' ? 'presentation' as const
-        : requested === 'workshop' ? 'workshop' as const : 'pdf' as const;
+  if (requested && requested !== 'pdf' && requested !== 'register') {
+    return errorPage('This file is not available for this product.', 'unsupported-artifact', 409);
+  }
+  const artefact = requested === 'register' ? 'register' as const : 'pdf' as const;
 
   try {
     const result = await grantCustomerReportAccess({ rawToken, artefact });

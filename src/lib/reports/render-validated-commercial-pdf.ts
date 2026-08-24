@@ -4,52 +4,78 @@ import { renderHtmlToPdfBuffer } from './render-pdf';
 import { addPdfBookmarks, extractHeadingPageMap, type BookmarkNode } from './pdf-navigation';
 import type { AdvisoryEvidenceModel } from './evidence-model';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
+import { closeEssentialCommercialOutputDefects } from './essential-commercial-output-closure';
+import { closeResidualEssentialGroundingDefects } from './essential-grounding-closure';
+import { assertEssentialFinalHtml } from './essential-validation-cascade';
 
 /**
  * V7 Checkpoint B -- narrow PDF-render orchestration seam.
  *
  * This is the single production-used entry point that turns AssembledReportData + SelectedContent
- * + roadmap into a rendered PDF buffer. It exists so the fail-closed ordering required by
- * Checkpoint B is provable, not just assumed:
- *   - renderReportHtml() (via dependencies.renderHtml) now throws ReportCommercialQualityError
- *     before returning any HTML when the commercial quality gate fails (see
- *     ../commercial-quality.ts and templates/report-template.ts) -- so a quality failure here
- *     necessarily means dependencies.renderPdf was never called;
- *   - a renderer failure (dependencies.renderPdf rejecting) is a different, later failure mode,
- *     distinguishable from a quality failure because it can only happen after renderHtml already
- *     succeeded.
- *
- * dependencies defaults to the real renderReportHtml/renderHtmlToPdfBuffer so production callers
- * (phase1-manual-fulfilment.ts's generateManualPhase1Report()) don't need to pass anything; tests
- * inject recording fakes/spies instead. This is a plain default-parameter seam, not a dependency-
- * injection framework or service container.
+ * + roadmap into a rendered PDF buffer. The template's existing commercial-quality checks remain
+ * an earlier integrity gate. Essential then applies its closed-set deterministic normalisation and
+ * validates the EXACT final customer HTML through the canonical layered validation cascade. The
+ * bytes accepted by that final gate are the bytes passed to Chromium; no customer-facing mutation
+ * is permitted afterwards.
  */
 export interface CommercialPdfRenderDependencies {
   renderHtml: typeof renderReportHtml;
   renderPdf: typeof renderHtmlToPdfBuffer;
 }
 
+type CommercialPdfInput = {
+  data: AssembledReportData;
+  content: SelectedContent;
+  roadmap: { agenda: RoadmapItem[] };
+  evidenceModel?: AdvisoryEvidenceModel;
+  /**
+   * Validated v1.1 manuscript, ordered by the blueprint. Deliberately a separate input
+   * from `content`: SelectedContent's five fixed buckets cannot hold an ordered
+   * chapter/section/subsection manuscript without dropping or duplicating it, so the
+   * two are kept as distinct kinds rather than merged into one ambiguous object.
+   * Absent for Comprehensive and for any caller still on the deterministic content path.
+   */
+  narrative?: ParsedBlueprintMarkdown;
+  /**
+   * Owner decision 4: content-addressed assurance-sentence identities already accepted at
+   * manuscript stage (EssentialManuscriptResult.acceptedAssuranceSpanHashes), threaded through so
+   * the final-HTML validation cascade can inherit that decision for unchanged content instead of
+   * re-adjudicating it from scratch. Absent for Comprehensive and any caller without a manuscript.
+   */
+  carryForwardAssuranceSpanHashes?: string[];
+  /** Manuscript-stage ALLOW decisions for non-assurance semantic candidates. */
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; path?: string; spanHash: string; reasonCode?: string }>;
+};
+
+function prepareAcceptedCustomerHtml(input: CommercialPdfInput, rawHtml: string): string {
+  const commerciallyClosedHtml = closeEssentialCommercialOutputDefects(rawHtml);
+  const finalHtml = closeResidualEssentialGroundingDefects(commerciallyClosedHtml);
+  assertEssentialFinalHtml({
+    html: finalHtml,
+    data: input.data,
+    carryForwardAssuranceSpanHashes: input.carryForwardAssuranceSpanHashes,
+    carryForwardSemanticDecisions: input.carryForwardSemanticDecisions
+  });
+  return finalHtml;
+}
+
 export async function renderValidatedCommercialPdf(
-  input: {
-    data: AssembledReportData;
-    content: SelectedContent;
-    roadmap: { agenda: RoadmapItem[] };
-    evidenceModel?: AdvisoryEvidenceModel;
-    /**
-     * Validated v1.1 manuscript, ordered by the blueprint. Deliberately a separate input
-     * from `content`: SelectedContent's five fixed buckets cannot hold an ordered
-     * chapter/section/subsection manuscript without dropping or duplicating it, so the
-     * two are kept as distinct kinds rather than merged into one ambiguous object.
-     * Absent for Comprehensive and for any caller still on the deterministic content path.
-     */
-    narrative?: ParsedBlueprintMarkdown;
-  },
+  input: CommercialPdfInput,
   dependencies: CommercialPdfRenderDependencies = {
     renderHtml: renderReportHtml,
     renderPdf: renderHtmlToPdfBuffer
   }
 ): Promise<Buffer> {
-  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);
+  const rawHtml = dependencies.renderHtml(
+    input.data,
+    input.content,
+    input.roadmap,
+    input.evidenceModel,
+    undefined,
+    undefined,
+    input.narrative
+  );
+  const html = prepareAcceptedCustomerHtml(input, rawHtml);
   return dependencies.renderPdf(html);
 }
 
@@ -70,40 +96,13 @@ const MAX_NAVIGATION_PASSES = 4;
 /**
  * V7 Checkpoint F controller review blocker 7 -- adds a customer-facing contents page with real
  * page numbers and a matching PDF bookmark/outline tree, using a deterministic render that
- * iterates to a fixed point:
+ * iterates to a fixed point.
  *
- *   pass 1: render through the existing fail-closed renderValidatedCommercialPdf() seam exactly as
- *           before (so the quality gate still runs first, unchanged and untouched) with the
- *           contents page showing placeholder page numbers;
- *   pass 2+: read the real page number of every tracked heading out of that PDF
- *           (extractHeadingPageMap(), pdf-navigation.ts), re-render the *same* HTML with those
- *           numbers filled in, and repeat until re-measuring reproduces the numbers that were
- *           printed; write a matching PDF outline into that final render.
- *
- * The passes render byte-for-byte the same content except the contents-page numbers themselves
- * (same heading text, same section order) -- nothing is hand-maintained or guessed.
- *
- * Filling real numbers into the contents page changes that page's own text, which can reflow
- * anything that is not pinned by a forced page break. Rather than assume the first measurement
- * survives, the render iterates to a fixed point: repeat until the map measured *from* a render
- * equals the map that produced it, so the printed numbers and the outline describe the very bytes
- * returned. Convergence is normally immediate; failing to converge means the contents page cannot
- * be trusted, so it fails closed rather than shipping a PDF whose navigation lies.
- *
- * Note this guards reflow only. It cannot detect a heading located on the wrong page in the first
- * place -- extractHeadingPageMap() finds an entry by its heading text, so prose that quotes a
- * tracked heading verbatim is matched instead (see the comment on the evidence-priority lede in
- * templates/report-template.ts). Cross-references must therefore never quote a tracked heading.
+ * Every numbered render is normalised and sent through final acceptance before Chromium receives
+ * it. A navigation pass therefore cannot introduce customer text that bypasses the cascade.
  */
 export async function renderValidatedCommercialPdfWithNavigation(
-  input: {
-    data: AssembledReportData;
-    content: SelectedContent;
-    roadmap: { agenda: RoadmapItem[] };
-    evidenceModel?: AdvisoryEvidenceModel;
-    /** Validated v1.1 manuscript must survive every navigation fixed-point render pass. */
-    narrative?: ParsedBlueprintMarkdown;
-  },
+  input: CommercialPdfInput,
   dependencies: CommercialPdfRenderDependencies = {
     renderHtml: renderReportHtml,
     renderPdf: renderHtmlToPdfBuffer
@@ -137,7 +136,16 @@ export async function renderValidatedCommercialPdfWithNavigation(
   // The first render used placeholder numbers, so the loop starts from the first real map.
   let pageMap = await measure(new Uint8Array(firstPassPdf));
   for (let attempt = 0; attempt < MAX_NAVIGATION_PASSES; attempt += 1) {
-    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);
+    const rawHtml = dependencies.renderHtml(
+      input.data,
+      input.content,
+      input.roadmap,
+      input.evidenceModel,
+      pageMap,
+      undefined,
+      input.narrative
+    );
+    const html = prepareAcceptedCustomerHtml(input, rawHtml);
     const numberedPdf = await dependencies.renderPdf(html);
     const measured = await measure(new Uint8Array(numberedPdf));
     // Fixed point: what the contents page prints is what the render actually paginated to, so the

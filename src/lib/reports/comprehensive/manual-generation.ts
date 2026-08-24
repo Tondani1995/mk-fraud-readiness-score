@@ -6,6 +6,8 @@ import { getMaturityBand } from '@/lib/scoring/maturity-band';
 import { assembleComprehensive } from './assembly';
 import { buildComprehensiveManagementModel } from './management-model';
 import { renderComprehensiveManagementReportHtml } from './render-comprehensive-html';
+import { buildComprehensiveDeliveryModel, assertComprehensiveBlueprintContract } from './contract';
+import { buildComprehensiveRegisterWorkbook, type ComprehensiveRegisterWorkbook } from './workbook-builder';
 import {
   adaptComprehensiveEvidenceModel,
   adaptComprehensiveScenarioFacts
@@ -14,9 +16,22 @@ import {
   buildInterpretationBrief,
   generateComprehensiveInterpretation,
   interpretationToCommentary,
+  type InterpretationAccounting,
   type InterpretationRun
 } from './interpretation';
 import { renderHtmlToPdfBuffer } from '../render-pdf';
+
+export interface ComprehensiveReportPackage {
+  pdf: Buffer;
+  workbook: ComprehensiveRegisterWorkbook;
+  interpretationRun: InterpretationRun;
+  source: {
+    assemblyVersion: string;
+    managementModelVersion: string;
+    reportReference: string;
+    versionNumber: number | null;
+  };
+}
 
 /**
  * The Comprehensive generation path used by admin manual fulfilment.
@@ -30,16 +45,25 @@ import { renderHtmlToPdfBuffer } from '../render-pdf';
  * renderer here; a divergence between what the operator generates and what was
  * certified would be a silent product change.
  */
-export async function renderComprehensiveReportPdf(input: {
+export async function renderComprehensiveReportPackage(input: {
   assembled: AssembledReportData;
   evidenceModel: AdvisoryEvidenceModel;
   /**
    * Repairs are additional paid provider calls. Manual fulfilment runs on an explicit
    * single-call budget, so the default is zero: one call produces the report or the
    * attempt fails visibly rather than quietly spending more.
-   */
+  */
   maxRepairsPerSlot?: number;
-}): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
+  orderReference?: string;
+  reportReference?: string;
+  versionNumber?: number;
+  /** Called immediately after the provider result is validated and before PDF/XLSX construction. */
+  onInterpretationComplete?: (input: { accounting: InterpretationAccounting }) => Promise<void> | void;
+  /** Provider-free seam for exercising the package builder without an AI call. */
+  generateInterpretation?: typeof generateComprehensiveInterpretation;
+  /** Provider-free seam for exercising the package builder without Chromium. */
+  renderPdf?: typeof renderHtmlToPdfBuffer;
+}): Promise<ComprehensiveReportPackage> {
   const { assembled, evidenceModel } = input;
 
   // The standing playbooks deliberately carry formal roles, illustrative operating
@@ -64,14 +88,40 @@ export async function renderComprehensiveReportPdf(input: {
     .filter((domain) => typeof domain.score === 'number')
     .map((domain) => ({ name: domain.name, score: domain.score as number, band: getMaturityBand(domain.score as number) }));
 
-  const model = buildComprehensiveManagementModel(
-    assembleComprehensive(customerEvidenceModel, {
-      scenarioFacts: adaptComprehensiveScenarioFacts(pack.scenarios),
-      domains
-    })
-  );
+  const assembly = assembleComprehensive(customerEvidenceModel, {
+    scenarioFacts: adaptComprehensiveScenarioFacts(pack.scenarios),
+    domains
+  });
+  const model = buildComprehensiveManagementModel(assembly);
 
-  const interpretationRun = await generateComprehensiveInterpretation(
+  // The workbook is derived from the same adapted deterministic evidence model and score
+  // snapshot used to build the PDF's Comprehensive assembly. It is not the Essential workbook
+  // and it is not a second provider or reviewer path.
+  const deliveryModel = buildComprehensiveDeliveryModel({
+    assembled,
+    evidenceModel: customerEvidenceModel,
+    score: {
+      overallScore: score,
+      calculatedMaturity: pack.assessment.maturity,
+      finalMaturity: pack.assessment.maturity,
+      exposureScore: assembled.scoreRun.exposureScore,
+      exposureBand: assembled.scoreRun.exposureBand,
+      coveragePct: assembled.scoreRun.coveragePct,
+      nARatePct: assembled.scoreRun.nARatePct,
+      criticalGapCount: assembled.scoreRun.criticalGapCount,
+      majorGapCount: assembled.scoreRun.majorGapCount,
+      capApplied: assembled.scoreRun.capApplied,
+      capReason: assembled.scoreRun.capReason,
+      methodologyVersionId: assembled.scoreRun.methodologyVersionId
+    },
+    organisationName: pack.organisation.name,
+    assessmentReference: pack.assessment.reference,
+    generatedAt: assembled.generatedAt
+  });
+  assertComprehensiveBlueprintContract(deliveryModel);
+
+  const interpretationGenerator = input.generateInterpretation ?? generateComprehensiveInterpretation;
+  const interpretationRun = await interpretationGenerator(
     buildInterpretationBrief({
       model,
       organisationName: pack.organisation.name,
@@ -81,6 +131,7 @@ export async function renderComprehensiveReportPdf(input: {
     }),
     { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
   );
+  await input.onInterpretationComplete?.({ accounting: interpretationRun.accounting });
 
   const html = renderComprehensiveManagementReportHtml({
     model,
@@ -92,9 +143,35 @@ export async function renderComprehensiveReportPdf(input: {
     commentary: interpretationToCommentary(interpretationRun.interpretation)
   });
 
-  const pdf = await renderHtmlToPdfBuffer(html, {
+  const pdfRenderer = input.renderPdf ?? renderHtmlToPdfBuffer;
+  const pdf = await pdfRenderer(html, {
     footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
   });
 
-  return { pdf, interpretationRun };
+  const workbook = await buildComprehensiveRegisterWorkbook(deliveryModel, {
+    orderReference: input.orderReference,
+    reportReference: input.reportReference ?? assembled.reportReference,
+    versionNumber: input.versionNumber
+  });
+
+  return {
+    pdf,
+    workbook,
+    interpretationRun,
+    source: {
+      assemblyVersion: assembly.version,
+      managementModelVersion: model.version,
+      reportReference: input.reportReference ?? assembled.reportReference,
+      versionNumber: input.versionNumber ?? null
+    }
+  };
+}
+
+export async function renderComprehensiveReportPdf(input: {
+  assembled: AssembledReportData;
+  evidenceModel: AdvisoryEvidenceModel;
+  maxRepairsPerSlot?: number;
+}): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
+  const result = await renderComprehensiveReportPackage(input);
+  return { pdf: result.pdf, interpretationRun: result.interpretationRun };
 }

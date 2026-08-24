@@ -118,7 +118,12 @@ function sectionForPath(parsed: ParsedBlueprintMarkdown, blueprint: ReportBluepr
 function escapeRegex(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function proseRegex(value: string): RegExp { return new RegExp(value.trim().split(/\s+/).map(escapeRegex).join('\\s+'), 'g'); }
 
-function replaceTargetBlock(markdown: string, title: string, level: 2 | 3, targetText: string, repairedText: string): string {
+/**
+ * Replace exactly one prose paragraph below one deterministic Blueprint heading. This is shared
+ * by the bounded semantic reviewer path; no recovery policy or regeneration behaviour is imported
+ * with it.
+ */
+export function replaceTargetBlock(markdown: string, title: string, level: 2 | 3, targetText: string, repairedText: string): string {
   if (/^#{1,3}\s/m.test(repairedText) || /^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(repairedText)) throw new WholeManuscriptRecoveryError('repair_output_malformed', 'Targeted repair returned a heading, list or code block instead of prose.');
   const heading = new RegExp(`^${'#'.repeat(level)}[ \\t]+${escapeRegex(title)}[ \\t]*$`, 'm');
   const headingMatch = heading.exec(markdown);
@@ -139,7 +144,8 @@ function replaceTargetBlock(markdown: string, title: string, level: 2 | 3, targe
 }
 
 function localAssuranceEligible(validation: TextFirstValidationReport, parsed: ParsedBlueprintMarkdown): boolean {
-  return parsed.ok && validation.hardTruth.issues.length > 0 && validation.hardTruth.issues.every((issue) => issue.code === 'assurance_claim');
+  const semanticIssues = validation.semanticCandidates?.issues ?? [];
+  return parsed.ok && validation.hardTruth.issues.length === 0 && semanticIssues.length > 0 && semanticIssues.every((issue) => issue.code === 'assurance_claim');
 }
 
 function matchedPhraseFor(targetText: string, code: string): string | undefined {
@@ -196,9 +202,9 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
   const repairRecords: WholeManuscriptRecoveryResult['repairRecords'] = [];
 
   while (true) {
-    const hardIssues = checked.validation.hardTruth.issues;
+    const hardIssues = [...checked.validation.hardTruth.issues, ...(checked.validation.semanticCandidates?.issues ?? [])];
     const qualityFailure = checked.validation.quality.status === 'QUALITY_FAILURE';
-    if (checked.parsed.ok && checked.validation.ok && !qualityFailure) {
+    if (checked.parsed.ok && checked.validation.ok && hardIssues.length === 0 && !qualityFailure) {
       if (input.runCoherence) {
         if (recovery.coherenceCount >= 1) throw new WholeManuscriptRecoveryError('coherence_budget_exhausted', 'The coherence budget is already exhausted.');
         const coherent = await input.writer.coherencePass({ context: input.context, blueprint: input.blueprint, previousMarkdown: candidate.markdown });
@@ -206,9 +212,9 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
         candidate = { ...candidate, markdown: coherent.markdown, writerMetadata: aggregateWriterMetadata(candidate.writerMetadata, coherent.writerMetadata, combineRecovery(before, coherent.writerMetadata.recovery)) };
         recovery = candidate.writerMetadata.recovery;
         checked = validationFor(candidate.markdown, input.blueprint, input.factPack);
-        if (!checked.parsed.ok || !checked.validation.ok || checked.validation.quality.status === 'QUALITY_FAILURE') {
+        if (!checked.parsed.ok || !checked.validation.ok || checked.validation.semanticCandidates.issues.length > 0 || checked.validation.quality.status === 'QUALITY_FAILURE') {
           sequence += 1;
-          rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: checked.validation.hardTruth.issues.map((issue) => issue.path), matchedPhrases: [], recovery, sequence }));
+          rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: hardIssues.map((issue) => issue.path), matchedPhrases: [], recovery, sequence }));
           throw new WholeManuscriptRecoveryError('coherence_validation_failed', 'The bounded coherence pass failed final text validation.', { validation: checked.validation });
         }
       }

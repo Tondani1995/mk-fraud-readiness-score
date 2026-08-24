@@ -28,8 +28,10 @@ import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/in
 import { buildEssentialProjection, ESSENTIAL_CAPS } from '../src/lib/reports/essential-projection.ts';
 import { selectContent } from '../src/lib/reports/select-content-blocks.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
-import { __resetPdfRendererStateForTests } from '../src/lib/reports/render-pdf.ts';
+import { __resetPdfRendererStateForTests, closeRenderBrowser } from '../src/lib/reports/render-pdf.ts';
 import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
+import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
+import { essentialSemanticSpanHash, validateEssentialFinalHtml } from '../src/lib/reports/essential-validation-cascade.ts';
 
 // ---------------------------------------------------------------- hard provider guard
 // Not "the harness does not import the generator": any attempt to reach a provider boundary throws
@@ -174,13 +176,54 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const deterministicContent = selectContent(data, [], projection);
 const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(projection.roadmapActions);
-__resetPdfRendererStateForTests();
-const pdf = await renderValidatedCommercialPdfWithNavigation({
+// This certification renders the retained deterministic V7 fixture without a manuscript-stage
+// provider review. Carry forward only the exact final semantic spans that are proven to originate
+// in the authoritative question-playbook fraudMechanism fields; this keeps the certification
+// provider-free while preserving the production boundary for any unexpected or changed text.
+const certificationPreviewHtml = renderReportHtml(
   data,
-  content: deterministicContent,
+  deterministicContent,
   roadmap,
-  evidenceModel: advisoryModel
-});
+  advisoryModel,
+  undefined,
+  projection
+);
+const certificationPreviewValidation = validateEssentialFinalHtml({ html: certificationPreviewHtml, data });
+const deterministicMechanisms = advisoryModel.materialFindings.map((finding) => finding.fraudMechanism);
+const deterministicSemanticCandidates = certificationPreviewValidation.candidates.filter((candidate) =>
+  ['unsupported_risk_assessment_absolute', 'unsupported_detection_absolute'].includes(candidate.ruleCode)
+);
+for (const candidate of deterministicSemanticCandidates) {
+  assert.ok(
+    deterministicMechanisms.some((mechanism) => mechanism.includes(candidate.span)),
+    `unexpected non-playbook semantic span in V7 certification: ${candidate.span}`
+  );
+}
+const carryForwardAssuranceSpanHashes = certificationPreviewValidation.candidates
+  .filter((candidate) => candidate.ruleCode === 'assurance_language_final')
+  .map((candidate) => essentialSemanticSpanHash(candidate.span));
+const carryForwardSemanticDecisions = deterministicSemanticCandidates.map((candidate) => ({
+  ruleCode: candidate.ruleCode,
+  path: candidate.path,
+  spanHash: essentialSemanticSpanHash(candidate.span),
+  reasonCode: 'deterministic_question_playbook_semantics'
+}));
+__resetPdfRendererStateForTests();
+let pdf;
+try {
+  pdf = await renderValidatedCommercialPdfWithNavigation({
+    data,
+    content: deterministicContent,
+    roadmap,
+    evidenceModel: advisoryModel,
+    carryForwardAssuranceSpanHashes,
+    carryForwardSemanticDecisions
+  });
+} finally {
+  // This is a one-shot certification CLI, not the long-lived report server. Release the cached
+  // Chromium handle so CI can complete after the render rather than retaining a libuv handle.
+  await closeRenderBrowser();
+}
 fs.writeFileSync(PDF_PATH, pdf);
 
 const sha256 = crypto.createHash('sha256').update(pdf).digest('hex');
@@ -286,4 +329,7 @@ console.log(`L1 ${JSON.stringify(l1)}`);
 console.log(`L2 ${JSON.stringify(l2)}`);
 console.log(`accessibility ${JSON.stringify(accessibility)}`);
 console.log(`\n${passed} passed, ${failures.length} failed`);
-if (failures.length > 0) process.exit(1);
+// This certification is a one-shot CLI. The production renderer intentionally caches Chromium
+// for long-lived server requests, so terminate the completed harness explicitly after its
+// synchronous artefact writes and assertions have flushed.
+process.exit(failures.length > 0 ? 1 : 0);

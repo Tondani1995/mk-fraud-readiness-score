@@ -4,9 +4,10 @@ import {
   PREMIUM_REPORT_SCHEMA_VERSION,
   type PremiumReportAutomationFlags
 } from './types';
-import { selectNarrativeModel } from '../ai-model-policy';
+import { selectNarrativeModelWithDatabaseOverride } from '../ai-model-policy';
 
-const DEFAULT_NARRATIVE_MODEL = selectNarrativeModel().requestedModel;
+const DEFAULT_MODEL_SELECTION = selectNarrativeModelWithDatabaseOverride();
+const DEFAULT_NARRATIVE_MODEL = DEFAULT_MODEL_SELECTION.requestedModel;
 
 export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFlags = Object.freeze({
   securityGateSatisfied: false,
@@ -18,6 +19,9 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   testRecipientOverrideEnabled: false,
   testRecipientOverride: null,
   model: DEFAULT_NARRATIVE_MODEL,
+  modelSelectionSource: DEFAULT_MODEL_SELECTION.selectionSource,
+  ...(DEFAULT_MODEL_SELECTION.configuredOverride ? { configuredModelOverride: DEFAULT_MODEL_SELECTION.configuredOverride } : {}),
+  ...(DEFAULT_MODEL_SELECTION.overrideRejectedReason ? { modelOverrideRejected: DEFAULT_MODEL_SELECTION.overrideRejectedReason } : {}),
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
   schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
   contractVersionMismatch: null
@@ -33,8 +37,9 @@ function optionalText(value: unknown) {
   return trimmed || null;
 }
 
-export function parsePremiumReportAutomationFlags(value: unknown): PremiumReportAutomationFlags {
+export function parsePremiumReportAutomationFlags(value: unknown, environment: NodeJS.ProcessEnv = process.env): PremiumReportAutomationFlags {
   const source = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const modelSelection = selectNarrativeModelWithDatabaseOverride(environment, { databaseModel: source.premium_report_ai_model });
   return {
     securityGateSatisfied: false,
     securityGateVersion: null,
@@ -44,9 +49,10 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
     manualDeliveryEnabled: enabled(source.premium_report_manual_delivery_enabled),
     testRecipientOverrideEnabled: enabled(source.premium_report_test_recipient_override_enabled),
     testRecipientOverride: optionalText(source.premium_report_test_recipient_override),
-    model: optionalText(source.premium_report_ai_model)
-      ?? optionalText(process.env.MK_REPORT_AI_MODEL)
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.model,
+    model: modelSelection.requestedModel,
+    modelSelectionSource: modelSelection.selectionSource,
+    ...(modelSelection.configuredOverride ? { configuredModelOverride: modelSelection.configuredOverride } : {}),
+    ...(modelSelection.overrideRejectedReason ? { modelOverrideRejected: modelSelection.overrideRejectedReason } : {}),
     // The COMPILED constants are the contract. A database setting cannot relabel the executable
     // prompt and schema: it may only assert what it expects to be deployed. Where it asserts
     // something different, that is a deployment error and AI must fail closed rather than run under

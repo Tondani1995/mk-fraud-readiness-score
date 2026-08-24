@@ -52,7 +52,10 @@ const PROGRAMME_BY_FAMILY: Readonly<Record<string, { programmeId: string; title:
   FRAUD_RISK_IDENTIFICATION: { programmeId: 'PROG-GOVERNANCE', title: 'Fraud governance and risk identification', managementQuestion: 'Does anyone own fraud risk, and do we know where it sits?' },
   FRAUD_AWARENESS: { programmeId: 'PROG-CULTURE-IMPROVEMENT', title: 'Culture and continuous improvement', managementQuestion: 'Do people recognise fraud, and does the control environment learn?' },
   FRAUD_CULTURE: { programmeId: 'PROG-CULTURE-IMPROVEMENT', title: 'Culture and continuous improvement', managementQuestion: 'Do people recognise fraud, and does the control environment learn?' },
-  CONTINUOUS_IMPROVEMENT: { programmeId: 'PROG-CULTURE-IMPROVEMENT', title: 'Culture and continuous improvement', managementQuestion: 'Do people recognise fraud, and does the control environment learn?' }
+  CONTINUOUS_IMPROVEMENT: { programmeId: 'PROG-CULTURE-IMPROVEMENT', title: 'Culture and continuous improvement', managementQuestion: 'Do people recognise fraud, and does the control environment learn?' },
+  PAYROLL_INTEGRITY: { programmeId: 'PROG-PAYROLL-INTEGRITY', title: 'Payroll integrity', managementQuestion: 'Can payroll master-file and payment changes be independently challenged before release?' },
+  CASH_CUSTODY: { programmeId: 'PROG-CASH-CUSTODY', title: 'Cash custody and reconciliation', managementQuestion: 'Are cash custody, counting and banking differences visible and owned?' },
+  STOCK_ASSET_CUSTODY: { programmeId: 'PROG-STOCK-ASSET-CUSTODY', title: 'Stock and physical-asset integrity', managementQuestion: 'Are stock and physical-asset movements reconciled and challenged?' }
 };
 
 function programmeFor(family: string) {

@@ -38,13 +38,18 @@ assert.deepEqual(snapshot.expectedWordRange, { minimum: 700, maximum: 1400 });
 const comprehensive = deriveWholeManuscriptOutputBudget(syntheticBlueprint('comprehensive', 30));
 assert.deepEqual(comprehensive.expectedWordRange, { minimum: 4200, maximum: 7600 });
 
-// Acceptance generation remains one provider request per click. The existing tail mechanism stays
+// Acceptance generation uses one bounded attempt ledger per logical stage. Tail recovery remains
 // available in the writer, but production must not silently spend it when the first call truncates.
 const fulfilmentSource = fs.readFileSync('src/lib/reports/phase1-manual-fulfilment.ts', 'utf8');
-assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ providerCallBudget: 1 \}\)/);
+assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ allowTailRecovery: false \}\)/);
 const writerSource = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
 assert.match(writerSource, /this\.chargeProviderCall\('tail'\)/);
+assert.match(writerSource, /runStage\('manuscript'/);
+assert.match(writerSource, /runStage\('semantic_review'/);
+assert.match(writerSource, /MAX_PROVIDER_ATTEMPTS_PER_STAGE/);
+assert.match(writerSource, /maxRetries:\s*0/);
 assert.match(writerSource, /provider_call_budget_exhausted/);
+assert.match(writerSource, /allowTailRecovery/);
 
 console.log(JSON.stringify({
   status: 'PASS',
@@ -55,6 +60,6 @@ console.log(JSON.stringify({
     hardOutputTokenLimit: essential.hardOutputTokenLimit,
     headingCount: essential.headingCount
   },
-  oneCallAcceptanceGuard: 'PRESERVED',
+  boundedAttemptAcceptanceGuard: 'PRESERVED',
   boundedTailRecovery: 'PRESERVED'
 }, null, 2));

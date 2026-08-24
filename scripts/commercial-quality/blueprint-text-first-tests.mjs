@@ -47,7 +47,7 @@ assert.equal(validateBlueprintTextManuscript(rawId, blueprint, pack).hardTruth.i
 const unsupportedNumber = parseBlueprintMarkdown(complete.replace('Management should translate', 'Management should translate 999999'), blueprint);
 assert.equal(validateBlueprintTextManuscript(unsupportedNumber, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'unsupported_numeric_claim'), true);
 const assurance = parseBlueprintMarkdown(complete.replace('Management should translate', 'The report independently verified operating effectiveness; management should translate'), blueprint);
-assert.equal(validateBlueprintTextManuscript(assurance, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), true);
+assert.equal(validateBlueprintTextManuscript(assurance, blueprint, pack).semanticCandidates.issues.some((issue) => issue.code === 'assurance_claim'), true);
 const customerOwnedReview = parseBlueprintMarkdown(complete.replace('Management should translate', 'Management should independently review whether supplier activation evidence was completed before release; management should translate'), blueprint);
 assert.equal(validateBlueprintTextManuscript(customerOwnedReview, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), false);
 const customerOwnedVerification = parseBlueprintMarkdown(complete.replace('Management should translate', 'If a bank-detail change is not independently verified through a trusted channel before payment, management should pause release; management should translate'), blueprint);

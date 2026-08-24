@@ -7,7 +7,6 @@ import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { SeverityBudget } from '../design/severity-budget';
 import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
-import { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -87,6 +86,16 @@ function esc(value: unknown): string {
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
     .replace(/\bD\d+-Q\d+\b/g, '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */
+function escNarrative(value: unknown): string {
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -277,7 +286,7 @@ export function renderReportHtml(
       <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
-    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'The result reflects the control areas applicable to the organisation. Valid scope exclusions and oversight-routed controls are part of the adaptive assessment design; differences in assessed scope may limit direct comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
     ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} completed using the assessment's oversight question set rather than the standard question set. ${adaptiveScope.redirectedCount === 1 ? 'It remains' : 'They remain'} in the scored scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
@@ -382,10 +391,6 @@ export function renderReportHtml(
 
   // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
   // report appended after methodology. Bind each chapter to the section it was written to explain.
-  const narrativeBlockText = (chapterId: string, value: string): string =>
-    chapterId === 'EXPOSURE-COULD-MATERIALISE'
-      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
-      : value;
   const narrativeChapterBody = (
     chapterId: string,
     sectionFilter: (title: string) => boolean = () => true
@@ -393,11 +398,11 @@ export function renderReportHtml(
     const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
     if (!chapter) return '';
     return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('');
+      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('');
       const childBlocks = chapterSection.subsections.map((item) => `
         <div class="manuscript-subsection">
           <div class="field-label">${esc(item.title)}</div>
-          ${item.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('')}
+          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('')}
         </div>`).join('');
       return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
     }).join('');
@@ -753,7 +758,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       <div>
         <div class="cover-brand">MK FRAUD INSIGHTS</div>
         <div class="cover-rule"></div>
-        <div class="cover-eyebrow">Independent fraud risk advisory</div>
+        <div class="cover-eyebrow">Fraud readiness advisory</div>
         <h1>Essential Fraud Readiness<br/>Review</h1>
         <p class="cover-subtitle">An evidence-linked view of reported readiness, material risk, control priorities and leadership decisions.</p>
       </div>

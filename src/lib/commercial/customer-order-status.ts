@@ -6,6 +6,23 @@ function paymentReferenceFor(orderReference: string) {
   return orderReference.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
 }
 
+export type AutomatedCustomerFulfilment = {
+  state: 'awaiting_payment' | 'preparing' | 'ready' | 'delivered' | 'recovery_required';
+  generationStatus: string | null;
+  deliveryStatus: string | null;
+  reportId: string | null;
+  versionNumber: number | null;
+  deliverables: Array<{
+    artefactType: 'main_report_pdf' | 'supporting_register_xlsx';
+    fileName: string;
+    mimeType: string;
+    fileSizeBytes: number;
+    artifactVersion: number;
+  }>;
+  customerAccessToken: string | null;
+  customerAccessTokenExpiresAt: string | null;
+};
+
 export type CustomerPaidOrderStatus = {
   orderReference: string;
   tier: CommercialTier | null;
@@ -18,46 +35,10 @@ export type CustomerPaidOrderStatus = {
   paymentVerified: boolean;
   eftInstructions: CustomerSafeEftInstructions | null;
   createdAt: string;
-  engagement: {
-    state: string;
-    stateVersion: number;
-    evidenceCount: number;
-    reviewedEvidenceCount: number;
-    reviewerAssigned: boolean;
-    signedOff: boolean;
-    signedOffArtifactVersion: number | null;
-    evidenceAccepting: boolean;
-    evidenceGuidance: string[];
-    evidence: Array<{
-      id: string;
-      originalFilename: string;
-      evidenceLabel: string | null;
-      contentType: string;
-      sizeBytes: number;
-      uploadedAt: string;
-      validationStatus: string;
-      reviewerObservation: string | null;
-    }>;
-    releasedArtifacts: Array<{
-      artefactType: string;
-      fileName: string;
-      mimeType: string;
-      fileSizeBytes: number;
-      artifactVersion: number;
-    }>;
-    customerAccessToken: string | null;
-    customerAccessTokenExpiresAt: string | null;
-  } | null;
+  automatedFulfilment: AutomatedCustomerFulfilment | null;
 };
 
-const EVIDENCE_ACCEPTING_STATES = new Set(['payment_received', 'evidence_requested', 'evidence_received', 'in_review']);
-
-const EVIDENCE_GUIDANCE = [
-  'Upload current organisation-level records that show how the control operates in practice.',
-  'Remove unnecessary personal information before upload and use the optional label to identify the control or process.',
-  'One file is accepted per upload; MK will record a separate reviewer status for each item.'
-];
-
+/** Customer read model for the automated analytical lifecycle. */
 export async function getCustomerPaidOrderStatus(input: { assessmentId: string; orderReference: string }): Promise<CustomerPaidOrderStatus | null> {
   const db = createSupabaseServiceClient() as any;
   const { data: order, error } = await db
@@ -67,87 +48,116 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
     .eq('order_reference', input.orderReference)
     .maybeSingle();
   if (error || !order) return null;
+
   const product = Array.isArray(order.products) ? order.products[0] : order.products;
   const tier = tierForProductCode(product?.product_code ?? null);
-  let engagement: CustomerPaidOrderStatus['engagement'] = null;
-  if (tier === 'comprehensive') {
-    const { data: row } = await db
-      .from('comprehensive_engagements')
-      .select('id,state,state_version,reviewer_admin_user_id,signed_off_by,signed_off_artifact_version')
-      .eq('order_id', order.id)
-      .maybeSingle();
-    if (row) {
-      const { data: evidence } = await db.from('comprehensive_evidence_items')
-        .select('id,original_filename,evidence_label,content_type,size_bytes,uploaded_at,validation_status,reviewer_observation')
-        .eq('engagement_id', row.id)
-        .order('uploaded_at', { ascending: false });
-      const evidenceRows = evidence ?? [];
-      const { data: releasedArtifacts } = await db.from('report_artifacts')
-        .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,release_state')
-        .eq('engagement_id', row.id)
-        .eq('artifact_version', row.signed_off_artifact_version ?? 0)
-        .eq('release_state', 'released')
-        .eq('storage_status', 'VERIFIED')
-        .order('artefact_type', { ascending: true });
-      const evidenceAccepting = EVIDENCE_ACCEPTING_STATES.has(row.state);
-      let customerAccessToken: string | null = null;
-      let customerAccessTokenExpiresAt: string | null = null;
-      if (row.state === 'delivered' && row.signed_off_artifact_version && order.customer_email) {
-        const { data: report } = await db.from('reports')
-          .select('id,status,storage_status')
-          .eq('order_id', order.id)
-          .eq('report_type', 'mk_validated')
-          .eq('version_number', row.signed_off_artifact_version)
-          .eq('status', 'released')
+  const reportType = product?.product_code === 'mk_validated_assessment'
+    ? 'mk_validated'
+    : product?.product_code === 'essential_self_assessment'
+      ? 'essential_self_assessment'
+      : null;
+
+  let automatedFulfilment: AutomatedCustomerFulfilment | null = null;
+  if (reportType) {
+    const [{ data: attempt }, { data: report }] = await Promise.all([
+      db.from('manual_report_generation_attempts')
+        .select('id,status,output_report_id,automatic_delivery_authorization_id,created_at')
+        .eq('order_id', order.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      db.from('reports')
+        .select('id,report_type,status,storage_status,version_number,file_name,mime_type,file_size_bytes,order_id')
+        .eq('order_id', order.id)
+        .eq('report_type', reportType)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ]);
+
+    const [{ data: register }, { data: authorization }] = await Promise.all([
+      report
+        ? db.from('report_artifacts')
+          .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,storage_status,release_state,engagement_id')
+          .eq('report_id', report.id)
+          .eq('artefact_type', 'supporting_register')
+          .is('engagement_id', null)
           .eq('storage_status', 'VERIFIED')
-          .order('version_number', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (report) {
-          const { data: access } = await db.rpc('issue_customer_report_access_token', {
-            p_order_id: order.id,
-            p_report_id: report.id,
-            p_recipient_email: order.customer_email,
-            p_ttl_seconds: 3600
-          });
-          if (access?.token) {
-            customerAccessToken = String(access.token);
-            customerAccessTokenExpiresAt = access.expires_at ?? null;
-          }
-        }
+          .eq('release_state', 'released')
+          .maybeSingle()
+        : Promise.resolve({ data: null }),
+      attempt?.automatic_delivery_authorization_id
+        ? db.from('report_delivery_authorizations')
+          .select('id,status')
+          .eq('id', attempt.automatic_delivery_authorization_id)
+          .maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
+
+    const packageReady = Boolean(
+      report
+        && report.status === 'released'
+        && report.storage_status === 'VERIFIED'
+        && Number(report.file_size_bytes) > 0
+        && register
+        && register.storage_status === 'VERIFIED'
+        && register.release_state === 'released'
+        && Number(register.artifact_version) === Number(report.version_number)
+    );
+    let customerAccessToken: string | null = null;
+    let customerAccessTokenExpiresAt: string | null = null;
+    if (packageReady && report && order.customer_email) {
+      const { data: access } = await db.rpc('issue_customer_report_access_token', {
+        p_order_id: order.id,
+        p_report_id: report.id,
+        p_recipient_email: order.customer_email,
+        p_ttl_seconds: 3600
+      });
+      if (access?.token) {
+        customerAccessToken = String(access.token);
+        customerAccessTokenExpiresAt = access.expires_at ?? null;
       }
-      engagement = {
-        state: row.state,
-        stateVersion: Number(row.state_version),
-        evidenceCount: evidenceRows.length,
-        reviewedEvidenceCount: evidenceRows.filter((item: any) => ['reviewed', 'supported', 'not_supported', 'insufficient', 'not_applicable'].includes(item.validation_status)).length,
-        reviewerAssigned: Boolean(row.reviewer_admin_user_id),
-        signedOff: Boolean(row.signed_off_by),
-        signedOffArtifactVersion: row.signed_off_artifact_version ? Number(row.signed_off_artifact_version) : null,
-        evidenceAccepting,
-        evidenceGuidance: EVIDENCE_GUIDANCE,
-        evidence: evidenceRows.map((item: any) => ({
-          id: item.id,
-          originalFilename: item.original_filename,
-          evidenceLabel: item.evidence_label ?? null,
-          contentType: item.content_type,
-          sizeBytes: Number(item.size_bytes),
-          uploadedAt: item.uploaded_at,
-          validationStatus: item.validation_status,
-          reviewerObservation: item.reviewer_observation ?? null
-        })),
-        releasedArtifacts: (releasedArtifacts ?? []).map((item: any) => ({
-          artefactType: item.artefact_type,
-          fileName: item.file_name,
-          mimeType: item.mime_type,
-          fileSizeBytes: Number(item.file_size_bytes),
-          artifactVersion: Number(item.artifact_version)
-        })),
-        customerAccessToken,
-        customerAccessTokenExpiresAt
-      };
     }
+
+    const generationStatus = attempt?.status ?? null;
+    const recoveryRequired = Boolean(attempt && /FAILED|RECONCILIATION|ERROR/i.test(String(attempt.status)));
+    automatedFulfilment = {
+      state: recoveryRequired
+        ? 'recovery_required'
+        : packageReady && authorization?.status === 'finalized'
+          ? 'delivered'
+          : packageReady
+            ? 'ready'
+            : order.status === 'payment_received' || order.status === 'verified'
+              ? 'preparing'
+              : 'awaiting_payment',
+      generationStatus,
+      deliveryStatus: authorization?.status ?? null,
+      reportId: report?.id ?? null,
+      versionNumber: report ? Number(report.version_number) : null,
+      deliverables: packageReady && report
+        ? [
+          {
+            artefactType: 'main_report_pdf',
+            fileName: report.file_name,
+            mimeType: report.mime_type,
+            fileSizeBytes: Number(report.file_size_bytes),
+            artifactVersion: Number(report.version_number)
+          },
+          ...(register ? [{
+            artefactType: 'supporting_register_xlsx' as const,
+            fileName: register.file_name,
+            mimeType: register.mime_type,
+            fileSizeBytes: Number(register.file_size_bytes),
+            artifactVersion: Number(register.artifact_version)
+          }] : [])
+        ]
+        : [],
+      customerAccessToken,
+      customerAccessTokenExpiresAt
+    };
   }
+
   const amountCents = Number(order.amount_cents);
   return {
     orderReference: order.order_reference,
@@ -158,9 +168,9 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
     amountDisplay: new Intl.NumberFormat('en-ZA', { style: 'currency', currency: order.currency, maximumFractionDigits: 0 }).format(amountCents / 100),
     paymentReference: paymentReferenceFor(order.order_reference),
     orderStatus: order.status,
-    paymentVerified: Boolean(order.verified_at) || order.status === 'verified',
+    paymentVerified: Boolean(order.verified_at) || order.status === 'verified' || order.status === 'payment_received',
     eftInstructions: customerSafeEftInstructions(order.eft_instructions_snapshot),
     createdAt: order.created_at,
-    engagement
+    automatedFulfilment
   };
 }

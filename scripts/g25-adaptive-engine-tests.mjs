@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT,
-  PREVIEW_ADAPTIVE_GRAPH_VERSION,
+  FROZEN_ADAPTIVE_GRAPH_FINGERPRINT,
+  FROZEN_ADAPTIVE_GRAPH_VERSION,
   deriveAdaptiveIntegritySignals,
   evaluateAdaptiveCondition,
   previewGatewayChange,
@@ -28,9 +28,9 @@ function allMaturity(path, value = 3) {
   return Object.fromEntries(path.activeNodes.filter((node) => node.kind !== 'gateway').map((node) => [node.nodeId, { responseState: 'maturity', responseValue: value }]));
 }
 
-assert.deepEqual(validateAdaptiveGraph(graph), []);
-assert.equal(graph.graphVersion, PREVIEW_ADAPTIVE_GRAPH_VERSION);
-assert.equal(graph.graphFingerprint, PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT);
+assert.deepEqual(validateAdaptiveGraph(graph, FROZEN_ADAPTIVE_GRAPH_FINGERPRINT), []);
+assert.equal(graph.graphVersion, FROZEN_ADAPTIVE_GRAPH_VERSION);
+assert.equal(graph.graphFingerprint, FROZEN_ADAPTIVE_GRAPH_FINGERPRINT);
 assert.equal(evaluateAdaptiveCondition(null, {}), true);
 assert.equal(evaluateAdaptiveCondition({ questionId: 'G03', equals: 'internal' }, answers()), true);
 assert.equal(evaluateAdaptiveCondition({ questionId: 'G03', in: ['outsourced', 'shared_service'] }, answers()), false);

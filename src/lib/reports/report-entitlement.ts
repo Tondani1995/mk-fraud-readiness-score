@@ -137,11 +137,16 @@ export function validatePremiumReportGenerationEntitlement(
   // code and the catalogue tier must agree, so a mislabelled product cannot select a
   // pipeline it was not sold under.
   const tier = tierForProductCode(assembled.productCode);
+  if (tier === 'essential' && (
+    assembled.productCode !== ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE
+    || tierForProductCode(assembled.productCode) !== 'essential'
+  )) {
+    reject('order_not_eligible', 'The order does not carry the Essential product entitlement.');
+  }
   const entitlement = tier === 'essential' || tier === 'comprehensive' ? TIER_ENTITLEMENTS[tier] : null;
   if (!entitlement || assembled.productCode !== entitlement.productCode) {
     reject('order_not_eligible', productMessage(assembled.productCode));
   }
-
   if (assembled.orderStatus !== PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS) {
     reject(
       'order_not_eligible',

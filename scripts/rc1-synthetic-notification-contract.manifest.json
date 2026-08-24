@@ -21,8 +21,8 @@
       "sourceFunction": "recordPhase1OrderNotifications",
       "source": {
         "file": "src/lib/notifications/phase1-order-notifications.ts",
-        "functionLine": 364,
-        "messageLine": 398
+        "functionLine": 361,
+        "messageLine": 395
       },
       "dedupeKeyConstruction": "phase1:customer_order_confirmation:<order_id>",
       "providerIdempotencyKeyConstruction": "<email_events.id>",
@@ -40,8 +40,8 @@
       "sourceFunction": "recordPhase1OrderNotifications",
       "source": {
         "file": "src/lib/notifications/phase1-order-notifications.ts",
-        "functionLine": 364,
-        "messageLine": 413
+        "functionLine": 361,
+        "messageLine": 410
       },
       "dedupeKeyConstruction": "phase1:admin_new_order_notification:<order_id>",
       "providerIdempotencyKeyConstruction": "<email_events.id>",
@@ -59,8 +59,8 @@
       "sourceFunction": "recordPaymentConfirmedNotification",
       "source": {
         "file": "src/lib/notifications/phase1-order-notifications.ts",
-        "functionLine": 449,
-        "messageLine": 455
+        "functionLine": 446,
+        "messageLine": 452
       },
       "dedupeKeyConstruction": "phase1:payment_confirmed:<order_id>",
       "providerIdempotencyKeyConstruction": "<email_events.id>",

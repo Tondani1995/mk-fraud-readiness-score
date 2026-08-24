@@ -3,6 +3,7 @@ import { ResponseLabelSourceError, type OfficialResponseLabel } from '../respons
 import { getQuestionPlaybook } from './question-playbooks';
 import type { MaterialFinding, MaterialFindingClass, MaterialFindingSelectionReason } from './types';
 import { semanticMappingForQuestion } from './semantic-mappings';
+import { QuestionPlaybookMissingError } from './deterministic-errors';
 
 /** Stable presentation order when one control qualifies under several independent rules. */
 export const MATERIAL_FINDING_REASON_ORDER: readonly MaterialFindingSelectionReason[] = [
@@ -96,6 +97,7 @@ function highExposureLinks(data: AssembledReportData, domainCode: string): strin
 }
 
 function weakestRepresentatives(data: AssembledReportData, traces: QuestionTraceRecord[]): Set<string> {
+  const methodologyVersionId = data.scoreRun.methodologyVersionId;
   const weakestDomains = [...data.domainResults]
     .filter((domain) => domain.rawScore !== null)
     .sort((a, b) => (a.rawScore as number) - (b.rawScore as number) || a.domainCode.localeCompare(b.domainCode))
@@ -117,7 +119,7 @@ function weakestRepresentatives(data: AssembledReportData, traces: QuestionTrace
     // of coverage and will fail closed later if its playbook is missing.
     const representative = weakest && (weakest.responseValue as number) <= 2
       ? weakest
-      : candidates.find((trace) => getQuestionPlaybook(trace.questionCode));
+      : candidates.find((trace) => getQuestionPlaybook(trace.questionCode, methodologyVersionId, data.adaptiveScope?.graphVersion));
     if (representative) selected.add(representative.questionCode);
   }
   return selected;
@@ -188,6 +190,12 @@ function classify(reasons: MaterialFindingSelectionReason[], responseValue: numb
   if (reasons.includes('CRITICAL_GAP') || reasons.includes('MAJOR_GAP') || reasons.includes('PARTIAL_KEY_CONTROL_HIGH_EXPOSURE')) return 'control_gap';
   if (reasons.includes('EXPOSURE_CONTROL_MISMATCH')) return 'exposure_mismatch';
   if (reasons.includes('CROSS_DOMAIN_DEPENDENCY')) return 'cross_domain_dependency';
+  // Vhutshilo V2 acceptance defect (2026-08-20): weakest-domain selection is a reason to surface a
+  // control, not evidence that a weak control is operating strongly. A 0-2 response can therefore
+  // never fall through to assurance_priority. Preserve the more specific classes above, then use a
+  // generic control_gap for any remaining weak finding selected only by weakest-domain/scenario/
+  // contradiction materiality. Assurance priority is reserved for response values 3-5.
+  if (responseValue <= 2) return 'control_gap';
   return 'assurance_priority';
 }
 
@@ -260,14 +268,13 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
     const selectionReasons = stableReasons(reasons);
     if (selectionReasons.length === 0) continue;
 
-    const playbook = getQuestionPlaybook(trace.questionCode);
-    const semanticMapping = semanticMappingForQuestion(trace.questionCode);
+    const playbook = getQuestionPlaybook(trace.questionCode, data.scoreRun.methodologyVersionId, data.adaptiveScope?.graphVersion);
+    if (!playbook) throw new QuestionPlaybookMissingError(trace.questionCode, data.scoreRun.methodologyVersionId);
+    const semanticMapping = semanticMappingForQuestion(trace.questionCode, data.scoreRun.methodologyVersionId);
     const materialityClass = classify(selectionReasons, responseValue);
     const isAssurance = materialityClass === 'assurance_priority';
     const impact = impactCategories(trace.domainCode);
-    const diagnosisText = playbook
-      ? playbook.currentStateDiagnosis(label)
-      : `${trace.questionCode} was self-assessed as "${label.label}" (${label.operationalMeaning}), but no exact question playbook is registered; commercial generation must remain blocked.`;
+    const diagnosisText = playbook.currentStateDiagnosis(label);
     const failureDescription = isAssurance
       ? 'This is an assurance priority, not a failed control. The strong self-reported response should be validated with operating evidence.'
       : trace.isHardGate
@@ -299,31 +306,31 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
       relatedCapRuleCodes: capRules.get(trace.questionCode) ?? [],
       relatedCapRuleCode: capRules.get(trace.questionCode)?.[0] ?? null,
       linkedExposureFactorCodes: exposureLinks,
-      linkedScenarioTypes: playbook?.relatedScenarioTypes ?? SCENARIO_TYPES_BY_QUESTION[trace.questionCode] ?? [],
+      linkedScenarioTypes: playbook.relatedScenarioTypes.length > 0 ? playbook.relatedScenarioTypes : SCENARIO_TYPES_BY_QUESTION[trace.questionCode] ?? [],
       primarySemanticFamily: semanticMapping.primarySemanticFamily,
       secondarySemanticFamilies: semanticMapping.secondarySemanticFamilies,
       fraudPathwayFamilies: semanticMapping.fraudPathwayFamilies,
       diagnosis: diagnosisText,
       whyItMatters: failureDescription,
-      fraudMechanism: playbook?.fraudMechanism ?? 'No control mechanism is rendered because an exact question playbook is missing.',
+      fraudMechanism: playbook.fraudMechanism,
       likelyFinancialImpact: impact.financial,
       likelyOperationalImpact: impact.operational,
-      expectedControlStandard: playbook?.expectedStandard ?? '',
-      evidenceToRequest: playbook?.evidenceRequired ?? [],
-      recommendedControl: playbook?.recommendedControlDesign ?? '',
-      accountableOwner: playbook?.executiveAccountability ?? '',
-      processOwner: playbook?.processOwnership ?? '',
-      oversightFunction: playbook?.oversightFunction ?? '',
-      supportingFunctions: playbook?.supportingFunctions ?? [],
-      operatingFrequency: playbook?.operatingFrequency ?? '',
-      minimumEvidenceCharacteristics: playbook?.minimumAcceptableEvidenceCharacteristics ?? [],
-      dependencies: playbook?.dependencies ?? [],
-      implementationDifficulty: playbook?.implementationDifficulty ?? 'High',
-      targetPeriod: playbook?.targetPeriod ?? '90 days',
-      effectivenessMeasure: playbook?.effectivenessMeasure ?? '',
-      escalationThreshold: playbook?.escalationThreshold ?? '',
-      playbookSource: playbook ? `question-playbooks:${trace.questionCode}` : null,
-      fallbackStatus: playbook ? 'exact_question_playbook' : 'missing_question_playbook',
+      expectedControlStandard: playbook.expectedStandard,
+      evidenceToRequest: playbook.evidenceRequired,
+      recommendedControl: playbook.recommendedControlDesign,
+      accountableOwner: playbook.executiveAccountability,
+      processOwner: playbook.processOwnership,
+      oversightFunction: playbook.oversightFunction,
+      supportingFunctions: playbook.supportingFunctions,
+      operatingFrequency: playbook.operatingFrequency,
+      minimumEvidenceCharacteristics: playbook.minimumAcceptableEvidenceCharacteristics,
+      dependencies: playbook.dependencies,
+      implementationDifficulty: playbook.implementationDifficulty,
+      targetPeriod: playbook.targetPeriod,
+      effectivenessMeasure: playbook.effectivenessMeasure,
+      escalationThreshold: playbook.escalationThreshold,
+      playbookSource: `question-playbooks:${trace.questionCode}`,
+      fallbackStatus: 'exact_question_playbook',
       selfAssessmentLimitation: 'Self-reported assessment response only; no document, interview, transaction sample or system evidence has been independently verified.'
     });
   }

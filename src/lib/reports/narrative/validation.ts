@@ -1,6 +1,7 @@
 import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeManuscript, NarrativeManuscriptSection, NarrativeSpine } from './manuscript';
 import type { NarrativeStoryPlan } from './story-plan';
+import { adjudicateAssuranceProposition } from './assurance-adjudication';
 
 export interface NarrativeValidationIssue {
   code: string;
@@ -36,73 +37,26 @@ export interface AssuranceLanguageClassification {
   matched: string;
 }
 
-const ABSOLUTELY_PROHIBITED_ASSURANCE = [
-  /\b(?:evidence-linked|evidence-based)\b.{0,100}\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b/i,
-  /\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b.{0,100}\b(?:evidence-linked|evidence-based)\b/i,
-  /\bvalidated operating effectiveness\b/i,
-  /\bevidence validated\b/i,
-  /\breviewer judgement\b/i,
-  /\bMK\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|reviewed evidence|tested\s+(?:the\s+)?(?:operation|operating effectiveness|controls?)|independently confirmed)\b/i,
-  /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i,
-  /\b(?:independent\s+(?:verification|review)|independently\s+(?:verified|reviewed))\b.{0,100}\b(?:confirmed|established|demonstrates?|shows?)\b.{0,100}\b(?:control|operating effectiveness|operates? effectively)\b/i,
-  /\boperating effectiveness\b.{0,80}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+(?:verified|reviewed)|validated|established|confirmed)\b/i,
-  /\b(?:the\s+)?evidence\b.{0,40}\b(?:was|were|has been|have been)\s+validated\b/i,
-  /\b(?:MK(?:'s)?|the reviewer(?:'s)?)\s+review\b.{0,100}\b(?:confirmed|established|assured|operating effectiveness)\b/i,
-  /\b(?:the report|this report)\b.{0,80}\bprovides?\s+(?:independent\s+)?assurance\b/i
-];
-
-const NEGATED_ASSURANCE_DISCLAIMER = /\b(?:not|does not|do not|without)\s+(?:a\s+statement\s+that\s+)?(?:existing\s+)?(?:evidence|controls?|operating effectiveness)\s+(?:has been|was|were|is|are)\s+(?:independently\s+)?(?:validated|verified|confirmed|established|assured)\b/i;
-
-const AMBIGUOUS_CONTROL_VERIFICATION = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b/i;
-const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|activation|change(?:s)?|approval|callback|verification step|control(?:s)? activity|control design|payment release|release)\b/i;
-const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
-const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
-const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
-// A recommendation for the customer to perform an independent review is a control-design action,
-// not a claim that MK, the assessment or the report has provided assurance. Keep the exception
-// deliberately normative: past-tense assertions remain fail-closed unless another existing control
-// activity rule proves them safe.
-const CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW = /(?:^|[.!?]\s+)\s*independently\s+(?:review|verify)\b|\b(?:should|must|need(?:s)?\s+to|is required to|are required to)\s+independently\s+(?:review|verify)\b/i;
-// A customer-owned verification recommendation is also safe when written in passive form, for
-// example "operating effectiveness should be independently verified before closure". This is
-// future/normative control design, not a claim that MK or the assessment has already provided
-// assurance. Past-tense or present-perfect assertions remain blocked by the absolute rules above.
-const CUSTOMER_PASSIVE_CONTROL_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|control environment|control design|control operation|implementation|remediation|evidence(?: package)?|closure)\b.{0,180}\b(?:(?:should|must|can|could)\s+(?:then\s+)?be|(?:need(?:s)?\s+to|is required to|are required to)\s+be)\s+independently\s+(?:verified|reviewed)\b/i;
-// Even normative wording remains prohibited when the proposed reviewer is MK or the report itself.
-const PROHIBITED_ASSURANCE_SUBJECT = /\b(?:MK|the assessment|this assessment|the findings?|the report|this report)\b.{0,120}\b(?:should|must|need(?:s)?\s+to|is required to|are required to)?\s*independently\s+(?:review|verify)\b/i;
-// Narrow, deterministic exception for the supplied management-versus-assurance role-separation
-// control. Generic independent-review wording remains fail-closed.
-const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equivalent assurance function|assurance function)\b.{0,180}\bindependent review(?: responsibilities)?\b|\bindependent review(?: responsibilities)?\b.{0,180}\b(?:management|internal audit|equivalent assurance function|assurance function)\b/i;
-
 /**
  * Classifies only assurance language in customer-facing narrative text. Explicit claims about MK,
  * the assessment, the report or operating effectiveness remain blocking. The ambiguous
  * independent-verification/review wording is allowed only when it is clearly framed as a customer
  * control activity; otherwise it fails closed.
+ *
+ * Thin wrapper around the shared adjudication core (narrative/assurance-adjudication.ts) -- see
+ * that module's doc comment for why a single canonical classifier now backs both this function and
+ * essential-validation-cascade.ts's adjudicateAssuranceSentence. This function's contract has no
+ * third state: the core's AMBIGUOUS verdict folds into 'prohibited_assurance' here, the same as
+ * REJECT, so an unresolved candidate stays fail-safe for every caller of this function exactly as
+ * a confirmed violation does. Only a confidently-cleared or genuinely-absent candidate returns
+ * non-blocking.
  */
 export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassification | null {
-  const assuranceText = text.replace(NEGATED_ASSURANCE_DISCLAIMER, '');
-  for (const pattern of ABSOLUTELY_PROHIBITED_ASSURANCE) {
-    const match = assuranceText.match(pattern);
-    if (match) return { category: 'prohibited_assurance', matched: match[0] };
+  const result = adjudicateAssuranceProposition(text);
+  if (result.disposition === 'ALLOW') {
+    return result.isCandidate ? { category: 'customer_control_activity', matched: result.matched! } : null;
   }
-
-  const ambiguous = assuranceText.match(AMBIGUOUS_CONTROL_VERIFICATION);
-  if (!ambiguous) return null;
-  if (MK_ASSURANCE_ACTOR.test(assuranceText) || PROHIBITED_ASSURANCE_SUBJECT.test(assuranceText)) {
-    return { category: 'prohibited_assurance', matched: ambiguous[0] };
-  }
-
-  const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(assuranceText);
-  const hasControlAction = CONTROL_ACTIVITY_ACTION.test(assuranceText);
-  if ((hasControlSubject && hasControlAction)
-    || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
-    || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
-    || CUSTOMER_PASSIVE_CONTROL_VERIFICATION.test(assuranceText)
-    || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
-    return { category: 'customer_control_activity', matched: ambiguous[0] };
-  }
-  return { category: 'prohibited_assurance', matched: ambiguous[0] };
+  return { category: 'prohibited_assurance', matched: result.matched! };
 }
 
 function issue(code: string, path: string, message: string): NarrativeValidationIssue { return { code, path, message, blocking: true }; }

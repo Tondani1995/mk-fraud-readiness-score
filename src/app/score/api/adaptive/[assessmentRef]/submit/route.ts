@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { submitAdaptiveAssessment } from '@/lib/adaptive/server';
 import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreAdaptiveSubmittedAssessment } from '@/lib/scoring/adaptive-scoring';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
+import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
+import { queueSnapshotNarrative } from '@/lib/snapshot/narrative';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
@@ -21,6 +23,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     const db = createSupabaseServiceClient();
     const { data: assessmentRow, error: assessmentError } = await db.from('assessments').select('id').eq('assessment_reference', params.assessmentRef).single();
     if (assessmentError || !assessmentRow) return NextResponse.json({ ok: false, errors: ['Assessment identity could not be loaded after scoring.'] }, { status: 500 });
+    after(() => queueSnapshotNarrative({ snapshot, insights: buildCommercialSnapshotInsights(snapshot) }).catch(() => null));
     const snapshotToken = await createSnapshotTokenForAssessment({
       assessmentId: assessmentRow.id,
       assessmentReference: params.assessmentRef,

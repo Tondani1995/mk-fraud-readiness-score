@@ -1,0 +1,64 @@
+name: Essential V1.2 Intra-Profile Comparison Fix
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-intraprofile-comparison-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Extend bounded intra-profile comparison adjudication
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/lib/reports/essential-validation-cascade.ts')
+          s = p.read_text()
+          old = """    const externalFrame = /\\b(?:peer(?:s)?|similar[- ]sized|industry|benchmark(?:s|ed|ing)?|average(?:s)?|median(?:s)?|percentile(?:s)?)\\b/i.test(text);\n    return internalFrame && comparative && !externalFrame;\n"""
+          new = """    const externalFrame = /\\b(?:peer(?:s)?|similar[- ]sized|industry|benchmark(?:s|ed|ing)?|average(?:s)?|median(?:s)?|percentile(?:s)?)\\b/i.test(text);\n    const inventedStructureFrame = /\\b(?:team|committee|department|function|unit|division|headcount|reporting line|reports to)\\b/i.test(text);\n    return internalFrame && comparative && !externalFrame && !inventedStructureFrame;\n"""
+          if old not in s: raise SystemExit('intra-profile helper anchor not found')
+          s = s.replace(old,new,1)
+          old_repair = """        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n"""
+          new_repair = """        if ((reviewed.reasonCode === 'unsupported_comparison' || reviewed.reasonCode === 'unsupported_structure') && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_repair_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n"""
+          if old_repair not in s: raise SystemExit('REPAIR comparator anchor not found')
+          s = s.replace(old_repair,new_repair,1)
+          old_reject = """        if (reviewed.reasonCode === 'unsupported_comparison' && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n"""
+          new_reject = """        if ((reviewed.reasonCode === 'unsupported_comparison' || reviewed.reasonCode === 'unsupported_structure') && isBoundedIntraProfileComparison(source)) {\n          return { disposition: 'ALLOW_CONTEXT', reasonCode: 'reviewer_adverse_signal_cleared_by_intra_profile_score_comparison', repair: false };\n        }\n"""
+          if old_reject not in s: raise SystemExit('REJECT comparator anchor not found')
+          p.write_text(s.replace(old_reject,new_reject,1))
+
+          proof = Path('src/app/score/api/qa/v12-essential-safety-proof/route.ts')
+          q = proof.read_text()
+          anchor = """  const prescriptiveOperatingReject = run(\n    'By 60 days establish the evidence register, adopt chain-of-custody forms and place preserved items in an access-controlled repository.',\n    'REJECT',\n    'unsupported_operating_detail'\n  );\n"""
+          if 'const intraProfileStructureRepair = run(' not in q:
+              addition = anchor + """  const intraProfileStructureRepair = run(\n    'The strongest reported position appears in Digital and Identity Fraud Risk, while Operational Fraud Controls and Third-Party and Supply Chain Fraud Risk are also comparatively higher than other domains; by contrast, Fraud Leadership and Governance is materially weaker in the self-assessment profile.',\n    'REPAIR',\n    'unsupported_structure'\n  );\n  const inventedStructureRepair = run(\n    'The fraud team is structurally stronger than the finance department within this domain profile.',\n    'REPAIR',\n    'unsupported_structure'\n  );\n"""
+              if anchor not in q: raise SystemExit('proof insert anchor not found')
+              q = q.replace(anchor,addition,1)
+              pass_anchor = """    && prescriptiveOperatingReject.publishable === true\n    && prescriptiveOperatingReject.finalDisposition === 'ACCEPT'\n"""
+              pass_add = pass_anchor + """    && intraProfileStructureRepair.publishable === true\n    && intraProfileStructureRepair.finalDisposition === 'ACCEPT'\n    && inventedStructureRepair.publishable === false\n    && inventedStructureRepair.finalDisposition === 'REPAIR'\n"""
+              if pass_anchor not in q: raise SystemExit('proof pass anchor not found')
+              q = q.replace(pass_anchor,pass_add,1)
+              response_anchor = """    prescriptiveOperatingReject,\n    unsafeReviewerAllow,\n"""
+              response_add = """    prescriptiveOperatingReject,\n    intraProfileStructureRepair,\n    inventedStructureRepair,\n    unsafeReviewerAllow,\n"""
+              if response_anchor not in q: raise SystemExit('proof response anchor not found')
+              q = q.replace(response_anchor,response_add,1)
+              proof.write_text(q)
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/essential-validation-cascade.ts src/app/score/api/qa/v12-essential-safety-proof/route.ts
+          git commit -m "clear bounded intra-profile score summaries from mislabelled structure signals"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823

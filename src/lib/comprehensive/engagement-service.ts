@@ -1,3 +1,8 @@
+/**
+ * LEGACY / ADVISORY-ONLY boundary. This reviewed-engagement service is retained for historical
+ * Advisory/database compatibility. Active self-service Comprehensive order, fulfilment, status,
+ * release and customer access must not import it.
+ */
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { evaluatePaymentVerificationEvidence, isValidPaymentSourceEvent } from '@/lib/payments/payment-verification';

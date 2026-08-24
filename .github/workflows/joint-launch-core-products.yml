@@ -13,13 +13,45 @@ on:
     paths:
       - 'src/lib/commercial/**'
       - 'src/lib/comprehensive/**'
+      - 'src/lib/reports/comprehensive/**'
+      - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/evidence-model/**'
+      - 'src/lib/reports/narrative/**'
+      - 'src/lib/reports/essential-projection.ts'
+      - 'src/lib/reports/customer-report-access.ts'
+      - 'src/lib/reports/supporting-register-delivery.ts'
+      - 'src/components/comprehensive/**'
+      - 'src/app/score/report/access/**'
       - 'src/lib/orders/**'
       - 'src/lib/reports/report-entitlement.ts'
       - 'src/lib/reports/assemble-report-data.ts'
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/app/score/admin/orders/**'
+      - 'src/lib/adaptive/**'
+      - 'src/lib/notifications/**'
+      - 'src/lib/payments/**'
+      - 'src/lib/rc1/**'
+      - 'src/lib/snapshot/**'
+      - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/components/adaptive/**'
+      - 'src/components/assessment/**'
+      - 'src/components/products/**'
+      - 'src/app/score/snapshot/**'
+      - 'src/app/score/order/**'
+      - 'src/app/score/admin/methodology/v1-2/**'
+      - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
+      - 'scripts/adaptive-v1-2-*.mjs'
+      - 'scripts/pre-g30-adaptive-launch-tests.mjs'
+      - 'scripts/pre-g30-migration-target-manifest.json'
+      - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/comprehensive-rpc-identifier-guard.mjs'
+      - 'scripts/comprehensive-interpretation-accounting-tests.mjs'
+      - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
+      - 'scripts/g27-adaptive-correction-tests.mjs'
+      - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -29,13 +61,45 @@ on:
     paths:
       - 'src/lib/commercial/**'
       - 'src/lib/comprehensive/**'
+      - 'src/lib/reports/comprehensive/**'
+      - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'src/lib/reports/evidence-model/**'
+      - 'src/lib/reports/narrative/**'
+      - 'src/lib/reports/essential-projection.ts'
+      - 'src/lib/reports/customer-report-access.ts'
+      - 'src/lib/reports/supporting-register-delivery.ts'
+      - 'src/components/comprehensive/**'
+      - 'src/app/score/report/access/**'
       - 'src/lib/orders/**'
       - 'src/lib/reports/report-entitlement.ts'
       - 'src/lib/reports/assemble-report-data.ts'
       - 'src/app/score/api/commercial/**'
       - 'src/app/score/api/admin/comprehensive/**'
       - 'src/app/score/api/assessments/**'
+      - 'src/app/score/admin/orders/**'
+      - 'src/lib/adaptive/**'
+      - 'src/lib/notifications/**'
+      - 'src/lib/payments/**'
+      - 'src/lib/rc1/**'
+      - 'src/lib/snapshot/**'
+      - 'src/lib/scoring/adaptive-scoring.ts'
+      - 'src/components/adaptive/**'
+      - 'src/components/assessment/**'
+      - 'src/components/products/**'
+      - 'src/app/score/snapshot/**'
+      - 'src/app/score/order/**'
+      - 'src/app/score/admin/methodology/v1-2/**'
+      - 'docs/adaptive-assessment/**'
       - 'supabase/migrations/**'
+      - 'scripts/adaptive-v1-2-*.mjs'
+      - 'scripts/pre-g30-adaptive-launch-tests.mjs'
+      - 'scripts/pre-g30-migration-target-manifest.json'
+      - 'scripts/comprehensive-launch-closure-tests.mjs'
+      - 'scripts/comprehensive-rpc-identifier-guard.mjs'
+      - 'scripts/comprehensive-interpretation-accounting-tests.mjs'
+      - 'scripts/v1-2-deterministic-advisory-compatibility-tests.mjs'
+      - 'scripts/g27-adaptive-correction-tests.mjs'
+      - 'scripts/customer-conversion-interim-closure-tests.mjs'
       - 'scripts/joint-launch-*'
       - 'scripts/rc1-service-role-privilege-contract*'
       - 'package.json'
@@ -76,10 +140,35 @@ jobs:
       - name: Verify accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
 
+      - name: Adaptive V1.2 methodology, parity and runtime certification
+        run: npm run adaptive:v1-2:test
+
+      - name: V1.2 deterministic advisory semantic and playbook compatibility
+        run: npm run v1-2:test-deterministic-advisory
+
+      - name: Adaptive launch authority and migration-target certification
+        run: |
+          npm run pre-g30:test-adaptive-launch
+          npm run pre-g30:test-migration-targets
+
       - name: Product catalogue, price-version and entitlement contract
         run: npm run joint-launch:test-product-contract
 
-      - name: Comprehensive lifecycle, evidence intake and security
+      - name: Comprehensive automated launch closure (authoritative)
+        run: npm run joint-launch:test-comprehensive-launch-closure
+
+      - name: Comprehensive PostgreSQL RPC identifier guard
+        run: npm run joint-launch:test-comprehensive-rpc-contract
+
+      - name: Comprehensive package builder and durable accounting seam
+        run: npm run joint-launch:test-comprehensive-accounting
+
+      - name: Customer conversion and interim manual fulfilment closure
+        run: npm run joint-launch:test-customer-conversion-closure
+
+      # Retained for historical reviewed-engagement/Advisory compatibility only. This is not the
+      # authoritative active Comprehensive launch test.
+      - name: Legacy reviewed-engagement/Advisory compatibility (non-authoritative)
         run: npm run joint-launch:test-comprehensive
 
       - name: Evidence storage compensation (upload/insert/cleanup failure matrix)

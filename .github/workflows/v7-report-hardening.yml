@@ -36,17 +36,19 @@ name: V7 Report Hardening
 # canonical evidence references and checksums; and verifies the evidence builder never activates an
 # AI provider. The aggregate command now runs Checkpoints A, B, C and D.
 #
-# V7 Checkpoints E and F extend the same credential-free gate through active-path AI narrative
-# integration and the real Chromium PDF renderer. Checkpoint F renders four fixed synthetic
-# candidates twice, rasterises every page at 200 DPI, runs the commercial PDF audit and publishes
-# controller-review artifacts. No production data, database credential or external AI provider is
-# used.
+# V7 Checkpoints E and F extend the same credential-free gate through the current v1.1
+# whole-manuscript/semantic-validation architecture and the real Chromium PDF renderer.
+# The historical pre-v1.1 Checkpoint E script remains in the repository for traceability but is not
+# the active gate. Checkpoint F renders four fixed synthetic candidates twice, rasterises every
+# page at 200 DPI, runs the commercial PDF audit and publishes controller-review artifacts. No
+# production data, database credential or external AI provider is used.
 
 on:
   pull_request:
     paths:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
+      - 'scripts/essential-v7-equivalent-certification.mjs'
       - 'scripts/rc1-service-role-*'
       - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
       - 'package.json'
@@ -56,6 +58,7 @@ on:
     paths:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
+      - 'scripts/essential-v7-equivalent-certification.mjs'
       - 'scripts/rc1-service-role-*'
       - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
       - 'package.json'

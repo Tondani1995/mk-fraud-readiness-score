@@ -1,0 +1,44 @@
+name: Essential V1.2 Multi-Repair Advisory Fix
+
+on:
+  push:
+    branches:
+      - qa/v12-essential-five-layer-proof-20260823
+    paths:
+      - .github/workflows/essential-v12-multi-repair-advisory-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/v12-essential-five-layer-proof-20260823
+          fetch-depth: 0
+      - name: Move multi-repair decision behind five-layer adjudication
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
+          s = p.read_text()
+          old = """  // REJECT and HOLD are reviewer recommendations, not release verdicts. They proceed into the\n  // canonical five-layer cascade, which alone may ACCEPT, REPAIR, HOLD or confirm REJECT.\n  if (repairDecisions.length > 1) {\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'More than one semantic repair is required; the bounded single-repair policy fails closed.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'multiple_semantic_repairs_required',\n        validationIssues: semanticPolicyValidationIssues(repairPolicyDecisions, 'Multiple provider-authored blocks require semantic repair; no repair was applied.')\n      }\n    );\n  }\n\n"""
+          new = """  // REJECT, HOLD and REPAIR are reviewer recommendations, not release verdicts. All of them\n  // proceed into the canonical five-layer cascade. The bounded single-repair limit is enforced\n  // only after the cascade has independently decided which suggestions genuinely require repair.\n\n"""
+          if old not in s:
+              raise SystemExit('early multi-repair block not found')
+          s = s.replace(old,new,1)
+          needle = """  const repairCandidateIds = new Set(\n    firstCascade.candidates\n      .filter((candidate) => candidate.finalDisposition === 'REPAIR')\n      .map((candidate) => candidate.id)\n  );\n  const repairDecision = reviewed?.decisions.find(\n"""
+          replacement = """  const repairCandidateIds = new Set(\n    firstCascade.candidates\n      .filter((candidate) => candidate.finalDisposition === 'REPAIR')\n      .map((candidate) => candidate.id)\n  );\n  if (repairCandidateIds.size > 1) {\n    const adjudicatedRepairPolicyDecisions = semanticPolicyDecisions.filter((decision) => repairCandidateIds.has(decision.candidateId));\n    throw new EssentialManuscriptError(\n      'semantic_review',\n      'More than one semantic repair remains after five-layer adjudication; the bounded single-repair policy fails closed.',\n      {\n        ...semanticPolicyBase,\n        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,\n        validationCode: 'multiple_semantic_repairs_required',\n        validationIssues: semanticPolicyValidationIssues(adjudicatedRepairPolicyDecisions, 'Multiple provider-authored blocks still require repair after five-layer adjudication; no repair was applied.')\n      }\n    );\n  }\n  const repairDecision = reviewed?.decisions.find(\n"""
+          if needle not in s:
+              raise SystemExit('repair candidate binding not found')
+          p.write_text(s.replace(needle,replacement,1))
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "MK V1.2 QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/narrative/essential-manuscript-coordinator.ts
+          git commit -m "make reviewer repair signals advisory to five-layer cascade"
+          git push origin HEAD:qa/v12-essential-five-layer-proof-20260823

@@ -85,19 +85,11 @@ export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed 
     const ordered = [...groupedFindings].sort((a, b) => b.materialityScore - a.materialityScore || a.questionCode.localeCompare(b.questionCode));
     const lead = ordered[0];
     const pathway = riskPathwayForFinding(lead);
-    // Blocker 1 (Checkpoint F controller review): a risk grouped entirely from assurance_priority
-    // findings must never assert failure/absence as a present fact. Preserve the reported strong
-    // state, make the cause the absence of independent validation, and make the risk event
-    // conditional -- never reuse the raw failure-toned pathway text and append a disclaimer.
     const isAssurance = ordered.every((finding) => finding.materialityClass === 'assurance_priority');
     const title = isAssurance ? pathway.resilienceTitle : pathway.title;
     const cause = isAssurance ? pathway.resilienceCause : pathway.cause;
     const riskEvent = isAssurance ? pathway.resilienceRiskEvent : pathway.riskEvent;
     const ratings = deriveRiskRatings(ordered, pathway.consequence, exposureAssessed);
-    // The financial/operational/legal/reputational impact fields are rendered directly as their own
-    // labelled fields in the PDF (see report-template.ts riskCards), not only inside riskStatement --
-    // so an assurance-only risk must condition these individually too, not just the cause/riskEvent/
-    // riskStatement fields, or the raw failure-toned pathway impact text still leaks into the report.
     const conditionalImpact = (value: string) => isAssurance ? `If independent validation identifies a defect: ${value}` : value;
     const financialImpact = conditionalImpact(pathway.financialImpact);
     const operationalImpact = conditionalImpact(pathway.operationalImpact);
@@ -122,9 +114,6 @@ export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed 
       riskStatement: isAssurance
         ? `Because ${cause}, there is a risk that ${riskEvent}. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.`
         : (() => {
-          // Consequences are presented as their own sentence rather than inlined after "resulting
-          // in", so a clause that legitimately begins with a capitalised term reads correctly and
-          // no clause needs its first letter rewritten.
           const clauses = stableUnique([
             pathway.financialImpact,
             pathway.operationalImpact,
@@ -214,10 +203,21 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
     [/per-process fraud scenario map/i, 'Whether each material process has explicit fraud scenarios, relevant roles or permissions and residual exposure documented.'],
     [/process inventory/i, 'Whether the complete population of material value-bearing processes has been identified before fraud-risk mapping is assessed.'],
     [/process-owner sign-off/i, 'Whether process owners have reviewed and accepted the mapped fraud scenarios, control ownership and residual gaps.'],
+    [/beneficial[- ]ownership.*conflict/i, 'Whether proposed suppliers are screened for ownership and conflict indicators before activation and any exceptions are resolved or approved.'],
+    [/completed onboarding checklist/i, 'Whether the required supplier due-diligence checks were completed before activation for the in-scope supplier population.'],
+    [/independent registration.*bank verification/i, 'Whether supplier legal identity and bank-account ownership were independently verified before activation or payment.'],
+    [/second[- ]reviewer approval/i, 'Whether supplier activation or another high-risk change received the required independent second-person approval before release.'],
+    [/approval and business justification/i, 'Whether every privileged-access assignment in scope has an approved business justification, a named accountable owner and a documented basis for the level of access granted.'],
+    [/privileged[- ]account register/i, 'Whether the complete privileged-account population is recorded with account type, system, owner, privilege level, status and review date so that unknown or unjustified access can be identified.'],
+    [/privileged[- ]session.*access logs|privileged session.*access logs/i, 'Whether privileged activity is attributable to named accounts and reviewable for unusual, unauthorised or out-of-pattern activity during the stated period.'],
+    [/quarterly independent recertification/i, 'Whether the complete privileged-access population was independently reviewed on schedule, with explicit keep-or-remove decisions and unresolved exceptions identified.'],
+    [/removal tickets/i, 'Whether access removals identified through recertification, role change or leaver events were completed within the required service level and are traceable to closure evidence.'],
+    [/monthly tuning.*coverage report|tuning and coverage report/i, 'Whether priority event feeds were monitored for the stated period, high-risk alerts were triaged to the required service level, coverage gaps were recorded and rule tuning was completed from confirmed outcomes.'],
     [/coverage report.*fraud maps/i, 'Whether monitoring covers every material process identified in the fraud maps and exposes any unmonitored population.'],
+    [/monitoring[- ]rule catalogue|rule catalogue/i, 'Whether monitoring rules are defined, linked to fraud scenarios, assigned to a reviewing role and maintained through controlled tuning.'],
     [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
     [/population reconciliation/i, 'Whether the monitoring input reconciles to the complete source-system population for the stated period.'],
-    [/red-flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
+    [/red[- ]flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
     [/chain-of-custody/i, 'Whether each transfer of material evidence records custody, timing and handover without unexplained gaps.'],
     [/evidence register/i, 'Whether all material evidence items are uniquely recorded, assigned and traceable through the case.'],
     [/hash or seal/i, 'Whether collected evidence has integrity markers that can be matched at later custody points.'],
@@ -229,10 +229,10 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
   const matched = rules.find(([pattern]) => pattern.test(name));
   if (matched) return matched[1];
   const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
-  const shown = prompts.slice(0, 2);
-  const remainder = prompts.length - shown.length;
-  const tail = remainder > 0 ? `, together with ${remainder} further linked control${remainder === 1 ? '' : 's'}` : '';
-  return `Whether the ${lowerFirst(name)} provides operating evidence that ${shown.join('; ')}${tail} is implemented across the complete in-scope population.`;
+  const scope = prompts.length > 0
+    ? `the linked control${prompts.length === 1 ? '' : 's'}`
+    : 'the linked control';
+  return `Whether sufficient, attributable evidence is present in the ${lowerFirst(name)} to test ${scope} across the complete in-scope population for the stated period.`;
 }
 
 export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {

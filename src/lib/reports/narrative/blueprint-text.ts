@@ -83,18 +83,22 @@ export interface ParsedBlueprintMarkdown {
   errors: Array<{ code: string; path: string; message: string }>;
 }
 
-export type TextFirstValidationSeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE';
+export type TextFirstValidationSeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE' | 'SEMANTIC_CANDIDATE';
 
 export interface TextFirstValidationIssue {
   code: string;
   severity: TextFirstValidationSeverity;
   path: string;
   message: string;
+  /** Exact lexical span that caused a semantic candidate, when one exists. */
+  matchedSpan?: string;
 }
 
 export interface TextFirstValidationReport {
   ok: boolean;
   hardTruth: { status: 'PASS' | 'FAIL'; issues: TextFirstValidationIssue[] };
+  /** High-recall language findings. These are not hard gates and require semantic adjudication. */
+  semanticCandidates: { status: 'PASS' | 'CANDIDATES'; issues: TextFirstValidationIssue[] };
   repairableSemantic: { status: 'PASS' | 'FAIL'; issues: TextFirstValidationIssue[] };
   quality: { status: 'PASS' | 'QUALITY_FAILURE'; issues: TextFirstValidationIssue[] };
   sectionCount: number;
@@ -104,7 +108,7 @@ export interface TextFirstValidationReport {
 
 const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
 const normalise = (value: string): string => value.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
-const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 function expectedHeadings(blueprint: ReportBlueprint): BlueprintHeadingExpectation[] {
   return blueprint.chapters.flatMap((chapter) => [
@@ -371,14 +375,25 @@ export function parseBlueprintMarkdown(markdown: string, blueprint: ReportBluepr
   return { ok: errors.length === 0, markdown: source, chapters, errors };
 }
 
-function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block: BlueprintTextBlock }> {
+/** Every provider-authored customer-facing narrative block, independent of lexical findings. */
+export function providerAuthoredNarrativeBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block: BlueprintTextBlock }> {
   return parsed.chapters.flatMap((chapter) => chapter.sections.flatMap((section) => [
     ...section.paragraphs.map((block, index) => ({ path: `${section.sectionId}.paragraphs[${index}]`, block })),
     ...section.subsections.flatMap((subsection) => subsection.paragraphs.map((block, index) => ({ path: `${subsection.subsectionId}.paragraphs[${index}]`, block })))
   ]));
 }
 
-function numericValues(pack: NarrativeFactPack): Set<string> {
+// Internal compatibility alias for the deterministic validator's existing call sites.
+const allBlocks = providerAuthoredNarrativeBlocks;
+
+/**
+ * Exported so essential-validation-cascade.ts's Layer 3 (EVIDENCE_COMPARISON) can genuinely
+ * re-consume the same Fact Pack grounding this module uses at candidate-scan time, rather than
+ * maintaining a second, potentially divergent copy of the same comparison (owner decision 3; see
+ * also narrative/assurance-adjudication.ts's doc comment on why the codebase now avoids exactly
+ * this kind of duplicated-logic risk).
+ */
+export function numericValues(pack: NarrativeFactPack): Set<string> {
   const values = new Set<string>();
   for (const match of JSON.stringify(pack).matchAll(/\b\d+(?:\.\d+)?%?\b/g)) values.add(match[0].replace('%', ''));
   return values;
@@ -392,10 +407,32 @@ const COMPARATIVE_CLAIM = /\b(?:ahead of|behind|compared (?:to|with)|relative to
 /** Current staff counts or knowledge concentration. */
 const WORKFORCE_CLAIM = /\b(?:the\s+)?one or two people\b|\ba single (?:employee|person|individual)\b|\bonly one person\b|\b\d+\s+(?:employees|staff|people)\b/gi;
 
-/** Formal structures asserted as existing. */
-const UNEVIDENCED_STRUCTURE = /\bAudit Committee\b|\bChief Technology Officer\b|\bChief People Officer\b|\bGeneral Counsel\b|\bSecurity Operations Cent(?:re|er)\b/g;
+/** Formal structures asserted as existing. Exported for the same reason as numericValues above. */
+export const UNEVIDENCED_STRUCTURE = /\bAudit Committee\b|\bChief Technology Officer\b|\bChief People Officer\b|\bGeneral Counsel\b|\bSecurity Operations Cent(?:re|er)\b/g;
+
+/**
+ * High-recall categorical absolutes. These are semantic candidates, not truth decisions: the
+ * reviewer must distinguish an unsafe universal assertion from a supported management implication
+ * in the surrounding paragraph.
+ */
+export const UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS: ReadonlyArray<[string, RegExp]> = [
+  ['unsupported_transaction_volume_absolute', /manual review cannot cover transaction volume|majority of activity is never examined/gi],
+  ['unsupported_risk_assessment_absolute', /control investment follows intuition and recent events|whole exposure areas unexamined and unfunded/gi],
+  ['unsupported_detection_absolute', /fraud is found only by accident|typically long after the loss has compounded/gi]
+];
+
+/** Generic operating-detail assertions that need evidence/context, not deterministic rewrites. */
+export const UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS: ReadonlyArray<[string, RegExp]> = [
+  ['unsupported_operating_detail_claim', /activity (?:may be|being) reviewed locally rather than compared across (?:sites|locations|the complete (?:in-scope|relevant) population)/gi],
+  ['unsupported_operating_detail_claim', /without a timely central review route/gi],
+  ['unsupported_operating_detail_claim', /(?:the|an) unusual pattern (?:is not|may not be) challenged centrally/gi],
+  ['unsupported_operating_detail_claim', /records (?:staying|remaining|remain) with the location where the matter arose/gi],
+  ['unsupported_operating_detail_claim', /at one site or operating location/gi]
+];
+
 export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, factPack: NarrativeFactPack): TextFirstValidationReport {
   const hardTruth: TextFirstValidationIssue[] = parsed.errors.map((item) => ({ ...item, severity: 'HARD_TRUTH_FAILURE' }));
+  const semanticCandidates: TextFirstValidationIssue[] = [];
   const repairable: TextFirstValidationIssue[] = [];
   const quality: TextFirstValidationIssue[] = [];
   const knownNumbers = numericValues(factPack);
@@ -405,23 +442,31 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
     paragraphsSeen.push(compact(text));
     if (RAW_ID.test(text)) hardTruth.push({ code: 'raw_internal_id', severity: 'HARD_TRUTH_FAILURE', path, message: 'Raw internal identifiers are not customer-facing prose.' });
     for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!knownNumbers.has(token.replace('%', ''))) hardTruth.push({ code: 'unsupported_numeric_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Numeric claim ${token} is not present in deterministic Fact Pack data.` });
-    // Claims about the customer's organisation that the assessment never established.
-    // The first real Essential report told a customer they were "meaningfully ahead of
-    // many of similar size" and that knowledge sat with "the one or two people who
-    // currently hold" it -- no benchmark, headcount or structure evidence exists for
-    // either. Deterministic counts already in the Fact Pack are unaffected.
+    // Claims about the organisation that the assessment never established are candidate
+    // propositions. Deterministic counts already in the Fact Pack remain hard numeric gates.
     for (const match of text.match(COMPARATIVE_CLAIM) ?? []) {
-      hardTruth.push({ code: 'unsupported_comparative_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Peer or size comparison is not supported by assessment evidence (${match.trim()}).` });
+      semanticCandidates.push({ code: 'unsupported_comparative_claim', severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: match.trim(), message: `Peer or size comparison may require contextual adjudication (${match.trim()}).` });
     }
     for (const match of text.match(WORKFORCE_CLAIM) ?? []) {
-      hardTruth.push({ code: 'unsupported_workforce_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Staff-count or concentration claim is not supported by assessment evidence (${match.trim()}).` });
+      semanticCandidates.push({ code: 'unsupported_workforce_claim', severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: match.trim(), message: `Staff-count or concentration claim may require contextual adjudication (${match.trim()}).` });
     }
     for (const match of text.match(UNEVIDENCED_STRUCTURE) ?? []) {
-      if (compact(JSON.stringify(factPack)).toLowerCase().includes(match.toLowerCase())) continue;
-      hardTruth.push({ code: 'unsupported_structure_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Organisational structure is not present in deterministic Fact Pack data (${match.trim()}).` });
+      const permittedFacts = factPack.facts.filter((fact) => block.permittedClaimRefs.includes(fact.id));
+      if (compact(JSON.stringify(permittedFacts)).toLowerCase().includes(compact(match).toLowerCase())) continue;
+      semanticCandidates.push({ code: 'unsupported_structure_claim', severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: match.trim(), message: `Organisational structure may require contextual adjudication (${match.trim()}).` });
     }
     const assurance = classifyAssuranceLanguage(text);
-    if (assurance?.category === 'prohibited_assurance') hardTruth.push({ code: 'assurance_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Unsupported MK or assessment assurance language is prohibited (${assurance.matched}).` });
+    if (assurance?.category === 'prohibited_assurance') semanticCandidates.push({ code: 'assurance_claim', severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: assurance.matched, message: `Assurance-flavoured language requires bounded semantic adjudication (${assurance.matched}).` });
+    for (const [code, pattern] of UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS) {
+      for (const match of text.match(pattern) ?? []) {
+        semanticCandidates.push({ code, severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: match.trim(), message: `Categorical operating claim may require contextual adjudication (${match.trim()}).` });
+      }
+    }
+    for (const [code, pattern] of UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS) {
+      for (const match of text.match(pattern) ?? []) {
+        semanticCandidates.push({ code, severity: 'SEMANTIC_CANDIDATE', path, matchedSpan: match.trim(), message: `Operating-detail claim may require contextual adjudication (${match.trim()}).` });
+      }
+    }
     if (/^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(text)) quality.push({ code: 'mechanical_format', severity: 'QUALITY_FAILURE', path, message: 'The section contains list or code formatting rather than connected prose.' });
   }
   const duplicateCount = paragraphsSeen.filter((value, index) => value && paragraphsSeen.indexOf(value) !== index).length;
@@ -432,7 +477,16 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
   const subsectionCount = parsed.chapters.reduce((sum, chapter) => sum + chapter.sections.reduce((inner, section) => inner + section.subsections.length, 0), 0);
   const paragraphCount = allBlocks(parsed).length;
   const hardStatus = hardTruth.length ? 'FAIL' : 'PASS';
-  return { ok: hardTruth.length === 0, hardTruth: { status: hardStatus, issues: hardTruth }, repairableSemantic: { status: repairable.length ? 'FAIL' : 'PASS', issues: repairable }, quality: { status: quality.length ? 'QUALITY_FAILURE' : 'PASS', issues: quality }, sectionCount, subsectionCount, paragraphCount };
+  return {
+    ok: hardTruth.length === 0,
+    hardTruth: { status: hardStatus, issues: hardTruth },
+    semanticCandidates: { status: semanticCandidates.length ? 'CANDIDATES' : 'PASS', issues: semanticCandidates },
+    repairableSemantic: { status: repairable.length ? 'FAIL' : 'PASS', issues: repairable },
+    quality: { status: quality.length ? 'QUALITY_FAILURE' : 'PASS', issues: quality },
+    sectionCount,
+    subsectionCount,
+    paragraphCount
+  };
 }
 
 export function assertBlueprintTextValidation(report: TextFirstValidationReport): void {

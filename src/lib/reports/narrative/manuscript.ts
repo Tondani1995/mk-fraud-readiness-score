@@ -2,6 +2,8 @@ import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
 import type { ReportBlueprint, WholeManuscriptWriterContext } from './report-blueprint';
 import type { NarrativeRecoveryBudget } from './recovery-policy';
+import type { EssentialSemanticReviewer, SemanticReviewerInput, SemanticReviewDiagnostics, SemanticReviewExecutionContract, SemanticReviewResult } from './semantic-reviewer';
+import type { NarrativeProviderAttemptRecord } from './provider-attempt-policy';
 
 export const NARRATIVE_MANUSCRIPT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-manuscript-v1';
 export const NARRATIVE_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-writer-v1';
@@ -56,6 +58,8 @@ export interface NarrativeWriterMetadata {
   presentationSanitisedProvenanceTokenCount?: number;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   providerCostRaw?: string | number;
@@ -89,6 +93,51 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
   architecture: 'whole-manuscript' | 'whole-manuscript-targeted-repair' | 'whole-manuscript-coherence';
   recovery: NarrativeRecoveryBudget;
+  /** Separate acceptance accounting: manuscript generation and semantic grounding review. */
+  manuscriptProviderCalls?: number;
+  semanticReviewProviderCalls?: number;
+  totalProviderCalls?: number;
+  manuscriptInputTokens?: number;
+  manuscriptOutputTokens?: number;
+  manuscriptReasoningTokens?: number;
+  manuscriptVisibleOutputTokens?: number;
+  manuscriptTotalTokens?: number;
+  manuscriptProviderCostMicros?: number;
+  semanticReviewBlockCount?: number;
+  semanticReviewCandidateCount?: number;
+  semanticReviewAllowCount?: number;
+  semanticReviewRepairCount?: number;
+  semanticReviewRejectCount?: number;
+  semanticReviewHoldCount?: number;
+  semanticReviewInputTokens?: number;
+  semanticReviewOutputTokens?: number;
+  semanticReviewReasoningTokens?: number;
+  semanticReviewVisibleOutputTokens?: number;
+  semanticReviewTotalTokens?: number;
+  semanticReviewProviderCostMicros?: number;
+  semanticReviewProvider?: string;
+  semanticReviewModel?: string;
+  semanticReviewDispatchOccurred?: boolean;
+  semanticReviewGenerationId?: string;
+  semanticReviewResponseId?: string;
+  semanticReviewStartedAt?: string;
+  semanticReviewEndedAt?: string;
+  semanticReviewElapsedMs?: number;
+  semanticReviewFinishReason?: string;
+  semanticReviewProviderFinishReason?: string;
+  semanticReviewResponseSchemaValid?: boolean;
+  semanticReviewFailureCode?: string;
+  semanticReviewDiagnostics?: SemanticReviewDiagnostics;
+  requestedModel?: string;
+  primaryModel?: string;
+  modelSelectionSource?: string;
+  configuredModelOverride?: string;
+  modelOverrideRejected?: string;
+  providerAttemptRecords?: NarrativeProviderAttemptRecord[];
+  totalMiniAttempts?: number;
+  totalFallbackAttempts?: number;
+  totalPhysicalProviderRequests?: number;
+  totalGenerationCostMicros?: number;
   inputBlueprintSha256?: string;
   executionContract?: {
     sdkFunction: 'generateText';
@@ -100,6 +149,7 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
     timeoutMs: number;
     providerOptions: Record<string, unknown>;
   };
+  semanticReviewExecutionContract?: SemanticReviewExecutionContract;
 }
 
 export interface WholeManuscriptTailInput {
@@ -196,6 +246,8 @@ export interface WholeManuscriptWriter {
   completeTail(input: WholeManuscriptTailInput): Promise<WholeManuscriptTailResult>;
   repairBlock(input: WholeManuscriptRepairInput): Promise<WholeManuscriptRepairResult>;
   coherencePass(input: WholeManuscriptCoherenceInput): Promise<WholeManuscriptCoherenceResult>;
+  /** Optional one-request semantic adjudication seam used by the Essential coordinator. */
+  reviewSemanticCandidates?(input: SemanticReviewerInput): Promise<SemanticReviewResult>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {

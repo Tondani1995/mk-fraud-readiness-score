@@ -18,9 +18,8 @@ import type { ProductPriceVersion } from './order-price-entitlement';
  * order's entitlement stays resolvable after the catalogue moves on (see order-price-entitlement.ts).
  *
  * Essential and Comprehensive may originate from the same assessment. They are separate order rows
- * against separate products, and nothing downstream treats one as the other: Essential report
- * generation checks the Essential product code, and the Comprehensive workflow is reachable only
- * through a comprehensive_engagements row, which only a Comprehensive order creates.
+ * against separate products, and nothing downstream treats one as the other: fulfilment checks the
+ * product code and binds its automated report package to the exact order/report/version.
  */
 
 export type PaidOrderCreationReason =
@@ -47,8 +46,8 @@ export type PaidOrderCreationResult =
       status: string;
       paymentReference: string;
       eftInstructions: CustomerSafeEftInstructions;
-      engagementId: string | null;
-      engagementState: string | null;
+      invoiceRequested: boolean;
+      invoiceDetails: Record<string, string> | null;
     }
   | { ok: false; reason: PaidOrderCreationReason; message: string };
 
@@ -102,11 +101,10 @@ function reasonForRpcError(message: string): PaidOrderCreationReason {
 /**
  * Creates a paid order for the chosen tier through one transactional database primitive.
  *
- * Atomicity is the whole point: the order, the Comprehensive engagement and the authoritative
- * creation trail commit together or not at all, under a lock on the assessment row. Two concurrent
- * Comprehensive requests for one assessment therefore produce exactly one order and one engagement
- * -- the loser observes the winner's engagement and returns it, rather than leaving behind an
- * orphaned R35,000 order with no engagement.
+ * Atomicity is the whole point: the order and authoritative creation trail commit together or not at
+ * all, under a lock on the assessment row. Two concurrent requests for one tier therefore produce
+ * one order for that product; the loser observes the existing order rather than creating a second
+ * paid-product request.
  *
  * The amount is never sent by this function as a value to store. It is sent as the contract this
  * build compiled against, and the database refuses the write if its own current price version
@@ -121,6 +119,8 @@ export async function createPaidOrderForAssessment(input: {
   respondent?: any | null;
   /** Only Essential links an order to a detailed-report data request; Comprehensive does not. */
   dataRequest?: any | null;
+  invoiceRequested?: boolean;
+  invoiceDetails?: Record<string, string> | null;
 }): Promise<PaidOrderCreationResult> {
   const product = paidProductForTier(input.tier);
   if (!product) {
@@ -146,7 +146,10 @@ export async function createPaidOrderForAssessment(input: {
     };
   }
 
-  const { data, error } = await db.rpc('create_paid_order', {
+  const invoiceRequested = input.invoiceRequested === true;
+  const invoiceDetails = invoiceRequested ? input.invoiceDetails ?? null : null;
+
+  const { data, error } = await db.rpc('create_paid_order_with_invoice', {
     p_tier: tier,
     p_assessment_id: input.assessment.id,
     p_expected_product_code: product.productCode,
@@ -159,7 +162,9 @@ export async function createPaidOrderForAssessment(input: {
     p_product_name: product.label,
     p_eft_instructions_snapshot: eftSnapshot,
     p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
-    p_assessment_reference: input.assessment.assessment_reference ?? null
+    p_assessment_reference: input.assessment.assessment_reference ?? null,
+    p_invoice_requested: invoiceRequested,
+    p_invoice_details: invoiceDetails ?? {}
   });
 
   if (error) {
@@ -235,8 +240,8 @@ export async function createPaidOrderForAssessment(input: {
     status: data.status,
     paymentReference: paymentReferenceFor(data.order_reference),
     eftInstructions: boundEft,
-    engagementId: data.engagement_id ?? null,
-    engagementState: data.engagement_state ?? null
+    invoiceRequested,
+    invoiceDetails
   };
 }
 
@@ -252,7 +257,20 @@ export type OrderProductState = {
   paymentReference: string;
   createdAt: string;
   priceVersion: { id: string; versionNumber: number; priceCents: number; currency: string } | null;
-  engagement: { id: string; state: string; reviewerAssigned: boolean; signedOff: boolean } | null;
+  automatedFulfilment: {
+    state: 'awaiting_payment' | 'preparing' | 'ready' | 'delivered' | 'recovery_required';
+    generationStatus: string | null;
+    deliveryStatus: string | null;
+    reportId: string | null;
+    versionNumber: number | null;
+    deliverables: Array<{
+      artefactType: 'main_report_pdf' | 'supporting_register_xlsx';
+      fileName: string;
+      mimeType: string;
+      fileSizeBytes: number;
+      artifactVersion: number;
+    }>;
+  } | null;
 };
 
 /** Read model for "what did this customer buy and where is it". */
@@ -276,11 +294,95 @@ export async function getOrderProductState(orderReference: string): Promise<Orde
       .maybeSingle()
     : { data: null };
 
-  const { data: engagement } = await db
-    .from('comprehensive_engagements')
-    .select('id,state,reviewer_admin_user_id,signed_off_by')
+  const expectedReportType = product?.product_code === 'mk_validated_assessment'
+    ? 'mk_validated'
+    : product?.product_code === 'essential_self_assessment'
+      ? 'essential_self_assessment'
+      : null;
+  const { data: attempt } = await db
+    .from('manual_report_generation_attempts')
+    .select('id,status,output_report_id,automatic_delivery_authorization_id,error_category,created_at')
     .eq('order_id', order.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
+  const { data: report } = expectedReportType
+    ? await db
+      .from('reports')
+      .select('id,report_type,status,storage_status,version_number,file_name,mime_type,file_size_bytes,order_id')
+      .eq('order_id', order.id)
+      .eq('report_type', expectedReportType)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    : { data: null };
+  const { data: register } = report && product?.product_code === 'mk_validated_assessment'
+    ? await db
+      .from('report_artifacts')
+      .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,storage_status,release_state,engagement_id')
+      .eq('report_id', report.id)
+      .eq('artefact_type', 'supporting_register')
+      .is('engagement_id', null)
+      .eq('storage_status', 'VERIFIED')
+      .eq('release_state', 'released')
+      .maybeSingle()
+    : { data: null };
+  const { data: authorization } = attempt?.automatic_delivery_authorization_id
+    ? await db
+      .from('report_delivery_authorizations')
+      .select('id,status')
+      .eq('id', attempt.automatic_delivery_authorization_id)
+      .maybeSingle()
+    : { data: null };
+
+  const reportReady = Boolean(
+    report
+      && report.status === 'released'
+      && report.storage_status === 'VERIFIED'
+        && register
+        && register.storage_status === 'VERIFIED'
+        && register.release_state === 'released'
+      && Number(register.artifact_version) === Number(report.version_number)
+  );
+  const generationStatus = attempt?.status ?? null;
+  const recoveryRequired = Boolean(
+    attempt && ['REPORT_FAILED', 'GENERATION_FAILED', 'DELIVERY_FAILED', 'RECONCILIATION_REQUIRED'].includes(String(attempt.status).toUpperCase())
+  );
+  const automatedState: OrderProductState['automatedFulfilment'] = expectedReportType
+    ? {
+      state: recoveryRequired
+        ? 'recovery_required'
+        : reportReady && authorization?.status === 'finalized'
+          ? 'delivered'
+          : reportReady
+            ? 'ready'
+            : order.status === 'payment_received' || order.status === 'verified'
+              ? 'preparing'
+              : 'awaiting_payment',
+      generationStatus,
+      deliveryStatus: authorization?.status ?? null,
+      reportId: report?.id ?? null,
+      versionNumber: report ? Number(report.version_number) : null,
+      deliverables: reportReady && report
+        ? [
+          {
+            artefactType: 'main_report_pdf',
+            fileName: report.file_name,
+            mimeType: report.mime_type,
+            fileSizeBytes: Number(report.file_size_bytes),
+            artifactVersion: Number(report.version_number)
+          },
+          ...(register ? [{
+            artefactType: 'supporting_register_xlsx' as const,
+            fileName: register.file_name,
+            mimeType: register.mime_type,
+            fileSizeBytes: Number(register.file_size_bytes),
+            artifactVersion: Number(register.artifact_version)
+          }] : [])
+        ]
+        : []
+    }
+    : null;
 
   return {
     orderReference: order.order_reference,
@@ -301,13 +403,6 @@ export async function getOrderProductState(orderReference: string): Promise<Orde
         currency: versionRow.currency
       }
       : null,
-    engagement: engagement
-      ? {
-        id: engagement.id,
-        state: engagement.state,
-        reviewerAssigned: Boolean(engagement.reviewer_admin_user_id),
-        signedOff: Boolean(engagement.signed_off_by)
-      }
-      : null
+    automatedFulfilment: automatedState
   };
 }

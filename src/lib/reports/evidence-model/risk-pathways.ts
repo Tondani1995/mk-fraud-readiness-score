@@ -149,6 +149,69 @@ const PATHWAY_BY_QUESTION: Record<string, RiskPathway> = {
     resilienceTitle: 'Role-specific fraud-awareness resilience validation',
     resilienceCause: 'independent operating evidence has not yet validated that fraud guidance is current, role-specific and understood, across the complete workforce population',
     resilienceRiskEvent: 'the reported awareness control may not operate consistently across every role, at the required frequency or under pressure'
+  },
+  'D3-Q08': {
+    key: 'ACCESS-REVIEW', title: 'Stale system or data access remains usable',
+    cause: 'the complete ordinary-user access population is not periodically reconciled to current responsibilities and removal decisions',
+    riskEvent: 'a former or transferred user retains access that can initiate, change or conceal activity',
+    financialImpact: 'unauthorised changes or transactions can create direct loss', operationalImpact: 'access exceptions and removal work accumulate without accountable closure', reputationalImpact: 'stakeholders may lose confidence in the organisation’s access discipline', consequence: 'High',
+    resilienceTitle: 'Ordinary access-review resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that ordinary-user access is periodically reconciled to current responsibilities and removed when no longer required',
+    resilienceRiskEvent: 'the reported ordinary-access review may not operate consistently across the complete population, at the required frequency or under pressure'
+  },
+  'D3-Q09': {
+    key: 'PAYROLL-MASTER-FILE', title: 'Payroll master-file manipulation reaches payment release',
+    cause: 'payroll master-file changes, joiner/mover/leaver reconciliation and unusual-record review are not independently completed before payment',
+    riskEvent: 'an unauthorised change, duplicate or ghost payroll record diverts value through a payment run',
+    financialImpact: 'salary or benefit value is paid to an unauthorised destination', operationalImpact: 'payroll correction and employee trust are disrupted', legalRegulatoryImpact: 'payroll, tax or employment obligations may be affected', reputationalImpact: 'employees and stakeholders lose confidence in payroll integrity', consequence: 'Severe',
+    resilienceTitle: 'Payroll pre-payment review resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that payroll master-file and unusual-record review operates before every payment run',
+    resilienceRiskEvent: 'the reported payroll review may not operate consistently across the complete payment population, at the required frequency or under pressure'
+  },
+  'D3-Q10': {
+    key: 'CASH-CUSTODY', title: 'Cash custody differences remain unresolved',
+    cause: 'cash custody, counting, banking and reconciliation are not consistently assigned, independently checked and investigated',
+    riskEvent: 'cash shortages or diversion remain within ordinary variance without timely challenge',
+    financialImpact: 'physical cash is lost or unrecovered', operationalImpact: 'site cash operations and banking continuity are disrupted', legalRegulatoryImpact: 'cash-handling or recordkeeping obligations may be affected', reputationalImpact: 'management cannot demonstrate custody over cash entrusted to the organisation', consequence: 'High',
+    resilienceTitle: 'Cash custody and reconciliation resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that cash custody, counting, banking and reconciliation operate across the complete cash population',
+    resilienceRiskEvent: 'the reported cash controls may not operate consistently at every cash point, at the required frequency or under pressure'
+  },
+  'D3-Q11': {
+    key: 'STOCK-ASSET-CUSTODY', title: 'Stock or physical-asset shrinkage is not reconciled',
+    cause: 'custody, movement, count, reconciliation, write-off and disposal controls are not consistently applied across locations',
+    riskEvent: 'stock or physical assets are diverted, lost or written off without timely challenge',
+    financialImpact: 'inventory or asset value is lost or understated', operationalImpact: 'service and supply continuity are disrupted by unexplained shortages', legalRegulatoryImpact: 'asset records or disposal obligations may be misstated', reputationalImpact: 'stakeholders lose confidence in physical-asset stewardship', consequence: 'High',
+    resilienceTitle: 'Stock and physical-asset custody resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that stock and physical assets are safeguarded and reconciled across all relevant locations',
+    resilienceRiskEvent: 'the reported custody and reconciliation controls may not operate consistently across the complete asset population, at the required frequency or under pressure'
+  },
+  'D4-Q08': {
+    key: 'EXTERNAL-FRAUD-MONITORING', title: 'External-party fraud signals are not challenged in time',
+    cause: 'external-party fraud threats and provider-operated channel reporting are not completely covered, reconciled and assigned for review',
+    riskEvent: 'customer, supplier, partner or provider-channel fraud continues without timely organisational response',
+    financialImpact: 'external fraud causes loss before the organisation can intervene', operationalImpact: 'provider or channel incidents require wider containment and correction', legalRegulatoryImpact: 'customer, supplier or data-protection obligations may be affected', reputationalImpact: 'external stakeholders lose confidence in the organisation’s channel oversight', consequence: 'High',
+    resilienceTitle: 'External-party monitoring resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that relevant external-party threats and provider reports are covered and reviewed',
+    resilienceRiskEvent: 'the reported external-party monitoring may not operate consistently across relevant channels, at the required speed or under pressure'
+  },
+  'D8-Q09': {
+    key: 'PRIVILEGED-ACCESS-REVIEW', title: 'Sensitive or administrator access remains unjustified',
+    cause: 'sensitive-access and administrator populations are not periodically recertified against current ownership and business need',
+    riskEvent: 'stale or excessive rights are used to alter value-bearing records, entitlements or confidential data',
+    financialImpact: 'unauthorised changes or transactions create direct loss', operationalImpact: 'system integrity and investigation confidence are weakened', legalRegulatoryImpact: 'access, security or confidentiality obligations may be breached', reputationalImpact: 'stakeholders lose confidence in sensitive-system governance', consequence: 'Severe',
+    resilienceTitle: 'Sensitive-access review resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that sensitive and administrator access is reviewed and removed when no longer justified',
+    resilienceRiskEvent: 'the reported sensitive-access review may not operate consistently across the complete population, at the required frequency or under pressure'
+  },
+  'D8-Q10': {
+    key: 'IDENTITY-MISUSE-RESPONSE', title: 'Identity misuse is not contained and investigated',
+    cause: 'identity-misuse investigation, containment, evidence preservation and closure decisions are not consistently defined and exercised',
+    riskEvent: 'a compromised or impersonated identity continues to affect accounts, transactions or records after detection',
+    financialImpact: 'unauthorised transactions or account changes increase direct loss', operationalImpact: 'containment, customer or employee support and recovery are delayed', legalRegulatoryImpact: 'notification or identity-protection duties may be missed', reputationalImpact: 'affected parties lose trust in identity and account safeguards', consequence: 'Severe',
+    resilienceTitle: 'Identity-misuse response resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that suspected identity misuse can be contained, investigated and closed through a defined route',
+    resilienceRiskEvent: 'the reported identity-misuse response may not operate consistently across relevant cases, at the required speed or under pressure'
   }
 };
 

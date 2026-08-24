@@ -396,6 +396,19 @@
     },
     {
       "schema": "public",
+      "table": "free_snapshot_narratives",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING FREE SNAPSHOT NARRATIVE CACHE",
+      "sources": [
+        "src/lib/snapshot/narrative.ts:223 S",
+        "src/lib/snapshot/narrative.ts:254 SIU"
+      ],
+      "justification": "The constrained Snapshot narrative is enrichment cached by assessment, score run, methodology and prompt version. Service-role-only access keeps the cache out of customer direct writes; the deterministic score remains authoritative and Production receives no grant from this correction."
+    },
+    {
+      "schema": "public",
       "table": "manual_report_delivery_attempts",
       "required": "S",
       "stagingCurrent": "1000",
@@ -414,7 +427,7 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:245 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:293 S",
         "src/lib/reports/phase1-operations.ts:134 S",
         "src/lib/reports/phase1-operations.ts:92 S"
       ],
@@ -678,7 +691,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:182 S",
-        "src/lib/reports/phase1-manual-fulfilment.ts:453 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:509 S",
         "src/lib/reports/premium-report-service-core.ts:466 S"
       ],
       "justification": "Read-only report content assembly."
@@ -750,7 +763,7 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:441 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:497 S",
         "src/lib/reports/premium-report-service-core.ts:464 S"
       ],
       "justification": "Read-only template selection."
@@ -779,8 +792,8 @@
         "src/lib/reports/email/report-delivery-service-core.ts:98 SU",
         "src/lib/reports/phase1-manual-delivery.ts:51 SU",
         "src/lib/reports/phase1-manual-delivery.ts:60 SU",
-        "src/lib/reports/phase1-manual-fulfilment.ts:259 SU",
-        "src/lib/reports/phase1-manual-fulfilment.ts:376 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:307 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:424 SU",
         "src/lib/reports/phase1-operations.ts:132 SU",
         "src/lib/reports/phase1-report-access.ts:119 SU",
         "src/lib/reports/phase1-report-access.ts:181 SU",
@@ -885,7 +898,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/reports/customer-report-access.ts:265 S",
-        "src/lib/reports/phase1-manual-fulfilment.ts:273 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:321 S",
         "src/lib/reports/supporting-register-delivery.ts:143 S"
       ],
       "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
@@ -1086,7 +1099,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:347"
+        "src/lib/reports/phase1-manual-fulfilment.ts:395"
       ]
     },
     {
@@ -1110,7 +1123,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:342"
+        "src/lib/reports/phase1-manual-fulfilment.ts:390"
       ]
     },
     {
@@ -1159,7 +1172,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:170"
+        "src/lib/reports/phase1-manual-fulfilment.ts:218"
       ]
     },
     {
@@ -1318,6 +1331,15 @@
       ]
     },
     {
+      "signature": "public.record_comprehensive_interpretation_accounting(uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/comprehensive/interpretation-accounting.ts:13"
+      ],
+      "classification": "Bounded Comprehensive interpretation provider accounting persisted before renderer/storage/finalisation"
+    },
+    {
       "signature": "public.record_payment_transition(text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1348,7 +1370,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:207"
+        "src/lib/reports/phase1-manual-fulfilment.ts:255"
       ]
     },
     {
@@ -1389,7 +1411,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:423"
+        "src/lib/reports/phase1-manual-fulfilment.ts:478"
       ]
     },
     {
@@ -1424,9 +1446,18 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:637"
+        "src/lib/reports/phase1-manual-fulfilment.ts:879"
       ],
       "classification": "Atomic report + supporting-register finalisation (search_path mirrors the accepted complete_manual_report_generation)"
+    },
+    {
+      "signature": "public.finalise_comprehensive_report_package(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:878"
+      ],
+      "classification": "Atomic automated Comprehensive PDF + supporting-register finalisation with exact version and null legacy engagement binding"
     },
     {
       "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
@@ -1462,6 +1493,15 @@
         "src/lib/orders/manual-eft-orders.ts"
       ],
       "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
+    },
+    {
+      "signature": "public.create_paid_order_with_invoice(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text, boolean, jsonb)",
+      "securityMode": "INVOKER",
+      "searchPath": "pg_catalog, public",
+      "sources": [
+        "src/lib/commercial/order-service.ts"
+      ],
+      "justification": "Atomic invoice preference binding for a paid order. The wrapper delegates the frozen create_paid_order() product, price and idempotency contract, then persists billing details in the same database transaction without widening customer-facing access."
     },
     {
       "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
@@ -1543,22 +1583,21 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
-    "src/lib/comprehensive/evidence-service.ts:126",
-    "src/lib/comprehensive/evidence-service.ts:249",
-    "src/lib/comprehensive/package-registration.ts:54",
-    "src/lib/comprehensive/package-registration.ts:91",
-    "src/lib/comprehensive/package-registration.ts:95",
+    "src/lib/comprehensive/evidence-service.ts:127",
+    "src/lib/comprehensive/evidence-service.ts:250",
+    "src/lib/comprehensive/package-registration.ts:55",
+    "src/lib/comprehensive/package-registration.ts:92",
+    "src/lib/comprehensive/package-registration.ts:96",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
-    "src/lib/reports/customer-report-access.ts:236",
-    "src/lib/reports/customer-report-access.ts:290",
-    "src/lib/reports/customer-report-access.ts:338",
+    "src/lib/reports/customer-report-access.ts:187",
+    "src/lib/reports/customer-report-access.ts:230",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:297",
-    "src/lib/reports/phase1-manual-fulfilment.ts:665",
-    "src/lib/reports/phase1-manual-fulfilment.ts:815",
+    "src/lib/reports/phase1-manual-fulfilment.ts:339",
+    "src/lib/reports/phase1-manual-fulfilment.ts:810",
+    "src/lib/reports/phase1-manual-fulfilment.ts:981",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
@@ -1567,8 +1606,8 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/supporting-register-delivery.ts:157",
-    "src/lib/reports/supporting-register-delivery.ts:97"
+    "src/lib/reports/supporting-register-delivery.ts:188",
+    "src/lib/reports/supporting-register-delivery.ts:87"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1583,6 +1622,7 @@
       "src/lib/fulfilment/delivery-worker.ts",
       "src/lib/reports/automation/manual-ai-attempt-store.ts",
       "src/lib/reports/automation/manual-narrative-provenance.ts",
+      "src/lib/reports/comprehensive/interpretation-accounting.ts",
       "src/lib/reports/download-verification.ts",
       "src/lib/reports/email/delivery-dispatch.ts",
       "src/lib/reports/report-access-eligibility.ts",
@@ -1635,7 +1675,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "0981eb73c4c90036e243f459a666b049c5a97b110a6ca49d220d9cc87afcf14f"
+    "fullAstInventorySha256": "965ca1e24a236ea1dfbdcc5c1c4ed8bc797cfd4a0d51eeed94269346fe9fe28f"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

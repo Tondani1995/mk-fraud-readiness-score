@@ -17,6 +17,8 @@
     {"migration":"20260801220000_rc1_synthetic_certification_marking.sql","justification":"Synthetic certification marking and fixture provenance."},
     {"migration":"20260802120000_rc1_synthetic_marking_placeholder_allowance.sql","justification":"Synthetic marking test allowance."},
     {"migration":"20260803090000_rc1_certification_closure.sql","justification":"RC1 synthetic certification closure path."},
+    {"migration":"20260821090000_adaptive_v1_2_staging_activation.sql","justification":"Owner-approved V1.2 adaptive graph registration and customer_start activation authority; Preview/Staging only."},
+    {"migration":"20260821181032_canonical_preview_staging_project_rebind.sql","justification":"Canonical Preview/Staging Supabase project rebind; never applies to Production."},
     {"migration":"20260803230000_preview_development_delivery.sql","justification":"Preview development delivery facade."},
     {"migration":"20260804090000_preview_development_authoritative_context.sql","justification":"Preview development mutation context."},
     {"migration":"20260804110000_rc1_preview_resend_webhook_ingestion.sql","justification":"Preview provider webhook simulation/ingestion facade."},
