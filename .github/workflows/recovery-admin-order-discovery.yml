@@ -1,0 +1,36 @@
+name: Recovery admin order discovery
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/recovery-admin-order-discovery.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-o9iyb4rdg-tondanis-projects.vercel.app
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Require preview access
+        run: test -n "$VERCEL_PROTECTION_BYPASS"
+
+      - name: Inspect current admin order list
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            "$PREVIEW_URL/score/admin/orders" \
+            -o /tmp/orders.html
+          printf '%s\n' '--- Vhutshilo matches ---'
+          grep -Eio '.{0,120}(Vhutshilo|MKORD-[A-Za-z0-9-]+).{0,160}' /tmp/orders.html | head -80 || true
+          printf '%s\n' '--- order references ---'
+          grep -Eo 'MKORD-[A-Za-z0-9-]+' /tmp/orders.html | sort -u | tail -80 || true
+          printf 'http_html_bytes=%s\n' "$(wc -c < /tmp/orders.html)"
