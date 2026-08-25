@@ -49,12 +49,9 @@ jobs:
             echo '::error::Stale MFA/AAL2 Phase 8 contract remains.'
             exit 1
           fi
-
-          printf '\n# Phase 8 MFA contract retired; rerun against current admin contract.\n' >> .github/workflows/remove-mfa-aal2.yml
-          git rm .github/workflows/retire-phase8-mfa-contract.yml
           git diff --check
           git config user.name "MK Platform Maintenance"
           git config user.email "actions@users.noreply.github.com"
-          git add -A
+          git add scripts/phase8-admin-console-tests.mjs
           git commit -m "Retire stale Phase 8 MFA regression contract"
           git push origin HEAD:recovery/essential-v10-v12-brand-20260824
