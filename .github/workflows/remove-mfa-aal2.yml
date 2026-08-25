@@ -41,8 +41,12 @@ jobs:
           p.write_text(s)
 
           # Remove every route-level MFA helper and AAL2 pre-check from active application source.
+          # Skip the MFA product directory itself because it is deleted below.
+          mfa_root = Path('src/app/score/api/admin/mfa')
           for p in Path('src').rglob('*'):
               if not p.is_file() or p.suffix not in {'.ts', '.tsx'}:
+                  continue
+              if mfa_root in p.parents or p == Path('src/lib/auth/mfa.ts') or p == Path('src/components/admin/MfaEnrollment.tsx'):
                   continue
               s = p.read_text()
               if "@/lib/auth/mfa" in s:
@@ -90,6 +94,8 @@ jobs:
           for p in Path('src').rglob('*'):
               if not p.is_file() or p.suffix not in {'.ts', '.tsx'}:
                   continue
+              if mfa_root in p.parents or p == Path('src/lib/auth/mfa.ts') or p == Path('src/components/admin/MfaEnrollment.tsx'):
+                  continue
               s = p.read_text()
               s = s.replace('phase14_aal2_required:runtime_secret_rotation', 'phase14_role_or_session_required:runtime_secret_rotation')
               s = s.replace('AAL2-gated', 'role-gated')
@@ -107,11 +113,11 @@ jobs:
           p.write_text(s)
           PY
 
-          # Delete the MFA product surface itself.
-          git rm -r src/app/score/admin/security
-          git rm -r src/app/score/api/admin/mfa
-          git rm src/components/admin/MfaEnrollment.tsx
-          git rm src/lib/auth/mfa.ts
+          # Delete the MFA product surface itself, including any locally modified files.
+          git rm -rf src/app/score/admin/security
+          git rm -rf src/app/score/api/admin/mfa
+          git rm -f src/components/admin/MfaEnrollment.tsx
+          git rm -f src/lib/auth/mfa.ts
 
           cat > supabase/migrations/20260825114500_remove_mfa_aal2_operational_dependency.sql <<'SQL'
           -- MK Fraud Readiness: retire MFA/AAL2 as an application/control-plane dependency.
