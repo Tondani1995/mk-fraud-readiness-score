@@ -4,6 +4,7 @@ import { renderHtmlToPdfBuffer } from './render-pdf';
 import { addPdfBookmarks, extractHeadingPageMap, type BookmarkNode } from './pdf-navigation';
 import type { AdvisoryEvidenceModel } from './evidence-model';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
+import { normaliseEssentialCustomerHtml } from './essential-customer-output';
 
 /**
  * V7 Checkpoint B -- narrow PDF-render orchestration seam.
@@ -49,7 +50,10 @@ export async function renderValidatedCommercialPdf(
     renderPdf: renderHtmlToPdfBuffer
   }
 ): Promise<Buffer> {
-  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);
+  const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);
+  const html = input.data.productCode === 'essential_self_assessment'
+    ? normaliseEssentialCustomerHtml(rawHtml)
+    : rawHtml;
   return dependencies.renderPdf(html);
 }
 
@@ -137,7 +141,10 @@ export async function renderValidatedCommercialPdfWithNavigation(
   // The first render used placeholder numbers, so the loop starts from the first real map.
   let pageMap = await measure(new Uint8Array(firstPassPdf));
   for (let attempt = 0; attempt < MAX_NAVIGATION_PASSES; attempt += 1) {
-    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);
+    const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);
+    const html = input.data.productCode === 'essential_self_assessment'
+      ? normaliseEssentialCustomerHtml(rawHtml)
+      : rawHtml;
     const numberedPdf = await dependencies.renderPdf(html);
     const measured = await measure(new Uint8Array(numberedPdf));
     // Fixed point: what the contents page prints is what the render actually paginated to, so the

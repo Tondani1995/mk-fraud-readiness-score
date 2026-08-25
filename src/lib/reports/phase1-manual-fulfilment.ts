@@ -276,6 +276,10 @@ async function resolveFinalisationOutcome(
       return 'uncertain';
     }
 
+    // Essential is intentionally PDF-only. Once the REPORT_READY attempt is bound to the
+    // expected verified PDF, there is no second artefact to prove. Comprehensive continues below.
+    if (!expected.registerStoragePath) return 'committed';
+
     const { data: artefact, error: artefactError } = await db
       .from('report_artifacts')
       .select('storage_path,storage_status')
@@ -449,7 +453,10 @@ export async function generateManualPhase1Report(
     // rendered report itself, so the PDF's own footer/title page match the
     // reports.report_reference value stored for this version instead of the
     // bare assessment reference assembleReportData() defaults to.
-    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+    const reportAssessmentReference = reportType === 'essential_self_assessment'
+      ? assembled.assessmentReference.replace('-COMP-', '-ESS-')
+      : assembled.assessmentReference;
+    assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;
 
     const { data: template, error: templateError } = await db
       .from('report_templates')
@@ -674,27 +681,30 @@ export async function generateManualPhase1Report(
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
     logPremiumReportPhase({ phase: 'storage_publication_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
 
-    // Both physical artefacts must exist and be verified before anything becomes customer-final.
-    generationStage = 'store_supporting_register';
-    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
-    const storedRegister = await storeSupportingRegister({
-      db,
-      data: assembled,
-      model: reportEvidenceModel,
-      projection: essentialProjection,
-      storageBucket,
-      organisationId: assembled.organisationId,
-      orderId: assembled.orderId,
-      versionNumber,
-      verifyStoredObject: verifyPrivateObject
-    });
-    registerUploaded = true;
-    registerStoragePath = storedRegister.storagePath;
-    console.info('supporting_register', {
-      technicalReference,
-      status: 'stored',
-      fileSizeBytes: storedRegister.fileSizeBytes
-    });
+    // Essential is a PDF-only package. Comprehensive retains its separately verified register.
+    let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;
+    if (isComprehensive) {
+      generationStage = 'store_supporting_register';
+      const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
+      storedRegister = await storeSupportingRegister({
+        db,
+        data: assembled,
+        model: reportEvidenceModel,
+        projection: essentialProjection,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      });
+      registerUploaded = true;
+      registerStoragePath = storedRegister.storagePath;
+      console.info('supporting_register', {
+        technicalReference,
+        status: 'stored',
+        fileSizeBytes: storedRegister.fileSizeBytes
+      });
+    }
 
     // ONE authoritative completion boundary. The report row, its VERIFIED supporting-register row,
     // the supersede of the previous current report and the REPORT_READY transition all happen in a
@@ -704,23 +714,35 @@ export async function generateManualPhase1Report(
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
     finalisationInvoked = true;
-    const { data: completed, error: completeError } = await db.rpc(
-      'finalise_manual_report_with_supporting_register', {
-      p_attempt_id: attemptId,
-      p_template_id: template.id,
-      p_report_type: reportType,
-      p_storage_bucket: storageBucket,
-      p_storage_path: storagePath,
-      p_file_name: fileName,
-      p_mime_type: 'application/pdf',
-      p_file_size_bytes: pdf.length,
-      p_checksum: checksum,
-      p_register_storage_path: storedRegister.storagePath,
-      p_register_file_name: storedRegister.fileName,
-      p_register_mime_type: storedRegister.mimeType,
-      p_register_file_size_bytes: storedRegister.fileSizeBytes,
-      p_register_checksum: storedRegister.checksumSha256
-    });
+    const completionRequest = isComprehensive
+      ? db.rpc('finalise_manual_report_with_supporting_register', {
+        p_attempt_id: attemptId,
+        p_template_id: template.id,
+        p_report_type: reportType,
+        p_storage_bucket: storageBucket,
+        p_storage_path: storagePath,
+        p_file_name: fileName,
+        p_mime_type: 'application/pdf',
+        p_file_size_bytes: pdf.length,
+        p_checksum: checksum,
+        p_register_storage_path: storedRegister!.storagePath,
+        p_register_file_name: storedRegister!.fileName,
+        p_register_mime_type: storedRegister!.mimeType,
+        p_register_file_size_bytes: storedRegister!.fileSizeBytes,
+        p_register_checksum: storedRegister!.checksumSha256
+      })
+      : db.rpc('complete_manual_report_generation', {
+        p_attempt_id: attemptId,
+        p_template_id: template.id,
+        p_report_type: reportType,
+        p_storage_bucket: storageBucket,
+        p_storage_path: storagePath,
+        p_file_name: fileName,
+        p_mime_type: 'application/pdf',
+        p_file_size_bytes: pdf.length,
+        p_checksum: checksum
+      });
+    const { data: completed, error: completeError } = await completionRequest;
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
       // (report_persistence_failed / "verified PDF could not be linked")
@@ -737,12 +759,11 @@ export async function generateManualPhase1Report(
       });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
-    // Committed. From here the PDF and the register are customer artefacts and generation-failure
-    // cleanup must never delete either of them.
+    // Committed. From here the PDF (and, for Comprehensive, its register) is a customer artefact;
+    // generation-failure cleanup must never delete committed output.
     finalisationCommitted = true;
-    // The supporting register was built, stored, verified and bound inside the atomic finalisation
-    // above. There is deliberately no separate post-completion register step any more: that
-    // ordering is what allowed a completed report to lose its PDF when the register failed.
+    // Comprehensive's supporting register, when applicable, is bound inside the same atomic
+    // finalisation. Essential has no secondary artefact by product contract.
     logPremiumReportPhase({ phase: 'report_finalised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: completed.report.report_reference });
 
     console.info('phase1_manual_generation', {
