@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { AdminSession } from '@/lib/auth/admin-route';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 const adminLinks = [
@@ -23,13 +22,6 @@ function scorePath(path: string) {
   return `/score${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-// A single indexed count against the partial index added by Release D's migration
-// (phase14_operational_alerts_open_critical_idx) -- effectively free on every admin page render,
-// unlike fetching or paginating the alerts table itself, which only the alerts page does. Fails
-// silently to "no badge" rather than breaking every admin page if the table is briefly
-// unreachable or (pre-Release-D cloud schema) the index doesn't exist yet -- the table itself
-// already exists on every environment this app runs against, so this only ever fails on a genuine
-// connectivity problem, not a capability gap.
 async function getOpenCriticalAlertCount(): Promise<number | null> {
   try {
     const db = createSupabaseServiceClient();
@@ -73,9 +65,6 @@ export async function AdminShell({ admin, children }: { admin: AdminSession; chi
                   </Link>
                 ))}
               </nav>
-              <form action={scorePath('/api/admin/logout')} method="post" className="mt-6 border-t border-mk-line pt-5">
-                <Button variant="secondary" className="w-full" type="submit">Sign out</Button>
-              </form>
             </div>
           </div>
         </aside>
