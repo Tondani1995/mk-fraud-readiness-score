@@ -28,44 +28,20 @@ jobs:
 
           p = Path('scripts/phase8-admin-console-tests.mjs')
           s = p.read_text()
-
-          s = s.replace(
-            "    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation', '/admin/security'\n",
-            "    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation'\n"
-          )
-
-          s = s.replace(
-            "// Phase 14 activation + MFA: routes and pages must exist, and the mutation routes must not\n// skip the AAL2 pre-check (defense-in-depth alongside the authoritative Postgres-side check).\n",
-            "// Phase 14 activation routes must exist. Privileged mutations remain protected by\n// authenticated platform-admin role checks and the administrator's real session.\n"
-          )
-
+          s = s.replace("    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation', '/admin/security'\n", "    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation'\n")
+          s = s.replace("// Phase 14 activation + MFA: routes and pages must exist, and the mutation routes must not\n// skip the AAL2 pre-check (defense-in-depth alongside the authoritative Postgres-side check).\n", "// Phase 14 activation routes must exist. Privileged mutations remain protected by\n// authenticated platform-admin role checks and the administrator's real session.\n")
           for retired in [
-            "  'src/app/score/admin/security/page.tsx',\n",
-            "  'src/app/score/api/admin/mfa/enroll/route.ts',\n",
-            "  'src/app/score/api/admin/mfa/verify/route.ts',\n",
-            "  'src/app/score/api/admin/mfa/factors/route.ts',\n",
-            "  'src/app/score/api/admin/mfa/unenroll/route.ts',\n"
+              "  'src/app/score/admin/security/page.tsx',\n",
+              "  'src/app/score/api/admin/mfa/enroll/route.ts',\n",
+              "  'src/app/score/api/admin/mfa/verify/route.ts',\n",
+              "  'src/app/score/api/admin/mfa/factors/route.ts',\n",
+              "  'src/app/score/api/admin/mfa/unenroll/route.ts',\n"
           ]:
-            s = s.replace(retired, '')
-
-          s = s.replace(
-            "  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation/MFA route: ${route}`);\n",
-            "  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation route: ${route}`);\n"
-          )
-
-          s = s.replace(
-            "  assertIncludes(route, 'decodeAalClaimForDisplayOnly', `${route} must pre-check AAL2 before calling its RPC (defense-in-depth; Postgres remains authoritative)`);\n",
-            ''
-          )
-
-          stale_verify = """// The MFA verify route must actually persist the fresh aal2 session back into cookies - a
-// success response that leaves the old aal1 cookie in place would silently strand the admin at
-// aal1 despite the app claiming MFA succeeded.
-assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCookies', 'MFA verify route must write the new aal2 session back into cookies after a successful verify');
-
-"""
+              s = s.replace(retired, '')
+          s = s.replace("  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation/MFA route: ${route}`);\n", "  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation route: ${route}`);\n")
+          s = s.replace("  assertIncludes(route, 'decodeAalClaimForDisplayOnly', `${route} must pre-check AAL2 before calling its RPC (defense-in-depth; Postgres remains authoritative)`);\n", '')
+          stale_verify = "// The MFA verify route must actually persist the fresh aal2 session back into cookies - a\n// success response that leaves the old aal1 cookie in place would silently strand the admin at\n// aal1 despite the app claiming MFA succeeded.\nassertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCookies', 'MFA verify route must write the new aal2 session back into cookies after a successful verify');\n\n"
           s = s.replace(stale_verify, '')
-
           p.write_text(s)
           PY
 
@@ -74,11 +50,9 @@ assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCo
             exit 1
           fi
 
-          # Touch the removal workflow so its path-filtered job runs against the corrected test contract.
           printf '\n# Phase 8 MFA contract retired; rerun against current admin contract.\n' >> .github/workflows/remove-mfa-aal2.yml
           git rm .github/workflows/retire-phase8-mfa-contract.yml
           git diff --check
-
           git config user.name "MK Platform Maintenance"
           git config user.email "actions@users.noreply.github.com"
           git add -A
