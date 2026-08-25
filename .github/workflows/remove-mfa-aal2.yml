@@ -1,0 +1,249 @@
+name: Remove MFA and AAL2 dependency
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/remove-mfa-aal2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  remove-mfa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Remove active MFA and AAL2 dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          # RC1 control plane: keep authenticated platform_admin + live-session checks; remove AAL2.
+          p = Path('src/lib/rc1/control-plane.ts')
+          s = p.read_text()
+          s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
+          s = s.replace("  aal: 'aal1' | 'aal2' | null;\n", '')
+          s = s.replace("      aal: decodeAalClaimForDisplayOnly(accessToken),\n", '')
+          s = re.sub(
+              r"\n  if \(operator\.aal !== 'aal2'\) \{\n    return json\(\{ ok: false, error: 'RC1_CONTROL_AAL2_REQUIRED' \}, 403\);\n  \}",
+              '', s
+          )
+          p.write_text(s)
+
+          # Remove Phase 14 route-level AAL2/MFA pre-checks; DB remains authoritative for role/session.
+          route_root = Path('src/app/score/api/admin/phase14-activation')
+          for p in route_root.rglob('route.ts'):
+              s = p.read_text()
+              if "@/lib/auth/mfa" not in s:
+                  continue
+              s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
+              s = re.sub(
+                  r"\n  // Fast, friendly pre-check only\.[\s\S]*?\n  if \(decodeAalClaimForDisplayOnly\(accessToken\) !== 'aal2'\) \{[\s\S]*?\n  \}\n",
+                  '\n', s, count=1
+              )
+              p.write_text(s)
+
+          # Privileged report helper now requires a current administrator session, not MFA.
+          p = Path('src/lib/reports/phase14-security.ts')
+          s = p.read_text().replace(
+              "throw new Phase14AuthorizationError('phase14_no_session', 'A current AAL2 administrator session is required.');",
+              "throw new Phase14AuthorizationError('phase14_no_session', 'A current administrator session is required.');"
+          )
+          p.write_text(s)
+
+          # Remove MFA from admin navigation.
+          p = Path('src/components/admin/AdminShell.tsx')
+          s = p.read_text().replace(
+              "  { href: '/admin/phase14-activation', label: 'Automation activation controls' },\n  { href: '/admin/security', label: 'Security (MFA)' }\n",
+              "  { href: '/admin/phase14-activation', label: 'Automation activation controls' }\n"
+          )
+          p.write_text(s)
+
+          # Remove MFA/AAL2 instructions from activation UI.
+          p = Path('src/app/score/admin/phase14-activation/page.tsx')
+          s = p.read_text()
+          s = s.replace(
+              'description="Every action here requires an AAL2 (MFA-verified) session and is independently reversible. Follow the staged sequence: satisfy the gate, enable the test-recipient override, then automatic fulfilment, then AI narrative, then — only after an internal test has run cleanly — automatic customer email."',
+              'description="These controls are restricted to authenticated platform administrators and are independently reversible. Follow the staged sequence: satisfy the gate, enable the test-recipient override, then automatic fulfilment, then AI narrative, then — only after an internal test has run cleanly — automatic customer email."'
+          )
+          s = re.sub(
+              r"\n      <div className=\"mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900\">[\s\S]*?</div>\n",
+              '\n', s, count=1
+          )
+          p.write_text(s)
+
+          # Update the RC1 route regression: authentication + platform_admin remain the boundary.
+          p = Path('scripts/rc1-control-plane-route-tests.mjs')
+          s = p.read_text()
+          s = s.replace("  role: 'platform_admin',\n  aal: 'aal2',\n", "  role: 'platform_admin',\n")
+          s = re.sub(r"\n    \['AAL1', \{ identity: \{ \.\.\.operator, aal: 'aal1' \} \}, 403, 'RC1_CONTROL_AAL2_REQUIRED'\],", '', s)
+          s = s.replace(
+              "console.log('PASS RC1 control-plane routes: narrow AAL2 controls and two-layer release sequence');",
+              "console.log('PASS RC1 control-plane routes: authenticated platform-admin controls and two-layer release sequence');"
+          )
+          p.write_text(s)
+          PY
+
+          # Delete the MFA product surface itself.
+          git rm -r src/app/score/admin/security
+          git rm -r src/app/score/api/admin/mfa
+          git rm src/components/admin/MfaEnrollment.tsx
+          git rm src/lib/auth/mfa.ts
+
+          cat > supabase/migrations/20260825114500_remove_mfa_aal2_operational_dependency.sql <<'SQL'
+          -- MK Fraud Readiness: retire MFA/AAL2 as an application/control-plane dependency.
+          -- Ordinary authenticated sessions, active admin profiles and role checks remain mandatory.
+          -- The p_require_aal2 argument is retained only for backwards-compatible callers and is ignored.
+
+          create or replace function public.rc1_require_platform_admin(p_require_aal2 boolean)
+          returns jsonb
+          language plpgsql
+          stable
+          security definer
+          set search_path to ''
+          as $function$
+          declare
+            v_claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
+            v_user_id uuid := auth.uid();
+            v_session_id uuid;
+            v_exp bigint;
+            v_profile public.admin_profiles%rowtype;
+          begin
+            if v_user_id is null then
+              raise exception 'rc1_freeze_control:no_session';
+            end if;
+
+            begin
+              v_exp := nullif(v_claims->>'exp', '')::bigint;
+              v_session_id := nullif(v_claims->>'session_id', '')::uuid;
+            exception when others then
+              raise exception 'rc1_freeze_control:malformed_session';
+            end;
+
+            if v_exp is null or pg_catalog.to_timestamp(v_exp) <= pg_catalog.clock_timestamp() then
+              raise exception 'rc1_freeze_control:expired_session';
+            end if;
+            if v_session_id is null or not exists (
+              select 1
+              from auth.sessions s
+              where s.id = v_session_id
+                and s.user_id = v_user_id
+                and (s.not_after is null or s.not_after > pg_catalog.clock_timestamp())
+            ) then
+              raise exception 'rc1_freeze_control:inactive_session';
+            end if;
+
+            select * into v_profile
+            from public.admin_profiles
+            where id = v_user_id;
+
+            if not found or v_profile.status <> 'active' or v_profile.role <> 'platform_admin' then
+              raise exception 'rc1_freeze_control:platform_admin_required';
+            end if;
+
+            return pg_catalog.jsonb_build_object(
+              'user_id', v_user_id,
+              'actor_fingerprint', pg_catalog.encode(
+                extensions.digest(pg_catalog.convert_to(v_user_id::text, 'UTF8'), 'sha256'),
+                'hex'
+              )
+            );
+          end;
+          $function$;
+
+          create or replace function public.phase14_require_actor(
+            p_action text,
+            p_allowed_roles public.admin_role[],
+            p_require_aal2 boolean default false
+          )
+          returns jsonb
+          language plpgsql
+          security definer
+          set search_path to ''
+          as $function$
+          declare
+            v_claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
+            v_user_id uuid := auth.uid();
+            v_profile public.admin_profiles%rowtype;
+            v_session_id uuid;
+            v_exp bigint;
+          begin
+            if v_user_id is null then raise exception 'phase14_no_session:%', p_action; end if;
+            v_exp := nullif(v_claims->>'exp', '')::bigint;
+            if v_exp is null or pg_catalog.to_timestamp(v_exp) <= pg_catalog.now() then
+              raise exception 'phase14_session_expired:%', p_action;
+            end if;
+            begin
+              v_session_id := nullif(v_claims->>'session_id', '')::uuid;
+            exception when others then
+              raise exception 'phase14_session_id_invalid:%', p_action;
+            end;
+            if v_session_id is null then raise exception 'phase14_session_id_required:%', p_action; end if;
+            if not exists (
+              select 1
+              from auth.sessions s
+              where s.id = v_session_id
+                and s.user_id = v_user_id
+                and (s.not_after is null or s.not_after > pg_catalog.now())
+            ) then
+              raise exception 'phase14_session_revoked_or_expired:%', p_action;
+            end if;
+
+            select * into v_profile from public.admin_profiles where id = v_user_id;
+            if not found then raise exception 'phase14_profile_missing:%', p_action; end if;
+            if v_profile.status = 'revoked' then raise exception 'phase14_profile_revoked:%', p_action; end if;
+            if v_profile.status <> 'active' then raise exception 'phase14_profile_inactive:%', p_action; end if;
+            if not (v_profile.role = any(p_allowed_roles)) then raise exception 'phase14_role_forbidden:%', p_action; end if;
+
+            return pg_catalog.jsonb_build_object(
+              'user_id', v_user_id,
+              'role', v_profile.role,
+              'session_id', v_session_id
+            );
+          end;
+          $function$;
+
+          comment on function public.rc1_require_platform_admin(boolean)
+            is 'Requires a live authenticated platform_admin session. The legacy p_require_aal2 argument is ignored; MFA/AAL2 is not an operational dependency.';
+          comment on function public.phase14_require_actor(text, public.admin_role[], boolean)
+            is 'Requires a live authenticated administrator session in an allowed role. The legacy p_require_aal2 argument is ignored; MFA/AAL2 is not an operational dependency.';
+          SQL
+
+          # No active application source may retain an MFA/AAL2 dependency.
+          if grep -RniE "decodeAalClaimForDisplayOnly|RC1_CONTROL_AAL2_REQUIRED|phase14_aal2_required|MFA-verified|Security \(MFA\)|@/lib/auth/mfa" src; then
+            echo '::error::Active MFA/AAL2 dependency remains in src.'
+            exit 1
+          fi
+          git diff --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run phase8:test-admin
+      - run: npm run phase10:test-report
+      - run: npm run rc1:test-control-plane-routes
+
+      - name: Commit removal and delete this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/remove-mfa-aal2.yml
+          git config user.name "MK Platform Maintenance"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove MFA and AAL2 as operational dependencies"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
