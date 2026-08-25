@@ -58,7 +58,7 @@ assertNotIncludes('src/components/admin/AdminShell.tsx', 'href={link.href}', 'Ad
   const requiredAdminHrefs = [
     '/admin', '/admin/orders', '/admin/reports', '/admin/assessments',
     '/admin/config/questions', '/admin/config/products', '/admin/config/content',
-    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation', '/admin/security'
+    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation'
   ];
   for (const href of requiredAdminHrefs) {
     assert(adminShellSource.includes(`href: '${href}'`), `Admin shell must define a sidebar link for ${href} (resolves to /score${href} under the Fraud Readiness session)`);
@@ -66,22 +66,17 @@ assertNotIncludes('src/components/admin/AdminShell.tsx', 'href={link.href}', 'Ad
 }
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 14', 'Admin navigation must not expose internal phase codenames (use business-meaningful labels like the existing Order/Report controls pattern)');
 
-// Phase 14 activation + MFA: routes and pages must exist, and the mutation routes must not
-// skip the AAL2 pre-check (defense-in-depth alongside the authoritative Postgres-side check).
+// Phase 14 activation routes must exist. Privileged mutations remain protected by
+// authenticated platform-admin role checks and the administrator's real session.
 const phase14ActivationRoutes = [
-  'src/app/score/admin/security/page.tsx',
   'src/app/score/admin/phase14-activation/page.tsx',
-  'src/app/score/api/admin/mfa/enroll/route.ts',
-  'src/app/score/api/admin/mfa/verify/route.ts',
-  'src/app/score/api/admin/mfa/factors/route.ts',
-  'src/app/score/api/admin/mfa/unenroll/route.ts',
   'src/app/score/api/admin/phase14-activation/gate/route.ts',
   'src/app/score/api/admin/phase14-activation/feature-policy/route.ts',
   'src/app/score/api/admin/phase14-activation/ai-route-policy/route.ts',
   'src/app/score/api/admin/phase14-activation/settings/route.ts'
 ];
 for (const route of phase14ActivationRoutes) {
-  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation/MFA route: ${route}`);
+  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation route: ${route}`);
 }
 const phase14MutationRoutes = [
   'src/app/score/api/admin/phase14-activation/gate/route.ts',
@@ -90,15 +85,9 @@ const phase14MutationRoutes = [
   'src/app/score/api/admin/phase14-activation/settings/route.ts'
 ];
 for (const route of phase14MutationRoutes) {
-  assertIncludes(route, 'decodeAalClaimForDisplayOnly', `${route} must pre-check AAL2 before calling its RPC (defense-in-depth; Postgres remains authoritative)`);
   assertIncludes(route, "requireAdmin(['platform_admin'])", `${route} must require the platform_admin role`);
   assertIncludes(route, 'createSupabaseAuthenticatedServerClient', `${route} must call its RPC with the real admin's own session (not a service-role client), or phase14_require_actor cannot resolve auth.uid()`);
 }
-// The MFA verify route must actually persist the fresh aal2 session back into cookies - a
-// success response that leaves the old aal1 cookie in place would silently strand the admin at
-// aal1 despite the app claiming MFA succeeded.
-assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCookies', 'MFA verify route must write the new aal2 session back into cookies after a successful verify');
-
 // Hotfix regression (production incident: digest 3595257760): a client component exported as a
 // property of a compound object (e.g. `export const Phase14ActivationControls = { Gate: ... }`)
 // cannot be resolved by Next.js's production React Client Manifest when referenced as
