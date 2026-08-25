@@ -15,22 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
-      S1: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-      S2: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
-      S3: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STAGING }}
-      S4: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
-      S5: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      V1: ${{ secrets.VERCEL_TOKEN }}
-      V2: ${{ secrets.VERCEL_ACCESS_TOKEN }}
-      U1: ${{ secrets.STAGING_SUPABASE_URL }}
-      U2: ${{ secrets.SUPABASE_STAGING_URL }}
-      R1: ${{ vars.STAGING_SUPABASE_URL }}
-      R2: ${{ vars.SUPABASE_STAGING_URL }}
+      STAGING_URL: https://iszihmmbgsfefawqmnwo.supabase.co
+      SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - name: Check existing credential hooks without exposing values
+      - name: Verify existing service key against staging without exposing it
         shell: bash
         run: |
           set -euo pipefail
-          present() { if [ -n "${!1:-}" ]; then printf '%s=SET\n' "$1"; else printf '%s=UNSET\n' "$1"; fi; }
-          for name in VERCEL_PROTECTION_BYPASS S1 S2 S3 S4 S5 V1 V2 U1 U2 R1 R2; do present "$name"; done
+          test -n "$SERVICE_KEY"
+          status=$(curl -sS -o /tmp/result.json -w '%{http_code}' \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            "$STAGING_URL/rest/v1/orders?select=order_reference&order_reference=eq.MKORD-2026-828844DD")
+          printf 'staging_http=%s\n' "$status"
+          if [ "$status" = "200" ]; then
+            if grep -q 'MKORD-2026-828844DD' /tmp/result.json; then
+              echo 'staging_key_match=YES'
+            else
+              echo 'staging_key_match=YES_BUT_ORDER_NOT_RETURNED'
+            fi
+          else
+            echo 'staging_key_match=NO'
+            head -c 300 /tmp/result.json | sed -E 's/[A-Za-z0-9_-]{20,}/[redacted]/g' || true
+            echo
+          fi
