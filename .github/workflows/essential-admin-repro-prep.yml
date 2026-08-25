@@ -203,7 +203,8 @@ jobs:
       - run: npm run phase8:test-admin
       - run: npm run phase10:test-report
       - run: npm run phase1:test-stabilisation
-      - run: npm run v7:test-checkpoint-b
+      - run: npm run rc1:test-playbook-coverage
+      - run: npm run rc1:test-quality-diagnostics
 
       - name: Commit admin-path alignment
         shell: bash
