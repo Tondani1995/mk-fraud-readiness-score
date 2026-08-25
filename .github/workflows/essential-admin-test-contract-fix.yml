@@ -1,0 +1,53 @@
+name: Refresh Essential admin regression contract
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/essential-admin-test-contract-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+      - name: Replace retired gap-commentary assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/phase10-premium-report-tests.mjs')
+          s = p.read_text()
+          old = "includes(selector, 'item.domainCode === gap.domainCode', 'Gap content must match persisted codes');"
+          new = "includes(selector, 'gapKey(gap.domainCode, gap.questionCode)', 'Gap commentary must be keyed to the exact persisted control rather than a domain-level block');"
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('gap commentary test anchor missing')
+          p.write_text(s)
+          PY
+          git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run phase10:test-report
+      - name: Commit refreshed regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MK Essential Certification"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/phase10-premium-report-tests.mjs
+          git commit -m "Refresh Phase 10 report contract for current Essential engine"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
