@@ -35,14 +35,12 @@ jobs:
               if import_anchor not in text:
                   raise SystemExit('render import anchor missing')
               text = text.replace(import_anchor, import_anchor + import_line, 1)
-
           old = "  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);\n  return dependencies.renderPdf(html);"
           new = "  const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);\n  const html = input.data.productCode === 'essential_self_assessment'\n    ? normaliseEssentialCustomerHtml(rawHtml)\n    : rawHtml;\n  return dependencies.renderPdf(html);"
           if old in text:
               text = text.replace(old, new, 1)
           elif "normaliseEssentialCustomerHtml(rawHtml)" not in text:
               raise SystemExit('render first-pass anchor missing')
-
           old = "    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);\n    const numberedPdf = await dependencies.renderPdf(html);"
           new = "    const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);\n    const html = input.data.productCode === 'essential_self_assessment'\n      ? normaliseEssentialCustomerHtml(rawHtml)\n      : rawHtml;\n    const numberedPdf = await dependencies.renderPdf(html);"
           if old in text:
@@ -53,133 +51,140 @@ jobs:
 
           fulfil = Path('src/lib/reports/phase1-manual-fulfilment.ts')
           text = fulfil.read_text()
-
           old = "    const { data: artefact, error: artefactError } = await db\n      .from('report_artifacts')"
           new = "    // Essential is intentionally PDF-only. Once the REPORT_READY attempt is bound to the\n    // expected verified PDF, there is no second artefact to prove. Comprehensive continues below.\n    if (!expected.registerStoragePath) return 'committed';\n\n    const { data: artefact, error: artefactError } = await db\n      .from('report_artifacts')"
           if old in text:
               text = text.replace(old, new, 1)
           elif "if (!expected.registerStoragePath) return 'committed';" not in text:
               raise SystemExit('ambiguous-finalisation anchor missing')
-
           old = "    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;"
           new = "    const reportAssessmentReference = reportType === 'essential_self_assessment'\n      ? assembled.assessmentReference.replace('-COMP-', '-ESS-')\n      : assembled.assessmentReference;\n    assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;"
           if old in text:
               text = text.replace(old, new, 1)
           elif "reportAssessmentReference" not in text:
               raise SystemExit('report-reference anchor missing')
-
-          old = """    // Both physical artefacts must exist and be verified before anything becomes customer-final.
-    generationStage = 'store_supporting_register';
-    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
-    const storedRegister = await storeSupportingRegister({
-      db,
-      data: assembled,
-      model: reportEvidenceModel,
-      projection: essentialProjection,
-      storageBucket,
-      organisationId: assembled.organisationId,
-      orderId: assembled.orderId,
-      versionNumber,
-      verifyStoredObject: verifyPrivateObject
-    });
-    registerUploaded = true;
-    registerStoragePath = storedRegister.storagePath;
-    console.info('supporting_register', {
-      technicalReference,
-      status: 'stored',
-      fileSizeBytes: storedRegister.fileSizeBytes
-    });
-"""
-          new = """    // Essential is a PDF-only package. Comprehensive retains its separately verified register.
-    let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;
-    if (isComprehensive) {
-      generationStage = 'store_supporting_register';
-      const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
-      storedRegister = await storeSupportingRegister({
-        db,
-        data: assembled,
-        model: reportEvidenceModel,
-        projection: essentialProjection,
-        storageBucket,
-        organisationId: assembled.organisationId,
-        orderId: assembled.orderId,
-        versionNumber,
-        verifyStoredObject: verifyPrivateObject
-      });
-      registerUploaded = true;
-      registerStoragePath = storedRegister.storagePath;
-      console.info('supporting_register', {
-        technicalReference,
-        status: 'stored',
-        fileSizeBytes: storedRegister.fileSizeBytes
-      });
-    }
-"""
+          old_lines = [
+              "    // Both physical artefacts must exist and be verified before anything becomes customer-final.",
+              "    generationStage = 'store_supporting_register';",
+              "    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;",
+              "    const storedRegister = await storeSupportingRegister({",
+              "      db,",
+              "      data: assembled,",
+              "      model: reportEvidenceModel,",
+              "      projection: essentialProjection,",
+              "      storageBucket,",
+              "      organisationId: assembled.organisationId,",
+              "      orderId: assembled.orderId,",
+              "      versionNumber,",
+              "      verifyStoredObject: verifyPrivateObject",
+              "    });",
+              "    registerUploaded = true;",
+              "    registerStoragePath = storedRegister.storagePath;",
+              "    console.info('supporting_register', {",
+              "      technicalReference,",
+              "      status: 'stored',",
+              "      fileSizeBytes: storedRegister.fileSizeBytes",
+              "    });",
+              ""
+          ]
+          new_lines = [
+              "    // Essential is a PDF-only package. Comprehensive retains its separately verified register.",
+              "    let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;",
+              "    if (isComprehensive) {",
+              "      generationStage = 'store_supporting_register';",
+              "      const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;",
+              "      storedRegister = await storeSupportingRegister({",
+              "        db,",
+              "        data: assembled,",
+              "        model: reportEvidenceModel,",
+              "        projection: essentialProjection,",
+              "        storageBucket,",
+              "        organisationId: assembled.organisationId,",
+              "        orderId: assembled.orderId,",
+              "        versionNumber,",
+              "        verifyStoredObject: verifyPrivateObject",
+              "      });",
+              "      registerUploaded = true;",
+              "      registerStoragePath = storedRegister.storagePath;",
+              "      console.info('supporting_register', {",
+              "        technicalReference,",
+              "        status: 'stored',",
+              "        fileSizeBytes: storedRegister.fileSizeBytes",
+              "      });",
+              "    }",
+              ""
+          ]
+          old = "\n".join(old_lines)
+          new = "\n".join(new_lines)
           if old in text:
               text = text.replace(old, new, 1)
           elif "let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;" not in text:
               raise SystemExit('supporting-register storage anchor missing')
-
-          old = """    const { data: completed, error: completeError } = await db.rpc(
-      'finalise_manual_report_with_supporting_register', {
-      p_attempt_id: attemptId,
-      p_template_id: template.id,
-      p_report_type: reportType,
-      p_storage_bucket: storageBucket,
-      p_storage_path: storagePath,
-      p_file_name: fileName,
-      p_mime_type: 'application/pdf',
-      p_file_size_bytes: pdf.length,
-      p_checksum: checksum,
-      p_register_storage_path: storedRegister.storagePath,
-      p_register_file_name: storedRegister.fileName,
-      p_register_mime_type: storedRegister.mimeType,
-      p_register_file_size_bytes: storedRegister.fileSizeBytes,
-      p_register_checksum: storedRegister.checksumSha256
-    });
-"""
-          new = """    const completionRequest = isComprehensive
-      ? db.rpc('finalise_manual_report_with_supporting_register', {
-        p_attempt_id: attemptId,
-        p_template_id: template.id,
-        p_report_type: reportType,
-        p_storage_bucket: storageBucket,
-        p_storage_path: storagePath,
-        p_file_name: fileName,
-        p_mime_type: 'application/pdf',
-        p_file_size_bytes: pdf.length,
-        p_checksum: checksum,
-        p_register_storage_path: storedRegister!.storagePath,
-        p_register_file_name: storedRegister!.fileName,
-        p_register_mime_type: storedRegister!.mimeType,
-        p_register_file_size_bytes: storedRegister!.fileSizeBytes,
-        p_register_checksum: storedRegister!.checksumSha256
-      })
-      : db.rpc('complete_manual_report_generation', {
-        p_attempt_id: attemptId,
-        p_template_id: template.id,
-        p_report_type: reportType,
-        p_storage_bucket: storageBucket,
-        p_storage_path: storagePath,
-        p_file_name: fileName,
-        p_mime_type: 'application/pdf',
-        p_file_size_bytes: pdf.length,
-        p_checksum: checksum
-      });
-    const { data: completed, error: completeError } = await completionRequest;
-"""
+          old_lines = [
+              "    const { data: completed, error: completeError } = await db.rpc(",
+              "      'finalise_manual_report_with_supporting_register', {",
+              "      p_attempt_id: attemptId,",
+              "      p_template_id: template.id,",
+              "      p_report_type: reportType,",
+              "      p_storage_bucket: storageBucket,",
+              "      p_storage_path: storagePath,",
+              "      p_file_name: fileName,",
+              "      p_mime_type: 'application/pdf',",
+              "      p_file_size_bytes: pdf.length,",
+              "      p_checksum: checksum,",
+              "      p_register_storage_path: storedRegister.storagePath,",
+              "      p_register_file_name: storedRegister.fileName,",
+              "      p_register_mime_type: storedRegister.mimeType,",
+              "      p_register_file_size_bytes: storedRegister.fileSizeBytes,",
+              "      p_register_checksum: storedRegister.checksumSha256",
+              "    });",
+              ""
+          ]
+          new_lines = [
+              "    const completionRequest = isComprehensive",
+              "      ? db.rpc('finalise_manual_report_with_supporting_register', {",
+              "        p_attempt_id: attemptId,",
+              "        p_template_id: template.id,",
+              "        p_report_type: reportType,",
+              "        p_storage_bucket: storageBucket,",
+              "        p_storage_path: storagePath,",
+              "        p_file_name: fileName,",
+              "        p_mime_type: 'application/pdf',",
+              "        p_file_size_bytes: pdf.length,",
+              "        p_checksum: checksum,",
+              "        p_register_storage_path: storedRegister!.storagePath,",
+              "        p_register_file_name: storedRegister!.fileName,",
+              "        p_register_mime_type: storedRegister!.mimeType,",
+              "        p_register_file_size_bytes: storedRegister!.fileSizeBytes,",
+              "        p_register_checksum: storedRegister!.checksumSha256",
+              "      })",
+              "      : db.rpc('complete_manual_report_generation', {",
+              "        p_attempt_id: attemptId,",
+              "        p_template_id: template.id,",
+              "        p_report_type: reportType,",
+              "        p_storage_bucket: storageBucket,",
+              "        p_storage_path: storagePath,",
+              "        p_file_name: fileName,",
+              "        p_mime_type: 'application/pdf',",
+              "        p_file_size_bytes: pdf.length,",
+              "        p_checksum: checksum",
+              "      });",
+              "    const { data: completed, error: completeError } = await completionRequest;",
+              ""
+          ]
+          old = "\n".join(old_lines)
+          new = "\n".join(new_lines)
           if old in text:
               text = text.replace(old, new, 1)
           elif "db.rpc('complete_manual_report_generation'" not in text:
               raise SystemExit('finalisation anchor missing')
-
           text = text.replace(
-            "    // Committed. From here the PDF and the register are customer artefacts and generation-failure\n    // cleanup must never delete either of them.",
-            "    // Committed. From here the PDF (and, for Comprehensive, its register) is a customer artefact;\n    // generation-failure cleanup must never delete committed output."
+              "    // Committed. From here the PDF and the register are customer artefacts and generation-failure\n    // cleanup must never delete either of them.",
+              "    // Committed. From here the PDF (and, for Comprehensive, its register) is a customer artefact;\n    // generation-failure cleanup must never delete committed output."
           )
           text = text.replace(
-            "    // The supporting register was built, stored, verified and bound inside the atomic finalisation\n    // above. There is deliberately no separate post-completion register step any more: that\n    // ordering is what allowed a completed report to lose its PDF when the register failed.",
-            "    // Comprehensive's supporting register, when applicable, is bound inside the same atomic\n    // finalisation. Essential has no secondary artefact by product contract."
+              "    // The supporting register was built, stored, verified and bound inside the atomic finalisation\n    // above. There is deliberately no separate post-completion register step any more: that\n    // ordering is what allowed a completed report to lose its PDF when the register failed.",
+              "    // Comprehensive's supporting register, when applicable, is bound inside the same atomic\n    // finalisation. Essential has no secondary artefact by product contract."
           )
           fulfil.write_text(text)
           PY
