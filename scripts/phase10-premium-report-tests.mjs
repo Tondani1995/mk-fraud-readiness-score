@@ -70,7 +70,7 @@ includes(fallback, 'FALLBACK_FALSE_COMFORT_CLEAN', 'Clean fallback must remain')
 const selector = 'src/lib/reports/select-content-blocks.ts';
 includes(selector, 'getDomainFallback(domain.domainName, band)', 'Fallback must remain domain specific');
 includes(selector, 'item.domainCode === domain.domainCode', 'Domain content must match persisted codes');
-includes(selector, 'item.domainCode === gap.domainCode', 'Gap content must match persisted codes');
+includes(selector, 'gapKey(gap.domainCode, gap.questionCode)', 'Gap commentary must be keyed to the exact persisted control rather than a domain-level block');
 excludes(selector, 'item.domainCode === domain.domainName', 'Display names must not be used as identifiers');
 
 const roadmap = 'src/lib/reports/roadmap.ts';
