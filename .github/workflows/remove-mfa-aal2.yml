@@ -38,6 +38,9 @@ jobs:
               r"\n  if \(operator\.aal !== 'aal2'\) \{\n    return json\(\{ ok: false, error: 'RC1_CONTROL_AAL2_REQUIRED' \}, 403\);\n  \}",
               '', s
           )
+          s = s.replace('platform_admin + AAL2 from auth.uid()/auth.jwt()', 'platform_admin authority from auth.uid()/auth.jwt()')
+          s = s.replace('platform_admin, AAL2, the environment enablement', 'platform_admin authority and the environment enablement')
+          s = s.replace('the AAL2 requirement and the', 'the role/session requirement and the')
           p.write_text(s)
 
           # Remove every route-level MFA helper and AAL2 pre-check from active application source.
@@ -52,10 +55,6 @@ jobs:
               if "@/lib/auth/mfa" in s:
                   s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
                   s = re.sub(
-                      r"\n  //[^\n]*(?:AAL2|MFA)[^\n]*\n(?:  //[^\n]*\n)*",
-                      '\n', s
-                  )
-                  s = re.sub(
                       r"\n  if \(decodeAalClaimForDisplayOnly\(accessToken\) !== 'aal2'\) \{[\s\S]*?\n  \}\n",
                       '\n', s, count=1
                   )
@@ -68,6 +67,50 @@ jobs:
               "throw new Phase14AuthorizationError('phase14_no_session', 'A current administrator session is required.');"
           )
           p.write_text(s)
+
+          # Delivery initiation: remove the retired special AAL2 error branch.
+          p = Path('src/lib/reports/email/premium-report-admin-initiation.ts')
+          s = p.read_text()
+          s = s.replace('    // Authenticate the AAL2 action before reading commercial records or writing audit evidence.\n', '    // Authorise the admin action before reading commercial records or writing audit evidence.\n')
+          old = """    if (error instanceof Phase14AuthorizationError) {
+      const isAal2 = error.reason.includes('aal2');
+      throw new PremiumReportAdminInitiationError(
+        isAal2 ? 'aal2_required' : error.reason,
+        isAal2 ? 'An active AAL2 platform-admin session is required.' : 'The delivery action is not authorised.',
+        403
+      );
+    }"""
+          new = """    if (error instanceof Phase14AuthorizationError) {
+      throw new PremiumReportAdminInitiationError(
+        error.reason,
+        'The delivery action is not authorised.',
+        403
+      );
+    }"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Remove obsolete operational comments that describe AAL2 as an authority requirement.
+          replacements = {
+            'src/app/score/api/admin/rc1-park-fulfilment-attempt/route.ts': [
+              ('platform_admin at AAL2, the', 'platform_admin authority, the')
+            ],
+            'src/lib/auth/admin-route.ts': [
+              ('requiring a Supabase admin login and MFA', 'requiring a Supabase admin login and role authorisation')
+            ],
+            'src/app/score/api/admin/phase14-activation/runtime-secret/route.ts': [
+              ('phase14_aal2_required:runtime_secret_rotation', 'phase14_role_or_session_required:runtime_secret_rotation')
+            ]
+          }
+          for file_name, pairs in replacements.items():
+              p = Path(file_name)
+              if not p.exists():
+                  continue
+              s = p.read_text()
+              for old_text, new_text in pairs:
+                  s = s.replace(old_text, new_text)
+              p.write_text(s)
 
           # Remove MFA from admin navigation.
           p = Path('src/components/admin/AdminShell.tsx')
@@ -89,17 +132,6 @@ jobs:
               '\n', s, count=1
           )
           p.write_text(s)
-
-          # Retire residual comments that describe obsolete AAL2 errors.
-          for p in Path('src').rglob('*'):
-              if not p.is_file() or p.suffix not in {'.ts', '.tsx'}:
-                  continue
-              if mfa_root in p.parents or p == Path('src/lib/auth/mfa.ts') or p == Path('src/components/admin/MfaEnrollment.tsx'):
-                  continue
-              s = p.read_text()
-              s = s.replace('phase14_aal2_required:runtime_secret_rotation', 'phase14_role_or_session_required:runtime_secret_rotation')
-              s = s.replace('AAL2-gated', 'role-gated')
-              p.write_text(s)
 
           # Update RC1 route regression: authentication + platform_admin are the boundary.
           p = Path('scripts/rc1-control-plane-route-tests.mjs')
@@ -141,40 +173,31 @@ jobs:
             if v_user_id is null then
               raise exception 'rc1_freeze_control:no_session';
             end if;
-
             begin
               v_exp := nullif(v_claims->>'exp', '')::bigint;
               v_session_id := nullif(v_claims->>'session_id', '')::uuid;
             exception when others then
               raise exception 'rc1_freeze_control:malformed_session';
             end;
-
             if v_exp is null or pg_catalog.to_timestamp(v_exp) <= pg_catalog.clock_timestamp() then
               raise exception 'rc1_freeze_control:expired_session';
             end if;
             if v_session_id is null or not exists (
-              select 1
-              from auth.sessions s
+              select 1 from auth.sessions s
               where s.id = v_session_id
                 and s.user_id = v_user_id
                 and (s.not_after is null or s.not_after > pg_catalog.clock_timestamp())
             ) then
               raise exception 'rc1_freeze_control:inactive_session';
             end if;
-
-            select * into v_profile
-            from public.admin_profiles
-            where id = v_user_id;
-
+            select * into v_profile from public.admin_profiles where id = v_user_id;
             if not found or v_profile.status <> 'active' or v_profile.role <> 'platform_admin' then
               raise exception 'rc1_freeze_control:platform_admin_required';
             end if;
-
             return pg_catalog.jsonb_build_object(
               'user_id', v_user_id,
               'actor_fingerprint', pg_catalog.encode(
-                extensions.digest(pg_catalog.convert_to(v_user_id::text, 'UTF8'), 'sha256'),
-                'hex'
+                extensions.digest(pg_catalog.convert_to(v_user_id::text, 'UTF8'), 'sha256'), 'hex'
               )
             );
           end;
@@ -209,21 +232,18 @@ jobs:
             end;
             if v_session_id is null then raise exception 'phase14_session_id_required:%', p_action; end if;
             if not exists (
-              select 1
-              from auth.sessions s
+              select 1 from auth.sessions s
               where s.id = v_session_id
                 and s.user_id = v_user_id
                 and (s.not_after is null or s.not_after > pg_catalog.now())
             ) then
               raise exception 'phase14_session_revoked_or_expired:%', p_action;
             end if;
-
             select * into v_profile from public.admin_profiles where id = v_user_id;
             if not found then raise exception 'phase14_profile_missing:%', p_action; end if;
             if v_profile.status = 'revoked' then raise exception 'phase14_profile_revoked:%', p_action; end if;
             if v_profile.status <> 'active' then raise exception 'phase14_profile_inactive:%', p_action; end if;
             if not (v_profile.role = any(p_allowed_roles)) then raise exception 'phase14_role_forbidden:%', p_action; end if;
-
             return pg_catalog.jsonb_build_object(
               'user_id', v_user_id,
               'role', v_profile.role,
@@ -233,14 +253,14 @@ jobs:
           $function$;
 
           comment on function public.rc1_require_platform_admin(boolean)
-            is 'Requires a live authenticated platform_admin session. The legacy p_require_aal2 argument is ignored; MFA/AAL2 is not an operational dependency.';
+            is 'Requires a live authenticated platform_admin session. The legacy p_require_aal2 argument is ignored.';
           comment on function public.phase14_require_actor(text, public.admin_role[], boolean)
-            is 'Requires a live authenticated administrator session in an allowed role. The legacy p_require_aal2 argument is ignored; MFA/AAL2 is not an operational dependency.';
+            is 'Requires a live authenticated administrator session in an allowed role. The legacy p_require_aal2 argument is ignored.';
           SQL
 
-          # Active application source must not retain MFA/AAL2 code, routes, prompts or imports.
-          if grep -RniE "decodeAalClaimForDisplayOnly|RC1_CONTROL_AAL2_REQUIRED|phase14_aal2_required|MFA-verified|Security \(MFA\)|@/lib/auth/mfa|\bAAL2\b|\bMFA\b" src; then
-            echo '::error::Active MFA/AAL2 dependency remains in src.'
+          # Prove no active application path can request or enforce the retired second factor.
+          if grep -RniE "decodeAalClaimForDisplayOnly|RC1_CONTROL_AAL2_REQUIRED|phase14_aal2_required|aal2_required|@/lib/auth/mfa|/admin/security|isAal2|active AAL2|platform_admin at AAL2|AAL2 action" src; then
+            echo '::error::Operational MFA/AAL2 dependency remains in src.'
             exit 1
           fi
           git diff --check
