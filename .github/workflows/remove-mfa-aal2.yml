@@ -28,7 +28,7 @@ jobs:
           from pathlib import Path
           import re
 
-          # RC1 control plane: keep authenticated platform_admin + live-session checks; remove AAL2.
+          # RC1 control plane: retain authenticated platform_admin + live-session checks only.
           p = Path('src/lib/rc1/control-plane.ts')
           s = p.read_text()
           s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
@@ -40,20 +40,24 @@ jobs:
           )
           p.write_text(s)
 
-          # Remove Phase 14 route-level AAL2/MFA pre-checks; DB remains authoritative for role/session.
-          route_root = Path('src/app/score/api/admin/phase14-activation')
-          for p in route_root.rglob('route.ts'):
-              s = p.read_text()
-              if "@/lib/auth/mfa" not in s:
+          # Remove every route-level MFA helper and AAL2 pre-check from active application source.
+          for p in Path('src').rglob('*'):
+              if not p.is_file() or p.suffix not in {'.ts', '.tsx'}:
                   continue
-              s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
-              s = re.sub(
-                  r"\n  // Fast, friendly pre-check only\.[\s\S]*?\n  if \(decodeAalClaimForDisplayOnly\(accessToken\) !== 'aal2'\) \{[\s\S]*?\n  \}\n",
-                  '\n', s, count=1
-              )
-              p.write_text(s)
+              s = p.read_text()
+              if "@/lib/auth/mfa" in s:
+                  s = s.replace("import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';\n", '')
+                  s = re.sub(
+                      r"\n  //[^\n]*(?:AAL2|MFA)[^\n]*\n(?:  //[^\n]*\n)*",
+                      '\n', s
+                  )
+                  s = re.sub(
+                      r"\n  if \(decodeAalClaimForDisplayOnly\(accessToken\) !== 'aal2'\) \{[\s\S]*?\n  \}\n",
+                      '\n', s, count=1
+                  )
+                  p.write_text(s)
 
-          # Privileged report helper now requires a current administrator session, not MFA.
+          # Privileged report helper: normal authenticated administrator session only.
           p = Path('src/lib/reports/phase14-security.ts')
           s = p.read_text().replace(
               "throw new Phase14AuthorizationError('phase14_no_session', 'A current AAL2 administrator session is required.');",
@@ -82,7 +86,16 @@ jobs:
           )
           p.write_text(s)
 
-          # Update the RC1 route regression: authentication + platform_admin remain the boundary.
+          # Retire residual comments that describe obsolete AAL2 errors.
+          for p in Path('src').rglob('*'):
+              if not p.is_file() or p.suffix not in {'.ts', '.tsx'}:
+                  continue
+              s = p.read_text()
+              s = s.replace('phase14_aal2_required:runtime_secret_rotation', 'phase14_role_or_session_required:runtime_secret_rotation')
+              s = s.replace('AAL2-gated', 'role-gated')
+              p.write_text(s)
+
+          # Update RC1 route regression: authentication + platform_admin are the boundary.
           p = Path('scripts/rc1-control-plane-route-tests.mjs')
           s = p.read_text()
           s = s.replace("  role: 'platform_admin',\n  aal: 'aal2',\n", "  role: 'platform_admin',\n")
@@ -103,7 +116,7 @@ jobs:
           cat > supabase/migrations/20260825114500_remove_mfa_aal2_operational_dependency.sql <<'SQL'
           -- MK Fraud Readiness: retire MFA/AAL2 as an application/control-plane dependency.
           -- Ordinary authenticated sessions, active admin profiles and role checks remain mandatory.
-          -- The p_require_aal2 argument is retained only for backwards-compatible callers and is ignored.
+          -- Legacy p_require_aal2 arguments are retained only for backwards-compatible callers and are ignored.
 
           create or replace function public.rc1_require_platform_admin(p_require_aal2 boolean)
           returns jsonb
@@ -219,8 +232,8 @@ jobs:
             is 'Requires a live authenticated administrator session in an allowed role. The legacy p_require_aal2 argument is ignored; MFA/AAL2 is not an operational dependency.';
           SQL
 
-          # No active application source may retain an MFA/AAL2 dependency.
-          if grep -RniE "decodeAalClaimForDisplayOnly|RC1_CONTROL_AAL2_REQUIRED|phase14_aal2_required|MFA-verified|Security \(MFA\)|@/lib/auth/mfa" src; then
+          # Active application source must not retain MFA/AAL2 code, routes, prompts or imports.
+          if grep -RniE "decodeAalClaimForDisplayOnly|RC1_CONTROL_AAL2_REQUIRED|phase14_aal2_required|MFA-verified|Security \(MFA\)|@/lib/auth/mfa|\bAAL2\b|\bMFA\b" src; then
             echo '::error::Active MFA/AAL2 dependency remains in src.'
             exit 1
           fi
