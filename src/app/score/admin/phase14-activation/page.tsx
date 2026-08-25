@@ -58,15 +58,9 @@ export default async function Phase14ActivationPage() {
       <PageHeader
         eyebrow="Phase 14 · production activation"
         title="Security gate & automation controls"
-        description="Every action here requires an AAL2 (MFA-verified) session and is independently reversible. Follow the staged sequence: satisfy the gate, enable the test-recipient override, then automatic fulfilment, then AI narrative, then — only after an internal test has run cleanly — automatic customer email."
+        description="These controls are restricted to authenticated platform administrators and are independently reversible. Follow the staged sequence: satisfy the gate, enable the test-recipient override, then automatic fulfilment, then AI narrative, then — only after an internal test has run cleanly — automatic customer email."
       />
 
-      <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-        If your session is not at AAL2 yet, every action below will be rejected with
-        <code className="mx-1 rounded bg-white px-1.5 py-0.5">phase14_aal2_required</code>
-        by the database itself — that check happens in Postgres, not in this page, and cannot be bypassed from here.
-        Enroll or step up on the <a className="underline" href="/score/admin/security">Security</a> page first.
-      </div>
 
       <div className="space-y-6">
         <Card>

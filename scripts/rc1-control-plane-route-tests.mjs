@@ -15,7 +15,6 @@ const evidence = 'b'.repeat(64);
 const operator = {
   accessToken: 'synthetic-verified-access-token',
   role: 'platform_admin',
-  aal: 'aal2',
 };
 const frozenStatus = {
   state: 'frozen',
@@ -102,7 +101,6 @@ async function certificationRouteTests() {
     ['missing explicit frozen mode', { mode: undefined }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
     ['released app mode', { mode: 'released' }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
     ['unauthenticated', { identity: null }, 401, 'RC1_CONTROL_SESSION_REQUIRED'],
-    ['AAL1', { identity: { ...operator, aal: 'aal1' } }, 403, 'RC1_CONTROL_AAL2_REQUIRED'],
     ['reviewer', { identity: { ...operator, role: 'reviewer' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
     ['finance_admin', { identity: { ...operator, role: 'finance_admin' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
     ['service_role', { identity: { ...operator, role: 'service_role' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
@@ -264,4 +262,4 @@ await certificationRouteTests();
 await freezeControlRouteTests();
 await twoLayerSequenceTests();
 await genericRouteRemainsFrozen();
-console.log('PASS RC1 control-plane routes: narrow AAL2 controls and two-layer release sequence');
+console.log('PASS RC1 control-plane routes: authenticated platform-admin controls and two-layer release sequence');

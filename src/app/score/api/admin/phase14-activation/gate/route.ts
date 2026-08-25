@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
-import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
 import { createSupabaseAuthenticatedServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -21,12 +20,6 @@ export async function POST(request: Request) {
   // Fast, friendly pre-check only. The real, authoritative AAL2 enforcement happens inside
   // set_phase14_security_gate_version -> phase14_require_actor in Postgres regardless of what
   // this check finds - this just avoids a round trip with a clearer error message.
-  if (decodeAalClaimForDisplayOnly(accessToken) !== 'aal2') {
-    return NextResponse.json({
-      ok: false,
-      error: 'phase14_aal2_required: your session is not MFA-verified. Step up on the Security page first.'
-    }, { status: 403 });
-  }
 
   let body: { satisfiedVersion?: number; reason?: string };
   try {

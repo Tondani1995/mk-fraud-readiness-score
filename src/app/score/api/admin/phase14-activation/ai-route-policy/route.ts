@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
-import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
 import { createSupabaseAuthenticatedServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -16,12 +15,6 @@ export async function POST(request: Request) {
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {
     return NextResponse.json({ ok: false, error: 'No active session.' }, { status: 401 });
-  }
-  if (decodeAalClaimForDisplayOnly(accessToken) !== 'aal2') {
-    return NextResponse.json({
-      ok: false,
-      error: 'phase14_aal2_required: your session is not MFA-verified. Step up on the Security page first.'
-    }, { status: 403 });
   }
 
   let body: { provider?: string; enabled?: boolean };

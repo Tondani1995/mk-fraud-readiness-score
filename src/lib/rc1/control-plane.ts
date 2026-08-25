@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
-import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   createSupabaseAnonServerClient,
@@ -22,7 +21,6 @@ const MAX_REASON_LENGTH = 500;
 type Rc1Operator = {
   accessToken: string;
   role: string;
-  aal: 'aal1' | 'aal2' | null;
 };
 
 type RpcResult = {
@@ -71,7 +69,7 @@ async function defaultResolveOperator(): Promise<Rc1Operator | null> {
     if (userError || !userData.user) return null;
 
     // This authenticated, self-only RLS read is a route pre-check. Each mutating RPC
-    // independently re-establishes platform_admin + AAL2 from auth.uid()/auth.jwt().
+    // independently re-establishes platform_admin authority from auth.uid()/auth.jwt().
     const authenticated = createSupabaseAuthenticatedServerClient(accessToken);
     const { data: profile, error: profileError } = await authenticated
       .from('admin_profiles')
@@ -83,7 +81,6 @@ async function defaultResolveOperator(): Promise<Rc1Operator | null> {
     return {
       accessToken,
       role: String(profile.role),
-      aal: decodeAalClaimForDisplayOnly(accessToken),
     };
   } catch {
     return null;
@@ -106,9 +103,6 @@ async function requireOperator(
   if (!operator) return json({ ok: false, error: 'RC1_CONTROL_SESSION_REQUIRED' }, 401);
   if (operator.role !== 'platform_admin') {
     return json({ ok: false, error: 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED' }, 403);
-  }
-  if (operator.aal !== 'aal2') {
-    return json({ ok: false, error: 'RC1_CONTROL_AAL2_REQUIRED' }, 403);
   }
   return operator;
 }
@@ -345,7 +339,7 @@ export function createRc1FreezeReleasePost(
  * RC1 synthetic-certification cleanup route.
  *
  * This is a deliberately thin transport. Every authority decision stays in
- * public.rc1_cleanup_synthetic_certification: platform_admin, AAL2, the environment enablement
+ * public.rc1_cleanup_synthetic_certification: platform_admin authority and the environment enablement
  * row, the MKTEST-RC1- provenance check, the transaction-local score-trace allowance and the
  * audited deletion. The route adds only three things the database cannot see -- the RC1 operation
  * freeze for the activation_control surface, a fail-fast shape check so a malformed request never
@@ -383,7 +377,6 @@ const CLEANUP_REFUSAL_REASONS = new Set([
   'rc1_freeze_control:expired_session',
   'rc1_freeze_control:inactive_session',
   'rc1_freeze_control:platform_admin_required',
-  'rc1_freeze_control:aal2_required',
 ]);
 
 /** Extracts a known refusal identifier, never arbitrary database text. */
@@ -564,7 +557,6 @@ const REMEDIATION_REFUSAL_REASONS = new Set([
   'rc1_freeze_control:expired_session',
   'rc1_freeze_control:inactive_session',
   'rc1_freeze_control:platform_admin_required',
-  'rc1_freeze_control:aal2_required',
 ]);
 
 function safeRemediationReason(error: { message?: string } | null): string {
@@ -594,7 +586,7 @@ function safeRelationCounts(value: unknown): Record<string, number> {
  * The two RC1 certification flags are inert until an operator grants them, and nothing could grant
  * them through an audited path: update_phase14_feature_policy refuses every key except the two
  * Phase 14 settings, leaving only a direct database edit or service_role. This route is the
- * audited alternative -- the database function owns the allow-list, the AAL2 requirement and the
+ * audited alternative -- the database function owns the allow-list, the role/session requirement and the
  * audit, and app_settings sits on the activation_control freeze surface, so a grant is only
  * possible inside a deliberate RELEASED window.
  */
@@ -612,7 +604,6 @@ const ENABLEMENT_REFUSAL_REASONS = new Set([
   'rc1_freeze_control:expired_session',
   'rc1_freeze_control:inactive_session',
   'rc1_freeze_control:platform_admin_required',
-  'rc1_freeze_control:aal2_required',
 ]);
 
 function safeEnablementReason(error: { message?: string } | null): string {
@@ -690,7 +681,6 @@ const MARKING_REFUSAL_REASONS = new Set([
   'rc1_freeze_control:expired_session',
   'rc1_freeze_control:inactive_session',
   'rc1_freeze_control:platform_admin_required',
-  'rc1_freeze_control:aal2_required',
 ]);
 
 function safeMarkingReason(error: { message?: string } | null): string {

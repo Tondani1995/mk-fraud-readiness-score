@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
-import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
 import { createSupabaseAuthenticatedServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -30,12 +29,6 @@ export async function POST(request: Request) {
   // Fast, friendly pre-check only. The real, authoritative AAL2 + platform_admin enforcement
   // happens inside set_phase14_runtime_secret -> phase14_require_actor in Postgres regardless of
   // what this check finds -- see gate/route.ts for the same established pattern.
-  if (decodeAalClaimForDisplayOnly(accessToken) !== 'aal2') {
-    return NextResponse.json({
-      ok: false,
-      error: 'phase14_aal2_required: your session is not MFA-verified. Step up on the Security page first.'
-    }, { status: 403 });
-  }
 
   let body: { secretKey?: string; secretValue?: string; confirmValue?: string; reason?: string };
   try {
@@ -71,7 +64,7 @@ export async function POST(request: Request) {
 
   if (error) {
     // error.message is a Postgres exception name (e.g. phase14_runtime_secret_too_short,
-    // phase14_aal2_required:runtime_secret_rotation) -- it never contains the secret value, which
+    // phase14_role_or_session_required:runtime_secret_rotation) -- it never contains the secret value, which
     // this route never passes to any logging or error-formatting path.
     return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
   }

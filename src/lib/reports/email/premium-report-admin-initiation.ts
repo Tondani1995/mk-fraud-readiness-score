@@ -194,14 +194,13 @@ export async function initiatePremiumReportDelivery(
   admin: AdminSession
 ) {
   try {
-    // Authenticate the AAL2 action before reading commercial records or writing audit evidence.
+    // Authorise the admin action before reading commercial records or writing audit evidence.
     await requirePhase14Action('email_delivery');
   } catch (error) {
     if (error instanceof Phase14AuthorizationError) {
-      const isAal2 = error.reason.includes('aal2');
       throw new PremiumReportAdminInitiationError(
-        isAal2 ? 'aal2_required' : error.reason,
-        isAal2 ? 'An active AAL2 platform-admin session is required.' : 'The delivery action is not authorised.',
+        error.reason,
+        'The delivery action is not authorised.',
         403
       );
     }

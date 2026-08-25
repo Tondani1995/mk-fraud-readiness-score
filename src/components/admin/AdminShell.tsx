@@ -16,8 +16,7 @@ const adminLinks = [
   { href: '/admin/enquiries', label: 'Personalised enquiries' },
   { href: '/admin/reports', label: 'Report controls' },
   { href: '/admin/operational-alerts', label: 'Operational alerts' },
-  { href: '/admin/phase14-activation', label: 'Automation activation controls' },
-  { href: '/admin/security', label: 'Security (MFA)' }
+  { href: '/admin/phase14-activation', label: 'Automation activation controls' }
 ];
 
 function scorePath(path: string) {

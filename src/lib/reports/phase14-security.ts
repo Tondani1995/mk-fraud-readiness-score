@@ -66,7 +66,7 @@ export class Phase14AuthorizationError extends Error {
 export function createPhase14PrivilegedClient() {
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {
-    throw new Phase14AuthorizationError('phase14_no_session', 'A current AAL2 administrator session is required.');
+    throw new Phase14AuthorizationError('phase14_no_session', 'A current administrator session is required.');
   }
   return createSupabaseAuthenticatedServerClient(accessToken) as any;
 }

@@ -14,7 +14,7 @@ export type AdminSession = {
  * Non-production operator access.
  *
  * Staging sits behind Vercel Deployment Protection, which the owner has accepted
- * as sufficient for that environment, so requiring a Supabase admin login and MFA
+ * as sufficient for that environment, so requiring a Supabase admin login and role authorisation
  * on top of it only blocks fulfilment testing. This returns a synthetic operator
  * session so the normal admin routes are usable there.
  *

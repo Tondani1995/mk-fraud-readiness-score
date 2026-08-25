@@ -2,7 +2,7 @@
  * RC1 fulfilment-attempt parking route.
  *
  * A deliberately thin transport, in the same shape as the other RC1 control-plane routes. Every
- * authority decision stays in public.rc1_park_fulfilment_attempt: platform_admin at AAL2, the
+ * authority decision stays in public.rc1_park_fulfilment_attempt: platform_admin authority, the
  * eligible-status set, the actively-claimed and already-published refusals, the audit event and
  * idempotency. The route adds only a fail-fast shape check and a projection that keeps the
  * response free of raw database payload.
