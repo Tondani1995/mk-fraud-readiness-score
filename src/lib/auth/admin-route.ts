@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminRole } from '@/lib/types/domain';
 
@@ -10,18 +9,17 @@ export type AdminSession = {
 };
 
 /**
- * Recovery-branch operator access.
+ * The readiness admin console currently has no application-level login wall.
  *
- * This branch is used only for owner acceptance behind Vercel Deployment Protection.
- * The Supabase login/session gate is intentionally removed so the owner can exercise
- * the real admin workflow directly. Audited writes still bind to a real active
- * platform_admin profile, preserving database foreign-key and audit integrity.
- * Production is untouched unless this branch is explicitly merged and deployed.
+ * Until commercial report volume warrants reinstating dedicated operator authentication,
+ * admin routes bind server-side to a real active platform-admin profile. This preserves
+ * audit-log actor IDs and database foreign-key integrity without cookies, passwords,
+ * login pages or session state.
  */
 export async function getAdminSession(): Promise<AdminSession | null> {
   try {
     const service = createSupabaseServiceClient();
-    const { data } = await service
+    const { data, error } = await service
       .from('admin_profiles')
       .select('id,email,full_name,role')
       .eq('status', 'active')
@@ -30,7 +28,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
       .limit(1)
       .maybeSingle();
 
-    if (!data) return null;
+    if (error || !data) return null;
 
     return {
       id: data.id,
@@ -45,10 +43,12 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
 export async function requireAdmin(allowedRoles?: AdminRole[]): Promise<AdminSession> {
   const admin = await getAdminSession();
-  if (!admin) redirect('/score/admin/login');
+  if (!admin) {
+    throw new Error('No active platform admin profile is available for the readiness console.');
+  }
 
   if (allowedRoles && !allowedRoles.includes(admin.role)) {
-    redirect('/score/admin/login?error=forbidden');
+    throw new Error('The active platform admin profile is not allowed to access this route.');
   }
 
   return admin;
