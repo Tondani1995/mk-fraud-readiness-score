@@ -1,0 +1,215 @@
+name: Prepare Essential admin reproducibility path
+
+on:
+  push:
+    branches:
+      - recovery/essential-v10-v12-brand-20260824
+    paths:
+      - .github/workflows/essential-admin-repro-prep.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/essential-v10-v12-brand-20260824
+          fetch-depth: 0
+
+      - name: Apply bounded Essential admin-path corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          render = Path('src/lib/reports/render-validated-commercial-pdf.ts')
+          text = render.read_text()
+          import_anchor = "import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';\n"
+          import_line = "import { normaliseEssentialCustomerHtml } from './essential-customer-output';\n"
+          if import_line not in text:
+              if import_anchor not in text:
+                  raise SystemExit('render import anchor missing')
+              text = text.replace(import_anchor, import_anchor + import_line, 1)
+
+          old = "  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);\n  return dependencies.renderPdf(html);"
+          new = "  const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);\n  const html = input.data.productCode === 'essential_self_assessment'\n    ? normaliseEssentialCustomerHtml(rawHtml)\n    : rawHtml;\n  return dependencies.renderPdf(html);"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif "normaliseEssentialCustomerHtml(rawHtml)" not in text:
+              raise SystemExit('render first-pass anchor missing')
+
+          old = "    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);\n    const numberedPdf = await dependencies.renderPdf(html);"
+          new = "    const rawHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);\n    const html = input.data.productCode === 'essential_self_assessment'\n      ? normaliseEssentialCustomerHtml(rawHtml)\n      : rawHtml;\n    const numberedPdf = await dependencies.renderPdf(html);"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif text.count("normaliseEssentialCustomerHtml(rawHtml)") < 2:
+              raise SystemExit('render navigation anchor missing')
+          render.write_text(text)
+
+          fulfil = Path('src/lib/reports/phase1-manual-fulfilment.ts')
+          text = fulfil.read_text()
+
+          old = "    const { data: artefact, error: artefactError } = await db\n      .from('report_artifacts')"
+          new = "    // Essential is intentionally PDF-only. Once the REPORT_READY attempt is bound to the\n    // expected verified PDF, there is no second artefact to prove. Comprehensive continues below.\n    if (!expected.registerStoragePath) return 'committed';\n\n    const { data: artefact, error: artefactError } = await db\n      .from('report_artifacts')"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif "if (!expected.registerStoragePath) return 'committed';" not in text:
+              raise SystemExit('ambiguous-finalisation anchor missing')
+
+          old = "    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;"
+          new = "    const reportAssessmentReference = reportType === 'essential_self_assessment'\n      ? assembled.assessmentReference.replace('-COMP-', '-ESS-')\n      : assembled.assessmentReference;\n    assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif "reportAssessmentReference" not in text:
+              raise SystemExit('report-reference anchor missing')
+
+          old = """    // Both physical artefacts must exist and be verified before anything becomes customer-final.
+    generationStage = 'store_supporting_register';
+    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
+    const storedRegister = await storeSupportingRegister({
+      db,
+      data: assembled,
+      model: reportEvidenceModel,
+      projection: essentialProjection,
+      storageBucket,
+      organisationId: assembled.organisationId,
+      orderId: assembled.orderId,
+      versionNumber,
+      verifyStoredObject: verifyPrivateObject
+    });
+    registerUploaded = true;
+    registerStoragePath = storedRegister.storagePath;
+    console.info('supporting_register', {
+      technicalReference,
+      status: 'stored',
+      fileSizeBytes: storedRegister.fileSizeBytes
+    });
+"""
+          new = """    // Essential is a PDF-only package. Comprehensive retains its separately verified register.
+    let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;
+    if (isComprehensive) {
+      generationStage = 'store_supporting_register';
+      const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
+      storedRegister = await storeSupportingRegister({
+        db,
+        data: assembled,
+        model: reportEvidenceModel,
+        projection: essentialProjection,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      });
+      registerUploaded = true;
+      registerStoragePath = storedRegister.storagePath;
+      console.info('supporting_register', {
+        technicalReference,
+        status: 'stored',
+        fileSizeBytes: storedRegister.fileSizeBytes
+      });
+    }
+"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif "let storedRegister: Awaited<ReturnType<typeof buildAndStoreSupportingRegister>> | null = null;" not in text:
+              raise SystemExit('supporting-register storage anchor missing')
+
+          old = """    const { data: completed, error: completeError } = await db.rpc(
+      'finalise_manual_report_with_supporting_register', {
+      p_attempt_id: attemptId,
+      p_template_id: template.id,
+      p_report_type: reportType,
+      p_storage_bucket: storageBucket,
+      p_storage_path: storagePath,
+      p_file_name: fileName,
+      p_mime_type: 'application/pdf',
+      p_file_size_bytes: pdf.length,
+      p_checksum: checksum,
+      p_register_storage_path: storedRegister.storagePath,
+      p_register_file_name: storedRegister.fileName,
+      p_register_mime_type: storedRegister.mimeType,
+      p_register_file_size_bytes: storedRegister.fileSizeBytes,
+      p_register_checksum: storedRegister.checksumSha256
+    });
+"""
+          new = """    const completionRequest = isComprehensive
+      ? db.rpc('finalise_manual_report_with_supporting_register', {
+        p_attempt_id: attemptId,
+        p_template_id: template.id,
+        p_report_type: reportType,
+        p_storage_bucket: storageBucket,
+        p_storage_path: storagePath,
+        p_file_name: fileName,
+        p_mime_type: 'application/pdf',
+        p_file_size_bytes: pdf.length,
+        p_checksum: checksum,
+        p_register_storage_path: storedRegister!.storagePath,
+        p_register_file_name: storedRegister!.fileName,
+        p_register_mime_type: storedRegister!.mimeType,
+        p_register_file_size_bytes: storedRegister!.fileSizeBytes,
+        p_register_checksum: storedRegister!.checksumSha256
+      })
+      : db.rpc('complete_manual_report_generation', {
+        p_attempt_id: attemptId,
+        p_template_id: template.id,
+        p_report_type: reportType,
+        p_storage_bucket: storageBucket,
+        p_storage_path: storagePath,
+        p_file_name: fileName,
+        p_mime_type: 'application/pdf',
+        p_file_size_bytes: pdf.length,
+        p_checksum: checksum
+      });
+    const { data: completed, error: completeError } = await completionRequest;
+"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif "db.rpc('complete_manual_report_generation'" not in text:
+              raise SystemExit('finalisation anchor missing')
+
+          text = text.replace(
+            "    // Committed. From here the PDF and the register are customer artefacts and generation-failure\n    // cleanup must never delete either of them.",
+            "    // Committed. From here the PDF (and, for Comprehensive, its register) is a customer artefact;\n    // generation-failure cleanup must never delete committed output."
+          )
+          text = text.replace(
+            "    // The supporting register was built, stored, verified and bound inside the atomic finalisation\n    // above. There is deliberately no separate post-completion register step any more: that\n    // ordering is what allowed a completed report to lose its PDF when the register failed.",
+            "    // Comprehensive's supporting register, when applicable, is bound inside the same atomic\n    // finalisation. Essential has no secondary artefact by product contract."
+          )
+          fulfil.write_text(text)
+          PY
+
+          git diff --check
+          grep -q "normaliseEssentialCustomerHtml" src/lib/reports/render-validated-commercial-pdf.ts
+          grep -q "complete_manual_report_generation" src/lib/reports/phase1-manual-fulfilment.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run phase8:test-admin
+      - run: npm run phase10:test-report
+      - run: npm run phase1:test-stabilisation
+      - run: npm run v7:test-checkpoint-b
+
+      - name: Commit admin-path alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MK Essential Certification"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/reports/render-validated-commercial-pdf.ts src/lib/reports/phase1-manual-fulfilment.ts
+          if git diff --cached --quiet; then
+            echo 'No source changes required.'
+            exit 0
+          fi
+          git commit -m "Align Essential admin fulfilment with accepted PDF-only output"
+          git push origin HEAD:recovery/essential-v10-v12-brand-20260824
