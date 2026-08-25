@@ -34,6 +34,7 @@ jobs:
           s = s.replace("  aal: 'aal1' | 'aal2' | null;\n", '')
           s = s.replace("      aal: decodeAalClaimForDisplayOnly(accessToken),\n", '')
           s = re.sub(r"\n  if \(operator\.aal !== 'aal2'\) \{\n    return json\(\{ ok: false, error: 'RC1_CONTROL_AAL2_REQUIRED' \}, 403\);\n  \}", '', s)
+          s = s.replace("  'rc1_freeze_control:aal2_required',\n", '')
           s = s.replace('platform_admin + AAL2 from auth.uid()/auth.jwt()', 'platform_admin authority from auth.uid()/auth.jwt()')
           s = s.replace('platform_admin, AAL2, the environment enablement', 'platform_admin authority and the environment enablement')
           s = s.replace('the AAL2 requirement and the', 'the role/session requirement and the')
