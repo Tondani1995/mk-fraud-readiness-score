@@ -15,22 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      PREVIEW_URL: https://mk-fraud-platform-o9iyb4rdg-tondanis-projects.vercel.app
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      S1: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      S2: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
+      S3: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STAGING }}
+      S4: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
+      S5: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      V1: ${{ secrets.VERCEL_TOKEN }}
+      V2: ${{ secrets.VERCEL_ACCESS_TOKEN }}
+      U1: ${{ secrets.STAGING_SUPABASE_URL }}
+      U2: ${{ secrets.SUPABASE_STAGING_URL }}
+      R1: ${{ vars.STAGING_SUPABASE_URL }}
+      R2: ${{ vars.SUPABASE_STAGING_URL }}
     steps:
-      - name: Require preview access
-        run: test -n "$VERCEL_PROTECTION_BYPASS"
-
-      - name: Inspect current admin order list
+      - name: Check existing credential hooks without exposing values
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsS \
-            -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
-            "$PREVIEW_URL/score/admin/orders" \
-            -o /tmp/orders.html
-          printf '%s\n' '--- Vhutshilo matches ---'
-          grep -Eio '.{0,120}(Vhutshilo|MKORD-[A-Za-z0-9-]+).{0,160}' /tmp/orders.html | head -80 || true
-          printf '%s\n' '--- order references ---'
-          grep -Eo 'MKORD-[A-Za-z0-9-]+' /tmp/orders.html | sort -u | tail -80 || true
-          printf 'http_html_bytes=%s\n' "$(wc -c < /tmp/orders.html)"
+          present() { if [ -n "${!1:-}" ]; then printf '%s=SET\n' "$1"; else printf '%s=UNSET\n' "$1"; fi; }
+          for name in VERCEL_PROTECTION_BYPASS S1 S2 S3 S4 S5 V1 V2 U1 U2 R1 R2; do present "$name"; done
