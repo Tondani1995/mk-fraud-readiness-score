@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -55,12 +56,12 @@ export default async function VhutshiloRecoveryAcceptancePage() {
               >
                 Open report PDF
               </a>
-              <a
+              <Link
                 href="/score/admin/orders"
                 className="inline-flex items-center justify-center rounded-xl border border-mk-line bg-white px-4 py-2.5 text-sm font-semibold text-mk-ink transition hover:bg-mk-cream"
               >
                 Back to admin orders
-              </a>
+              </Link>
             </div>
           </CardContent>
         </Card>
