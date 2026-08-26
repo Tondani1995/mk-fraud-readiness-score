@@ -56,7 +56,7 @@
     "phase9:test-orders": "node scripts/phase9-manual-eft-order-tests.mjs",
     "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
     "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
-    "v12:test-admin-auth": "node scripts/v12-admin-auth-session-tests.mjs",
+    "v12:test-admin-link": "node scripts/v12-admin-link-access-tests.mjs",
     "phase13:test-events": "node scripts/phase13-commercial-event-tests.mjs",
     "phase13:test-conversion": "node scripts/phase13-customer-commercial-conversion-tests.mjs",
     "phase14:test-report-engine": "node scripts/phase14-autonomous-report-tests.mjs",

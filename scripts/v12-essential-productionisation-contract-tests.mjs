@@ -50,8 +50,10 @@ for (const directFunction of [
     `${directFunction} must not manufacture order events for the direct assessment path`);
 }
 
-assert.match(directGenerationRoute, /getAuthenticatedAdminSession/);
-assert.match(directDownloadRoute, /getAuthenticatedAdminSession/);
+assert.match(directGenerationRoute, /getAdminSession/);
+assert.match(directDownloadRoute, /getAdminSession/);
+assert.doesNotMatch(directGenerationRoute, /getAuthenticatedAdminSession/);
+assert.doesNotMatch(directDownloadRoute, /getAuthenticatedAdminSession/);
 assert.match(directGenerationRoute, /platform_admin[\s\S]*reviewer[\s\S]*approver/);
 assert.match(directGenerationRoute, /assessment_admin_generate/);
 assert.match(directGenerationRoute, /x-idempotency-key/);

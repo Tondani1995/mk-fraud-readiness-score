@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getAuthenticatedAdminSession } from '@/lib/auth/admin-route';
+import { getAdminSession } from '@/lib/auth/admin-route';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   generateManualPhase1Report,
@@ -37,15 +37,10 @@ export async function POST(request: Request, context: RouteContext) {
   const frozen = await getRc1OperationFreezeResponse('generation');
   if (frozen) return frozen;
 
-  const admin = await getAuthenticatedAdminSession();
-  if (!admin) {
-    return NextResponse.json({
-      ok: false,
-      reason: 'unauthenticated',
-      message: 'A current authenticated administrator session is required.',
-      technicalReference
-    }, { status: 401, headers: { 'Cache-Control': 'private, no-store' } });
-  }
+  // The controlled Staging/Preview console is intentionally deployment-link accessible per the
+  // current owner decision. Keep the existing persisted runtime actor and role boundary so
+  // generated evidence remains attributable without introducing a browser login requirement.
+  const admin = await getAdminSession();
   if (!GENERATION_ROLES.has(admin.role)) {
     return NextResponse.json({
       ok: false,

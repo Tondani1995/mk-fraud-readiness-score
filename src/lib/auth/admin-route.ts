@@ -45,8 +45,10 @@ export const ADMIN_REPORT_DOWNLOAD_ROLES: AdminRole[] = [
 /**
  * The legacy read-only console renderer binds to an active persisted admin profile when one is
  * available. It deliberately retains a read-only runtime fallback so review pages can render in a
- * deployment that has not been provisioned with an admin profile. Report mutation and download
- * routes must use getAuthenticatedAdminSession() and never treat this fallback as authority.
+ * deployment that has not been provisioned with an admin profile. The controlled Staging/Preview
+ * assessment report link path uses this deployment-bound actor by owner decision; the fallback
+ * remains read-only and therefore cannot generate or download a report when no active profile is
+ * provisioned.
  *
  * When the configured Supabase environment contains an active persisted admin profile we bind the
  * console to that real actor, preferring roles that can perform report operations. This keeps

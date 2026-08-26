@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedAdminSession } from '@/lib/auth/admin-route';
+import { getAdminSession } from '@/lib/auth/admin-route';
 import {
   AssessmentReportAccessError,
   createSecureAssessmentAdminReportAccess
@@ -14,13 +14,9 @@ export async function GET(
   props: { params: Promise<{ assessmentRef: string; reportId: string }> }
 ) {
   const params = await props.params;
-  const admin = await getAuthenticatedAdminSession();
-  if (!admin) {
-    return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Authentication is required.' }, {
-      status: 401,
-      headers: { 'Cache-Control': 'private, no-store' }
-    });
-  }
+  // The controlled Staging/Preview console is intentionally deployment-link accessible per the
+  // current owner decision. The shared private-storage/checksum path remains unchanged.
+  const admin = await getAdminSession();
   if (!DOWNLOAD_ROLES.has(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Your role cannot download reports.' }, {
       status: 403,
