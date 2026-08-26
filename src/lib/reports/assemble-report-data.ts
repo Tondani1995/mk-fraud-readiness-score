@@ -175,6 +175,16 @@ export async function assembleReportData(target: ReportAssemblyTarget): Promise<
 
   if (scoreRunError || !scoreRunBase) throw new ReportAssemblyError('assessment_not_scored', `Score run ${assessment.current_score_run_id} is missing or incomplete.`);
 
+  const { data: methodologyVersion, error: methodologyVersionError } = await supabase
+    .from('methodology_versions')
+    .select('version_code')
+    .eq('id', scoreRunBase.methodology_version_id)
+    .maybeSingle();
+  if (methodologyVersionError || !methodologyVersion?.version_code) {
+    throw new ReportAssemblyError('assessment_not_scored', 'The locked score run methodology is unavailable.');
+  }
+  const methodologyVersionCode = String(methodologyVersion.version_code).trim();
+
   const scoreRunRow = scoreRunBase as typeof scoreRunBase & {
     adaptive_result_status?: AdaptiveResultStatus | null;
     adaptive_metrics_json?: AdaptiveResultMetrics | null;
@@ -531,6 +541,7 @@ export async function assembleReportData(target: ReportAssemblyTarget): Promise<
       id: scoreRunRow.id,
       assessmentId: scoreRunRow.assessment_id,
       methodologyVersionId: scoreRunRow.methodology_version_id,
+      ...{ methodologyVersionCode },
       status: scoreRunRow.status,
       lockedAt: scoreRunRow.locked_at ?? null,
       inputHash: scoreRunRow.input_hash ?? null,

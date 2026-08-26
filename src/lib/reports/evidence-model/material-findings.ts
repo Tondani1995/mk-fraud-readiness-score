@@ -97,7 +97,7 @@ function highExposureLinks(data: AssembledReportData, domainCode: string): strin
 }
 
 function weakestRepresentatives(data: AssembledReportData, traces: QuestionTraceRecord[]): Set<string> {
-  const methodologyVersionId = data.scoreRun.methodologyVersionId;
+  const methodologyIdentity = data.scoreRun;
   const weakestDomains = [...data.domainResults]
     .filter((domain) => domain.rawScore !== null)
     .sort((a, b) => (a.rawScore as number) - (b.rawScore as number) || a.domainCode.localeCompare(b.domainCode))
@@ -119,7 +119,7 @@ function weakestRepresentatives(data: AssembledReportData, traces: QuestionTrace
     // of coverage and will fail closed later if its playbook is missing.
     const representative = weakest && (weakest.responseValue as number) <= 2
       ? weakest
-      : candidates.find((trace) => getQuestionPlaybook(trace.questionCode, methodologyVersionId));
+      : candidates.find((trace) => getQuestionPlaybook(trace.questionCode, methodologyIdentity));
     if (representative) selected.add(representative.questionCode);
   }
   return selected;
@@ -268,7 +268,7 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
     const selectionReasons = stableReasons(reasons);
     if (selectionReasons.length === 0) continue;
 
-    const playbook = getQuestionPlaybook(trace.questionCode, data.scoreRun.methodologyVersionId);
+    const playbook = getQuestionPlaybook(trace.questionCode, data.scoreRun);
     if (!playbook) throw new QuestionPlaybookMissingError(trace.questionCode, data.scoreRun.methodologyVersionId);
     const semanticMapping = semanticMappingForQuestion(trace.questionCode, data.scoreRun.methodologyVersionId);
     const materialityClass = classify(selectionReasons, responseValue);

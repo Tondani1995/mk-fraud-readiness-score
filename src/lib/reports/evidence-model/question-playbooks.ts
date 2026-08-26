@@ -814,10 +814,38 @@ const PLAYBOOKS: Record<string, QuestionControlPlaybook> = {
 };
 
 export const MFRS_V11_METHODOLOGY_ID = 'df96e242-9625-4b2a-bc62-615ae402483a';
-export const MFRS_V12_METHODOLOGY_ID = 'c9c40448-8035-4bcc-9804-d5b08a604289';
+export const MFRS_V12_METHODOLOGY_VERSION_CODE = 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION';
+
+export interface MethodologyRegistryIdentity {
+  methodologyVersionId?: string | null;
+  methodologyVersionCode?: string | null;
+}
+
+type MethodologyRegistrySelector = string | MethodologyRegistryIdentity | null | undefined;
+
+function normaliseMethodologyIdentity(
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): MethodologyRegistryIdentity {
+  if (typeof selector === 'string') {
+    return { methodologyVersionId: selector, methodologyVersionCode };
+  }
+  return {
+    methodologyVersionId: selector?.methodologyVersionId ?? null,
+    methodologyVersionCode: selector?.methodologyVersionCode ?? methodologyVersionCode ?? null
+  };
+}
+
+function isV12Methodology(
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): boolean {
+  return normaliseMethodologyIdentity(selector, methodologyVersionCode).methodologyVersionCode
+    === MFRS_V12_METHODOLOGY_VERSION_CODE;
+}
 
 /** V1.2 merged/retired V1.1 IDs are not part of the active V1.2 customer pathway. */
-const V12_NON_ACTIVE_QUESTION_CODES = new Set([
+export const V12_NON_ACTIVE_QUESTION_CODES = new Set([
   'D5-Q02', 'D5-Q07', 'D6-Q06', 'D8-Q05', 'D9-Q04', 'D9-Q06', 'D10-Q04', 'D10-Q05'
 ]);
 
@@ -876,28 +904,46 @@ const V12_PLAYBOOK_OVERRIDES: Record<string, QuestionControlPlaybook> = {
   'D8-Q10': { questionCode: 'D8-Q10', domainCode: 'D8', controlObjective: 'Investigate and contain identity misuse, account takeover or impersonation.', expectedStandard: 'Suspected identity misuse has a named response owner, defined containment actions, investigation steps, evidence requirements and closure or recovery decisions.', fraudMechanism: 'Without a tested response route, an identity compromise can continue after detection and its scope, losses and affected parties may remain unclear.', currentStateDiagnosis: diagnosis('Identity-misuse investigation and containment'), recommendedControlDesign: 'Security Operations and Fraud Operations must maintain a response runbook for identity misuse covering session revocation, credential reset, account hold, customer or employee contact, evidence preservation, scope assessment, recovery, escalation and closure; the runbook is exercised periodically and material cases receive independent review.', executiveAccountability: 'Chief Technology Officer / Chief Operating Officer', processOwnership: 'Security Operations and Fraud Operations', oversightFunction: 'Information Security / Risk', supportingFunctions: ['Customer Operations', 'HR', 'Legal', 'Finance'], operatingFrequency: 'On every suspected case; annual or post-incident exercise', evidenceRequired: ['Identity-misuse response runbook', 'Containment and investigation case records', 'Authentication and activity evidence', 'Recovery or notification decisions', 'Exercise and lessons-learned records'], minimumAcceptableEvidenceCharacteristics: ['Containment action is time-stamped and attributable', 'Investigation reconstructs scope and affected activity', 'Closure or recovery decision is recorded'], dependencies: ['Identity and activity logging', 'Incident-response process'], implementationDifficulty: 'High', targetPeriod: '90 days', effectivenessMeasure: 'Every suspected identity-misuse case has timely containment, a recorded investigation and an accountable closure decision.', escalationThreshold: 'Suspected takeover not contained within the defined SLA, incomplete evidence or unresolved affected-party exposure.', relatedScenarioTypes: ['account_takeover', 'incident_response_breakdown'] }
 };
 
-function playbookRegistryFor(methodologyVersionId?: string): Record<string, QuestionControlPlaybook> {
-  if (methodologyVersionId !== MFRS_V12_METHODOLOGY_ID) return PLAYBOOKS;
+function playbookRegistryFor(
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): Record<string, QuestionControlPlaybook> {
+  if (!isV12Methodology(selector, methodologyVersionCode)) return PLAYBOOKS;
   const registry = { ...PLAYBOOKS, ...V12_PLAYBOOK_OVERRIDES };
   for (const questionCode of V12_NON_ACTIVE_QUESTION_CODES) delete registry[questionCode];
   return registry;
 }
 
-export function getAuthoritativeQuestionMapping(questionCode: string, methodologyVersionId?: string): AuthoritativeQuestionMapping | null {
-  if (methodologyVersionId === MFRS_V12_METHODOLOGY_ID && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
-  return methodologyVersionId === MFRS_V12_METHODOLOGY_ID
+export function getAuthoritativeQuestionMapping(
+  questionCode: string,
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): AuthoritativeQuestionMapping | null {
+  if (isV12Methodology(selector, methodologyVersionCode) && V12_NON_ACTIVE_QUESTION_CODES.has(questionCode)) return null;
+  return isV12Methodology(selector, methodologyVersionCode)
     ? V12_AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null
     : AUTHORITATIVE_QUESTION_MAPPINGS[questionCode] ?? null;
 }
 
-export function getQuestionPlaybook(questionCode: string, methodologyVersionId?: string): QuestionControlPlaybook | null {
-  return playbookRegistryFor(methodologyVersionId)[questionCode] ?? null;
+export function getQuestionPlaybook(
+  questionCode: string,
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): QuestionControlPlaybook | null {
+  return playbookRegistryFor(selector, methodologyVersionCode)[questionCode] ?? null;
 }
 
-export function hasQuestionPlaybook(questionCode: string, methodologyVersionId?: string): boolean {
-  return questionCode in playbookRegistryFor(methodologyVersionId);
+export function hasQuestionPlaybook(
+  questionCode: string,
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): boolean {
+  return questionCode in playbookRegistryFor(selector, methodologyVersionCode);
 }
 
-export function listQuestionPlaybooks(methodologyVersionId?: string): QuestionControlPlaybook[] {
-  return Object.values(playbookRegistryFor(methodologyVersionId)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
+export function listQuestionPlaybooks(
+  selector?: MethodologyRegistrySelector,
+  methodologyVersionCode?: string | null
+): QuestionControlPlaybook[] {
+  return Object.values(playbookRegistryFor(selector, methodologyVersionCode)).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
 }
