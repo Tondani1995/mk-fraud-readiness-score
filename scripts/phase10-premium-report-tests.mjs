@@ -21,6 +21,7 @@ for (const file of [
   'src/lib/reports/premium-report-service.ts',
   'src/lib/reports/storage-publication.ts',
   'src/lib/reports/download-verification.ts',
+  'src/lib/reports/private-report-access.ts',
   'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/score/api/admin/reports/[reportId]/download/route.ts',
   'supabase/migrations/20260708193238_phase10_report_engine_additions.sql',
@@ -113,7 +114,18 @@ excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF l
 const download = 'src/app/score/api/admin/reports/[reportId]/download/route.ts';
 includes(download, 'createSecurePhase1ReportAccess', 'Downloads must use the shared verified access service');
 excludes(download, 'createSignedUrl', 'Downloads must not issue raw signed storage URLs');
-includes('src/lib/reports/phase1-report-access.ts', "createHash('sha256')", 'Downloads must verify the runtime object checksum');
+const phase1Access = read('src/lib/reports/phase1-report-access.ts');
+const privateReportAccess = read('src/lib/reports/private-report-access.ts');
+assert(/import\s*\{[\s\S]*\breadVerifiedPrivatePdf\b[\s\S]*\}\s*from '\.\/private-report-access'/.test(phase1Access), 'Phase 1 access must import the shared private-PDF verification primitive');
+includes('src/lib/reports/phase1-report-access.ts', 'verified = await readVerifiedPrivatePdf(db, report, expectedPrefix)', 'Phase 1 access must use the shared private-PDF verification primitive');
+assert(privateReportAccess.includes("crypto.createHash('sha256').update(bytes).digest('hex')"), 'The shared private-PDF primitive must compute the SHA-256 checksum');
+assert(privateReportAccess.includes('checksum !== report.checksum'), 'The shared private-PDF primitive must compare the computed checksum to the persisted report checksum');
+assert(privateReportAccess.includes("bytes.subarray(0, 4).toString('ascii') !== '%PDF'"), 'The shared private-PDF primitive must retain PDF magic-byte validation');
+assert(privateReportAccess.includes("object.type && object.type !== 'application/pdf'"), 'The shared private-PDF primitive must retain MIME validation');
+assert(privateReportAccess.includes('bytes.length !== Number(report.file_size_bytes)'), 'The shared private-PDF primitive must retain file-size validation');
+const verificationIndex = phase1Access.indexOf('verified = await readVerifiedPrivatePdf(db, report, expectedPrefix)');
+const signedUrlIndex = phase1Access.indexOf('.createSignedUrl(');
+assert(verificationIndex >= 0 && signedUrlIndex > verificationIndex, 'Phase 1 access must verify the private PDF before issuing a signed URL');
 includes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Downloads must issue only short-lived access');
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
