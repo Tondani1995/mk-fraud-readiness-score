@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AdminSession } from '@/lib/auth/admin-route';
 import { Badge } from '@/components/ui/Badge';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton';
 
 const adminLinks = [
   { href: '/admin', label: 'Control room' },
@@ -37,7 +38,7 @@ async function getOpenCriticalAlertCount(): Promise<number | null> {
   }
 }
 
-export async function AdminShell({ admin, children }: { admin: AdminSession; children: ReactNode }) {
+export async function AdminShell({ admin, children, showLogout = false }: { admin: AdminSession; children: ReactNode; showLogout?: boolean }) {
   const criticalAlertCount = await getOpenCriticalAlertCount();
   return (
     <div className="min-h-[calc(100vh-5rem)] border-t border-mk-line bg-gradient-to-br from-mk-cream via-white to-mk-cream">
@@ -54,6 +55,7 @@ export async function AdminShell({ admin, children }: { admin: AdminSession; chi
                 <p className="font-semibold text-mk-ink">{admin.fullName ?? 'MK Platform Admin'}</p>
                 <p className="mt-1 text-xs text-mk-muted">{admin.email}</p>
                 <Badge className="mt-3 bg-white">{admin.role.replace(/_/g, ' ')}</Badge>
+                {showLogout ? <AdminLogoutButton /> : null}
               </div>
               <nav className="mt-5 grid gap-2">
                 {adminLinks.map((link) => (

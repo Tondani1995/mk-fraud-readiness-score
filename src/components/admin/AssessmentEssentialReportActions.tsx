@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { AdminMutationAuthState } from '@/lib/auth/admin-route';
 
 type ReportRow = {
   id: string;
@@ -22,8 +24,10 @@ type AttemptRow = {
 
 export function AssessmentEssentialReportActions(props: {
   assessmentReference: string;
+  authState: AdminMutationAuthState;
   canGenerate: boolean;
   canRegenerate: boolean;
+  canDownload: boolean;
   reports: ReportRow[];
   generationAttempts: AttemptRow[];
 }) {
@@ -44,6 +48,8 @@ export function AssessmentEssentialReportActions(props: {
     [reportRows]
   );
   const activeAttempt = attemptRows.find((attempt) => ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(attempt.status));
+  const showGenerationControls = props.authState === 'authenticated_authorized' && props.canGenerate;
+  const loginHref = `/score/admin/login?next=${encodeURIComponent(`/score/admin/assessments/${props.assessmentReference}`)}`;
 
   async function run(action: 'assessment_admin_generate' | 'assessment_admin_retry' | 'assessment_admin_regenerate') {
     setBusyAction(action);
@@ -102,7 +108,7 @@ export function AssessmentEssentialReportActions(props: {
           <h2 className="mt-1 text-xl font-semibold text-mk-ink">Assessment-scoped PDF</h2>
           <p className="mt-1 max-w-2xl text-sm text-mk-muted">Generate from the locked V1.2 score, then download through the verified private-storage access path.</p>
         </div>
-        {props.canGenerate ? (
+        {showGenerationControls ? (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -133,23 +139,29 @@ export function AssessmentEssentialReportActions(props: {
               </button>
             ) : null}
           </div>
+        ) : props.authState === 'unauthenticated' ? (
+          <Link href={loginHref} className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-mk-cream hover:bg-mk-ink/90">Sign in to generate</Link>
+        ) : props.authState === 'authenticated_unauthorized' ? (
+          <p className="text-sm text-mk-muted">Authenticated admin role cannot generate reports.</p>
         ) : <p className="text-sm text-mk-muted">Read-only role: generation is unavailable.</p>}
       </div>
 
       {message ? <p className="mt-4 rounded-xl bg-mk-cream px-3 py-2 text-sm text-mk-ink">{message}</p> : null}
 
-      {currentReport ? (
+      {currentReport && props.authState !== 'unauthenticated' ? (
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-mk-line bg-mk-cream/40 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-mk-ink">{currentReport.report_reference}</p>
             <p className="text-xs text-mk-muted">Version {currentReport.version_number} · {currentReport.status} · private PDF verified</p>
           </div>
-          <a
-            href={`/score/api/admin/assessments/${encodeURIComponent(props.assessmentReference)}/reports/${encodeURIComponent(currentReport.id)}/download`}
-            className="inline-flex rounded-xl bg-mk-brass px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-brass/80"
-          >
-            Download Report
-          </a>
+          {props.canDownload ? (
+            <a
+              href={`/score/api/admin/assessments/${encodeURIComponent(props.assessmentReference)}/reports/${encodeURIComponent(currentReport.id)}/download`}
+              className="inline-flex rounded-xl bg-mk-brass px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-brass/80"
+            >
+              Download Report
+            </a>
+          ) : <p className="text-sm text-mk-muted">Report download is unavailable for this role.</p>}
         </div>
       ) : <p className="mt-5 text-sm text-mk-muted">No verified Essential report is currently available.</p>}
 

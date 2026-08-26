@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getAdminAssessmentDetail } from '@/lib/admin/assessment-review';
-import { requireAdmin } from '@/lib/auth/admin-route';
+import {
+  ADMIN_MUTATION_ROLES,
+  ADMIN_REPORT_DOWNLOAD_ROLES,
+  getAdminMutationAuthState,
+  requireAdmin
+} from '@/lib/auth/admin-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +28,14 @@ function formatScore(value: unknown) {
 export default async function AdminAssessmentDetailPage(props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
+  const mutationAuth = await getAdminMutationAuthState();
   const detail = await getAdminAssessmentDetail(params.assessmentRef, admin);
   if (!detail) notFound();
 
   const { assessment, scoreRun, domainResults, answers, exposureAnswers, questionTraces, maturityCapEvents, dataRequests, auditEvents, reports, generationAttempts } = detail;
 
   return (
-    <AdminShell admin={admin}>
+    <AdminShell admin={admin} showLogout={Boolean(mutationAuth.admin)}>
       <div className="space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <PageHeader
@@ -49,8 +55,10 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
 
         <AssessmentEssentialReportActions
           assessmentReference={assessment.assessment_reference}
-          canGenerate={['platform_admin', 'reviewer', 'approver'].includes(admin.role)}
-          canRegenerate={['platform_admin', 'approver'].includes(admin.role)}
+          authState={mutationAuth.state}
+          canGenerate={Boolean(mutationAuth.admin && ADMIN_MUTATION_ROLES.includes(mutationAuth.admin.role))}
+          canRegenerate={Boolean(mutationAuth.admin && ['platform_admin', 'approver'].includes(mutationAuth.admin.role))}
+          canDownload={Boolean(mutationAuth.admin && ADMIN_REPORT_DOWNLOAD_ROLES.includes(mutationAuth.admin.role))}
           reports={reports.map((report: any) => ({
             id: report.id,
             report_reference: report.report_reference,

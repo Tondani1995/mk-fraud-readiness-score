@@ -19,7 +19,7 @@ const RUNTIME_READ_ONLY_ADMIN: AdminSession = {
   role: 'read_only_admin'
 };
 
-const ADMIN_ROLE_PRIORITY: AdminRole[] = [
+export const ADMIN_ROLE_PRIORITY: AdminRole[] = [
   'platform_admin',
   'approver',
   'reviewer',
@@ -27,12 +27,31 @@ const ADMIN_ROLE_PRIORITY: AdminRole[] = [
   'read_only_admin'
 ];
 
+/** Roles that may initiate or retry an assessment-scoped Essential report. */
+export const ADMIN_MUTATION_ROLES: AdminRole[] = [
+  'platform_admin',
+  'reviewer',
+  'approver'
+];
+
+/** Existing report-download roles; downloading is not a report mutation. */
+export const ADMIN_REPORT_DOWNLOAD_ROLES: AdminRole[] = [
+  'platform_admin',
+  'reviewer',
+  'approver',
+  'read_only_admin'
+];
+
 /**
- * The readiness admin console currently has no application-level login wall.
+ * The legacy read-only console renderer binds to an active persisted admin profile when one is
+ * available. It deliberately retains a read-only runtime fallback so review pages can render in a
+ * deployment that has not been provisioned with an admin profile. Report mutation and download
+ * routes must use getAuthenticatedAdminSession() and never treat this fallback as authority.
  *
- * When the configured Supabase environment contains an active persisted admin profile we bind
- * the console to that real actor, preferring roles that can perform report operations. This keeps
- * audit/FK-backed writes tied to a real administrator without cookies or session state.
+ * When the configured Supabase environment contains an active persisted admin profile we bind the
+ * console to that real actor, preferring roles that can perform report operations. This keeps
+ * audit/FK-backed reads tied to a real administrator while the strict mutation boundary remains
+ * backed by the administrator's own Supabase Auth session.
  *
  * Read-only console rendering must not 500 merely because a preview environment has not yet been
  * provisioned with an admin profile (or its service binding is temporarily unavailable), so the
@@ -140,6 +159,27 @@ export async function requireAuthenticatedAdmin(allowedRoles?: AdminRole[]): Pro
     throw new Error('The authenticated administrator role is not allowed to access this route.');
   }
   return admin;
+}
+
+export type AdminMutationAuthState =
+  | 'unauthenticated'
+  | 'authenticated_authorized'
+  | 'authenticated_unauthorized';
+
+/**
+ * UI-only projection of the strict session boundary. It is intentionally not an authorization
+ * substitute: every mutation route repeats getAuthenticatedAdminSession() and its role check.
+ */
+export async function getAdminMutationAuthState(): Promise<{
+  state: AdminMutationAuthState;
+  admin: AdminSession | null;
+}> {
+  const admin = await getAuthenticatedAdminSession();
+  if (!admin) return { state: 'unauthenticated', admin: null };
+  if (ADMIN_MUTATION_ROLES.includes(admin.role)) {
+    return { state: 'authenticated_authorized', admin };
+  }
+  return { state: 'authenticated_unauthorized', admin };
 }
 
 export function canManagePlatform(role: AdminRole): boolean {
