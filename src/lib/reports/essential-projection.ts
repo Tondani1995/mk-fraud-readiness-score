@@ -532,7 +532,8 @@ export function buildEssentialProjection(
  *
  * A paid Essential report must be produced from exactly one bounded projection instance, threaded
  * through the evidence pack, narrative brief, generation, repair, deterministic fallback, content
- * selection, renderer, commercial-quality validator and supporting-register generation. There is
+ * selection, renderer, commercial-quality validator and, for Comprehensive where applicable,
+ * supporting-register generation. There is
  * deliberately no Essential fallback to unbounded behaviour: if the projection is absent the
  * generation fails here, before any provider dispatch and before any customer release.
  *

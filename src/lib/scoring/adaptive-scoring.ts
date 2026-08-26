@@ -10,7 +10,7 @@ import {
   type AdaptiveResolvedPath,
   type ResolvedAdaptiveNode
 } from '@/lib/adaptive/engine';
-import { assertAdaptivePreviewEnvironment } from '@/lib/adaptive/server';
+import { assertAdaptiveActivationForDb } from '@/lib/adaptive/server';
 import type { MaturityBand } from '@/lib/types/domain';
 import { getMaturityBand, MATURITY_RANK } from './maturity-band';
 
@@ -340,8 +340,8 @@ export function calculateAdaptiveReadinessScore(input: {
 }
 
 export async function scoreAdaptiveSubmittedAssessment(assessmentReference: string, options: { runType?: 'initial' | 'admin_recalc' | 'correction_recalc'; createdByAdminId?: string | null } = {}) {
-  assertAdaptivePreviewEnvironment();
   const db = createSupabaseServiceClient() as any;
+  const activation = await assertAdaptiveActivationForDb(db);
   const { data: assessment, error: assessmentError } = await db.from('assessments')
     .select('id,assessment_reference,assessment_mode,methodology_version_id,status,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot')
     .eq('assessment_reference', assessmentReference).maybeSingle();
@@ -352,19 +352,27 @@ export async function scoreAdaptiveSubmittedAssessment(assessmentReference: stri
   const runType = options.runType ?? 'initial';
   if (runType === 'initial' && assessment.current_score_run_id) return { ok: false as const, status: 409, errors: ['assessment_already_has_current_score_run'] };
   const [{ data: graphRow, error: graphError }, { data: gateways, error: gatewaysError }, { data: controls, error: controlsError }, { data: history, error: historyError }, { data: signals, error: signalsError }] = await Promise.all([
-    db.from('adaptive_graph_versions').select('id,compiled_graph_json,graph_version,graph_fingerprint').eq('id', assessment.graph_version_id).maybeSingle(),
+    db.from('adaptive_graph_versions').select('id,compiled_graph_json,graph_version,graph_fingerprint,methodology_version_id,methodology_version,status').eq('id', assessment.graph_version_id).maybeSingle(),
     db.from('adaptive_gateway_answers').select('question_id,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
     db.from('adaptive_control_responses').select('question_id,response_state,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
     db.from('assessment_answer_history').select('question_id,event_type').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
     db.from('assessment_integrity_signals').select('signal_id,blocking').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id)
   ]);
   if (graphError || gatewaysError || controlsError || historyError || signalsError || !graphRow) throw graphError ?? gatewaysError ?? controlsError ?? historyError ?? signalsError ?? new Error('adaptive_graph_not_found');
-  if (!isSupportedAdaptiveGraph(assessment.graph_version_snapshot, assessment.graph_fingerprint_snapshot)
+  if (assessment.graph_version_snapshot !== activation.graph_version
+    || assessment.graph_fingerprint_snapshot !== activation.graph_fingerprint
+    || !isSupportedAdaptiveGraph(assessment.graph_version_snapshot, assessment.graph_fingerprint_snapshot)
+    || graphRow.status !== 'published'
+    || graphRow.methodology_version_id !== assessment.methodology_version_id
     || graphRow.graph_version !== assessment.graph_version_snapshot
     || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot) throw new Error('adaptive_graph_pin_invalid');
+  const graph = graphRow.compiled_graph_json as AdaptiveGraph;
+  if (graph.graphVersion !== graphRow.graph_version
+    || graph.methodologyVersion !== graphRow.methodology_version
+    || graph.graphFingerprint !== graphRow.graph_fingerprint) throw new Error('adaptive_graph_identity_invalid');
   const methodology = await loadAssessmentMethodology(assessment.methodology_version_id);
   const result = calculateAdaptiveReadinessScore({
-    graph: graphRow.compiled_graph_json as AdaptiveGraph,
+    graph,
     methodology,
     gatewayAnswers: Object.fromEntries((gateways ?? []).map((row: any) => [row.question_id, row.response_value])),
     controlResponses: Object.fromEntries((controls ?? []).map((row: any) => [row.question_id, { responseState: row.response_state, responseValue: row.response_value }])),

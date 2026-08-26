@@ -149,6 +149,7 @@
     "pre-g30:test-structured-output-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-structured-output-diagnostics-tests.mjs",
     "pre-g30:test-migration-targets": "node scripts/pre-g30-migration-target-check.mjs",
     "pre-g30:test-adaptive-launch": "node scripts/pre-g30-adaptive-launch-tests.mjs",
+    "v12:test-productionisation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-essential-productionisation-contract-tests.mjs",
     "g29:test-customer-report-access": "node scripts/g29-customer-report-access-tests.mjs",
     "g29:regression": "node scripts/g29-integrated-regression-runner.mjs",
     "bounded:test-essential-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/bounded-essential-contract-tests.mjs",

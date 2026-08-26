@@ -4,6 +4,7 @@ import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreAdaptiveSubmittedAssessment } from '@/lib/scoring/adaptive-scoring';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { notifyScoredAssessmentCompletion } from '@/lib/notifications/internal-assessment-notifications';
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
@@ -17,6 +18,20 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     if (!scored.ok) return NextResponse.json({ ok: false, errors: ['Assessment was submitted, but the readiness result could not be generated.'], scoringErrors: scored.errors }, { status: scored.status });
     const snapshot = await loadFreeSnapshotByReference(params.assessmentRef, scored.scoreRunId);
     if (!snapshot) return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the persisted result could not be loaded.'] }, { status: 500 });
+    const completionNotification = await notifyScoredAssessmentCompletion({
+      assessmentReference: params.assessmentRef,
+      scoreRunId: scored.scoreRunId,
+      snapshotAvailable: true,
+      adminUrl: new URL(`/score/admin/assessments/${encodeURIComponent(params.assessmentRef)}`, request.url).toString()
+    }).catch((error) => {
+      console.error('assessment_completion_notification_failed', {
+        assessmentReference: params.assessmentRef,
+        scoreRunId: scored.scoreRunId,
+        errorCategory: 'internal_notification_dispatch_failed',
+        reason: error instanceof Error ? error.message : 'unknown'
+      });
+      return { ok: false as const, status: 'notification_dispatch_failed' as const };
+    });
     const requestHeaders = new Headers(request.headers);
     const db = createSupabaseServiceClient();
     const { data: assessmentRow, error: assessmentError } = await db.from('assessments').select('id').eq('assessment_reference', params.assessmentRef).single();
@@ -28,9 +43,9 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     });
     const origin = request.headers.get('x-forwarded-host') ? `${request.headers.get('x-forwarded-proto') ?? 'https'}://${request.headers.get('x-forwarded-host')}` : new URL(request.url).origin;
     const snapshotUrl = `${origin}/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(snapshotToken.rawToken)}`;
-    return NextResponse.json({ ...result, status: 'scored', scoreRunId: scored.scoreRunId, runNumber: scored.runNumber, resultStatus: scored.result.resultStatus, snapshotTokenExpiresAt: snapshotToken.expiresAt, snapshotUrl, snapshot });
+    return NextResponse.json({ ...result, status: 'scored', scoreRunId: scored.scoreRunId, runNumber: scored.runNumber, resultStatus: scored.result.resultStatus, snapshotTokenExpiresAt: snapshotToken.expiresAt, snapshotUrl, snapshot, completionNotification: { ok: completionNotification.ok, status: completionNotification.status } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'adaptive_submit_failed';
-    return NextResponse.json({ ok: false, errors: [message] }, { status: message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' ? 404 : message.includes('token') ? 403 : 500 });
+    return NextResponse.json({ ok: false, errors: [message] }, { status: message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' || message === 'adaptive_supabase_project_unresolved' ? 404 : message.includes('token') ? 403 : 500 });
   }
 }

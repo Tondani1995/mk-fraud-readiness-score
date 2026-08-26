@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT,
-  PREVIEW_ADAPTIVE_GRAPH_VERSION,
   deriveAdaptiveIntegritySignals,
   evaluateAdaptiveCondition,
   previewGatewayChange,
@@ -29,8 +27,8 @@ function allMaturity(path, value = 3) {
 }
 
 assert.deepEqual(validateAdaptiveGraph(graph), []);
-assert.equal(graph.graphVersion, PREVIEW_ADAPTIVE_GRAPH_VERSION);
-assert.equal(graph.graphFingerprint, PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT);
+assert.match(graph.graphVersion, /^MFRS-V1\.1-/);
+assert.match(graph.graphFingerprint, /^[0-9a-f]{64}$/);
 assert.equal(evaluateAdaptiveCondition(null, {}), true);
 assert.equal(evaluateAdaptiveCondition({ questionId: 'G03', equals: 'internal' }, answers()), true);
 assert.equal(evaluateAdaptiveCondition({ questionId: 'G03', in: ['outsourced', 'shared_service'] }, answers()), false);

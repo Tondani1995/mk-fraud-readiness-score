@@ -121,11 +121,12 @@ const downloadRoute = read('src/app/score/api/admin/reports/[reportId]/download/
 const downloadService = read('src/lib/reports/premium-report-download.ts');
 const downloadVerification = read('src/lib/reports/download-verification.ts');
 const phase1DownloadAccess = read('src/lib/reports/phase1-report-access.ts');
+const privateReportAccess = read('src/lib/reports/private-report-access.ts');
 assert.doesNotMatch(downloadRoute, /createSignedUrl/);
 assert.match(downloadRoute, /createSecurePhase1ReportAccess/);
 assert.match(phase1DownloadAccess, /download: report\.file_name/);
 assert.match(phase1DownloadAccess, /ACCESS_TTL_SECONDS = 60/);
-assert.match(phase1DownloadAccess, /createHash\('sha256'\)/);
+assert.match(privateReportAccess, /createHash\('sha256'\)/);
 assert.match(downloadService, /assert_premium_report_download_entitlement/);
 assert.match(downloadService, /readVerifiedReportObject/);
 assert.match(downloadVerification, /sha256/);

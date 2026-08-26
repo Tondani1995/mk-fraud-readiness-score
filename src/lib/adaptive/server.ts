@@ -4,9 +4,6 @@ import { hashAssessmentToken } from '@/lib/security/hash';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { parseStartAssessmentInput, type StartAssessmentInput } from '@/lib/respondent/validation';
 import {
-  PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT,
-  PREVIEW_ADAPTIVE_GRAPH_VERSION,
-  PREVIEW_STAGING_PROJECT_REF,
   deriveAdaptiveIntegritySignals,
   previewGatewayChange,
   profileRowsForPath,
@@ -33,28 +30,48 @@ type AdaptiveAssessment = {
   locked_at: string | null;
 };
 
-function configuredSupabaseProjectRef() {
+export function configuredSupabaseProjectRef() {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  try { return new URL(raw).hostname.split('.')[0]; } catch { return ''; }
+  try {
+    const hostname = new URL(raw).hostname.toLowerCase();
+    const match = hostname.match(/^([a-z0-9]+)\.supabase\.co$/);
+    return match?.[1] ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function assertAdaptivePreviewEnvironment() {
-  if (process.env.VERCEL_ENV !== 'preview') throw new Error('adaptive_preview_only');
-  if (configuredSupabaseProjectRef() !== PREVIEW_STAGING_PROJECT_REF) throw new Error('adaptive_staging_project_required');
+  const environment = process.env.VERCEL_ENV?.trim().toLowerCase();
+  if (environment !== 'preview') throw new Error('adaptive_preview_only');
+  const projectRef = configuredSupabaseProjectRef();
+  if (!projectRef) throw new Error('adaptive_supabase_project_unresolved');
+  return { environment, projectRef };
 }
 
 async function loadAdaptiveActivationPolicy(db: any) {
+  const runtime = assertAdaptivePreviewEnvironment();
   const { data, error } = await db.from('adaptive_activation_policies')
     .select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha')
     .eq('policy_key', 'customer_start').maybeSingle();
   if (error) throw error;
-  if (!data || data.enabled !== true || data.environment !== 'preview' || data.supabase_project !== PREVIEW_STAGING_PROJECT_REF) {
+  if (!data
+    || data.enabled !== true
+    || data.environment !== runtime.environment
+    || data.supabase_project !== runtime.projectRef
+    || typeof data.graph_version !== 'string'
+    || data.graph_version.trim() === ''
+    || typeof data.graph_fingerprint !== 'string'
+    || !/^[0-9a-f]{64}$/.test(data.graph_fingerprint)
+    || typeof data.activation_sha !== 'string'
+    || !/^[0-9a-f]{40}$/.test(data.activation_sha)) {
     throw new Error('adaptive_activation_disabled');
   }
-  if (data.graph_version !== PREVIEW_ADAPTIVE_GRAPH_VERSION || data.graph_fingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) {
-    throw new Error('adaptive_activation_graph_mismatch');
-  }
   return data;
+}
+
+export async function assertAdaptiveActivationForDb(db: any) {
+  return await loadAdaptiveActivationPolicy(db);
 }
 
 function asGraph(value: unknown): AdaptiveGraph {
@@ -62,11 +79,22 @@ function asGraph(value: unknown): AdaptiveGraph {
   return value as AdaptiveGraph;
 }
 
+function assertGraphIdentity(graph: AdaptiveGraph, row: {
+  graph_version: string;
+  methodology_version: string;
+  graph_fingerprint: string;
+}) {
+  if (graph.graphVersion !== row.graph_version
+    || graph.methodologyVersion !== row.methodology_version
+    || graph.graphFingerprint !== row.graph_fingerprint) {
+    throw new Error('adaptive_graph_identity_mismatch');
+  }
+}
+
 export async function loadConfiguredAdaptiveGraph() {
-  assertAdaptivePreviewEnvironment();
   const db = createSupabaseServiceClient() as any;
   const activation = await loadAdaptiveActivationPolicy(db);
-  const configuredVersion = process.env.MK_ADAPTIVE_GRAPH_VERSION || PREVIEW_ADAPTIVE_GRAPH_VERSION;
+  const configuredVersion = process.env.MK_ADAPTIVE_GRAPH_VERSION?.trim() || activation.graph_version;
   const { data, error } = await db
     .from('adaptive_graph_versions')
     .select('id,graph_version,methodology_version_id,methodology_version,status,compiled_graph_json,graph_fingerprint')
@@ -76,8 +104,9 @@ export async function loadConfiguredAdaptiveGraph() {
   if (!data) throw new Error('adaptive_graph_not_found');
   if (data.status === 'retired') throw new Error('adaptive_graph_retired');
   if (data.status !== 'published') throw new Error('adaptive_graph_not_published');
-  if (data.graph_fingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) throw new Error('adaptive_graph_fingerprint_mismatch');
+  if (data.graph_fingerprint !== activation.graph_fingerprint) throw new Error('adaptive_graph_fingerprint_mismatch');
   const graph = asGraph(data.compiled_graph_json);
+  assertGraphIdentity(graph, data);
   const validationErrors = validateAdaptiveGraph(graph, data.graph_fingerprint);
   if (validationErrors.length) throw new Error(`adaptive_graph_invalid:${validationErrors.join(',')}`);
   if (activation.graph_version !== data.graph_version || activation.graph_fingerprint !== data.graph_fingerprint) throw new Error('adaptive_activation_graph_mismatch');
@@ -95,22 +124,26 @@ async function loadAdaptiveByToken(assessmentReference: string, rawToken: string
   if (new Date(token.expires_at).getTime() <= Date.now()) throw new Error('adaptive_expired_token');
   if (token.use_count >= token.max_uses) throw new Error('adaptive_token_use_limit_reached');
 
+  const activation = await loadAdaptiveActivationPolicy(db);
+
   const { data: assessment, error: assessmentError } = await db.from('assessments')
     .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at')
     .eq('id', token.assessment_id).eq('assessment_reference', assessmentReference).maybeSingle();
   if (assessmentError || !assessment) throw new Error('adaptive_assessment_not_found');
   if (assessment.assessment_mode !== 'adaptive') throw new Error('adaptive_mode_required');
-  if (!assessment.graph_version_id || assessment.graph_version_snapshot !== PREVIEW_ADAPTIVE_GRAPH_VERSION || assessment.graph_fingerprint_snapshot !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) throw new Error('adaptive_graph_pin_invalid');
+  if (!assessment.graph_version_id
+    || assessment.graph_version_snapshot !== activation.graph_version
+    || assessment.graph_fingerprint_snapshot !== activation.graph_fingerprint) throw new Error('adaptive_graph_pin_invalid');
   const [{ data: organisation }, { data: respondent }] = await Promise.all([
     db.from('organisations').select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band').eq('id', assessment.organisation_id).maybeSingle(),
     assessment.primary_respondent_id ? db.from('respondents').select('id,full_name,email,role_title').eq('id', assessment.primary_respondent_id).maybeSingle() : Promise.resolve({ data: null })
   ]);
-  return { db, assessment: assessment as AdaptiveAssessment, organisation, respondent };
+  return { db, assessment: assessment as AdaptiveAssessment, organisation, respondent, activation };
 }
 
-async function loadState(db: any, assessment: AdaptiveAssessment) {
+async function loadState(db: any, assessment: AdaptiveAssessment, activation: any) {
   const [{ data: graphRow, error: graphError }, { data: navigation, error: navigationError }, { data: gatewayRows, error: gatewayError }, { data: controlRows, error: controlError }, { data: guidanceRows, error: guidanceError }] = await Promise.all([
-    db.from('adaptive_graph_versions').select('compiled_graph_json,graph_version,graph_fingerprint,status').eq('id', assessment.graph_version_id).single(),
+    db.from('adaptive_graph_versions').select('compiled_graph_json,graph_version,graph_fingerprint,methodology_version_id,methodology_version,status').eq('id', assessment.graph_version_id).single(),
     db.from('assessment_navigation_states').select('graph_version_id,current_question_id,visited_question_ids,current_screen,save_sequence,last_saved_at,submitted_at').eq('assessment_id', assessment.id).single(),
     db.from('adaptive_gateway_answers').select('question_id,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
     db.from('adaptive_control_responses').select('question_id,response_state,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
@@ -121,7 +154,18 @@ async function loadState(db: any, assessment: AdaptiveAssessment) {
   if (gatewayError) throw gatewayError;
   if (controlError) throw controlError;
   if (guidanceError) throw guidanceError;
+  if (graphRow.status !== 'published'
+    || graphRow.graph_version !== activation.graph_version
+    || graphRow.graph_fingerprint !== activation.graph_fingerprint
+    || graphRow.graph_version !== assessment.graph_version_snapshot
+    || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot
+    || graphRow.methodology_version_id !== assessment.methodology_version_id) {
+    throw new Error('adaptive_graph_binding_invalid');
+  }
   const graph = asGraph(graphRow.compiled_graph_json);
+  assertGraphIdentity(graph, graphRow);
+  const graphValidationErrors = validateAdaptiveGraph(graph, graphRow.graph_fingerprint);
+  if (graphValidationErrors.length) throw new Error(`adaptive_graph_invalid:${graphValidationErrors.join(',')}`);
   const gatewayAnswers: AdaptiveGatewayAnswers = Object.fromEntries((gatewayRows ?? []).map((row: any) => [row.question_id, row.response_value]));
   const controlResponses: AdaptiveControlResponses = Object.fromEntries((controlRows ?? []).map((row: any) => [row.question_id, { responseState: row.response_state, responseValue: row.response_value }]));
   const guidanceByQuestion = Object.fromEntries((guidanceRows ?? []).map((row: any) => [row.question_code, {
@@ -193,7 +237,7 @@ export async function startAdaptiveAssessment(input: StartAssessmentInput, appBa
 
 export async function getAdaptiveAssessmentState(assessmentReference: string, token: string) {
   const access = await loadAdaptiveByToken(assessmentReference, token);
-  const state = await loadState(access.db, access.assessment);
+  const state = await loadState(access.db, access.assessment, access.activation);
   return { ...state, assessment: access.assessment, organisation: access.organisation, respondent: access.respondent, publicState: { ...publicState(state), organisation: access.organisation, respondent: access.respondent } };
 }
 
@@ -210,7 +254,7 @@ export async function saveAdaptiveAssessmentState(input: {
 }) {
   const access = await loadAdaptiveByToken(input.assessmentReference, input.token);
   if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
-  const current = await loadState(access.db, access.assessment);
+  const current = await loadState(access.db, access.assessment, access.activation);
   const graph = current.graph;
   for (const gateway of graph.gateways) if (input.gatewayAnswers[gateway.questionId] && !gateway.responseOptions.some((option) => option.value === input.gatewayAnswers[gateway.questionId])) return { ok: false as const, status: 400, errors: [`Invalid response for ${gateway.questionId}.`] };
   for (const [questionId, response] of Object.entries(input.controlResponses)) {
@@ -243,7 +287,7 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
     }
     return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   }
-  const current = await loadState(access.db, access.assessment);
+  const current = await loadState(access.db, access.assessment, access.activation);
   const missingGateways = current.graph.gateways.filter((gateway) => !current.gatewayAnswers[gateway.questionId]).map((gateway) => gateway.questionId);
   const signals = deriveAdaptiveIntegritySignals({ graph: current.graph, path: current.path, navigation: current.navigation, gatewayAnswers: current.gatewayAnswers });
   const errors = missingGateways.length ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`] : [];

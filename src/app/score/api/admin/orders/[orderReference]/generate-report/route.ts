@@ -69,7 +69,9 @@ export async function POST(request: Request, context: HandlerContext) {
 
   const submitted = await submittedValues(request);
   const candidateAction = String(submitted.action ?? 'admin_generate') as ManualGenerationAction;
-  const action = ACTIONS.has(candidateAction) ? candidateAction : 'admin_generate';
+  const action: Extract<ManualGenerationAction, 'admin_generate' | 'admin_retry' | 'admin_regenerate'> = ACTIONS.has(candidateAction)
+    ? candidateAction as Extract<ManualGenerationAction, 'admin_generate' | 'admin_retry' | 'admin_regenerate'>
+    : 'admin_generate';
   const requestKey = String(
     request.headers.get('x-idempotency-key')
       ?? submitted.requestKey

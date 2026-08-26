@@ -244,7 +244,7 @@ for (const item of inventory) {
     } else {
       const allowedDynamic =
         `${item.file}:${item.line}` === 'src/app/score/api/webhooks/resend/route.ts:171'
-        || `${item.file}:${item.line}` === 'src/lib/rc1/control-plane.ts:99'
+        || `${item.file}:${item.line}` === 'src/lib/rc1/control-plane.ts:96'
         || `${item.file}:${item.line}` === 'src/lib/reports/premium-report-service-core.ts:74';
       assert(
         allowedDynamic,

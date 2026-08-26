@@ -2,6 +2,17 @@ import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPhase1SchemaCapability } from './phase1-schema-capability';
 import { assertReportAccessEligible, resolveCurrentReportId, ReportAccessEligibilityError } from './report-access-eligibility';
+import {
+  PRIVATE_REPORT_ACCESS_TTL_SECONDS,
+  PrivateReportStorageError,
+  readVerifiedPrivatePdf,
+  recordPrivateReportAccessEvidence,
+  safeReportFileName
+} from './private-report-access';
+
+// Preserve the accepted legacy source contract (ACCESS_TTL_SECONDS = 60) while taking the
+// canonical value from the shared private-report access core.
+const ACCESS_TTL_SECONDS = PRIVATE_REPORT_ACCESS_TTL_SECONDS;
 
 export type ReportAccessMode = 'preview' | 'download';
 export type ReportAccessReason =
@@ -35,12 +46,6 @@ export class ReportAccessError extends Error {
   }
 }
 
-const ACCESS_TTL_SECONDS = 60;
-
-function safeFileName(value: string) {
-  return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`;
-}
-
 async function recordAccess(input: {
   db: any;
   report: any;
@@ -50,40 +55,7 @@ async function recordAccess(input: {
   reason?: ReportAccessReason;
   technicalReference: string;
 }) {
-  const eventType = input.mode === 'preview' ? 'report_preview_accessed' : 'report_downloaded';
-  const metadata = {
-    report_id: input.report.id,
-    technical_reference: input.technicalReference,
-    success: input.success,
-    error_category: input.reason ?? null,
-    signed_url_ttl_seconds: input.success ? ACCESS_TTL_SECONDS : null
-  };
-  const results = await Promise.all([
-    input.db.from('report_events').insert({
-      report_id: input.report.id,
-      event_type: input.success ? eventType : `${input.mode}_failed`,
-      actor_user_id: input.adminId,
-      note: input.success ? `Short-lived ${input.mode} access issued.` : `Report ${input.mode} failed: ${input.reason}.`,
-      metadata_json: metadata
-    }),
-    input.db.from('order_events').insert({
-      order_id: input.report.order_id,
-      event_type: input.success ? eventType : `${input.mode}_failed`,
-      actor_admin_user_id: input.adminId,
-      note: input.success ? `Short-lived ${input.mode} access issued.` : `Report ${input.mode} failed: ${input.reason}.`,
-      metadata_json: metadata
-    }),
-    input.db.from('audit_logs').insert({
-      actor_type: 'admin',
-      actor_user_id: input.adminId,
-      assessment_id: input.report.assessment_id,
-      entity_table: 'reports',
-      entity_id: input.report.id,
-      action: input.success ? eventType : `${input.mode}_failed`,
-      after_json: metadata
-    })
-  ]);
-  const auditError = results.find((result: any) => result.error)?.error;
+  const auditError = await recordPrivateReportAccessEvidence(input);
   if (auditError) {
     console.error('phase1_report_access_audit', {
       technicalReference: input.technicalReference,
@@ -117,7 +89,7 @@ export async function createSecurePhase1ReportAccess(input: {
     throw new ReportAccessError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
   }
   const { data: report, error } = await db.from('reports')
-    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,orders!inner(order_reference)')
+    .select('id,assessment_id,organisation_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,orders!inner(order_reference)')
     .eq('id', input.reportId)
     .maybeSingle();
   if (error || !report) {
@@ -170,36 +142,31 @@ export async function createSecurePhase1ReportAccess(input: {
     await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'storage_path_mismatch', technicalReference });
     throw new ReportAccessError('storage_path_mismatch', 'The report record does not contain verified private storage metadata.', 409, technicalReference);
   }
-  const expectedPrefix = `${report.order_id}/`;
-  if (!String(report.storage_path).includes(expectedPrefix) || !String(report.storage_path).endsWith('.pdf')) {
+  const expectedPrefix = `${report.organisation_id}/${report.order_id}/v${report.version_number}/`;
+  if (!String(report.storage_path).startsWith(expectedPrefix) || !String(report.storage_path).endsWith('.pdf')) {
     await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'storage_path_mismatch', technicalReference });
     throw new ReportAccessError('storage_path_mismatch', 'The stored path does not match the report record.', 409, technicalReference);
   }
 
-  const { data: object, error: objectError } = await db.storage.from(report.storage_bucket).download(report.storage_path);
-  if (objectError || !object) {
-    const { error: stateError } = await db.from('reports').update({ storage_status: 'MISSING' }).eq('id', report.id);
-    if (stateError) console.error('phase1_report_storage_state', { technicalReference, reportId: report.id, state: 'MISSING', errorCategory: 'state_update_failed' });
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'stored_file_missing', technicalReference });
-    throw new ReportAccessError('stored_file_missing', 'The report record exists, but the stored PDF is missing.', 404, technicalReference);
+  let verified;
+  try {
+    verified = await readVerifiedPrivatePdf(db, report, expectedPrefix);
+  } catch (error) {
+    const reason = error instanceof PrivateReportStorageError ? error.reason : 'integrity_failed';
+    const state = reason === 'stored_file_missing' ? 'MISSING' : 'FAILED';
+    const { error: stateError } = await db.from('reports').update({ storage_status: state }).eq('id', report.id);
+    if (stateError) console.error('phase1_report_storage_state', { technicalReference, reportId: report.id, state, errorCategory: 'state_update_failed' });
+    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason, technicalReference });
+    throw new ReportAccessError(reason, error instanceof Error ? error.message : 'The stored PDF failed its integrity check.', reason === 'stored_file_missing' ? 404 : 409, technicalReference);
   }
-  const bytes = Buffer.from(await object.arrayBuffer());
-  const checksum = crypto.createHash('sha256').update(bytes).digest('hex');
-  if (!bytes.length || bytes.subarray(0, 4).toString('ascii') !== '%PDF'
-    || (object.type && object.type !== 'application/pdf')
-    || checksum !== report.checksum || (report.file_size_bytes && bytes.length !== Number(report.file_size_bytes))) {
-    const { error: stateError } = await db.from('reports').update({ storage_status: 'FAILED' }).eq('id', report.id);
-    if (stateError) console.error('phase1_report_storage_state', { technicalReference, reportId: report.id, state: 'FAILED', errorCategory: 'state_update_failed' });
-    await recordAccess({ db, report, adminId: input.adminId, mode: input.mode, success: false, reason: 'integrity_failed', technicalReference });
-    throw new ReportAccessError('integrity_failed', 'The stored PDF failed its integrity check.', 409, technicalReference);
-  }
+  const bytes = verified.bytes;
   if (report.storage_status !== 'VERIFIED') {
     const { error: verificationUpdateError } = await db.from('reports').update({
       storage_status: 'VERIFIED',
       storage_verified_at: new Date().toISOString(),
       file_size_bytes: bytes.length,
       mime_type: 'application/pdf',
-      file_name: report.file_name || safeFileName(report.report_reference)
+      file_name: report.file_name || safeReportFileName(report.report_reference)
     }).eq('id', report.id);
     if (verificationUpdateError) {
       throw new ReportAccessError('storage_path_mismatch', 'The verified storage result could not be linked to the report record.', 500, technicalReference);
@@ -207,7 +174,7 @@ export async function createSecurePhase1ReportAccess(input: {
   }
 
   const options = input.mode === 'download'
-    ? { download: report.file_name || safeFileName(report.report_reference) }
+    ? { download: report.file_name || safeReportFileName(report.report_reference) }
     : undefined;
   const { data: signed, error: signError } = await db.storage
     .from(report.storage_bucket)

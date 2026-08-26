@@ -143,7 +143,8 @@ function runStaticChecks() {
   assertIncludes(entitlementGuard, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report entitlement guard must require payment_received only');
   assertIncludes(entitlementGuard, 'validateOrderPriceEntitlement', 'Report entitlement guard must resolve price through the versioned contract, not a literal amount');
   assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE', 'Report entitlement guard must require the authoritative Essential product code');
-  assertIncludes(entitlementGuard, "tierForProductCode(assembled.productCode) !== 'essential'", 'Report entitlement guard must reject any tier other than Essential');
+  assertIncludes(entitlementGuard, 'const tier = tierForProductCode(assembled.productCode)', 'Report entitlement guard must resolve the authoritative product tier');
+  assertIncludes(entitlementGuard, "tier === 'essential' || tier === 'comprehensive'", 'Report entitlement guard must reject unknown product tiers');
   assertNotIncludes('src/lib/reports/assemble-report-data.ts', "'verified'", 'Legacy verified status must not be report-generation eligible');
   assertIncludes('src/app/score/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 
@@ -197,8 +198,10 @@ function runStaticChecks() {
   assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Shared report service must use the administrator terminal state machine');
   assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Shared report service must use the worker terminal state machine');
   assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must not retain the legacy split event route');
-  assertIncludes('src/lib/reports/phase1-report-access.ts', "from('report_events').insert", 'Report access must record a report event');
-  assertIncludes('src/lib/reports/phase1-report-access.ts', "from('order_events').insert", 'Report access must appear in the order timeline');
+  assertIncludes('src/lib/reports/phase1-report-access.ts', 'recordPrivateReportAccessEvidence', 'Legacy report access must use the shared access evidence core');
+  const privateReportAccess = read('src/lib/reports/private-report-access.ts');
+  assert(privateReportAccess.includes("from('report_events').insert"), 'Shared report access must record a report event');
+  assert(privateReportAccess.includes("from('order_events').insert"), 'Order-bound report access must appear in the order timeline');
 }
 
 async function runHttpChecks() {

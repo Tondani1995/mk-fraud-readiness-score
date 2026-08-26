@@ -163,10 +163,13 @@ const V11_MAPPINGS: readonly OperatingContextMappingEntry[] = [
   { key: 'HIGHER_RISK_PAYMENT_APPROVAL_MODEL', gatewayCode: 'G14' }
 ] as const;
 
-const V12_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
-const V12_GRAPH_FINGERPRINT = '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7';
-const V11_GRAPH_VERSION = 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804';
-const V11_GRAPH_FINGERPRINT = 'fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab';
+// The graph files are the version/fingerprint authority for this semantic registry. Keeping the
+// identity next to the compiled graph avoids a second hard-coded Preview/future-Production binding
+// in business logic; the active environment/policy binding is enforced by adaptive/server.ts.
+const V12_GRAPH_VERSION = String(v12Graph.graphVersion ?? '');
+const V12_GRAPH_FINGERPRINT = String(v12Graph.graphFingerprint ?? '');
+const V11_GRAPH_VERSION = String(v11Graph.graphVersion ?? '');
+const V11_GRAPH_FINGERPRINT = String(v11Graph.graphFingerprint ?? '');
 
 const REGISTRY: readonly GraphSemantics[] = [
   {

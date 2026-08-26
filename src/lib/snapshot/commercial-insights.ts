@@ -481,7 +481,6 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
       'Prioritised management actions',
       '30/60/90-day fraud-readiness roadmap',
       'Leadership agenda',
-      'Supporting evidence register',
       'Professionally prepared PDF report'
     ]
   };

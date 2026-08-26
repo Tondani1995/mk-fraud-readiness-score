@@ -118,7 +118,10 @@ assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification help
 
 assertIncludes('src/lib/respondent/start-assessment.ts', "eventType: 'assessment_started'", 'Assessment start is tracked server-side');
 assertIncludes('src/lib/respondent/assessment-save.ts', "eventType: 'assessment_submitted'", 'Assessment submission is tracked server-side');
-assertIncludes('src/lib/respondent/assessment-save.ts', "notificationType: 'assessment_completed'", 'Assessment completion queues internal lead notification');
+assertNotIncludes('src/lib/respondent/assessment-save.ts', 'queueInternalNotification', 'Pre-score assessment submission must not queue the authoritative completion email');
+assertIncludes('src/app/score/api/assessments/[assessmentRef]/submit/route.ts', 'notifyScoredAssessmentCompletion', 'Legacy completion notification is dispatched after score and snapshot persistence');
+assertIncludes('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts', 'notifyScoredAssessmentCompletion', 'Adaptive completion notification is dispatched after score and snapshot persistence');
+assertSourceOrder('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts', 'loadFreeSnapshotByReference', 'notifyScoredAssessmentCompletion', 'Adaptive completion email must follow snapshot availability');
 assertSourceOrder('src/lib/respondent/assessment-save.ts', 'if (!lockedAssessment)', "eventType: 'assessment_submitted'", 'Submission event must be after stale-submit conflict guard');
 assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', "eventType: 'snapshot_viewed'", 'Snapshot view is tracked server-side');
 assertSourceOrder('src/app/score/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
@@ -132,7 +135,8 @@ assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'",
 assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Successful worker report generation records events inside the atomic terminal transaction');
 assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Report generation must not emit events after publication in a split transaction');
 assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSecurePhase1ReportAccess', 'Successful admin report download uses protected verified access');
-assertIncludes('src/lib/reports/phase1-report-access.ts', "from('report_events').insert", 'Successful admin report access is recorded');
+assertIncludes('src/lib/reports/phase1-report-access.ts', 'recordPrivateReportAccessEvidence', 'Legacy admin report access uses the shared private-report audit core');
+assertIncludes('src/lib/reports/private-report-access.ts', "from('report_events')", 'Successful admin report access is recorded');
 
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');

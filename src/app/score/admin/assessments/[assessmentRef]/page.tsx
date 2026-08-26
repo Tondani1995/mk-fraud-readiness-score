@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { AssessmentEssentialReportActions } from '@/components/admin/AssessmentEssentialReportActions';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -25,7 +26,7 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
   const detail = await getAdminAssessmentDetail(params.assessmentRef, admin);
   if (!detail) notFound();
 
-  const { assessment, scoreRun, domainResults, answers, exposureAnswers, questionTraces, maturityCapEvents, dataRequests, auditEvents } = detail;
+  const { assessment, scoreRun, domainResults, answers, exposureAnswers, questionTraces, maturityCapEvents, dataRequests, auditEvents, reports, generationAttempts } = detail;
 
   return (
     <AdminShell admin={admin}>
@@ -45,6 +46,27 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
           <Card><CardHeader><CardTitle>Exposure</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold text-mk-ink">{formatScore(scoreRun?.exposure_score)}</p><p className="text-sm text-mk-muted">{scoreRun?.exposure_band ?? '—'}</p></CardContent></Card>
           <Card><CardHeader><CardTitle>Coverage</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold text-mk-ink">{formatScore(scoreRun?.coverage_pct)}%</p><p className="text-sm text-mk-muted">Critical gaps: {scoreRun?.critical_gap_count ?? '—'}</p></CardContent></Card>
         </div>
+
+        <AssessmentEssentialReportActions
+          assessmentReference={assessment.assessment_reference}
+          canGenerate={['platform_admin', 'reviewer', 'approver'].includes(admin.role)}
+          canRegenerate={['platform_admin', 'approver'].includes(admin.role)}
+          reports={reports.map((report: any) => ({
+            id: report.id,
+            report_reference: report.report_reference,
+            version_number: Number(report.version_number),
+            status: report.status,
+            storage_status: report.storage_status
+          }))}
+          generationAttempts={generationAttempts.map((attempt: any) => ({
+            id: attempt.id,
+            status: attempt.status,
+            trigger_source: attempt.trigger_source,
+            report_version: Number(attempt.report_version),
+            error_category: attempt.error_category ?? null,
+            requested_at: attempt.requested_at
+          }))}
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>

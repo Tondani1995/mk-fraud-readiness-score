@@ -1,4 +1,8 @@
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import {
+  createSupabaseAnonServerClient,
+  createSupabaseServiceClient
+} from '@/lib/supabase/server';
+import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import type { AdminRole } from '@/lib/types/domain';
 
 export type AdminSession = {
@@ -85,6 +89,56 @@ export async function requireAdmin(allowedRoles?: AdminRole[]): Promise<AdminSes
     throw new Error('The active readiness-console role is not allowed to access this route.');
   }
 
+  return admin;
+}
+
+/**
+ * Strict authentication for newly introduced mutation/download surfaces.
+ *
+ * The accepted legacy console adapter can still bind to the deployment-protected runtime
+ * identity, but a direct assessment report must be attributable to an actual Supabase Auth
+ * session. Resolve the user with the anon client, then bind that user to an active persisted
+ * admin profile through the service client. No fallback identity is permitted here.
+ */
+export async function getAuthenticatedAdminSession(): Promise<AdminSession | null> {
+  const accessToken = getAdminAccessTokenFromCookies();
+  if (!accessToken) return null;
+
+  try {
+    const anon = createSupabaseAnonServerClient();
+    const { data: userData, error: userError } = await anon.auth.getUser(accessToken);
+    if (userError || !userData.user) return null;
+
+    const service = createSupabaseServiceClient();
+    const { data: profile, error: profileError } = await service
+      .from('admin_profiles')
+      .select('id,email,full_name,role,status')
+      .eq('id', userData.user.id)
+      .eq('status', 'active')
+      .in('role', ADMIN_ROLE_PRIORITY)
+      .maybeSingle();
+
+    if (profileError || !profile) return null;
+    return {
+      id: profile.id,
+      email: profile.email,
+      fullName: profile.full_name,
+      role: profile.role as AdminRole
+    };
+  } catch (error) {
+    console.warn('readiness_admin_authenticated_binding_failed', {
+      reason: error instanceof Error ? error.message : 'unknown'
+    });
+    return null;
+  }
+}
+
+export async function requireAuthenticatedAdmin(allowedRoles?: AdminRole[]): Promise<AdminSession> {
+  const admin = await getAuthenticatedAdminSession();
+  if (!admin) throw new Error('A current authenticated administrator session is required.');
+  if (allowedRoles && !allowedRoles.includes(admin.role)) {
+    throw new Error('The authenticated administrator role is not allowed to access this route.');
+  }
   return admin;
 }
 

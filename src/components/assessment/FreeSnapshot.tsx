@@ -285,7 +285,7 @@ export function FreeSnapshotCard({
           <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="integrity-heading">
             <h2 id="integrity-heading" className="font-semibold text-mk-ink">How MK protects the integrity of your result</h2>
             <p className="mt-2">
-              Your readiness score is calculated using a controlled, deterministic methodology. Paid reports are generated automatically from your persisted assessment result. They analyse what you reported; they do not independently validate evidence, test whether controls operate, or provide an assurance opinion. Independent review is available separately through MK Advisory.
+              Your readiness score is calculated using a controlled, deterministic methodology. Paid reports are prepared from your persisted assessment result. They analyse what you reported; they do not independently validate evidence, test whether controls operate, or provide an assurance opinion. Independent review is available separately through MK Advisory.
             </p>
             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
               {[
@@ -356,7 +356,7 @@ function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }
         <Detail label="Organisation" value={snapshot.organisationName} />
         <Detail label="Assessment reference" value={snapshot.assessmentReference} copyable />
         <Detail label="Price" value={`${formatCataloguePrice(product.priceCents)} incl. VAT`} />
-        <Detail label="Delivery" value="Payment → automated report generation → secure delivery" />
+        <Detail label="Delivery" value="Payment → MK admin generation → secure private PDF access" />
         <Detail label="What this includes" value={product.summary} />
       </div>
       <p className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">Payment is made by EFT. MK confirms payment manually before the completed report is released.</p>
@@ -399,7 +399,7 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
       <ol className="space-y-2 rounded-xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
         <li>1. Make the EFT using the displayed order reference.</li>
         <li>2. MK confirms payment manually.</li>
-        <li>3. Your report is generated automatically from the persisted assessment result.</li>
+        <li>3. MK prepares the report from the persisted assessment result.</li>
         <li>4. The secure report is released to you.</li>
       </ol>
       <p className="text-sm leading-6 text-mk-muted">{eft?.paymentReferenceInstruction ?? 'Please use your order reference as the payment reference.'}</p>

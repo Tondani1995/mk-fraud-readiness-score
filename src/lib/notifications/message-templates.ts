@@ -107,3 +107,38 @@ export function buildInternalExceptionAlertMessage(input: InternalExceptionAlert
   const html = `<p>An exception needs attention.</p><ul><li>Order reference: <strong>${escapeHtml(input.orderReference)}</strong></li><li>Failed stage: ${escapeHtml(input.failedStage)}</li><li>Age: ${escapeHtml(input.ageDescription)}</li><li>Technical reference: ${escapeHtml(input.technicalReference)}</li><li>Required administrator action: ${escapeHtml(requiredAction)}</li><li>Assigned owner: ${escapeHtml(input.ownerHint ?? 'Unassigned')}</li></ul><p><a href="${escapeHtml(recoveryUrl)}">Recover this order</a></p>`;
   return { subject, text, html };
 }
+
+export type AssessmentCompletedInternalInput = {
+  assessmentReference: string;
+  organisationName: string | null;
+  respondentName: string | null;
+  respondentEmail: string | null;
+  completedAt: string;
+  overallScore: number | null;
+  finalMaturity: string | null;
+  adminUrl: string;
+};
+
+export function buildAssessmentCompletedInternalMessage(input: AssessmentCompletedInternalInput) {
+  const subject = `Assessment completed and scored: ${input.assessmentReference}`;
+  const text = `An assessment has been completed and scored.\n\nAssessment reference: ${input.assessmentReference}\nOrganisation: ${input.organisationName ?? 'Not captured'}\nRespondent: ${input.respondentName ?? 'Not captured'}\nWork email: ${input.respondentEmail ?? 'Not captured'}\nCompletion time: ${input.completedAt}\nScore: ${input.overallScore === null ? 'Not available' : input.overallScore}\nFinal maturity: ${input.finalMaturity ?? 'Not available'}\n\nOpen assessment in MK admin: ${input.adminUrl}`;
+  const html = `<p>An assessment has been completed and scored.</p><ul><li>Assessment reference: <strong>${escapeHtml(input.assessmentReference)}</strong></li><li>Organisation: ${escapeHtml(input.organisationName ?? 'Not captured')}</li><li>Respondent: ${escapeHtml(input.respondentName ?? 'Not captured')}</li><li>Work email: ${escapeHtml(input.respondentEmail ?? 'Not captured')}</li><li>Completion time: ${escapeHtml(input.completedAt)}</li><li>Score: ${escapeHtml(input.overallScore === null ? 'Not available' : String(input.overallScore))}</li><li>Final maturity: ${escapeHtml(input.finalMaturity ?? 'Not available')}</li></ul><p><a href="${escapeHtml(input.adminUrl)}">Open assessment in MK admin</a></p>`;
+  return { subject, text, html };
+}
+
+export type AssessmentStalledLeadInput = {
+  assessmentReference: string;
+  organisationName: string | null;
+  respondentName: string | null;
+  respondentEmail: string | null;
+  lastActivityAt: string;
+  progressPct: number;
+  adminUrl: string;
+};
+
+export function buildAssessmentStalledLeadMessage(input: AssessmentStalledLeadInput) {
+  const subject = `[Stalled lead] ${input.assessmentReference}`;
+  const text = `An adaptive assessment appears to be a stalled lead.\n\nAssessment reference: ${input.assessmentReference}\nOrganisation: ${input.organisationName ?? 'Not captured'}\nRespondent: ${input.respondentName ?? 'Not captured'}\nWork email: ${input.respondentEmail ?? 'Not captured'}\nLast activity: ${input.lastActivityAt}\nProgress: ${input.progressPct}%\n\nOpen assessment in MK admin: ${input.adminUrl}`;
+  const html = `<p>An adaptive assessment appears to be a stalled lead.</p><ul><li>Assessment reference: <strong>${escapeHtml(input.assessmentReference)}</strong></li><li>Organisation: ${escapeHtml(input.organisationName ?? 'Not captured')}</li><li>Respondent: ${escapeHtml(input.respondentName ?? 'Not captured')}</li><li>Work email: ${escapeHtml(input.respondentEmail ?? 'Not captured')}</li><li>Last activity: ${escapeHtml(input.lastActivityAt)}</li><li>Progress: ${escapeHtml(String(input.progressPct))}%</li></ul><p><a href="${escapeHtml(input.adminUrl)}">Open assessment in MK admin</a></p>`;
+  return { subject, text, html };
+}

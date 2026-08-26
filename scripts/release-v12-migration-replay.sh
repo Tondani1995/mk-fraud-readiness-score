@@ -131,8 +131,14 @@ create table replay.replay_log (
 SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
-if [[ "${#migration_files[@]}" -ne 121 ]]; then
-  printf 'FAIL: expected 121 active migration files, got %s\n' "${#migration_files[@]}" >&2
+canonical_reconstructed_migration_count=121
+forward_migration_count=1
+expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
+expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
+expected_last_version="${expected_last_file%%_*}"
+if [[ "${#migration_files[@]}" != "${expected_migrations}" ]]; then
+  printf 'FAIL: expected exactly %s migration files (%s reconstructed plus %s forward), got %s\n' \
+    "${expected_migrations}" "${canonical_reconstructed_migration_count}" "${forward_migration_count}" "${#migration_files[@]}" >&2
   exit 1
 fi
 
@@ -214,16 +220,17 @@ printf 'FUNCTION_DEFINITION_ROWS_END\n'
 replay_count="$(psql "${psql_args[@]}" -At --command='select count(*) from replay.replay_log')"
 distinct_count="$(psql "${psql_args[@]}" -At --command='select count(distinct version) from replay.replay_log')"
 last_version="$(psql "${psql_args[@]}" -At --command='select version from replay.replay_log order by ordinal desc limit 1')"
-if [[ "${replay_count}" != "121" || "${distinct_count}" != "121" ]]; then
+if [[ "${replay_count}" != "${expected_migrations}" || "${distinct_count}" != "${expected_migrations}" ]]; then
   printf 'FAIL: replay log is not exact-once (rows=%s distinct_versions=%s)\n' "${replay_count}" "${distinct_count}" >&2
   exit 1
 fi
-if [[ "${last_version}" != "20260825115921" ]]; then
+if [[ "${last_version}" != "${expected_last_version}" ]]; then
   printf 'FAIL: replay did not reach canonical tail; got %s\n' "${last_version}" >&2
   exit 1
 fi
 
-printf '\nPASS: 121/121 reconstructed migrations replayed in deterministic filename order.\n'
+printf '\nPASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).\n' \
+  "${replay_count}" "${expected_migrations}" "${canonical_reconstructed_migration_count}" "${forward_migration_count}"
 printf 'PASS: exact-once log has %s rows and %s distinct versions.\n' "${replay_count}" "${distinct_count}"
 printf 'PASS: assessment/adaptive/graph/score/report/admin structures exist.\n'
 printf 'PASS: replay tail is %s.\n' "${last_version}"

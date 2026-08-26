@@ -80,7 +80,7 @@ async function loadScoredAssessment(supabase: any, assessmentId: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const result = await supabase
       .from('assessments')
-      .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+      .select('id, assessment_reference, organisation_id, current_score_run_id, status, assessment_mode, submitted_at, locked_at, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
       .eq('id', assessmentId)
       .maybeSingle();
     if (result.error || result.data?.current_score_run_id) return result;
@@ -88,32 +88,88 @@ async function loadScoredAssessment(supabase: any, assessmentId: string) {
   }
   return await supabase
     .from('assessments')
-    .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+    .select('id, assessment_reference, organisation_id, current_score_run_id, status, assessment_mode, submitted_at, locked_at, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
     .eq('id', assessmentId)
     .maybeSingle();
 }
 
-export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
+export type ReportAssemblyTarget =
+  | string
+  | { assessmentReference: string };
+
+export async function assembleReportData(target: ReportAssemblyTarget): Promise<AssembledReportData> {
   const supabase = createSupabaseServiceClient();
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('id, order_reference, status, product_id, product_price_version_id, created_at, assessment_id, amount_cents, currency, organisation_name, customer_name, customer_email, verified_at, verified_by, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
-    .eq('order_reference', orderReference)
-    .maybeSingle();
+  const assessmentScoped = typeof target !== 'string';
+  const orderReference = typeof target === 'string' ? target : null;
+  let order: any = null;
+  let assessmentScopedProduct: any = null;
+  let assessmentSeed: any = null;
 
-  if (orderError || !order) throw new ReportAssemblyError('order_not_found', `Order ${orderReference} was not found.`);
+  if (!assessmentScoped) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, order_reference, status, product_id, product_price_version_id, created_at, assessment_id, amount_cents, currency, organisation_name, customer_name, customer_email, verified_at, verified_by, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
+      .eq('order_reference', orderReference)
+      .maybeSingle();
+    if (error || !data) throw new ReportAssemblyError('order_not_found', `Order ${orderReference} was not found.`);
+    order = data;
+    assessmentSeed = { id: order.assessment_id };
+  } else {
+    const { data, error } = await supabase
+      .from('assessments')
+      .select('id')
+      .eq('assessment_reference', (target as { assessmentReference: string }).assessmentReference)
+      .maybeSingle();
+    if (error || !data) {
+      throw new ReportAssemblyError('assessment_not_scored', 'The requested assessment was not found.');
+    }
+    assessmentSeed = data;
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active')
+      .eq('product_code', 'essential_self_assessment')
+      .eq('active', true)
+      .maybeSingle();
+    if (productError || !product) {
+      throw new ReportAssemblyError('entitlement_snapshot_failed', 'The Essential product catalogue entry is unavailable.');
+    }
+    assessmentScopedProduct = product;
+    order = {
+      id: null,
+      order_reference: null,
+      status: null,
+      product_id: product.id,
+      product_price_version_id: null,
+      created_at: null,
+      assessment_id: data.id,
+      amount_cents: null,
+      currency: product.currency ?? null,
+      organisation_name: null,
+      customer_name: null,
+      customer_email: null,
+      verified_at: null,
+      verified_by: null,
+      products: product
+    };
+  }
 
-  const { data: assessment, error: assessmentError } = await loadScoredAssessment(supabase, order.assessment_id);
+  const { data: assessment, error: assessmentError } = await loadScoredAssessment(supabase, assessmentSeed.id);
 
   if (assessmentError || !assessment || !assessment.current_score_run_id) {
-    throw new ReportAssemblyError('assessment_not_scored', `Assessment for order ${orderReference} has no current score run.`);
+    throw new ReportAssemblyError(
+      'assessment_not_scored',
+      assessmentScoped
+        ? 'The requested assessment has no current score run.'
+        : `Assessment for order ${orderReference} has no current score run.`
+    );
   }
 
   const { data: scoreRunBase, error: scoreRunError } = await supabase
     .from('score_runs')
     .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash')
     .eq('id', assessment.current_score_run_id)
+    .eq('assessment_id', assessment.id)
     .eq('status', 'completed')
     .maybeSingle();
 
@@ -136,13 +192,19 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
   }
   if (adaptiveColumns) Object.assign(scoreRunRow, adaptiveColumns);
 
-  const { data: paymentRows, error: paymentError } = await supabase
-    .from('payment_transition_events')
-    .select('id,new_state,source,actor_reference,amount_cents,currency,provider_transaction_reference,provider_event_reference,provider_event_at,verification_result,processing_result')
-    .eq('order_id', order.id)
-    .eq('new_state', 'PAID')
-    .eq('processing_result', 'applied')
-    .order('created_at', { ascending: false });
+  let paymentRows: any[] = [];
+  let paymentError: any = null;
+  if (!assessmentScoped) {
+    const paymentResult = await supabase
+      .from('payment_transition_events')
+      .select('id,new_state,source,actor_reference,amount_cents,currency,provider_transaction_reference,provider_event_reference,provider_event_at,verification_result,processing_result')
+      .eq('order_id', order.id)
+      .eq('new_state', 'PAID')
+      .eq('processing_result', 'applied')
+      .order('created_at', { ascending: false });
+    paymentRows = paymentResult.data ?? [];
+    paymentError = paymentResult.error;
+  }
   const legacyPaymentSchemaUnavailable = Boolean(paymentError && (
     paymentError.code === '42P01'
     || paymentError.code === 'PGRST205'
@@ -412,15 +474,18 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     });
   }
 
-  const product = Array.isArray(order.products) ? order.products[0] : order.products;
+  const product = assessmentScopedProduct
+    ?? (Array.isArray(order.products) ? order.products[0] : order.products);
 
   // The product's full price history. Entitlement resolves the order's amount against the version
   // that applied when the order was created, so a later catalogue reprice cannot de-entitle it.
-  const { data: priceVersionRows } = await supabase
-    .from('product_price_versions')
-    .select('id, product_id, version_number, price_cents, currency, effective_from, effective_to')
-    .eq('product_id', order.product_id)
-    .order('effective_from', { ascending: false });
+  const priceVersionRows = assessmentScoped
+    ? []
+    : ((await supabase
+      .from('product_price_versions')
+      .select('id, product_id, version_number, price_cents, currency, effective_from, effective_to')
+      .eq('product_id', order.product_id)
+      .order('effective_from', { ascending: false })).data ?? []);
 
   const productPriceVersions = (priceVersionRows ?? []).map((row: any) => ({
     id: row.id,
@@ -444,7 +509,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     paymentVerification,
     organisationName: (assessment.organisations as any)?.legal_name ?? (assessment.organisations as any)?.trading_name ?? order.organisation_name ?? 'Organisation',
     respondentName: (assessment.respondents as any)?.full_name ?? order.customer_name ?? 'Respondent',
-    customerEmail: String(order.customer_email ?? '').trim().toLowerCase(),
+    customerEmail: String(order.customer_email ?? (assessment.respondents as any)?.email ?? '').trim().toLowerCase(),
     assessmentReference: assessment.assessment_reference,
     reportReference: `RPT-${assessment.assessment_reference}`,
     generatedAt: new Date().toISOString(),

@@ -10,7 +10,8 @@ export type InternalNotificationType =
   | 'personalised_report_50000_selected'
   | 'essential_selected'
   | 'comprehensive_selected'
-  | 'comprehensive_order_created';
+  | 'comprehensive_order_created'
+  | 'assessment_stalled_lead';
 
 export type QueueInternalNotificationInput = {
   notificationType: InternalNotificationType;
@@ -23,12 +24,19 @@ export type QueueInternalNotificationInput = {
   optionCode?: string | null;
   metadata?: AssessmentEventMetadata;
   recipientEmail?: string | null;
+  dedupeKey?: string;
   strict?: boolean;
 };
 
 export type QueueInternalNotificationResult =
   | { ok: true; status: 'queued' | 'already_queued'; emailEventId?: string }
   | { ok: false; status: 'skipped_no_recipient' | 'failed'; error?: string };
+
+export type InternalNotificationQueueDependencies = {
+  /** Provider-free tests and assessment dispatch share the same already-created database client. */
+  db?: any;
+  trackAssessmentEventImpl?: typeof trackAssessmentEvent;
+};
 
 function configuredRecipient() {
   return process.env.MK_INTERNAL_LEADS_EMAIL?.trim() || process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim() || null;
@@ -57,8 +65,13 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error ?? 'Unknown notification queue error');
 }
 
-async function trackNotificationEvent(input: QueueInternalNotificationInput, eventType: 'internal_notification_queued' | 'internal_notification_failed', status: string) {
-  await trackAssessmentEvent({
+async function trackNotificationEvent(
+  input: QueueInternalNotificationInput,
+  eventType: 'internal_notification_queued' | 'internal_notification_failed',
+  status: string,
+  trackEvent: typeof trackAssessmentEvent
+) {
+  await trackEvent({
     eventType,
     assessmentId: input.assessmentId,
     organisationId: input.organisationId,
@@ -74,14 +87,18 @@ async function trackNotificationEvent(input: QueueInternalNotificationInput, eve
   });
 }
 
-export async function queueInternalNotification(input: QueueInternalNotificationInput): Promise<QueueInternalNotificationResult> {
+export async function queueInternalNotification(
+  input: QueueInternalNotificationInput,
+  dependencies: InternalNotificationQueueDependencies = {}
+): Promise<QueueInternalNotificationResult> {
   const recipient = input.recipientEmail?.trim() || configuredRecipient();
   if (!recipient) {
     return { ok: false, status: 'skipped_no_recipient', error: 'MK_INTERNAL_LEADS_EMAIL is not configured' };
   }
 
-  const db = createSupabaseServiceClient() as any;
-  const dedupeKey = buildInternalNotificationDedupeKey(input);
+  const db = dependencies.db ?? (createSupabaseServiceClient() as any);
+  const trackEvent = dependencies.trackAssessmentEventImpl ?? trackAssessmentEvent;
+  const dedupeKey = input.dedupeKey ?? buildInternalNotificationDedupeKey(input);
   const metadata = sanitiseEventMetadata(input.metadata);
 
   try {
@@ -93,7 +110,7 @@ export async function queueInternalNotification(input: QueueInternalNotification
 
     if (existingError) throw existingError;
     if (existing) {
-      await trackNotificationEvent(input, 'internal_notification_queued', 'already_queued');
+      await trackNotificationEvent(input, 'internal_notification_queued', 'already_queued', trackEvent);
       return { ok: true, status: 'already_queued', emailEventId: existing.id };
     }
 
@@ -126,16 +143,16 @@ export async function queueInternalNotification(input: QueueInternalNotification
         .eq('dedupe_key', dedupeKey)
         .maybeSingle();
       if (racedSelectError || !racedExisting) throw insertError;
-      await trackNotificationEvent(input, 'internal_notification_queued', 'already_queued');
+      await trackNotificationEvent(input, 'internal_notification_queued', 'already_queued', trackEvent);
       return { ok: true, status: 'already_queued', emailEventId: racedExisting.id };
     }
 
-    await trackNotificationEvent(input, 'internal_notification_queued', 'queued');
+    await trackNotificationEvent(input, 'internal_notification_queued', 'queued', trackEvent);
     return { ok: true, status: 'queued', emailEventId: inserted?.id };
   } catch (error) {
     const message = errorMessage(error);
     console.error('Phase 13 internal notification queue failed', { notificationType: input.notificationType, message });
-    await trackNotificationEvent(input, 'internal_notification_failed', 'failed').catch(() => null);
+    await trackNotificationEvent(input, 'internal_notification_failed', 'failed', trackEvent).catch(() => null);
     if (input.strict) throw error;
     return { ok: false, status: 'failed', error: message };
   }

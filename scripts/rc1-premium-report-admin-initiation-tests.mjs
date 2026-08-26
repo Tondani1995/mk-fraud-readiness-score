@@ -39,7 +39,7 @@ assert.doesNotMatch(service, /getAdminSession|Phase14|requirePhase14Action|platf
 assert.doesNotMatch(service, /recordAudit|\.from\(['"]audit_logs['"]\)|audit_logs/);
 assert.match(mode, /VERCEL_ENV/);
 assert.match(mode, /MK_DEVELOPMENT_MODE/);
-assert.match(mode, /penhenkzfrtmcxklodtu/);
+assert.match(mode, /MK_PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF/);
 assert.match(mode, /MK_EMAIL_PROVIDER_MODE/);
 assert.match(mode, /MK_EMAIL_RECIPIENT_ALLOWLIST/);
 assert.match(mode, /admin@mkfraud\.co\.za/);
@@ -81,6 +81,7 @@ const baseEnv = {
   VERCEL_ENV: 'preview',
   MK_DEVELOPMENT_MODE: 'enabled',
   NEXT_PUBLIC_SUPABASE_URL: 'https://penhenkzfrtmcxklodtu.supabase.co',
+  MK_PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF: 'penhenkzfrtmcxklodtu',
   MK_EMAIL_PROVIDER_MODE: 'test',
   MK_EMAIL_RECIPIENT_ALLOWLIST: PREMIUM_REPORT_DEVELOPMENT_RECIPIENT
 };

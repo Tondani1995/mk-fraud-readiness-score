@@ -6,6 +6,7 @@ import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreSubmittedAssessment } from '@/lib/scoring/score-assessment';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { getOptionalServerEnv } from '@/lib/env/server';
+import { notifyScoredAssessmentCompletion } from '@/lib/notifications/internal-assessment-notifications';
 
 function normaliseScoreBase(value: string) {
   const cleaned = value.replace(/\/$/, '');
@@ -66,6 +67,21 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the free snapshot could not be loaded from the persisted score run.'], assessmentReference: submitted.assessmentReference, scoreRunId: scored.scoreRunId, progress: submitted.progress }, { status: 500 });
   }
 
+  const completionNotification = await notifyScoredAssessmentCompletion({
+    assessmentReference: submitted.assessmentReference,
+    scoreRunId: scored.scoreRunId,
+    snapshotAvailable: true,
+    adminUrl: new URL(`/score/admin/assessments/${encodeURIComponent(submitted.assessmentReference)}`, request.url).toString()
+  }).catch((error) => {
+    console.error('assessment_completion_notification_failed', {
+      assessmentReference: submitted.assessmentReference,
+      scoreRunId: scored.scoreRunId,
+      errorCategory: 'internal_notification_dispatch_failed',
+      reason: error instanceof Error ? error.message : 'unknown'
+    });
+    return { ok: false as const, status: 'notification_dispatch_failed' as const };
+  });
+
   const requestHeaders = await headers();
   const snapshotToken = await createSnapshotTokenForAssessment({
     assessmentId: submitted.assessmentId,
@@ -84,6 +100,10 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     runNumber: scored.runNumber,
     snapshotTokenExpiresAt: snapshotToken.expiresAt,
     snapshotUrl,
-    snapshot
+    snapshot,
+    completionNotification: {
+      ok: completionNotification.ok,
+      status: completionNotification.status
+    }
   });
 }

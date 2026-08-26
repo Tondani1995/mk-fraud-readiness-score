@@ -1090,6 +1090,15 @@
       ]
     },
     {
+      "signature": "public.claim_assessment_manual_report_generation(text,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:429"
+      ],
+      "classification": "Assessment-scoped Essential generation claim; service-role-only RPC"
+    },
+    {
       "signature": "public.claim_next_delivery(text,integer)",
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
@@ -1130,6 +1139,24 @@
       ]
     },
     {
+      "signature": "public.complete_assessment_manual_report_generation(uuid,uuid,public.report_type,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:844"
+      ],
+      "classification": "Assessment-scoped Essential PDF finalisation; service-role-only atomic RPC"
+    },
+    {
+      "signature": "public.complete_manual_report_generation(uuid,uuid,public.report_type,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:844"
+      ],
+      "classification": "Legacy order-scoped report finalisation; service-role-only RPC"
+    },
+    {
       "signature": "public.execute_phase14_worker_step(jsonb,text,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1161,6 +1188,15 @@
       "sources": [
         "src/lib/reports/phase1-manual-fulfilment.ts:170"
       ]
+    },
+    {
+      "signature": "public.fail_assessment_manual_report_generation(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:213"
+      ],
+      "classification": "Assessment-scoped Essential generation failure transition; service-role-only RPC"
     },
     {
       "signature": "public.finalize_delivery(uuid,uuid,text)",
@@ -1254,6 +1290,15 @@
         "src/lib/fulfilment/delivery-worker.ts:50",
         "src/lib/fulfilment/immediate-dispatch.ts:79"
       ]
+    },
+    {
+      "signature": "public.record_assessment_stalled_lead_alert(text,uuid,uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/notifications/internal-assessment-notifications.ts:475"
+      ],
+      "classification": "Assessment-scoped stalled-lead evidence upsert; service-role-only RPC"
     },
     {
       "signature": "public.record_customer_report_artefact_access(uuid,uuid,uuid,boolean,text,text,text)",
@@ -1391,6 +1436,15 @@
       "sources": [
         "src/lib/reports/phase1-manual-fulfilment.ts:423"
       ]
+    },
+    {
+      "signature": "public.start_assessment_manual_report_generation(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:522"
+      ],
+      "classification": "Assessment-scoped Essential generation start transition; service-role-only RPC"
     },
     {
       "signature": "public.complete_report_secondary_artefact(uuid,text,text,text,text,text,bigint,text)",
@@ -1543,25 +1597,32 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:466",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:490",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:503",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:509",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:542",
+    "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:548",
     "src/lib/comprehensive/evidence-service.ts:126",
     "src/lib/comprehensive/evidence-service.ts:249",
     "src/lib/comprehensive/package-registration.ts:54",
     "src/lib/comprehensive/package-registration.ts:91",
     "src/lib/comprehensive/package-registration.ts:95",
-    "src/lib/rc1/control-plane.ts:510",
-    "src/lib/rc1/control-plane.ts:516",
+    "src/lib/rc1/control-plane.ts:503",
+    "src/lib/rc1/control-plane.ts:509",
     "src/lib/reports/customer-report-access.ts:236",
     "src/lib/reports/customer-report-access.ts:290",
     "src/lib/reports/customer-report-access.ts:338",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:297",
-    "src/lib/reports/phase1-manual-fulfilment.ts:665",
-    "src/lib/reports/phase1-manual-fulfilment.ts:815",
+    "src/lib/reports/phase1-manual-fulfilment.ts:343",
+    "src/lib/reports/phase1-manual-fulfilment.ts:762",
+    "src/lib/reports/phase1-manual-fulfilment.ts:940",
     "src/lib/reports/phase1-report-access.ts:179",
-    "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
+    "src/lib/reports/private-report-access.ts:56",
+    "src/lib/reports/private-report-access.ts:90",
     "src/lib/reports/storage-publication.ts:29",
     "src/lib/reports/storage-publication.ts:47",
     "src/lib/reports/storage-publication.ts:59",
@@ -1586,6 +1647,7 @@
       "src/lib/reports/download-verification.ts",
       "src/lib/reports/email/delivery-dispatch.ts",
       "src/lib/reports/report-access-eligibility.ts",
+      "src/lib/reports/private-report-access.ts",
       "src/lib/reports/storage-publication.ts",
       "src/lib/reports/supporting-register-delivery.ts",
       "src/lib/comprehensive/artifact-service.ts"
@@ -1633,9 +1695,9 @@
       "src/lib/reports/premium-report-service-core.ts:657:rpc",
       "src/lib/reports/premium-report-service-core.ts:705:rpc",
       "src/lib/rc1/control-plane.ts:76:from",
-      "src/lib/rc1/control-plane.ts:99:rpc"
+      "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "0981eb73c4c90036e243f459a666b049c5a97b110a6ca49d220d9cc87afcf14f"
+    "fullAstInventorySha256": "c0502a2f1df065fa9243c7a49b40bb1a6f5bb59b545f9e0500c1f980271eef56"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

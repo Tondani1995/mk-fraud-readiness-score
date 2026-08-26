@@ -27,7 +27,7 @@ export type CommercialProductCode = 'free_snapshot' | 'essential_self_assessment
 export type CommercialFulfilmentModel =
   /** No paid entitlement; rendered immediately from the score run. */
   | 'instant_snapshot'
-  /** Automated/self-service diagnostic: MK-controlled PDF plus supporting register. */
+  /** Self-service diagnostic: an MK-controlled PDF prepared from the persisted assessment. */
   | 'automated_diagnostic'
   /**
    * Automated in-depth analysis: MK-controlled PDF plus supporting registers.
@@ -87,7 +87,7 @@ export const ESSENTIAL_PRODUCT_CODE = 'essential_self_assessment' as const;
  * Supabase environments on 2026-08-10, recorded in
  * docs/v1/joint-launch/comprehensive-product-code-decision.md):
  *   - Production  jvjxlphdyzerrhwcgkup: 0 orders reference this product.
- *   - Staging     penhenkzfrtmcxklodtu: 0 orders reference this product.
+ *   - Staging     authorized project: 0 orders reference this product.
  * With no order anywhere referencing it there is no historical order snapshot to preserve, so
  * repricing the existing row is strictly safer than leaving a live, active R50,000 product row
  * behind while a second Comprehensive row is introduced. The row already carries
@@ -140,13 +140,12 @@ const ESSENTIAL: OrderableProduct = {
   requiresPaymentVerification: true,
   fulfilmentModel: 'automated_diagnostic',
   deliveryMode: 'mk_controlled_pdf',
-  summary: 'Automated self-service fraud readiness diagnostic, delivered as a PDF report with its supporting register.',
+  summary: 'Self-service fraud readiness diagnostic, delivered as a professionally prepared PDF report.',
   includes: [
     'Detailed analysis across all applicable domains',
     'Critical weaknesses and false-comfort risks',
     'Prioritised management actions and a 30/60/90-day roadmap',
-    'Professionally prepared PDF report',
-    'Supporting evidence register'
+    'Professionally prepared PDF report'
   ]
 };
 

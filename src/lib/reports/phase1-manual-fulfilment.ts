@@ -56,14 +56,28 @@ export interface ManualPhase1Dependencies {
   persistManualNarrativeProvenance?: typeof persistManualNarrativeProvenance;
 }
 
-export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
+export type ManualGenerationAction =
+  | 'admin_generate'
+  | 'admin_retry'
+  | 'admin_regenerate'
+  | 'payment_confirmation'
+  | 'assessment_admin_generate'
+  | 'assessment_admin_retry'
+  | 'assessment_admin_regenerate';
 
 export type ManualGenerationInput = {
-  orderReference: string;
   requestedBy: string | null;
   requestKey: string;
-  action: ManualGenerationAction;
-};
+} & (
+  | {
+      orderReference: string;
+      action: 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
+    }
+  | {
+      assessmentReference: string;
+      action: 'assessment_admin_generate' | 'assessment_admin_retry' | 'assessment_admin_regenerate';
+    }
+);
 
 export type ManualGenerationResult = {
   attemptId?: string;
@@ -128,7 +142,10 @@ function sanitiseReference(value: string) {
 
 function mapRpcFailure(error: unknown, technicalReference: string): Phase1GenerationError {
   const message = messageOf(error);
-  if (message.includes('phase1_generation_permission_denied') || message.includes('phase1_regeneration_permission_denied')) {
+  if (message.includes('phase1_generation_permission_denied')
+    || message.includes('phase1_regeneration_permission_denied')
+    || message.includes('v12_generation_permission_denied')
+    || message.includes('v12_regeneration_permission_denied')) {
     return new Phase1GenerationError('forbidden', 'You are not authorised to perform this report action.', 403, technicalReference);
   }
   if (message.includes('phase1_order_not_found')) {
@@ -140,7 +157,20 @@ function mapRpcFailure(error: unknown, technicalReference: string): Phase1Genera
   if (message.includes('phase1_assessment_incomplete')) {
     return new Phase1GenerationError('assessment_incomplete', 'The assessment is incomplete or does not have a locked completed score.', 409, technicalReference);
   }
-  if (/claim_manual_report_generation|manual_report_generation_attempts|function .* does not exist|schema cache/i.test(message)) {
+  if (message.includes('v12_assessment_not_found')) {
+    return new Phase1GenerationError('order_not_found', 'The assessment could not be found.', 404, technicalReference);
+  }
+  if (message.includes('v12_assessment_incomplete_or_unlocked')
+    || message.includes('v12_assessment_score_not_locked')
+    || message.includes('v12_assessment_mode_required')) {
+    return new Phase1GenerationError('assessment_incomplete', 'The assessment is incomplete or does not have a locked completed score.', 409, technicalReference);
+  }
+  if (message.includes('v12_report_integrity_invalid')
+    || message.includes('v12_report_storage_binding_invalid')
+    || message.includes('v12_report_template_invalid')) {
+    return new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the assessment.', 500, technicalReference);
+  }
+  if (/claim_manual_report_generation|claim_assessment_manual_report_generation|manual_report_generation_attempts|function .* does not exist|schema cache/i.test(message)) {
     return new Phase1GenerationError(
       'phase1_schema_unavailable',
       PHASE1_SCHEMA_UNAVAILABLE_MESSAGE,
@@ -170,14 +200,18 @@ async function recordFailure(
   db: any,
   attemptId: string | null,
   category: Phase1GenerationReason,
-  safeMessage: string
+  safeMessage: string,
+  assessmentScoped = false
 ) {
   if (!attemptId) return;
-  const { error } = await db.rpc('fail_manual_report_generation', {
+  const failurePayload = {
     p_attempt_id: attemptId,
     p_error_category: category,
     p_safe_message: safeMessage
-  });
+  };
+  const { error } = assessmentScoped
+    ? await db.rpc('fail_assessment_manual_report_generation', failurePayload)
+    : await db.rpc('fail_manual_report_generation', failurePayload);
   if (error) {
     console.error('phase1_generation_failure_persistence', {
       attemptId,
@@ -297,13 +331,23 @@ async function resolveFinalisationOutcome(
   }
 }
 
-async function verifyPrivateObject(db: any, bucket: string, path: string, expectedChecksum: string, expectedSize: number) {
+async function verifyPrivateObject(
+  db: any,
+  bucket: string,
+  path: string,
+  expectedChecksum: string,
+  expectedSize: number,
+  expectedMimeType?: string,
+  expectedMagic?: string
+) {
   const { data, error } = await db.storage.from(bucket).download(path);
   if (error || !data) {
     throw new Phase1GenerationError('stored_file_missing', 'The generated PDF could not be read back from private storage.', 500);
   }
   const stored = Buffer.from(await data.arrayBuffer());
-  if (stored.length !== expectedSize) {
+  if (stored.length !== expectedSize
+    || (expectedMagic && stored.subarray(0, expectedMagic.length).toString('ascii') !== expectedMagic)
+    || (expectedMimeType && data.type && data.type !== expectedMimeType)) {
     throw new Phase1GenerationError('storage_integrity_failed', 'The stored PDF size does not match the generated output.', 500);
   }
   const checksum = crypto.createHash('sha256').update(stored).digest('hex');
@@ -323,6 +367,30 @@ function assertValidPdf(bytes: Buffer, technicalReference: string) {
   }
 }
 
+function assertDeterministicAssessmentEvidence(
+  data: Awaited<ReturnType<typeof assembleReportData>>,
+  technicalReference: string
+) {
+  if (data.scoreRun.status !== 'completed'
+    || !data.scoreRun.lockedAt
+    || !/^[0-9a-f]{64}$/.test(data.scoreRun.inputHash ?? '')
+    || data.orderAssessmentId !== data.assessmentId
+    || data.scoreRun.assessmentId !== data.assessmentId
+    || data.currentScoreRunId !== data.scoreRun.id
+    || data.productCode !== 'essential_self_assessment'
+    || data.expectedDomainResultCount <= 0
+    || data.actualDomainResultCount !== data.expectedDomainResultCount
+    || data.expectedQuestionTraceCount <= 0
+    || data.actualQuestionTraceCount !== data.expectedQuestionTraceCount) {
+    throw new Phase1GenerationError(
+      'assessment_incomplete',
+      'The assessment evidence is incomplete or its locked score cannot be proven.',
+      409,
+      technicalReference
+    );
+  }
+}
+
 export async function generateManualPhase1Report(
   input: ManualGenerationInput,
   dependencies: ManualPhase1Dependencies = {}
@@ -335,6 +403,10 @@ export async function generateManualPhase1Report(
   }
 
   const db = dependencies.db ?? (createSupabaseServiceClient() as any);
+  const assessmentReference = 'assessmentReference' in input ? input.assessmentReference : null;
+  const orderReference = 'orderReference' in input ? input.orderReference : null;
+  const assessmentScoped = assessmentReference !== null;
+  const targetReference = assessmentReference ?? orderReference ?? 'unknown-target';
   const doAssembleReportData = dependencies.assembleReportData ?? assembleReportData;
   const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
   const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
@@ -350,12 +422,20 @@ export async function generateManualPhase1Report(
 
   const claimRequest = input.action === 'payment_confirmation'
     ? db.rpc('claim_payment_report_generation', {
-      p_order_reference: input.orderReference,
+      p_order_reference: orderReference,
       p_request_key: requestKey,
       p_technical_reference: technicalReference
     })
+    : assessmentScoped
+      ? db.rpc('claim_assessment_manual_report_generation', {
+        p_assessment_reference: assessmentReference,
+        p_requested_by: input.requestedBy,
+        p_request_key: requestKey,
+        p_trigger_source: input.action,
+        p_technical_reference: technicalReference
+      })
     : db.rpc('claim_manual_report_generation', {
-      p_order_reference: input.orderReference,
+      p_order_reference: orderReference,
       p_requested_by: input.requestedBy,
       p_request_key: requestKey,
       p_trigger_source: input.action,
@@ -368,7 +448,7 @@ export async function generateManualPhase1Report(
     if (claim.reason === 'already_active') {
       throw new Phase1GenerationError(
         'generation_already_active',
-        'Report generation is already in progress for this order.',
+        `Report generation is already in progress for this ${assessmentScoped ? 'assessment' : 'order'}.`,
         409,
         technicalReference
       );
@@ -401,7 +481,7 @@ export async function generateManualPhase1Report(
     if (claim.reason === 'idempotent_replay' && ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(claim.attempt?.status)) {
       throw new Phase1GenerationError(
         'generation_already_active',
-        'Report generation is already in progress for this order.',
+        `Report generation is already in progress for this ${assessmentScoped ? 'assessment' : 'order'}.`,
         409,
         technicalReference
       );
@@ -436,17 +516,26 @@ export async function generateManualPhase1Report(
     // transition itself. It says so, and the start RPC -- which only moves a QUEUED row --
     // is skipped rather than being called against a state it would reject.
     if (!claim.generation_started) {
-      const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
+      const startResult = assessmentScoped
+        ? await db.rpc('start_assessment_manual_report_generation', { p_attempt_id: attemptId })
+        : await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
+      const { error: startError } = startResult;
       if (startError) throw mapRpcFailure(startError, technicalReference);
     }
 
     generationStage = 'assemble_report';
     let reportType;
     try {
-      assembled = await doAssembleReportData(input.orderReference);
-      reportType = doValidateEntitlement(assembled);
+      assembled = await doAssembleReportData(assessmentScoped
+        ? { assessmentReference: assessmentReference! }
+        : orderReference!);
+      if (assessmentScoped) assertDeterministicAssessmentEvidence(assembled, technicalReference);
+      reportType = assessmentScoped
+        ? 'essential_self_assessment'
+        : doValidateEntitlement(assembled);
       logPremiumReportPhase({ phase: 'evidence_assembled', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
     } catch (error) {
+      if (error instanceof Phase1GenerationError) throw error;
       throw mapPreflightFailure(error, technicalReference);
     }
     // Use the versioned reference (e.g. "...-V2") everywhere, including the
@@ -454,7 +543,7 @@ export async function generateManualPhase1Report(
     // reports.report_reference value stored for this version instead of the
     // bare assessment reference assembleReportData() defaults to.
     const reportAssessmentReference = reportType === 'essential_self_assessment'
-      ? assembled.assessmentReference.replace('-COMP-', '-ESS-')
+      ? assembled.assessmentReference.replaceAll('-COMP-', '-ESS-')
       : assembled.assessmentReference;
     assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;
 
@@ -557,13 +646,13 @@ export async function generateManualPhase1Report(
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
         console.info('comprehensive_manual_generation', {
           technicalReference,
-          orderReference: input.orderReference,
+          orderReference: targetReference,
           providerCalls: comprehensive.interpretationRun.accounting.calls,
           repairs: comprehensive.interpretationRun.accounting.repairs,
           model: comprehensive.interpretationRun.accounting.model
         });
       } catch (error) {
-        console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
+        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
         throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
       }
     } else {
@@ -582,7 +671,7 @@ export async function generateManualPhase1Report(
       });
       essentialNarrative = composed.narrative;
       console.info('essential_manuscript_generation', {
-        technicalReference, orderReference: input.orderReference, stage: 'accepted',
+        technicalReference, orderReference: targetReference, stage: 'accepted',
         model: composed.manuscript.writerMetadata?.model,
         generationId: composed.manuscript.writerMetadata?.generationId,
         totalTokens: composed.manuscript.writerMetadata?.totalTokens,
@@ -595,12 +684,12 @@ export async function generateManualPhase1Report(
       // accounting only existed on the returned result.
       const diagnostics = (error as { diagnostics?: Record<string, unknown> })?.diagnostics;
       if (diagnostics) {
-        console.error('essential_manuscript_generation', { technicalReference, orderReference: input.orderReference, ...diagnostics });
+        console.error('essential_manuscript_generation', { technicalReference, orderReference: targetReference, ...diagnostics });
       }
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,
-          orderReference: input.orderReference,
+          orderReference: targetReference,
           violationCodes: error.violations.map((issue) => issue.code),
           warningCodes: error.warnings.map((issue) => issue.code),
           violationCount: error.violations.length
@@ -646,7 +735,7 @@ export async function generateManualPhase1Report(
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,
-          orderReference: input.orderReference,
+          orderReference: targetReference,
           violationCodes: error.violations.map((issue) => issue.code),
           warningCodes: error.warnings.map((issue) => issue.code),
           violationCount: error.violations.length
@@ -655,7 +744,7 @@ export async function generateManualPhase1Report(
         throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
       }
       if (error instanceof Phase1GenerationError) throw error;
-      console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'render', error: messageOf(error) });
+      console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'render', error: messageOf(error) });
       throw new Phase1GenerationError('pdf_render_failed', 'The PDF renderer failed. Retry generation or inspect the technical reference.', 500, technicalReference);
     }
     assertValidPdf(pdf, technicalReference);
@@ -666,19 +755,26 @@ export async function generateManualPhase1Report(
     const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
     storageBucket = 'generated-reports';
-    storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
+    const storageScopeId = assembled.orderId ?? assembled.assessmentId;
+    storagePath = `${assembled.organisationId}/${storageScopeId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
 
     logPremiumReportPhase({ phase: 'storage_publication_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
     const { error: uploadError } = await db.storage.from(storageBucket).upload(storagePath, pdf, {
       contentType: 'application/pdf',
       upsert: false,
-      metadata: { sha256: checksum, reportReference, orderId: assembled.orderId }
+      metadata: {
+        sha256: checksum,
+        reportReference,
+        orderId: assembled.orderId,
+        assessmentId: assembled.assessmentId,
+        reportVersion: versionNumber
+      }
     });
     if (uploadError) {
       throw new Phase1GenerationError('storage_upload_failed', 'The PDF could not be stored in private report storage.', 500, technicalReference);
     }
     pdfUploaded = true;
-    await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
+    await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length, 'application/pdf', '%PDF');
     logPremiumReportPhase({ phase: 'storage_publication_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
 
     // Essential is a PDF-only package. Comprehensive retains its separately verified register.
@@ -693,7 +789,7 @@ export async function generateManualPhase1Report(
         projection: essentialProjection,
         storageBucket,
         organisationId: assembled.organisationId,
-        orderId: assembled.orderId,
+        orderId: assembled.orderId!,
         versionNumber,
         verifyStoredObject: verifyPrivateObject
       });
@@ -714,6 +810,17 @@ export async function generateManualPhase1Report(
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
     finalisationInvoked = true;
+    const completionPayload = {
+      p_attempt_id: attemptId,
+      p_template_id: template.id,
+      p_report_type: reportType,
+      p_storage_bucket: storageBucket,
+      p_storage_path: storagePath,
+      p_file_name: fileName,
+      p_mime_type: 'application/pdf',
+      p_file_size_bytes: pdf.length,
+      p_checksum: checksum
+    };
     const completionRequest = isComprehensive
       ? db.rpc('finalise_manual_report_with_supporting_register', {
         p_attempt_id: attemptId,
@@ -731,17 +838,9 @@ export async function generateManualPhase1Report(
         p_register_file_size_bytes: storedRegister!.fileSizeBytes,
         p_register_checksum: storedRegister!.checksumSha256
       })
-      : db.rpc('complete_manual_report_generation', {
-        p_attempt_id: attemptId,
-        p_template_id: template.id,
-        p_report_type: reportType,
-        p_storage_bucket: storageBucket,
-        p_storage_path: storagePath,
-        p_file_name: fileName,
-        p_mime_type: 'application/pdf',
-        p_file_size_bytes: pdf.length,
-        p_checksum: checksum
-      });
+      : assessmentScoped
+        ? db.rpc('complete_assessment_manual_report_generation', completionPayload)
+        : db.rpc('complete_manual_report_generation', completionPayload);
     const { data: completed, error: completeError } = await completionRequest;
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
@@ -757,7 +856,12 @@ export async function generateManualPhase1Report(
         hint: completeError?.hint,
         code: completeError?.code
       });
-      throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
+      throw new Phase1GenerationError(
+        'report_persistence_failed',
+        `The verified PDF could not be linked to the ${assessmentScoped ? 'assessment' : 'order'}.`,
+        500,
+        technicalReference
+      );
     }
     // Committed. From here the PDF (and, for Comprehensive, its register) is a customer artefact;
     // generation-failure cleanup must never delete committed output.
@@ -855,7 +959,7 @@ export async function generateManualPhase1Report(
     // established -- the database may already hold a committed REPORT_READY transaction the client
     // simply cannot read. Both cases emit reconciliation-required evidence instead of mutating.
     if (finalisationOutcome === 'not_committed') {
-      await recordFailure(db, attemptId, mapped.reason, mapped.message);
+      await recordFailure(db, attemptId, mapped.reason, mapped.message, assessmentScoped);
     } else {
       console.error('phase1_finalisation_reconciliation_required', {
         technicalReference,

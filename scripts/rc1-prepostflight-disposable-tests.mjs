@@ -235,7 +235,22 @@ async function replayBaseline() {
   const productionExcluded = new Set([
     '20260805200000_pre_g30_ai_timeout_window.sql',
     '20260806090000_pre_g30_ai_budget_diagnostics.sql',
-    '20260806143000_pre_g30_structured_output_release_gate.sql'
+    '20260806143000_pre_g30_structured_output_release_gate.sql',
+    // These ten files reconstruct the later Preview/Staging live ledger. They are covered by
+    // release-v12-migration-replay.sh, but are not part of the accepted RC1 Production replay.
+    '20260820120000_comprehensive_automated_launch_closure.sql',
+    '20260821090000_adaptive_v1_2_staging_activation.sql',
+    '20260821102116_customer_conversion_interim_closure.sql',
+    '20260821113000_interim_manual_fulfilment_transition.sql',
+    '20260821170050_comprehensive_finalisation_rpc_contract_fix.sql',
+    '20260821181032_canonical_preview_staging_project_rebind.sql',
+    '20260824130345_essential_report_reference_v1.sql',
+    '20260824135232_retire_rc1_operational_gating.sql',
+    '20260825115921_remove_mfa_aal2_operational_dependency.sql',
+    // The V1.2 forward migration is replayed and contract-tested by the dedicated release
+    // harness. Applying it after the RC1 freeze bootstrap would intentionally hit the legacy
+    // operational freeze guard, so it is outside this historical pre/postflight lane.
+    '20260826114407_v12_essential_assessment_admin_generation.sql'
   ]);
   const baseline = files.filter((name) => !pending.includes(name) && !productionExcluded.has(name));
   assert(baseline.length === 34, `expected 34 baseline migrations, got ${baseline.length}`);

@@ -1,4 +1,3 @@
-export const PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF = 'penhenkzfrtmcxklodtu';
 export const PREMIUM_REPORT_DEVELOPMENT_RECIPIENT = 'admin@mkfraud.co.za';
 
 function projectRefFromUrl(value: string | undefined) {
@@ -9,14 +8,19 @@ function projectRefFromUrl(value: string | undefined) {
 export function configuredSupabaseProjectRef(env: NodeJS.ProcessEnv = process.env) {
   return projectRefFromUrl(env.NEXT_PUBLIC_SUPABASE_URL)
     ?? projectRefFromUrl(env.SUPABASE_URL)
-    ?? env.SUPABASE_PROJECT_REF?.trim().toLowerCase()
     ?? null;
+}
+
+function configuredDevelopmentProjectRef(env: NodeJS.ProcessEnv) {
+  const value = env.MK_PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF?.trim().toLowerCase();
+  return value && /^[a-z0-9]+$/.test(value) ? value : null;
 }
 
 export function isPremiumReportDevelopmentMode(env: NodeJS.ProcessEnv = process.env) {
   if (env.VERCEL_ENV?.trim().toLowerCase() !== 'preview') return false;
   if (env.MK_DEVELOPMENT_MODE?.trim().toLowerCase() !== 'enabled') return false;
-  if (configuredSupabaseProjectRef(env) !== PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF) return false;
+  const configuredProjectRef = configuredDevelopmentProjectRef(env);
+  if (!configuredProjectRef || configuredSupabaseProjectRef(env) !== configuredProjectRef) return false;
   if (env.MK_EMAIL_PROVIDER_MODE?.trim().toLowerCase() !== 'test') return false;
   const allowlist = (env.MK_EMAIL_RECIPIENT_ALLOWLIST ?? '')
     .split(',')

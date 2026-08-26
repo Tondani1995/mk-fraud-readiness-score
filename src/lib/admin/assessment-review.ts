@@ -126,7 +126,20 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
     .order('created_at', { ascending: false })
     .limit(20);
 
-  for (const [label, result] of Object.entries({ scoreRunResult, domainResult, answerResult, exposureResult, traceResult, capResult, requestResult, auditResult })) {
+  const reportResult: AdminDataResult<any[]> = await service
+    .from('reports')
+    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at,generated_at')
+    .eq('assessment_id', assessment.id)
+    .eq('report_type', 'essential_self_assessment')
+    .order('version_number', { ascending: false });
+
+  const generationAttemptResult: AdminDataResult<any[]> = await service
+    .from('manual_report_generation_attempts')
+    .select('id,assessment_id,order_id,request_key,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,error_category,safe_operational_error,technical_reference,output_report_id,created_at,updated_at')
+    .eq('assessment_id', assessment.id)
+    .order('created_at', { ascending: false });
+
+  for (const [label, result] of Object.entries({ scoreRunResult, domainResult, answerResult, exposureResult, traceResult, capResult, requestResult, auditResult, reportResult, generationAttemptResult })) {
     if (result.error) console.error(`admin assessment ${label} query failed`, result.error);
   }
 
@@ -154,7 +167,9 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
     questionTraces: traceResult.data ?? [],
     maturityCapEvents: capResult.data ?? [],
     dataRequests: requestResult.data ?? [],
-    auditEvents: auditResult.data ?? []
+    auditEvents: auditResult.data ?? [],
+    reports: reportResult.data ?? [],
+    generationAttempts: generationAttemptResult.data ?? []
   };
 }
 

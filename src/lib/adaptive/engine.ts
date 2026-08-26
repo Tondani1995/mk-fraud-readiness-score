@@ -1,9 +1,3 @@
-export const FROZEN_ADAPTIVE_GRAPH_VERSION = 'MFRS-V1.1-ADAPTIVE-DRAFT-20260804';
-export const FROZEN_ADAPTIVE_GRAPH_FINGERPRINT = 'fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab';
-export const PREVIEW_ADAPTIVE_GRAPH_VERSION = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821';
-export const PREVIEW_STAGING_PROJECT_REF = 'iszihmmbgsfefawqmnwo';
-export const PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT = '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7';
-
 export type AdaptiveCondition =
   | null
   | { questionId: string; equals?: string; in?: string[] }
@@ -59,14 +53,14 @@ export type AdaptiveGraph = {
 };
 
 export function isSupportedAdaptiveGraph(version: string | null | undefined, fingerprint: string | null | undefined) {
-  return (version === FROZEN_ADAPTIVE_GRAPH_VERSION && fingerprint === FROZEN_ADAPTIVE_GRAPH_FINGERPRINT)
-    || (version === PREVIEW_ADAPTIVE_GRAPH_VERSION && fingerprint === PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT);
+  return Boolean(version && /^[0-9a-f]{64}$/.test(fingerprint ?? ''));
 }
 
 function expectedFingerprintForGraph(graph: Pick<AdaptiveGraph, 'graphVersion' | 'graphFingerprint'>) {
-  return graph.graphVersion === FROZEN_ADAPTIVE_GRAPH_VERSION
-    ? FROZEN_ADAPTIVE_GRAPH_FINGERPRINT
-    : PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT;
+  // Graph approval and binding are control-plane responsibilities. The pure engine only checks
+  // that a graph carries a well-formed fingerprint; server callers must compare it with the
+  // activation policy before a customer can start, resume or submit an adaptive assessment.
+  return graph.graphFingerprint;
 }
 
 export type AdaptiveGatewayAnswers = Record<string, string | undefined>;
@@ -131,6 +125,11 @@ const STANDALONE_OVERSIGHT_RULES = [
   { variantId: 'OV-G07', replaces: 'D7-Q07', gatewayId: 'G07', values: ['outsourced', 'shared_service'] }
 ] as const;
 
+function usesCompleteProfileBlock(graph: AdaptiveGraph) {
+  const gatewayBlocks = (graph as AdaptiveGraph & { gatewayBlocks?: unknown[] }).gatewayBlocks;
+  return Array.isArray(gatewayBlocks) && gatewayBlocks.length > 4;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -171,7 +170,8 @@ export function validateAdaptiveGraph(graph: AdaptiveGraph, expectedFingerprint?
     if (typeof condition.questionId !== 'string' || !gatewayIds.has(condition.questionId)) errors.push(`${path}:unknown_gateway`);
   };
 
-  if (graph.graphFingerprint !== (expectedFingerprint ?? expectedFingerprintForGraph(graph))) errors.push('graph_fingerprint_mismatch');
+  const expected = expectedFingerprint ?? expectedFingerprintForGraph(graph);
+  if (!graph.graphFingerprint || graph.graphFingerprint !== expected || !/^[0-9a-f]{64}$/.test(graph.graphFingerprint)) errors.push('graph_fingerprint_mismatch');
   if (!graph.graphVersion || graph.status === 'retired') errors.push('graph_invalid_status');
   for (const gateway of graph.gateways) visitCondition(gateway.conditionalWhen ?? null, `${gateway.questionId}.conditionalWhen`);
   for (const question of graph.questions) {
@@ -210,7 +210,10 @@ function orderedGatewayIds(graph: AdaptiveGraph, gatewayAnswers: AdaptiveGateway
     const gateway = graph.gateways.find((item) => item.questionId === id);
     return !gateway?.conditionalWhen || evaluateAdaptiveCondition(gateway.conditionalWhen, gatewayAnswers);
   });
-  if (graph.graphVersion === PREVIEW_ADAPTIVE_GRAPH_VERSION) return visible;
+  // V1.2 candidate graphs carry a complete profile block. Older draft graphs use the legacy
+  // staged gateway layout. This is deliberately shape-based so a future graph version is selected
+  // by its persisted graph contract, not by a permanent Preview/version literal in business code.
+  if (usesCompleteProfileBlock(graph)) return visible;
   const blocks = Object.values(GATEWAY_BLOCKS).flat();
   return [...PROFILE_GATEWAYS.filter((id) => visible.includes(id)), ...visible.filter((id) => !PROFILE_GATEWAYS.includes(id) && !blocks.includes(id))];
 }
@@ -292,7 +295,7 @@ export function resolveAdaptivePath(input: {
 
   const domains = graph.domains.slice().sort((a, b) => a.sortOrder - b.sortOrder);
   for (const domain of domains) {
-    if (graph.graphVersion !== PREVIEW_ADAPTIVE_GRAPH_VERSION) {
+    if (!usesCompleteProfileBlock(graph)) {
       for (const gatewayId of GATEWAY_BLOCKS[domain.domainCode] ?? []) pushGateway(gatewayId);
     }
     pushDomain(domain.domainCode);
@@ -333,8 +336,7 @@ export function previewGatewayChange(input: { graph: AdaptiveGraph; currentAnswe
 
 export function deriveAdaptiveIntegritySignals(input: { graph: AdaptiveGraph; path: AdaptiveResolvedPath; navigation: { currentQuestionId: string | null; currentScreen: string }; gatewayAnswers: AdaptiveGatewayAnswers }): AdaptiveIntegritySignal[] {
   const signals: AdaptiveIntegritySignal[] = [];
-  const expectedFingerprint = expectedFingerprintForGraph(input.graph);
-  if (input.graph.graphFingerprint !== expectedFingerprint) signals.push({ signalId: 'graph_mismatch', detail: { expected: expectedFingerprint, actual: input.graph.graphFingerprint }, blocking: true });
+  if (!isSupportedAdaptiveGraph(input.graph.graphVersion, input.graph.graphFingerprint)) signals.push({ signalId: 'graph_mismatch', detail: { expected: '64-character graph fingerprint', actual: input.graph.graphFingerprint }, blocking: true });
   if (input.path.currentNextNode && !input.path.nodes.some((node) => node.nodeId === input.path.currentNextNode)) signals.push({ signalId: 'path_accounting_mismatch', detail: {}, blocking: true });
   if (input.navigation.currentQuestionId && !input.path.nodes.some((node) => node.nodeId === input.navigation.currentQuestionId)) signals.push({ signalId: 'stale_navigation_state', detail: { currentQuestionId: input.navigation.currentQuestionId }, blocking: true });
   if (input.path.unansweredApplicableCount > 0) signals.push({ signalId: 'incomplete_applicable_controls', detail: { count: input.path.unansweredApplicableCount }, blocking: true });

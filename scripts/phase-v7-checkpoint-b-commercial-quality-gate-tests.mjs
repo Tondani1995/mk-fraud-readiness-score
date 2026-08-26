@@ -20,9 +20,11 @@ import {
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
 import { gapKey } from '../src/lib/reports/select-content-blocks.ts';
 import { generateManualPhase1Report, Phase1GenerationError } from '../src/lib/reports/phase1-manual-fulfilment.ts';
+import { buildBlueprintMarkdownSkeleton } from '../src/lib/reports/narrative/blueprint-text.ts';
 import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org-fixture.ts';
 import { officialResponseLabelsFixture } from '../src/lib/reports/evidence-model/__fixtures__/official-response-labels.ts';
 
@@ -67,7 +69,7 @@ const DOMAIN_NAMES = {
 function buildCommerciallyViolatingFixture() {
   const domainResults = Object.entries(DOMAIN_NAMES).map(([domainCode, domainName], i) => ({
     domainCode, domainName, weightPct: 10, rawScore: 55, weightedContribution: 5.5,
-    coveragePct: 100, criticalGapCount: i === 0 ? 1 : 0
+    coveragePct: 100, criticalGapCount: i === 7 ? 1 : 0
   }));
 
   return {
@@ -90,14 +92,14 @@ function buildCommerciallyViolatingFixture() {
     officialResponseLabels: officialResponseLabelsFixture,
     exposureAnswers: [],
     criticalMajorGaps: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
-      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1,
-      isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+      questionCode: 'D8-Q02', domainCode: 'D8', domainName: DOMAIN_NAMES.D8,
+      prompt: 'Systems or digital platforms are monitored for suspicious activity such as unusual login, access, profile, transaction or account behaviour.', responseValue: 0,
+      isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false
     }],
     questionTraces: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
-      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1, normalisedScore: 20,
-      applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+      questionCode: 'D8-Q02', domainCode: 'D8', domainName: DOMAIN_NAMES.D8,
+      prompt: 'Systems or digital platforms are monitored for suspicious activity such as unusual login, access, profile, transaction or account behaviour.', responseValue: 0, normalisedScore: 0,
+      applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false
     }],
     maturityCapEvents: [],
     recommendationRules: [],
@@ -211,6 +213,12 @@ function buildCommerciallyPassingFixture() {
   return { data, content, roadmap };
 }
 
+function buildBoundedRoadmap(data) {
+  const model = buildAdvisoryEvidenceModel(data);
+  const projection = buildEssentialProjection(data, model);
+  return adaptAdvisoryRoadmapToLegacyAgenda(projection.roadmapActions);
+}
+
 /**
  * Warnings-only payload used to prove items 11/12/13 of the Checkpoint B brief. Building this from
  * scratch with empty domainResults/criticalMajorGaps is not viable -- the evidence model's scenario
@@ -280,7 +288,7 @@ function createRecordingDb(overrides = {}) {
     },
     fail_manual_report_generation: { data: { ok: true }, error: null },
     record_manual_report_narrative_provenance: { data: { ok: true }, error: null },
-    finalise_manual_report_with_supporting_register: {
+    complete_manual_report_generation: {
       data: {
         report: { id: 'report-1', report_reference: 'RPT-TEST-2026-CPB-PASSING', version_number: 1 },
         superseded_report_id: null
@@ -383,6 +391,50 @@ async function fakePrepareNarrative(input) {
     validation: { ok: true, issues: [], checkedAt: new Date(0).toISOString(), schemaVersion: input.flags.schemaVersion },
     fallbackReason: 'ai_feature_disabled'
   };
+}
+
+// The accepted Essential orchestration now uses the whole-manuscript writer seam directly.
+// Keep this checkpoint credential-free by supplying a structurally complete writer double rather
+// than silently reopening the retired section-by-section narrative adapter.
+function createPassingWholeManuscriptWriter() {
+  const writer = {
+    provider: 'test-injected',
+    model: 'test-injected-model',
+    promptVersion: 'test-injected-prompt',
+    async writeManuscript(input) {
+      const skeleton = buildBlueprintMarkdownSkeleton(input.blueprint);
+      const markdown = skeleton.headings.map((heading) =>
+        `${'#'.repeat(heading.level)} ${heading.title}\n\nThis section records a bounded management implication grounded in the persisted assessment evidence.`
+      ).join('\n\n');
+      return {
+        contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+        architecture: 'whole-manuscript',
+        markdown,
+        blueprint: input.blueprint,
+        writerMetadata: {
+          contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+          architecture: 'whole-manuscript',
+          provider: 'test-injected',
+          model: 'test-injected-model',
+          promptVersion: 'test-injected-prompt',
+          generationMode: 'test-injected',
+          generatedAt: new Date(0).toISOString(),
+          inputFactPackSha256: 'a'.repeat(64),
+          inputStoryPlanSha256: 'b'.repeat(64),
+          recovery: {
+            initialGenerationCount: 1, targetedRepairCount: 0, fullRegenerationCount: 0,
+            qualityEscalationCount: 0, coherenceCount: 0, technicalFallbackCount: 0,
+            truncationContinuationCount: 0, totalCalls: 1, totalTokens: 0,
+            totalProviderCostMicros: 0
+          }
+        }
+      };
+    },
+    async completeTail() { throw new Error('test writer tail completion was not expected'); },
+    async repairBlock() { throw new Error('test writer repair was not expected'); },
+    async coherencePass() { throw new Error('test writer coherence pass was not expected'); }
+  };
+  return writer;
 }
 
 console.log('V7 Checkpoint B -- commercial quality gate suite');
@@ -493,7 +545,8 @@ test('A11/A12. A warnings-only payload does not throw, and warnings do not cause
 });
 
 test('A13/A14. Warnings are logged exactly once, with only safe structured fields (no full report payload)', () => {
-  const { data, content, roadmap } = buildWarningsOnlyPayload();
+  const { data, content } = buildWarningsOnlyPayload();
+  const roadmap = buildBoundedRoadmap(data);
   const originalWarn = console.warn;
   const warnCalls = [];
   console.warn = (...args) => warnCalls.push(args);
@@ -519,7 +572,7 @@ test('A13/A14. Warnings are logged exactly once, with only safe structured field
 // injected recording spies.
 // ------------------------------------------------------------------------------------------------
 
-function makeRenderSpies({ pdfShouldReject = false, pdfBytes = Buffer.from('%PDF-fake') } = {}) {
+function makeRenderSpies({ pdfShouldReject = false, pdfBytes = Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) } = {}) {
   const calls = { html: 0, pdf: 0 };
   return {
     calls,
@@ -539,7 +592,8 @@ function makeRenderSpies({ pdfShouldReject = false, pdfBytes = Buffer.from('%PDF
 }
 
 await asyncTest('B1/B2. HTML preparation and PDF rendering are each called exactly once for a passing payload', async () => {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data, content } = buildCommerciallyPassingFixture();
+  const roadmap = buildBoundedRoadmap(data);
   const { calls, dependencies } = makeRenderSpies();
   const pdf = await renderValidatedCommercialPdf({ data, content, roadmap }, dependencies);
   assert.equal(calls.html, 1);
@@ -560,7 +614,8 @@ await asyncTest('B3/B4. PDF rendering is NOT called on a commercial-quality viol
 });
 
 await asyncTest('B5. A renderer exception (not a quality failure) still propagates, and is distinguishable from ReportCommercialQualityError', async () => {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data, content } = buildCommerciallyPassingFixture();
+  const roadmap = buildBoundedRoadmap(data);
   const { calls, dependencies } = makeRenderSpies({ pdfShouldReject: true });
   await assert.rejects(async () => {
     try {
@@ -575,7 +630,8 @@ await asyncTest('B5. A renderer exception (not a quality failure) still propagat
 });
 
 await asyncTest('B6. Warnings-only output follows the normal render path (resolves, does not throw)', async () => {
-  const { data, content, roadmap } = buildWarningsOnlyPayload();
+  const { data, content } = buildWarningsOnlyPayload();
+  const roadmap = buildBoundedRoadmap(data);
   const { calls, dependencies } = makeRenderSpies();
   const pdf = await renderValidatedCommercialPdf({ data, content, roadmap }, dependencies);
   assert.ok(Buffer.isBuffer(pdf));
@@ -594,26 +650,28 @@ await asyncTest('B6. Warnings-only output follows the normal render path (resolv
 await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/completion RPC, previous report untouched, failure RPC called once with commercial_quality_failed, no cleanup needed', async () => {
   const violatingData = buildCommerciallyViolatingFixture();
   const violatingContent = emptySelectedContentFor(violatingData);
+  const { data: passingData } = buildCommerciallyPassingFixture();
   const { db, calls } = createRecordingDb();
 
   await assert.rejects(
     () => generateManualPhase1Report(
-      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'req-key-violating', action: 'admin_generate' },
+      { orderReference: passingData.orderReference, requestedBy: 'admin-1', requestKey: 'req-key-violating', action: 'admin_generate' },
       {
         db,
-        assembleReportData: fakeAssembleReportData(violatingData),
+        assembleReportData: fakeAssembleReportData(passingData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
-        renderValidatedCommercialPdf: async ({ data }) => {
+        wholeManuscriptWriter: createPassingWholeManuscriptWriter(),
+        renderValidatedCommercialPdf: async () => {
           // Exercise the REAL seam/quality-gate logic (not a stub that just throws) so this proves
           // the actual orchestration, not a contrived rejection. Deliberately ignores the real
           // selectContent()/selectRoadmap() output computed inside generateManualPhase1Report and
           // substitutes the known-violating content/roadmap, so this test's failure is driven
           // entirely by the fixture under test, not by whatever the real content-selection logic
           // happens to produce for a synthetic order reference.
-          return renderValidatedCommercialPdf({ data, content: violatingContent, roadmap: { agenda: [] } });
+          return renderValidatedCommercialPdf({ data: violatingData, content: violatingContent, roadmap: { agenda: [] } });
         }
       }
     ),
@@ -627,7 +685,7 @@ await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/comp
 
   assert.equal(calls.storageUpload.length, 0, 'No storage upload may occur on a quality failure.'); // C1
   assert.equal(calls.storageDownload.length, 0, 'No storage verification may occur on a quality failure.'); // C2
-  const completeCalls = calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register');
+  const completeCalls = calls.rpc.filter((c) => c.name === 'complete_manual_report_generation');
   assert.equal(completeCalls.length, 0, 'The completion RPC must never be called on a quality failure.'); // C3/C4/C5/C6
   const failCalls = calls.rpc.filter((c) => c.name === 'fail_manual_report_generation');
   assert.equal(failCalls.length, 1, 'The failure RPC must be called exactly once.'); // C7
@@ -638,19 +696,21 @@ await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/comp
 await asyncTest('C10. output_report_id is never observed as set on a quality failure (completion RPC, which would set it, is never reached)', async () => {
   const violatingData = buildCommerciallyViolatingFixture();
   const violatingContent = emptySelectedContentFor(violatingData);
+  const { data: passingData } = buildCommerciallyPassingFixture();
   const { db, calls } = createRecordingDb();
   let sawSuccessfulResult = false;
   try {
     const result = await generateManualPhase1Report(
-      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'c10', action: 'admin_generate' },
+      { orderReference: passingData.orderReference, requestedBy: 'admin-1', requestKey: 'c10', action: 'admin_generate' },
       {
         db,
-        assembleReportData: fakeAssembleReportData(violatingData),
+        assembleReportData: fakeAssembleReportData(passingData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
-        renderValidatedCommercialPdf: async ({ data }) => renderValidatedCommercialPdf({ data, content: violatingContent, roadmap: { agenda: [] } })
+        wholeManuscriptWriter: createPassingWholeManuscriptWriter(),
+        renderValidatedCommercialPdf: async () => renderValidatedCommercialPdf({ data: violatingData, content: violatingContent, roadmap: { agenda: [] } })
       }
     );
     sawSuccessfulResult = !!result.reportId;
@@ -658,8 +718,6 @@ await asyncTest('C10. output_report_id is never observed as set on a quality fai
     // expected
   }
   assert.equal(sawSuccessfulResult, false);
-  assert.equal(calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register').length, 0);
-  // The old two-step completion must never reappear in the paid path.
   assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0);
 });
 
@@ -677,6 +735,7 @@ await asyncTest('C12. A genuine renderer exception (not a quality failure) maps 
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        wholeManuscriptWriter: createPassingWholeManuscriptWriter(),
         renderValidatedCommercialPdf: async () => { throw new Error('Simulated real PDF renderer crash.'); }
       }
     ),
@@ -694,7 +753,7 @@ await asyncTest('C12. A genuine renderer exception (not a quality failure) maps 
 });
 
 await asyncTest('C13. Warnings-only output continues through the normal generation path to REPORT_READY (upload, verify, complete all called)', async () => {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data, content } = buildCommerciallyPassingFixture();
   const { db, calls } = createRecordingDb();
 
   const result = await generateManualPhase1Report(
@@ -706,6 +765,7 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
       getPhase1SchemaCapability: fakeSchemaCapability(),
       getPremiumReportAutomationFlags: fakeAutomationFlags(),
       preparePremiumReportNarrative: fakePrepareNarrative,
+      wholeManuscriptWriter: createPassingWholeManuscriptWriter(),
       // Deliberately substitutes the known-passing content/roadmap from buildCommerciallyPassingFixture()
       // rather than the real selectContent()/selectRoadmap() output computed inside
       // generateManualPhase1Report() from this synthetic fixture (which has no matching
@@ -714,26 +774,24 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
       // orchestration* (claim -> render -> upload -> verify -> complete), which is what Checkpoint B
       // is about, not the PDF binary itself.
       renderValidatedCommercialPdf: async ({ data: d }) => renderValidatedCommercialPdf(
-        { data: d, content, roadmap },
+        { data: d, content, roadmap: buildBoundedRoadmap(d) },
         { renderHtml: renderReportHtml, renderPdf: async () => Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) }
       )
     }
   );
 
   assert.equal(result.reportId, 'report-1');
-  // Per-artefact, not a global count: the PDF and the L3 supporting register are each stored
-  // once and each verified once, in the expected bucket, at their own distinct paths.
+  // Essential is a single private PDF: it is stored and verified once, with no supporting
+  // register or automatic delivery side effect.
   const pdfUploads = calls.storageUpload.filter((c) => c.path.endsWith('.pdf'));
-  const registerUploads = calls.storageUpload.filter((c) => c.path.endsWith('.xlsx'));
   assert.equal(pdfUploads.length, 1);
-  assert.equal(registerUploads.length, 1);
   assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.pdf')).length, 1);
-  assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.xlsx')).length, 1);
-  assert.ok([...pdfUploads, ...registerUploads].every((c) => c.bucket === 'generated-reports'));
-  assert.notEqual(pdfUploads[0].path, registerUploads[0].path);
-  assert.equal(calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register').length, 1);
-  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0,
-    'the paid path must not call the old completion RPC');
+  assert.ok(pdfUploads.every((c) => c.bucket === 'generated-reports'));
+  assert.equal(calls.storageUpload.filter((c) => c.path.endsWith('.xlsx')).length, 0);
+  assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.xlsx')).length, 0);
+  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 1);
+  assert.equal(calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register').length, 0,
+    'Essential must not use the retired register finalisation contract');
   assert.equal(calls.rpc.filter((c) => c.name === 'fail_manual_report_generation').length, 0);
 });
 
@@ -761,20 +819,17 @@ test('D1. No environment variable, flag or parameter bypasses the quality gate f
 });
 
 // ---------------------------------------------------------------------------------------------
-// Section P1B: atomic finalisation failure proofs.
+// Section P1B: Essential PDF-only finalisation failure proofs.
 //
-// A paid Essential report may become current/VERIFIED only when BOTH artefacts are durable and
-// verified. Previously the report was completed first and the register persisted afterwards, so a
-// register failure left a committed report whose PDF the cleanup then deleted. These prove the
-// ordering, the rollback, and -- proofs 10 and 11 -- that a lost RPC response is never mistaken for
-// a failed transaction.
+// Essential has one private PDF artefact. These lifecycle checks prove that PDF upload/readback and
+// the single completion RPC are fail-closed, while Comprehensive's separate atomic register path
+// remains covered by its own settlement/parity tests.
 // ---------------------------------------------------------------------------------------------
-const FINALISE_RPC = 'finalise_manual_report_with_supporting_register';
-const REGISTER_MATCH = 'supporting-register';
+const FINALISE_RPC = 'complete_manual_report_generation';
 const PDF_MATCH = '.pdf';
 
 async function runGeneration(overrides = {}, deps = {}) {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data, content } = buildCommerciallyPassingFixture();
   const { db, calls } = createRecordingDb(overrides);
   let result = null;
   let error = null;
@@ -788,10 +843,11 @@ async function runGeneration(overrides = {}, deps = {}) {
         getPhase1SchemaCapability: fakeSchemaCapability(),
         getPremiumReportAutomationFlags: fakeAutomationFlags(),
         preparePremiumReportNarrative: fakePrepareNarrative,
+        wholeManuscriptWriter: createPassingWholeManuscriptWriter(),
         // Same shape C13 uses: the PDF renderer is faked (no real Chromium) and emits the exact
         // bytes the storage double stores, so checksum/size verification is genuine.
         renderValidatedCommercialPdf: async ({ data: d }) => renderValidatedCommercialPdf(
-          { data: d, content, roadmap },
+          { data: d, content, roadmap: buildBoundedRoadmap(d) },
           { renderHtml: renderReportHtml, renderPdf: async () => Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) }
         ),
         ...deps
@@ -805,8 +861,6 @@ const removedPaths = (calls) => calls.storageRemove.flatMap((c) => c.paths ?? []
 const assertNoFinalReport = (result, calls, label) => {
   assert.equal(result, null, `${label}: no successful result may be returned`);
   assert.equal(finaliseCalls(calls).length, 0, `${label}: finalisation must not be reached`);
-  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0,
-    `${label}: the old completion RPC must never be used`);
 };
 
 await asyncTest('P1B-1. PDF upload failure leaves no final report', async () => {
@@ -819,21 +873,28 @@ await asyncTest('P1B-2. PDF verification failure leaves no final report', async 
   assertNoFinalReport(result, calls, 'P1B-2');
 });
 
-await asyncTest('P1B-3. XLSX build failure leaves no final report', async () => {
-  const { result, calls } = await runGeneration({}, {
-    buildAndStoreSupportingRegister: async () => { throw new Error('injected workbook build failure'); }
+await asyncTest('P1B-3. Essential does not invoke the Comprehensive supporting-register builder', async () => {
+  const { result, error, calls } = await runGeneration({}, {
+    buildAndStoreSupportingRegister: async () => { throw new Error('the Essential path must not build a workbook'); }
   });
-  assertNoFinalReport(result, calls, 'P1B-3');
+  assert.equal(error, null, `P1B-3: unexpected error ${error?.message}`);
+  assert.ok(result?.reportId, 'P1B-3: Essential PDF generation should succeed without a register');
+  assert.equal(calls.storageUpload.filter((c) => c.path.endsWith('.xlsx')).length, 0);
+  assert.equal(finaliseCalls(calls).length, 1);
 });
 
-await asyncTest('P1B-4. XLSX upload failure leaves no final report', async () => {
-  const { result, calls } = await runGeneration({ failUploadMatching: REGISTER_MATCH });
-  assertNoFinalReport(result, calls, 'P1B-4');
+await asyncTest('P1B-4. A register-shaped upload failure cannot affect Essential PDF generation', async () => {
+  const { result, error, calls } = await runGeneration({ failUploadMatching: '.xlsx' });
+  assert.equal(error, null, `P1B-4: unexpected error ${error?.message}`);
+  assert.ok(result?.reportId, 'P1B-4: Essential PDF generation should not attempt an XLSX upload');
+  assert.equal(calls.storageUpload.filter((c) => c.path.endsWith('.xlsx')).length, 0);
 });
 
-await asyncTest('P1B-5. XLSX verification failure leaves no final report', async () => {
-  const { result, calls } = await runGeneration({ corruptDownloadMatching: REGISTER_MATCH });
-  assertNoFinalReport(result, calls, 'P1B-5');
+await asyncTest('P1B-5. A register-shaped verification failure cannot affect Essential PDF generation', async () => {
+  const { result, error, calls } = await runGeneration({ corruptDownloadMatching: '.xlsx' });
+  assert.equal(error, null, `P1B-5: unexpected error ${error?.message}`);
+  assert.ok(result?.reportId, 'P1B-5: Essential PDF generation should not attempt an XLSX readback');
+  assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.xlsx')).length, 0);
 });
 
 await asyncTest('P1B-6. finalisation failure before report insert leaves no final report', async () => {
@@ -847,11 +908,11 @@ await asyncTest('P1B-6. finalisation failure before report insert leaves no fina
   });
   assert.equal(result, null, 'P1B-6: no successful result');
   assert.equal(finaliseCalls(calls).length, 1, 'P1B-6: finalisation was attempted exactly once');
-  // Both physical objects were uploaded before finalisation, and reconciliation proves non-commit,
-  // so both are eligible for cleanup.
+  // The PDF was uploaded before finalisation, and reconciliation proves non-commit, so it is
+  // eligible for cleanup.
   const removed = removedPaths(calls);
   assert.ok(removed.some((path) => path.endsWith('.pdf')), 'P1B-6: orphan PDF is cleaned');
-  assert.ok(removed.some((path) => path.includes(REGISTER_MATCH)), 'P1B-6: orphan register is cleaned');
+  assert.equal(removed.filter((path) => path.endsWith('.pdf')).length, 1, 'P1B-6: exactly one orphan PDF is cleaned');
 });
 
 await asyncTest('P1B-7/8. artefact insert failure inside the transaction rolls back; previous version survives', async () => {
@@ -869,24 +930,24 @@ await asyncTest('P1B-7/8. artefact insert failure inside the transaction rolls b
     'P1B-8: the caller never supersedes outside the atomic transaction');
 });
 
-await asyncTest('P1B-9. success yields one atomic finalisation and both objects intact', async () => {
+await asyncTest('P1B-9. success yields one PDF upload, one readback and one completion', async () => {
   const { result, error, calls } = await runGeneration();
   assert.equal(error, null, `P1B-9: unexpected error ${error?.message}`);
   assert.ok(result?.reportId, 'P1B-9: a report must be returned');
-  assert.equal(finaliseCalls(calls).length, 1, 'P1B-9: exactly one atomic finalisation');
+  assert.equal(finaliseCalls(calls).length, 1, 'P1B-9: exactly one completion');
   const uploads = calls.storageUpload.map((c) => c.path);
   assert.ok(uploads.some((path) => path.endsWith('.pdf')), 'P1B-9: PDF uploaded');
-  assert.ok(uploads.some((path) => path.includes(REGISTER_MATCH)), 'P1B-9: register uploaded');
+  assert.equal(uploads.filter((path) => path.endsWith('.xlsx')).length, 0, 'P1B-9: no register uploaded');
   assert.equal(removedPaths(calls).length, 0, 'P1B-9: nothing is deleted on success');
-  // Both artefacts are verified by re-download before finalisation.
+  // The PDF is verified by re-download before finalisation.
   const downloads = calls.storageDownload.map((c) => c.path);
   assert.ok(downloads.some((path) => path.endsWith('.pdf')), 'P1B-9: PDF verified from storage');
-  assert.ok(downloads.some((path) => path.includes(REGISTER_MATCH)), 'P1B-9: register verified from storage');
+  assert.equal(downloads.filter((path) => path.endsWith('.xlsx')).length, 0, 'P1B-9: no register readback');
 });
 
-await asyncTest('P1B-10. committed transaction with a lost response preserves both artefacts', async () => {
+await asyncTest('P1B-10. committed transaction with a lost response preserves the PDF', async () => {
   // The RPC commits, then the response is lost. Authoritative reconciliation must detect
-  // REPORT_READY and keep both objects, and must not persist a failure over a committed attempt.
+  // REPORT_READY and keep the PDF, and must not persist a failure over a committed attempt.
   const committedReportId = 'report-committed-1';
   const { result, calls } = await runGeneration({
     rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'fetch failed: socket hang up' } } },
@@ -902,7 +963,7 @@ await asyncTest('P1B-10. committed transaction with a lost response preserves bo
   assert.equal(finaliseCalls(calls).length, 1, 'P1B-10: no duplicate finalisation');
 });
 
-await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes nothing', async () => {
+await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes no PDF', async () => {
   const { result, calls } = await runGeneration({
     rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'statement timeout' } } },
     tableResponses: {
@@ -911,7 +972,7 @@ await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes 
   });
   assert.equal(result, null, 'P1B-11: no customer success may be claimed');
   assert.equal(removedPaths(calls).length, 0,
-    'P1B-11: uncertainty must retain both private orphan candidates rather than delete them');
+    'P1B-11: uncertainty must retain the private PDF candidate rather than delete it');
   assert.equal(finaliseCalls(calls).length, 1, 'P1B-11: exactly one finalisation attempt, no retry');
   // The database may already hold a committed REPORT_READY transaction the client cannot read, so
   // no mutation may assume a rollback that was never established.

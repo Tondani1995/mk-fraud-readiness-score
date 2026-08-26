@@ -15,6 +15,7 @@ const base = {
   VERCEL_ENV: 'preview',
   MK_DEVELOPMENT_MODE: 'enabled',
   NEXT_PUBLIC_SUPABASE_URL: 'https://penhenkzfrtmcxklodtu.supabase.co',
+  MK_PREMIUM_REPORT_DEVELOPMENT_PROJECT_REF: 'penhenkzfrtmcxklodtu',
   MK_EMAIL_PROVIDER_MODE: 'test',
   MK_EMAIL_RECIPIENT_ALLOWLIST: 'admin@mkfraud.co.za',
 };

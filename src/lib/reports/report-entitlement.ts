@@ -177,7 +177,9 @@ export function validatePremiumReportGenerationEntitlement(
 
   const priceEntitlement = validateOrderPriceEntitlement(
     {
-      orderId: assembled.orderId,
+      // This validator is only called by the legacy order adapter. Keep an empty value as a
+      // fail-closed sentinel if a direct assessment target ever reaches this boundary by mistake.
+      orderId: assembled.orderId ?? '',
       productId: assembled.productId,
       amountCents: assembled.amountCents,
       currency: assembled.currency,

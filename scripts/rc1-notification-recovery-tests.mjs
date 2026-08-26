@@ -108,7 +108,13 @@ function run(db, sendEmailImpl) {
       getPhase1SchemaCapability: async () => ({ status: 'available' }),
       requirePhase1SchemaCapability: async () => ({ status: 'available' })
     },
-    '@/lib/notifications/email-provider': { sendEmail: sendEmailImpl },
+    '@/lib/commercial/product-catalogue': {
+      COMPREHENSIVE_PRODUCT_CODE: 'mk_validated_assessment'
+    },
+    '@/lib/notifications/email-provider': {
+      sendEmail: sendEmailImpl,
+      getEmailProviderMode: () => sendEmailImpl === disabled ? 'disabled' : 'live'
+    },
     '@/lib/notifications/message-templates': {
       buildOrderConfirmationMessage: () => MSG,
       buildAdminNewOrderAlertMessage: () => MSG,

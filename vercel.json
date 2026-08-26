@@ -3,6 +3,10 @@
     {
       "path": "/score/api/internal/fulfilment-worker",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/score/api/internal/adaptive-stalled-leads",
+      "schedule": "0 * * * *"
     }
   ]
 }

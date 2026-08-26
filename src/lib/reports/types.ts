@@ -148,8 +148,9 @@ export interface RecommendationRuleRecord {
 }
 
 export interface AssembledReportData {
-  orderId: string;
-  orderReference: string;
+  /** Nullable for the direct assessment-admin path; legacy order generation remains order-bound. */
+  orderId: string | null;
+  orderReference: string | null;
   orderAssessmentId: string;
   assessmentId: string;
   organisationId: string;
@@ -165,7 +166,7 @@ export interface AssembledReportData {
   generatedAt: string;
   packageName: string;
   productCode: string | null;
-  orderStatus: string;
+  orderStatus: string | null;
   amountCents: number | null;
   currency: string | null;
   /**
