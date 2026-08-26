@@ -36,11 +36,12 @@ name: V7 Report Hardening
 # canonical evidence references and checksums; and verifies the evidence builder never activates an
 # AI provider. The aggregate command now runs Checkpoints A, B, C and D.
 #
-# V7 Checkpoints E and F extend the same credential-free gate through active-path AI narrative
-# integration and the real Chromium PDF renderer. Checkpoint F renders four fixed synthetic
-# candidates twice, rasterises every page at 200 DPI, runs the commercial PDF audit and publishes
-# controller-review artifacts. No production data, database credential or external AI provider is
-# used.
+# V7 Checkpoints E and F below are historical evidence only. Reporting Bible v1.1 makes the
+# manuscript-first `composeEssentialManuscript` path authoritative and intentionally disables
+# `preparePremiumReportNarrative()` plus its deterministic fallback, so the former E/F harnesses
+# cannot be mandatory green checks. Their commands remain available as `v7:test-legacy-e` and
+# `v7:test-legacy-f`; the mandatory aggregate replaces their role with current manuscript-first
+# contracts and the real current Chromium PDF certification.
 
 on:
   pull_request:
@@ -87,7 +88,7 @@ jobs:
       - name: Verify AST-derived service-role privilege contract
         run: npm run rc1:analyze-service-role-contract
 
-      - name: Install Checkpoint F PDF inspection dependencies
+      - name: Install current manuscript-first PDF inspection dependencies
         run: |
           sudo apt-get update
           sudo apt-get install --yes poppler-utils
@@ -96,7 +97,7 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
-      - name: Run V7 report-hardening suite (Checkpoints A through F, credential-free)
+      - name: Run V7 report-hardening suite (A-D, playbook coverage, current manuscript-first contracts and Chromium PDF, credential-free)
         # actions/checkout@v4 on a pull_request event checks out the synthetic merge-ref commit
         # (refs/pull/<PR>/merge), not the PR branch tip -- so `git rev-parse HEAD` inside this job
         # returns a commit GitHub never ties the artifact to. V7_ARTIFACT_HEAD_SHA carries the real
@@ -106,29 +107,11 @@ jobs:
           V7_ARTIFACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run v7:test-report-hardening
 
-      # Local and Linux renders differ on font metrics, so the CI page count is the authoritative
-      # commercial measurement. This drives the real composition pipeline over the retained V7
-      # source data with a hard provider guard; it creates no attempt, report, artefact, Storage
-      # object, token or email.
-      - name: Certify the V7-equivalent commercial PDF (no provider)
-        env:
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: npm run pdf:certify-v7-equivalent
-
-      - name: Publish V7-equivalent commercial certification artifacts
+      - name: Publish current manuscript-first Chromium certification artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: essential-v7-equivalent-certification-${{ github.event.pull_request.head.sha || github.sha }}
-          path: tmp/essential-v7-certification/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish Checkpoint F rendered PDF review artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: essential-report-checkpoint-f-${{ github.event.pull_request.head.sha || github.sha }}
-          path: tmp/pdfs/checkpoint-f-artifact/
+          name: essential-manuscript-first-certification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: tmp/v7-current-manuscript-first-certification/
           if-no-files-found: error
           retention-days: 14
