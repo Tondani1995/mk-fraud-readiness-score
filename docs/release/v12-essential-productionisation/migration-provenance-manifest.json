@@ -1,0 +1,91 @@
+{
+  "generated_on": "2026-08-26",
+  "baseline_commit": "bc3b0f69282f8d631272b8dc1bfabee9f4be406f",
+  "canonical_staging_project": "iszihmmbgsfefawqmnwo",
+  "canonical_staging_migration_count": 121,
+  "source_migration_count_after_reconstruction": 121,
+  "ledger_timestamp_note": "schema_migrations exposes no applied_at/created_at column and pg_xact_commit_timestamp is unavailable because track_commit_timestamp is off; exact application timestamps are intentionally not inferred.",
+  "drifted_migrations": [
+    {
+      "version": "20260820120000",
+      "name": "comprehensive_automated_launch_closure",
+      "sql_sha256": "c84e64e2ef84ff99f7abe5a86d01d5f15bee2b7eb8bc5ad4c819ae4f3d6c8cfa",
+      "known_source_commit": "c247e51025ece7c39c7fe5608ca3a9cf868111ae",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "schema/general — shared Comprehensive commercial boundary; not Essential-specific",
+      "provenance_note": "Original SQL recovered from the known Git source."
+    },
+    {
+      "version": "20260821090000",
+      "name": "adaptive_v1_2_staging_activation",
+      "sql_sha256": "59af2e05eeb2d9a0043a609493cc641c03f104acbde9b253b13834c0ac5e1d43",
+      "known_source_commit": "2fdbed796b1aaa36d5a7353b7bff9074a2c7f928",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "historical staging activation — Preview-only V1.2 registration/control RPCs",
+      "provenance_note": "Original SQL recovered from the known Git source; activation data remains a separate environment state overlay."
+    },
+    {
+      "version": "20260821102116",
+      "name": "customer_conversion_interim_closure",
+      "sql_sha256": "e2df7576f8ec922d3f8f2b9283c2e6bbf8ccb7262f01d3e582793fc72b592d00",
+      "known_source_commit": "9711026354ea236b0c24ac1a73d1226c6d49ef7a",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "schema/general — shared conversion/interim fulfilment support",
+      "provenance_note": "Original SQL recovered from the known Git source."
+    },
+    {
+      "version": "20260821113000",
+      "name": "interim_manual_fulfilment_transition",
+      "sql_sha256": "5380e35a736e70650c7912587c03ad0cb8b3bfebff26792a1dc61d4cfc84f9c2",
+      "known_source_commit": "9711026354ea236b0c24ac1a73d1226c6d49ef7a",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "schema/general — interim payment/manual-fulfilment contract",
+      "provenance_note": "Original SQL recovered from the known Git source; automatic fulfilment remains dormant per owner clarification."
+    },
+    {
+      "version": "20260821170050",
+      "name": "comprehensive_finalisation_rpc_contract_fix",
+      "sql_sha256": "ebed1884ea6e4f7d0995804ab4ec2db0b30b8c307fb0a5e7ce0097bd520f7b56",
+      "known_source_commit": "ae3c36d13fa0566e37654266e2b52d0bdb87f9d2",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "schema/general — Comprehensive finalisation RPC contract",
+      "provenance_note": "Original SQL recovered from the known Git source."
+    },
+    {
+      "version": "20260821181032",
+      "name": "canonical_preview_staging_project_rebind",
+      "sql_sha256": "c6a84907b7ccd0aba87910a3f13a170e4ab47769eccaac8919e6cc3175fe11c3",
+      "known_source_commit": "87a0d4161f1882c5e417d125a0fddc3fca33a0d5",
+      "source_branch": "commercial/comprehensive-launch-closure",
+      "classification": "environment-specific state — Preview rebind to canonical staging project",
+      "provenance_note": "Original SQL recovered from the known Git source; never apply this Preview project binding to Production."
+    },
+    {
+      "version": "20260824130345",
+      "name": "essential_report_reference_v1",
+      "sql_sha256": "82e52ba572bdfe1a8de59b8d1d054a1b1e44e84d082d13b9705f3af7c59cb695",
+      "known_source_commit": null,
+      "source_branch": null,
+      "classification": "schema/general — Essential report persistence/reference contract",
+      "provenance_note": "LIVE_LEDGER_RECOVERY — exact SQL restored from canonical Staging ledger; originating Git commit unavailable."
+    },
+    {
+      "version": "20260824135232",
+      "name": "retire_rc1_operational_gating",
+      "sql_sha256": "b7096e54e9040681b43c29181a95da03dee3303a60e5c317f38c15b96c19c424",
+      "known_source_commit": null,
+      "source_branch": null,
+      "classification": "schema/general — RC1 compatibility seam; independent auth/RLS/private-storage controls remain",
+      "provenance_note": "LIVE_LEDGER_RECOVERY — exact SQL restored from canonical Staging ledger; originating Git commit unavailable; security review remains required."
+    },
+    {
+      "version": "20260825115921",
+      "name": "remove_mfa_aal2_operational_dependency",
+      "sql_sha256": "23f22b6e2a44aeadde624a6ef971a1a3a3e20b82d7ec708d00553ba105aa9358",
+      "known_source_commit": "760622cca3fbacf46a0b6b4b324c753b0122ffec",
+      "source_branch": null,
+      "classification": "schema/general — privileged-session contract",
+      "provenance_note": "Canonicalized to the live version/name. SQL is byte-identical to baseline 20260825114500 after filename-only timestamp correction; no duplicate MFA migration is retained."
+    }
+  ]
+}
