@@ -6,12 +6,12 @@ import { ResponseLabelSourceError } from '../src/lib/reports/response-labels.ts'
 import { buildMaterialFindings } from '../src/lib/reports/evidence-model/material-findings.ts';
 import {
   AUTHORITATIVE_QUESTION_MAPPINGS,
-  checkQualityGates,
   getQuestionPlaybook,
   listQuestionPlaybooks
 } from '../src/lib/reports/evidence-model/index.ts';
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { officialResponseLabelsFixture } from '../src/lib/reports/evidence-model/__fixtures__/official-response-labels.ts';
+import { QuestionPlaybookMissingError } from '../src/lib/reports/evidence-model/deterministic-errors.ts';
 
 let passed = 0;
 function test(name, fn) {
@@ -99,16 +99,6 @@ function withDomainScores(data, scoreOverrides) {
   };
 }
 
-function unregisteredTrace(questionCode, domainCode, responseValue, overrides = {}) {
-  return {
-    questionCode, domainCode, domainName: DOMAIN_NAMES[domainCode],
-    prompt: `Persisted authoritative fixture prompt for ${questionCode}.`,
-    responseValue, normalisedScore: responseValue * 20, applicable: true, triggeredRules: [],
-    isCritical: false, isHardGate: false, isCriticalGap: false, isMajorGap: false,
-    ...overrides
-  };
-}
-
 function materialFixture() {
   return assembledData([
     trace('D1-Q01', 5), trace('D1-Q04', 2), trace('D3-Q03', 2), trace('D3-Q04', 1),
@@ -189,9 +179,9 @@ test('S14. strong D4 detection with weak D5 response creates a contradiction on 
 });
 
 test('S15. strong D2 identification with weak D10 improvement creates a contradiction on D10', () => {
-  const improvement = unregisteredTrace('D10-Q99', 'D10', 2);
+  const improvement = trace('D10-Q01', 2);
   const data = withDomainScores(assembledData([improvement], { maturityCapEvents: [] }), { D2: 70, D10: 35 });
-  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D10-Q99');
+  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D10-Q01');
   assert.ok(finding.selectionReasons.includes('MATERIAL_CONTRADICTION'));
 });
 
@@ -279,21 +269,23 @@ test('P7. every required playbook maps to an authoritative code, domain and crit
   }
 });
 
-test('P8-P10. material findings use exact playbooks only and a missing playbook emits QG_MATERIAL_PLAYBOOK_MISSING', () => {
+test('P8-P10. material findings use exact playbooks only and an unknown question fails closed', () => {
   const data = materialFixture();
   const findings = buildMaterialFindings(data);
   assert.ok(findings.every((finding) => finding.fallbackStatus === 'exact_question_playbook'));
   assert.ok(findings.every((finding) => finding.playbookSource === `question-playbooks:${finding.questionCode}`));
   // RC1: every active MFRS-V1.1 question now has an exact playbook (see
   // scripts/rc1-question-playbook-coverage-tests.mjs), so this negative case must use a code that
-  // is deliberately outside the active methodology. The fail-closed mechanism itself is unchanged
-  // and still has to fire for any finding whose question has no exact playbook.
+  // is deliberately outside the active methodology. The fail-closed mechanism itself must fire
+  // before an incomplete material finding can reach the quality-gate layer.
   const unknownTrace = { questionCode: 'D2-Q99', domainCode: 'D2', domainName: DOMAIN_NAMES.D2, prompt: 'Deliberately unregistered, non-methodology test question.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false };
   const missingData = assembledData([unknownTrace]);
-  const model = buildAdvisoryEvidenceModel(missingData);
-  const gate = checkQualityGates(model, missingData);
-  assert.equal(model.materialFindings[0].fallbackStatus, 'missing_question_playbook');
-  assert.ok(gate.violations.some((issue) => issue.code === 'QG_MATERIAL_PLAYBOOK_MISSING'));
+  assert.throws(
+    () => buildAdvisoryEvidenceModel(missingData),
+    (error) => error instanceof QuestionPlaybookMissingError
+      && error.questionCode === 'D2-Q99'
+      && error.methodologyVersionId === 'methodology-version-v1.1'
+  );
 });
 
 test('C1-C4. strong assessment creates no false weakness and any selected item is a deterministic assurance priority', () => {

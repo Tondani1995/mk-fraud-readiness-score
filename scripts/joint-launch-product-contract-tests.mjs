@@ -32,6 +32,7 @@ import {
   validateOrderPriceEntitlement,
   versionCoversInstant
 } from '../src/lib/commercial/order-price-entitlement.ts';
+import { validatePremiumReportGenerationEntitlement } from '../src/lib/reports/report-entitlement.ts';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -325,13 +326,76 @@ check('the R50,000 Comprehensive window is closed, so it entitles nothing new', 
 
 // --- ORDER / ENTITLEMENT CROSSING -----------------------------------------------------------------
 
-check('Essential report entitlement rejects a Comprehensive order (entitlements cannot cross)', async () => {
-  // Asserted structurally: the guard checks the Essential product code AND the Essential tier, and
-  // names the Comprehensive code in its rejection path.
-  const guard = read('src/lib/reports/report-entitlement.ts');
-  assert.match(guard, /assembled\.productCode !== ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE/);
-  assert.match(guard, /tierForProductCode\(assembled\.productCode\) !== 'essential'/);
-  assert.match(guard, /COMPREHENSIVE_PRODUCT_CODE/);
+function assembledForProduct(productCode, overrides = {}) {
+  const isComprehensive = productCode === COMPREHENSIVE_PRODUCT_CODE;
+  const productId = isComprehensive ? COMPREHENSIVE_ID : ESSENTIAL_ID;
+  const version = isComprehensive ? versions[3] : versions[1];
+  return {
+    orderId: 'entitlement-order',
+    orderAssessmentId: 'entitlement-assessment',
+    assessmentId: 'entitlement-assessment',
+    organisationId: 'entitlement-org',
+    currentScoreRunId: 'entitlement-run',
+    productCode,
+    orderStatus: 'payment_received',
+    amountCents: version.priceCents,
+    currency: 'ZAR',
+    productId,
+    productPriceCents: version.priceCents,
+    productCurrency: 'ZAR',
+    productPriceVersionId: version.id,
+    productPriceVersions: [version],
+    orderCreatedAt: '2026-08-11T09:00:00.000Z',
+    requiresPaymentVerification: true,
+    deliveryMode: 'mk_controlled_pdf',
+    productActive: true,
+    paymentVerification: { legacyOrderVerification: true },
+    scoreRun: {
+      id: 'entitlement-run',
+      assessmentId: 'entitlement-assessment',
+      methodologyVersionId: 'test-methodology',
+      status: 'completed',
+      lockedAt: '2026-08-11T09:01:00.000Z',
+      inputHash: 'a'.repeat(64),
+      overallScore: 60,
+      calculatedMaturity: 'Developing',
+      finalMaturity: 'Developing',
+      exposureScore: 50,
+      exposureBand: 'Moderate',
+      coveragePct: 100,
+      nARatePct: 0,
+      criticalGapCount: 0,
+      majorGapCount: 0,
+      capApplied: false,
+      capReason: null
+    },
+    expectedDomainResultCount: 10,
+    actualDomainResultCount: 10,
+    expectedQuestionTraceCount: 1,
+    actualQuestionTraceCount: 1,
+    ...overrides
+  };
+}
+
+check('Essential and Comprehensive resolve only their matching report entitlement', () => {
+  assert.equal(
+    validatePremiumReportGenerationEntitlement(assembledForProduct(ESSENTIAL_PRODUCT_CODE)),
+    'essential_self_assessment'
+  );
+  assert.equal(
+    validatePremiumReportGenerationEntitlement(assembledForProduct(COMPREHENSIVE_PRODUCT_CODE)),
+    'mk_validated'
+  );
+  assert.notEqual(ESSENTIAL_PRODUCT_CODE, COMPREHENSIVE_PRODUCT_CODE);
+});
+
+check('unsupported or mismatched product codes fail closed', () => {
+  assert.throws(
+    () => validatePremiumReportGenerationEntitlement(
+      assembledForProduct(`${ESSENTIAL_PRODUCT_CODE}-mismatched`)
+    ),
+    (error) => error?.name === 'ReportEntitlementError' && error?.reason === 'order_not_eligible'
+  );
 });
 
 check('order creation refuses any tier that is not self-service paid', () => {

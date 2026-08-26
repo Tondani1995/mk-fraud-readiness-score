@@ -21,6 +21,7 @@ const delivery = read('src/lib/fulfilment/delivery-worker.ts');
 const notifications = read('src/lib/notifications/phase1-order-notifications.ts');
 const postflight = read('scripts/rc1-production-postflight.sql');
 const replay = read('scripts/rc1-prepostflight-disposable-tests.mjs');
+const v12Replay = read('scripts/release-v12-migration-replay.sh');
 const vercel = JSON.parse(read('vercel.json'));
 
 const results = [];
@@ -634,11 +635,18 @@ await test('provider failure enters retry or reconciliation state safely', async
   includes(delivery, "'mark_delivery_reconciliation_required'", 'post-acceptance uncertainty is held');
   includes(replay, 'provider failure enters the existing retry state with backoff', 'DB proof is present');
 });
-await test('daily recovery can process a stranded job', async () => {
+await test('legacy recovery remains available but dormant in the current launch', async () => {
   includes(worker, "db.rpc('claim_next_fulfilment_job'", 'GET retains global claim');
   includes(replay, 'daily recovery invocation can claim a stranded eligible queued attempt', 'DB proof is present');
-  const cron = vercel.crons.find((entry) => entry.path === '/score/api/internal/fulfilment-worker');
-  assert.equal(cron?.schedule, '0 3 * * *');
+  assert.equal(
+    vercel.crons.some((entry) => entry.path === '/score/api/internal/fulfilment-worker'),
+    false,
+    'legacy fulfilment worker must remain unscheduled in the current launch'
+  );
+  assert.deepEqual(vercel.crons, [{
+    path: '/score/api/internal/adaptive-stalled-leads',
+    schedule: '0 6 * * *'
+  }]);
 });
 await test('freeze blocks immediate and scheduled processing', async () => {
   includes(worker, "getRc1OperationFreezeResponse('worker', 'worker')", 'both methods share freeze guard');
@@ -674,23 +682,19 @@ await test('six established workflow definitions retain correction gates', async
     assert.ok(fs.existsSync(path.join(root, '.github', 'workflows', file)), `${file} exists`);
   }
 });
-await test('full migration postflight matches the committed migration set', async () => {
-  // Derived from the committed files rather than restated, so adding a migration without moving
-  // the postflight is what fails here -- which is exactly how this drifted before.
-  const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
-    .filter((file) => file.endsWith('.sql'))
-    .sort();
-  // Pre-G30 AI timeout and budget-diagnostics migrations are Staging-only and must not be
-  // counted against the Production postflight ledger. The remaining committed files are the
-  // approved Production migration set.
-  const productionMigrationFiles = migrationFiles.filter((file) => ![
-    '20260805200000_pre_g30_ai_timeout_window.sql',
-    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
-    '20260806143000_pre_g30_structured_output_release_gate.sql'
-  ].includes(file));
-  const newest = productionMigrationFiles[productionMigrationFiles.length - 1].split('_')[0];
-  includes(postflight, `count(*) = ${productionMigrationFiles.length}`, `postflight total is ${productionMigrationFiles.length}`);
-  includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
+await test('historical RC1 postflight remains frozen at its certified ledger boundary', async () => {
+  includes(postflight, "case when count(*) = 109 then 'PASS' else 'STOP' end", 'RC1 ledger total remains historically frozen at 109');
+  includes(postflight, "max(version) = '20260810160000'", 'RC1 historical newest version remains frozen');
+  includes(postflight, "where version <= :'rc1_preflight_newest_version') = 34", 'RC1 preflight boundary remains 34 migrations');
+  includes(postflight, "where version > :'rc1_preflight_newest_version') = 75", 'RC1 postflight boundary remains 75 migrations');
+  assert.doesNotMatch(postflight, /20260826114407|v12_essential_assessment_admin_generation/, 'historical RC1 SQL does not claim V1.2 forward migration');
+});
+await test('current V1.2 migration source is certified by the exact disposable replay contract', async () => {
+  includes(v12Replay, 'canonical_reconstructed_migration_count=121', 'replay preserves 121 reconstructed migrations');
+  includes(v12Replay, 'forward_migration_count=1', 'replay has one forward migration');
+  includes(v12Replay, 'expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"', 'replay derives exact expected total');
+  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 122/122 evidence');
+  includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');
@@ -702,7 +706,7 @@ await test('protected 18-order fixtures remain guarded and timing SLOs pass synt
   }
 });
 
-assert.equal(results.length, 36);
+assert.equal(results.length, 37);
 assert.equal(calls[0].args.p_outcome, 'started');
 assert.equal(calls[1].args.p_outcome, 'succeeded');
 assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/score/api/internal/fulfilment-worker');
@@ -755,4 +759,4 @@ await test('disabled provider does not consume the recovery budget', async () =>
   assert.equal(store.emailEvents.length, 1, 'recovery never creates a second event row');
 });
 
-console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/37.`);
+console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/38.`);

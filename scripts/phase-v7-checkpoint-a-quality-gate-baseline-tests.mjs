@@ -69,14 +69,14 @@ function buildViolatingFixture() {
     officialResponseLabels: officialResponseLabelsFixture,
     exposureAnswers: [],
     criticalMajorGaps: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: domainNames.D1,
-      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1,
-      isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+      questionCode: 'D1-Q01', domainCode: 'D1', domainName: domainNames.D1,
+      prompt: 'A senior executive or leadership function has clear accountability for fraud risk management.', responseValue: 1,
+      isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false
     }],
     questionTraces: [{
-      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: domainNames.D1,
-      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1, normalisedScore: 20,
-      applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+      questionCode: 'D1-Q01', domainCode: 'D1', domainName: domainNames.D1,
+      prompt: 'A senior executive or leadership function has clear accountability for fraud risk management.', responseValue: 1, normalisedScore: 20,
+      applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false
     }],
     maturityCapEvents: [],
     recommendationRules: [],
