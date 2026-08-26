@@ -132,7 +132,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=1
+forward_migration_count=2
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
@@ -151,10 +151,67 @@ for migration_file in "${migration_files[@]}"; do
   ordinal="$((ordinal + 1))"
   printf 'replay %03d %s\n' "${ordinal}" "${migration_name}"
   psql "${psql_args[@]}" --file="${migration_file}" >/dev/null
+
+  # The historical V1.2 activation migration registers the candidate through a controlled RPC
+  # rather than inserting its data as migration SQL. Reproduce that accepted activation seam in
+  # the disposable replay so the new correction migration is proven against the actual historical
+  # 0-based response-scale rows before it runs. This never targets canonical Staging.
+  if [[ "${migration_version}" == "20260821090000" ]]; then
+    v12_graph_json="$(<"${release_root}/docs/adaptive-assessment/adaptive-graph-v1-2-candidate.json")"
+    psql "${psql_args[@]}" \
+      --command="select public.publish_adaptive_graph_version('MFRS-V1.1-ADAPTIVE-DRAFT-20260804');" \
+      >/dev/null
+    psql "${psql_args[@]}" \
+      --command="select public.register_adaptive_staging_candidate(\$v12_graph_json\$${v12_graph_json}\$v12_graph_json\$::jsonb);" \
+      >/dev/null
+    initial_v12_scale="$(psql "${psql_args[@]}" -At --command="
+      select string_agg(display_order::text, ',' order by response_value)
+      from public.response_scale
+      where methodology_version_id = (
+        select methodology_version_id
+        from public.adaptive_graph_versions
+        where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+      )")"
+    if [[ "${initial_v12_scale}" != "0,1,2,3,4,5" ]]; then
+      printf 'FAIL: historical V1.2 activation did not create the expected 0-based response-scale rows; got %s\n' \
+        "${initial_v12_scale}" >&2
+      exit 1
+    fi
+    printf 'PASS: historical V1.2 activation created the expected 0-based response-scale rows.\n'
+  fi
   psql "${psql_args[@]}" \
     --command="insert into replay.replay_log(ordinal, version, name) values (${ordinal}, '${migration_version}', '${migration_label}')" \
     >/dev/null
 done
+
+final_v12_scale_rows="$(psql "${psql_args[@]}" -At --command="
+  select coalesce(
+    json_agg(
+      json_build_object(
+        'response_value', rs.response_value,
+        'label', rs.label,
+        'operational_meaning', rs.operational_meaning,
+        'normalised_score', rs.normalised_score,
+        'display_order', rs.display_order
+      ) order by rs.response_value
+    ),
+    '[]'::json
+  )
+  from public.response_scale rs
+  where rs.methodology_version_id = (
+    select ag.methodology_version_id
+    from public.adaptive_graph_versions ag
+    where ag.graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+  )")"
+node --experimental-strip-types \
+  --experimental-loader="${release_root}/scripts/lib/ts-relative-resolve-loader.mjs" \
+  --input-type=module \
+  --eval="
+    import { validateOfficialResponseLabels } from '${release_root}/src/lib/reports/response-labels.ts';
+    validateOfficialResponseLabels(JSON.parse(process.argv[1]));
+    console.log('PASS: final replayed V1.2 response scale passes validateOfficialResponseLabels().');
+  " \
+  "${final_v12_scale_rows}"
 
 expected_tables=(
   admin_profiles organisations respondents assessments assessment_tokens assessment_answers

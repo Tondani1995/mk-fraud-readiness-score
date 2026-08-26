@@ -380,8 +380,20 @@ assert.doesNotMatch(payment, /triggerSource:\s*'payment_confirmation'/);
 
 const {
   validatePremiumReportGenerationEntitlement,
-  ReportEntitlementError
+  ReportEntitlementError,
+  ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE,
+  COMPREHENSIVE_REPORT_TYPE
 } = loadPureModule('src/lib/reports/report-entitlement.ts');
+const {
+  COMPREHENSIVE_PRODUCT_CODE,
+  COMPREHENSIVE_PRICE_CENTS,
+  COMMERCIAL_CURRENCY,
+  ESSENTIAL_PRODUCT_CODE,
+  FREE_SNAPSHOT_PRODUCT_CODE,
+  paidProductForTier
+} = loadPureModule('src/lib/commercial/product-catalogue.ts');
+const comprehensiveProduct = paidProductForTier('comprehensive');
+assert.ok(comprehensiveProduct, 'authoritative Comprehensive catalogue product exists');
 const eligibleReport = {
   orderId: 'order-id',
   orderReference: 'ORDER-TEST',
@@ -398,7 +410,7 @@ const eligibleReport = {
     orderVerifiedAt: '2026-07-14T00:00:00.000Z', orderVerifiedBy: '11111111-1111-4111-8111-111111111111',
     manualVerifierStatus: 'active', manualVerifierRole: 'platform_admin', priorValidSourceEvent: false, transitionCount: 1
   },
-  productCode: 'essential_self_assessment',
+  productCode: ESSENTIAL_PRODUCT_CODE,
   orderStatus: 'payment_received',
   amountCents: 750000,
   currency: 'ZAR',
@@ -426,10 +438,42 @@ const eligibleReport = {
     inputHash: 'a'.repeat(64)
   }
 };
-assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), 'essential_self_assessment');
+const comprehensiveReport = {
+  ...clone(eligibleReport),
+  productCode: COMPREHENSIVE_PRODUCT_CODE,
+  amountCents: COMPREHENSIVE_PRICE_CENTS,
+  currency: COMMERCIAL_CURRENCY,
+  productPriceCents: COMPREHENSIVE_PRICE_CENTS,
+  productId: 'product-comprehensive-id',
+  productPriceVersionId: 'price-version-comprehensive-1',
+  productPriceVersions: [
+    {
+      id: 'price-version-comprehensive-1',
+      productId: 'product-comprehensive-id',
+      versionNumber: 1,
+      priceCents: COMPREHENSIVE_PRICE_CENTS,
+      currency: COMMERCIAL_CURRENCY,
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      effectiveTo: null
+    }
+  ],
+  productCurrency: COMMERCIAL_CURRENCY,
+  deliveryMode: comprehensiveProduct.deliveryMode,
+  paymentVerification: {
+    ...eligibleReport.paymentVerification,
+    amountCents: COMPREHENSIVE_PRICE_CENTS,
+    orderAmountCents: COMPREHENSIVE_PRICE_CENTS,
+    currency: COMMERCIAL_CURRENCY,
+    orderCurrency: COMMERCIAL_CURRENCY
+  }
+};
+assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE);
+assert.equal(validatePremiumReportGenerationEntitlement(comprehensiveReport), COMPREHENSIVE_REPORT_TYPE);
+assert.notEqual(validatePremiumReportGenerationEntitlement(comprehensiveReport), ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE);
+assert.notEqual(validatePremiumReportGenerationEntitlement(eligibleReport), COMPREHENSIVE_REPORT_TYPE);
 for (const testCase of [
-  ['Comprehensive order cannot claim the Essential report', { productCode: 'mk_validated_assessment' }, 'order_not_eligible'],
-  ['free product code', { productCode: 'free_snapshot' }, 'order_not_eligible'],
+  ['free product code', { productCode: FREE_SNAPSHOT_PRODUCT_CODE }, 'order_not_eligible'],
+  ['unsupported product code', { productCode: 'unsupported_product_code' }, 'order_not_eligible'],
   ['awaiting payment', { orderStatus: 'awaiting_payment' }, 'order_not_eligible'],
   ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],
   ['expired order', { orderStatus: 'expired' }, 'order_not_eligible'],

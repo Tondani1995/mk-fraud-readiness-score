@@ -57,6 +57,7 @@
     "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
     "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
     "v12:test-admin-link": "node scripts/v12-admin-link-access-tests.mjs",
+    "v12:test-response-scale": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-response-scale-correction-tests.mjs",
     "phase13:test-events": "node scripts/phase13-commercial-event-tests.mjs",
     "phase13:test-conversion": "node scripts/phase13-customer-commercial-conversion-tests.mjs",
     "phase14:test-report-engine": "node scripts/phase14-autonomous-report-tests.mjs",

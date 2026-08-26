@@ -691,9 +691,9 @@ await test('historical RC1 postflight remains frozen at its certified ledger bou
 });
 await test('current V1.2 migration source is certified by the exact disposable replay contract', async () => {
   includes(v12Replay, 'canonical_reconstructed_migration_count=121', 'replay preserves 121 reconstructed migrations');
-  includes(v12Replay, 'forward_migration_count=1', 'replay has one forward migration');
+  includes(v12Replay, 'forward_migration_count=2', 'replay has two forward migrations');
   includes(v12Replay, 'expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"', 'replay derives exact expected total');
-  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 122/122 evidence');
+  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 123/123 evidence');
   includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
