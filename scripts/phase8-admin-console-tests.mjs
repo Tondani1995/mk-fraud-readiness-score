@@ -33,11 +33,11 @@ const requiredAdminRoutes = [
 
 for (const route of requiredAdminRoutes) {
   assert(fs.existsSync(path.join(root, route)), `Missing Phase 8 admin route: ${route}`);
+  assertIncludes(route, 'requireAdmin(', `Current admin route must remain guarded: ${route}`);
 }
 
 assertIncludes('src/components/admin/AdminShell.tsx', 'MK Fraud Insights', 'Admin shell carries MK Fraud branding');
 assertIncludes('src/components/admin/AdminShell.tsx', 'Readiness Control Room', 'Admin shell uses branded control-room language');
-assertIncludes('src/components/admin/AdminShell.tsx', "action={scorePath('/api/admin/logout')}", 'Admin logout posts through score base path');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/assessments', 'Admin shell links to assessment list');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/questions', 'Admin shell links to question config');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/products', 'Admin shell links to product config');
@@ -46,6 +46,32 @@ assertIncludes('src/components/admin/AdminShell.tsx', 'Order controls', 'Admin s
 assertIncludes('src/components/admin/AdminShell.tsx', 'Report controls', 'Admin shell uses customer-safe report label');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Admin navigation must not expose phase labels');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Admin navigation must not expose phase labels');
+
+// The accepted current console binds to the deployment's active admin profile and deliberately
+// has no application-level readiness login wall. Keep all retired readiness login surfaces absent;
+// the compatibility path, where retained, must only redirect to the current control room.
+const retiredAdminLoginSurfaces = [
+  'src/app/score/api/admin/login/route.ts',
+  'src/app/score/api/admin/logout/route.ts',
+  'src/app/score/api/admin/session/login/route.ts',
+  'src/app/score/api/admin/session/logout/route.ts',
+  'src/components/admin/AdminLoginForm.tsx',
+  'src/components/admin/AdminSessionLoginForm.tsx',
+  'src/components/admin/AdminLogoutButton.tsx'
+];
+for (const surface of retiredAdminLoginSurfaces) {
+  assert(!fs.existsSync(path.join(root, surface)), `Retired readiness login surface must remain absent: ${surface}`);
+}
+assertIncludes(
+  'src/app/score/admin/login/page.tsx',
+  "redirect('/score/admin')",
+  'Retained admin login compatibility path must redirect to the current control room'
+);
+assertNotIncludes(
+  'src/lib/auth/admin-route.ts',
+  'redirect(',
+  'Current admin route binding must not restore the retired login redirect wall'
+);
 
 // PR #31 regression: nav hrefs must resolve through scorePath(), not the raw /admin/* path
 // (the raw form resolves outside the /score namespace and can fall through to the legacy
@@ -135,10 +161,6 @@ assertNotIncludes(
   }
 }
 
-assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH = '/score'", 'Admin login form knows score base path');
-assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
-assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
-
 assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/answers`', 'Assessment autosave posts through score namespace');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/submit`', 'Assessment submit posts through score namespace');
@@ -203,7 +225,6 @@ assertNotIncludes('src/app/score/admin/reports/page.tsx', 'Phase', 'Report contr
 
 const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
-  'src/components/admin/AdminLoginForm.tsx',
   'src/components/assessment/StartAssessmentForm.tsx',
   'src/components/assessment/AssessmentEngine.tsx',
   'src/components/assessment/FreeSnapshot.tsx',

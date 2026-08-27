@@ -4,15 +4,16 @@
  * Three things a static read of the code cannot establish, proved here by executing them:
  *
  *   A. CONCURRENCY. Two genuinely simultaneous Comprehensive order attempts for one assessment,
- *      on two separate connections in two separate transactions, produce exactly ONE order and ONE
- *      engagement -- and no orphaned R35,000 order.
+ *      on two separate connections in two separate transactions, produce exactly ONE live order
+ *      and no legacy reviewed engagement.
  *
  *   B. COMPENSATION. The evidence-orphan alert path exists, accepts only safe identifiers, and is
  *      reachable through the category allow-list.
  *
- *   C. CUTOVER ORDERING. While the RC1 operation freeze is active, order creation is impossible for
- *      ANY application version -- which is what closes the "old code, new catalogue" window. And a
- *      caller presenting a stale catalogue contract is refused even when the freeze is off.
+ *   C. VERSION-SKEW / CATALOGUE SAFETY. A stale application cannot create a mispriced order because
+ *      the database transactional primitive verifies the application's expected product/code/
+ *      amount/currency against the authoritative current price version. RC1 operational gating is
+ *      intentionally retired; its compatibility seam remains a no-op.
  */
 
 import assert from 'node:assert/strict';
@@ -104,20 +105,78 @@ try {
     } catch (error) {
       throw new Error(`migration ${name} failed to replay: ${error.message}`);
     }
+
+    if (name === '20260821090000_adaptive_v1_2_staging_activation.sql') {
+      // The historical activation migration delegates V1.2 graph/scale registration to the
+      // reviewed runtime RPC seam. Reproduce that seam here, as in the canonical replay, so the
+      // forward correction is tested against the same historical 0-based rows before it runs.
+      const v12GraphJson = fs.readFileSync(
+        path.join(root, 'docs/adaptive-assessment/adaptive-graph-v1-2-candidate.json'),
+        'utf8',
+      );
+      await db.query(
+        `select public.publish_adaptive_graph_version('MFRS-V1.1-ADAPTIVE-DRAFT-20260804')`,
+      );
+      await db.query(
+        `select public.register_adaptive_staging_candidate($1::jsonb)`,
+        [v12GraphJson],
+      );
+      const initialV12Scale = await db.query(
+        `select string_agg(display_order::text, ',' order by response_value) as display_orders
+         from public.response_scale
+         where methodology_version_id = (
+           select methodology_version_id
+           from public.adaptive_graph_versions
+           where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+         )`,
+      );
+      assert.equal(
+        initialV12Scale.rows[0].display_orders,
+        '0,1,2,3,4,5',
+        'historical V1.2 activation must create 0-based response-scale rows before correction',
+      );
+      check('historical V1.2 activation seam created the expected 0-based response scale');
+    }
   }
   check(`all ${migrationFiles.length} migrations replayed`);
 
-  // ---------------------------------------------------------------------------------------------
-  // C (first half). While the database is FROZEN, order creation is impossible. This is the
-  // mechanism that closes the cutover window, so it is proved before anything else.
-  //
-  // The RC1 freeze guards organisations and assessments too, so those fixture rows are created with
-  // their guards lifted -- but the guard on public.orders is left ARMED, which is the one under
-  // test. Order creation must fail on the freeze, not on a missing fixture.
-  // ---------------------------------------------------------------------------------------------
-  for (const table of ['organisations', 'assessments']) {
-    await db.query(`drop trigger if exists trg_rc1_operation_freeze on public.${table}`);
-  }
+  const finalV12Scale = await db.query(
+    `select string_agg(display_order::text, ',' order by response_value) as display_orders
+     from public.response_scale
+     where methodology_version_id = (
+       select methodology_version_id
+       from public.adaptive_graph_versions
+       where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+     )`,
+  );
+  assert.equal(
+    finalV12Scale.rows[0].display_orders,
+    '1,2,3,4,5,6',
+    'forward V1.2 response-scale correction must produce 1-based display order',
+  );
+  check('forward V1.2 response-scale correction changed display order to 1..6');
+
+  // RC1 operational gating is intentionally retired by the committed compatibility migration.
+  // Ordinary operations now rely on authentication, RLS, private storage, webhook verification
+  // and route authorisation; the old function remains only as a harmless compatibility seam.
+  const retiredFreezeTriggers = await db.query(
+    `select n.nspname as schema_name, c.relname as relation_name
+     from pg_trigger t
+     join pg_class c on c.oid = t.tgrelid
+     join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public'
+       and t.tgname = 'trg_rc1_operation_freeze'
+       and not t.tgisinternal`
+  );
+  assert.equal(retiredFreezeTriggers.rows.length, 0, 'RC1 operational freeze triggers must be retired');
+  check('RC1 operational gating is retired: zero non-internal public freeze triggers remain');
+
+  const compatibilityFunction = await db.query(
+    `select to_regprocedure('public.rc1_require_operation_open(text)') is not null as present`
+  );
+  assert.equal(compatibilityFunction.rows[0].present, true, 'the RC1 compatibility seam must remain present');
+  await db.query(`select public.rc1_require_operation_open('assessment_write')`);
+  check('the retired RC1 compatibility seam exists and does not block ordinary operation');
 
   const orgId = (await db.query(
     `insert into public.organisations (legal_name) values ('Txn Safety Org') returning id`
@@ -130,37 +189,6 @@ try {
        values ($1, $2, $3, 'scored', now()) returning id`,
       [reference, orgId, methodologyId]
     )).rows[0].id;
-  }
-
-  const ordersGuarded = await db.query(
-    `select count(*)::int as n from pg_trigger t join pg_class c on c.oid = t.tgrelid
-     where t.tgname = 'trg_rc1_operation_freeze' and c.relname = 'orders'`
-  );
-  assert.equal(ordersGuarded.rows[0].n, 1, 'the freeze guard on public.orders must still be armed for this proof');
-
-  const frozenAssessmentId = await newAssessment('MKFRS-TXN-FROZEN-0001');
-  const frozenAttempt = await db
-    .query(
-      `select public.create_paid_order('essential', $1, 'essential_self_assessment', 750000, 'ZAR')`,
-      [frozenAssessmentId]
-    )
-    .then(() => null, (error) => error);
-  assert.ok(frozenAttempt, 'order creation must fail while the database is frozen');
-  assert.match(String(frozenAttempt.message), /rc1_operation_frozen/i);
-  check('while the operation freeze is active, create_paid_order cannot create an order at all');
-  check('=> no application version, old or new, can order against a mid-cutover catalogue');
-
-  const frozenOrders = await db.query(
-    `select count(*)::int as n from public.orders where assessment_id = $1`, [frozenAssessmentId]
-  );
-  assert.equal(frozenOrders.rows[0].n, 0);
-  check('the frozen attempt left no partial order behind');
-
-  // Lift the remaining guards so the rest of the fixtures can be built. The freeze is verified by
-  // its own suites and has just been proved above; from here it only blocks setup. Every
-  // joint-launch trigger under test is untouched.
-  for (const table of ['orders', 'order_events', 'data_requests', 'assessment_events']) {
-    await db.query(`drop trigger if exists trg_rc1_operation_freeze on public.${table}`);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -205,57 +233,75 @@ try {
   assert.equal(a.created, true, 'the first caller creates the order');
   assert.equal(b.created, false, 'the second caller must NOT create a second order');
   assert.equal(a.order_id, b.order_id, 'the loser must resolve to the winner’s order');
-  assert.equal(a.engagement_id, b.engagement_id, 'the loser must resolve to the winner’s engagement');
-  check('two concurrent Comprehensive attempts yield exactly one order and one engagement');
+  assert.equal(a.engagement_id, null, 'the active Comprehensive path must not create a reviewed engagement');
+  assert.equal(b.engagement_id, null, 'the active Comprehensive reuse path must not create a reviewed engagement');
+  assert.equal(a.engagement_state, null, 'the active Comprehensive path must return no engagement state');
+  assert.equal(b.engagement_state, null, 'the active Comprehensive reuse path must return no engagement state');
+  check('two concurrent Comprehensive attempts yield exactly one order and no reviewed engagement');
 
   const raceOrders = await db.query(
-    `select count(*)::int as n from public.orders where assessment_id = $1`, [raceAssessmentId]
-  );
-  assert.equal(raceOrders.rows[0].n, 1);
-  const raceEngagements = await db.query(
-    `select count(*)::int as n from public.comprehensive_engagements where assessment_id = $1`, [raceAssessmentId]
-  );
-  assert.equal(raceEngagements.rows[0].n, 1);
-  check('exactly one order row and one engagement row exist for the contended assessment');
-
-  const orphans = await db.query(
-    `select count(*)::int as n from public.orders o
+    `select count(*)::int as n
+     from public.orders o
      join public.products p on p.id = o.product_id
-     where p.product_code = 'mk_validated_assessment'
-       and not exists (select 1 from public.comprehensive_engagements e where e.order_id = o.id)`
-  );
-  assert.equal(orphans.rows[0].n, 0);
-  check('NO orphaned Comprehensive order exists (the defect this fix closes)');
-
-  // The engagement and its creation trail committed with the order, not after it.
-  const trail = await db.query(
-    `select
-       (select count(*)::int from public.comprehensive_engagement_events e
-         join public.comprehensive_engagements g on g.id = e.engagement_id
-        where g.assessment_id = $1 and e.event_type = 'engagement_created') as engagement_events,
-       (select count(*)::int from public.order_events oe
-        where oe.order_id = $2 and oe.event_type = 'order_created_from_report_request') as order_events,
-       (select count(*)::int from public.audit_logs al
-        where al.entity_id = $2 and al.action = 'paid_order_created') as audit_rows`,
-    [raceAssessmentId, a.order_id]
-  );
-  assert.equal(trail.rows[0].engagement_events, 1);
-  assert.equal(trail.rows[0].order_events, 1);
-  assert.equal(trail.rows[0].audit_rows, 1);
-  check('the order, engagement and full creation trail committed in one transaction, exactly once');
-
-  // A cancelled engagement releases the assessment for a genuinely new order.
-  await db.query(
-    `update public.comprehensive_engagements set state = 'cancelled' where assessment_id = $1`,
+     where o.assessment_id = $1
+       and p.product_code = 'mk_validated_assessment'
+       and o.status::text <> 'cancelled'`,
     [raceAssessmentId]
   );
-  const afterCancel = (await db.query(
+  assert.equal(raceOrders.rows[0].n, 1);
+  const raceLegacyRows = await db.query(
+    `select
+       (select count(*)::int
+        from public.comprehensive_engagements e
+        join public.orders o on o.id = e.order_id
+        join public.products p on p.id = o.product_id
+        where e.assessment_id = $1 and p.product_code = 'mk_validated_assessment') as legacy_engagements,
+       (select count(*)::int
+        from public.comprehensive_engagement_events e
+        join public.comprehensive_engagements g on g.id = e.engagement_id
+        join public.orders o on o.id = g.order_id
+        join public.products p on p.id = o.product_id
+        where g.assessment_id = $1
+          and p.product_code = 'mk_validated_assessment'
+          and e.event_type = 'engagement_created') as legacy_created_events`,
+    [raceAssessmentId]
+  );
+  assert.equal(raceLegacyRows.rows[0].legacy_engagements, 0);
+  assert.equal(raceLegacyRows.rows[0].legacy_created_events, 0);
+  check('exactly one non-cancelled Comprehensive order exists and the active path created no legacy engagement');
+
+  // The order and its authoritative creation trail committed in one transaction.
+  const trail = await db.query(
+    `select
+       (select count(*)::int from public.order_events oe
+        where oe.order_id = $1 and oe.event_type = 'order_created_from_report_request') as order_events,
+       (select count(*)::int from public.audit_logs al
+        where al.entity_id = $1 and al.action = 'paid_order_created') as audit_rows,
+       (select count(*)::int from public.audit_logs al
+        where al.entity_id = $1
+          and al.action = 'paid_order_created'
+          and al.after_json->>'reviewed_engagement_created' = 'false') as no_reviewed_engagement_metadata`,
+    [a.order_id]
+  );
+  assert.equal(trail.rows[0].order_events, 1);
+  assert.equal(trail.rows[0].audit_rows, 1);
+  assert.equal(trail.rows[0].no_reviewed_engagement_metadata, 1);
+  check('the order and full creation trail committed in one transaction, exactly once, with no reviewed engagement');
+
+  // A cancelled active Comprehensive order releases the assessment for a genuinely new order.
+  await db.query(
+    `update public.orders set status = 'cancelled' where id = $1`,
+    [a.order_id]
+  );
+  const afterCancellation = (await db.query(
     `select public.create_paid_order('comprehensive', $1, 'mk_validated_assessment', 3500000, 'ZAR') as result`,
     [raceAssessmentId]
   )).rows[0].result;
-  assert.equal(afterCancel.created, true);
-  assert.notEqual(afterCancel.order_id, a.order_id);
-  check('a cancelled engagement frees the assessment for a new Comprehensive order');
+  assert.equal(afterCancellation.created, true);
+  assert.notEqual(afterCancellation.order_id, a.order_id);
+  assert.equal(afterCancellation.engagement_id, null);
+  assert.equal(afterCancellation.engagement_state, null);
+  check('a cancelled Comprehensive order frees the assessment for a new order without a reviewed engagement');
 
   // Essential is idempotent per report request rather than creating duplicates.
   const essentialAssessmentId = await newAssessment('MKFRS-TXN-ESS-0001');
@@ -287,8 +333,8 @@ try {
   check('every order the primitive creates is entitled under the versioned price contract');
 
   // ---------------------------------------------------------------------------------------------
-  // C (second half). A stale application contract is refused, so no mispriced order can be written
-  // even if the freeze were released before the deployment landed.
+  // C. VERSION-SKEW / CATALOGUE SAFETY. A stale application contract is refused, so no mispriced
+  // order can be written against the authoritative current price version.
   // ---------------------------------------------------------------------------------------------
   const staleAssessmentId = await newAssessment('MKFRS-TXN-STALE-0001');
   const staleAttempt = await db
@@ -339,11 +385,8 @@ try {
   }
   check('the evidence-orphan alert category exists and no existing category was dropped');
 
-  // phase14_operational_alerts sits on the `operational_alert` freeze surface. That is consistent in
-  // production -- evidence intake is gated on `assessment_write`, so while the database is frozen no
-  // upload happens, no orphan can be created and no alert is needed. Here the guard is lifted only
-  // so the alert path itself can be exercised.
-  await db.query(`drop trigger if exists trg_rc1_operation_freeze on public.phase14_operational_alerts`);
+  // phase14_operational_alerts is an independently audited alert surface. RC1 operational gating
+  // is retired, so no obsolete freeze-trigger manipulation is needed to exercise it here.
   await db.query(`select set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
   const alertId = (await db.query(
     `select public.record_phase14_operational_alert(

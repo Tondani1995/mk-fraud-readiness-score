@@ -3,8 +3,9 @@
 // Three parts, matching this repo's established convention:
 //  1. Static source assertions -- the page performs no write on initial render, never renders raw
 //     detail_json, and gates mutation UI behind the capability check; the API route enforces
-//     platform_admin/reviewer + AAL2 before calling the RPC and maps a capability-absent error to a
-//     clean message rather than a raw PostgREST error.
+//     platform_admin/reviewer with a live authenticated session and active role profile before
+//     calling the RPC, and maps a capability-absent error to a clean message rather than a raw
+//     PostgREST error.
 //  2. Pure-function tests (loaded via TypeScript transpile, same pattern as
 //     phase14-security-closure-tests.mjs's loadPureModule) for the capability-detection decision
 //     logic and the category-to-safe-presentation mapping, run against fixtures rather than a real
@@ -65,7 +66,7 @@ notIncludes(pageFile, 'customer_name', 'the page never selects or renders custom
 
 const routeFile = 'src/app/score/api/admin/operational-alerts/[alertId]/transition/route.ts';
 includes(routeFile, "requireAdmin(['platform_admin', 'reviewer'])", 'the transition route restricts to the two mutation roles, narrower than the four read roles');
-includes(routeFile, "decodeAalClaimForDisplayOnly(accessToken) !== 'aal2'", 'the route pre-checks AAL2 before calling the RPC');
+notIncludes(routeFile, 'decodeAalClaimForDisplayOnly', 'the route does not import or invoke the retired MFA/AAL2 claim pre-check');
 includes(routeFile, "if (!reason)", 'the route requires a reason before calling the RPC');
 includes(routeFile, "PGRST202", 'the route maps a capability-absent (function-not-found) error to a clean message');
 notIncludes(routeFile, 'console.log', 'the route never logs anything');
@@ -104,7 +105,7 @@ includes(migrationIndexCheck, 'phase14_operational_alerts_open_critical_idx', 't
 
 const migrationFile = 'supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql';
 includes(migrationFile, "array['platform_admin','reviewer']::public.admin_role[]", 'the RPC restricts mutation to platform_admin/reviewer at the database layer, not only the API route');
-includes(migrationFile, 'phase14_require_actor(', 'the RPC uses the same actor/AAL2 gate as every other Phase14 admin mutation RPC');
+includes(migrationFile, 'phase14_require_actor(', 'the RPC uses the same actor/session/role authority as every other Phase14 admin mutation RPC');
 includes(migrationFile, "v_reason = '' or length(v_reason) > 500", 'the RPC itself validates the reason, not only the API route');
 includes(migrationFile, 'phase14_operational_alert_transition_invalid', 'the RPC rejects an invalid transition explicitly');
 includes(migrationFile, 'phase14_operational_alert_not_found', 'the RPC rejects a nonexistent alert explicitly');
@@ -113,6 +114,17 @@ includes(migrationFile, "set_config('phase14.authoritative_transition', 'operati
 notIncludes(migrationFile, "'detail_json'", 'the RPC never places detail_json content into the audit record');
 includes(migrationFile, 'acknowledged_at = null', 'reopening clears acknowledged metadata, not only resolved metadata');
 includes(migrationFile, 'resolved_at = null', 'reopening clears resolved metadata');
+
+const mfaRemovalMigration = 'supabase/migrations/20260825115921_remove_mfa_aal2_operational_dependency.sql';
+const mfaRemovalSource = read(mfaRemovalMigration);
+const actorDefinitionStart = mfaRemovalSource.indexOf('create or replace function public.phase14_require_actor(');
+const actorCommentStart = mfaRemovalSource.indexOf('comment on function public.phase14_require_actor(', actorDefinitionStart);
+ok(actorDefinitionStart >= 0 && actorCommentStart > actorDefinitionStart, `${mfaRemovalMigration} redefines phase14_require_actor`);
+const actorDefinition = mfaRemovalSource.slice(actorDefinitionStart, actorCommentStart);
+ok(actorDefinition.includes('p_require_aal2 boolean default false'), 'the compatibility second-factor argument remains in the phase14_require_actor signature');
+const actorBodyStart = actorDefinition.indexOf('as $function$');
+ok(actorBodyStart >= 0 && !actorDefinition.slice(actorBodyStart).includes('p_require_aal2'), 'the redefined phase14_require_actor body ignores the legacy second-factor argument');
+includes(mfaRemovalMigration, "comment on function public.phase14_require_actor(text, public.admin_role[], boolean) is 'Requires a live authenticated administrator session in an allowed role. Legacy second-factor argument is ignored.'", 'the MFA-removal migration documents actor/session/role authority and the ignored compatibility argument');
 
 console.log('--- 2. Pure-function checks (TypeScript transpiled, no live PostgREST server needed) ---');
 
@@ -385,13 +397,45 @@ try {
   ok(migrationFiles.includes('20260725150000_release_d_operational_alert_lifecycle.sql'), 'Release D\'s migration is present in the replay set');
   for (const name of migrationFiles) {
     await db.query(fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8'));
+
+    if (name === '20260821090000_adaptive_v1_2_staging_activation.sql') {
+      // The historical activation migration delegates V1.2 graph/scale registration to the
+      // reviewed runtime RPC seam. Reproduce that seam here, as in the canonical replay, so the
+      // forward correction is tested against the same historical 0-based rows before it runs.
+      const v12GraphJson = fs.readFileSync(
+        path.join(root, 'docs/adaptive-assessment/adaptive-graph-v1-2-candidate.json'),
+        'utf8',
+      );
+      await db.query(
+        `select public.publish_adaptive_graph_version('MFRS-V1.1-ADAPTIVE-DRAFT-20260804')`,
+      );
+      await db.query(
+        `select public.register_adaptive_staging_candidate($1::jsonb)`,
+        [v12GraphJson],
+      );
+      const initialV12Scale = await db.query(
+        `select string_agg(display_order::text, ',' order by response_value) as display_orders
+         from public.response_scale
+         where methodology_version_id = (
+           select methodology_version_id
+           from public.adaptive_graph_versions
+           where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+         )`,
+      );
+      assert.equal(
+        initialV12Scale.rows[0].display_orders,
+        '0,1,2,3,4,5',
+        'historical V1.2 activation must create 0-based response-scale rows before correction',
+      );
+      ok(true, 'historical V1.2 activation seam created the expected 0-based response scale');
+    }
   }
   console.log('All migrations applied.');
 
   // --- Fixtures: five admin profiles, one per role in the matrix ---
   async function makeAdmin(email, role) {
     const userId = (await db.query(`insert into auth.users(email) values ($1) returning id`, [email])).rows[0].id;
-    await db.query(`insert into public.admin_profiles(id, email, role, status, mfa_required) values ($1, $2, $3, 'active', true)`, [userId, email, role]);
+    await db.query(`insert into public.admin_profiles(id, email, role, status, mfa_required) values ($1, $2, $3, 'active', false)`, [userId, email, role]);
     const sessionId = (await db.query(`insert into auth.sessions(user_id, not_after) values ($1, now() + interval '1 day') returning id`, [userId])).rows[0].id;
     return { userId, sessionId, claims: (aal) => ({ sub: userId, role: 'authenticated', aal, exp: 4102444800, session_id: sessionId }) };
   }
@@ -427,13 +471,14 @@ try {
   ok(unauthRead.rows.length === 0, 'an unauthenticated session sees zero rows -- table select policy requires an authenticated role with an allowed admin role, and current_admin_role() returns null with no session');
 
   console.log('Scenario 2: non-admin (finance_admin, not in the read-permitted list) read fails');
-  await asClaims(financeAdmin.claims('aal2'));
+  await asClaims(financeAdmin.claims('aal1'));
   const financeRead = await db.query(`select * from public.phase14_operational_alerts`);
   ok(financeRead.rows.length === 0, 'finance_admin (not platform_admin/reviewer/approver/read_only_admin) sees zero rows under RLS');
 
-  // The remaining scenarios intentionally mutate only this disposable database. Release its RC1
-  // guard through the real AAL2 platform-admin control before creating test alerts.
-  await asClaims(platformAdmin.claims('aal2'));
+  // The remaining scenarios intentionally mutate only this disposable database. Use an ordinary
+  // authenticated platform_admin session for the retained compatibility setup call; the legacy
+  // second-factor argument is ignored by the accepted current actor authority.
+  await asClaims(platformAdmin.claims('aal1'));
   await db.query(
     `select public.rc1_release_freeze(
        'Release D disposable fixture setup',
@@ -448,13 +493,13 @@ try {
     return insertAlert('scenario-3-alert');
   })();
   for (const [label, admin] of [['platform_admin', platformAdmin], ['reviewer', reviewer], ['approver', approver], ['read_only_admin', readOnlyAdmin]]) {
-    await asClaims(admin.claims('aal2'));
+    await asClaims(admin.claims('aal1'));
     const rows = (await db.query(`select id from public.phase14_operational_alerts where id = $1`, [readAlertId])).rows;
     ok(rows.length === 1, `${label} can read the alerts table under RLS`);
   }
 
   console.log('Scenario 4: read_only_admin cannot mutate');
-  await asClaims(readOnlyAdmin.claims('aal2'));
+  await asClaims(readOnlyAdmin.claims('aal1'));
   await expectException(
     () => db.query(`select public.transition_phase14_operational_alert($1,'acknowledged','test')`, [readAlertId]),
     'phase14_role_forbidden',
@@ -462,7 +507,7 @@ try {
   );
 
   console.log('Scenario 5: approver cannot mutate');
-  await asClaims(approver.claims('aal2'));
+  await asClaims(approver.claims('aal1'));
   await expectException(
     () => db.query(`select public.transition_phase14_operational_alert($1,'acknowledged','test')`, [readAlertId]),
     'phase14_role_forbidden',
@@ -471,7 +516,7 @@ try {
 
   console.log('Scenario 6: reviewer can acknowledge and resolve');
   const reviewerAlertId = await insertAlert('scenario-6-alert');
-  await asClaims(reviewer.claims('aal2'));
+  await asClaims(reviewer.claims('aal1'));
   const ackResult = await db.query(`select public.transition_phase14_operational_alert($1,'acknowledged','reviewer ack') as r`, [reviewerAlertId]);
   ok(ackResult.rows[0].r.status === 'acknowledged', 'reviewer can acknowledge');
   const resolveResult = await db.query(`select public.transition_phase14_operational_alert($1,'resolved','reviewer resolve') as r`, [reviewerAlertId]);
@@ -479,7 +524,7 @@ try {
 
   console.log('Scenario 7: platform_admin can acknowledge, resolve, and reopen');
   const platformAlertId = await insertAlert('scenario-7-alert');
-  await asClaims(platformAdmin.claims('aal2'));
+  await asClaims(platformAdmin.claims('aal1'));
   await db.query(`select public.transition_phase14_operational_alert($1,'acknowledged','platform ack') as r`, [platformAlertId]);
   await db.query(`select public.transition_phase14_operational_alert($1,'resolved','platform resolve') as r`, [platformAlertId]);
   const reopenResult = await db.query(`select public.transition_phase14_operational_alert($1,'open','platform reopen') as r`, [platformAlertId]);
