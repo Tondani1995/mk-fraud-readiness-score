@@ -116,8 +116,56 @@ try {
     } catch (error) {
       throw new Error(`migration ${name} failed to replay: ${error.message}`);
     }
+
+    if (name === '20260821090000_adaptive_v1_2_staging_activation.sql') {
+      // The historical activation migration delegates V1.2 graph/scale registration to the
+      // reviewed runtime RPC seam. Reproduce that seam here so the committed forward correction
+      // is tested against the same historical 0-based rows as release-v12-migration-replay.sh.
+      const v12GraphJson = fs.readFileSync(
+        path.join(root, 'docs/adaptive-assessment/adaptive-graph-v1-2-candidate.json'),
+        'utf8',
+      );
+      await db.query(
+        `select public.publish_adaptive_graph_version('MFRS-V1.1-ADAPTIVE-DRAFT-20260804')`,
+      );
+      await db.query(
+        `select public.register_adaptive_staging_candidate($1::jsonb)`,
+        [v12GraphJson],
+      );
+      const initialV12Scale = await db.query(
+        `select string_agg(display_order::text, ',' order by response_value) as display_orders
+         from public.response_scale
+         where methodology_version_id = (
+           select methodology_version_id
+           from public.adaptive_graph_versions
+           where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+         )`,
+      );
+      assert.equal(
+        initialV12Scale.rows[0].display_orders,
+        '0,1,2,3,4,5',
+        'historical V1.2 activation must create 0-based response-scale rows before correction',
+      );
+      check('historical V1.2 activation seam created the expected 0-based response scale');
+    }
   }
   check(`all ${applied} committed migrations replayed cleanly, joint-launch migrations included`);
+
+  const finalV12Scale = await db.query(
+    `select string_agg(display_order::text, ',' order by response_value) as display_orders
+     from public.response_scale
+     where methodology_version_id = (
+       select methodology_version_id
+       from public.adaptive_graph_versions
+       where graph_version = 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821'
+     )`,
+  );
+  assert.equal(
+    finalV12Scale.rows[0].display_orders,
+    '1,2,3,4,5,6',
+    'forward V1.2 response-scale correction must produce 1-based display order',
+  );
+  check('forward V1.2 response-scale correction changed display order to 1..6');
 
   // The RC1 operational freeze installs a BEFORE trigger on the pre-existing operational tables and
   // the database replays FROZEN, so fixture rows cannot be written. That control is verified by its

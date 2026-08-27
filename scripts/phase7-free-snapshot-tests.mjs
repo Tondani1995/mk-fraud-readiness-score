@@ -25,24 +25,39 @@ function assertDeepEqual(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(label);
 }
 
-function loadActualScoringEngine() {
-  const enginePath = path.join(root, 'src/lib/scoring/scoring-engine.ts');
-  const source = fs.readFileSync(enginePath, 'utf8');
+function loadTranspiledCommonJsModule(modulePath, moduleLabel, runtimeImports = {}) {
+  const source = fs.readFileSync(modulePath, 'utf8');
   const transpiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
-    fileName: enginePath
+    fileName: modulePath
   }).outputText;
 
   const module = { exports: {} };
   vm.runInNewContext(transpiled, {
     module,
     exports: module.exports,
-    require: (id) => { throw new Error(`Unexpected import from scoring-engine.ts: ${id}`); },
+    require: (id) => {
+      const dependency = runtimeImports[id];
+      if (!dependency) throw new Error(`Unexpected import from ${moduleLabel}: ${id}`);
+      return loadTranspiledCommonJsModule(dependency.path, dependency.label, dependency.runtimeImports);
+    },
     console
-  }, { filename: 'scoring-engine.phase7.cjs' });
+  }, { filename: `${moduleLabel}.phase7.cjs` });
+  return module.exports;
+}
 
-  assert(typeof module.exports.calculateFraudReadinessScore === 'function', 'Actual scoring engine export missing.');
-  return module.exports.calculateFraudReadinessScore;
+function loadActualScoringEngine() {
+  const enginePath = path.join(root, 'src/lib/scoring/scoring-engine.ts');
+  const maturityBandPath = path.join(root, 'src/lib/scoring/maturity-band.ts');
+  const scoringEngine = loadTranspiledCommonJsModule(enginePath, 'scoring-engine.ts', {
+    './maturity-band': {
+      path: maturityBandPath,
+      label: 'maturity-band.ts',
+      runtimeImports: {}
+    }
+  });
+  assert(typeof scoringEngine.calculateFraudReadinessScore === 'function', 'Actual scoring engine export missing.');
+  return scoringEngine.calculateFraudReadinessScore;
 }
 
 function parseDomains() {
