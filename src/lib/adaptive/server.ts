@@ -30,48 +30,69 @@ type AdaptiveAssessment = {
   locked_at: string | null;
 };
 
-export function configuredSupabaseProjectRef() {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
+const DEPLOYMENT_SHA_PATTERN = /^[0-9a-f]{40}$/;
+
+type AdaptiveRuntimeIdentity = {
+  environment: 'preview' | 'production';
+  projectRef: string;
+  deploymentSha: string;
+};
+
+export function configuredSupabaseProjectRef(env: NodeJS.ProcessEnv = process.env) {
+  const raw = env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   try {
     const hostname = new URL(raw).hostname.toLowerCase();
-    const match = hostname.match(/^([a-z0-9]+)\.supabase\.co$/);
-    return match?.[1] ?? '';
+    const match = hostname.match(/^([a-z0-9]{20})\.supabase\.co$/);
+    return match?.[1] && SUPABASE_PROJECT_REF_PATTERN.test(match[1]) ? match[1] : '';
   } catch {
     return '';
   }
 }
 
-export function assertAdaptivePreviewEnvironment() {
-  const environment = process.env.VERCEL_ENV?.trim().toLowerCase();
-  if (environment !== 'preview') throw new Error('adaptive_preview_only');
-  const projectRef = configuredSupabaseProjectRef();
-  if (!projectRef) throw new Error('adaptive_supabase_project_unresolved');
-  return { environment, projectRef };
+export function configuredAdaptiveDeploymentSha(env: NodeJS.ProcessEnv = process.env) {
+  const deploymentSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() ?? '';
+  return DEPLOYMENT_SHA_PATTERN.test(deploymentSha) ? deploymentSha : '';
 }
 
-async function loadAdaptiveActivationPolicy(db: any) {
-  const runtime = assertAdaptivePreviewEnvironment();
+export function assertAdaptiveRuntimeEnvironment(env: NodeJS.ProcessEnv = process.env): AdaptiveRuntimeIdentity {
+  const environment = env.VERCEL_ENV?.trim().toLowerCase();
+  if (environment !== 'preview' && environment !== 'production') {
+    throw new Error('adaptive_runtime_environment_invalid');
+  }
+  const projectRef = configuredSupabaseProjectRef(env);
+  if (!projectRef) throw new Error('adaptive_runtime_project_unresolved');
+  const deploymentSha = configuredAdaptiveDeploymentSha(env);
+  if (!deploymentSha) throw new Error('adaptive_deployment_sha_invalid');
+  return { environment, projectRef, deploymentSha };
+}
+
+async function loadAdaptiveActivationPolicy(db: any, env: NodeJS.ProcessEnv = process.env) {
+  const runtime = assertAdaptiveRuntimeEnvironment(env);
   const { data, error } = await db.from('adaptive_activation_policies')
     .select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha')
     .eq('policy_key', 'customer_start').maybeSingle();
   if (error) throw error;
-  if (!data
-    || data.enabled !== true
-    || data.environment !== runtime.environment
-    || data.supabase_project !== runtime.projectRef
-    || typeof data.graph_version !== 'string'
-    || data.graph_version.trim() === ''
-    || typeof data.graph_fingerprint !== 'string'
-    || !/^[0-9a-f]{64}$/.test(data.graph_fingerprint)
-    || typeof data.activation_sha !== 'string'
-    || !/^[0-9a-f]{40}$/.test(data.activation_sha)) {
-    throw new Error('adaptive_activation_disabled');
+  if (!data || data.enabled !== true) throw new Error('adaptive_activation_disabled');
+  if (data.environment !== runtime.environment) throw new Error('adaptive_activation_environment_mismatch');
+  if (data.supabase_project !== runtime.projectRef) throw new Error('adaptive_activation_project_mismatch');
+  if (typeof data.graph_version !== 'string' || data.graph_version.trim() === '') {
+    throw new Error('adaptive_activation_graph_version_invalid');
+  }
+  if (typeof data.graph_fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(data.graph_fingerprint)) {
+    throw new Error('adaptive_activation_graph_fingerprint_invalid');
+  }
+  if (typeof data.activation_sha !== 'string' || !DEPLOYMENT_SHA_PATTERN.test(data.activation_sha)) {
+    throw new Error('adaptive_activation_sha_invalid');
+  }
+  if (data.activation_sha.toLowerCase() !== runtime.deploymentSha) {
+    throw new Error('adaptive_activation_sha_mismatch');
   }
   return data;
 }
 
-export async function assertAdaptiveActivationForDb(db: any) {
-  return await loadAdaptiveActivationPolicy(db);
+export async function assertAdaptiveActivationForDb(db: any, env: NodeJS.ProcessEnv = process.env) {
+  return await loadAdaptiveActivationPolicy(db, env);
 }
 
 function asGraph(value: unknown): AdaptiveGraph {
@@ -91,10 +112,12 @@ function assertGraphIdentity(graph: AdaptiveGraph, row: {
   }
 }
 
-export async function loadConfiguredAdaptiveGraph() {
-  const db = createSupabaseServiceClient() as any;
-  const activation = await loadAdaptiveActivationPolicy(db);
-  const configuredVersion = process.env.MK_ADAPTIVE_GRAPH_VERSION?.trim() || activation.graph_version;
+export async function loadConfiguredAdaptiveGraph(
+  db: any = createSupabaseServiceClient() as any,
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const activation = await loadAdaptiveActivationPolicy(db, env);
+  const configuredVersion = env.MK_ADAPTIVE_GRAPH_VERSION?.trim() || activation.graph_version;
   const { data, error } = await db
     .from('adaptive_graph_versions')
     .select('id,graph_version,methodology_version_id,methodology_version,status,compiled_graph_json,graph_fingerprint')
@@ -111,6 +134,26 @@ export async function loadConfiguredAdaptiveGraph() {
   if (validationErrors.length) throw new Error(`adaptive_graph_invalid:${validationErrors.join(',')}`);
   if (activation.graph_version !== data.graph_version || activation.graph_fingerprint !== data.graph_fingerprint) throw new Error('adaptive_activation_graph_mismatch');
   return { graph, graphRow: data, activation };
+}
+
+export function assertAdaptiveAssessmentBinding(
+  assessment: Pick<AdaptiveAssessment, 'methodology_version_id' | 'graph_version_snapshot' | 'graph_fingerprint_snapshot'>,
+  graphRow: {
+    status: string;
+    graph_version: string;
+    graph_fingerprint: string;
+    methodology_version_id: string;
+  },
+  activation: { graph_version: string; graph_fingerprint: string }
+) {
+  if (graphRow.status !== 'published'
+    || graphRow.graph_version !== activation.graph_version
+    || graphRow.graph_fingerprint !== activation.graph_fingerprint
+    || graphRow.graph_version !== assessment.graph_version_snapshot
+    || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot
+    || graphRow.methodology_version_id !== assessment.methodology_version_id) {
+    throw new Error('adaptive_graph_binding_invalid');
+  }
 }
 
 async function loadAdaptiveByToken(assessmentReference: string, rawToken: string) {
@@ -154,14 +197,7 @@ async function loadState(db: any, assessment: AdaptiveAssessment, activation: an
   if (gatewayError) throw gatewayError;
   if (controlError) throw controlError;
   if (guidanceError) throw guidanceError;
-  if (graphRow.status !== 'published'
-    || graphRow.graph_version !== activation.graph_version
-    || graphRow.graph_fingerprint !== activation.graph_fingerprint
-    || graphRow.graph_version !== assessment.graph_version_snapshot
-    || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot
-    || graphRow.methodology_version_id !== assessment.methodology_version_id) {
-    throw new Error('adaptive_graph_binding_invalid');
-  }
+  assertAdaptiveAssessmentBinding(assessment, graphRow, activation);
   const graph = asGraph(graphRow.compiled_graph_json);
   assertGraphIdentity(graph, graphRow);
   const graphValidationErrors = validateAdaptiveGraph(graph, graphRow.graph_fingerprint);

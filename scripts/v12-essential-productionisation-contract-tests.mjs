@@ -90,10 +90,13 @@ assert.doesNotMatch(vercel, /fulfilment-worker/);
 assert.match(adaptiveServer, /configuredSupabaseProjectRef/);
 assert.match(adaptiveServer, /adaptive_activation_policies/);
 assert.match(adaptiveServer, /data\.supabase_project !== runtime\.projectRef/);
+assert.match(adaptiveServer, /data\.environment !== runtime\.environment/);
 assert.match(adaptiveServer, /data\.graph_fingerprint !== activation\.graph_fingerprint/);
 assert.match(adaptiveServer, /assertGraphIdentity/);
+assert.match(adaptiveServer, /assertAdaptiveRuntimeEnvironment/);
+assert.match(adaptiveServer, /VERCEL_GIT_COMMIT_SHA/);
 assert.doesNotMatch(adaptiveServer, /PREVIEW_STAGING_PROJECT_REF|PREVIEW_ADAPTIVE_GRAPH_VERSION|PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT/);
-assert.doesNotMatch(adaptiveServer, /penhenkzfrtmcxklodtu|iszih/);
+assert.doesNotMatch(adaptiveServer, /iszihmmbgsfefawqmnwo|penhenkzfrtmcxklodtu/);
 
 assert.match(productCatalogue, /professionally prepared PDF report/);
 assert.match(reportTemplate, /essentialPdfOnly/);
