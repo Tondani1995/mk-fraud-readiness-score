@@ -15,6 +15,10 @@ const manifest = JSON.parse(fs.readFileSync(
   path.join(root, 'scripts', 'rc1-service-role-privilege-contract.manifest.json'),
   'utf8',
 ));
+const rc2ActivationMigration = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations', '20260827090000_rc2_adaptive_environment_binding.sql'),
+  'utf8',
+);
 
 function sql(query, { expectFailure = false, includes = '' } = {}) {
   const result = spawnSync(
@@ -111,6 +115,52 @@ for (const rpc of manifest.serviceRoleRpcs) {
   assert.equal(row.search_path, rpc.searchPath, `${rpc.signature} search_path changed`);
 }
 
+for (const rpc of manifest.operatorOnlyServiceRoleRpcs ?? []) {
+  assert.equal(rpc.applicationCaller, null, `${rpc.signature} must not invent an application caller`);
+  const row = JSON.parse(sql(`
+    select jsonb_build_object(
+      'exists',p.oid is not null,
+      'execute',case when p.oid is null then false else has_function_privilege('service_role',p.oid,'EXECUTE') end,
+      'anon_execute',case when p.oid is null then false else has_function_privilege('anon',p.oid,'EXECUTE') end,
+      'authenticated_execute',case when p.oid is null then false else has_function_privilege('authenticated',p.oid,'EXECUTE') end,
+      'security_mode',case when p.oid is null then 'MISSING' when p.prosecdef then 'DEFINER' else 'INVOKER' end,
+      'search_path',case when p.oid is null then null else coalesce((
+        select case when replace(setting,'search_path=','')='""' then ''
+          else replace(setting,'search_path=','') end
+        from unnest(coalesce(p.proconfig,array[]::text[])) setting
+        where setting like 'search_path=%'
+      ),'DEFAULT') end
+    )
+    from (select to_regprocedure('${rpc.signature}') as oid) resolved
+    left join pg_proc p on p.oid=resolved.oid
+  `));
+  assert.equal(row.exists, true, `${rpc.signature} is missing`);
+  assert.equal(row.execute, true, `${rpc.signature} lost service_role EXECUTE`);
+  assert.equal(row.anon_execute, false, `${rpc.signature} is executable by anon`);
+  assert.equal(row.authenticated_execute, false, `${rpc.signature} is executable by authenticated`);
+  assert.equal(row.security_mode, rpc.securityMode, `${rpc.signature} security mode changed`);
+  assert.equal(row.search_path, rpc.searchPath, `${rpc.signature} search_path changed`);
+}
+
+assert.match(rc2ActivationMigration, /create or replace function public\.set_adaptive_activation\(/i);
+assert.match(rc2ActivationMigration, /security definer/i);
+assert.match(rc2ActivationMigration, /set search_path\s*=\s*''/i);
+assert.match(rc2ActivationMigration, /v_environment not in \('preview', 'production'\)/i);
+assert.match(rc2ActivationMigration, /v_project !~ '\^\[a-z0-9\]\{20\}\$'/i);
+assert.match(rc2ActivationMigration, /v_head_sha !~ '\^\[0-9a-f\]\{40\}\$'/i);
+assert.match(rc2ActivationMigration, /v_reason = ''/i);
+assert.match(rc2ActivationMigration, /v_graph\.status <> 'published'/i);
+assert.match(rc2ActivationMigration, /update public\.adaptive_activation_policies/i);
+assert.match(rc2ActivationMigration, /insert into public\.audit_logs/i);
+assert.match(
+  rc2ActivationMigration,
+  /revoke all on function public\.set_adaptive_activation\(text, text, boolean, text, text\)\s+from public, anon, authenticated, service_role/i,
+);
+assert.doesNotMatch(
+  rc2ActivationMigration,
+  /\b(?:update|insert into|delete from)\s+public\.(?:assessments|assessment_answers|score_runs|reports)\b/i,
+);
+
 for (const denial of [
   ['public.methodology_versions', 'INSERT'],
   ['public.admin_profiles', 'UPDATE'],
@@ -146,6 +196,7 @@ console.log(JSON.stringify({
   newestApplied,
   tableContracts: manifest.tables.length,
   rpcContracts: manifest.serviceRoleRpcs.length,
+  operatorOnlyRpcContracts: (manifest.operatorOnlyServiceRoleRpcs ?? []).length,
   denialChecks: 6,
   roleState,
 }, null, 2));

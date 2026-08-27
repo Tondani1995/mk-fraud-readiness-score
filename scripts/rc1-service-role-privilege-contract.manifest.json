@@ -18,11 +18,11 @@
       "required": "S",
       "stagingCurrent": "1000",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE HISTORY READ",
+      "classification": "ADAPTIVE RUNTIME HISTORY READ; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/scoring/adaptive-scoring.ts:363 S"
+        "src/lib/scoring/adaptive-scoring.ts:358 S"
       ],
-      "justification": "Adaptive scoring reads assessment answer history; writes remain RPC-owned."
+      "justification": "Adaptive scoring reads the locked assessment history only after the runtime environment, Supabase project and deployment SHA exactly match the activation policy; writes remain RPC-owned."
     },
     {
       "schema": "public",
@@ -30,11 +30,11 @@
       "required": "S",
       "stagingCurrent": "1000",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE INTEGRITY READ",
+      "classification": "ADAPTIVE RUNTIME INTEGRITY READ; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/scoring/adaptive-scoring.ts:364 S"
+        "src/lib/scoring/adaptive-scoring.ts:359 S"
       ],
-      "justification": "Adaptive scoring reads integrity signals; mutation remains behind existing server controls."
+      "justification": "Adaptive scoring reads integrity signals only after the runtime environment, Supabase project and deployment SHA exactly match the activation policy; mutation remains behind existing server controls."
     },
     {
       "schema": "public",
@@ -42,12 +42,12 @@
       "required": "S",
       "stagingCurrent": "1111",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE CONTROL STATE",
+      "classification": "ADAPTIVE RUNTIME CONTROL STATE; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:116 S",
-        "src/lib/scoring/adaptive-scoring.ts:362 S"
+        "src/lib/adaptive/server.ts:192 S",
+        "src/lib/scoring/adaptive-scoring.ts:357 S"
       ],
-      "justification": "Adaptive customer control-state persistence is Staging-only and remains absent from Production grants."
+      "justification": "Adaptive customer control-state reads are bound to the exact runtime environment, Supabase project and deployment SHA; writes remain owned by the existing controlled RPC and the current Production ACL remains unchanged."
     },
     {
       "schema": "public",
@@ -55,12 +55,13 @@
       "required": "S",
       "stagingCurrent": "1111",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE GATEWAY STATE",
+      "classification": "ADAPTIVE RUNTIME GATEWAY STATE; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:115 S",
-        "src/lib/scoring/adaptive-scoring.ts:361 S"
+        "src/lib/adaptive/server.ts:191 S",
+        "src/lib/scoring/adaptive-scoring.ts:356 S",
+        "src/lib/reports/assemble-report-data.ts:375 S"
       ],
-      "justification": "Adaptive gateway answer persistence is Staging-only and remains absent from Production grants."
+      "justification": "Adaptive gateway-state reads are bound to the exact runtime environment, Supabase project and deployment SHA; writes remain owned by the existing controlled RPC and the current Production ACL remains unchanged."
     },
     {
       "schema": "public",
@@ -68,13 +69,13 @@
       "required": "S",
       "stagingCurrent": "1000",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE GRAPH READ",
+      "classification": "ADAPTIVE RUNTIME GRAPH READ; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:113 S",
-        "src/lib/adaptive/server.ts:70 S",
-        "src/lib/scoring/adaptive-scoring.ts:360 S"
+        "src/lib/adaptive/server.ts:122 S",
+        "src/lib/adaptive/server.ts:189 S",
+        "src/lib/scoring/adaptive-scoring.ts:355 S"
       ],
-      "justification": "Adaptive graph selection is read-only; graph content and activation remain environment scoped."
+      "justification": "Adaptive graph selection is read-only and remains bound to the exact runtime environment, Supabase project, deployment SHA and graph/fingerprint policy tuple."
     },
     {
       "schema": "public",
@@ -82,11 +83,11 @@
       "required": "S",
       "stagingCurrent": "1000",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE ACTIVATION READ",
+      "classification": "ADAPTIVE RUNTIME ACTIVATION READ; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:47 S"
+        "src/lib/adaptive/server.ts:72 S"
       ],
-      "justification": "Adaptive customer starts read the exact Staging activation binding; activation changes remain service-role RPC-owned."
+      "justification": "Adaptive customer starts read and enforce the exact runtime environment, Supabase project and deployment SHA activation binding; activation changes remain service-role RPC-owned."
     },
     {
       "schema": "public",
@@ -94,11 +95,11 @@
       "required": "S",
       "stagingCurrent": "1000",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE GUIDANCE READ",
+      "classification": "ADAPTIVE RUNTIME GUIDANCE READ; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:117 S"
+        "src/lib/adaptive/server.ts:193 S"
       ],
-      "justification": "Adaptive evidence guidance is read-only for the customer state loader and remains Staging-only."
+      "justification": "Adaptive evidence guidance is read-only for the customer state loader and is available only after the exact runtime environment, Supabase project and deployment SHA binding passes."
     },
     {
       "schema": "public",
@@ -106,12 +107,12 @@
       "required": "SI",
       "stagingCurrent": "1110",
       "productionCurrent": "0000",
-      "classification": "PREVIEW/STAGING ADAPTIVE NAVIGATION STATE",
+      "classification": "ADAPTIVE RUNTIME NAVIGATION STATE; EXACT ENVIRONMENT/PROJECT/SHA BOUND",
       "sources": [
-        "src/lib/adaptive/server.ts:114 SI",
-        "src/lib/adaptive/server.ts:178 SI"
+        "src/lib/adaptive/server.ts:190 S",
+        "src/lib/adaptive/server.ts:258 I"
       ],
-      "justification": "Adaptive navigation state is created and updated through the existing server-side journey operations only."
+      "justification": "Adaptive navigation state is accessed only after the exact runtime environment, Supabase project and deployment SHA binding passes; the existing server-side journey operation owns its mutation."
     },
     {
       "schema": "public",
@@ -126,7 +127,7 @@
         "src/app/score/api/readiness-runtime-check/route.ts:22 S",
         "src/lib/auth/admin-route.ts:23 S",
         "src/lib/rc1/control-plane.ts:76 S",
-        "src/lib/reports/assemble-report-data.ts:162 S"
+        "src/lib/reports/assemble-report-data.ts:234 S"
       ],
       "justification": "Server-side admin login and session resolution require active-profile lookup; no service-role write is justified."
     },
@@ -189,8 +190,8 @@
       "sources": [
         "src/app/score/api/internal/uat-start-check/route.ts:55 SIU",
         "src/app/score/api/readiness-runtime-check/route.ts:48 SIU",
-        "src/lib/adaptive/server.ts:181 SIU",
-        "src/lib/adaptive/server.ts:90 SIU",
+        "src/lib/adaptive/server.ts:162 S",
+        "src/lib/adaptive/server.ts:261 I",
         "src/lib/respondent/assessment-save.ts:361 SIU",
         "src/lib/respondent/start-assessment.ts:84 SIU",
         "src/lib/respondent/tokens.ts:114 SIU",
@@ -214,14 +215,15 @@
         "src/app/score/api/payments/[orderReference]/session/route.ts:25 SIUD",
         "src/app/score/api/readiness-runtime-check/route.ts:47 SIUD",
         "src/app/score/assessment/[assessmentRef]/page.tsx:125 SIUD",
-        "src/lib/adaptive/server.ts:171 SIUD",
-        "src/lib/adaptive/server.ts:187 SIUD",
-        "src/lib/adaptive/server.ts:98 SIUD",
+        "src/lib/adaptive/server.ts:172 S",
+        "src/lib/adaptive/server.ts:251 I",
+        "src/lib/adaptive/server.ts:267 D",
         "src/lib/admin/assessment-review.ts:26 SIUD",
         "src/lib/admin/assessment-review.ts:65 SIUD",
         "src/lib/admin/dashboard.ts:7 SIUD",
-        "src/lib/reports/assemble-report-data.ts:81 SIUD",
-        "src/lib/reports/assemble-report-data.ts:89 SIUD",
+        "src/lib/reports/assemble-report-data.ts:82 S",
+        "src/lib/reports/assemble-report-data.ts:90 S",
+        "src/lib/reports/assemble-report-data.ts:120 S",
         "src/lib/reports/email/premium-report-admin-initiation.ts:249 SIUD",
         "src/lib/reports/email/premium-report-preview-development.ts:163 SIUD",
         "src/lib/respondent/assessment-save.ts:316 SIUD",
@@ -230,7 +232,7 @@
         "src/lib/respondent/start-assessment.ts:62 SIUD",
         "src/lib/respondent/tokens.ts:131 SIUD",
         "src/lib/respondent/tokens.ts:192 SIUD",
-        "src/lib/scoring/adaptive-scoring.ts:350 SIUD",
+        "src/lib/scoring/adaptive-scoring.ts:345 S",
         "src/lib/scoring/score-assessment.ts:64 SIUD",
         "src/lib/snapshot/free-snapshot.ts:49 SIUD"
       ],
@@ -313,7 +315,7 @@
         "src/app/score/api/internal/uat-start-check/route.ts:19 S",
         "src/app/score/api/readiness-runtime-check/route.ts:19 S",
         "src/lib/admin/assessment-review.ts:170 S",
-        "src/lib/reports/assemble-report-data.ts:252 S",
+        "src/lib/reports/assemble-report-data.ts:324 S",
         "src/lib/respondent/assessment-methodology.ts:72 S",
         "src/lib/snapshot/free-snapshot.ts:107 S"
       ],
@@ -372,7 +374,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:97 SIU",
-        "src/lib/reports/assemble-report-data.ts:346 SIU",
+        "src/lib/reports/assemble-report-data.ts:439 S",
         "src/lib/respondent/assessment-methodology.ts:172 SIU",
         "src/lib/respondent/assessment-save.ts:198 SIU",
         "src/lib/scoring/score-assessment.ts:82 SIU"
@@ -429,7 +431,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:110 S",
-        "src/lib/reports/assemble-report-data.ts:324 S"
+        "src/lib/reports/assemble-report-data.ts:417 S"
       ],
       "justification": "Score evidence and report assembly."
     },
@@ -443,9 +445,10 @@
       "sources": [
         "src/app/score/admin/methodology/page.tsx:10 S",
         "src/lib/admin/assessment-review.ts:163 S",
-        "src/lib/respondent/start-assessment.ts:12 S"
+        "src/lib/respondent/start-assessment.ts:12 S",
+        "src/lib/reports/assemble-report-data.ts:179 S"
       ],
-      "justification": "Assessment start and read-only admin methodology view; historical Production writes are deliberately not copied."
+      "justification": "Assessment start, read-only admin methodology view and locked score-run methodology identity lookup; historical Production writes are deliberately not copied."
     },
     {
       "schema": "public",
@@ -488,7 +491,7 @@
         "src/lib/orders/manual-eft-orders.ts:379 SIU",
         "src/lib/payments/payment-service.ts:150 SIU",
         "src/lib/payments/payment-service.ts:53 SIU",
-        "src/lib/reports/assemble-report-data.ts:99 SIU",
+        "src/lib/reports/assemble-report-data.ts:111 S",
         "src/lib/reports/email/premium-report-admin-initiation.ts:92 SIU",
         "src/lib/reports/email/premium-report-preview-development.ts:83 SIU"
       ],
@@ -504,9 +507,9 @@
       "sources": [
         "src/app/score/api/internal/uat-start-check/route.ts:52 SID",
         "src/app/score/api/readiness-runtime-check/route.ts:45 SID",
-        "src/lib/adaptive/server.ts:105 SID",
-        "src/lib/adaptive/server.ts:158 SID",
-        "src/lib/adaptive/server.ts:189 SID",
+        "src/lib/adaptive/server.ts:181 S",
+        "src/lib/adaptive/server.ts:238 I",
+        "src/lib/adaptive/server.ts:269 D",
         "src/lib/respondent/start-assessment.ts:147 SID",
         "src/lib/respondent/start-assessment.ts:23 SID",
         "src/lib/respondent/tokens.ts:143 SID",
@@ -552,7 +555,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/payments/payment-operations.ts:26 S",
-        "src/lib/reports/assemble-report-data.ts:139 S",
+        "src/lib/reports/assemble-report-data.ts:209 S",
         "src/lib/reports/email/premium-report-admin-initiation.ts:234 S",
         "src/lib/reports/email/premium-report-preview-development.ts:153 S"
       ],
@@ -637,7 +640,7 @@
         "src/app/score/api/internal/uat-start-check/route.ts:20 S",
         "src/app/score/api/readiness-runtime-check/route.ts:20 S",
         "src/lib/admin/assessment-review.ts:174 S",
-        "src/lib/reports/assemble-report-data.ts:256 S",
+        "src/lib/reports/assemble-report-data.ts:328 S",
         "src/lib/respondent/assessment-methodology.ts:77 S"
       ],
       "justification": "Read-only methodology and report evidence."
@@ -650,7 +653,7 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/assemble-report-data.ts:367 S"
+        "src/lib/reports/assemble-report-data.ts:460 S"
       ],
       "justification": "Read-only report recommendation assembly."
     },
@@ -803,9 +806,9 @@
         "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:205 SID",
         "src/app/score/api/internal/uat-start-check/route.ts:53 SID",
         "src/app/score/api/readiness-runtime-check/route.ts:46 SID",
-        "src/lib/adaptive/server.ts:106 SID",
-        "src/lib/adaptive/server.ts:165 SID",
-        "src/lib/adaptive/server.ts:188 SID",
+        "src/lib/adaptive/server.ts:182 S",
+        "src/lib/adaptive/server.ts:245 I",
+        "src/lib/adaptive/server.ts:268 D",
         "src/lib/respondent/start-assessment.ts:146 SID",
         "src/lib/respondent/start-assessment.ts:41 SID",
         "src/lib/respondent/tokens.ts:145 SID",
@@ -836,8 +839,8 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:86 S",
-        "src/lib/reports/assemble-report-data.ts:254 S",
-        "src/lib/reports/assemble-report-data.ts:265 S",
+        "src/lib/reports/assemble-report-data.ts:326 S",
+        "src/lib/reports/assemble-report-data.ts:338 S",
         "src/lib/snapshot/free-snapshot.ts:98 S"
       ],
       "justification": "Read-only score evidence and snapshot/report output."
@@ -851,8 +854,8 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:103 S",
-        "src/lib/reports/assemble-report-data.ts:258 S",
-        "src/lib/reports/assemble-report-data.ts:288 S"
+        "src/lib/reports/assemble-report-data.ts:330 S",
+        "src/lib/reports/assemble-report-data.ts:361 S"
       ],
       "justification": "Read-only scoring trace evidence."
     },
@@ -867,8 +870,8 @@
         "src/lib/admin/assessment-review.ts:44 S",
         "src/lib/admin/assessment-review.ts:78 S",
         "src/lib/notifications/phase1-order-notifications.ts:372 S",
-        "src/lib/reports/assemble-report-data.ts:113 S",
-        "src/lib/reports/assemble-report-data.ts:127 S",
+        "src/lib/reports/assemble-report-data.ts:169 S",
+        "src/lib/reports/assemble-report-data.ts:194 S",
         "src/lib/reports/email/premium-report-admin-initiation.ts:253 S",
         "src/lib/reports/email/premium-report-preview-development.ts:164 S",
         "src/lib/snapshot/free-snapshot.ts:65 S",
@@ -1011,27 +1014,27 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/adaptive/server.ts:225"
+        "src/lib/adaptive/server.ts:305"
       ],
-      "classification": "PREVIEW/STAGING adaptive state mutation RPC"
+      "classification": "ADAPTIVE RUNTIME state mutation RPC; exact environment/project/SHA binding enforced before caller reaches it"
     },
     {
       "signature": "public.adaptive_submit_assessment(uuid,bigint,jsonb,jsonb)",
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/adaptive/server.ts:257"
+        "src/lib/adaptive/server.ts:337"
       ],
-      "classification": "PREVIEW/STAGING adaptive submit RPC"
+      "classification": "ADAPTIVE RUNTIME submit RPC; exact environment/project/SHA binding enforced before caller reaches it"
     },
     {
       "signature": "public.complete_adaptive_score_run_atomic(uuid,uuid,uuid,text,text,score_run_type,text,uuid,text,jsonb,jsonb,jsonb,jsonb,jsonb)",
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/scoring/adaptive-scoring.ts:377"
+        "src/lib/scoring/adaptive-scoring.ts:382"
       ],
-      "classification": "PREVIEW/STAGING adaptive scoring RPC"
+      "classification": "ADAPTIVE RUNTIME scoring RPC; exact environment/project/SHA binding enforced before caller reaches it"
     },
     {
       "signature": "public.automatic_release_completed_fulfilment(uuid,uuid,text)",
@@ -1545,6 +1548,28 @@
       "justification": "Atomic release of the complete verified Comprehensive secondary-artifact set; it fails closed on missing human-review records, primary report integrity, or any missing artifact version."
     }
   ],
+  "operatorOnlyServiceRoleRpcs": [
+    {
+      "signature": "public.set_adaptive_activation(text,text,boolean,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "executeRole": "service_role",
+      "applicationCaller": null,
+      "classification": "OPERATOR-ONLY CUTOVER CONTROL; NO APPLICATION CALLER",
+      "migration": "supabase/migrations/20260827090000_rc2_adaptive_environment_binding.sql",
+      "controls": [
+        "preview_or_production_environment",
+        "20-character Supabase project reference",
+        "40-character deployment SHA",
+        "non-empty operator reason",
+        "accepted graph/version and fingerprint",
+        "published graph required",
+        "policy-only mutation plus audit row",
+        "no assessment/answer/score/report mutation",
+        "no public/anon/authenticated EXECUTE"
+      ]
+    }
+  ],
   "nonServiceRpcClassifications": {
     "AUTHENTICATED ADMIN CLIENT ONLY": [
       "admin_terminal_phase14_generation_publication",
@@ -1697,7 +1722,52 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "c0502a2f1df065fa9243c7a49b40bb1a6f5bb59b545f9e0500c1f980271eef56"
+    "fullAstInventorySha256": "404ef5cb9dd5f037dea997de9bfbeb25df556f7631dcd57b699f8dc933a203fd"
+  },
+  "rc2PrivilegeReview": {
+    "reviewedAt": "2026-08-27",
+    "reviewedCommit": "c4fa6baacca367570e83935953a88c3754f6bb27",
+    "acceptedBaselineSourceCommit": "6ae004824f79c0c9d10f8093e1e893c0145f5a6c",
+    "acceptedBaselineInventorySha256": "c0502a2f1df065fa9243c7a49b40bb1a6f5bb59b545f9e0500c1f980271eef56",
+    "acceptedBaselineAstCallSites": 520,
+    "rc2InventorySha256": "404ef5cb9dd5f037dea997de9bfbeb25df556f7631dcd57b699f8dc933a203fd",
+    "rc2AstCallSites": 521,
+    "structuralDifferenceCount": 1,
+    "removedStableItems": 0,
+    "applicationPrivilegeExpansion": false,
+    "structuralDifferences": [
+      {
+        "file": "src/lib/reports/assemble-report-data.ts",
+        "function": "assembleReportData",
+        "operationKind": "table",
+        "target": "public.methodology_versions",
+        "receiver": "supabase",
+        "databaseVerbs": ["SELECT"],
+        "oldClassification": "No RC2 call-site entry; methodology_versions was already manifested as SELECT-only direct service-role access",
+        "proposedClassification": "DIRECT SERVICE-ROLE ACCESS REQUIRED; locked score-run methodology version-code read; existing SELECT privilege"
+      }
+    ],
+    "capabilityReview": {
+      "newDirectTableTarget": false,
+      "newDirectTableCallSite": true,
+      "newTableWriteVerb": false,
+      "newDeleteCapability": false,
+      "newRpcCaller": false,
+      "newDynamicDatabaseTarget": false,
+      "newStorageApiCaller": false,
+      "newAuthAdminCaller": false
+    },
+    "operatorOnlyRpcReview": {
+      "signature": "public.set_adaptive_activation(text,text,boolean,text,text)",
+      "applicationCaller": null,
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "executeRole": "service_role",
+      "mutationScope": ["adaptive_activation_policies", "audit_logs"],
+      "forbiddenMutationTargets": ["assessments", "assessment_answers", "score_runs", "reports"],
+      "conclusion": "Operator-only audited activation authority; no application caller is represented or invented in the application RPC inventory."
+    },
+    "conclusion": "Hash drift is one reviewed SELECT call site to an existing manifested table. RC2 introduces no new table target, table write verb, DELETE capability, RPC caller, dynamic database target, Storage API caller or Auth Admin caller."
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
