@@ -1,5 +1,46 @@
+/**
+ * Closed-vocabulary customer-output residue contract. Keep one rule per customer-visible
+ * residue category so the final fail-closed guard can report a safe diagnostic code without
+ * persisting or logging the matched prose.
+ */
+export const ESSENTIAL_CUSTOMER_RESIDUE_RULES = [
+  { code: 'customer_residue_scenario_id', category: 'Scenario ID', pattern: /\bSCENARIO-\d+\b/i },
+  { code: 'customer_residue_domain_id', category: 'Parenthesized domain ID', pattern: /\(D\d+\)/i },
+  { code: 'customer_residue_control_placeholder', category: 'Control placeholder', pattern: /the relevant control/i },
+  { code: 'customer_residue_roadmap_placeholder', category: 'Roadmap placeholder', pattern: /the relevant roadmap action/i },
+  { code: 'customer_residue_assessed_control_placeholder', category: 'Assessed-control placeholder', pattern: /the relevant assessed control/i },
+  { code: 'customer_residue_evidence_requirement_placeholder', category: 'Evidence-requirement placeholder', pattern: /the relevant evidence requirement/i },
+  { code: 'customer_residue_roadmap_dependency_id', category: 'Roadmap dependency IDs', pattern: /authoritative roadmap dependency IDs/i },
+  { code: 'customer_residue_erp', category: 'ERP acronym', pattern: /\bERP\b/i },
+  { code: 'customer_residue_personal_data_obligations', category: 'Personal-data obligations', pattern: /personal-data obligations may be breached/i },
+  { code: 'customer_residue_majority_unexamined', category: 'Unexamined activity claim', pattern: /majority of activity is never examined/i },
+  { code: 'customer_residue_retired_register', category: 'Retired supporting-register promise', pattern: /(?:Essential Supporting Register|supporting-register\.xlsx|supporting register)/i },
+  { code: 'customer_residue_xlsx', category: 'Spreadsheet artifact filename', pattern: /\.xlsx\b/i }
+] as const;
+
+export type EssentialCustomerResidueCode = typeof ESSENTIAL_CUSTOMER_RESIDUE_RULES[number]['code'];
+
+/** The authoritative final pattern is assembled from the closed-vocabulary rules above. */
+export const ESSENTIAL_CUSTOMER_RESIDUE = new RegExp(
+  ESSENTIAL_CUSTOMER_RESIDUE_RULES.map(({ pattern }) => `(?:${pattern.source})`).join('|'),
+  'i'
+);
+
 const RETIRED_REGISTER_PATTERN = /(?:Essential Supporting Register|supporting-register\.xlsx|supporting register)/i;
-const ESSENTIAL_CUSTOMER_RESIDUE = /\bSCENARIO-\d+\b|\(D\d+\)|the relevant control|the relevant roadmap action|the relevant assessed control|the relevant evidence requirement|authoritative roadmap dependency IDs|\bERP\b|personal-data obligations may be breached|majority of activity is never examined|(?:Essential Supporting Register|supporting-register\.xlsx|\.xlsx\b)/i;
+
+export class EssentialCustomerResidueError extends Error {
+  readonly code: EssentialCustomerResidueCode;
+
+  constructor(code: EssentialCustomerResidueCode) {
+    super(code);
+    this.name = 'EssentialCustomerResidueError';
+    this.code = code;
+  }
+}
+
+function firstCustomerResidue(value: string) {
+  return ESSENTIAL_CUSTOMER_RESIDUE_RULES.find(({ pattern }) => pattern.test(value));
+}
 
 /**
  * Final customer-facing normalisation for the Essential PDF.
@@ -41,8 +82,7 @@ export function normaliseEssentialCustomerHtml(html: string): string {
       'security and confidentiality obligations may be breached')
     .replace(/<p>\s*<\/p>/gi, '');
 
-  if (ESSENTIAL_CUSTOMER_RESIDUE.test(cleaned)) {
-    throw new Error('essential_customer_output_normalisation_incomplete');
-  }
+  const residue = firstCustomerResidue(cleaned);
+  if (residue) throw new EssentialCustomerResidueError(residue.code);
   return cleaned;
 }

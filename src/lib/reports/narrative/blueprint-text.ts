@@ -384,7 +384,7 @@ function numericValues(pack: NarrativeFactPack): Set<string> {
   return values;
 }
 
-const RAW_ID = /\b(?:D\d+-Q\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/;
+const RAW_ID = /\b(?:D\d+-Q\d+|SCENARIO-\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/;
 
 /** Peer, benchmark, industry or size comparisons -- none is ever evidenced. */
 const COMPARATIVE_CLAIM = /\b(?:ahead of|behind|compared (?:to|with)|relative to|better than|worse than|above|below)\s+(?:many\s+)?(?:organisations?|peers?|companies|firms|businesses)?[^.]{0,40}?\b(?:of\s+)?similar\s+size\b|\b(?:industry|peer|benchmark)\s+(?:average|median|percentile|comparison)\b|\btypical for organisations of this size\b/gi;
