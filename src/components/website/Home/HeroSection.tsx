@@ -75,7 +75,7 @@ export default function HeroSection() {
             </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
-              <Link href="/fraud-readiness-score#start-score" className="w-full sm:w-auto">
+              <Link href="/score/start" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="group w-full rounded-xl bg-white px-8 py-6 text-base font-semibold text-[#001030] shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-white/90"

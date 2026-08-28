@@ -117,7 +117,7 @@ const landing = read('src/app/(website)/fraud-readiness-score/page.tsx');
 const engine = read('src/components/assessment/AssessmentEngine.tsx');
 const combinedAssessment = landing + engine + read('src/app/score/start/page.tsx');
 assert.doesNotMatch(combinedAssessment, /<iframe|postMessage|ResizeObserver/);
-assert.match(landing, /StartAssessmentForm/);
+assert.doesNotMatch(landing, /StartAssessmentForm/);
 for (const evidence of ['fieldset', 'type="radio"', 'aria-live="polite"', 'role="progressbar"', 'motion-reduce:transition-none', 'min-h-11', 'Retry save', 'sessionStorage', 'scrollIntoView', 'prefers-reduced-motion', 'domainCompleted', 'initialActiveQuestionId']) {
   assert.ok(engine.includes(evidence), `assessment engine covers ${evidence}`);
 }

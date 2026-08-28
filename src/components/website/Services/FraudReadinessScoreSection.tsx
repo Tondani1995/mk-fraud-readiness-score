@@ -40,7 +40,7 @@ export default function FraudReadinessScoreSection() {
               A self health-check for organisations that want a clear starting point. It gives a free score snapshot immediately, then creates the option to request a detailed MK report or a broader Fraud Health Check.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/fraud-readiness-score" className="w-full sm:w-auto">
+              <Link href="/score/start" className="w-full sm:w-auto">
                 <Button className="w-full rounded-xl bg-white px-8 py-6 text-base font-bold text-[#001030] shadow-lg transition hover:bg-white/90">
                   Start the Readiness Assessment
                   <ArrowRight className="ml-2 h-5 w-5" />

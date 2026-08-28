@@ -1,5 +1,4 @@
 import Wrapper from "@/components/website/Wrapper";
-import { StartAssessmentForm } from "@/components/assessment/StartAssessmentForm";
 import { ArrowRight, BarChart3, CheckCircle2, FileText, Shield } from "lucide-react";
 import Link from "next/link";
 
@@ -23,10 +22,10 @@ export default function FraudReadinessScorePage() {
                   The Fraud Readiness Score is a structured self-assessment that helps your organisation understand readiness, exposure and priority control gaps. Once submitted, you receive a free snapshot immediately and can request a detailed MK report.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <a href="#start-score" className="inline-flex items-center justify-center rounded-xl bg-white px-7 py-4 font-semibold text-[#001030] shadow-lg transition hover:bg-white/90">
+                  <Link href="/score/start" className="inline-flex items-center justify-center rounded-xl bg-white px-7 py-4 font-semibold text-[#001030] shadow-lg transition hover:bg-white/90">
                     Assess Your Organisation
                     <ArrowRight className="ml-2 h-5 w-5" />
-                  </a>
+                  </Link>
                   <Link href="/services#health-check" className="inline-flex items-center justify-center rounded-xl border border-white/20 px-7 py-4 font-semibold text-white transition hover:bg-white/5">
                     View Health Check
                   </Link>
@@ -92,8 +91,16 @@ export default function FraudReadinessScorePage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl md:p-8" data-native-assessment-start="true">
-              <StartAssessmentForm />
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl md:p-8" data-adaptive-assessment-entry="true">
+              <p className="text-sm font-bold uppercase tracking-wide text-[#1d3658]">Start with the free snapshot</p>
+              <h3 className="mt-3 text-2xl font-bold tracking-tight text-[#001030]">Answer a few organisation questions, then work through the relevant controls.</h3>
+              <p className="mt-4 max-w-2xl leading-7 text-slate-600">
+                The adaptive assessment asks only the questions relevant to your operating model. It saves your progress as you go and gives you a free readiness snapshot after submission.
+              </p>
+              <Link href="/score/start" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#001030] px-6 py-3 font-semibold text-white transition hover:bg-[#1d3658]">
+                Start the assessment
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </div>
           </div>
         </section>

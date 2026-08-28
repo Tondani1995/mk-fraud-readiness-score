@@ -188,6 +188,18 @@ const COMPREHENSIVE: OrderableProduct = {
   ]
 };
 
+/**
+ * Current customer-facing Comprehensive posture. The underlying product identity, price and
+ * entitlement resolver remain unchanged for historical orders and controlled operational reads;
+ * this projection closes only the new self-service customer path.
+ */
+export const COMPREHENSIVE_CUSTOMER_SUMMARY = 'A manually scoped Comprehensive engagement with MK Fraud Insights. Scope, deliverables and commercials are agreed directly with MK; no online order or automatic report fulfilment is created.';
+export const COMPREHENSIVE_CUSTOMER_INCLUDES = [
+  'Scope and deliverables agreed with MK Fraud Insights',
+  'Management workshop and analysis plan agreed for the organisation',
+  'Commercials and delivery timetable confirmed directly with MK'
+] as const;
+
 const ADVISORY: AdvisoryProduct = {
   tier: 'advisory',
   productCode: null,
@@ -263,18 +275,21 @@ export type CatalogueListing = {
 export function listCatalogue(): CatalogueListing[] {
   return COMMERCIAL_TIERS.map((tier) => {
     const product = COMMERCIAL_CATALOGUE[tier];
+    const isComprehensive = product.tier === 'comprehensive';
     return {
       tier,
       label: product.label,
-      summary: product.summary,
-      includes: product.includes,
+      summary: isComprehensive ? COMPREHENSIVE_CUSTOMER_SUMMARY : product.summary,
+      includes: isComprehensive ? COMPREHENSIVE_CUSTOMER_INCLUDES : product.includes,
       paid: product.paid,
-      selfServiceOrderable: product.selfServiceOrderable,
+      // Historical order entitlement is resolved by paidProductForTier(); the public listing
+      // deliberately reports the current customer boundary instead.
+      selfServiceOrderable: isComprehensive ? false : product.selfServiceOrderable,
       currency: product.currency,
       vatInclusive: product.vatInclusive,
       priceCents: product.priceCents,
       priceFromCents: product.tier === 'advisory' ? product.priceFromCents : null,
-      fulfilmentModel: product.fulfilmentModel
+      fulfilmentModel: isComprehensive ? 'manually_scoped' : product.fulfilmentModel
     };
   });
 }

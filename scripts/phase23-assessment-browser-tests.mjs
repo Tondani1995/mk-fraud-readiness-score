@@ -47,6 +47,7 @@ const browser = await puppeteer.launch({ executablePath, headless: true, args: [
 const viewports = [
   { name: 'narrow-320', width: 320, height: 700 },
   { name: 'mobile-390', width: 390, height: 844 },
+  { name: 'mobile-430', width: 430, height: 932 },
   { name: 'tablet', width: 768, height: 1024 },
   { name: 'desktop', width: 1440, height: 1000 }
 ];
@@ -172,12 +173,12 @@ try {
     const page = await configurePreviewPage(await browser.newPage());
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-    const startResponse = await page.goto(`${baseUrl}/fraud-readiness-score#start-score`, { waitUntil: 'networkidle0' });
-    assertPreviewPageReached(page, startResponse, '/fraud-readiness-score#start-score');
-    await page.waitForSelector('[data-native-assessment-start="true"] form, [data-adaptive-assessment-start="true"]');
+    const startResponse = await page.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
+    assertPreviewPageReached(page, startResponse, '/score/start');
+    await page.waitForSelector('[data-adaptive-assessment-start="true"]');
     const measurement = await page.evaluate(() => {
       const root = document.documentElement;
-      const form = document.querySelector('[data-native-assessment-start="true"] form, [data-adaptive-assessment-start="true"]');
+      const form = document.querySelector('[data-adaptive-assessment-start="true"]');
       const scope = form?.closest('form') ?? form;
       const controls = scope ? [...scope.querySelectorAll('input, select, button, a')] : [];
       return {
@@ -197,7 +198,7 @@ try {
     assert.equal(measurement.nestedScrollableCount, 0, `${viewport.name}: nested scroll container`);
     assert.equal(measurement.formVisible, true, `${viewport.name}: form hidden`);
     assert.equal(measurement.reducedMotion, true, `${viewport.name}: reduced-motion preference unavailable`);
-    evidence.push({ viewport, route: '/fraud-readiness-score#start-score', ...measurement });
+    evidence.push({ viewport, route: '/score/start', ...measurement });
     await page.screenshot({ path: join(outputDirectory, `${viewport.name}.png`), fullPage: true });
     await page.close();
   }

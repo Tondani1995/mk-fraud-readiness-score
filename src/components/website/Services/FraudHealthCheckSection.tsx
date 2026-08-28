@@ -202,7 +202,7 @@ export default function FraudHealthCheckSection() {
                                         </div>
 
                                         <div className="mt-4">
-                                            <Link href="/fraud-readiness-score">
+                                            <Link href="/score/start">
                                                 <Button className="w-full rounded-xl bg-[#1d3658] py-6 text-base text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-[#152a44]">
                                                     <span className="flex items-center justify-center gap-2">
                                                         Start the Assessment

@@ -26,7 +26,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
           <CardContent className="space-y-4 text-sm leading-6 text-white/80">
             <p>Capture the respondent and organisation details once.</p>
             <p>Move directly into the fraud readiness questions without asking the respondent to create an account.</p>
-            <p>Your free snapshot shows where the organisation stands. From there you can choose the Essential or Comprehensive report, or discuss a specialist Advisory engagement.</p>
+            <p>Your free snapshot shows where the organisation stands. From there you can choose the Essential report, request a scoped Comprehensive engagement, or discuss a specialist Advisory engagement.</p>
           </CardContent>
         </Card>
 

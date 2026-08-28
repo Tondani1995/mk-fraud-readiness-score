@@ -23,7 +23,7 @@ export default function ServicesSection() {
       title: "Fraud Readiness Score",
       description:
         "Start with a structured self-assessment that gives leadership an immediate readiness score, exposure view, and priority control gaps.",
-      href: "/fraud-readiness-score#start-score",
+      href: "/score/start",
       featured: true,
     },
     {
@@ -93,7 +93,7 @@ export default function ServicesSection() {
           </div>
 
           <div className="flex w-full flex-col gap-4 sm:flex-row lg:w-auto">
-            <Link href="/fraud-readiness-score#start-score" className="w-full sm:w-auto">
+            <Link href="/score/start" className="w-full sm:w-auto">
               <Button className="group w-full rounded-xl bg-[#001030] px-8 py-6 text-base text-white shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-[#0b1b44]">
                 Start the Assessment
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />

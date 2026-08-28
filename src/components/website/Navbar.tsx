@@ -68,7 +68,7 @@ export default function Navbar() {
           </div>
 
           <div className="hidden items-center lg:flex">
-            <Link href="/fraud-readiness-score#start-score" onClick={() => trackEvent("cta_click", { cta_name: "assess_your_organisation", placement: "navbar" })}>
+            <Link href="/score/start" onClick={() => trackEvent("cta_click", { cta_name: "assess_your_organisation", placement: "navbar" })}>
               <Button size="lg" className="px-8 py-6 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl" style={{ backgroundColor: "#04123b" }}>
                 Assess Your Organisation
               </Button>
@@ -106,7 +106,7 @@ export default function Navbar() {
             ))}
           </div>
           <div className="border-t border-slate-200 p-6">
-            <Link href="/fraud-readiness-score#start-score" onClick={() => setMobileOpen(false)}>
+            <Link href="/score/start" onClick={() => setMobileOpen(false)}>
               <Button size="lg" className="w-full rounded-xl py-6 text-base font-semibold" style={{ backgroundColor: "#001030" }}>
                 Assess Your Organisation
               </Button>

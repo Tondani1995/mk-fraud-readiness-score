@@ -83,7 +83,7 @@ export default function CTASection() {
               </div>
 
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                <Link href="/fraud-readiness-score#start-score" className="w-full sm:w-auto">
+                <Link href="/score/start" className="w-full sm:w-auto">
                   <Button
                     className="group w-full rounded-xl bg-[#001030] px-8 py-6 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-[#0b1b44]"
                     onMouseEnter={() => setIsHovered(true)}

@@ -16,7 +16,7 @@ export function Header() {
           <Link href="/industries" className="transition hover:text-mk-ink">Industries</Link>
           <Link href="/about" className="transition hover:text-mk-ink">About</Link>
           <Link href="/insights" className="transition hover:text-mk-ink">Insights</Link>
-          <Link href="/fraud-readiness-score#start-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Assess Your Organisation</Link>
+          <Link href="/score/start" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Assess Your Organisation</Link>
         </nav>
       </div>
     </header>

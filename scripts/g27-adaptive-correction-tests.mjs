@@ -106,9 +106,14 @@ assert.equal(ordinaryEvidence.items.some((item) => item.kind === 'visibility_gap
 
 const ui = readFileSync(new URL('../src/components/adaptive/AdaptiveAssessmentExperience.tsx', import.meta.url), 'utf8');
 assert.match(ui, /onChange=\{\(\) => void chooseControl/);
-assert.match(ui, />Continue<\/Button>/);
-assert.match(ui, /chooseGateway[\s\S]*persist\(next, controlResponses, 'gateway', node\.nodeId, false, true\)/);
-assert.match(ui, /chooseControl[\s\S]*persist\(gatewayAnswers, next, 'question', node\.nodeId, false, true\)/);
+assert.doesNotMatch(ui, />Continue<\/Button>/, 'routine continuation control is removed');
+assert.match(ui, /chooseGateway[\s\S]*persist\(next, controlResponses, 'gateway', node\.nodeId, false\)/);
+assert.match(ui, /chooseControl[\s\S]*persist\(gatewayAnswers, next, 'question', node\.nodeId, false\)/);
+assert.match(ui, /setCurrentId\(body\.state\.path\?\.currentNextNode \?\? null\)/, 'the authoritative returned path drives the next question');
+assert.match(ui, /savingRef\.current = true/, 'a save guard prevents conflicting writes');
+assert.match(ui, /pendingWriteRef\.current = write/, 'the intended write is retained for retry');
+assert.match(ui, /Try saving again/, 'failed saves expose a retry state');
+assert.doesNotMatch(ui, /Save now/);
 assert.doesNotMatch(ui, /await persist\(next, controlResponses, 'gateway', node\.nodeId\);/);
 assert.doesNotMatch(ui, /await persist\(gatewayAnswers, next, 'question', node\.nodeId\);/);
 

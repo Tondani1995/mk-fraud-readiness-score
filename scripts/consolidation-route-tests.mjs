@@ -15,9 +15,11 @@ assert.doesNotMatch(config, /basePath\s*:/, 'The consolidated app must not use a
 assert.doesNotMatch(config, /https?:\/\//, 'Next rewrites must not proxy to another deployment.');
 assert.match(config, /source:\s*['"]\/score\/\.well-known\/workflow\/:path\*['"]/);
 assert.match(config, /destination:\s*['"]\/\.well-known\/workflow\/:path\*['"]/);
-assert.match(scoreLanding, /StartAssessmentForm/);
-assert.match(scoreLanding, /data-native-assessment-start/);
+assert.doesNotMatch(scoreLanding, /StartAssessmentForm/);
+assert.doesNotMatch(scoreLanding, /data-native-assessment-start/);
 assert.match(scoreLanding, /id=["']start-score["']/);
+assert.match(scoreLanding, /href=["']\/score\/start["']/);
+assert.match(scoreLanding, /data-adaptive-assessment-entry/);
 assert.match(scoreLanding, /scroll-mt-24/);
 assert.match(scoreLanding, /md:scroll-mt-28/);
 assert.doesNotMatch(scoreLanding, /1900px|h-\[1900px\]/);
@@ -26,7 +28,7 @@ assert.match(assessmentEngine, /data-assessment-native="true"/);
 assert.doesNotMatch(scoreLanding + scoreStart + assessmentEngine, /<iframe|postMessage|ResizeObserver/);
 assert.match(runtimeCheck, /dynamic = ['"]force-dynamic['"]/, 'Runtime check must never execute during build.');
 assert.match(uatStartCheck, /dynamic = ['"]force-dynamic['"]/, 'UAT start check must never execute during build.');
-assert.equal((navbar.match(/\/fraud-readiness-score#start-score/g) ?? []).length, 2, 'Desktop and mobile navigation CTAs must share the score anchor.');
+assert.equal((navbar.match(/\/score\/start/g) ?? []).length, 2, 'Desktop and mobile navigation CTAs must use the adaptive start route.');
 assert.match(contact, /https:\/\/api\.web3forms\.com\/submit/);
 assert.match(contact, /const cleanName = formData\.name\.trim\(\)/);
 assert.match(contact, /const cleanEmail = formData\.email\.trim\(\)/);
@@ -69,7 +71,8 @@ if (baseUrl) {
 
   const landing = await (await fetch(`${baseUrl}/fraud-readiness-score`)).text();
   assert.doesNotMatch(landing, /<iframe/i);
-  assert.match(landing, /data-native-assessment-start="true"/);
+  assert.doesNotMatch(landing, /data-native-assessment-start="true"/);
+  assert.match(landing, /href="\/score\/start"/);
   const legacyEmbed = await fetch(`${baseUrl}/score/start?embed=1`, { redirect: 'manual' });
   assert.ok([307, 308].includes(legacyEmbed.status));
   assert.equal(new URL(legacyEmbed.headers.get('location'), baseUrl).pathname, '/score/start');

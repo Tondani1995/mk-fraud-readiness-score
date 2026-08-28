@@ -23,7 +23,7 @@ export function Footer() {
           <div className="mt-3 space-y-2 text-white/70">
             <p>hello@mkfraud.co.za</p>
             <p>South Africa</p>
-            <a href="/fraud-readiness-score#start-score" className="inline-block text-white hover:text-mk-line">Assess Your Organisation</a>
+            <a href="/score/start" className="inline-block text-white hover:text-mk-line">Assess Your Organisation</a>
           </div>
         </div>
       </div>

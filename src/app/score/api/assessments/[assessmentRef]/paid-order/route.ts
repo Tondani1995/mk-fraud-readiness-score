@@ -44,6 +44,13 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
 
   if (!validation.ok) return deny(['Private snapshot link required.'], 403);
 
+  // Comprehensive remains a historical entitlement/product identity, but new customer requests
+  // are handed to MK through the comprehensive_selected event instead of creating an order or
+  // payment obligation. Essential continues through the controlled paid-order path below.
+  if (body?.tier === 'comprehensive') {
+    return deny(['Comprehensive is arranged directly with MK Fraud Insights. No online order or payment obligation is created.'], 409);
+  }
+
   const result = await createPaidOrderForAssessment({
     tier: body.tier,
     assessment: validation.assessment,

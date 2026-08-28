@@ -178,7 +178,7 @@ export default function Footer() {
               </div>
 
               <Link
-                href="/fraud-readiness-score#start-score"
+                href="/score/start"
                 onClick={() => trackEvent("cta_click", { cta_name: "footer_assess_your_organisation", placement: "footer_cta" })}
               >
                 <Button className="group rounded-xl bg-white px-8 py-6 text-[#001030] shadow-2xl transition-all duration-300 hover:scale-105 hover:bg-white/90">
