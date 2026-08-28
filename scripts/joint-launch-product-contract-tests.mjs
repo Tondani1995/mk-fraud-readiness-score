@@ -406,7 +406,8 @@ check('order creation refuses any tier that is not self-service paid', () => {
   // Creation goes through the one transactional primitive. The amount is never sent as a value to
   // store -- it is sent as the contract this build compiled against, and the database refuses the
   // write if its own current price version disagrees.
-  assert.match(service, /db\.rpc\('create_paid_order'/);
+  assert.match(service, /db\.rpc\('create_paid_order_with_invoice'/);
+  assert.match(service, /p_invoice_requested/);
   assert.match(service, /p_expected_amount_cents: product\.priceCents/);
   assert.match(service, /p_expected_product_code: product\.productCode/);
   assert.match(service, /paid_order_catalogue_contract_mismatch/);
@@ -419,7 +420,8 @@ check('Essential order creation resolves its product by code and uses the same s
   assert.match(source, /eq\('product_code', ESSENTIAL_PRODUCT_CODE\)/);
   assert.doesNotMatch(source, /order\('display_order'/);
   // Essential creates through create_paid_order() too, so both tiers share one transactional path.
-  assert.match(source, /db\.rpc\('create_paid_order'/);
+  assert.match(source, /db\.rpc\('create_paid_order_with_invoice'/);
+  assert.match(source, /p_invoice_requested/);
   assert.match(source, /p_expected_amount_cents: ESSENTIAL_PRICE_CENTS/);
   assert.doesNotMatch(source, /from\('orders'\)[\s\S]{0,200}\.insert\(/);
 });

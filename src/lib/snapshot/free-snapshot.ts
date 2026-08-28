@@ -14,11 +14,13 @@ export type FreeSnapshotDomain = {
 };
 
 export type FreeSnapshot = {
+  assessmentId: string;
   assessmentReference: string;
   organisationName: string;
   respondentName: string | null;
   respondentEmail: string | null;
   scoreRunId: string;
+  methodologyVersionId: string;
   runNumber: number;
   overallScore: number | null;
   calculatedMaturity: MaturityBand | null;
@@ -51,7 +53,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     // Keep the legacy snapshot contract usable on the 0025 compatibility
     // boundary. Adaptive callers persist and read their own mode metadata;
     // the legacy snapshot projection does not need this post-0025 column.
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,methodology_version_id,current_score_run_id')
     .eq('assessment_reference', assessmentReference)
     .maybeSingle();
 
@@ -66,7 +68,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
       .from('score_runs')
       // Keep the legacy 0025 snapshot contract usable before G27's additive score-run columns
       // exist. Adaptive metadata is loaded opportunistically below on newer staging schemas.
-      .select('id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at')
+      .select('id,methodology_version_id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at')
       .eq('id', scoreRunId)
       .eq('assessment_id', assessment.id)
       .maybeSingle(),
@@ -129,11 +131,13 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     .map(({ sortOrder: _sortOrder, ...domain }: any) => domain);
 
   return {
+    assessmentId: assessment.id,
     assessmentReference: assessment.assessment_reference,
     organisationName: organisation?.legal_name ?? organisation?.trading_name ?? 'Organisation',
     respondentName: respondent?.full_name ?? respondent?.email ?? null,
     respondentEmail: respondent?.email ?? null,
     scoreRunId: scoreRun.id,
+    methodologyVersionId: scoreRun.methodology_version_id,
     runNumber: Number(scoreRun.run_number ?? 1),
     overallScore: scoreRun.overall_score === null ? null : asNumber(scoreRun.overall_score),
     calculatedMaturity: scoreRun.calculated_maturity,

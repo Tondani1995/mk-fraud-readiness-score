@@ -9,6 +9,7 @@ const check = (label, fn) => { fn(); checks += 1; console.log(`  ok - ${label}`)
 
 const eft = read('src/lib/orders/eft-instructions.ts');
 const orderService = read('src/lib/commercial/order-service.ts');
+const catalogue = read('src/lib/commercial/product-catalogue.ts');
 const paidOrderRoute = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
 const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
 const statusPage = read('src/components/comprehensive/CustomerOrderStatusWorkspace.tsx');
@@ -28,12 +29,27 @@ check('EFT instructions are active-config gated, snapshot-bound and returned by 
   assert.match(snapshot, /View order status/);
 });
 
-check('customer evidence UI is token-bound, one-file-at-a-time and safe for customer display', () => {
-  assert.match(statusPage, /form\.set\('snapshotToken', snapshotToken\)/);
-  assert.match(statusPage, /form\.set\('file', file\)/);
-  assert.match(statusPage, /Optional label/);
-  assert.match(statusPage, /role="alert"/);
-  assert.match(statusPage, /role="status"/);
+check('Comprehensive customer status is an analytical EFT journey with released package downloads, not a reviewer workflow', () => {
+  assert.match(catalogue, /COMPREHENSIVE_PRICE_CENTS = 3_500_000/);
+  assert.match(catalogue, /COMPREHENSIVE_PRODUCT_CODE = 'mk_validated_assessment'/);
+  assert.match(catalogue, /fulfilmentModel: 'automated_analytical'/);
+  assert.match(catalogue, /selfServiceOrderable: true/);
+  assert.match(paidOrderRoute, /parseInvoiceRequest/);
+  assert.match(orderService, /create_paid_order_with_invoice/);
+  assert.match(statusPage, /Payment instructions/);
+  assert.match(statusPage, /Payment reference/);
+  assert.match(statusPage, /MK confirms payment manually/);
+  assert.match(statusPage, /Your report/);
+  assert.match(statusPage, /automated analysis/);
+  assert.match(statusPage, /does not independently validate evidence/);
+  assert.match(statusPage, /Released Comprehensive package/);
+  assert.match(statusPage, /Annotated register XLSX/);
+  assert.match(statusPage, /supporting_register/);
+  assert.match(generation, /fromAssembledReportData\(assembled\)/);
+  assert.match(generation, /renderHtmlToPdfBuffer/);
+  assert.doesNotMatch(statusPage, /Submit requested evidence|Upload evidence/);
+  assert.doesNotMatch(statusPage, /Reviewer:|Sign-off:/);
+  assert.doesNotMatch(statusPage, /form\.set\('snapshotToken'/);
   assert.doesNotMatch(statusPage, /storage_path|signedUrl|bucket/);
 });
 

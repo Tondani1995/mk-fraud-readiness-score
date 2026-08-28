@@ -3,6 +3,7 @@ import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { createPaidOrderForAssessment } from '@/lib/commercial/order-service';
 import { isSelfServicePaidTier } from '@/lib/commercial/product-catalogue';
+import { parseInvoiceRequest } from '@/lib/commercial/invoice-details';
 
 /**
  * Creates a paid order for the tier the customer chose.
@@ -35,6 +36,9 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     return deny(['Choose either the Essential or the Comprehensive product. Advisory is scoped manually.'], 400);
   }
 
+  const invoice = parseInvoiceRequest(body);
+  if (!invoice.ok) return deny([invoice.message], 400);
+
   const validation = await validateSnapshotToken({
     assessmentReference: params.assessmentRef,
     rawToken: String(body.snapshotToken),
@@ -44,18 +48,13 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
 
   if (!validation.ok) return deny(['Private snapshot link required.'], 403);
 
-  // Comprehensive remains a historical entitlement/product identity, but new customer requests
-  // are handed to MK through the comprehensive_selected event instead of creating an order or
-  // payment obligation. Essential continues through the controlled paid-order path below.
-  if (body?.tier === 'comprehensive') {
-    return deny(['Comprehensive is arranged directly with MK Fraud Insights. No online order or payment obligation is created.'], 409);
-  }
-
   const result = await createPaidOrderForAssessment({
     tier: body.tier,
     assessment: validation.assessment,
     organisation: validation.organisation,
-    respondent: validation.respondent
+    respondent: validation.respondent,
+    invoiceRequested: invoice.value.invoiceRequested,
+    invoiceDetails: invoice.value.invoiceDetails
   });
 
   if (!result.ok) {
@@ -79,6 +78,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         amountDisplay: result.amountDisplay,
         status: result.status,
         paymentReference: result.paymentReference,
+        invoiceRequested: result.invoiceRequested,
         eftInstructions: result.eftInstructions,
         assessmentReference: params.assessmentRef
       },

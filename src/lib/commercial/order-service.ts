@@ -9,6 +9,7 @@ import {
   type SelfServicePaidTier
 } from './product-catalogue';
 import type { ProductPriceVersion } from './order-price-entitlement';
+import type { InvoiceDetails } from './invoice-details';
 
 /**
  * Order creation for the two self-service paid tiers.
@@ -46,6 +47,7 @@ export type PaidOrderCreationResult =
       amountDisplay: string;
       status: string;
       paymentReference: string;
+      invoiceRequested: boolean;
       eftInstructions: CustomerSafeEftInstructions;
       engagementId: string | null;
       engagementState: string | null;
@@ -119,7 +121,9 @@ export async function createPaidOrderForAssessment(input: {
   assessment: any;
   organisation?: any | null;
   respondent?: any | null;
-  /** Only Essential links an order to a detailed-report data request; Comprehensive does not. */
+  invoiceRequested: boolean;
+  invoiceDetails: InvoiceDetails;
+  /** Only the legacy Essential route links an order to a detailed-report data request. */
   dataRequest?: any | null;
 }): Promise<PaidOrderCreationResult> {
   const product = paidProductForTier(input.tier);
@@ -146,7 +150,7 @@ export async function createPaidOrderForAssessment(input: {
     };
   }
 
-  const { data, error } = await db.rpc('create_paid_order', {
+  const { data, error } = await db.rpc('create_paid_order_with_invoice', {
     p_tier: tier,
     p_assessment_id: input.assessment.id,
     p_expected_product_code: product.productCode,
@@ -159,7 +163,9 @@ export async function createPaidOrderForAssessment(input: {
     p_product_name: product.label,
     p_eft_instructions_snapshot: eftSnapshot,
     p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
-    p_assessment_reference: input.assessment.assessment_reference ?? null
+    p_assessment_reference: input.assessment.assessment_reference ?? null,
+    p_invoice_requested: input.invoiceRequested,
+    p_invoice_details: input.invoiceDetails
   });
 
   if (error) {
@@ -194,7 +200,8 @@ export async function createPaidOrderForAssessment(input: {
       order_reference: data.order_reference,
       tier,
       product_code: product.productCode,
-      amount_cents: data.amount_cents
+      amount_cents: data.amount_cents,
+      invoice_requested: input.invoiceRequested
     };
 
     await Promise.all([
@@ -234,6 +241,7 @@ export async function createPaidOrderForAssessment(input: {
     amountDisplay: formatOrderAmount(data.amount_cents, data.currency),
     status: data.status,
     paymentReference: paymentReferenceFor(data.order_reference),
+    invoiceRequested: Boolean(data.invoice_requested ?? input.invoiceRequested),
     eftInstructions: boundEft,
     engagementId: data.engagement_id ?? null,
     engagementState: data.engagement_state ?? null

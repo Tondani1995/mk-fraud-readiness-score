@@ -14,6 +14,7 @@ export interface TierComparisonProduct {
 export interface TierComparisonProps {
   essential: TierComparisonProduct;
   comprehensive: TierComparisonProduct;
+  advisory: TierComparisonProduct;
   heading?: string;
   intro?: string;
 }
@@ -22,8 +23,8 @@ export interface TierComparisonProps {
  * Presentation-only comparison. Product codes and prices are intentionally supplied by props so
  * this component cannot become a second authoritative catalogue or entitlement contract.
  */
-export function TierComparison({ essential, comprehensive, heading = 'Choose the level of depth your organisation needs', intro = 'Essential diagnoses the position. Comprehensive adds the control, governance, evidence and implementation depth to act on it. Neither includes independent validation.' }: TierComparisonProps) {
-  const renderProduct = (product: TierComparisonProduct, emphasis: 'essential' | 'comprehensive') => (
+export function TierComparison({ essential, comprehensive, advisory, heading = 'Choose the level of depth your organisation needs', intro = 'Essential diagnoses the position. Comprehensive adds the control, governance, evidence and implementation depth to act on it. Advisory is separately scoped with MK. Neither product includes independent validation.' }: TierComparisonProps) {
+  const renderProduct = (product: TierComparisonProduct, emphasis: 'essential' | 'comprehensive' | 'advisory') => (
     <article
       key={product.id}
       aria-labelledby={`${product.id}-title`}
@@ -51,11 +52,11 @@ export function TierComparison({ essential, comprehensive, heading = 'Choose the
         <h2 id="tier-comparison-heading" className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{heading}</h2>
         <p className="mt-4 text-base leading-7 text-slate-600">{intro}</p>
       </div>
-      <div className="mt-8 grid gap-6 md:grid-cols-2" role="list" aria-label="Product tier comparison">
+      <div className="mt-8 grid gap-6 md:grid-cols-3" role="list" aria-label="Product tier comparison">
         {renderProduct(essential, 'essential')}
         {renderProduct(comprehensive, 'comprehensive')}
+        {renderProduct(advisory, 'advisory')}
       </div>
     </section>
   );
 }
-

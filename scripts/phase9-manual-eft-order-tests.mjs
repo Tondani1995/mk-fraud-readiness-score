@@ -44,6 +44,9 @@ assertIncludes(migration, 'orders_assessment_report_request_unique', 'Migration 
 assertIncludes(migration, 'payment_gateway":false', 'Migration records no gateway boundary');
 assertIncludes(migration, 'pdf_generation":false', 'Historical migration records its original no-PDF boundary');
 assertIncludes(migration, 'report_unlock":false', 'Historical migration records no report unlock boundary');
+assertIncludes('supabase/migrations/20260821102116_customer_conversion_interim_closure.sql', 'invoice_requested boolean', 'Accepted schema stores the invoice preference');
+assertIncludes('supabase/migrations/20260821102116_customer_conversion_interim_closure.sql', 'invoice_details jsonb', 'Accepted schema stores closed invoice details');
+assertIncludes('supabase/migrations/20260821113000_interim_manual_fulfilment_transition.sql', 'create_paid_order_with_invoice', 'Invoice-aware order creation uses the accepted transactional wrapper');
 
 const orderLib = 'src/lib/orders/manual-eft-orders.ts';
 assert(exists(orderLib), 'Manual EFT order service must exist.');
@@ -78,12 +81,15 @@ assertIncludes(reportRoute, 'Private snapshot link required to request a detaile
 assertIncludes(reportRoute, 'detailed_report_request_reconfirmed', 'Report request route handles repeated clicks safely');
 assertIncludes(reportRoute, 'Your report order has been recorded.', 'Report request response confirms the approved order-recorded state');
 assertIncludes(reportRoute, 'Please use your order reference as the payment reference', 'Report request returns EFT next-step language');
+assertIncludes(reportRoute, 'parseInvoiceRequest', 'Legacy Essential route captures the same closed invoice contract');
 
 const snapshot = 'src/components/assessment/FreeSnapshot.tsx';
 assertIncludes(snapshot, 'snapshotTokenFromUrl', 'Snapshot extracts the private token for report request calls');
 assertIncludes(snapshot, 'OrderConfirmationPanel', 'Snapshot shows order confirmation panel');
 assertIncludes(snapshot, 'Manual EFT details', 'Snapshot can show configured EFT details');
 assertIncludes(snapshot, 'Payment reference', 'Snapshot shows payment reference');
+assertIncludes(snapshot, 'Would you like an invoice for this order?', 'Snapshot asks the invoice question before order creation');
+assertIncludes(snapshot, 'invoiceRequested', 'Snapshot sends the invoice preference to the server');
 assertIncludes(snapshot, 'MK Fraud Insights confirms EFT payments manually', 'Snapshot explains manual payment confirmation');
 assertNotIncludes(snapshot, 'PayFast', 'Snapshot must not mention PayFast');
 assertNotIncludes(snapshot, 'Upload proof', 'Snapshot must not expose proof upload');

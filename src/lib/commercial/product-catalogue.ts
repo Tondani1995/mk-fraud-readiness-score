@@ -145,6 +145,7 @@ const ESSENTIAL: OrderableProduct = {
     'Detailed analysis across all applicable domains',
     'Critical weaknesses and false-comfort risks',
     'Prioritised management actions and a 30/60/90-day roadmap',
+    'Embedded proof and evidence requirements for prioritised actions',
     'Professionally prepared PDF report'
   ]
 };
@@ -187,18 +188,6 @@ const COMPREHENSIVE: OrderableProduct = {
     'Target operating model, governance rhythm and management scorecard'
   ]
 };
-
-/**
- * Current customer-facing Comprehensive posture. The underlying product identity, price and
- * entitlement resolver remain unchanged for historical orders and controlled operational reads;
- * this projection closes only the new self-service customer path.
- */
-export const COMPREHENSIVE_CUSTOMER_SUMMARY = 'A manually scoped Comprehensive engagement with MK Fraud Insights. Scope, deliverables and commercials are agreed directly with MK; no online order or automatic report fulfilment is created.';
-export const COMPREHENSIVE_CUSTOMER_INCLUDES = [
-  'Scope and deliverables agreed with MK Fraud Insights',
-  'Management workshop and analysis plan agreed for the organisation',
-  'Commercials and delivery timetable confirmed directly with MK'
-] as const;
 
 const ADVISORY: AdvisoryProduct = {
   tier: 'advisory',
@@ -275,21 +264,18 @@ export type CatalogueListing = {
 export function listCatalogue(): CatalogueListing[] {
   return COMMERCIAL_TIERS.map((tier) => {
     const product = COMMERCIAL_CATALOGUE[tier];
-    const isComprehensive = product.tier === 'comprehensive';
     return {
       tier,
       label: product.label,
-      summary: isComprehensive ? COMPREHENSIVE_CUSTOMER_SUMMARY : product.summary,
-      includes: isComprehensive ? COMPREHENSIVE_CUSTOMER_INCLUDES : product.includes,
+      summary: product.summary,
+      includes: product.includes,
       paid: product.paid,
-      // Historical order entitlement is resolved by paidProductForTier(); the public listing
-      // deliberately reports the current customer boundary instead.
-      selfServiceOrderable: isComprehensive ? false : product.selfServiceOrderable,
+      selfServiceOrderable: product.selfServiceOrderable,
       currency: product.currency,
       vatInclusive: product.vatInclusive,
       priceCents: product.priceCents,
       priceFromCents: product.tier === 'advisory' ? product.priceFromCents : null,
-      fulfilmentModel: isComprehensive ? 'manually_scoped' : product.fulfilmentModel
+      fulfilmentModel: product.fulfilmentModel
     };
   });
 }

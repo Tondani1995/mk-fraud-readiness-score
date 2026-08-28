@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSnapshotNarrativeInput, unavailableSnapshotNarrative, SNAPSHOT_NARRATIVE_MAX_WORDS, validateSnapshotNarrative } from '../../src/lib/snapshot/narrative.ts';
+import {
+  buildCachedSnapshotNarrative,
+  buildDeterministicSnapshotNarrative,
+  buildSnapshotNarrativeInput,
+  SNAPSHOT_NARRATIVE_MAX_WORDS,
+  snapshotNarrativeContentSchema,
+  validateSnapshotNarrative
+} from '../../src/lib/snapshot/narrative.ts';
 import { selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 import { buildCommercialSnapshotInsights } from '../../src/lib/snapshot/commercial-insights.ts';
 
 const snapshot = {
+  assessmentId: 'assessment-snapshot',
   assessmentReference: 'TEST-SNAPSHOT',
   organisationName: 'Example Health Logistics (Pty) Ltd',
   respondentName: null,
   respondentEmail: null,
   scoreRunId: 'score-run',
+  methodologyVersionId: 'methodology-v1-2',
   runNumber: 1,
   overallScore: 35.55,
   calculatedMaturity: 'Reactive',
@@ -33,30 +42,125 @@ const insights = buildCommercialSnapshotInsights(snapshot);
 const input = buildSnapshotNarrativeInput(snapshot, insights);
 
 test('Snapshot narrative input is bounded to approved deterministic facts', () => {
-  assert.deepEqual(Object.keys(input).sort(), ['assuranceBoundary', 'attentionAreas', 'maturity', 'nextStepDirection', 'organisationName', 'overallScore', 'strongestAreas'].sort());
+  assert.deepEqual(Object.keys(input).sort(), [
+    'assuranceBoundary', 'attentionAreas', 'coveragePct', 'criticalGapCount', 'maturity', 'majorGapCount',
+    'nARatePct', 'nextStepDirection', 'organisationName', 'overallScore', 'resultStatus', 'strongestAreas'
+  ].sort());
   assert.equal(JSON.stringify(input).includes('D1'), false);
   assert.equal(JSON.stringify(input).includes('roadmap'), false);
 });
 
-test('Snapshot technical exhaustion fails closed without mechanical narrative', () => {
-  const unavailable = unavailableSnapshotNarrative({ aiCallCount: 4, attemptedModels: ['openai/gpt-5-mini', 'openai/gpt-5.6-luna', 'openai/gpt-5.6-terra', 'openai/gpt-5.6-sol'] });
-  assert.equal(unavailable.mode, 'unavailable');
-  assert.equal(unavailable.aiCallCount, 4);
-  assert.equal(unavailable.interpretation, '');
-  assert.equal(unavailable.nextStep, '');
+test('Snapshot narrative uses the strict five-field customer contract', () => {
+  const fallback = buildDeterministicSnapshotNarrative({ snapshot, insights, fallbackReason: 'test-only' });
+  assert.deepEqual(Object.keys(snapshotNarrativeContentSchema.parse({
+    headline: fallback.headline,
+    executiveDiagnosis: fallback.executiveDiagnosis,
+    strength: fallback.strength,
+    prioritySignals: fallback.prioritySignals,
+    managementImplication: fallback.managementImplication
+  })).sort(), [
+    'executiveDiagnosis', 'headline', 'managementImplication', 'prioritySignals', 'strength'
+  ].sort());
+  assert.equal(fallback.prioritySignals.length, 2);
+  assert.equal(fallback.mode, 'deterministic');
+  assert.equal(fallback.aiCallCount, 0);
+  assert.doesNotMatch(JSON.stringify(fallback), /personalised interpretation unavailable/i);
+  assert.equal(snapshot.overallScore, 35.55);
+  assert.equal(snapshot.finalMaturity, 'Reactive');
 });
 
 test('Snapshot validation rejects invented numbers and paid-tier leakage', () => {
-  const issues = validateSnapshotNarrative({ interpretation: 'The score is 99 and the 30/60/90-day roadmap is ready.', nextStep: 'Use the detailed report blueprint.' }, input);
+  const issues = validateSnapshotNarrative({
+    headline: 'Example Health Logistics has a clear position.',
+    executiveDiagnosis: 'The score is 99 and the result includes a detailed roadmap.',
+    strength: 'The strongest area is recorded in the Snapshot.',
+    prioritySignals: ['Leadership attention is needed.', 'A second signal needs review.'],
+    managementImplication: 'Use the detailed report blueprint.'
+  }, input);
   assert.ok(issues.includes('invented_number'));
   assert.ok(issues.includes('paid_tier_detail_leakage'));
 });
 
-test('Snapshot validation accepts a concise grounded narrative', () => {
-  const value = { interpretation: 'The recorded result points to a reactive position, with the strongest areas offering a base for focused improvement.', nextStep: 'Leadership should clarify ownership and prioritise the recorded attention areas.' };
+test('Snapshot validation rejects malformed field counts and assurance language', () => {
+  const malformed = validateSnapshotNarrative({
+    headline: 'Example Health Logistics has a recorded position.',
+    executiveDiagnosis: 'The result needs attention.',
+    strength: 'A useful foundation is visible.',
+    prioritySignals: ['One signal.', 'Two signals.', 'Three signals.'],
+    managementImplication: 'Leadership should assign ownership.'
+  }, input);
+  assert.deepEqual(malformed, ['snapshot_narrative_schema_invalid']);
+
+  const assurance = validateSnapshotNarrative({
+    headline: 'Example Health Logistics has a recorded position.',
+    executiveDiagnosis: 'The result needs attention.',
+    strength: 'The assessment independently verified the controls and their effectiveness.',
+    prioritySignals: ['One signal.', 'Two signals.'],
+    managementImplication: 'Leadership should assign ownership.'
+  }, input);
+  assert.ok(assurance.includes('assurance_claim'));
+});
+
+test('Snapshot validation accepts a concise grounded five-field narrative', () => {
+  const value = {
+    headline: 'Example Health Logistics has a reactive position.',
+    executiveDiagnosis: 'The recorded result points to a reactive position. The strongest areas offer a base for focused improvement.',
+    strength: 'Fraud Leadership and Governance is the clearest recorded foundation.',
+    prioritySignals: ['Fraud Leadership and Governance: Immediate attention.', 'Fraud Risk Identification: Immediate attention.'],
+    managementImplication: 'Leadership should clarify ownership and prioritise the recorded attention areas.'
+  };
   const issues = validateSnapshotNarrative(value, input);
   assert.deepEqual(issues, []);
-  assert.ok((value.interpretation + value.nextStep).split(/\s+/).length < SNAPSHOT_NARRATIVE_MAX_WORDS);
+  assert.ok(Object.values(value).join(' ').split(/\s+/).length < SNAPSHOT_NARRATIVE_MAX_WORDS);
+});
+
+test('a valid Snapshot cache hit avoids another narrative generation', async () => {
+  const rows = new Map();
+  let reads = 0;
+  let writes = 0;
+  let generatorCalls = 0;
+  const cache = {
+    async read(key) {
+      reads += 1;
+      return rows.get(JSON.stringify(key)) ?? null;
+    },
+    async write(key, record) {
+      writes += 1;
+      rows.set(JSON.stringify(key), record);
+    }
+  };
+  const generator = async (value) => {
+    generatorCalls += 1;
+    return buildDeterministicSnapshotNarrative(value);
+  };
+
+  const first = await buildCachedSnapshotNarrative({ snapshot, insights, cache, generator });
+  const second = await buildCachedSnapshotNarrative({ snapshot, insights, cache, generator });
+
+  assert.equal(reads, 2);
+  assert.equal(writes, 1);
+  assert.equal(generatorCalls, 1);
+  assert.deepEqual(second, {
+    headline: first.headline,
+    executiveDiagnosis: first.executiveDiagnosis,
+    strength: first.strength,
+    prioritySignals: first.prioritySignals,
+    managementImplication: first.managementImplication,
+    mode: 'deterministic',
+    model: 'deterministic',
+    promptVersion: first.promptVersion,
+    aiCallCount: 0,
+    fallbackReason: undefined,
+    inputTokens: undefined,
+    outputTokens: undefined,
+    totalTokens: undefined,
+    providerCostMicros: undefined
+  });
+  const cacheKey = [...rows.keys()][0];
+  assert.match(cacheKey, /assessment-snapshot/);
+  assert.match(cacheKey, /score-run/);
+  assert.match(cacheKey, /methodology-v1-2/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v2/);
 });
 
 test('Snapshot policy is Mini-first with technical fallback and one successful generation', () => {
@@ -66,4 +170,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'closed safe handling after technical exhaustion', 'invented number rejection', 'paid-tier leakage rejection', 'concise grounded narrative', 'Mini-Luna-Terra-Sol technical fallback', 'one successful Snapshot generation'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids another generation', 'Mini-first policy'] }, null, 2));

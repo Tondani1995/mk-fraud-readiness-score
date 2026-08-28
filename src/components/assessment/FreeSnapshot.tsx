@@ -7,15 +7,14 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { TierComparison } from '@/components/products/TierComparison';
-import type { CommercialDomainInsight, CommercialOptionCode, CommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
+import type { CommercialOptionCode, CommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { SnapshotNarrative } from '@/lib/snapshot/narrative';
-import { unavailableSnapshotNarrative } from '@/lib/snapshot/narrative';
+import { buildDeterministicSnapshotNarrativeContent } from '@/lib/snapshot/deterministic-narrative';
+import type { InvoiceDetails } from '@/lib/commercial/invoice-details';
 import {
   COMMERCIAL_CATALOGUE,
-  COMPREHENSIVE_CUSTOMER_INCLUDES,
-  COMPREHENSIVE_CUSTOMER_SUMMARY,
   type SelfServicePaidTier
 } from '@/lib/commercial/product-catalogue';
 
@@ -29,6 +28,7 @@ type OrderConfirmation = {
   productName: string;
   amountDisplay: string;
   paymentReference: string;
+  invoiceRequested: boolean;
   manualConfirmationNote: string;
   eftInstructions?: {
     active: true;
@@ -72,6 +72,20 @@ function snapshotTokenFromUrl(snapshotUrl?: string | null) {
   }
 }
 
+const EMPTY_INVOICE_DETAILS: InvoiceDetails = {
+  legalName: '',
+  billingAddress: '',
+  addressee: '',
+  billingEmail: '',
+  vatNumber: '',
+  registrationNumber: '',
+  purchaseOrderReference: ''
+};
+
+function invoiceDetailsReady(details: InvoiceDetails) {
+  return Boolean(details.legalName.trim() && details.billingAddress.trim() && details.addressee.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.billingEmail.trim()));
+}
+
 export function FreeSnapshotCard({
   snapshot,
   snapshotUrl,
@@ -83,12 +97,13 @@ export function FreeSnapshotCard({
   commercialInsights: CommercialSnapshotInsights;
   snapshotNarrative?: SnapshotNarrative;
 }) {
-  const effectiveSnapshotNarrative = snapshotNarrative ?? unavailableSnapshotNarrative();
-  const showExposure = !snapshot.adaptiveMetrics || snapshot.adaptiveMetrics.exposureAssessed !== false;
-  const [selectedOption, setSelectedOption] = useState<CommercialOptionCode | null>(null);
+  const effectiveSnapshotNarrative = snapshotNarrative ?? buildDeterministicSnapshotNarrativeContent({ snapshot, insights: commercialInsights });
+  const [selectedOption, setSelectedOption] = useState<SelfServicePaidTier | null>(null);
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [orderConfirmation, setOrderConfirmation] = useState<OrderConfirmation | null>(null);
+  const [invoiceRequested, setInvoiceRequested] = useState<boolean | null>(null);
+  const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails>(EMPTY_INVOICE_DETAILS);
   const reportRevealRef = useRef<HTMLDivElement>(null);
   const selectionEventsSentRef = useRef<Set<SelfServicePaidTier>>(new Set());
 
@@ -122,9 +137,11 @@ export function FreeSnapshotCard({
 
   async function selectPaidTier(tier: SelfServicePaidTier) {
     setSelectedOption(tier);
-    setRequestState(tier === 'comprehensive' ? 'sending' : 'idle');
+    setRequestState('idle');
     setMessage('');
     setOrderConfirmation(null);
+    setInvoiceRequested(null);
+    setInvoiceDetails(EMPTY_INVOICE_DETAILS);
     if (!selectionEventsSentRef.current.has(tier)) {
       await emitCommercialEvent('report_option_selected', tier, 'report_options');
       const handoffRecorded = await emitCommercialEvent(`${tier}_selected`, tier, 'report_options');
@@ -135,21 +152,31 @@ export function FreeSnapshotCard({
       }
       selectionEventsSentRef.current.add(tier);
     }
-    if (tier === 'comprehensive') {
-      setRequestState('sent');
-      setMessage('Your Comprehensive request has been shared with MK Fraud Insights. The team will contact you directly to agree scope, deliverables and commercials.');
-    }
   }
 
   async function requestPaidOrder(tier: SelfServicePaidTier) {
-    if (tier === 'comprehensive') return;
+    if (invoiceRequested === null) {
+      setRequestState('error');
+      setMessage('Please choose whether you would like an invoice before continuing.');
+      return;
+    }
+    if (invoiceRequested && !invoiceDetailsReady(invoiceDetails)) {
+      setRequestState('error');
+      setMessage('Please provide the required billing details for the invoice before continuing.');
+      return;
+    }
     setRequestState('sending');
     setMessage('');
     setOrderConfirmation(null);
     const response = await fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier, snapshotToken: snapshotTokenFromUrl(snapshotUrl) })
+      body: JSON.stringify({
+        tier,
+        snapshotToken: snapshotTokenFromUrl(snapshotUrl),
+        invoiceRequested,
+        invoiceDetails: invoiceRequested ? invoiceDetails : {}
+      })
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) {
@@ -180,45 +207,20 @@ export function FreeSnapshotCard({
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <section className="grid gap-4 md:grid-cols-5" aria-labelledby="snapshot-metrics-heading">
+          <section className="grid gap-4 md:grid-cols-4" aria-labelledby="snapshot-metrics-heading">
             <h2 id="snapshot-metrics-heading" className="sr-only">Readiness metrics</h2>
             <Metric label="Overall readiness score" value={snapshot.overallScore === null ? 'Not issued' : `${formatScore(snapshot.overallScore)}/100`} supporting={snapshot.overallScore === null ? 'More visibility is needed' : 'Persisted score result'} />
             <Metric label="Final maturity level" value={snapshot.finalMaturity ?? 'Not issued'} supporting={snapshot.finalMaturity === null ? 'No band is issued' : 'Based on submitted answers'} />
-            <Metric label="Information covered" value={`${formatScore(snapshot.coveragePct)}%`} supporting={snapshot.adaptiveMetrics ? `${formatScore(snapshot.adaptiveMetrics.unknownSharePct)}% of assessed weight needs confirmation` : `${formatScore(snapshot.nARatePct)}% not applicable`} />
-            {showExposure ? <Metric label="Exposure band" value={snapshot.exposureBand ?? 'Not assessed'} supporting="Exposure profile included" /> : null}
+            {commercialInsights.coverageMessage ? <Metric label="Information covered" value={`${formatScore(snapshot.coveragePct)}%`} supporting={snapshot.adaptiveMetrics ? `${formatScore(snapshot.adaptiveMetrics.unknownSharePct)}% needs confirmation` : `${formatScore(snapshot.nARatePct)}% not applicable`} /> : null}
             <Metric label="Priority gaps" value={String(snapshot.criticalGapCount + snapshot.majorGapCount)} supporting="Areas for management attention" />
           </section>
 
-          {snapshot.adaptiveMetrics ? (
+          {commercialInsights.coverageMessage ? (
             <section className="rounded-2xl border border-mk-brass/30 bg-mk-brass/10 p-5 text-sm leading-6 text-mk-ink" aria-labelledby="assessment-scope-heading">
-              <h2 id="assessment-scope-heading" className="text-lg font-semibold text-mk-ink">How to read this result</h2>
-              <p className="mt-2">{snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY' ? 'The information provided was not sufficient to issue a reliable Fraud Readiness Score. This result highlights where more information is needed.' : 'This result reflects the areas relevant to your organisation. A response that could not be confirmed is shown as uncertainty, not as proof that a control is absent.'}</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <ScopeMetric label="Information covered" value={`${formatScore(snapshot.adaptiveMetrics.assessmentCoveragePct)}%`} />
-                <ScopeMetric label="Responses needing confirmation" value={`${formatScore(snapshot.adaptiveMetrics.unknownSharePct)}%`} />
-              </div>
-              <p className="mt-3 text-mk-muted">{snapshot.adaptiveMetrics.scoreComparabilityStatement === 'A numeric Fraud Readiness Score is withheld because the submitted assessment did not provide enough visibility for a reliable result.' ? 'Use this as a direction for further information gathering rather than a final score.' : 'Use this result as a directional management view; scope and uncertainty can affect comparisons.'}</p>
+              <h2 id="assessment-scope-heading" className="text-lg font-semibold text-mk-ink">Coverage and uncertainty</h2>
+              <p className="mt-2">{commercialInsights.coverageMessage}</p>
             </section>
           ) : null}
-
-          <section className="grid gap-3 md:grid-cols-4" aria-labelledby="assessment-trust-heading">
-            <h2 id="assessment-trust-heading" className="sr-only">Assessment trust facts</h2>
-            {['A clear readiness position', 'Priorities for management attention', ...(showExposure ? ['Exposure context included'] : []), 'Based on your recorded responses'].map((item) => (
-              <div key={item} className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-sm font-semibold text-mk-ink">{item}</div>
-            ))}
-          </section>
-
-          <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="concise-interpretation-heading">
-            <h2 id="concise-interpretation-heading" className="font-semibold text-mk-ink">Concise readiness interpretation</h2>
-            {effectiveSnapshotNarrative.mode === 'unavailable' ? (
-              <p className="mt-2">The personalised interpretation is temporarily unavailable. Please refresh later or contact MK Fraud Insights if the problem continues.</p>
-            ) : (
-              <>
-                <p className="mt-2">{effectiveSnapshotNarrative.interpretation}</p>
-                <p className="mt-3 font-medium text-mk-ink">{effectiveSnapshotNarrative.nextStep}</p>
-              </>
-            )}
-          </section>
 
           {commercialInsights.criticalGapIndicator ? (
             <div className="rounded-2xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
@@ -229,38 +231,38 @@ export function FreeSnapshotCard({
             </div>
           ) : null}
 
-          <TrackedSection snapshot={snapshot} snapshotUrl={snapshotUrl} eventType="executive_summary_viewed" sourceSection="executive_summary" id="executive-summary" className="rounded-2xl border border-mk-line bg-white p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Executive interpretation</p>
-            <h2 className="sr-only">Executive interpretation</h2>
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <InterpretationBlock title="Current position" body={commercialInsights.currentPosition} />
-              <InterpretationBlock title="Risk implication" body={commercialInsights.riskImplication} />
-              <InterpretationBlock title="Leadership priority" body={commercialInsights.leadershipPriority} />
-            </div>
-            {commercialInsights.coverageMessage ? (
-              <div className="mt-4 rounded-xl border border-mk-line bg-mk-cream/60 p-4 text-sm leading-6 text-mk-muted">
-                <p className="font-semibold text-mk-ink">Coverage and applicability</p>
-                <p className="mt-1">{commercialInsights.coverageMessage}</p>
+          <TrackedSection snapshot={snapshot} snapshotUrl={snapshotUrl} eventType="executive_summary_viewed" sourceSection="executive_summary" id="executive-summary" className="rounded-2xl border border-mk-charcoal/15 bg-mk-charcoal p-6 text-white shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brass">What this means for your organisation</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">{effectiveSnapshotNarrative.headline}</h2>
+            <p className="mt-4 max-w-4xl text-base leading-7 text-white/80">{effectiveSnapshotNarrative.executiveDiagnosis}</p>
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <NarrativeBlock title="Strength" body={effectiveSnapshotNarrative.strength} />
+              <div className="rounded-xl border border-white/15 bg-white/10 p-4">
+                <h3 className="font-semibold text-white">Priority signals</h3>
+                <ul className="mt-3 space-y-3 text-sm leading-6 text-white/80">
+                  {effectiveSnapshotNarrative.prioritySignals.map((signal) => <li key={signal} className="flex gap-3"><span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-mk-brass" /><span>{signal}</span></li>)}
+                </ul>
               </div>
-            ) : null}
+              <NarrativeBlock title="Management implication" body={effectiveSnapshotNarrative.managementImplication} />
+            </div>
           </TrackedSection>
 
-          <section className="grid gap-5 lg:grid-cols-2">
-            <InsightList title="Priority areas for management focus" insights={commercialInsights.priorityAreas} empty="No priority areas are available in the free snapshot." />
-            <InsightList title="Foundations you can build on" insights={commercialInsights.strengths} empty="Important context" footer={commercialInsights.strengthContext} />
+          <section className="rounded-2xl border border-mk-line bg-white p-5" aria-labelledby="limited-readiness-heading">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Limited readiness picture</p>
+            <h2 id="limited-readiness-heading" className="mt-2 text-xl font-semibold text-mk-ink">A focused view of where attention is needed</h2>
+            <p className="mt-2 text-sm leading-6 text-mk-muted">These signals are drawn from the recorded result. The detailed analytical work sits behind the paid product choices below.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {effectiveSnapshotNarrative.prioritySignals.map((signal) => <div key={signal} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6 text-mk-ink">{signal}</div>)}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-mk-line bg-white p-5" aria-labelledby="free-snapshot-heading">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Free readiness snapshot</p>
-            <h2 id="free-snapshot-heading" className="mt-2 text-xl font-semibold text-mk-ink">Your snapshot identifies the position. The detailed report explains what to do next.</h2>
+            <h2 id="free-snapshot-heading" className="mt-2 text-xl font-semibold text-mk-ink">Your Snapshot gives you a clear position. Choose how to act on it next.</h2>
             <p className="mt-2 text-sm leading-6 text-mk-muted">
-              The free result gives you a high-level view of your organisation&apos;s readiness. The detailed report converts that result into a structured management response.
+              The free result gives you a high-level view of your organisation&apos;s readiness and the first signals for management attention.
             </p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <ValueList title="Free readiness snapshot" items={commercialInsights.freeSnapshotValue} />
-              <ValueList title="Full MK Fraud Readiness Report" items={commercialInsights.paidReportValue} />
-            </div>
-            <p className="mt-4 text-sm leading-6 text-mk-muted">The paid report includes a 30/60/90-day roadmap so management can turn the findings into owned next steps.</p>
+            <ValueList title="Included in this Snapshot" items={commercialInsights.freeSnapshotValue} />
           </section>
 
           <TrackedSection snapshot={snapshot} snapshotUrl={snapshotUrl} eventType="report_options_opened" sourceSection="report_options" id="report-options" className="rounded-2xl border border-mk-charcoal/15 bg-mk-cream/60 p-5">
@@ -275,37 +277,44 @@ export function FreeSnapshotCard({
             <div className="mt-5">
               <TierComparison
                 essential={{
-                  id: 'essential', label: COMMERCIAL_CATALOGUE.essential.label, tagline: 'Diagnose the position',
+                  id: 'essential', label: COMMERCIAL_CATALOGUE.essential.label, tagline: 'Diagnosis + prioritised executive action',
                   priceLabel: `${formatCataloguePrice(COMMERCIAL_CATALOGUE.essential.priceCents)} incl. VAT`,
                   description: COMMERCIAL_CATALOGUE.essential.summary,
                   features: [...COMMERCIAL_CATALOGUE.essential.includes], action: <Button type="button" className="w-full" onClick={() => void selectPaidTier('essential')}>Choose Essential</Button>
                 }}
                 comprehensive={{
-                  id: 'comprehensive', label: COMMERCIAL_CATALOGUE.comprehensive.label, tagline: 'Design and mobilise', featured: true,
+                  id: 'comprehensive', label: COMMERCIAL_CATALOGUE.comprehensive.label, tagline: 'Deeper diagnosis + complete target fraud-control operating model', featured: true,
                   priceLabel: `${formatCataloguePrice(COMMERCIAL_CATALOGUE.comprehensive.priceCents)} incl. VAT`,
-                  description: COMPREHENSIVE_CUSTOMER_SUMMARY,
-                  features: [...COMPREHENSIVE_CUSTOMER_INCLUDES], action: <Button type="button" className="w-full" variant="secondary" onClick={() => void selectPaidTier('comprehensive')}>Request Comprehensive</Button>
+                  description: COMMERCIAL_CATALOGUE.comprehensive.summary,
+                  features: [...COMMERCIAL_CATALOGUE.comprehensive.includes], action: <Button type="button" className="w-full" variant="secondary" onClick={() => void selectPaidTier('comprehensive')}>Choose Comprehensive</Button>
+                }}
+                advisory={{
+                  id: 'advisory', label: COMMERCIAL_CATALOGUE.advisory.label, tagline: 'Direct MK involvement',
+                  priceLabel: 'Manually scoped',
+                  description: 'Human-led advisory for organisations needing direct MK involvement beyond an analytical product. Scoped and contracted directly with MK.',
+                  features: ['Human-led engagement', 'Scope, deliverables and commercials agreed directly', 'No automatic order, payment obligation or report'],
+                  action: <Button asChild type="button" className="w-full" variant="secondary"><Link href="/contact">Discuss an Engagement with MK</Link></Button>
                 }}
               />
-              <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-mk-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-mk-ink">Advisory engagement</p>
-                  <p className="mt-1 text-sm leading-6 text-mk-muted">For a broader, manually scoped engagement, discuss the organisation&apos;s needs directly with MK Fraud Insights.</p>
-                </div>
-                <Button asChild variant="secondary"><Link href="/contact">Discuss an Advisory Engagement</Link></Button>
-              </div>
             </div>
 
             {selectedOption ? <div ref={reportRevealRef} tabIndex={-1} role="region" aria-live="polite" aria-labelledby="report-options-heading" className="mt-5 rounded-2xl border border-mk-line bg-white p-5 focus:outline-none focus:ring-2 focus:ring-mk-brass focus:ring-offset-2">
-            {selectedOption === COMMERCIAL_OPTION_CODES.essential ? (
-              <div>
-                {orderConfirmation ? (
-                  <OrderConfirmationPanel order={orderConfirmation} />
-                ) : (
-                  <ReportOrderSummary snapshot={snapshot} tier={selectedOption} requestState={requestState} message={message} onConfirm={() => requestPaidOrder(selectedOption)} />
-                )}
-              </div>
-            ) : selectedOption === COMMERCIAL_OPTION_CODES.comprehensive ? <ComprehensiveRequestPanel message={message} requestState={requestState} onRetry={() => void selectPaidTier('comprehensive')} /> : null}
+            {orderConfirmation ? (
+              <OrderConfirmationPanel order={orderConfirmation} />
+            ) : (
+              <ReportOrderSummary
+                snapshot={snapshot}
+                tier={selectedOption}
+                requestState={requestState}
+                message={message}
+                invoiceRequested={invoiceRequested}
+                invoiceDetails={invoiceDetails}
+                onInvoiceRequestedChange={(value) => { setInvoiceRequested(value); setRequestState('idle'); setMessage(''); }}
+                onInvoiceDetailsChange={(field, value) => setInvoiceDetails((current) => ({ ...current, [field]: value }))}
+                canConfirm={invoiceRequested !== null && (!invoiceRequested || invoiceDetailsReady(invoiceDetails))}
+                onConfirm={() => requestPaidOrder(selectedOption)}
+              />
+            )}
             </div> : null}
           </TrackedSection>
 
@@ -365,18 +374,18 @@ function TrackedSection({ snapshot, snapshotUrl, eventType, sourceSection, id, c
   return <section ref={ref} id={id} className={className}>{children}</section>;
 }
 
-function ComprehensiveRequestPanel({ message, requestState, onRetry }: { message: string; requestState: 'idle' | 'sending' | 'sent' | 'error'; onRetry: () => void }) {
-  return (
-    <div className="space-y-3">
-      <p className="font-semibold text-mk-ink">{requestState === 'sent' ? 'Your Comprehensive request has been sent to MK Fraud Insights' : requestState === 'sending' ? 'Sharing your Comprehensive request with MK Fraud Insights…' : 'Request Comprehensive directly with MK Fraud Insights'}</p>
-      <p className="text-sm leading-6 text-mk-muted">MK will contact you directly to understand the organisation&apos;s needs and agree the scope, deliverables, commercials and timing. No online order, payment obligation or automatic report is created here.</p>
-      {message ? <p role="status" className="rounded-xl border border-mk-brass/30 bg-mk-brass/10 p-4 text-sm leading-6 text-mk-ink">{message}</p> : null}
-      {requestState === 'error' ? <Button type="button" variant="secondary" onClick={onRetry}>Try sharing again</Button> : null}
-    </div>
-  );
-}
-
-function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }: { snapshot: FreeSnapshot; tier: SelfServicePaidTier; requestState: 'idle' | 'sending' | 'sent' | 'error'; message: string; onConfirm: () => void }) {
+function ReportOrderSummary({ snapshot, tier, requestState, message, invoiceRequested, invoiceDetails, onInvoiceRequestedChange, onInvoiceDetailsChange, canConfirm, onConfirm }: {
+  snapshot: FreeSnapshot;
+  tier: SelfServicePaidTier;
+  requestState: 'idle' | 'sending' | 'sent' | 'error';
+  message: string;
+  invoiceRequested: boolean | null;
+  invoiceDetails: InvoiceDetails;
+  onInvoiceRequestedChange: (value: boolean) => void;
+  onInvoiceDetailsChange: (field: keyof InvoiceDetails, value: string) => void;
+  canConfirm: boolean;
+  onConfirm: () => void;
+}) {
   const product = COMMERCIAL_CATALOGUE[tier];
   return (
     <div className="space-y-4">
@@ -385,7 +394,7 @@ function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }
           <p className="font-semibold text-mk-ink">Confirm your report order</p>
           <p className="mt-1 text-sm leading-6 text-mk-muted">Review the summary before continuing to EFT instructions.</p>
         </div>
-        <Button type="button" onClick={() => void onConfirm()} disabled={requestState === 'sending'}>
+        <Button type="button" onClick={() => void onConfirm()} disabled={requestState === 'sending' || !canConfirm}>
           {requestState === 'sending' ? 'Preparing instructions...' : 'Continue to EFT instructions'}
         </Button>
       </div>
@@ -397,6 +406,13 @@ function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }
         <Detail label="Delivery" value="Payment → MK admin generation → secure private PDF access" />
         <Detail label="What this includes" value={product.summary} />
       </div>
+      <InvoiceQuestion
+        tier={tier}
+        invoiceRequested={invoiceRequested}
+        invoiceDetails={invoiceDetails}
+        onInvoiceRequestedChange={onInvoiceRequestedChange}
+        onInvoiceDetailsChange={onInvoiceDetailsChange}
+      />
       <p className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">Payment is made by EFT. MK confirms payment manually before the completed report is released.</p>
       {message ? <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">{message}</p> : null}
     </div>
@@ -416,6 +432,7 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
         <Detail label="Product" value={order.productName} />
         <Detail label="Amount" value={order.amountDisplay} />
         <Detail label="Payment reference" value={order.paymentReference} copyable />
+        <Detail label="Invoice requested" value={order.invoiceRequested ? 'Yes' : 'No'} />
       </div>
       <div className="rounded-xl border border-mk-brass/40 bg-mk-brass/10 p-4 text-sm font-semibold text-mk-ink">Use the order reference exactly as shown when making payment.</div>
       {eft?.active ? (
@@ -447,6 +464,49 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
   );
 }
 
+function InvoiceQuestion({ tier, invoiceRequested, invoiceDetails, onInvoiceRequestedChange, onInvoiceDetailsChange }: {
+  tier: SelfServicePaidTier;
+  invoiceRequested: boolean | null;
+  invoiceDetails: InvoiceDetails;
+  onInvoiceRequestedChange: (value: boolean) => void;
+  onInvoiceDetailsChange: (field: keyof InvoiceDetails, value: string) => void;
+}) {
+  const field = (key: keyof InvoiceDetails, label: string, type = 'text', optional = false) => (
+    <label className="block text-sm text-mk-ink">
+      <span className="font-semibold">{label}{optional ? ' (optional)' : ''}</span>
+      <input
+        className="mt-1 w-full rounded-lg border border-mk-line bg-white px-3 py-2 text-sm text-mk-ink outline-none ring-mk-brass focus:ring-2"
+        type={type}
+        value={invoiceDetails[key]}
+        onChange={(event) => onInvoiceDetailsChange(key, event.target.value)}
+        maxLength={key === 'billingAddress' ? 500 : key === 'purchaseOrderReference' ? 120 : key === 'billingEmail' ? 320 : 200}
+        autoComplete={key === 'billingEmail' ? 'email' : ''}
+      />
+    </label>
+  );
+
+  return (
+    <fieldset className="rounded-xl border border-mk-line bg-mk-cream/40 p-4">
+      <legend className="px-1 font-semibold text-mk-ink">Would you like an invoice for this order?</legend>
+      <div className="mt-3 flex flex-wrap gap-4 text-sm text-mk-ink">
+        <label className="flex items-center gap-2"><input type="radio" name={`invoice-${tier}`} checked={invoiceRequested === true} onChange={() => onInvoiceRequestedChange(true)} /> Yes</label>
+        <label className="flex items-center gap-2"><input type="radio" name={`invoice-${tier}`} checked={invoiceRequested === false} onChange={() => onInvoiceRequestedChange(false)} /> No</label>
+      </div>
+      {invoiceRequested ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {field('legalName', 'Legal/company name')}
+          {field('addressee', 'Addressee / person or department')}
+          {field('billingEmail', 'Billing email', 'email')}
+          {field('billingAddress', 'Billing address')}
+          {field('vatNumber', 'VAT number', 'text', true)}
+          {field('registrationNumber', 'Registration number', 'text', true)}
+          {field('purchaseOrderReference', 'PO / billing reference', 'text', true)}
+        </div>
+      ) : null}
+    </fieldset>
+  );
+}
+
 function ValueList({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4">
@@ -458,39 +518,12 @@ function ValueList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function InterpretationBlock({ title, body }: { title: string; body: string }) {
+function NarrativeBlock({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4">
       <h3 className="font-semibold text-mk-ink">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-mk-muted">{body}</p>
     </div>
-  );
-}
-
-function InsightList({ title, insights, empty, footer }: { title: string; insights: CommercialDomainInsight[]; empty: string; footer?: string }) {
-  const headingId = `snapshot-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-  return (
-    <section className="rounded-2xl border border-mk-line bg-white p-5" aria-labelledby={headingId}>
-      <h2 id={headingId} className="font-semibold text-mk-ink">{title}</h2>
-      <div className="mt-4 space-y-3">
-        {insights.length ? insights.map((insight) => (
-          <div key={insight.domainCode || insight.domainName} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold text-mk-ink">{insight.domainName}</p>
-              <Badge>{insight.readinessStatus}</Badge>
-            </div>
-            <p className="mt-3 text-mk-muted">{insight.finding}</p>
-            <p className="mt-2 text-mk-muted">{insight.implication}</p>
-          </div>
-        )) : (
-          <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6 text-mk-muted">
-            <p className="font-semibold text-mk-ink">{empty}</p>
-            {footer ? <p className="mt-2">{footer}</p> : null}
-          </div>
-        )}
-      </div>
-      {footer && insights.length ? <p className="mt-4 text-sm leading-6 text-mk-muted">{footer}</p> : null}
-    </section>
   );
 }
 
@@ -526,15 +559,6 @@ function Metric({ label, value, supporting }: { label: string; value: string; su
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-muted">{label}</p>
       <p className="mt-3 text-3xl font-semibold text-mk-ink">{value}</p>
       <p className="mt-2 text-sm text-mk-muted">{supporting}</p>
-    </div>
-  );
-}
-
-function ScopeMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-mk-line bg-white/70 p-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">{label}</p>
-      <p className="mt-1 font-semibold text-mk-ink">{value}</p>
     </div>
   );
 }

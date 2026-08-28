@@ -84,6 +84,8 @@ const files = {
   builder: 'src/lib/snapshot/commercial-insights.ts',
   snapshot: 'src/components/assessment/FreeSnapshot.tsx',
   snapshotPage: 'src/app/score/snapshot/[assessmentRef]/page.tsx',
+  snapshotNarrative: 'src/lib/snapshot/narrative.ts',
+  snapshotNarrativeCache: 'src/lib/snapshot/narrative-cache.ts',
   commercialEventRoute: 'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts',
   paidOrderRoute: 'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
   reportRequestRoute: 'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts',
@@ -156,11 +158,13 @@ function baseDomains() {
 function makeSnapshot(overrides = {}) {
   const domainOverrides = overrides.domainOverrides ?? {};
   return {
+    assessmentId: 'assessment-phase13',
     assessmentReference: 'MFRS-PH13-TEST',
     organisationName: 'Phase 13 Test Organisation',
     respondentName: 'Phase 13 Respondent',
     respondentEmail: 'phase13@example.test',
     scoreRunId: 'score-run-phase13',
+    methodologyVersionId: 'methodology-phase13',
     runNumber: 1,
     overallScore: overrides.overallScore ?? 65,
     calculatedMaturity: overrides.calculatedMaturity ?? 'Structured',
@@ -279,6 +283,10 @@ assertIncludes(files.snapshotPage, 'buildCommercialSnapshotInsights(snapshot)', 
 assertIncludes(files.snapshotPage, 'snapshotUrl = `/score/snapshot/', 'Snapshot URL stays under /score route flow');
 assertIncludes(files.snapshotPage, 'encodeURIComponent(token)', 'Snapshot URL preserves private token safely');
 assertIncludes(files.snapshotPage, 'commercialInsights={commercialInsights}', 'Snapshot page passes insights into component');
+assertIncludes(files.snapshotPage, 'buildCachedSnapshotNarrative', 'Snapshot page reads the validated narrative cache before generating copy');
+assertIncludes(files.snapshotNarrative, 'prioritySignals: z.array(shortText(220)).length(2)', 'Snapshot narrative requires exactly two priority signals');
+assertIncludes(files.snapshotNarrativeCache, 'free_snapshot_narratives', 'Snapshot narrative cache uses the accepted cache table');
+assertIncludes(files.snapshotNarrativeCache, 'onConflict: \'assessment_id,score_run_id,methodology_version,prompt_version\'', 'Snapshot cache is bound to the full accepted identity key');
 
 assertIncludes(files.freeSnapshot, 'respondentEmail: string | null', 'Free snapshot can prepopulate respondent contact context');
 assertIncludes(files.freeSnapshot, 'respondentEmail: respondent?.email ?? null', 'Free snapshot loads respondent email from server-side relationship');
@@ -290,17 +298,16 @@ assert(
     || read(files.snapshot).includes('Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.'),
   'Snapshot uses approved result support copy'
 );
-assertIncludes(files.snapshot, 'A clear readiness position', 'Snapshot trust strip uses customer-facing result language');
-assertIncludes(files.snapshot, 'Priorities for management attention', 'Snapshot trust strip uses management-facing priority language');
-assertIncludes(files.snapshot, 'Exposure context included', 'Snapshot trust strip includes exposure context');
-assertIncludes(files.snapshot, 'Based on your recorded responses', 'Snapshot trust strip explains the result source without implementation detail');
-assertIncludes(files.snapshot, 'Executive interpretation', 'Snapshot has executive interpretation section');
-assertIncludes(files.snapshot, 'Priority areas for management focus', 'Snapshot has approved priority heading');
-assertIncludes(files.snapshot, 'Foundations you can build on', 'Snapshot has approved strength heading');
-assertIncludes(files.snapshot, 'Your snapshot identifies the position. The detailed report explains what to do next.', 'Snapshot uses approved free-vs-paid heading');
+assertIncludes(files.snapshot, 'What this means for your organisation', 'Snapshot leads with the organisation-specific interpretation');
+assertIncludes(files.snapshot, 'Limited readiness picture', 'Snapshot shows a limited evidence view');
+assertIncludes(files.snapshot, 'Priority signals', 'Snapshot renders the bounded priority-signal block');
+assertIncludes(files.snapshot, 'Management implication', 'Snapshot renders the bounded management implication');
+assertNotIncludes(files.snapshot, 'personalised interpretation is temporarily unavailable', 'Snapshot must not expose an AI-availability failure message');
+assertNotIncludes(files.snapshot, 'paidReportValue', 'Snapshot must not render the deterministic paid-detail giveaway');
 assertIncludes(files.snapshot, 'Report options', 'Snapshot exposes the current paid-product options');
 assertIncludes(files.snapshot, 'Choose Essential', 'Snapshot exposes the current Essential action');
-assertIncludes(files.snapshot, 'Request Comprehensive', 'Snapshot exposes the manual Comprehensive request action');
+assertIncludes(files.snapshot, 'Choose Comprehensive', 'Snapshot exposes the current Comprehensive action');
+assertIncludes(files.snapshot, 'Discuss an Engagement with MK', 'Snapshot exposes the Advisory action');
 assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.essential.priceCents', 'Snapshot reads the current Essential price from the catalogue');
 assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.comprehensive.priceCents', 'Snapshot reads the current Comprehensive price from the catalogue');
 assertNotIncludes(files.snapshot, 'R5,000', 'Snapshot must not present the superseded Essential price');
@@ -308,10 +315,14 @@ assertNotIncludes(files.snapshot, 'R50,000', 'Snapshot must not present the supe
 assertIncludes(files.snapshot, 'Confirm your report order', 'Current paid-product flow shows an order summary before order creation');
 assertIncludes(files.snapshot, 'Continue to EFT instructions', 'Current paid-product order creation is behind EFT continuation');
 assertIncludes(files.snapshot, 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Current paid-product order remains token-bound');
-assertIncludes(files.snapshot, 'ComprehensiveRequestPanel', 'Comprehensive selection renders a manual request handoff');
-assertIncludes(files.snapshot, 'if (tier === \'comprehensive\') return;', 'Comprehensive cannot call the paid-order handler');
-assertIncludes(files.snapshot, 'No online order, payment obligation or automatic report is created here.', 'Comprehensive handoff states its no-order boundary');
-assertNotIncludes(files.snapshot, 'onConfirm={() => requestPaidOrder(COMMERCIAL_OPTION_CODES.comprehensive)}', 'Comprehensive has no order confirmation callback');
+assertIncludes(files.snapshot, 'Would you like an invoice for this order?', 'Paid-tier flow asks the invoice question before order creation');
+assertIncludes(files.snapshot, 'legalName', 'Invoice flow collects legal/company name');
+assertIncludes(files.snapshot, 'billingAddress', 'Invoice flow collects billing address');
+assertIncludes(files.snapshot, 'vatNumber', 'Invoice flow supports an optional VAT number');
+assertIncludes(files.snapshot, 'registrationNumber', 'Invoice flow supports an optional registration number');
+assertIncludes(files.snapshot, 'purchaseOrderReference', 'Invoice flow supports an optional PO/reference');
+assertNotIncludes(files.snapshot, 'ComprehensiveRequestPanel', 'Comprehensive selection is not a request-only panel');
+assertNotIncludes(files.snapshot, 'personalised interpretation unavailable', 'Snapshot has no customer-visible AI availability message');
 assertIncludes(files.snapshot, 'IntersectionObserver', 'Snapshot view events use IntersectionObserver');
 assertIncludes(files.snapshot, 'threshold: [0.5]', 'Snapshot observes real section at 50% threshold');
 assertIncludes(files.snapshot, 'eventType="executive_summary_viewed"', 'Executive summary view event is emitted at section visibility');
@@ -341,8 +352,11 @@ assertSourceOrder(files.snapshot, 'Choose Essential', 'onConfirm={() => requestP
 assertIncludes(files.paidOrderRoute, 'createPaidOrderForAssessment', 'Current paid-order route uses the commercial order service');
 assertIncludes(files.paidOrderRoute, 'isSelfServicePaidTier', 'Current paid-order route accepts only current self-service tiers');
 assertIncludes(files.paidOrderRoute, 'validateSnapshotToken', 'Current paid-order route requires the private snapshot token');
-assertIncludes(files.paidOrderRoute, "if (body?.tier === 'comprehensive')", 'Direct Comprehensive paid-order requests are rejected server-side');
-assertIncludes(files.paidOrderRoute, 'No online order or payment obligation is created.', 'Comprehensive route rejection preserves the manual handoff boundary');
+assertNotIncludes(files.paidOrderRoute, "if (body?.tier === 'comprehensive')", 'Comprehensive is not blocked by the retired request-only route guard');
+assertIncludes(files.paidOrderRoute, 'parseInvoiceRequest', 'Paid-order route validates the closed invoice schema server-side');
+assertIncludes(files.paidOrderRoute, 'invoiceRequested: result.invoiceRequested', 'Paid-order response states whether an invoice was requested');
+assertIncludes(files.paidOrderRoute, 'createPaidOrderForAssessment', 'Comprehensive uses the normal paid-order service path');
+assertIncludes(files.reportRequestRoute, 'parseInvoiceRequest', 'Legacy Essential route uses the same invoice contract');
 
 assertIncludes(files.reportRequestRoute, 'validateSnapshotToken', 'R5 report request route requires snapshot token');
 assertNotIncludes(files.reportRequestRoute, 'consentContact', 'R5 report request route must not require consentContact');

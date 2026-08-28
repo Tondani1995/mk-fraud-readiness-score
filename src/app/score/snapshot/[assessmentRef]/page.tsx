@@ -9,7 +9,7 @@ import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
-import { buildSnapshotNarrative } from '@/lib/snapshot/narrative';
+import { buildCachedSnapshotNarrative } from '@/lib/snapshot/narrative-cache';
 
 type SnapshotPageProps = {
   params: Promise<{ assessmentRef: string }>;
@@ -117,7 +117,7 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
   const requestOrigin = requestOriginFor(requestHeaders);
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
-  const snapshotNarrative = await buildSnapshotNarrative({ snapshot, insights: commercialInsights });
+  const snapshotNarrative = await buildCachedSnapshotNarrative({ snapshot, insights: commercialInsights });
 
   return (
     <SectionShell className="py-12">

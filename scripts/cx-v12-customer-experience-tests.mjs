@@ -144,36 +144,42 @@ check('the review and progress surfaces avoid implementation counts and identifi
   assert.doesNotMatch(adaptiveExperience, /currentNode\.nodeId\}<|domain\.domainCode\}/);
 });
 
-check('the Comprehensive customer boundary preserves identity/history but blocks new direct paid orders', () => {
+check('the three-way commercial ladder preserves identity/history and restores paid Comprehensive ordering', () => {
   const catalogue = read('src/lib/commercial/product-catalogue.ts');
   const paidOrderRoute = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
   const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
   assert.match(catalogue, /COMPREHENSIVE_PRODUCT_CODE = 'mk_validated_assessment'/);
   assert.match(catalogue, /COMPREHENSIVE_PRICE_CENTS = 3_500_000/);
-  assert.match(catalogue, /selfServiceOrderable: isComprehensive \? false/);
-  assert.match(catalogue, /fulfilmentModel: isComprehensive \? 'manually_scoped'/);
+  assert.match(catalogue, /selfServiceOrderable: true/);
+  assert.match(catalogue, /fulfilmentModel: 'automated_analytical'/);
+  assert.match(catalogue, /deliveryMode: 'mk_controlled_pdf'/);
   assert.match(catalogue, /export function paidProductForTier/);
-  assert.match(paidOrderRoute, /if \(body\?\.tier === 'comprehensive'\)/);
-  assert.ok(paidOrderRoute.indexOf("if (body?.tier === 'comprehensive')") < paidOrderRoute.indexOf('const result = await createPaidOrderForAssessment'));
-  assert.match(snapshot, /Request Comprehensive/);
-  assert.match(snapshot, /ComprehensiveRequestPanel/);
-  assert.match(snapshot, /if \(tier === 'comprehensive'\) return;/);
-  assert.match(snapshot, /Discuss an Advisory Engagement/);
+  assert.doesNotMatch(paidOrderRoute, /if \(body\?\.tier === 'comprehensive'\)/);
+  assert.match(paidOrderRoute, /parseInvoiceRequest/);
+  assert.match(paidOrderRoute, /createPaidOrderForAssessment/);
+  assert.match(snapshot, /Choose Comprehensive/);
+  assert.doesNotMatch(snapshot, /ComprehensiveRequestPanel/);
+  assert.match(snapshot, /Would you like an invoice for this order\?/);
+  assert.match(snapshot, /Discuss an Engagement with MK/);
+  assert.match(snapshot, /href="\/contact"/);
   const publicComprehensive = listCatalogue().find((listing) => listing.tier === 'comprehensive');
-  assert.equal(publicComprehensive?.selfServiceOrderable, false);
-  assert.equal(publicComprehensive?.fulfilmentModel, 'manually_scoped');
+  assert.equal(publicComprehensive?.selfServiceOrderable, true);
+  assert.equal(publicComprehensive?.fulfilmentModel, 'automated_analytical');
   assert.equal(COMMERCIAL_CATALOGUE.comprehensive.productCode, COMPREHENSIVE_PRODUCT_CODE);
   assert.equal(COMMERCIAL_CATALOGUE.comprehensive.priceCents, COMPREHENSIVE_PRICE_CENTS);
   assert.equal(paidProductForTier('comprehensive')?.productCode, COMPREHENSIVE_PRODUCT_CODE);
 });
 
-check('Essential remains the only current customer path that confirms an online paid order', () => {
+check('both paid products use the invoice-aware order confirmation path', () => {
   const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
+  const orderService = read('src/lib/commercial/order-service.ts');
   assert.match(snapshot, /onClick=\{\(\) => void selectPaidTier\('essential'\)\}/);
+  assert.match(snapshot, /onClick=\{\(\) => void selectPaidTier\('comprehensive'\)\}/);
   assert.match(snapshot, /ReportOrderSummary/);
   assert.match(snapshot, /fetch\(scorePath\(`\/api\/assessments\/\$\{snapshot\.assessmentReference\}\/paid-order`\)/);
-  assert.match(snapshot, /selectedOption === COMMERCIAL_OPTION_CODES\.essential/);
-  assert.doesNotMatch(snapshot, /onConfirm=\{\(\) => requestPaidOrder\(COMMERCIAL_OPTION_CODES\.comprehensive\)\}/);
+  assert.match(snapshot, /onConfirm=\{\(\) => requestPaidOrder\(selectedOption\)\}/);
+  assert.match(snapshot, /invoiceRequested/);
+  assert.match(orderService, /db\.rpc\('create_paid_order_with_invoice'/);
 });
 
 check('the manual Comprehensive handoff continues to use the existing event/internal notification seam', () => {

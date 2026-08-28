@@ -881,6 +881,19 @@
     },
     {
       "schema": "public",
+      "table": "free_snapshot_narratives",
+      "required": "SIU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "SNAPSHOT NARRATIVE CACHE; ASSESSMENT/SCORE/METHODOLOGY/PROMPT KEYED",
+      "sources": [
+        "src/lib/snapshot/narrative-cache.ts:17 S",
+        "src/lib/snapshot/narrative-cache.ts:39 SIU"
+      ],
+      "justification": "The Snapshot narrative cache is read and upserted by the server-only cache adapter under the existing migration grant. Keys bind each cached narrative to the assessment, score run, methodology version and prompt version; no public, anon or authenticated privilege is added."
+    },
+    {
+      "schema": "public",
       "table": "report_artifacts",
       "required": "S",
       "stagingCurrent": "0000",
@@ -1511,14 +1524,14 @@
       ]
     },
     {
-      "signature": "public.create_paid_order(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text)",
+      "signature": "public.create_paid_order_with_invoice(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text, boolean, jsonb)",
       "securityMode": "INVOKER",
       "searchPath": "pg_catalog, public",
       "sources": [
-        "src/lib/commercial/order-service.ts",
-        "src/lib/orders/manual-eft-orders.ts"
+        "src/lib/commercial/order-service.ts:153",
+        "src/lib/orders/manual-eft-orders.ts:177"
       ],
-      "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
+      "classification": "INVOICE-AWARE SELF-SERVICE PAID-ORDER RPC; delegates the existing catalogue, price, idempotency and order-event contract and records optional invoice details atomically"
     },
     {
       "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
@@ -1722,7 +1735,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "404ef5cb9dd5f037dea997de9bfbeb25df556f7631dcd57b699f8dc933a203fd"
+    "fullAstInventorySha256": "ffbabeca31bf921d346818481b3ac0bec336a9e06b9c8df51236bddd3db6fb9c"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",

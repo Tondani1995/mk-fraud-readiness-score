@@ -6,6 +6,7 @@ import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions } from '@/lib/orders/eft-instructions';
 import { COMMERCIAL_CURRENCY, ESSENTIAL_PRICE_CENTS, ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
+import type { InvoiceDetails } from '@/lib/commercial/invoice-details';
 import type { AdminSession } from '@/lib/auth/admin-route';
 
 export { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions };
@@ -20,6 +21,7 @@ export type CustomerOrderConfirmation = {
   amountDisplay: string;
   status: ManualOrderStatus;
   paymentReference: string;
+  invoiceRequested: boolean;
   manualConfirmationNote: string;
   eftInstructions: {
     active: boolean;
@@ -78,6 +80,7 @@ function toCustomerOrder(order: any): CustomerOrderConfirmation {
     amountDisplay: formatOrderAmount(order.amount_cents, order.currency),
     status: normaliseStatus(order.status),
     paymentReference: paymentReference(order.order_reference),
+    invoiceRequested: Boolean(order.invoice_requested),
     manualConfirmationNote: 'MK Fraud Insights will confirm EFT payment manually before any detailed report is released.',
     eftInstructions: {
       active: snapshot.active === true,
@@ -137,13 +140,15 @@ export async function createOrGetOrderForReportRequest(input: {
   dataRequest: any;
   organisation?: any | null;
   respondent?: any | null;
+  invoiceRequested: boolean;
+  invoiceDetails: InvoiceDetails;
 }) {
   const db = service();
 
   const existing = input.dataRequest?.id
     ? await db
       .from('orders')
-      .select('id,order_reference,status,product_id,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,eft_instructions_snapshot,products:product_id(product_code,name)')
+      .select('id,order_reference,status,product_id,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,invoice_requested,eft_instructions_snapshot,products:product_id(product_code,name)')
       .eq('assessment_id', input.assessment.id)
       .eq('report_request_id', input.dataRequest.id)
       .maybeSingle()
@@ -160,7 +165,7 @@ export async function createOrGetOrderForReportRequest(input: {
     return toCustomerOrder(existing.data);
   }
 
-  // Creation goes through the one transactional primitive (create_paid_order), so the order, its
+  // Creation goes through the one transactional primitive (create_paid_order_with_invoice), so the order, its
   // price-version binding and its authoritative creation trail commit together. Nothing here reads
   // a price constant: the RPC is told which catalogue contract this build compiled against and
   // refuses the write if the database disagrees.
@@ -169,7 +174,7 @@ export async function createOrGetOrderForReportRequest(input: {
 
   const eftSnapshot = await buildEftInstructionSnapshot();
 
-  const { data: created, error: createError } = await db.rpc('create_paid_order', {
+  const { data: created, error: createError } = await db.rpc('create_paid_order_with_invoice', {
     p_tier: 'essential',
     p_assessment_id: input.assessment.id,
     p_expected_product_code: ESSENTIAL_PRODUCT_CODE,
@@ -182,7 +187,9 @@ export async function createOrGetOrderForReportRequest(input: {
     p_product_name: product.name,
     p_eft_instructions_snapshot: eftSnapshot,
     p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
-    p_assessment_reference: input.assessment.assessment_reference ?? null
+    p_assessment_reference: input.assessment.assessment_reference ?? null,
+    p_invoice_requested: input.invoiceRequested,
+    p_invoice_details: input.invoiceDetails
   });
 
   if (createError) throw new Error(createError.message ?? 'Order could not be created.');
@@ -199,6 +206,7 @@ export async function createOrGetOrderForReportRequest(input: {
     customer_name: input.respondent?.full_name ?? null,
     organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
     created_at: new Date().toISOString(),
+    invoice_requested: Boolean(created.invoice_requested ?? input.invoiceRequested),
     eft_instructions_snapshot: eftSnapshot
   };
 

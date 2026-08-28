@@ -291,9 +291,10 @@ assert(engine.includes("submitState !== 'idle'"), 'Client submit must block repe
 assert(engine.includes('snapshotUrl'), 'Client must surface durable snapshot URL.');
 
 const snapshotComponent = read('src/components/assessment/FreeSnapshot.tsx');
-assert(snapshotComponent.includes('Coverage and applicability'), 'Snapshot must display coverage and applicability effects.');
+assert(snapshotComponent.includes('Coverage and uncertainty'), 'Snapshot must display the concise coverage/uncertainty note where relevant.');
 assert(snapshotComponent.includes('Priority-gap alert'), 'Snapshot must display priority-gap alerts using customer-facing language.');
-assert(snapshotComponent.includes('30/60/90-day roadmap'), 'Paid-product comparison may mention the roadmap without exposing roadmap content.');
+assert(snapshotComponent.includes('COMMERCIAL_CATALOGUE.essential.includes'), 'Essential value claims must come from the authoritative catalogue.');
+assert(read('src/lib/commercial/product-catalogue.ts').includes('30/60/90-day roadmap'), 'Essential catalogue must state the approved 30/60/90 direction.');
 assert(!/AI-generated|peer benchmark/i.test(snapshotComponent), 'Free snapshot must not expose AI or benchmark content.');
 assert(!/Week 1|Week 30|Day 30|Day 60|Day 90|remediation task|action owner/i.test(snapshotComponent), 'Free snapshot must not expose actual roadmap content.');
 

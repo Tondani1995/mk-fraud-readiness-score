@@ -3,6 +3,7 @@ import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { createOrGetOrderForReportRequest } from '@/lib/orders/manual-eft-orders';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
+import { parseInvoiceRequest } from '@/lib/commercial/invoice-details';
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
@@ -30,6 +31,11 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
 
   if (!snapshotValidation.ok) {
     return NextResponse.json({ ok: false, errors: ['Private snapshot link required to request a detailed report.'] }, { status: 403 });
+  }
+
+  const invoice = parseInvoiceRequest(body);
+  if (!invoice.ok) {
+    return NextResponse.json({ ok: false, errors: [invoice.message] }, { status: 400 });
   }
 
   const assessment = snapshotValidation.assessment;
@@ -79,7 +85,9 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     assessment,
     dataRequest,
     organisation,
-    respondent
+    respondent,
+    invoiceRequested: invoice.value.invoiceRequested,
+    invoiceDetails: invoice.value.invoiceDetails
   });
 
   if (email && !existingRequest) {
