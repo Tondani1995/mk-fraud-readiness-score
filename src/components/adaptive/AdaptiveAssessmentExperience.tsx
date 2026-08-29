@@ -32,6 +32,27 @@ function timeRemainingLabel(unansweredApplicableCount: number) {
   return 'More than 15 minutes remaining';
 }
 
+function SubmissionProcessingCard({ assessmentReference }: { assessmentReference: string }) {
+  return (
+    <div aria-busy="true">
+      <Card>
+        <CardHeader>
+          <Badge>Submission received</Badge>
+          <h1 tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink">Preparing your Fraud Readiness Snapshot</h1>
+        </CardHeader>
+        <CardContent className="space-y-5 text-sm leading-6 text-mk-muted">
+          <p>Your assessment has been submitted. We are calculating your result and preparing your personalised Snapshot.</p>
+          <p className="font-medium text-mk-ink">Reference: {assessmentReference}</p>
+          <div role="progressbar" aria-label="Preparing your Fraud Readiness Snapshot" aria-busy="true" className="h-2 overflow-hidden rounded-full bg-mk-line">
+            <div className="h-full w-1/3 animate-pulse bg-mk-accent" />
+          </div>
+          <p role="status" aria-live="polite">Preparing your personalised Snapshot</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function AdaptiveAssessmentExperience({ assessmentReference, token, initialState }: { assessmentReference: string; token: string; initialState: AdaptiveState }) {
   const [state, setState] = useState<AdaptiveState>(initialState);
   const [gatewayAnswers, setGatewayAnswers] = useState<Record<string, string>>(initialState.gatewayAnswers ?? {});
@@ -44,6 +65,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const [invalidation, setInvalidation] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [submissionState, setSubmissionState] = useState<'idle' | 'processing' | 'error'>('idle');
   const savingRef = useRef(false);
   const pendingWriteRef = useRef<PendingWrite | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -256,8 +278,9 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   }
 
   async function submit() {
-    if (savingRef.current) return;
+    if (savingRef.current || submissionState === 'processing') return;
     savingRef.current = true;
+    setSubmissionState('processing');
     setSaveState('saving');
     setMessage(null);
     try {
@@ -268,21 +291,33 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.ok) {
+        setSubmissionState('error');
         setSaveState('error');
         setMessage(Array.isArray(body.errors) && body.errors.length ? body.errors.join(' ') : 'Submission could not be completed.');
         return;
       }
+      if (typeof body.snapshotUrl !== 'string' || !body.snapshotUrl) {
+        setSubmissionState('error');
+        setSaveState('error');
+        setMessage('Your assessment was submitted, but the private result link could not be opened. Please try again.');
+        return;
+      }
       setState(body.state);
-      setSnapshotUrl(body.snapshotUrl ?? null);
+      setSnapshotUrl(body.snapshotUrl);
       setSubmitted(true);
       setSaveState('saved');
+      setSubmissionState('idle');
+      window.location.replace(body.snapshotUrl);
     } catch {
+      setSubmissionState('error');
       setSaveState('error');
       setMessage('Submission could not be completed. Check your connection and try again.');
     } finally {
       savingRef.current = false;
     }
   }
+
+  if (submissionState === 'processing') return <SubmissionProcessingCard assessmentReference={assessmentReference} />;
 
   if (submitted || state.navigation?.current_screen === 'complete') return (
     <Card>
@@ -291,9 +326,9 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
         <h1 ref={completionHeadingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink">Your assessment is complete</h1>
       </CardHeader>
       <CardContent className="space-y-4 text-sm leading-6 text-mk-muted">
-        <p>Your responses have been securely recorded and your free readiness snapshot is ready.</p>
+        <p>Your responses have been securely recorded. Your private result link is shown below when available.</p>
         <p className="font-medium text-mk-ink">Reference: {assessmentReference}</p>
-        {snapshotUrl ? <Button asChild><Link href={snapshotUrl}>View your Fraud Readiness Result</Link></Button> : <><p>The result link is being prepared.</p><Button type="button" onClick={() => void submit()} disabled={saveState === 'saving'}>Prepare your result</Button></>}
+        {snapshotUrl ? <Button asChild><Link href={snapshotUrl}>View your Fraud Readiness Result</Link></Button> : <p>We are preparing your private result link. Refresh this page to check again.</p>}
       </CardContent>
     </Card>
   );
@@ -306,6 +341,12 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-sm leading-6 text-mk-muted">Your responses have been recorded. Review the areas included below, edit an answer if needed, and submit when you are ready.</p>
+        {submissionState === 'error' && message ? (
+          <div role="alert" className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
+            <p>{message}</p>
+            <Button type="button" variant="secondary" className="mt-3" onClick={() => void submit()}>Try submission again</Button>
+          </div>
+        ) : null}
         {customerAreas.length ? (
           <div className="rounded-xl bg-mk-paper p-4">
             <h2 className="font-semibold text-mk-ink">Areas included in your review</h2>

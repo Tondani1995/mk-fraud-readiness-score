@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
@@ -64,23 +64,41 @@ export function ProductChoice({
 }) {
   const router = useRouter();
   const selectionSent = useRef<Set<SelfServicePaidTier>>(new Set());
+  const navigatingTierRef = useRef<SelfServicePaidTier | null>(null);
+  const [navigatingTier, setNavigatingTier] = useState<SelfServicePaidTier | null>(null);
 
-  async function chooseTier(tier: SelfServicePaidTier) {
+  useEffect(() => {
+    for (const tier of ['essential', 'comprehensive'] as SelfServicePaidTier[]) {
+      const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
+      const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
+      if (snapshotToken) params.set('token', snapshotToken);
+      router.prefetch(`${SCORE_BASE_PATH}/order/new?${params.toString()}`);
+    }
+  }, [router, snapshot.assessmentReference, snapshotUrl]);
+
+  function chooseTier(tier: SelfServicePaidTier) {
+    if (navigatingTierRef.current) return;
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
+    const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
+    if (snapshotToken) params.set('token', snapshotToken);
+    const destination = `${SCORE_BASE_PATH}/order/new?${params.toString()}`;
+
+    navigatingTierRef.current = tier;
+    setNavigatingTier(tier);
+    router.push(destination);
+
     if (snapshotToken && !selectionSent.current.has(tier)) {
       selectionSent.current.add(tier);
       const post = (eventType: string) =>
         fetch(`${SCORE_BASE_PATH}/api/assessments/${snapshot.assessmentReference}/commercial-event`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ snapshotToken, eventType, optionCode: tier, sourceSection: 'next_step' })
+          body: JSON.stringify({ snapshotToken, eventType, optionCode: tier, sourceSection: 'next_step' }),
+          keepalive: true
         }).catch(() => null);
-      await post('report_option_selected');
-      await post(`${tier}_selected`);
+      void post('report_option_selected');
+      void post(`${tier}_selected`);
     }
-    const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
-    if (snapshotToken) params.set('token', snapshotToken);
-    router.push(`${SCORE_BASE_PATH}/order/new?${params.toString()}`);
   }
 
   return (
@@ -114,7 +132,8 @@ export function ProductChoice({
                 key={tier}
                 tier={tier}
                 isBestFit={recommendation.recommendedTier === tier}
-                onChoose={() => void chooseTier(tier)}
+                isNavigating={Boolean(navigatingTier)}
+                onChoose={() => chooseTier(tier)}
               />
             ))}
             <AdvisoryCard />
@@ -125,7 +144,7 @@ export function ProductChoice({
   );
 }
 
-function ProductCard({ tier, isBestFit, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; onChoose: () => void }) {
+function ProductCard({ tier, isBestFit, isNavigating, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; isNavigating: boolean; onChoose: () => void }) {
   const product = COMMERCIAL_CATALOGUE[tier];
   const card = CARDS[tier];
   // Price is read from the catalogue at render time. No price literal exists in this component.
@@ -161,11 +180,12 @@ function ProductCard({ tier, isBestFit, onChoose }: { tier: SelfServicePaidTier;
       <button
         type="button"
         onClick={onChoose}
+        disabled={isNavigating}
         className={`mt-4 flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 ${
-          isBestFit ? 'bg-mk-navy text-white hover:bg-mk-slate' : 'border-2 border-mk-accent/25 text-mk-navy hover:border-mk-accent/50'
+          isBestFit ? 'bg-mk-navy text-white hover:bg-mk-slate disabled:cursor-wait disabled:opacity-70' : 'border-2 border-mk-accent/25 text-mk-navy hover:border-mk-accent/50 disabled:cursor-wait disabled:opacity-70'
         }`}
       >
-        Choose {product.label}
+        {isNavigating ? 'Opening…' : `Choose ${product.label}`}
       </button>
     </article>
   );

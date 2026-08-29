@@ -119,6 +119,9 @@ check('the adaptive start intake remains minimal and canonical', () => {
 });
 
 const adaptiveExperience = read('src/components/adaptive/AdaptiveAssessmentExperience.tsx');
+const productChoice = read('src/components/products/ProductChoice.tsx');
+const adaptiveSubmitRoute = read('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts');
+const snapshotLoading = read('src/app/score/snapshot/[assessmentRef]/loading.tsx');
 check('answer selection saves once, waits for acknowledgement, then consumes the authoritative next node', () => {
   assert.match(adaptiveExperience, /savingRef/);
   assert.match(adaptiveExperience, /pendingWriteRef/);
@@ -144,10 +147,54 @@ check('the review and progress surfaces avoid implementation counts and identifi
   assert.doesNotMatch(adaptiveExperience, /currentNode\.nodeId\}<|domain\.domainCode\}/);
 });
 
+check('paid product selection navigates immediately and sends analytics without blocking', () => {
+  assert.doesNotMatch(productChoice, /async function chooseTier/);
+  assert.match(productChoice, /navigatingTierRef/);
+  assert.match(productChoice, /router\.prefetch\(/);
+  assert.match(productChoice, /router\.push\(destination\)/);
+  assert.match(productChoice, /keepalive: true/);
+  assert.match(productChoice, /void post\('report_option_selected'\)/);
+  assert.match(productChoice, /void post\(`\$\{tier\}_selected`\)/);
+  assert.doesNotMatch(productChoice, /await post\(/);
+  assert.ok(productChoice.indexOf('router.push(destination)') < productChoice.indexOf("void post('report_option_selected')"), 'navigation must be initiated before analytics dispatch');
+  for (const payloadField of ['snapshotToken', 'eventType', 'optionCode: tier', "sourceSection: 'next_step'"]) assert.match(productChoice, new RegExp(payloadField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
+
+check('submission gives immediate processing feedback and recovers safely', () => {
+  assert.match(adaptiveExperience, /submissionState/);
+  assert.match(adaptiveExperience, /setSubmissionState\('processing'\)/);
+  assert.match(adaptiveExperience, /Preparing your Fraud Readiness Snapshot/);
+  assert.match(adaptiveExperience, /Your assessment has been submitted\. We are calculating your result/);
+  assert.match(adaptiveExperience, /window\.location\.replace\(body\.snapshotUrl\)/);
+  assert.match(adaptiveExperience, /Try submission again/);
+  assert.doesNotMatch(adaptiveExperience, /free readiness snapshot is ready/);
+});
+
+check('submit notifications run after the customer response when the runtime supports it', () => {
+  assert.match(adaptiveSubmitRoute, /import \{ after, NextResponse \} from 'next\/server'/);
+  assert.match(adaptiveSubmitRoute, /after\(async \(\) =>/);
+  assert.match(adaptiveSubmitRoute, /await notifyScoredAssessmentCompletion\(completionNotificationInput\)/);
+  assert.doesNotMatch(adaptiveSubmitRoute, /const completionNotification = await notifyScoredAssessmentCompletion/);
+  assert.match(adaptiveSubmitRoute, /scheduled_after_response/);
+});
+
+check('the Snapshot route exposes a polished loading state without technical language', () => {
+  assert.match(snapshotLoading, /Preparing your Fraud Readiness Snapshot/);
+  assert.match(snapshotLoading, /Your assessment has been submitted/);
+  assert.match(snapshotLoading, /role="progressbar"/);
+  assert.doesNotMatch(snapshotLoading, /\b(provider|model|AI|fallback|implementation|internal)\b/i);
+});
+
+check('new transition customer copy contains no em dash', () => {
+  for (const [name, source] of Object.entries({ productChoice, adaptiveExperience, snapshotLoading })) {
+    assert.doesNotMatch(source, /—/, `${name} contains a customer-facing em dash`);
+  }
+});
+
 check('the three-way commercial ladder preserves identity/history and restores paid Comprehensive ordering', () => {
   const catalogue = read('src/lib/commercial/product-catalogue.ts');
   const paidOrderRoute = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
-  const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
+  const snapshot = read('src/components/assessment/SnapshotResult.tsx');
   assert.match(catalogue, /COMPREHENSIVE_PRODUCT_CODE = 'mk_validated_assessment'/);
   assert.match(catalogue, /COMPREHENSIVE_PRICE_CENTS = 3_500_000/);
   assert.match(catalogue, /selfServiceOrderable: true/);
@@ -157,11 +204,11 @@ check('the three-way commercial ladder preserves identity/history and restores p
   assert.doesNotMatch(paidOrderRoute, /if \(body\?\.tier === 'comprehensive'\)/);
   assert.match(paidOrderRoute, /parseInvoiceRequest/);
   assert.match(paidOrderRoute, /createPaidOrderForAssessment/);
-  assert.match(snapshot, /Choose Comprehensive/);
+  assert.match(snapshot, /<ProductChoice/);
+  assert.match(productChoice, /Choose \$\{product\.label\}/);
   assert.doesNotMatch(snapshot, /ComprehensiveRequestPanel/);
-  assert.match(snapshot, /Would you like an invoice for this order\?/);
-  assert.match(snapshot, /Discuss an Engagement with MK/);
-  assert.match(snapshot, /href="\/contact"/);
+  assert.match(productChoice, /MK Advisory/);
+  assert.match(productChoice, /href="\/contact"/);
   const publicComprehensive = listCatalogue().find((listing) => listing.tier === 'comprehensive');
   assert.equal(publicComprehensive?.selfServiceOrderable, true);
   assert.equal(publicComprehensive?.fulfilmentModel, 'automated_analytical');
@@ -171,14 +218,13 @@ check('the three-way commercial ladder preserves identity/history and restores p
 });
 
 check('both paid products use the invoice-aware order confirmation path', () => {
-  const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
+  const snapshot = read('src/components/assessment/SnapshotResult.tsx');
+  const orderJourney = read('src/components/commercial/OrderJourney.tsx');
   const orderService = read('src/lib/commercial/order-service.ts');
-  assert.match(snapshot, /onClick=\{\(\) => void selectPaidTier\('essential'\)\}/);
-  assert.match(snapshot, /onClick=\{\(\) => void selectPaidTier\('comprehensive'\)\}/);
-  assert.match(snapshot, /ReportOrderSummary/);
-  assert.match(snapshot, /fetch\(scorePath\(`\/api\/assessments\/\$\{snapshot\.assessmentReference\}\/paid-order`\)/);
-  assert.match(snapshot, /onConfirm=\{\(\) => requestPaidOrder\(selectedOption\)\}/);
-  assert.match(snapshot, /invoiceRequested/);
+  assert.match(snapshot, /<ProductChoice/);
+  assert.match(productChoice, /\['essential', 'comprehensive'\]/);
+  assert.match(orderJourney, /fetch\(\`\$\{SCORE_BASE_PATH\}\/api\/assessments\/\$\{assessmentReference\}\/paid-order\`/);
+  assert.match(orderJourney, /invoiceRequested/);
   assert.match(orderService, /db\.rpc\('create_paid_order_with_invoice'/);
 });
 

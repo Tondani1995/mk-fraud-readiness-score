@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { submitAdaptiveAssessment } from '@/lib/adaptive/server';
 import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
 import { scoreAdaptiveSubmittedAssessment } from '@/lib/scoring/adaptive-scoring';
@@ -18,19 +18,23 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     if (!scored.ok) return NextResponse.json({ ok: false, errors: ['Assessment was submitted, but the readiness result could not be generated.'], scoringErrors: scored.errors }, { status: scored.status });
     const snapshot = await loadFreeSnapshotByReference(params.assessmentRef, scored.scoreRunId);
     if (!snapshot) return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the persisted result could not be loaded.'] }, { status: 500 });
-    const completionNotification = await notifyScoredAssessmentCompletion({
+    const completionNotificationInput = {
       assessmentReference: params.assessmentRef,
       scoreRunId: scored.scoreRunId,
       snapshotAvailable: true,
       adminUrl: new URL(`/score/admin/assessments/${encodeURIComponent(params.assessmentRef)}`, request.url).toString()
-    }).catch((error) => {
-      console.error('assessment_completion_notification_failed', {
-        assessmentReference: params.assessmentRef,
-        scoreRunId: scored.scoreRunId,
-        errorCategory: 'internal_notification_dispatch_failed',
-        reason: error instanceof Error ? error.message : 'unknown'
-      });
-      return { ok: false as const, status: 'notification_dispatch_failed' as const };
+    };
+    after(async () => {
+      try {
+        await notifyScoredAssessmentCompletion(completionNotificationInput);
+      } catch (error) {
+        console.error('assessment_completion_notification_failed', {
+          assessmentReference: params.assessmentRef,
+          scoreRunId: scored.scoreRunId,
+          errorCategory: 'internal_notification_dispatch_failed',
+          reason: error instanceof Error ? error.message : 'unknown'
+        });
+      }
     });
     const requestHeaders = new Headers(request.headers);
     const db = createSupabaseServiceClient();
@@ -43,7 +47,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     });
     const origin = request.headers.get('x-forwarded-host') ? `${request.headers.get('x-forwarded-proto') ?? 'https'}://${request.headers.get('x-forwarded-host')}` : new URL(request.url).origin;
     const snapshotUrl = `${origin}/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(snapshotToken.rawToken)}`;
-    return NextResponse.json({ ...result, status: 'scored', scoreRunId: scored.scoreRunId, runNumber: scored.runNumber, resultStatus: scored.result.resultStatus, snapshotTokenExpiresAt: snapshotToken.expiresAt, snapshotUrl, snapshot, completionNotification: { ok: completionNotification.ok, status: completionNotification.status } });
+    return NextResponse.json({ ...result, status: 'scored', scoreRunId: scored.scoreRunId, runNumber: scored.runNumber, resultStatus: scored.result.resultStatus, snapshotTokenExpiresAt: snapshotToken.expiresAt, snapshotUrl, snapshot, completionNotification: { ok: true, status: 'scheduled_after_response' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'adaptive_submit_failed';
     return NextResponse.json({ ok: false, errors: [message] }, { status: message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' || message === 'adaptive_supabase_project_unresolved' ? 404 : message.includes('token') ? 403 : 500 });
