@@ -14,6 +14,7 @@ import {
   snapshotNarrativeContentSchema,
   validateSnapshotNarrative
 } from '../../src/lib/snapshot/narrative.ts';
+import { buildDeterministicSnapshotPrioritySignals } from '../../src/lib/snapshot/deterministic-narrative.ts';
 import { selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 import { buildCommercialSnapshotInsights } from '../../src/lib/snapshot/commercial-insights.ts';
 
@@ -77,6 +78,33 @@ test('No-strength results use an explicit absence statement rather than procedur
 
   const noStrengthBrief = buildSnapshotNarrativeBrief(snapshot, { ...insights, strengths: [] });
   assert.deepEqual(noStrengthBrief.strongestAreas, []);
+});
+
+test('Priority signals are deterministic from attention areas, with safe one-area and empty cases', () => {
+  assert.deepEqual(
+    buildDeterministicSnapshotPrioritySignals(
+      ['Digital and Identity Fraud Risk', 'Operational Fraud Controls'],
+      'Leadership attention should prioritise the recorded result.'
+    ),
+    [
+      'The recorded responses point to Digital and Identity Fraud Risk as an area requiring management attention.',
+      'The recorded responses point to Operational Fraud Controls as the next area to examine in more detail.'
+    ]
+  );
+  assert.deepEqual(
+    buildDeterministicSnapshotPrioritySignals(['Governance'], 'Leadership should use the result.'),
+    [
+      'The recorded responses point to Governance as an area requiring management attention.',
+      'The overall management direction is to use this result to guide the next management actions.'
+    ]
+  );
+  assert.deepEqual(
+    buildDeterministicSnapshotPrioritySignals([], ''),
+    [
+      'The recorded responses do not identify a specific area for priority attention.',
+      'Leadership should use the overall result to determine the next management focus.'
+    ]
+  );
 });
 
 test('Snapshot narrative uses the strict five-field customer contract', () => {
@@ -306,7 +334,34 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /assessment-snapshot/);
   assert.match(cacheKey, /score-run/);
   assert.match(cacheKey, /methodology-v1-2/);
-  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v4-brief-grounded/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v5-deterministic-priority-signals/);
+});
+
+test('Arbitrary AI priority signals are replaced before Snapshot persistence', async () => {
+  let persisted;
+  const generated = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1,
+    prioritySignals: [
+      'Elevated exposure in digital and identity fraud risk requiring strengthened prevention and verification measures.',
+      'Operational fraud controls lack clarity of ownership and consistent evidence of sustained operation.'
+    ]
+  };
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { return null; },
+      async write(_key, record) { persisted = record; }
+    },
+    generator: async () => generated
+  });
+  const expected = buildDeterministicSnapshotPrioritySignals(brief.attentionAreas, brief.nextStepDirection);
+  assert.deepEqual(result.prioritySignals, expected);
+  assert.deepEqual(persisted.narrativeJson.prioritySignals, expected);
+  assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /elevated exposure|clarity of ownership/i);
 });
 
 test('Snapshot validation rejects the known unsupported grounding phrases', () => {
@@ -433,4 +488,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'deterministic priority signals', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'AI priority signals are canonicalised before persistence', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

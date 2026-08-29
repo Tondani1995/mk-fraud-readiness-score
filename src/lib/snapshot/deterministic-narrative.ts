@@ -7,11 +7,33 @@ function safeOrganisationName(value: string | null | undefined) {
   return name ? name.slice(0, 120) : 'Your organisation';
 }
 
-function deterministicPrioritySignals(insights: CommercialSnapshotInsights): [string, string] {
-  const signals = insights.priorityAreas.slice(0, 2).map((area) => `${area.domainName}: ${area.readinessStatus}.`);
-  if (signals.length < 1) signals.push('Recorded responses identify an area for management attention.');
-  if (signals.length < 2) signals.push('The result points to a need for clearer ownership.');
-  return [signals[0], signals[1]];
+export function buildDeterministicSnapshotPrioritySignals(
+  attentionAreas: readonly string[],
+  nextStepDirection: string
+): [string, string] {
+  const areas = [...new Set(attentionAreas
+    .map((area) => area.replace(/\s+/g, ' ').trim())
+    .filter(Boolean))].slice(0, 2);
+  const overallDirection = nextStepDirection.trim()
+    ? 'The overall management direction is to use this result to guide the next management actions.'
+    : 'Leadership should use the overall result to determine the next management focus.';
+
+  if (areas.length >= 2) {
+    return [
+      `The recorded responses point to ${areas[0]} as an area requiring management attention.`,
+      `The recorded responses point to ${areas[1]} as the next area to examine in more detail.`
+    ];
+  }
+  if (areas.length === 1) {
+    return [
+      `The recorded responses point to ${areas[0]} as an area requiring management attention.`,
+      overallDirection
+    ];
+  }
+  return [
+    'The recorded responses do not identify a specific area for priority attention.',
+    overallDirection
+  ];
 }
 
 /**
@@ -23,7 +45,10 @@ export function buildDeterministicSnapshotNarrativeContent(input: {
   insights: CommercialSnapshotInsights;
 }): SnapshotNarrativeContent {
   const maturity = input.snapshot.finalMaturity?.toLowerCase() ?? 'recorded';
-  const prioritySignals = deterministicPrioritySignals(input.insights);
+  const prioritySignals = buildDeterministicSnapshotPrioritySignals(
+    input.insights.priorityAreas.map((area) => area.domainName),
+    input.insights.leadershipPriority
+  );
   const focusNames = input.insights.priorityAreas.slice(0, 2).map((area) => area.domainName);
   return {
     headline: `${safeOrganisationName(input.snapshot.organisationName)} has a ${maturity} fraud-readiness position.`,

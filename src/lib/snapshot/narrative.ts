@@ -2,12 +2,15 @@ import { createGateway, generateText, NoOutputGeneratedError, Output } from 'ai'
 import { z } from 'zod';
 import type { FreeSnapshot } from './free-snapshot';
 import type { CommercialSnapshotInsights } from './commercial-insights';
-import { buildDeterministicSnapshotNarrativeContent } from './deterministic-narrative';
+import {
+  buildDeterministicSnapshotNarrativeContent,
+  buildDeterministicSnapshotPrioritySignals
+} from './deterministic-narrative';
 import { classifyAssuranceLanguage } from '../reports/narrative/validation';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
 
-export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v4-brief-grounded';
+export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v5-deterministic-priority-signals';
 export const SNAPSHOT_NARRATIVE_MAX_WORDS = 180;
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
@@ -18,6 +21,13 @@ export const snapshotNarrativeContentSchema = z.object({
   executiveDiagnosis: shortText(700),
   strength: shortText(320),
   prioritySignals: z.array(shortText(220)).length(2),
+  managementImplication: shortText(420)
+}).strict();
+
+const snapshotAiNarrativeContentSchema = z.object({
+  headline: shortText(160),
+  executiveDiagnosis: shortText(700),
+  strength: shortText(320),
   managementImplication: shortText(420)
 }).strict();
 
@@ -271,6 +281,28 @@ export function normaliseSnapshotNarrativeContent(value: unknown): SnapshotNarra
   return final.success ? final.data : null;
 }
 
+function deterministicPrioritySignalsFor(brief: SnapshotNarrativeBrief): [string, string] {
+  return buildDeterministicSnapshotPrioritySignals(brief.attentionAreas, brief.nextStepDirection);
+}
+
+function canonicaliseSnapshotNarrativeContent(value: unknown, brief: SnapshotNarrativeBrief): SnapshotNarrativeContent | null {
+  const parsed = snapshotNarrativeContentSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return normaliseSnapshotNarrativeContent({
+    ...parsed.data,
+    prioritySignals: deterministicPrioritySignalsFor(brief)
+  });
+}
+
+function canonicaliseSnapshotAiNarrative(value: unknown, brief: SnapshotNarrativeBrief): SnapshotNarrativeContent | null {
+  const parsed = snapshotAiNarrativeContentSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return normaliseSnapshotNarrativeContent({
+    ...parsed.data,
+    prioritySignals: deterministicPrioritySignalsFor(brief)
+  });
+}
+
 export function validateSnapshotNarrative(
   value: unknown,
   input: SnapshotNarrativeValidationInput,
@@ -377,15 +409,15 @@ export async function buildCachedSnapshotNarrative(input: {
   const narrativeBrief = buildSnapshotNarrativeBrief(input.snapshot, input.insights);
   const cached = await input.cache.read(key);
   if (cached) {
-    const parsed = snapshotNarrativeContentSchema.safeParse(cached.narrativeJson);
+    const content = canonicaliseSnapshotNarrativeContent(cached.narrativeJson, narrativeBrief);
     const validationInput = cached.status === 'available' ? narrativeBrief : narrativeInput;
-    if (parsed.success
+    if (content
       && (cached.status === 'available' || cached.status === 'fallback')
       && typeof cached.model === 'string'
       && cached.model.trim().length > 0
       && validAiCallCount(cached.aiCallCount)
-      && validateSnapshotNarrative(parsed.data, validationInput, { mode: cached.status === 'available' ? 'ai' : 'deterministic' }).length === 0) {
-      return narrativeFromCache(key, cached, parsed.data);
+      && validateSnapshotNarrative(content, validationInput, { mode: cached.status === 'available' ? 'ai' : 'deterministic' }).length === 0) {
+      return narrativeFromCache(key, cached, content);
     }
   }
 
@@ -395,7 +427,7 @@ export async function buildCachedSnapshotNarrative(input: {
     gatewayAuth: input.gatewayAuth
   });
   if (!validAiCallCount(generated.aiCallCount)) throw new Error('Snapshot narrative exceeded the one-call cache contract.');
-  const content = normaliseSnapshotNarrativeContent(contentFromNarrative(generated));
+  const content = canonicaliseSnapshotNarrativeContent(contentFromNarrative(generated), narrativeBrief);
   if (!content) throw new Error('Snapshot narrative schema failed before persistence.');
   const validationInput = generated.mode === 'ai' ? narrativeBrief : narrativeInput;
   const validationIssues = validateSnapshotNarrative(content, validationInput, { mode: generated.mode });
@@ -436,9 +468,9 @@ export async function buildSnapshotNarrative(input: {
       : 'Do not manufacture a strength from coverage, completion, visibility, absence of unknowns or any other procedural fact. The strength field should say: "The recorded responses do not yet support identifying a dependable organisational strength."';
     const response = await generateText({
       model: snapshotGatewayModel(model, gatewayCredential),
-      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Use only the supplied narrative brief. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Use calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not state that controls are absent, failing, ineffective or non-functioning. Do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the five narrative fields. These are presented separately by the deterministic result interface. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
-      prompt: 'Use this narrative brief and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. ' + strengthInstruction + ' Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the five narrative fields. These are presented separately by the deterministic result interface. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeBrief),
-      output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
+      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Use only the supplied narrative brief. Return exactly four AI-authored fields: headline, executiveDiagnosis, strength, and managementImplication. Priority signals are constructed deterministically after generation from the supplied attention areas and are not model-authored. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Use calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not state that controls are absent, failing, ineffective or non-functioning. Do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the AI-authored fields. These are presented separately by the deterministic result interface. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
+      prompt: 'Use this narrative brief and return only the four AI-authored fields. Priority signals will be added deterministically after generation from the supplied attention areas. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. ' + strengthInstruction + ' Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the AI-authored fields. These are presented separately by the deterministic result interface. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeBrief),
+      output: Output.object({ schema: snapshotAiNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_ai_narrative' }),
       maxOutputTokens: 2048,
       maxRetries: 0,
       providerOptions: {
@@ -447,7 +479,7 @@ export async function buildSnapshotNarrative(input: {
       },
       abortSignal: AbortSignal.timeout(120_000)
     });
-    const parsed = normaliseSnapshotNarrativeContent(response.output);
+    const parsed = canonicaliseSnapshotAiNarrative(response.output, narrativeBrief);
     if (!parsed) {
       return buildDeterministicSnapshotNarrative({ ...input, aiCallCount: 1, attemptedModels: [model], fallbackReason: 'snapshot_schema_invalid' });
     }
