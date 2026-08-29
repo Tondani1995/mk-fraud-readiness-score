@@ -70,7 +70,7 @@ test('Snapshot narrative uses the strict five-field customer contract', () => {
   assert.equal(snapshot.finalMaturity, 'Reactive');
 });
 
-test('Snapshot AI preflight accepts Vercel OIDC without making a real provider request', async () => {
+test('Snapshot AI preflight accepts Vercel OIDC and uses the explicit Gateway auth path', async () => {
   const previous = {
     apiKey: process.env.AI_GATEWAY_API_KEY,
     vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
@@ -87,14 +87,18 @@ test('Snapshot AI preflight accepts Vercel OIDC without making a real provider r
     assert.equal(unavailable.fallbackReason, 'snapshot_ai_unavailable');
 
     process.env.VERCEL_OIDC_TOKEN = 'test-only-oidc-token';
-    globalThis.fetch = async () => {
+    let requestHeaders;
+    globalThis.fetch = async (_url, init) => {
+      requestHeaders = new Headers(init?.headers);
       throw new Error('TEST_PROVIDER_MOCK');
     };
     const oidcPath = await buildSnapshotNarrative({ snapshot, insights });
     assert.equal(oidcPath.mode, 'deterministic');
     assert.equal(oidcPath.aiCallCount, 1);
     assert.deepEqual(oidcPath.attemptedModels, ['openai/gpt-5-mini']);
-    assert.equal(oidcPath.fallbackReason, 'snapshot_provider_unavailable');
+    assert.equal(oidcPath.fallbackReason, 'gateway_provider_unavailable');
+    assert.equal(requestHeaders.get('ai-gateway-auth-method'), 'oidc');
+    assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-oidc-token');
   } finally {
     if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previous.apiKey;

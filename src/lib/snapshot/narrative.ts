@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai';
+import { createGateway, generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { FreeSnapshot } from './free-snapshot';
 import type { CommercialSnapshotInsights } from './commercial-insights';
@@ -86,6 +86,47 @@ function sentenceCount(value: string): number {
 }
 function forbiddenSnapshotDetail(value: string): boolean {
   return /\b(?:30\/60\/90|30-,? ?60-,? ?and 90-day|roadmap|blueprint|risk register|scenario(?:s)?|leadership agenda|evidence checklist|control action(?:s)?|target-state|operating model|decision library|supporting register|supporting xlsx|comprehensive|essential report|paid report|detailed report|provider|gateway|model|unavailable|fallback)\b/i.test(value);
+}
+
+type SnapshotGatewayFailureReason =
+  | 'gateway_authentication_failed'
+  | 'gateway_request_invalid'
+  | 'gateway_provider_unavailable'
+  | 'gateway_timeout'
+  | 'snapshot_provider_unavailable';
+
+function snapshotGatewayModel(model: string) {
+  const oidcToken = process.env.VERCEL_OIDC_TOKEN?.trim();
+  if (!oidcToken) return model;
+
+  // Use the deployment OIDC token explicitly so an invalid/stale API-key setting cannot
+  // take precedence over the Vercel-native Gateway authentication context.
+  return createGateway({
+    apiKey: oidcToken,
+    headers: { 'ai-gateway-auth-method': 'oidc' }
+  })(model);
+}
+
+function snapshotGatewayFailureReason(error: unknown): SnapshotGatewayFailureReason {
+  const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const name = typeof record.name === 'string' ? record.name : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const status = typeof record.statusCode === 'number' ? record.statusCode : null;
+  const detail = `${name} ${message}`.toLowerCase();
+
+  if (status === 401 || status === 403 || /authentication|invalid (?:api key|oidc)|unauthori[sz]ed/.test(detail)) {
+    return 'gateway_authentication_failed';
+  }
+  if (status === 400 || status === 404 || /invalid request|malformed|model not found|unsupported model/.test(detail)) {
+    return 'gateway_request_invalid';
+  }
+  if (name === 'GatewayTimeoutError' || status === 408 || status === 504 || /timeout|timed out|aborted/.test(detail)) {
+    return 'gateway_timeout';
+  }
+  if (status === 429 || (status !== null && status >= 500) || /provider unavailable|upstream|capacity|rate limit/.test(detail)) {
+    return 'gateway_provider_unavailable';
+  }
+  return 'snapshot_provider_unavailable';
 }
 
 export function buildSnapshotNarrativeInput(snapshot: FreeSnapshot, insights: CommercialSnapshotInsights): SnapshotNarrativeInput {
@@ -244,7 +285,7 @@ export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; in
   const provider = providerFromModel(model);
   try {
     const response = await generateText({
-      model,
+      model: snapshotGatewayModel(model),
       system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write only concise executive interpretation. Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or assurance claims. Use only supplied facts and return only the requested object.',
       prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
       output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
@@ -275,7 +316,12 @@ export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; in
       totalTokens: usage?.totalTokens,
       providerCostMicros: identity.gatewayCostMicros
     };
-  } catch {
-    return buildDeterministicSnapshotNarrative({ ...input, aiCallCount: 1, attemptedModels: [model], fallbackReason: 'snapshot_provider_unavailable' });
+  } catch (error) {
+    return buildDeterministicSnapshotNarrative({
+      ...input,
+      aiCallCount: 1,
+      attemptedModels: [model],
+      fallbackReason: snapshotGatewayFailureReason(error)
+    });
   }
 }
