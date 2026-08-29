@@ -71,6 +71,23 @@ export type AdaptiveAnswerDeltaResult =
   | { ok: true; delta: AdaptiveAnswerDelta }
   | { ok: false; reason: 'adaptive_answer_delta_invalid' | 'adaptive_multiple_answer_deltas' | 'adaptive_answer_delta_missing' };
 
+/**
+ * Return the gateways that are currently required by the resolved customer path.
+ * Conditional gateways absent from that path are intentionally not submission requirements.
+ */
+export function requiredAdaptiveGatewayIds(path: ReturnType<typeof resolveAdaptivePath>) {
+  return path.nodes
+    .filter((node) => node.kind === 'gateway' && node.state === 'active')
+    .map((node) => node.nodeId);
+}
+
+export function missingAdaptiveGatewayIds(
+  path: ReturnType<typeof resolveAdaptivePath>,
+  gatewayAnswers: AdaptiveGatewayAnswers
+) {
+  return requiredAdaptiveGatewayIds(path).filter((questionId) => !effectiveGatewayAnswer(gatewayAnswers[questionId]));
+}
+
 const SUPABASE_PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
 const DEPLOYMENT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
@@ -490,7 +507,7 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
     return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   }
   const current = await loadState(access.db, access.assessment, access.activation);
-  const missingGateways = current.graph.gateways.filter((gateway) => !current.gatewayAnswers[gateway.questionId]).map((gateway) => gateway.questionId);
+  const missingGateways = missingAdaptiveGatewayIds(current.path, current.gatewayAnswers);
   const signals = deriveAdaptiveIntegritySignals({ graph: current.graph, path: current.path, navigation: { currentQuestionId: current.navigation.current_question_id, currentScreen: current.navigation.current_screen }, gatewayAnswers: current.gatewayAnswers });
   const errors = missingGateways.length ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`] : [];
   if (current.path.unansweredApplicableCount > 0) errors.push(`Complete the remaining applicable controls (${current.path.unansweredApplicableCount}).`);
