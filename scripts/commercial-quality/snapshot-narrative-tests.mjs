@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { NoOutputGeneratedError } from 'ai';
 import {
   buildCachedSnapshotNarrative,
   buildDeterministicSnapshotNarrative,
   buildSnapshotNarrative,
   buildSnapshotNarrativeInput,
   SNAPSHOT_NARRATIVE_MAX_WORDS,
+  snapshotGatewayFailureReason,
   snapshotNarrativeContentSchema,
   validateSnapshotNarrative
 } from '../../src/lib/snapshot/narrative.ts';
@@ -82,8 +84,10 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     delete process.env.VERCEL_OIDC_TOKEN;
     let requestHeaders;
+    let requestBody;
     globalThis.fetch = async (_url, init) => {
       requestHeaders = new Headers(init?.headers);
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
       throw new Error('TEST_PROVIDER_MOCK');
     };
     const oidcPath = await buildSnapshotNarrative({
@@ -97,6 +101,9 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     assert.equal(oidcPath.fallbackReason, 'gateway_provider_unavailable');
     assert.equal(requestHeaders.get('ai-gateway-auth-method'), 'oidc');
     assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-request-oidc-token');
+    assert.equal(requestBody.maxOutputTokens, 2048);
+    assert.equal(requestBody.providerOptions.openai.reasoningEffort, 'minimal');
+    assert.deepEqual(requestBody.providerOptions.gateway.only, ['openai']);
   } finally {
     if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
@@ -106,6 +113,13 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     else process.env.VERCEL_OIDC_TOKEN = previous.oidc;
     globalThis.fetch = previous.fetch;
   }
+});
+
+test('Snapshot classifies an AI SDK no-output failure explicitly', () => {
+  assert.equal(
+    snapshotGatewayFailureReason(new NoOutputGeneratedError({ message: 'test-only no output' })),
+    'snapshot_no_output_generated'
+  );
 });
 
 test('Snapshot AI retains the static API-key path without request OIDC', async () => {
@@ -332,4 +346,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'request OIDC auth precedence', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

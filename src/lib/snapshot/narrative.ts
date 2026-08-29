@@ -1,4 +1,4 @@
-import { createGateway, generateText, Output } from 'ai';
+import { createGateway, generateText, NoOutputGeneratedError, Output } from 'ai';
 import { z } from 'zod';
 import type { FreeSnapshot } from './free-snapshot';
 import type { CommercialSnapshotInsights } from './commercial-insights';
@@ -98,6 +98,7 @@ type SnapshotGatewayFailureReason =
   | 'gateway_request_invalid'
   | 'gateway_provider_unavailable'
   | 'gateway_timeout'
+  | 'snapshot_no_output_generated'
   | 'snapshot_provider_unavailable';
 
 type SnapshotGatewayCredential = {
@@ -136,13 +137,14 @@ function snapshotGatewayModel(model: string, credential: SnapshotGatewayCredenti
   })(model);
 }
 
-function snapshotGatewayFailureReason(error: unknown): SnapshotGatewayFailureReason {
+export function snapshotGatewayFailureReason(error: unknown): SnapshotGatewayFailureReason {
   const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
   const name = typeof record.name === 'string' ? record.name : '';
   const message = error instanceof Error ? error.message : String(error ?? '');
   const status = typeof record.statusCode === 'number' ? record.statusCode : null;
   const detail = `${name} ${message}`.toLowerCase();
 
+  if (NoOutputGeneratedError.isInstance(error)) return 'snapshot_no_output_generated';
   if (status === 401 || status === 403 || /authentication|invalid (?:api key|oidc)|unauthori[sz]ed/.test(detail)) {
     return 'gateway_authentication_failed';
   }
@@ -327,9 +329,12 @@ export async function buildSnapshotNarrative(input: {
       system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write only concise executive interpretation. Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or assurance claims. Use only supplied facts and return only the requested object.',
       prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
       output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
-      maxOutputTokens: 500,
+      maxOutputTokens: 2048,
       maxRetries: 0,
-      providerOptions: { gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'product:free-snapshot'] } },
+      providerOptions: {
+        openai: { reasoningEffort: 'minimal' },
+        gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'product:free-snapshot'] }
+      },
       abortSignal: AbortSignal.timeout(120_000)
     });
     const parsed = snapshotNarrativeContentSchema.safeParse(response.output);
