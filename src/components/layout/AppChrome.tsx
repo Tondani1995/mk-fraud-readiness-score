@@ -12,6 +12,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     || pathname === '/score/adaptive'
     || pathname.startsWith('/score/adaptive/');
 
+  // A completed result and its order journey carry their own chrome (ResultChrome), rendered
+  // by those routes. They must never inherit the marketing header, whose dominant control is
+  // "Assess Your Organisation" -- an invitation to redo the assessment just completed.
+  const resultActive = pathname.startsWith('/score/snapshot/')
+    || pathname.startsWith('/score/order/');
+
+  if (resultActive) return <>{children}</>;
+
   if (assessmentActive) {
     return (
       <div className="min-h-[100dvh] overflow-x-hidden bg-mk-cream pb-[env(safe-area-inset-bottom)]">

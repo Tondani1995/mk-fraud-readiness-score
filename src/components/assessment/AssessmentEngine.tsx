@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
+import { SnapshotResult } from '@/components/assessment/SnapshotResult';
 import { evaluateNAEligibility, type ExposureSelectionMap } from '@/lib/respondent/na-rules';
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
@@ -254,7 +254,7 @@ export function AssessmentEngine(props: AssessmentEngineProps) {
 
   if (submitState === 'submitted') {
     const insights = snapshot ? buildCommercialSnapshotInsights(snapshot) : null;
-    return snapshot && insights ? <FreeSnapshotCard snapshot={snapshot} snapshotUrl={snapshotUrl} commercialInsights={insights} /> : <Card><CardHeader><CardTitle>Assessment submitted</CardTitle></CardHeader><CardContent>Reference: {props.assessmentReference}</CardContent></Card>;
+    return snapshot && insights ? <SnapshotResult snapshot={snapshot} snapshotUrl={snapshotUrl} commercialInsights={insights} /> : <Card><CardHeader><CardTitle>Assessment submitted</CardTitle></CardHeader><CardContent>Reference: {props.assessmentReference}</CardContent></Card>;
   }
 
   return (

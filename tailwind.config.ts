@@ -21,18 +21,33 @@ const config: Config = {
         accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
         popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
         card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
+        // MK brand palette.
+        //
+        // Derived from the two authoritative sources, not from taste: the canonical logo.svg
+        // (exactly two fills, #01123A and #47515A) and the approved live website (#001030,
+        // #1D3658, slate greys, white). There is NO gold or brass in either source, and no
+        // cream. Owner decision for V1.2: retain #001030 as the runtime product navy.
+        //
+        // `brass`, `brassDark`, `cream` and `charcoal` are semantic naming debt -- the values
+        // are right for this brand, the names are not. They are retained as aliases of the
+        // correctly named tokens so 27 unrelated website files do not need a cosmetic rewrite.
+        // New and corrected Snapshot/order code uses the correct names only.
         mk: {
+          navy: '#001030',
+          accent: '#1D3658',
+          surface: '#F8FAFC',
           ink: '#001030',
-          charcoal: '#001030',
-          slate: '#405050',
-          brass: '#1d3658',
-          brassDark: '#1d3658',
-          cream: '#F8FAFC',
+          slate: '#47515A',
           paper: '#FFFFFF',
           line: '#E2E8F0',
           muted: '#475569',
           danger: '#9B2C2C',
-          success: '#2F6B4F'
+          success: '#2F6B4F',
+          // Deprecated aliases. Do not use in new code.
+          charcoal: '#001030',
+          brass: '#1D3658',
+          brassDark: '#1D3658',
+          cream: '#F8FAFC'
         }
       },
       boxShadow: {

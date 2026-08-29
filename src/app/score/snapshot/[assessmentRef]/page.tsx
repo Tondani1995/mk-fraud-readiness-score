@@ -1,9 +1,6 @@
 import { headers } from 'next/headers';
-import { Badge } from '@/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { SectionShell } from '@/components/ui/SectionShell';
-import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
+import { ResultChrome, ResultFooter } from '@/components/layout/ResultChrome';
+import { SnapshotResult } from '@/components/assessment/SnapshotResult';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
@@ -36,39 +33,29 @@ function requestOriginFor(requestHeaders: Pick<Headers, 'get'>) {
 function accessMessage(reason: string) {
   switch (reason) {
     case 'missing_token':
-      return 'Open your snapshot using the private link we sent you after you submitted the assessment.';
+      return 'Open your result using the private link we sent you after you submitted the assessment.';
     case 'rate_limited':
-      return 'Too many attempts have been made to open this snapshot. Please wait a few minutes and try your private link again.';
+      return 'Too many attempts have been made to open this result. Please wait a few minutes and try your private link again.';
     case 'snapshot_not_available':
-      return 'Your snapshot is not available yet. If you have just submitted the assessment, please try your private link again shortly.';
+      return 'Your result is not available yet. If you have just submitted the assessment, please try your private link again shortly.';
     default:
-      return 'This snapshot link is no longer valid. Please use the most recent private link we sent you, or request a new one.';
+      return 'This result link is no longer valid. Please use the most recent private link we sent you, or request a new one.';
   }
 }
 
 function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason: string }) {
   return (
-    <SectionShell className="py-12">
-      <PageHeader
-        eyebrow="Free snapshot access"
-        title="Private snapshot link required"
-        description="The free snapshot can only be opened from the private snapshot link issued after assessment submission."
-      />
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Assessment reference</CardTitle>
-            <Badge>{assessmentRef}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-            <p className="font-semibold">Snapshot cannot be opened.</p>
-            <p className="mt-2">{accessMessage(reason)}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </SectionShell>
+    <ResultChrome assessmentReference={assessmentRef}>
+      <section className="mx-auto max-w-[1120px] px-[18px] py-16 md:px-6">
+        <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">Private result</p>
+        <h1 className="mt-2.5 max-w-[20ch] text-[26px] font-semibold tracking-tight text-mk-navy md:text-[36px]">
+          Private result link required
+        </h1>
+        <p className="mt-4 max-w-[60ch] text-base leading-7 text-mk-slate">{accessMessage(reason)}</p>
+        <p className="mt-6 text-[11px] uppercase tracking-[0.14em] text-mk-muted">Assessment reference · {assessmentRef}</p>
+      </section>
+      <ResultFooter assessmentReference={assessmentRef} />
+    </ResultChrome>
   );
 }
 
@@ -118,15 +105,20 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
   const snapshotNarrative = await buildCachedSnapshotNarrative({ snapshot, insights: commercialInsights });
+  // Only a persisted version identifier is shown. Where the run carries no graph version the
+  // method line omits it rather than inventing one.
+  const methodologyVersion = snapshot.adaptiveMetrics?.graphVersion ?? null;
 
   return (
-    <SectionShell className="py-12">
-      <PageHeader
-        eyebrow="Free readiness snapshot"
-        title="Your Fraud Readiness Snapshot"
-        description="This view is loaded from the persisted score run and can be safely refreshed without recalculating or unlocking the assessment."
+    <ResultChrome assessmentReference={snapshot.assessmentReference} resultUrl={publicSnapshotUrl}>
+      <SnapshotResult
+        snapshot={snapshot}
+        snapshotUrl={publicSnapshotUrl}
+        commercialInsights={commercialInsights}
+        snapshotNarrative={snapshotNarrative}
+        methodologyVersion={methodologyVersion}
       />
-      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={publicSnapshotUrl} commercialInsights={commercialInsights} snapshotNarrative={snapshotNarrative} />
-    </SectionShell>
+      <ResultFooter assessmentReference={snapshot.assessmentReference} methodologyVersion={methodologyVersion} />
+    </ResultChrome>
   );
 }

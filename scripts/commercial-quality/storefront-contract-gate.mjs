@@ -27,7 +27,16 @@ import path from 'node:path';
 
 /** Customer-facing sales surfaces reachable from the assessment journey. */
 const SURFACES = [
-  'src/components/assessment/FreeSnapshot.tsx',
+  // The Snapshot result experience. FreeSnapshot.tsx was replaced by these files; the gate
+  // follows the customer surface rather than the old filename.
+  'src/components/assessment/SnapshotResult.tsx',
+  'src/components/assessment/ScoreGauge.tsx',
+  'src/components/products/ProductChoice.tsx',
+  'src/components/commercial/OrderJourney.tsx',
+  'src/lib/snapshot/result-copy.ts',
+  'src/lib/snapshot/gap-inventory.ts',
+  'src/lib/snapshot/next-step-recommendation.ts',
+  'src/app/score/order/new/page.tsx',
   'src/components/products/TierComparison.tsx',
   'src/lib/snapshot/commercial-insights.ts',
   'src/lib/commercial/product-catalogue.ts',
