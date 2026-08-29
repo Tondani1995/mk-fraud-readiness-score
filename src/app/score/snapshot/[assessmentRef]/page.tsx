@@ -109,9 +109,7 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
     insights: commercialInsights,
     gatewayAuth: { requestOidcToken: requestHeaders.get('x-vercel-oidc-token') }
   });
-  // Only a persisted version identifier is shown. Where the run carries no graph version the
-  // method line omits it rather than inventing one.
-  const methodologyVersion = snapshot.adaptiveMetrics?.graphVersion ?? null;
+  const methodologyLabel = 'MK Fraud Readiness Methodology';
 
   return (
     <ResultChrome assessmentReference={snapshot.assessmentReference} resultUrl={publicSnapshotUrl}>
@@ -120,9 +118,9 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
         snapshotUrl={publicSnapshotUrl}
         commercialInsights={commercialInsights}
         snapshotNarrative={snapshotNarrative}
-        methodologyVersion={methodologyVersion}
+        methodologyLabel={methodologyLabel}
       />
-      <ResultFooter assessmentReference={snapshot.assessmentReference} methodologyVersion={methodologyVersion} />
+      <ResultFooter assessmentReference={snapshot.assessmentReference} methodologyLabel={methodologyLabel} />
     </ResultChrome>
   );
 }

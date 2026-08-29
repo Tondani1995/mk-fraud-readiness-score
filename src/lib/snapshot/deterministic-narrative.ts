@@ -10,7 +10,7 @@ function safeOrganisationName(value: string | null | undefined) {
 function deterministicPrioritySignals(insights: CommercialSnapshotInsights): [string, string] {
   const signals = insights.priorityAreas.slice(0, 2).map((area) => `${area.domainName}: ${area.readinessStatus}.`);
   if (signals.length < 1) signals.push('Recorded responses identify an area for management attention.');
-  if (signals.length < 2) signals.push('Coverage and applicability should guide interpretation.');
+  if (signals.length < 2) signals.push('The result points to a need for clearer ownership.');
   return [signals[0], signals[1]];
 }
 
@@ -28,11 +28,11 @@ export function buildDeterministicSnapshotNarrativeContent(input: {
   return {
     headline: `${safeOrganisationName(input.snapshot.organisationName)} has a ${maturity} fraud-readiness position.`,
     executiveDiagnosis: input.snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY'
-      ? 'The recorded responses do not provide enough visibility for a reliable readiness view. The result shows where further information is needed.'
+      ? 'The recorded responses do not yet support a reliable readiness interpretation. The result shows where further information is needed.'
       : `The recorded responses place the organisation in a ${maturity} fraud-readiness position. The current picture highlights where management attention is needed.`,
     strength: input.insights.strengths[0]
       ? `${input.insights.strengths[0].domainName} is the clearest recorded foundation in this Snapshot.`
-      : 'The assessment provides a clear baseline for prioritising the next management actions.',
+      : 'The recorded responses do not yet support identifying a dependable organisational strength.',
     prioritySignals,
     managementImplication: focusNames.length
       ? `Leadership should focus first on ${focusNames.join(' and ')}, assign clear ownership and track evidence of progress.`

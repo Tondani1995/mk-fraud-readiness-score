@@ -7,7 +7,7 @@ import { classifyAssuranceLanguage } from '../reports/narrative/validation';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
 
-export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v3-grounded';
+export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v4-brief-grounded';
 export const SNAPSHOT_NARRATIVE_MAX_WORDS = 180;
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
@@ -37,6 +37,26 @@ export type SnapshotNarrativeInput = {
   nextStepDirection: string;
   assuranceBoundary: string;
 };
+
+/**
+ * The deliberately small fact set given to the AI prose generator.
+ *
+ * Numerical diagnostics remain available to the deterministic result interface and to the
+ * full validation input above. They are excluded here so the five prose fields cannot turn a
+ * coverage or gap count into an unsupported customer claim.
+ */
+export type SnapshotNarrativeBrief = {
+  organisationName: string | null;
+  maturity: string | null;
+  resultStatus: string | null;
+  strongestAreas: string[];
+  attentionAreas: string[];
+  nextStepDirection: string;
+  assuranceBoundary: string;
+};
+
+type SnapshotNarrativeValidationInput = SnapshotNarrativeInput | SnapshotNarrativeBrief;
+type SnapshotNarrativeValidationOptions = { mode?: 'ai' | 'deterministic' };
 
 export type SnapshotNarrative = SnapshotNarrativeContent & {
   mode: 'ai' | 'deterministic';
@@ -98,12 +118,13 @@ const UNSUPPORTED_CONTROL_ABSOLUTE = /\b(?:controls?|control environment|fraud c
 const UNSUPPORTED_COVERAGE_CLAIM = /\bno\s+blind\s+spots?\b|\b(?:full|complete|comprehensive|total)\s+(?:assessment\s+)?coverage\b|\bcoverage\b.{0,80}\b(?:all\s+risks?|ensures?|guarantees?|leaves?\s+no)\b/i;
 const UNSUPPORTED_CONSEQUENCE = /\b(?:fraud losses?|account compromise|financial losses?|financial loss|realised harm|realized harm|exposure events?|security incidents?|fraud incidents?)\b/i;
 const UNSUPPORTED_ASSURANCE_REQUIREMENT = /\b(?:requires?|need(?:s)?|must|should)\b.{0,40}\b(?:assurance activities?|an?\s+assurance|independent validation|independent review)\b|\bassurance\s+is\s+(?:required|needed)\b/i;
+const UNSUPPORTED_PROCEDURAL_METRIC_DISCUSSION = /\b(?:assessment\s+coverage|control\s+visibility|unknown(?:[- ]share)?(?:\s+(?:responses?|percentage|rate))?|unanswered\s+responses?|coverage|completeness|blind\s+spots?|(?:critical(?:[- ]control)?|major)\s+gaps?|gap\s+counts?)\b/i;
 
 function sentenceParts(value: string): string[] {
   return value.split(/[.!?]+/).map((part) => part.trim()).filter(Boolean);
 }
 
-function unsupportedSnapshotGroundingIssues(content: SnapshotNarrativeContent, input: SnapshotNarrativeInput): string[] {
+function unsupportedSnapshotGroundingIssues(content: SnapshotNarrativeContent, input: SnapshotNarrativeValidationInput): string[] {
   const parts = [content.headline, content.executiveDiagnosis, content.strength, ...content.prioritySignals, content.managementImplication];
   const text = parts.join('\n');
   const issues: string[] = [];
@@ -195,15 +216,30 @@ export function snapshotGatewayFailureReason(error: unknown): SnapshotGatewayFai
 }
 
 export function buildSnapshotNarrativeInput(snapshot: FreeSnapshot, insights: CommercialSnapshotInsights): SnapshotNarrativeInput {
+  const brief = buildSnapshotNarrativeBrief(snapshot, insights);
   return {
-    organisationName: snapshot.organisationName || null,
+    ...brief,
+    resultStatus: snapshot.resultStatus ?? null,
     overallScore: snapshot.overallScore,
-    maturity: snapshot.finalMaturity,
     coveragePct: snapshot.coveragePct,
     nARatePct: snapshot.nARatePct,
     criticalGapCount: snapshot.criticalGapCount,
     majorGapCount: snapshot.majorGapCount,
-    resultStatus: snapshot.resultStatus ?? null,
+  };
+}
+
+function publicResultStatus(snapshot: FreeSnapshot): string | null {
+  if (!snapshot.resultStatus) return null;
+  return snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY'
+    ? 'insufficient visibility for a reliable readiness interpretation'
+    : 'available for interpretation';
+}
+
+export function buildSnapshotNarrativeBrief(snapshot: FreeSnapshot, insights: CommercialSnapshotInsights): SnapshotNarrativeBrief {
+  return {
+    organisationName: snapshot.organisationName || null,
+    maturity: snapshot.finalMaturity,
+    resultStatus: publicResultStatus(snapshot),
     strongestAreas: insights.strengths.slice(0, 2).map((area) => area.domainName),
     attentionAreas: insights.priorityAreas.slice(0, 3).map((area) => area.domainName),
     nextStepDirection: insights.leadershipPriority,
@@ -211,7 +247,35 @@ export function buildSnapshotNarrativeInput(snapshot: FreeSnapshot, insights: Co
   };
 }
 
-export function validateSnapshotNarrative(value: unknown, input: SnapshotNarrativeInput): string[] {
+function normaliseSnapshotEmDash(value: string, field: 'headline' | 'prose'): string {
+  if (!value.includes('\u2014')) return value;
+  if (field === 'headline') return value.replace(/\s*\u2014\s*/g, ': ');
+  return value
+    .replace(/\s+\u2014\s+(?=[A-Z])/g, '. ')
+    .replace(/\s*\u2014\s*/g, ', ');
+}
+
+/** Normalises a valid AI object before the customer-content guard runs. */
+export function normaliseSnapshotNarrativeContent(value: unknown): SnapshotNarrativeContent | null {
+  const parsed = snapshotNarrativeContentSchema.safeParse(value);
+  if (!parsed.success) return null;
+  const normalised = {
+    ...parsed.data,
+    headline: normaliseSnapshotEmDash(parsed.data.headline, 'headline'),
+    executiveDiagnosis: normaliseSnapshotEmDash(parsed.data.executiveDiagnosis, 'prose'),
+    strength: normaliseSnapshotEmDash(parsed.data.strength, 'prose'),
+    prioritySignals: parsed.data.prioritySignals.map((signal) => normaliseSnapshotEmDash(signal, 'prose')),
+    managementImplication: normaliseSnapshotEmDash(parsed.data.managementImplication, 'prose')
+  };
+  const final = snapshotNarrativeContentSchema.safeParse(normalised);
+  return final.success ? final.data : null;
+}
+
+export function validateSnapshotNarrative(
+  value: unknown,
+  input: SnapshotNarrativeValidationInput,
+  options: SnapshotNarrativeValidationOptions = {}
+): string[] {
   const parsed = snapshotNarrativeContentSchema.safeParse(value);
   if (!parsed.success) return ['snapshot_narrative_schema_invalid'];
 
@@ -229,6 +293,9 @@ export function validateSnapshotNarrative(value: unknown, input: SnapshotNarrati
   }
   const allowedNumbers = numbers(JSON.stringify(input));
   for (const token of numbers(text)) if (!allowedNumbers.has(token)) issues.push('invented_number');
+  if (options.mode === 'ai' && UNSUPPORTED_PROCEDURAL_METRIC_DISCUSSION.test(text)) {
+    issues.push('snapshot_procedural_metric_leakage');
+  }
   issues.push(...unsupportedSnapshotGroundingIssues(content, input));
   return [...new Set(issues)];
 }
@@ -240,7 +307,8 @@ export function buildDeterministicSnapshotNarrative(input: {
   attemptedModels?: string[];
   fallbackReason?: string;
 }): SnapshotNarrative {
-  const content = buildDeterministicSnapshotNarrativeContent(input);
+  const content = normaliseSnapshotNarrativeContent(buildDeterministicSnapshotNarrativeContent(input));
+  if (!content) throw new Error('Deterministic Snapshot narrative schema failed.');
 
   const issues = validateSnapshotNarrative(content, buildSnapshotNarrativeInput(input.snapshot, input.insights));
   if (issues.length > 0) throw new Error(`Deterministic Snapshot narrative contract failed: ${issues.join(',')}`);
@@ -306,15 +374,17 @@ export async function buildCachedSnapshotNarrative(input: {
 }): Promise<SnapshotNarrative> {
   const key = cacheKeyForSnapshot(input.snapshot);
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
+  const narrativeBrief = buildSnapshotNarrativeBrief(input.snapshot, input.insights);
   const cached = await input.cache.read(key);
   if (cached) {
     const parsed = snapshotNarrativeContentSchema.safeParse(cached.narrativeJson);
+    const validationInput = cached.status === 'available' ? narrativeBrief : narrativeInput;
     if (parsed.success
       && (cached.status === 'available' || cached.status === 'fallback')
       && typeof cached.model === 'string'
       && cached.model.trim().length > 0
       && validAiCallCount(cached.aiCallCount)
-      && validateSnapshotNarrative(parsed.data, narrativeInput).length === 0) {
+      && validateSnapshotNarrative(parsed.data, validationInput, { mode: cached.status === 'available' ? 'ai' : 'deterministic' }).length === 0) {
       return narrativeFromCache(key, cached, parsed.data);
     }
   }
@@ -325,8 +395,10 @@ export async function buildCachedSnapshotNarrative(input: {
     gatewayAuth: input.gatewayAuth
   });
   if (!validAiCallCount(generated.aiCallCount)) throw new Error('Snapshot narrative exceeded the one-call cache contract.');
-  const content = contentFromNarrative(generated);
-  const validationIssues = validateSnapshotNarrative(content, narrativeInput);
+  const content = normaliseSnapshotNarrativeContent(contentFromNarrative(generated));
+  if (!content) throw new Error('Snapshot narrative schema failed before persistence.');
+  const validationInput = generated.mode === 'ai' ? narrativeBrief : narrativeInput;
+  const validationIssues = validateSnapshotNarrative(content, validationInput, { mode: generated.mode });
   if (validationIssues.length > 0) throw new Error(`Snapshot narrative refused before persistence: ${validationIssues.join(',')}`);
   await input.cache.write(key, {
     status: generated.mode === 'ai' ? 'available' : 'fallback',
@@ -339,7 +411,7 @@ export async function buildCachedSnapshotNarrative(input: {
     providerCostMicros: generated.providerCostMicros,
     fallbackReason: generated.fallbackReason ?? null
   });
-  return generated;
+  return { ...generated, ...content };
 }
 
 export async function buildSnapshotNarrative(input: {
@@ -348,7 +420,7 @@ export async function buildSnapshotNarrative(input: {
   gatewayAuth?: SnapshotGatewayAuth;
 }): Promise<SnapshotNarrative> {
   const policy = selectSnapshotModel();
-  const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
+  const narrativeBrief = buildSnapshotNarrativeBrief(input.snapshot, input.insights);
   const gatewayCredential = resolveSnapshotGatewayCredential(input.gatewayAuth);
   if (!gatewayCredential) {
     return buildDeterministicSnapshotNarrative({ ...input, fallbackReason: 'snapshot_ai_unavailable' });
@@ -359,10 +431,13 @@ export async function buildSnapshotNarrative(input: {
   const model = policy.primaryModel;
   const provider = providerFromModel(model);
   try {
+    const strengthInstruction = narrativeBrief.strongestAreas.length > 0
+      ? `Interpret only the supplied strongest areas: ${narrativeBrief.strongestAreas.join(', ')}.`
+      : 'Do not manufacture a strength from coverage, completion, visibility, absence of unknowns or any other procedural fact. The strength field should say: "The recorded responses do not yet support identifying a dependable organisational strength."';
     const response = await generateText({
       model: snapshotGatewayModel(model, gatewayCredential),
-      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write concise executive interpretation using calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Coverage means only that applicable assessment questions were completed. State critical and major gap counts only as overall counts; do not attribute them to a domain unless a domain-specific count is supplied. Do not state that controls are absent, failing, ineffective or non-functioning, and do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
-      prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeInput),
+      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Use only the supplied narrative brief. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Use calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not state that controls are absent, failing, ineffective or non-functioning. Do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the five narrative fields. These are presented separately by the deterministic result interface. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
+      prompt: 'Use this narrative brief and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. ' + strengthInstruction + ' Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the five narrative fields. These are presented separately by the deterministic result interface. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeBrief),
       output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
       maxOutputTokens: 2048,
       maxRetries: 0,
@@ -372,18 +447,18 @@ export async function buildSnapshotNarrative(input: {
       },
       abortSignal: AbortSignal.timeout(120_000)
     });
-    const parsed = snapshotNarrativeContentSchema.safeParse(response.output);
-    if (!parsed.success) {
+    const parsed = normaliseSnapshotNarrativeContent(response.output);
+    if (!parsed) {
       return buildDeterministicSnapshotNarrative({ ...input, aiCallCount: 1, attemptedModels: [model], fallbackReason: 'snapshot_schema_invalid' });
     }
-    const issues = validateSnapshotNarrative(parsed.data, narrativeInput);
+    const issues = validateSnapshotNarrative(parsed, narrativeBrief, { mode: 'ai' });
     if (issues.length > 0) {
       return buildDeterministicSnapshotNarrative({ ...input, aiCallCount: 1, attemptedModels: [model], fallbackReason: issues.join(',') });
     }
     const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });
     const usage = response.usage;
     return {
-      ...parsed.data,
+      ...parsed,
       mode: 'ai',
       model,
       promptVersion: SNAPSHOT_NARRATIVE_PROMPT_VERSION,

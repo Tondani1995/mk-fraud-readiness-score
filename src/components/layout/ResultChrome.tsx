@@ -156,12 +156,12 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
 }
 
 /** Two-line result footer. Replaces the corporate footer on result and order routes. */
-export function ResultFooter({ assessmentReference, methodologyVersion }: { assessmentReference: string; methodologyVersion?: string | null }) {
+export function ResultFooter({ assessmentReference, methodologyLabel }: { assessmentReference: string; methodologyLabel?: string | null }) {
   return (
     <footer className="border-t border-mk-line bg-mk-surface">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-2 px-[18px] py-7 text-[11px] leading-6 text-mk-muted md:flex-row md:items-center md:justify-between md:px-6">
         <p>
-          MK Fraud Insights{methodologyVersion ? ` · Methodology ${methodologyVersion}` : ''} · {assessmentReference}
+          MK Fraud Insights{methodologyLabel ? ` · ${methodologyLabel}` : ''} · {assessmentReference}
         </p>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link href="/privacy" className="underline-offset-2 hover:underline">Privacy</Link>

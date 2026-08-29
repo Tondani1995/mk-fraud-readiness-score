@@ -58,7 +58,7 @@ export default async function NewOrderPage(props: OrderPageProps) {
       <OrderJourney
         tier={tier}
         productLabel={product.label}
-        amountDisplay={amountDisplay ? `${amountDisplay} incl. VAT` : 'Manually scoped'}
+        amountDisplay={amountDisplay ? `${amountDisplay} incl. VAT` : ''}
         assessmentReference={snapshot.assessmentReference}
         organisationName={snapshot.organisationName}
         respondentName={snapshot.respondentName}

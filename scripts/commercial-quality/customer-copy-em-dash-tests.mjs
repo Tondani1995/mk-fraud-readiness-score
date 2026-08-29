@@ -153,10 +153,21 @@ test('ProductChoice presents three equal options without internal decision langu
   const source = fs.readFileSync(path.join(ROOT, 'src/components/products/ProductChoice.tsx'), 'utf8');
   assert.match(source, /md:grid-cols-3/);
   assert.match(source, /function AdvisoryCard/);
-  assert.match(source, /No public price/);
+  assert.match(source, /MK Advisory/);
   assert.match(source, /Talk to MK/);
+  assert.doesNotMatch(source, /Manually scoped|No public price|<dt[^>]*>Boundary/);
   assert.doesNotMatch(source, /PRICE_DIFFERENCE|Why the difference/);
-  assert.doesNotMatch(source, /rule \$\{recommendation\.ruleId\}/);
+  assert.doesNotMatch(source, /ruleId|rule \$\{recommendation\.ruleId\}/);
+});
+
+test('Snapshot customer surfaces use public methodology wording only', () => {
+  const result = fs.readFileSync(path.join(ROOT, 'src/components/assessment/SnapshotResult.tsx'), 'utf8');
+  const page = fs.readFileSync(path.join(ROOT, 'src/app/score/snapshot/[assessmentRef]/page.tsx'), 'utf8');
+  const footer = fs.readFileSync(path.join(ROOT, 'src/components/layout/ResultChrome.tsx'), 'utf8');
+  assert.match(result, /MK Fraud Readiness Score/);
+  assert.doesNotMatch(result, /Deterministic scoring|graphVersion|MFRS-V1\.2|methodologyVersion/);
+  assert.doesNotMatch(page, /graphVersion|adaptiveMetrics\?\.graphVersion|MFRS-V1\.2/);
+  assert.doesNotMatch(footer, /methodologyVersion|graphVersion|MFRS-V1\.2/);
 });
 
 test('Snapshot narrative validation blocks em dash before persistence', () => {

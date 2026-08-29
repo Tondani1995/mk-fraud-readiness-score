@@ -5,8 +5,10 @@ import { NoOutputGeneratedError } from 'ai';
 import {
   buildCachedSnapshotNarrative,
   buildDeterministicSnapshotNarrative,
+  buildSnapshotNarrativeBrief,
   buildSnapshotNarrative,
   buildSnapshotNarrativeInput,
+  normaliseSnapshotNarrativeContent,
   SNAPSHOT_NARRATIVE_MAX_WORDS,
   snapshotGatewayFailureReason,
   snapshotNarrativeContentSchema,
@@ -43,6 +45,7 @@ const snapshot = {
 };
 const insights = buildCommercialSnapshotInsights(snapshot);
 const input = buildSnapshotNarrativeInput(snapshot, insights);
+const brief = buildSnapshotNarrativeBrief(snapshot, insights);
 
 test('Snapshot narrative input is bounded to approved deterministic facts', () => {
   assert.deepEqual(Object.keys(input).sort(), [
@@ -51,6 +54,29 @@ test('Snapshot narrative input is bounded to approved deterministic facts', () =
   ].sort());
   assert.equal(JSON.stringify(input).includes('D1'), false);
   assert.equal(JSON.stringify(input).includes('roadmap'), false);
+});
+
+test('Snapshot AI brief excludes diagnostic metrics and exposes only interpretation facts', () => {
+  assert.deepEqual(Object.keys(brief).sort(), [
+    'assuranceBoundary', 'attentionAreas', 'maturity', 'nextStepDirection', 'organisationName', 'resultStatus', 'strongestAreas'
+  ].sort());
+  assert.equal('coveragePct' in brief, false);
+  assert.equal('nARatePct' in brief, false);
+  assert.equal('criticalGapCount' in brief, false);
+  assert.equal('majorGapCount' in brief, false);
+  assert.doesNotMatch(JSON.stringify(brief), /100|35\.55|critical.*gap|major.*gap/i);
+});
+
+test('No-strength results use an explicit absence statement rather than procedural evidence', () => {
+  const noStrength = buildDeterministicSnapshotNarrative({
+    snapshot,
+    insights: { ...insights, strengths: [] }
+  });
+  assert.equal(noStrength.strength, 'The recorded responses do not yet support identifying a dependable organisational strength.');
+  assert.doesNotMatch(noStrength.strength, /coverage|completion|visibility|unknown/i);
+
+  const noStrengthBrief = buildSnapshotNarrativeBrief(snapshot, { ...insights, strengths: [] });
+  assert.deepEqual(noStrengthBrief.strongestAreas, []);
 });
 
 test('Snapshot narrative uses the strict five-field customer contract', () => {
@@ -104,6 +130,8 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     assert.equal(requestBody.maxOutputTokens, 2048);
     assert.equal(requestBody.providerOptions.openai.reasoningEffort, 'minimal');
     assert.deepEqual(requestBody.providerOptions.gateway.only, ['openai']);
+    assert.doesNotMatch(JSON.stringify(brief), /coveragePct|nARatePct|criticalGapCount|majorGapCount/);
+    assert.match(JSON.stringify(requestBody), /narrative brief/i);
   } finally {
     if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
@@ -278,7 +306,7 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /assessment-snapshot/);
   assert.match(cacheKey, /score-run/);
   assert.match(cacheKey, /methodology-v1-2/);
-  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v3-grounded/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v4-brief-grounded/);
 });
 
 test('Snapshot validation rejects the known unsupported grounding phrases', () => {
@@ -311,6 +339,33 @@ test('Snapshot validation rejects em dashes before customer persistence', () => 
     managementImplication: 'Leadership should use the recorded result to prioritise action.'
   }, input);
   assert.ok(issues.includes('snapshot_em_dash'));
+});
+
+test('Snapshot AI normalisation converts em-dash separators before the final guard', () => {
+  const normalised = normaliseSnapshotNarrativeContent({
+    headline: 'Example Health Logistics — a recorded position.',
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention — Use the result to guide focus.',
+    strength: 'The self-assessment suggests a starting point for management focus — leadership should review ownership.',
+    prioritySignals: ['Leadership attention should focus on the recorded areas — first.', 'The result points to clearer ownership.'],
+    managementImplication: 'Leadership attention should focus on the recorded areas.'
+  });
+  assert.ok(normalised);
+  assert.equal(JSON.stringify(normalised).includes('—'), false);
+  assert.equal(normalised.headline, 'Example Health Logistics: a recorded position.');
+  assert.match(normalised.executiveDiagnosis, /attention\. Use/);
+  assert.match(normalised.strength, /focus, leadership/);
+  assert.deepEqual(validateSnapshotNarrative(normalised, brief, { mode: 'ai' }), []);
+});
+
+test('AI narrative rejects coverage and gap-count prose even when it contains no invented number', () => {
+  const issues = validateSnapshotNarrative({
+    headline: 'Example Health Logistics has a reactive position.',
+    executiveDiagnosis: 'The recorded responses indicate a position requiring management attention.',
+    strength: 'The self-assessment suggests full coverage and no blind spots.',
+    prioritySignals: ['Leadership attention should focus on the recorded areas.', 'The result points to a need for clearer ownership.'],
+    managementImplication: 'Leadership should use the recorded result to prioritise the 2 critical gaps.'
+  }, brief, { mode: 'ai' });
+  assert.ok(issues.includes('snapshot_procedural_metric_leakage'));
 });
 
 test('a valid Snapshot cache hit avoids Gateway auth resolution and another provider call', async () => {
@@ -378,4 +433,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

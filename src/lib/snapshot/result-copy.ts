@@ -140,7 +140,7 @@ export const WHAT_HAPPENS_NEXT = [
 ] as const;
 
 export const METHODOLOGY_DISCLOSURE = [
-  'This is a self-assessment. Your readiness score is calculated by a controlled, deterministic methodology from the answers you submitted. It is not recalculated when you open this page, and ordering or paying for a report does not change it.',
+  'This is a self-assessment. Your readiness score is calculated using the MK Fraud Readiness Methodology from the answers you submitted. It is not recalculated when you open this page, and ordering or paying for a report does not change it.',
   'Both detailed reports are prepared from your recorded assessment result. They analyse what you reported. They do not independently validate evidence, test whether your controls operate, or provide an assurance opinion. That work is available through MK Advisory.',
   'Your information is used only for this assessment and any service you request. This result link is private. Anyone holding it can open this page, so share it deliberately.'
 ] as const;

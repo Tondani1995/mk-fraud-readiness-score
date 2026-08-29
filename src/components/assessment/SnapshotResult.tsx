@@ -58,13 +58,13 @@ export function SnapshotResult({
   snapshotUrl,
   commercialInsights,
   snapshotNarrative,
-  methodologyVersion
+  methodologyLabel
 }: {
   snapshot: FreeSnapshot;
   snapshotUrl?: string | null;
   commercialInsights: CommercialSnapshotInsights;
   snapshotNarrative?: SnapshotNarrative;
-  methodologyVersion?: string | null;
+  methodologyLabel?: string | null;
 }) {
   // The deterministic fallback occupies the identical layout. Nothing below branches on the
   // narrative's provenance, and no provider or AI status is exposed to the customer.
@@ -79,7 +79,7 @@ export function SnapshotResult({
 
   return (
     <>
-      <VerdictHero snapshot={snapshot} narrative={narrative} methodologyVersion={methodologyVersion} scoredAt={scoredAt} />
+      <VerdictHero snapshot={snapshot} narrative={narrative} methodologyLabel={methodologyLabel} scoredAt={scoredAt} />
 
       <section aria-label="Assessment coverage figures" className="border-b border-mk-line bg-mk-surface">
         <div className="mx-auto grid max-w-[1120px] grid-cols-2 md:grid-cols-4">
@@ -249,12 +249,12 @@ export function SnapshotResult({
 function VerdictHero({
   snapshot,
   narrative,
-  methodologyVersion,
+  methodologyLabel,
   scoredAt
 }: {
   snapshot: FreeSnapshot;
   narrative: { headline: string; executiveDiagnosis: string };
-  methodologyVersion?: string | null;
+  methodologyLabel?: string | null;
   scoredAt: string | null;
 }) {
   return (
@@ -281,7 +281,7 @@ function VerdictHero({
             </p>
             <div aria-hidden="true" className="mt-5 h-px w-[120px] bg-white/[.22] md:mt-6" />
             <p className="mt-3 text-[11px] leading-[1.65] text-white/[.62]">
-              Deterministic scoring{methodologyVersion ? ` · MK Fraud Readiness Methodology ${methodologyVersion}` : ''}
+              MK Fraud Readiness Score{methodologyLabel ? ` · ${methodologyLabel}` : ''}
               <br />
               Self-assessment{scoredAt ? ` · completed ${scoredAt}` : ''}
             </p>

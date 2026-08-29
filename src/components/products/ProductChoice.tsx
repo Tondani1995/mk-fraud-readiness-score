@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { NextStepRecommendation } from '@/lib/snapshot/next-step-recommendation';
-import { ASSURANCE_BOUNDARY } from '@/lib/snapshot/result-copy';
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 
 /** The conversion moment: three equally visible choices with a deterministic recommendation. */
@@ -175,9 +174,7 @@ function ProductCard({ tier, isBestFit, onChoose }: { tier: SelfServicePaidTier;
 function AdvisoryCard() {
   return (
     <article id="advisory" aria-labelledby="advisory-name" className="flex h-full flex-col rounded-2xl bg-mk-navy p-5 text-white">
-      <p className="mb-2.5 inline-block text-[9px] font-semibold uppercase tracking-[0.13em] text-white/[.72]">Manually scoped</p>
       <h3 id="advisory-name" className="text-[19px] font-semibold text-white md:text-xl">MK Advisory</h3>
-      <p className="mt-1 text-[12.5px] text-white/[.72]">No public price</p>
       <p className="mt-3 border-t border-white/20 pt-3 text-[13px] font-semibold leading-snug text-mk-accent md:text-[13.5px]">Work with MK directly to investigate, design or implement it with us.</p>
       <dl className="mt-3.5 flex flex-1 flex-col gap-2.5">
         <div>
@@ -187,10 +184,6 @@ function AdvisoryCard() {
         <div>
           <dt className="text-[9px] uppercase tracking-[0.14em] text-white/[.62]">You receive</dt>
           <dd className="mt-0.5 text-[12.5px] leading-6 text-white/[.82]">A conversation to define the work, scope, deliverables and fees with MK.</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-white/[.62]">Boundary</dt>
-          <dd className="mt-0.5 text-[12.5px] leading-6 text-white/[.82]">{ASSURANCE_BOUNDARY}</dd>
         </div>
       </dl>
       <Link
