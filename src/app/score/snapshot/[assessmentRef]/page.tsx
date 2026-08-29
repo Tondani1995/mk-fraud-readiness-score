@@ -104,7 +104,11 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
   const requestOrigin = requestOriginFor(requestHeaders);
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
-  const snapshotNarrative = await buildCachedSnapshotNarrative({ snapshot, insights: commercialInsights });
+  const snapshotNarrative = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights: commercialInsights,
+    gatewayAuth: { requestOidcToken: requestHeaders.get('x-vercel-oidc-token') }
+  });
   // Only a persisted version identifier is shown. Where the run carries no graph version the
   // method line omits it rather than inventing one.
   const methodologyVersion = snapshot.adaptiveMetrics?.graphVersion ?? null;

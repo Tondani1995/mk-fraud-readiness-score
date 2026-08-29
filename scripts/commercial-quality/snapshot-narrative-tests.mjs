@@ -70,7 +70,7 @@ test('Snapshot narrative uses the strict five-field customer contract', () => {
   assert.equal(snapshot.finalMaturity, 'Reactive');
 });
 
-test('Snapshot AI preflight accepts Vercel OIDC and uses the explicit Gateway auth path', async () => {
+test('Snapshot AI uses a request-scoped OIDC token before static credentials', async () => {
   const previous = {
     apiKey: process.env.AI_GATEWAY_API_KEY,
     vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
@@ -81,24 +81,87 @@ test('Snapshot AI preflight accepts Vercel OIDC and uses the explicit Gateway au
     delete process.env.AI_GATEWAY_API_KEY;
     delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     delete process.env.VERCEL_OIDC_TOKEN;
-    const unavailable = await buildSnapshotNarrative({ snapshot, insights });
-    assert.equal(unavailable.mode, 'deterministic');
-    assert.equal(unavailable.aiCallCount, 0);
-    assert.equal(unavailable.fallbackReason, 'snapshot_ai_unavailable');
-
-    process.env.VERCEL_OIDC_TOKEN = 'test-only-oidc-token';
     let requestHeaders;
     globalThis.fetch = async (_url, init) => {
       requestHeaders = new Headers(init?.headers);
       throw new Error('TEST_PROVIDER_MOCK');
     };
-    const oidcPath = await buildSnapshotNarrative({ snapshot, insights });
+    const oidcPath = await buildSnapshotNarrative({
+      snapshot,
+      insights,
+      gatewayAuth: { requestOidcToken: 'test-only-request-oidc-token' }
+    });
     assert.equal(oidcPath.mode, 'deterministic');
     assert.equal(oidcPath.aiCallCount, 1);
     assert.deepEqual(oidcPath.attemptedModels, ['openai/gpt-5-mini']);
     assert.equal(oidcPath.fallbackReason, 'gateway_provider_unavailable');
     assert.equal(requestHeaders.get('ai-gateway-auth-method'), 'oidc');
-    assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-oidc-token');
+    assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-request-oidc-token');
+  } finally {
+    if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
+    if (previous.vercelApiKey === undefined) delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    else process.env.VERCEL_AI_GATEWAY_API_KEY = previous.vercelApiKey;
+    if (previous.oidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previous.oidc;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('Snapshot AI retains the static API-key path without request OIDC', async () => {
+  const previous = {
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    oidc: process.env.VERCEL_OIDC_TOKEN,
+    fetch: globalThis.fetch
+  };
+  try {
+    process.env.AI_GATEWAY_API_KEY = 'test-only-api-key';
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_OIDC_TOKEN;
+    let requestHeaders;
+    globalThis.fetch = async (_url, init) => {
+      requestHeaders = new Headers(init?.headers);
+      throw new Error('TEST_PROVIDER_MOCK');
+    };
+    const apiKeyPath = await buildSnapshotNarrative({ snapshot, insights });
+    assert.equal(apiKeyPath.mode, 'deterministic');
+    assert.equal(apiKeyPath.aiCallCount, 1);
+    assert.equal(apiKeyPath.fallbackReason, 'gateway_provider_unavailable');
+    assert.equal(requestHeaders.get('ai-gateway-auth-method'), 'api-key');
+    assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-api-key');
+  } finally {
+    if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
+    if (previous.vercelApiKey === undefined) delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    else process.env.VERCEL_AI_GATEWAY_API_KEY = previous.vercelApiKey;
+    if (previous.oidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previous.oidc;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
+test('Snapshot AI falls back without attempting a provider when no auth is available', async () => {
+  const previous = {
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    oidc: process.env.VERCEL_OIDC_TOKEN,
+    fetch: globalThis.fetch
+  };
+  try {
+    delete process.env.AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_OIDC_TOKEN;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('PROVIDER_MUST_NOT_BE_CALLED');
+    };
+    const unavailable = await buildSnapshotNarrative({ snapshot, insights });
+    assert.equal(unavailable.mode, 'deterministic');
+    assert.equal(unavailable.aiCallCount, 0);
+    assert.equal(unavailable.fallbackReason, 'snapshot_ai_unavailable');
+    assert.equal(fetchCalls, 0);
   } finally {
     if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
@@ -204,6 +267,64 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /mk-snapshot-five-part-advisory-v2/);
 });
 
+test('a valid Snapshot cache hit avoids Gateway auth resolution and another provider call', async () => {
+  const previous = {
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    oidc: process.env.VERCEL_OIDC_TOKEN,
+    fetch: globalThis.fetch
+  };
+  try {
+    delete process.env.AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_OIDC_TOKEN;
+    let fetchCalls = 0;
+    let writes = 0;
+    const deterministic = buildDeterministicSnapshotNarrative({ snapshot, insights });
+    const cache = {
+      async read() {
+        return {
+          status: 'available',
+          narrativeJson: {
+            headline: deterministic.headline,
+            executiveDiagnosis: deterministic.executiveDiagnosis,
+            strength: deterministic.strength,
+            prioritySignals: deterministic.prioritySignals,
+            managementImplication: deterministic.managementImplication
+          },
+          model: 'openai/gpt-5-mini',
+          aiCallCount: 1
+        };
+      },
+      async write() {
+        writes += 1;
+      }
+    };
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('PROVIDER_MUST_NOT_BE_CALLED');
+    };
+    const cached = await buildCachedSnapshotNarrative({
+      snapshot,
+      insights,
+      cache,
+      gatewayAuth: { requestOidcToken: null }
+    });
+    assert.equal(cached.mode, 'ai');
+    assert.equal(cached.aiCallCount, 1);
+    assert.equal(fetchCalls, 0);
+    assert.equal(writes, 0);
+  } finally {
+    if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
+    if (previous.vercelApiKey === undefined) delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    else process.env.VERCEL_AI_GATEWAY_API_KEY = previous.vercelApiKey;
+    if (previous.oidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previous.oidc;
+    globalThis.fetch = previous.fetch;
+  }
+});
+
 test('Snapshot policy is Mini-first with technical fallback and one successful generation', () => {
   const policy = selectSnapshotModel();
   assert.equal(policy.primaryModel, 'openai/gpt-5-mini');
@@ -211,4 +332,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids another generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'strict five-field contract', 'request OIDC auth precedence', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

@@ -4,6 +4,7 @@ import {
   type SnapshotNarrativeCache,
   type SnapshotNarrativeCacheKey,
   type SnapshotNarrativeCacheRecord,
+  type SnapshotGatewayAuth,
   type SnapshotNarrative
 } from './narrative';
 import type { FreeSnapshot } from './free-snapshot';
@@ -60,6 +61,7 @@ function cacheAdapter(): SnapshotNarrativeCache {
 export async function buildCachedSnapshotNarrative(input: {
   snapshot: FreeSnapshot;
   insights: CommercialSnapshotInsights;
+  gatewayAuth?: SnapshotGatewayAuth;
 }): Promise<SnapshotNarrative> {
   return buildCachedNarrative({ ...input, cache: cacheAdapter() });
 }

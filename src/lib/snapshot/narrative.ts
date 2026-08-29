@@ -75,6 +75,11 @@ export type SnapshotNarrativeCache = {
   write: (key: SnapshotNarrativeCacheKey, record: SnapshotNarrativeCacheRecord) => Promise<void>;
 };
 
+/** Request-scoped Gateway authentication. This value is never persisted or included in cache keys. */
+export type SnapshotGatewayAuth = {
+  requestOidcToken?: string | null;
+};
+
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function wordCount(value: string): number { return (value.match(/\b[\p{L}\p{N}][\p{L}\p{N}'’-]*\b/gu) ?? []).length; }
 function numbers(value: string): Set<string> { return new Set((value.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []).map((item) => item.replace('%', ''))); }
@@ -95,15 +100,39 @@ type SnapshotGatewayFailureReason =
   | 'gateway_timeout'
   | 'snapshot_provider_unavailable';
 
-function snapshotGatewayModel(model: string) {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN?.trim();
-  if (!oidcToken) return model;
+type SnapshotGatewayCredential = {
+  token: string;
+  authMethod: 'api-key' | 'oidc';
+};
 
-  // Use the deployment OIDC token explicitly so an invalid/stale API-key setting cannot
-  // take precedence over the Vercel-native Gateway authentication context.
+function nonEmpty(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveSnapshotGatewayCredential(gatewayAuth?: SnapshotGatewayAuth): SnapshotGatewayCredential | null {
+  const requestOidcToken = nonEmpty(gatewayAuth?.requestOidcToken);
+  if (requestOidcToken) return { token: requestOidcToken, authMethod: 'oidc' };
+
+  const apiKey = nonEmpty(process.env.AI_GATEWAY_API_KEY) ?? nonEmpty(process.env.VERCEL_AI_GATEWAY_API_KEY);
+  if (apiKey) return { token: apiKey, authMethod: 'api-key' };
+
+  // Keep the environment token for local/build contexts. Deployed Vercel requests use the
+  // request-scoped header above, so runtime authentication does not depend on this variable.
+  const environmentOidcToken = nonEmpty(process.env.VERCEL_OIDC_TOKEN);
+  if (environmentOidcToken) return { token: environmentOidcToken, authMethod: 'oidc' };
+
+  return null;
+}
+
+function snapshotGatewayModel(model: string, credential: SnapshotGatewayCredential) {
+  const headers = credential.authMethod === 'oidc'
+    ? { 'ai-gateway-auth-method': 'oidc' }
+    : undefined;
+
   return createGateway({
-    apiKey: oidcToken,
-    headers: { 'ai-gateway-auth-method': 'oidc' }
+    apiKey: credential.token,
+    ...(headers ? { headers } : {})
   })(model);
 }
 
@@ -231,7 +260,12 @@ export async function buildCachedSnapshotNarrative(input: {
   snapshot: FreeSnapshot;
   insights: CommercialSnapshotInsights;
   cache: SnapshotNarrativeCache;
-  generator?: (value: { snapshot: FreeSnapshot; insights: CommercialSnapshotInsights }) => Promise<SnapshotNarrative>;
+  gatewayAuth?: SnapshotGatewayAuth;
+  generator?: (value: {
+    snapshot: FreeSnapshot;
+    insights: CommercialSnapshotInsights;
+    gatewayAuth?: SnapshotGatewayAuth;
+  }) => Promise<SnapshotNarrative>;
 }): Promise<SnapshotNarrative> {
   const key = cacheKeyForSnapshot(input.snapshot);
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
@@ -248,7 +282,11 @@ export async function buildCachedSnapshotNarrative(input: {
     }
   }
 
-  const generated = await (input.generator ?? buildSnapshotNarrative)({ snapshot: input.snapshot, insights: input.insights });
+  const generated = await (input.generator ?? buildSnapshotNarrative)({
+    snapshot: input.snapshot,
+    insights: input.insights,
+    gatewayAuth: input.gatewayAuth
+  });
   if (!validAiCallCount(generated.aiCallCount)) throw new Error('Snapshot narrative exceeded the one-call cache contract.');
   const content = contentFromNarrative(generated);
   const validationIssues = validateSnapshotNarrative(content, narrativeInput);
@@ -267,15 +305,15 @@ export async function buildCachedSnapshotNarrative(input: {
   return generated;
 }
 
-export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; insights: CommercialSnapshotInsights }): Promise<SnapshotNarrative> {
+export async function buildSnapshotNarrative(input: {
+  snapshot: FreeSnapshot;
+  insights: CommercialSnapshotInsights;
+  gatewayAuth?: SnapshotGatewayAuth;
+}): Promise<SnapshotNarrative> {
   const policy = selectSnapshotModel();
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
-  const hasGatewayAuthentication = [
-    process.env.AI_GATEWAY_API_KEY,
-    process.env.VERCEL_AI_GATEWAY_API_KEY,
-    process.env.VERCEL_OIDC_TOKEN
-  ].some((value) => typeof value === 'string' && value.trim().length > 0);
-  if (!hasGatewayAuthentication) {
+  const gatewayCredential = resolveSnapshotGatewayCredential(input.gatewayAuth);
+  if (!gatewayCredential) {
     return buildDeterministicSnapshotNarrative({ ...input, fallbackReason: 'snapshot_ai_unavailable' });
   }
 
@@ -285,7 +323,7 @@ export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; in
   const provider = providerFromModel(model);
   try {
     const response = await generateText({
-      model: snapshotGatewayModel(model),
+      model: snapshotGatewayModel(model, gatewayCredential),
       system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write only concise executive interpretation. Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or assurance claims. Use only supplied facts and return only the requested object.',
       prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
       output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
