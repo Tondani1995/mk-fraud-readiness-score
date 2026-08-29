@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildCachedSnapshotNarrative,
   buildDeterministicSnapshotNarrative,
+  buildSnapshotNarrative,
   buildSnapshotNarrativeInput,
   SNAPSHOT_NARRATIVE_MAX_WORDS,
   snapshotNarrativeContentSchema,
@@ -67,6 +68,42 @@ test('Snapshot narrative uses the strict five-field customer contract', () => {
   assert.doesNotMatch(JSON.stringify(fallback), /personalised interpretation unavailable/i);
   assert.equal(snapshot.overallScore, 35.55);
   assert.equal(snapshot.finalMaturity, 'Reactive');
+});
+
+test('Snapshot AI preflight accepts Vercel OIDC without making a real provider request', async () => {
+  const previous = {
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    vercelApiKey: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    oidc: process.env.VERCEL_OIDC_TOKEN,
+    fetch: globalThis.fetch
+  };
+  try {
+    delete process.env.AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_OIDC_TOKEN;
+    const unavailable = await buildSnapshotNarrative({ snapshot, insights });
+    assert.equal(unavailable.mode, 'deterministic');
+    assert.equal(unavailable.aiCallCount, 0);
+    assert.equal(unavailable.fallbackReason, 'snapshot_ai_unavailable');
+
+    process.env.VERCEL_OIDC_TOKEN = 'test-only-oidc-token';
+    globalThis.fetch = async () => {
+      throw new Error('TEST_PROVIDER_MOCK');
+    };
+    const oidcPath = await buildSnapshotNarrative({ snapshot, insights });
+    assert.equal(oidcPath.mode, 'deterministic');
+    assert.equal(oidcPath.aiCallCount, 1);
+    assert.deepEqual(oidcPath.attemptedModels, ['openai/gpt-5-mini']);
+    assert.equal(oidcPath.fallbackReason, 'snapshot_provider_unavailable');
+  } finally {
+    if (previous.apiKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previous.apiKey;
+    if (previous.vercelApiKey === undefined) delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    else process.env.VERCEL_AI_GATEWAY_API_KEY = previous.vercelApiKey;
+    if (previous.oidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previous.oidc;
+    globalThis.fetch = previous.fetch;
+  }
 });
 
 test('Snapshot validation rejects invented numbers and paid-tier leakage', () => {

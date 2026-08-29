@@ -229,7 +229,12 @@ export async function buildCachedSnapshotNarrative(input: {
 export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; insights: CommercialSnapshotInsights }): Promise<SnapshotNarrative> {
   const policy = selectSnapshotModel();
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
-  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_AI_GATEWAY_API_KEY) {
+  const hasGatewayAuthentication = [
+    process.env.AI_GATEWAY_API_KEY,
+    process.env.VERCEL_AI_GATEWAY_API_KEY,
+    process.env.VERCEL_OIDC_TOKEN
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+  if (!hasGatewayAuthentication) {
     return buildDeterministicSnapshotNarrative({ ...input, fallbackReason: 'snapshot_ai_unavailable' });
   }
 
