@@ -244,7 +244,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
         <thead><tr><th style="width:22%">Capability</th><th style="width:8%">Assessed</th><th style="width:38%">What is in place</th><th style="width:32%">Management value</th></tr></thead>
         <tbody>${model.strengths.rows.map((r) => `<tr>
           <td><strong>${esc(r.capability)}</strong></td>
-          <td><strong style="color:var(--strong)">${typeof r.score === 'number' ? r.score.toFixed(2) : '—'}</strong></td>
+          <td><strong style="color:var(--strong)">${typeof r.score === 'number' ? r.score.toFixed(2) : 'Not recorded'}</strong></td>
           <td>${esc(r.currentStandard)}</td>
           <td>${esc(r.managementValue)}</td></tr>`).join('')}</tbody>
       </table>
@@ -383,5 +383,5 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
     ${pageFoot(model, n, total)}
   </section>`);
 
-  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(id.organisationName)} — ${esc(id.productLabel)}</title><style>${STYLES}</style></head><body>${out.join('')}</body></html>`;
+  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(id.organisationName)}: ${esc(id.productLabel)}</title><style>${STYLES}</style></head><body>${out.join('')}</body></html>`;
 }

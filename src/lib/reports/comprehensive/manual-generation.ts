@@ -93,7 +93,7 @@ export async function renderComprehensiveReportPdf(input: {
   });
 
   const pdf = await renderHtmlToPdfBuffer(html, {
-    footerLabel: `MK Fraud Readiness Comprehensive — ${pack.organisation.name}`
+    footerLabel: `MK Fraud Readiness Comprehensive: ${pack.organisation.name}`
   });
 
   return { pdf, interpretationRun };

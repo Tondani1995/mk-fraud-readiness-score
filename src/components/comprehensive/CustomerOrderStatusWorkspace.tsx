@@ -70,8 +70,8 @@ export function CustomerOrderStatusWorkspace({
         {/*
           The reviewer, evidence-review and sign-off cards described the retired
           reviewed-engagement Comprehensive, which was migrated to an automated
-          analytical product. Those cards promised human work — an assigned
-          person, an evidence review and a sign-off — that the product does not
+          analytical product. Those cards promised human work, including an assigned
+          person, an evidence review and a sign-off, that the product does not
           include.
           The released-package card below is the real deliverable and is gated on
           the access token, not on any review state, so it is unaffected.
@@ -79,7 +79,7 @@ export function CustomerOrderStatusWorkspace({
         <Card>
           <CardHeader><CardTitle>Your report</CardTitle></CardHeader>
           <CardContent className="grid gap-4 text-sm leading-6 text-mk-muted sm:grid-cols-2">
-            <p><strong className="text-mk-ink">Report:</strong> {comprehensive.releasedArtifacts.length ? 'Ready — download below' : 'Being prepared'}</p>
+            <p><strong className="text-mk-ink">Report:</strong> {comprehensive.releasedArtifacts.length ? 'Ready. Download below.' : 'Being prepared'}</p>
             <p><strong className="text-mk-ink">Delivery:</strong> Sent to the delivery email held for this order</p>
           </CardContent>
         </Card>

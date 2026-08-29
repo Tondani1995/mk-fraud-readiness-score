@@ -60,7 +60,7 @@ export const INTERPRETATION_CONTRACTS: ReadonlyArray<InterpretationSlotContract>
     // each as "X contains N risks, <participle> Y". Every sentence carried a
     // consequence, so nothing was false — it simply read the table aloud at
     // uniform weight. Prioritising is the work; the table already lists.
-    responsibility: 'Take the two or three largest exposure concentrations and explain the operating mechanism — how value or trust actually leaves the organisation through normal activity. Prioritise; do not survey.',
+    responsibility: 'Take the two or three largest exposure concentrations and explain the operating mechanism: how value or trust actually leaves the organisation through normal activity. Prioritise; do not survey.',
     mayUse: ['the largest exposure themes and their risk counts', 'fraud mechanisms named in the themes'],
     mustNotDo: ['walk through every exposure theme in turn', 'give each theme one sentence of equal weight', 'invent an incident', 'invent a financial impact', 'repeat the executive interpretation', 'describe control designs'],
     minWords: 90, maxWords: 170
@@ -272,6 +272,7 @@ export function validateInterpretation(result: Partial<ComprehensiveInterpretati
   for (const [contract, text] of entries) {
     const slot = contract.id;
     if (!text.trim()) { issues.push({ slot, kind: 'HARD_TRUTH', code: 'EMPTY', detail: 'no text returned' }); continue; }
+    if (text.includes('\u2014')) issues.push({ slot, kind: 'HARD_TRUTH', code: 'EM_DASH', detail: 'customer narrative contains an em dash' });
 
     // HARD TRUTH — every number must be one the deterministic model produced.
     //
@@ -408,7 +409,7 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
   return [
     'You are writing the management interpretation for an MK Fraud Readiness Comprehensive report.',
     '',
-    'The analysis below is already complete and is the only authority you have. Your job is to explain what it means to an executive — to connect, prioritise and give significance. You are not summarising and you are not adding analysis.',
+    'The analysis below is already complete and is the only authority you have. Your job is to explain what it means to an executive: connect, prioritise and give significance. You are not summarising and you are not adding analysis.',
     '',
     'ABSOLUTE RULES',
     '- Every number you use must appear in the analysis below. Do not compute new ones, including percentages.',
@@ -417,6 +418,7 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
     '- Never state that a control currently exists or currently operates. Recommended designs are what good practice requires, not what the organisation does.',
     '- Write for a CFO or Head of Risk. Plain, specific, unhedged. No consultancy filler.',
     '- Each field below answers a different question. Do not repeat another field.',
+    '- Do not use em dashes. Use normal sentence punctuation instead.',
     '',
     '================ THE ANALYSIS ================',
     JSON.stringify(promptBrief),

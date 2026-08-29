@@ -295,7 +295,7 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
       responseLabel: label.label,
       responseOperationalMeaning: label.operationalMeaning,
       normalisedScore: label.normalisedScore,
-      responseMeaning: `${label.label} — ${label.operationalMeaning}`,
+      responseMeaning: `${label.label}: ${label.operationalMeaning}`,
       materialityClass,
       selectionReasons,
       materialityScore: rankScore(trace, selectionReasons, exposureLinks),

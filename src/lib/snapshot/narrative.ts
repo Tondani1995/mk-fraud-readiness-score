@@ -7,7 +7,7 @@ import { classifyAssuranceLanguage } from '../reports/narrative/validation';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
 
-export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v2';
+export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v3-grounded';
 export const SNAPSHOT_NARRATIVE_MAX_WORDS = 180;
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
@@ -91,6 +91,40 @@ function sentenceCount(value: string): number {
 }
 function forbiddenSnapshotDetail(value: string): boolean {
   return /\b(?:30\/60\/90|30-,? ?60-,? ?and 90-day|roadmap|blueprint|risk register|scenario(?:s)?|leadership agenda|evidence checklist|control action(?:s)?|target-state|operating model|decision library|supporting register|supporting xlsx|comprehensive|essential report|paid report|detailed report|provider|gateway|model|unavailable|fallback)\b/i.test(value);
+}
+
+const CALIBRATED_SELF_ASSESSMENT_LANGUAGE = /\b(?:recorded responses?|self-assessment|assessment records?|recorded result|result (?:points|indicates|suggests)|responses? (?:indicate|suggest))\b/i;
+const UNSUPPORTED_CONTROL_ABSOLUTE = /\b(?:controls?|control environment|fraud controls?)\s+(?:are|were|remain|appear|seem)\s+(?:not\s+(?:functioning|working|effective|operating|present|reliable)|absent|ineffective|non[- ]?functioning|failing)\b|\b(?:no|without)\s+(?:effective\s+)?controls?\b|\b(?:control|controls?)\s+(?:failure|failures|absence|absent|ineffective|non[- ]?functioning)\b/i;
+const UNSUPPORTED_COVERAGE_CLAIM = /\bno\s+blind\s+spots?\b|\b(?:full|complete|comprehensive|total)\s+(?:assessment\s+)?coverage\b|\bcoverage\b.{0,80}\b(?:all\s+risks?|ensures?|guarantees?|leaves?\s+no)\b/i;
+const UNSUPPORTED_CONSEQUENCE = /\b(?:fraud losses?|account compromise|financial losses?|financial loss|realised harm|realized harm|exposure events?|security incidents?|fraud incidents?)\b/i;
+const UNSUPPORTED_ASSURANCE_REQUIREMENT = /\b(?:requires?|need(?:s)?|must|should)\b.{0,40}\b(?:assurance activities?|an?\s+assurance|independent validation|independent review)\b|\bassurance\s+is\s+(?:required|needed)\b/i;
+
+function sentenceParts(value: string): string[] {
+  return value.split(/[.!?]+/).map((part) => part.trim()).filter(Boolean);
+}
+
+function unsupportedSnapshotGroundingIssues(content: SnapshotNarrativeContent, input: SnapshotNarrativeInput): string[] {
+  const parts = [content.headline, content.executiveDiagnosis, content.strength, ...content.prioritySignals, content.managementImplication];
+  const text = parts.join('\n');
+  const issues: string[] = [];
+  if (text.includes('\u2014')) issues.push('snapshot_em_dash');
+  if (!CALIBRATED_SELF_ASSESSMENT_LANGUAGE.test([content.executiveDiagnosis, content.strength, content.managementImplication].join('\n'))) {
+    issues.push('snapshot_uncalibrated_interpretation');
+  }
+  if (UNSUPPORTED_CONTROL_ABSOLUTE.test(text)) issues.push('snapshot_unsupported_control_assertion');
+  if (UNSUPPORTED_COVERAGE_CLAIM.test(text)) issues.push('snapshot_unsupported_coverage_claim');
+  if (UNSUPPORTED_CONSEQUENCE.test(text)) issues.push('snapshot_unsupported_consequence_claim');
+  if (UNSUPPORTED_ASSURANCE_REQUIREMENT.test(text)) issues.push('snapshot_unsupported_assurance_requirement');
+
+  const domainNames = [...new Set([...input.strongestAreas, ...input.attentionAreas].map((name) => name.trim()).filter(Boolean))];
+  for (const sentence of sentenceParts(text)) {
+    if (/\b\d+(?:\.\d+)?\s+(?:critical(?:[- ]control)?|major)\s+gaps?\b/i.test(sentence)
+      && domainNames.some((domain) => sentence.toLocaleLowerCase().includes(domain.toLocaleLowerCase()))) {
+      issues.push('snapshot_domain_gap_count_attribution');
+      break;
+    }
+  }
+  return [...new Set(issues)];
 }
 
 type SnapshotGatewayFailureReason =
@@ -195,6 +229,7 @@ export function validateSnapshotNarrative(value: unknown, input: SnapshotNarrati
   }
   const allowedNumbers = numbers(JSON.stringify(input));
   for (const token of numbers(text)) if (!allowedNumbers.has(token)) issues.push('invented_number');
+  issues.push(...unsupportedSnapshotGroundingIssues(content, input));
   return [...new Set(issues)];
 }
 
@@ -326,8 +361,8 @@ export async function buildSnapshotNarrative(input: {
   try {
     const response = await generateText({
       model: snapshotGatewayModel(model, gatewayCredential),
-      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write only concise executive interpretation. Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or assurance claims. Use only supplied facts and return only the requested object.',
-      prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
+      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Deterministic Snapshot facts are the sole authority. Return exactly five fields: headline, executiveDiagnosis, strength, prioritySignals (exactly two items), and managementImplication. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Write concise executive interpretation using calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not calculate, alter or replace score, maturity, coverage, uncertainty, gaps, domains or applicability. Coverage means only that applicable assessment questions were completed. State critical and major gap counts only as overall counts; do not attribute them to a domain unless a domain-specific count is supplied. Do not state that controls are absent, failing, ineffective or non-functioning, and do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
+      prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score, maturity, coverage and gap counts are supplied facts; do not alter them. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeInput),
       output: Output.object({ schema: snapshotNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
       maxOutputTokens: 2048,
       maxRetries: 0,

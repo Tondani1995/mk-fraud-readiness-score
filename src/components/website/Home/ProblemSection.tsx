@@ -11,7 +11,7 @@ export default function ProblemSection() {
       icon: ShieldAlert,
       title: "Hidden Loss",
       description:
-        "Fraud often hides inside operational noise, small exceptions, and manual workarounds — going unnoticed until it becomes material.",
+        "Fraud often hides inside operational noise, small exceptions, and manual workarounds, going unnoticed until it becomes material.",
     },
     {
       icon: TrendingDown,

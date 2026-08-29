@@ -34,7 +34,7 @@ export default function ControlsMonitoringSection() {
             icon: TrendingUp,
             title: "Practical control recommendations",
             description:
-                "Solutions tailored to your systems and processes — not generic frameworks.",
+                "Solutions tailored to your systems and processes, not generic frameworks.",
         },
     ];
 
@@ -270,7 +270,7 @@ export default function ControlsMonitoringSection() {
                                 </div>
 
                                 <p className="mt-5 text-xs leading-relaxed text-white/60">
-                                    We focus on controls that teams actually use — aligned to workflows, decision
+                                    We focus on controls that teams actually use, aligned to workflows, decision
                                     points, and operational reality.
                                 </p>
                             </div>

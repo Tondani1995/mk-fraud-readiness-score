@@ -19,19 +19,19 @@ export default function FraudProgrammeDesignSection() {
             icon: Layers,
             title: "Fraud strategy and operating model",
             description:
-                "Clear direction on how prevention, detection, and response work in your organisation — end to end.",
+                "Clear direction on how prevention, detection, and response work in your organisation, from end to end.",
         },
         {
             icon: Users,
             title: "Roles and accountability definition",
             description:
-                "Who owns what, who decides what, and who is accountable — with practical decision rights.",
+                "Who owns what, who decides what, and who is accountable, with practical decision rights.",
         },
         {
             icon: Shield,
             title: "Governance and escalation design",
             description:
-                "Simple escalation pathways that get issues to the right level, fast — without bureaucracy.",
+                "Simple escalation pathways that get issues to the right level quickly, without bureaucracy.",
         },
     ];
 
@@ -91,7 +91,7 @@ export default function FraudProgrammeDesignSection() {
                             <div>
                                 <h3 className="text-2xl font-bold leading-tight text-[#1d3658] sm:text-3xl">Outputs</h3>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
-                                    A practical programme blueprint — designed to work inside real workflows.
+                                    A practical programme blueprint, designed to work inside real workflows.
                                 </p>
                             </div>
 
@@ -143,7 +143,7 @@ export default function FraudProgrammeDesignSection() {
                                     <div>
                                         <p className="font-bold text-[#1d3658]">Outcome</p>
                                         <p className="text-sm leading-relaxed text-slate-600">
-                                            A clear fraud programme you can run — with ownership, governance, and
+                                            A clear fraud programme you can run, with ownership, governance, and
                                             escalation that actually works.
                                         </p>
                                     </div>
@@ -179,7 +179,7 @@ export default function FraudProgrammeDesignSection() {
                                             <div className="min-w-0">
                                                 <p className="font-bold text-[#1d3658]">Designed for operations</p>
                                                 <p className="mt-1 text-sm leading-relaxed text-slate-700">
-                                                    A programme aligned to day-to-day workflows — not a slide deck that
+                                                    A programme aligned to day-to-day workflows, rather than a slide deck that
                                                     sits on a shared drive.
                                                 </p>
                                             </div>
@@ -261,7 +261,7 @@ export default function FraudProgrammeDesignSection() {
                                     <div>
                                         <p className="font-bold text-[#1d3658]">Aligned to your maturity</p>
                                         <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                                            We design what you can realistically run now — and what to evolve next.
+                                        We design what you can realistically run now, and what to evolve next.
                                         </p>
                                     </div>
                                 </div>

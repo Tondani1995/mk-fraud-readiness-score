@@ -28,7 +28,7 @@ export default function ProofSection() {
       icon: ShieldCheck,
       title: "Practical by Design",
       description:
-        "Focused on people, processes, and decision points — not just policies or systems.",
+        "Focused on people, processes, and decision points, not just policies or systems.",
       highlights: ["Action-oriented", "No tick-box compliance", "Operational focus"],
     },
     {
@@ -70,7 +70,7 @@ export default function ProofSection() {
           </h2>
 
           <p className="leading-relaxed text-white/75">
-            Grounded in operational reality — focused on outcomes, not theory, tools, or tick-box
+            Grounded in operational reality, focused on outcomes, not theory, tools, or tick-box
             compliance.
           </p>
 

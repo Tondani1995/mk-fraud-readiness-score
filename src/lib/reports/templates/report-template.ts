@@ -105,13 +105,13 @@ function escNarrative(value: unknown): string {
 }
 
 function score(value: number | null | undefined): string {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'Not recorded';
   return String(Math.round(Number(value)));
 }
 
 function pct(value: number | null | undefined): string {
   const rendered = score(value);
-  return rendered === '—' ? rendered : `${rendered}%`;
+  return rendered === 'Not recorded' ? rendered : `${rendered}%`;
 }
 
 function bandFor(value: number | null): string {
@@ -438,7 +438,7 @@ export function renderReportHtml(
     <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(customerMaterialityLabel(finding.materialityClass))}</span></div>
     <div class="record-grid two">
       ${labelled('Domain', finding.domainName)}
-      ${labelled('Assessed control state', `${finding.questionPrompt} — ${finding.responseLabel}`)}
+      ${labelled('Assessed control state', `${finding.questionPrompt}: ${finding.responseLabel}`)}
       ${labelled('Diagnosis', finding.diagnosis)}
       ${labelled('Why it matters', customerFindingWhyItMatters(finding.whyItMatters))}
       ${labelled('Recommended control', finding.recommendedControl)}
@@ -502,8 +502,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(customerRiskTitle(risk.title, risk.riskEvent))}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
     <div class="risk-statement">${esc(risk.riskStatement)}</div>
     <div class="record-grid two">
-      ${labelled('Likelihood', `${risk.likelihood} — ${risk.likelihoodRationale}`)}
-      ${labelled('Impact', `${risk.impact} — ${risk.impactRationale}`)}
+      ${labelled('Likelihood', `${risk.likelihood}: ${risk.likelihoodRationale}`)}
+      ${labelled('Impact', `${risk.impact}: ${risk.impactRationale}`)}
       ${labelled('Current control position', risk.currentControlPosition)}
       ${labelled('Required treatment', risk.requiredTreatment)}
       ${labelled('Accountable executive', risk.accountableExecutive)}
@@ -569,8 +569,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const roadmapBlock = subsection('30/60/90-day roadmap', `
     <p class="section-note">The first 30 days establish decisions and ownership; the 60- and 90-day windows implement and evidence the linked controls.</p>
     ${thirtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${thirtyDayNarrative}</div>` : ''}
-    ${firstThirtyDayRows.length ? `<h3 class="roadmap-table-heading">First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
-    ${roadmapThirtyRows.length ? `<h3 class="roadmap-table-heading">First 30 days — implementation foundations</h3>${roadmapActionTable(roadmapThirtyRows)}` : ''}
+    ${firstThirtyDayRows.length ? `<h3 class="roadmap-table-heading">First 30 days: decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
+    ${roadmapThirtyRows.length ? `<h3 class="roadmap-table-heading">First 30 days: implementation foundations</h3>${roadmapActionTable(roadmapThirtyRows)}` : ''}
     ${roadmapOtherNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${roadmapOtherNarrative}</div>` : ''}
     ${sixtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${sixtyDayNarrative}</div>` : ''}
     ${roadmapSixtyRows.length ? `<h3 class="roadmap-table-heading">60-day implementation actions</h3>${roadmapActionTable(roadmapSixtyRows)}` : ''}
@@ -640,7 +640,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const findingsAppendixRows = sortedFindings.map((finding, index) => `<tr>
     <td>${index + 1}</td>
     <td>${esc(finding.domainName)}</td>
-    <td>${esc(finding.questionPrompt)} — ${esc(finding.responseLabel)}</td>
+    <td>${esc(finding.questionPrompt)}: ${esc(finding.responseLabel)}</td>
     <td>${esc(finding.diagnosis)}</td>
     <td>${esc(finding.recommendedControl)}</td>
     <td>${esc(finding.accountableOwner)}<br/>${esc(finding.targetPeriod)}</td>
@@ -757,7 +757,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
 
   const tocRows = REPORT_TOC_ENTRIES.map((entry) => {
     const pageNumber = tocPageMap?.[entry.key];
-    return `<tr class="${entry.appendix ? 'toc-appendix-row' : ''}"><td>${esc(entry.label)}</td><td class="toc-page">${pageNumber ?? '—'}</td></tr>`;
+    return `<tr class="${entry.appendix ? 'toc-appendix-row' : ''}"><td>${esc(entry.label)}</td><td class="toc-page">${pageNumber ?? 'Not recorded'}</td></tr>`;
   }).join('');
 
   const parts = [
@@ -815,7 +815,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
 <html lang="en-ZA">
 <head>
 <meta charset="utf-8"/>
-<title>MK Fraud Readiness — Essential — ${esc(data.organisationName)}</title>
+<title>MK Fraud Readiness Essential: ${esc(data.organisationName)}</title>
 <style>
   @page { size: A4 portrait; margin: 12mm 13mm 15mm 13mm; }
   * { box-sizing: border-box; }

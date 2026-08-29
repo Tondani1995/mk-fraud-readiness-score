@@ -87,7 +87,7 @@ export default function ContactUs() {
       fd.append("phone", formData.phone.trim());
       fd.append("service", cleanService);
       fd.append("botcheck", "");
-      fd.append("subject", `New Contact Form: ${cleanService || "General"} — ${cleanName}`);
+      fd.append("subject", `New Contact Form: ${cleanService || "General"}: ${cleanName}`);
       fd.append("from_name", cleanName);
 
       const res = await fetch("https://api.web3forms.com/submit", {
@@ -174,7 +174,7 @@ export default function ContactUs() {
                       </div>
                       <h3 className="text-2xl font-bold leading-tight text-[#001030]">Message sent</h3>
                       <p className="mt-2 text-slate-600">
-                        Thanks — we&apos;ll review your message and reply within 24 hours during business
+                        Thanks. We&apos;ll review your message and reply within 24 hours during business
                         days.
                       </p>
                     </div>

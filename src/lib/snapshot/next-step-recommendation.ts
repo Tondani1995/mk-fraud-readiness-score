@@ -82,7 +82,7 @@ export function buildNextStepRecommendation(snapshot: FreeSnapshot): NextStepRec
       ruleId: 'C1',
       recommendedTier: null,
       speakToMkFirst: true,
-      reason: 'Too much of your assessment is unconfirmed for us to suggest a report level honestly. A short conversation with MK is the better next step — we can tell you what would close the gaps and whether a report is worth ordering yet.',
+      reason: 'Too much of your assessment is unconfirmed for us to suggest a report level honestly. A short conversation with MK is the better next step. We can tell you what would close the gaps and whether a report is worth ordering yet.',
       freedomClause: FREEDOM_CLAUSE_C1
     };
   }
@@ -105,7 +105,7 @@ export function buildNextStepRecommendation(snapshot: FreeSnapshot): NextStepRec
       ruleId: 'C3',
       recommendedTier: 'comprehensive',
       speakToMkFirst: false,
-      reason: `Your result sits in the Reactive band across ${areas} applicable areas. At that breadth, isolated fixes tend not to hold — target-state design is what closes the position.`,
+      reason: `Your result sits in the Reactive band across ${areas} applicable areas. At that breadth, isolated fixes tend not to hold. Target-state design is what closes the position.`,
       freedomClause: FREEDOM_CLAUSE
     };
   }

@@ -25,7 +25,7 @@ export default function HowWeWorkSection() {
             icon: Users,
             title: "Operational",
             description: "Focused on real-world execution",
-            detail: "We work where fraud actually happens — in processes, decisions, and frontline operations.",
+            detail: "We work where fraud actually happens: in processes, decisions, and frontline operations.",
         },
     ];
 
@@ -65,7 +65,7 @@ export default function HowWeWorkSection() {
                     </h2>
 
                     <p className="mt-4 leading-relaxed text-slate-600">
-                        Practical, structured, and grounded in operational reality — not frameworks built for
+                        Practical, structured, and grounded in operational reality, not frameworks built for
                         audits.
                     </p>
                 </div>
@@ -189,7 +189,7 @@ export default function HowWeWorkSection() {
                             <p className="mt-2 leading-relaxed text-slate-600">
                                 We work with leadership and frontline teams to map fraud pathways, strengthen
                                 controls, and embed practical prevention measures that function in real business
-                                operations — not just on paper.
+                                operations, not just on paper.
                             </p>
                         </div>
                     </div>

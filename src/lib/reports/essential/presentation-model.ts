@@ -597,7 +597,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   /** The assessed maturity condition for a control family, e.g. "Initial / ad hoc". */
   function assessedCondition(semanticFamily: string): string {
     const control = controls.find((c) => String(c.primarySemanticFamily ?? '') === semanticFamily);
-    const state = String(control?.currentState ?? '').split(/\s+[—-]\s+/)[0]?.trim();
+    const state = String(control?.currentState ?? '').split(/\s+[\u2014-]\s+/)[0]?.trim();
     return state ? customerText(state) : 'Not assessed';
   }
 
@@ -716,14 +716,14 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   // implies remediation the assessment does not support.
   const STAGES = sustainment
     ? [
-        { stage: '30 days — Preserve', window: '0–30 days', match: /^30\b/ },
-        { stage: '60 days — Embed', window: '31–60 days', match: /^60\b/ },
-        { stage: '90 days — Measure and optimise', window: '61–90 days', match: /^90\b/ }
+        { stage: '30 days: Preserve', window: '0–30 days', match: /^30\b/ },
+        { stage: '60 days: Embed', window: '31–60 days', match: /^60\b/ },
+        { stage: '90 days: Measure and optimise', window: '61–90 days', match: /^90\b/ }
       ]
     : [
-        { stage: '30 days — Stabilise', window: '0–30 days', match: /^30\b/ },
-        { stage: '60 days — Establish', window: '31–60 days', match: /^60\b/ },
-        { stage: '90 days — Operate and review', window: '61–90 days', match: /^90\b/ }
+        { stage: '30 days: Stabilise', window: '0–30 days', match: /^30\b/ },
+        { stage: '60 days: Establish', window: '31–60 days', match: /^60\b/ },
+        { stage: '90 days: Operate and review', window: '61–90 days', match: /^90\b/ }
       ];
   // Two roadmap facts can describe the same management work. The Fact Pack keeps
   // them apart because they answer different findings, but the customer is told

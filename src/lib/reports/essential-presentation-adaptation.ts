@@ -122,8 +122,8 @@ function applyEssentialCustomerBoundary(value: string): string {
     .replace(/\bOperating\s+The financial consequence depends on the value and transactions affected\.?/gi,
       'The operational consequence depends on the affected process, system or service.')
     // Internal authoring labels/punctuation are not customer copy. Cover ASCII and typographic dashes.
-    .replace(/\bDirect\s*(?:--|—|–|-)\s*/gi, '')
-    .replace(/\s+--\s+/g, ' — ')
+    .replace(/\bDirect\s*(?:--|\u2014|–|-)\s*/gi, '')
+    .replace(/\s+--\s+/g, '. ')
     // A replacement can consume the original full stop but leave the join semicolon behind.
     // Never show the customer a malformed ".;" sequence.
     .replace(/\.\s*;\s*/g, '; ')

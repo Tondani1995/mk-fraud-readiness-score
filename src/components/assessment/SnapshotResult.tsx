@@ -120,7 +120,7 @@ export function SnapshotResult({
               {snapshot.capApplied && snapshot.calculatedMaturity ? (
                 <>
                   <CountRow label="Calculated" value={snapshot.calculatedMaturity} />
-                  <CountRow label="Recorded" value={snapshot.finalMaturity ?? '—'} />
+                  <CountRow label="Recorded" value={snapshot.finalMaturity ?? 'Not recorded'} />
                 </>
               ) : null}
               <CountRow label="Critical-control gaps" value={String(snapshot.criticalGapCount)} />
@@ -197,7 +197,7 @@ export function SnapshotResult({
           <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6 md:py-12">
             <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
             <p className="mt-3 max-w-[64ch] text-base leading-8 text-mk-navy">
-              Your strongest recorded area — <strong className="font-semibold">{pairing.strongestDomainName}</strong> — sits directly against your weakest,{' '}
+              Your strongest recorded area, <strong className="font-semibold">{pairing.strongestDomainName}</strong>, sits directly against your weakest,{' '}
               <strong className="font-semibold">{pairing.weakestDomainName}</strong>. Fraud rarely tests a control in isolation; it operates where a strong
               control hands over to a weak one. Both detailed reports analyse that pairing.
             </p>
@@ -264,7 +264,7 @@ function VerdictHero({
           {/* Mobile puts the gauge first: on a small screen the number is the hook, and there
               is no F-pattern to respect. Desktop reads the headline first. */}
           <div className="md:order-2 md:col-span-5">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-white/[.72] md:hidden">Your result — {snapshot.organisationName}</p>
+            <p className="text-[9px] uppercase tracking-[0.2em] text-white/[.72] md:hidden">Your result: {snapshot.organisationName}</p>
             <div className="mt-3 md:mt-0">
               <ScoreGauge score={snapshot.overallScore} band={snapshot.finalMaturity} size="mobile" />
             </div>
@@ -272,7 +272,7 @@ function VerdictHero({
           </div>
 
           <div className="md:order-1 md:col-span-7">
-            <p className="hidden text-[10px] uppercase tracking-[0.2em] text-white/[.72] md:block">Your result — {snapshot.organisationName}</p>
+            <p className="hidden text-[10px] uppercase tracking-[0.2em] text-white/[.72] md:block">Your result: {snapshot.organisationName}</p>
             <h1 className="mt-3 max-w-[22ch] text-[25px] font-semibold leading-[1.16] tracking-tight text-white md:mt-3 md:text-[40px] md:leading-[1.14]">
               {narrative.headline}
             </h1>

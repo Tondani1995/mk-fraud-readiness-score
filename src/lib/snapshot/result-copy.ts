@@ -21,7 +21,7 @@ function roundPct(value: number) {
 /** The line beneath the score. First match wins. */
 export function tensionLine(snapshot: FreeSnapshot): string {
   if (snapshot.overallScore === null) {
-    return 'Not issued — the assessment did not provide enough visibility to place a position.';
+    return 'Not issued. The assessment did not provide enough visibility to place a position.';
   }
   if (snapshot.capApplied) {
     const calculated = snapshot.calculatedMaturity;
@@ -45,9 +45,9 @@ export function meaningHeading(snapshot: FreeSnapshot): string {
   }
   if (snapshot.capApplied) return 'One weakness is holding your result down.';
   if (snapshot.criticalGapCount >= 3) {
-    return `${snapshot.criticalGapCount} controls that should hold on their own are not holding.`;
+    return `${snapshot.criticalGapCount} recorded critical-control gaps need management attention.`;
   }
-  if (snapshot.criticalGapCount > 0) return 'A control that should hold on its own is not holding.';
+  if (snapshot.criticalGapCount > 0) return 'A recorded critical-control gap needs management attention.';
   return 'Your score is a starting position, not a verdict.';
 }
 
@@ -128,7 +128,7 @@ export const MATURITY_BAND_SHORT: Record<(typeof MATURITY_BANDS)[number], string
   Strategic: 'Strat.'
 };
 
-export const ASSURANCE_BOUNDARY = 'Essential and Comprehensive are analytical products prepared from what you reported. Advisory is where MK works with you directly — investigating, designing, implementing or strengthening the environment alongside your team, including the evidence examination and independent review the analytical reports do not provide.';
+export const ASSURANCE_BOUNDARY = 'Essential and Comprehensive are analytical products prepared from what you reported. Advisory is where MK works with you directly: investigating, designing, implementing or strengthening the environment alongside your team, including the evidence examination and independent review the analytical reports do not provide.';
 
 export const ORDER_RELEASE_NOTE = 'Your report is prepared once payment is confirmed. No report is generated or released against an unconfirmed order.';
 
@@ -139,11 +139,8 @@ export const WHAT_HAPPENS_NEXT = [
   'We email you a private link to your report.'
 ] as const;
 
-export const PRICE_DIFFERENCE_LEAD = 'Why the difference.';
-export const PRICE_DIFFERENCE_NOTE = 'Essential tells you what to fix. Comprehensive designs what you fix it with — every priority control specified to the level a team can build from, with the governance and measurement to run it afterwards. Essential is a diagnosis. Comprehensive is a diagnosis and a blueprint.';
-
 export const METHODOLOGY_DISCLOSURE = [
   'This is a self-assessment. Your readiness score is calculated by a controlled, deterministic methodology from the answers you submitted. It is not recalculated when you open this page, and ordering or paying for a report does not change it.',
   'Both detailed reports are prepared from your recorded assessment result. They analyse what you reported. They do not independently validate evidence, test whether your controls operate, or provide an assurance opinion. That work is available through MK Advisory.',
-  'Your information is used only for this assessment and any service you request. This result link is private — anyone holding it can open this page, so share it deliberately.'
+  'Your information is used only for this assessment and any service you request. This result link is private. Anyone holding it can open this page, so share it deliberately.'
 ] as const;

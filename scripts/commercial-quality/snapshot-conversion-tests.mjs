@@ -364,8 +364,8 @@ test('Tension line and meaning heading follow the recorded state', () => {
 
   assert.match(meaningHeading(snapshotFixture({ resultStatus: 'INSUFFICIENT_VISIBILITY' })), /unconfirmed/);
   assert.match(meaningHeading(snapshotFixture({ capApplied: true })), /holding your result down/);
-  assert.match(meaningHeading(snapshotFixture({ criticalGapCount: 3 })), /^3 controls/);
-  assert.match(meaningHeading(snapshotFixture({ criticalGapCount: 1 })), /^A control/);
+  assert.match(meaningHeading(snapshotFixture({ criticalGapCount: 3 })), /^3 recorded critical-control gaps/);
+  assert.match(meaningHeading(snapshotFixture({ criticalGapCount: 1 })), /^A recorded critical-control gap/);
   assert.match(meaningHeading(snapshotFixture()), /starting position/);
 });
 

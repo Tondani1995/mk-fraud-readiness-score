@@ -37,7 +37,7 @@ export default function FraudHealthCheckSection() {
             icon: CheckCircle2,
             title: "Practical recommendations",
             description:
-                "Actionable steps tailored to your operational environment — not generic frameworks.",
+                "Actionable steps tailored to your operational environment, not generic frameworks.",
         },
     ];
 

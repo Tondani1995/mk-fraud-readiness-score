@@ -40,7 +40,7 @@ type AssessmentEngineProps = {
 };
 
 function publicLabel(value: string) {
-  return value.replace(/^\s*(?:EXP-\d{1,2}|D\d{1,2}(?:-Q\d{1,2})?)\s*(?:[·:—-]\s*)?/i, '').trim();
+  return value.replace(/^\s*(?:EXP-\d{1,2}|D\d{1,2}(?:-Q\d{1,2})?)\s*(?:[·:\u2014-]\s*)?/i, '').trim();
 }
 
 function isAnswered(answer?: DraftAnswer) {

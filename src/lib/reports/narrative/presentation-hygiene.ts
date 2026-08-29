@@ -26,8 +26,8 @@ function cleanOrphanedPunctuation(value: string): string {
     .replace(/\s+([,.;:!?])/g, '$1')
     .replace(/([([{])\s+/g, '$1')
     .replace(/\s+([)\]}])/g, '$1')
-    .replace(/^\s*[-—–:;,]+\s*/, '')
-    .replace(/\s*[-—–:;,]+\s*$/, '')
+    .replace(/^\s*[-\u2014–:;,]+\s*/, '')
+    .replace(/\s*[-\u2014–:;,]+\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

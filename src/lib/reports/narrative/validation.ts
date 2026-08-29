@@ -21,6 +21,7 @@ export interface NarrativeValidationReport {
 }
 
 const PROHIBITED = [
+  { code: 'em_dash', pattern: /\u2014/u, message: 'Em dashes are not permitted in customer-facing report narrative.' },
   { code: 'raw_question_id', pattern: /\bD\d+-Q\d+\b/i, message: 'Raw question IDs are not customer-facing prose.' },
   { code: 'raw_internal_id', pattern: /\b(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+\b/i, message: 'Raw internal IDs are not customer-facing prose.' },
   { code: 'raw_machine_identifier', pattern: /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,}\b/, message: 'Underscore-delimited machine identifiers are not customer-facing prose.' },

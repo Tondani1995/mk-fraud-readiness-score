@@ -7,6 +7,7 @@ import type {
 } from './types';
 
 const PROHIBITED_PATTERNS: Array<{ code: string; pattern: RegExp; message: string }> = [
+  { code: 'em_dash', pattern: /\u2014/u, message: 'Em dashes are not permitted in customer-facing report narrative.' },
   { code: 'unsupported_benchmark', pattern: /\b(industry|market|sector)\s+(average|benchmark|norm|percentile)\b/i, message: 'Unsupported benchmark language is not allowed.' },
   { code: 'certification_claim', pattern: /\b(certified|certification|accredited|accreditation)\b/i, message: 'Certification or accreditation claims are not allowed.' },
   { code: 'compliance_conclusion', pattern: /\b(fully compliant|legally compliant|regulatory compliance is confirmed|meets all regulatory requirements)\b/i, message: 'The report may not make a legal or regulatory compliance conclusion.' },

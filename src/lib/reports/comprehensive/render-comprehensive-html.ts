@@ -22,10 +22,10 @@ import type { ComprehensiveManagementModel } from './management-model';
 const esc = (value: unknown): string =>
   String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const list = (items: string[], empty = '—'): string =>
+const list = (items: string[], empty = 'Not recorded'): string =>
   items.filter(Boolean).length ? `<ul>${items.filter(Boolean).map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : `<span class="muted">${empty}</span>`;
 
-const cell = (value: unknown, fallback = '—'): string => {
+const cell = (value: unknown, fallback = 'Not recorded'): string => {
   const text = String(value ?? '').trim();
   return text ? esc(text) : `<span class="muted">${fallback}</span>`;
 };
@@ -123,7 +123,7 @@ td.tight{white-space:nowrap}
 .note{font-size:7.2pt;color:var(--muted);line-height:1.5;max-width:168mm}
 `;
 
-const BASIS = 'This report is produced by automated analysis of the recorded MK Fraud Readiness assessment. It has not been independently reviewed. No evidence has been examined, no control has been tested for operating effectiveness, no personnel have been interviewed, and no assurance opinion is given. Assessment positions are self-reported by the organisation. Recommended control designs, evidence requirements and operating measures are MK methodology — what good practice requires — not observations of what the organisation currently does.';
+const BASIS = 'This report is produced by automated analysis of the recorded MK Fraud Readiness assessment. It has not been independently reviewed. No evidence has been examined, no control has been tested for operating effectiveness, no personnel have been interviewed, and no assurance opinion is given. Assessment positions are self-reported by the organisation. Recommended control designs, evidence requirements and operating measures are MK methodology: what good practice requires, not observations of what the organisation currently does.';
 
 export function renderComprehensiveManagementReportHtml(input: {
   model: ComprehensiveManagementModel;
@@ -247,7 +247,7 @@ export function renderComprehensiveManagementReportHtml(input: {
       ${registerEntries.map(([n, title, count]) => `<div class="row"><span>${n} · ${esc(title)}</span><span class="muted">${count} entries</span></div>`).join('')}
     </div>
     <div class="panel"><div class="l">The two halves of this report</div>
-      <p class="note">Sections 1–${activeSections.length} are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections — every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
+      <p class="note">Sections 1–${activeSections.length} are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections. They contain every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
     </div>
     <div class="panel"><div class="l">Basis of this report</div><p class="note">${esc(BASIS)}</p></div>
     <div class="sp"></div>
@@ -284,8 +284,8 @@ export function renderComprehensiveManagementReportHtml(input: {
       <tbody>${core.managementThemes.map((theme) => `<tr>
         <td><strong>${esc(theme.title)}</strong><div class="cap" style="margin-top:.8mm">${esc(theme.domains.slice(0, 3).join(' · '))}</div></td>
         <td class="tight">${theme.findingIds.length}</td>
-        <td class="tight">${theme.criticalFindingCount ? `<span class="tag crit">${theme.criticalFindingCount}</span>` : '—'}</td>
-        <td class="tight">${theme.hardGateFindingCount ? `<span class="tag gate">${theme.hardGateFindingCount}</span>` : '—'}</td>
+        <td class="tight">${theme.criticalFindingCount ? `<span class="tag crit">${theme.criticalFindingCount}</span>` : 'Not recorded'}</td>
+        <td class="tight">${theme.hardGateFindingCount ? `<span class="tag gate">${theme.hardGateFindingCount}</span>` : 'Not recorded'}</td>
         <td>${esc(theme.managementQuestion)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Every finding behind these patterns is listed in Appendix A.</div>
@@ -303,7 +303,7 @@ export function renderComprehensiveManagementReportHtml(input: {
       <tbody>${core.exposureThemes.map((theme) => `<tr>
         <td><strong>${esc(theme.title)}</strong></td>
         <td class="tight">${theme.riskIds.length}</td>
-        <td>${esc(theme.domains.slice(0, 2).join(' · ')) || '<span class="muted">—</span>'}</td>
+        <td>${esc(theme.domains.slice(0, 2).join(' · ')) || '<span class="muted">Not recorded</span>'}</td>
         <td>${esc(theme.managementQuestion)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="cap" style="margin-top:2mm">Full risk statements, causes and treatment directions are in Appendix B. Risks are derived from assessed control positions; no likelihood or monetary value is assigned, because the assessment does not support one.</div>
@@ -341,9 +341,9 @@ export function renderComprehensiveManagementReportHtml(input: {
         <div class="hd"><h3>${esc(programme.title)}</h3><span class="meta">${programme.controlIds.length} controls</span></div>
         <div class="qn">${esc(programme.managementQuestion)}</div>
         <div class="grid2">
-          <div><div class="cap"><strong>Accountable</strong> · ${esc(roleName.get(programme.accountableRoleId) ?? '—')}</div>
+          <div><div class="cap"><strong>Accountable</strong>: ${esc(roleName.get(programme.accountableRoleId) ?? 'Not recorded')}</div>
                <div class="cap"><strong>Evidence expected</strong> · ${programme.evidenceItemCount} items across ${programme.evidenceGroupCount} controls</div></div>
-          <div><div class="cap"><strong>Delivery horizon</strong> · ${esc(programme.targetPeriods.join(', ') || '—')}</div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: ${esc(programme.targetPeriods.join(', ') || 'Not recorded')}</div>
                <div class="cap"><strong>Effectiveness measures</strong> · ${programme.measureCount}</div></div>
         </div>
         <div class="cap" style="margin-top:1.5mm">Controls: ${esc(programme.controlIds.join(', '))}</div>
@@ -363,10 +363,10 @@ export function renderComprehensiveManagementReportHtml(input: {
       <tbody>${['EXECUTIVE_ACCOUNTABILITY', 'PROCESS_OWNERSHIP', 'OVERSIGHT'].flatMap((type) => byType(type).map((role) => `<tr>
         <td><strong>${esc(role.displayRole)}</strong></td>
         <td class="cap">${esc(type.replace(/_/g, ' ').toLowerCase())}</td>
-        <td class="tight">${role.controls.length || '—'}</td>
-        <td class="tight">${role.decisions.length || '—'}</td>
-        <td class="tight">${role.evidenceResponsibilities.length || '—'}</td>
-        <td>${role.escalationResponsibilities.length ? esc(role.escalationResponsibilities[0]!) : '<span class="muted">—</span>'}</td></tr>`)).join('')}</tbody>
+        <td class="tight">${role.controls.length || 'Not recorded'}</td>
+        <td class="tight">${role.decisions.length || 'Not recorded'}</td>
+        <td class="tight">${role.evidenceResponsibilities.length || 'Not recorded'}</td>
+        <td>${role.escalationResponsibilities.length ? esc(role.escalationResponsibilities[0]!) : '<span class="muted">Not recorded</span>'}</td></tr>`)).join('')}</tbody>
     </table>
     <div class="sp"></div>
   </section>`);
@@ -478,8 +478,8 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(scenario.entryPoint)}</td>
         <td>${cell(scenario.mechanism)}</td>
         <td>${cell(scenario.interruptionPoint)}</td>
-        <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : '—'}</td>
-        <td class="id">${esc([...scenario.linkedRiskIds, ...scenario.linkedControlIds].join(', ')) || '—'}</td></tr>`).join('')}</tbody>
+        <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : 'Not recorded'}</td>
+        <td class="id">${esc([...scenario.linkedRiskIds, ...scenario.linkedControlIds].join(', ')) || 'Not recorded'}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -501,8 +501,8 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td class="tight"><strong>${esc(String(row.score))}</strong><div class="cap">${esc(row.maturity)}</div></td>
         <td class="cap">${esc(postureLabel[row.posture] ?? row.posture)}</td>
         <td>${row.capabilityToPreserve ? cell(row.capabilityToPreserve) : `<span class="cap">${esc(row.coverageNote)}</span>`}</td>
-        <td>${cell(row.managementProof, '—')}</td>
-        <td>${cell(row.deteriorationSignal, '—')}${row.reviewRhythm ? `<div class="cap" style="margin-top:.8mm">${cell(row.reviewRhythm, '')}</div>` : ''}${row.traceability.length ? `<div class="id" style="margin-top:.8mm">${esc(row.traceability.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody>
+        <td>${cell(row.managementProof, 'Not recorded')}</td>
+        <td>${cell(row.deteriorationSignal, 'Not recorded')}${row.reviewRhythm ? `<div class="cap" style="margin-top:.8mm">${cell(row.reviewRhythm, '')}</div>` : ''}${row.traceability.length ? `<div class="id" style="margin-top:.8mm">${esc(row.traceability.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -520,7 +520,7 @@ export function renderComprehensiveManagementReportHtml(input: {
       <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
       <tbody>${reg.resilienceTests.map((test) => `<tr>
         <td>${cell(test.capability)}<div class="cap" style="margin-top:.8mm">${esc(test.domain)}</div></td>
-        <td>${test.dependencyToTest.length ? `<ul>${test.dependencyToTest.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : '—'}</td>
+        <td>${test.dependencyToTest.length ? `<ul>${test.dependencyToTest.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : 'Not recorded'}</td>
         <td>${cell(test.deteriorationCondition)}</td>
         <td>${cell(test.evidenceToInspect)}</td>
         <td>${cell(test.effectivenessSignal)}</td>
@@ -544,7 +544,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td class="id">${esc(priority.priorityId)}<div>${esc(priority.priorityClass.replace(/_/g, ' ').toLowerCase())}</div></td>
         <td>${cell(priority.capability)}<div class="cap" style="margin-top:.8mm">${cell(priority.whyItMatters, '')}</div></td>
         <td>${cell(priority.evidenceManagementShouldHold)}${priority.suggestedSamplingApproach ? `<div class="cap" style="margin-top:.8mm">${cell(priority.suggestedSamplingApproach, '')}</div>` : ''}</td>
-        <td>${priority.dependencies.length ? `<ul>${priority.dependencies.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : '—'}</td>
+        <td>${priority.dependencies.length ? `<ul>${priority.dependencies.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : 'Not recorded'}</td>
         <td>${cell(priority.deteriorationTrigger)}<div class="cap" style="margin-top:.8mm">${cell(priority.effectivenessIndicator, '')}</div></td>
         <td>${cell(priority.accountableExecutive)}<div class="cap" style="margin-top:.8mm">${cell(priority.reviewFrequency, '')}</div></td></tr>`).join('')}</tbody>
     </table>
@@ -565,8 +565,8 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td>${cell(finding.assessedPosition)}<div class="cap" style="margin-top:.8mm">${cell(finding.whyItMatters, '')}</div></td>
         <td>${esc(finding.materialityClass.replace(/_/g, ' '))}${finding.isHardGate ? ' <span class="tag gate">gate</span>' : finding.isCriticalControl ? ' <span class="tag crit">critical</span>' : ''}</td>
         <td>${cell(finding.fraudMechanism)}</td>
-        <td class="id">${esc(finding.linkedRiskIds.join(', ')) || '—'}</td>
-        <td class="id">${esc(finding.linkedControlIds.join(', ')) || '—'}</td></tr>`).join('')}</tbody>
+        <td class="id">${esc(finding.linkedRiskIds.join(', ')) || 'Not recorded'}</td>
+        <td class="id">${esc(finding.linkedControlIds.join(', ')) || 'Not recorded'}</td></tr>`).join('')}</tbody>
     </table>
   </section>`);
 
@@ -584,7 +584,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   pages.push(`<section class="reg">
-    ${registerHead('C', 'Control blueprint register', 'Recommended control standard for each finding. This is MK methodology — what good practice requires — not a description of what the organisation currently operates. The assessed state column records what the organisation reported for that control.')}
+    ${registerHead('C', 'Control blueprint register', 'Recommended control standard for each finding. This is MK methodology: what good practice requires, not a description of what the organisation currently operates. The assessed state column records what the organisation reported for that control.')}
     ${(() => {
       const bands = [...new Set(reg.controls.map((control) => control.currentState).filter(Boolean))];
       return bands.length ? `<div class="panel"><div class="l">Assessed state key</div>${list(bands)}</div>` : '';
@@ -599,7 +599,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td class="id">${esc(control.controlId)}<div>${esc(control.questionCode)}</div><div>${esc(control.targetPeriod)}</div></td>
         <td><strong>${cell(control.controlObjective)}</strong></td>
         <td>${cell(control.controlDesign || control.targetState)}</td>
-        <td class="tight">${bandIndex >= 0 ? `<span class="tag">State ${bandIndex + 1}</span>` : '<span class="muted">—</span>'}</td>
+          <td class="tight">${bandIndex >= 0 ? `<span class="tag">State ${bandIndex + 1}</span>` : '<span class="muted">Not recorded</span>'}</td>
         <td>${cell(control.processOwnerRole)}<div class="cap">${cell(control.oversightFunction, '')}</div></td>
         <td>${cell(control.operatingFrequency)}</td>
         <td>${cell(control.effectivenessTest)}</td></tr>`;
@@ -620,7 +620,7 @@ export function renderComprehensiveManagementReportHtml(input: {
           <td class="id">${index === 0 ? esc(group.controlId) : ''}</td>
           <td><strong>${cell(item.artefact)}</strong></td>
           <td>${cell(item.provesWhat)}</td>
-          <td>${item.minimumAcceptableCharacteristics.length ? esc(item.minimumAcceptableCharacteristics[0]!) : '<span class="muted">—</span>'}</td>
+          <td>${item.minimumAcceptableCharacteristics.length ? esc(item.minimumAcceptableCharacteristics[0]!) : '<span class="muted">Not recorded</span>'}</td>
           <td>${cell(item.ownerRole)}<div class="cap">${cell(item.expectedRecency, '')}</div></td></tr>`)).join('')}</tbody>
       </table>`;
     }).join('')}
@@ -655,7 +655,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     }).join('')}
   </section>`);
 
-  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>MK Fraud Readiness Comprehensive — ${esc(input.organisationName)}</title><style>${STYLES}</style></head><body>${pages.join('')}</body></html>`;
+  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>MK Fraud Readiness Comprehensive: ${esc(input.organisationName)}</title><style>${STYLES}</style></head><body>${pages.join('')}</body></html>`;
 }
 
 /** Objects this renderer deliberately does not render, and why. */

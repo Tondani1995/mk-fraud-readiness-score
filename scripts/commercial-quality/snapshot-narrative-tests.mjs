@@ -278,7 +278,39 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /assessment-snapshot/);
   assert.match(cacheKey, /score-run/);
   assert.match(cacheKey, /methodology-v1-2/);
-  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v2/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v3-grounded/);
+});
+
+test('Snapshot validation rejects the known unsupported grounding phrases', () => {
+  const failedPhrases = [
+    'The controls are not functioning.',
+    'Full coverage ensures no blind spots.',
+    'Fraud Leadership and Governance has 19 critical gaps.',
+    'Fraud Risk Identification has 17 major gaps.',
+    'These weaknesses drive immediate exposure to fraud losses and account compromise.',
+    'The result requires assurance activities to validate effectiveness.'
+  ];
+  for (const phrase of failedPhrases) {
+    const issues = validateSnapshotNarrative({
+      headline: 'The recorded result shows a position for review.',
+      executiveDiagnosis: `The recorded responses indicate a position that needs attention. ${phrase}`,
+      strength: 'The self-assessment suggests a starting point for management focus.',
+      prioritySignals: ['Leadership attention should focus on the recorded areas.', 'The result points to a need for clearer ownership.'],
+      managementImplication: 'Leadership should use the recorded result to prioritise action.'
+    }, input);
+    assert.ok(issues.length > 0, `expected rejection for: ${phrase}`);
+  }
+});
+
+test('Snapshot validation rejects em dashes before customer persistence', () => {
+  const issues = validateSnapshotNarrative({
+    headline: 'The recorded result shows a position for review.',
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention — use the result to guide focus.',
+    strength: 'The self-assessment suggests a starting point for management focus.',
+    prioritySignals: ['Leadership attention should focus on the recorded areas.', 'The result points to a need for clearer ownership.'],
+    managementImplication: 'Leadership should use the recorded result to prioritise action.'
+  }, input);
+  assert.ok(issues.includes('snapshot_em_dash'));
 });
 
 test('a valid Snapshot cache hit avoids Gateway auth resolution and another provider call', async () => {

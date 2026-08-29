@@ -19,7 +19,7 @@ type PendingWrite = {
 };
 
 function label(value: string) {
-  return value.replace(/^\s*(?:G\d{2}|D\d{1,2}-Q\d{1,2}|OV-[^·:—-]+)\s*(?:[·:—-]\s*)?/i, '').trim();
+  return value.replace(/^\s*(?:G\d{2}|D\d{1,2}-Q\d{1,2}|OV-[^·:\u2014-]+)\s*(?:[·:\u2014-]\s*)?/i, '').trim();
 }
 
 /** A conservative customer estimate: 1.5 minutes per unanswered applicable control. */

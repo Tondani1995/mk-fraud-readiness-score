@@ -190,7 +190,7 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
     '',
     'THE ANALYSIS IS ALREADY SETTLED. YOUR JOB IS TO EXPLAIN IT.',
     'The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
-    'Use only the authorised facts and permitted claim references in the Section Contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness.',
+    'Use only the authorised facts and permitted claim references in the Section Contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness. Do not use em dashes. Use normal sentence punctuation instead.',
     'For every required insight, include one supportingExcerpt copied verbatim from your own narrative. Each requirement ID must occur exactly once in requirementCoverage.',
     ...repairInstructions,
     '',
@@ -262,7 +262,7 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
     try {
       response = await generateText({
         model: this.model,
-        system: 'You are the bounded MK Fraud Readiness v1.1 section writer. Deterministic contract facts are the only authority. RETURN EXACTLY ONE JSON OBJECT as plain text. No commentary, explanation, Markdown prose outside the object or multiple objects.',
+        system: 'You are the bounded MK Fraud Readiness v1.1 section writer. Deterministic contract facts are the only authority. Do not use em dashes. Use normal sentence punctuation instead. RETURN EXACTLY ONE JSON OBJECT as plain text. No commentary, explanation, Markdown prose outside the object or multiple objects.',
         prompt,
         output: Output.text(),
         // Reasoning models spend part of the output budget on reasoning tokens

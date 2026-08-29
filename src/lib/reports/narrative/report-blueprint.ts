@@ -902,7 +902,7 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
           const intent = STAGE_INTENT[period];
           return {
             suffix: period.replace(/\s+/g, '-').toUpperCase(),
-            title: intent ? `By ${period} — ${intent.label}` : `By ${period}`,
+            title: intent ? `By ${period}: ${intent.label}` : `By ${period}`,
             purpose: intent?.purpose ?? `Sequence the actions targeted for ${period}.`,
             takeaway: intent?.takeaway ?? 'The action has an accountable owner, dependency and proof of completion.',
             requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === period).map((item) => item.factRef),
@@ -1072,7 +1072,7 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
   const blueprint: ReportBlueprint = {
     schemaVersion: REPORT_BLUEPRINT_SCHEMA_VERSION,
     bibleVersion: '1.1',
-    reportTitle: `${pack.organisation.name} — ${tierLabel(pack.productTier)} Fraud Readiness Report`,
+    reportTitle: `${pack.organisation.name}: ${tierLabel(pack.productTier)} Fraud Readiness Report`,
     reportTier: pack.productTier,
     narrativeMode: pack.narrativeMode,
     organisation: pack.organisation,
@@ -1131,7 +1131,7 @@ export function buildSnapshotReportBlueprint(input: { organisation: { name: stri
   return {
     schemaVersion: REPORT_BLUEPRINT_SCHEMA_VERSION,
     bibleVersion: '1.1',
-    reportTitle: `${input.organisation.name} — Fraud Readiness Snapshot`,
+    reportTitle: `${input.organisation.name}: Fraud Readiness Snapshot`,
     reportTier: 'snapshot',
     narrativeMode: 'SNAPSHOT',
     organisation: { name: input.organisation.name, sectorFacts: input.organisation.sectorFacts ?? [] },

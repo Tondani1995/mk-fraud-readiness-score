@@ -377,7 +377,7 @@ function riskImplication(snapshot: FreeSnapshot) {
   // it is false for every adaptive assessment including fully covered ones. It
   // means "no exposure band", which the fall-through below already handles.
   if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
-    return 'Too much of the assessment is unconfirmed to issue a risk implication. Leadership should first close the visibility gaps, because an unknown response is not evidence that a control is absent — or that it works.';
+    return 'Too much of the assessment is unconfirmed to issue a risk implication. Leadership should first close the visibility gaps, because an unknown response is not evidence that a control is absent or that it works.';
   }
   if (snapshot.exposureBand) return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand];
 

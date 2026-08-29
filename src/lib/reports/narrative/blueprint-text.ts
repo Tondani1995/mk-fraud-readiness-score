@@ -403,6 +403,7 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
   for (const { path, block } of allBlocks(parsed)) {
     const text = block.text;
     paragraphsSeen.push(compact(text));
+    if (/\u2014/u.test(text)) hardTruth.push({ code: 'em_dash', severity: 'HARD_TRUTH_FAILURE', path, message: 'Em dashes are not permitted in customer-facing report narrative.' });
     if (RAW_ID.test(text)) hardTruth.push({ code: 'raw_internal_id', severity: 'HARD_TRUTH_FAILURE', path, message: 'Raw internal identifiers are not customer-facing prose.' });
     for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!knownNumbers.has(token.replace('%', ''))) hardTruth.push({ code: 'unsupported_numeric_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Numeric claim ${token} is not present in deterministic Fact Pack data.` });
     // Claims about the customer's organisation that the assessment never established.

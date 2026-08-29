@@ -207,7 +207,7 @@ export default function ServicesHero() {
                                     Designed for operational environments
                                 </p>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-200">
-                                    We focus on where fraud actually happens — inside real workflows, decision points,
+                                    We focus on where fraud actually happens: inside real workflows, decision points,
                                     and frontline processes.
                                 </p>
                             </div>

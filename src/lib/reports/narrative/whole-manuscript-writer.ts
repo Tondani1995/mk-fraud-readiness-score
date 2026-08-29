@@ -172,7 +172,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,
@@ -268,7 +268,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('tail');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 tail-completion writer. The deterministic Blueprint decides the report. Return only the missing Markdown tail; never rewrite existing content.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 tail-completion writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return only the missing Markdown tail; never rewrite existing content.',
       prompt,
       maxOutputTokens,
       maxRetries: 0,
@@ -296,7 +296,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       '',
       'This is a targeted semantic correction, not a report regeneration. Return only the replacement prose for the target block. Do not return a heading, bullets, labels, IDs, claim references, metadata, commentary or code fences.',
       'Preserve the deterministic meaning exactly. Do not change any score, maturity, finding, scenario, control, owner, timing, decision, roadmap, fact or Blueprint hierarchy.',
-      'The assurance boundary remains strict: do not imply that MK, the assessment, the report or any external reviewer independently verified evidence or operating effectiveness. Customer-owned control design may describe what management should independently review or verify.',
+      'The assurance boundary remains strict: do not imply that MK, the assessment, the report or any external reviewer independently verified evidence or operating effectiveness. Customer-owned control design may describe what management should independently review or verify. Do not use em dashes. Use normal sentence punctuation instead.',
       '',
       `REPAIR SCOPE: ${input.scope}`,
       `FAILING PATH: ${input.failingPath}`,
@@ -312,7 +312,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('repair');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 targeted semantic repair writer. Return only safe replacement prose for the bounded block.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 targeted semantic repair writer. Do not use em dashes. Use normal sentence punctuation instead. Return only safe replacement prose for the bounded block.',
       prompt,
       maxOutputTokens: 900,
       maxRetries: 0,
@@ -335,7 +335,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       'Perform one bounded editorial coherence pass over this complete MK Fraud Readiness v1.1 manuscript.',
       '',
       'Return the complete Markdown manuscript with every existing Blueprint heading in the exact same order. Preserve every heading and every deterministic fact. Smooth transitions, remove only genuine repetition and improve connected professional rhythm. Do not add analytical content, identifiers, tables, bullets, metadata or assurance claims.',
-      'Do not claim that MK, the assessment, the report or any reviewer independently verified evidence or operating effectiveness.',
+      'Do not claim that MK, the assessment, the report or any reviewer independently verified evidence or operating effectiveness. Do not use em dashes. Use normal sentence punctuation instead.',
       ...(input.editorialBrief ? ['', 'OWNER-DIRECTED EDITORIAL BRIEF', input.editorialBrief] : []),
       '',
       'BLUEPRINT',
@@ -347,7 +347,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('coherence');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 coherence editor. Return only the complete Markdown manuscript.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 coherence editor. Do not use em dashes. Use normal sentence punctuation instead. Return only the complete Markdown manuscript.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,

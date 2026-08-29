@@ -26,6 +26,7 @@ export type PresentationIssueCode =
   | 'CUSTOMER_WORD_ENVELOPE'
   | 'PAGE_DENSITY'
   | 'NO_CUSTOMER_TRUNCATION_ELLIPSIS'
+  | 'NO_EM_DASH'
   | 'PRESENTATION_LABEL_TOO_LONG'
   | 'EXPOSURE_FAMILY_OWNERSHIP'
   | 'SCENARIO_FAMILY_OWNERSHIP'
@@ -210,7 +211,7 @@ const WATCHPOINT = /\b(?:watchpoint|keep\s+under\s+review|keep\s+monitoring|depe
 function sentencesOf(text: string): string[] {
   return String(text ?? '')
     .split(/(?<=[.!?])\s+/)
-    .flatMap((sentence) => sentence.split(/\s+[—–-]\s+/))
+    .flatMap((sentence) => sentence.split(/\s+[\u2014–-]\s+/))
     .map((sentence) => sentence.trim())
     .filter(Boolean);
 }
@@ -247,6 +248,10 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
   const surfaces = customerSurfaces(model);
   const allText = surfaces.join('\n');
   const customerWordCount = surfaces.reduce((sum, text) => sum + words(text), 0);
+
+  if (allText.includes('\u2014')) {
+    issues.push({ code: 'NO_EM_DASH', message: 'Customer-facing Essential presentation contains an em dash.' });
+  }
 
   const provided = customerProvidedText(model);
   const engineAuthored = surfaces.map((text) => withoutCustomerText(text, provided));

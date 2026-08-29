@@ -46,7 +46,7 @@ export default function Industries() {
             icon: Truck,
             title: "Logistics, Distribution & Supply Chains",
             summary:
-                "Fraud hides where physical movement and system records don’t reconcile — often across third parties.",
+                "Fraud hides where physical movement and system records don’t reconcile, often across third parties.",
             what: [
                 "Ghost deliveries and falsified proof of delivery",
                 "Inventory shrinkage and stock diversion",
