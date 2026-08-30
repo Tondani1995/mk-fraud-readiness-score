@@ -14,6 +14,6 @@ assert.doesNotMatch(template, /const narrativeSections =/);
 assert.doesNotMatch(template, /narrativeSections,/);
 assert.doesNotMatch(template, /No domain narrative was produced/);
 assert.match(template, /scenarioNarrative \|\| topScenarios\.map\(scenarioCard\)/);
-assert.match(template, /First 30 days — decisions and foundations/);
+assert.match(template, /First 30 days: decisions and foundations/);
 assert.match(template, /applicable and \$\{adaptiveScope\.excludedCount\} excluded/);
 console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', manuscriptBinding: 'PASS', navigationPersistence: 'PASS', stagedRoadmapBinding: 'PASS' }, null, 2));

@@ -83,17 +83,23 @@ assertIncludes(reportRoute, 'Your report order has been recorded.', 'Report requ
 assertIncludes(reportRoute, 'Please use your order reference as the payment reference', 'Report request returns EFT next-step language');
 assertIncludes(reportRoute, 'parseInvoiceRequest', 'Legacy Essential route captures the same closed invoice contract');
 
-const snapshot = 'src/components/assessment/FreeSnapshot.tsx';
-assertIncludes(snapshot, 'snapshotTokenFromUrl', 'Snapshot extracts the private token for report request calls');
-assertIncludes(snapshot, 'OrderConfirmationPanel', 'Snapshot shows order confirmation panel');
-assertIncludes(snapshot, 'Manual EFT details', 'Snapshot can show configured EFT details');
-assertIncludes(snapshot, 'Payment reference', 'Snapshot shows payment reference');
-assertIncludes(snapshot, 'Would you like an invoice for this order?', 'Snapshot asks the invoice question before order creation');
-assertIncludes(snapshot, 'invoiceRequested', 'Snapshot sends the invoice preference to the server');
-assertIncludes(snapshot, 'MK Fraud Insights confirms EFT payments manually', 'Snapshot explains manual payment confirmation');
+const snapshot = 'src/components/assessment/SnapshotResult.tsx';
+const productChoice = 'src/components/products/ProductChoice.tsx';
+const orderJourney = 'src/components/commercial/OrderJourney.tsx';
+assertIncludes(productChoice, 'snapshotTokenFromUrl', 'Product choice extracts the private token for the focused order transition');
+assertIncludes(productChoice, 'order/new', 'Paid product selection routes to the focused order journey');
+assertIncludes(productChoice, 'router.push', 'Paid product selection performs the customer transition');
+assertIncludes(orderJourney, 'snapshotToken', 'Order journey carries the private Snapshot token through submission');
+assertIncludes(orderJourney, 'Your order is recorded.', 'Order journey shows the order confirmation state');
+assertIncludes(orderJourney, 'EFT instructions', 'Order journey presents the configured EFT payment instructions');
+assertIncludes(orderJourney, 'Payment reference', 'Order journey shows the payment reference');
+assertIncludes(orderJourney, 'Do you need a tax invoice for this order?', 'Order journey asks the invoice question before order creation');
+assertIncludes(orderJourney, 'invoiceRequested', 'Order journey sends the invoice preference to the server');
+assertIncludes(orderJourney, 'invoiceDetails', 'Order journey sends the closed invoice details to the server');
+assertIncludes('src/lib/orders/eft-instructions.ts', 'MK Fraud Insights confirms EFT payments manually', 'EFT configuration explains manual payment confirmation');
 assertNotIncludes(snapshot, 'PayFast', 'Snapshot must not mention PayFast');
-assertNotIncludes(snapshot, 'Upload proof', 'Snapshot must not expose proof upload');
-assertNotIncludes(snapshot, 'Download report', 'Snapshot must not expose report download');
+assertNotIncludes(orderJourney, 'Upload proof', 'Order journey must not expose proof upload');
+assertNotIncludes(orderJourney, 'Download report', 'Order journey must not expose report download before fulfilment');
 assertNotIncludes(snapshot, 'benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 assertNotIncludes(snapshot, 'Benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 
@@ -127,11 +133,14 @@ const customerAndPaymentSources = [
   startRoute,
   reportRoute,
   snapshot,
+  productChoice,
+  orderJourney,
+  'src/lib/orders/eft-instructions.ts',
   adminList,
   statusRoute
 ].map(read).join('\n');
 
 assert(!/PayFast|card payment|payment_proofs\.insert|client portal|respondent dashboard|public benchmark/i.test(customerAndPaymentSources), 'Phase 9 customer and payment flow must not introduce gateway, proof-upload endpoint, portal or public benchmark functionality.');
-assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|N\/A rule|hard-gate/i.test(read(snapshot)), 'Snapshot must not expose internal methodology codes or rule labels.');
+assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|N\/A rule|hard-gate/i.test([snapshot, productChoice, orderJourney].map(read).join('\n')), 'Customer-facing Snapshot/order surfaces must not expose internal methodology codes or rule labels.');
 
 console.log('Phase 9 manual EFT order tests passed. Manual order creation, EFT snapshots, finance controls, audit events, /score routing and feature-flagged later fulfilment are covered.');

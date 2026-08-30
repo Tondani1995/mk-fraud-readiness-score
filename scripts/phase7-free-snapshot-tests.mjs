@@ -290,12 +290,17 @@ assert(engine.includes("if (!saved) { interactionLockRef.current = false; setSub
 assert(engine.includes("submitState !== 'idle'"), 'Client submit must block repeated clicks.');
 assert(engine.includes('snapshotUrl'), 'Client must surface durable snapshot URL.');
 
-const snapshotComponent = read('src/components/assessment/FreeSnapshot.tsx');
-assert(snapshotComponent.includes('Coverage and uncertainty'), 'Snapshot must display the concise coverage/uncertainty note where relevant.');
-assert(snapshotComponent.includes('Priority-gap alert'), 'Snapshot must display priority-gap alerts using customer-facing language.');
-assert(snapshotComponent.includes('COMMERCIAL_CATALOGUE.essential.includes'), 'Essential value claims must come from the authoritative catalogue.');
+const snapshotResult = read('src/components/assessment/SnapshotResult.tsx');
+const productChoice = read('src/components/products/ProductChoice.tsx');
+const snapshotCopy = read('src/lib/snapshot/result-copy.ts');
+const snapshotSurface = `${snapshotResult}\n${productChoice}\n${snapshotCopy}`;
+assert(snapshotResult.includes('Assessment coverage figures'), 'Snapshot must display the current coverage figures surface.');
+assert(snapshotResult.includes('fairnessLine(snapshot)'), 'Snapshot must display the customer-safe coverage/uncertainty note where relevant.');
+assert(snapshotResult.includes('Needs attention first'), 'Snapshot must display priority signals using customer-facing language.');
+assert(snapshotResult.includes('narrative.prioritySignals.map'), 'Snapshot must render the validated priority signals.');
+assert(productChoice.includes('COMMERCIAL_CATALOGUE[tier]'), 'Essential value claims must resolve through the authoritative catalogue.');
 assert(read('src/lib/commercial/product-catalogue.ts').includes('30/60/90-day roadmap'), 'Essential catalogue must state the approved 30/60/90 direction.');
-assert(!/AI-generated|peer benchmark/i.test(snapshotComponent), 'Free snapshot must not expose AI or benchmark content.');
-assert(!/Week 1|Week 30|Day 30|Day 60|Day 90|remediation task|action owner/i.test(snapshotComponent), 'Free snapshot must not expose actual roadmap content.');
+assert(!/AI-generated|peer benchmark/i.test(snapshotSurface), 'Free snapshot must not expose AI or benchmark content.');
+assert(!/Week 1|Week 30|Day 30|Day 60|Day 90|remediation task|action owner/i.test(`${snapshotResult}\n${productChoice}`), 'Free snapshot must not expose actual roadmap content.');
 
 console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, preview host preservation, token route, stale submit safety and snapshot content boundary are covered.');
