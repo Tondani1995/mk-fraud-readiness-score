@@ -17,7 +17,8 @@ import {
   inventoryDefinition,
   meaningHeading,
   tensionLine,
-  factStrip
+  factStrip,
+  fairnessLine
 } from '../../src/lib/snapshot/result-copy.ts';
 
 function domain(code, name, rawScore, criticalGapCount = 0, coveragePct = 100, weightPct = 10) {
@@ -385,4 +386,22 @@ test('Fact strip renders both the adaptive and legacy paths', () => {
   }), 9);
   assert.deepEqual(adaptive.map((f) => f.label), ['Assessment coverage', 'Control visibility', 'Unknown responses', 'Areas assessed']);
   assert.equal(adaptive[0].value, '87%');
+});
+
+test('Adaptive fairness disclosure describes only confirmed uncertainty', () => {
+  assert.equal(fairnessLine(snapshotFixture({
+    adaptiveMetrics: { unknownCount: 0 }
+  })), null, 'zero unknown responses render no disclosure');
+
+  assert.equal(fairnessLine(snapshotFixture({
+    adaptiveMetrics: { unknownCount: 1 }
+  })), 'One response could not be confirmed. It is treated as uncertainty rather than a control failure and should be verified when interpreting this result.');
+
+  assert.equal(fairnessLine(snapshotFixture({
+    adaptiveMetrics: { unknownCount: 4 }
+  })), 'Four responses could not be confirmed. They are treated as uncertainty rather than control failures and should be verified when interpreting this result.');
+
+  assert.equal(fairnessLine(snapshotFixture({ adaptiveMetrics: null })),
+    'Not-applicable responses are excluded from your score, so they neither inflate nor reduce it. They reduce the evidence available for interpretation.',
+    'legacy fairness wording remains unchanged');
 });

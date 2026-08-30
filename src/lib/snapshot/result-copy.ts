@@ -18,6 +18,20 @@ function roundPct(value: number) {
   return Math.round(value);
 }
 
+const SMALL_NUMBER_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
+  'eighteen', 'nineteen'
+];
+const TENS_NUMBER_WORDS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+function numberWords(value: number): string {
+  if (value < 20) return SMALL_NUMBER_WORDS[value];
+  if (value < 100) return `${TENS_NUMBER_WORDS[Math.floor(value / 10)]}${value % 10 ? `-${SMALL_NUMBER_WORDS[value % 10]}` : ''}`;
+  if (value < 1000) return `${SMALL_NUMBER_WORDS[Math.floor(value / 100)]} hundred${value % 100 ? ` ${numberWords(value % 100)}` : ''}`;
+  return String(value);
+}
+
 /** The line beneath the score. First match wins. */
 export function tensionLine(snapshot: FreeSnapshot): string {
   if (snapshot.overallScore === null) {
@@ -52,10 +66,19 @@ export function meaningHeading(snapshot: FreeSnapshot): string {
 }
 
 /** The fairness statement, placed beside the figures it protects. */
-export function fairnessLine(snapshot: FreeSnapshot): string {
-  return snapshot.adaptiveMetrics
-    ? 'Unknown responses are excluded from your score. They are recorded as uncertainty, not as a control that failed.'
-    : 'Not-applicable responses are excluded from your score, so they neither inflate nor reduce it. They reduce the evidence available for interpretation.';
+export function fairnessLine(snapshot: FreeSnapshot): string | null {
+  if (!snapshot.adaptiveMetrics) {
+    return 'Not-applicable responses are excluded from your score, so they neither inflate nor reduce it. They reduce the evidence available for interpretation.';
+  }
+
+  const unknownCount = Math.max(0, Math.floor(Number(snapshot.adaptiveMetrics.unknownCount)));
+  if (!Number.isFinite(unknownCount) || unknownCount === 0) return null;
+
+  const count = numberWords(unknownCount);
+  if (unknownCount === 1) {
+    return `${count[0].toUpperCase()}${count.slice(1)} response could not be confirmed. It is treated as uncertainty rather than a control failure and should be verified when interpreting this result.`;
+  }
+  return `${count[0].toUpperCase()}${count.slice(1)} responses could not be confirmed. They are treated as uncertainty rather than control failures and should be verified when interpreting this result.`;
 }
 
 /** The totals sentence for the coverage section. One string per inventory variant. */

@@ -76,6 +76,7 @@ export function SnapshotResult({
   const recommendation = buildNextStepRecommendation(snapshot);
   const areaCount = snapshot.domains.filter((d) => d.rawScore !== null && d.coveragePct > 0).length;
   const facts = factStrip(snapshot, areaCount);
+  const fairness = fairnessLine(snapshot);
   const scoredAt = formatScoredAt(snapshot.scoredAt);
 
   return (
@@ -114,7 +115,7 @@ export function SnapshotResult({
             </h2>
             <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">{commercialInsights.riskImplication}</p>
             <div aria-hidden="true" className="mt-6 h-px w-[120px] bg-mk-accent/40" />
-            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairnessLine(snapshot)}</p>
+            {fairness ? <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p> : null}
           </div>
           <div className="md:col-span-5 md:col-start-9">
             <dl className="border border-mk-line">
