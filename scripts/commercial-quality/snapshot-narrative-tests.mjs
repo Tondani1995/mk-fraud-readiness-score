@@ -8,13 +8,17 @@ import {
   buildSnapshotNarrativeBrief,
   buildSnapshotNarrative,
   buildSnapshotNarrativeInput,
+  classifySnapshotNarrativeFailure,
   normaliseSnapshotNarrativeContent,
   SNAPSHOT_NARRATIVE_MAX_WORDS,
   snapshotGatewayFailureReason,
   snapshotNarrativeContentSchema,
   validateSnapshotNarrative
 } from '../../src/lib/snapshot/narrative.ts';
-import { buildDeterministicSnapshotPrioritySignals } from '../../src/lib/snapshot/deterministic-narrative.ts';
+import {
+  buildDeterministicSnapshotPrioritySignals,
+  buildMinimalSafeSnapshotNarrativeContent
+} from '../../src/lib/snapshot/deterministic-narrative.ts';
 import { selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 import { buildCommercialSnapshotInsights } from '../../src/lib/snapshot/commercial-insights.ts';
 
@@ -126,6 +130,82 @@ test('Snapshot narrative uses the strict five-field customer contract', () => {
   assert.equal(snapshot.finalMaturity, 'Reactive');
 });
 
+test('Canonical Fraud Incident Response labels are facts, not consequence claims', () => {
+  const canonicalInput = {
+    ...input,
+    strongestAreas: ['Fraud Incident Response'],
+    attentionAreas: ['Fraud Incident Response']
+  };
+  const canonicalContent = {
+    headline: 'The recorded result shows a position for review.',
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention.',
+    strength: 'Fraud Incident Response is the clearest recorded foundation in this Snapshot.',
+    prioritySignals: [
+      'The recorded responses point to Fraud Incident Response as an area requiring management attention.',
+      'The result points to the next management focus.'
+    ],
+    managementImplication: 'Leadership should use the recorded result to prioritise the attention areas.'
+  };
+  assert.deepEqual(validateSnapshotNarrative(canonicalContent, canonicalInput), []);
+  assert.equal(
+    classifySnapshotNarrativeFailure({
+      issues: ['snapshot_unsupported_consequence_claim'],
+      content: canonicalContent,
+      validationInput: canonicalInput
+    }),
+    'VALIDATOR_FALSE_POSITIVE / CANONICAL_FACT'
+  );
+});
+
+test('D5 is safe as both a deterministic attention area and a deterministic strength', () => {
+  const d5PrioritySnapshot = {
+    ...snapshot,
+    criticalGapCount: 1,
+    majorGapCount: 0,
+    domains: [{
+      ...snapshot.domains[0],
+      domainCode: 'D5',
+      domainName: 'Fraud Incident Response',
+      rawScore: 20,
+      criticalGapCount: 1
+    }]
+  };
+  const d5PriorityInsights = buildCommercialSnapshotInsights(d5PrioritySnapshot);
+  const d5Priority = buildDeterministicSnapshotNarrative({ snapshot: d5PrioritySnapshot, insights: d5PriorityInsights });
+  assert.deepEqual(validateSnapshotNarrative({
+    headline: d5Priority.headline,
+    executiveDiagnosis: d5Priority.executiveDiagnosis,
+    strength: d5Priority.strength,
+    prioritySignals: d5Priority.prioritySignals,
+    managementImplication: d5Priority.managementImplication
+  }, buildSnapshotNarrativeInput(d5PrioritySnapshot, d5PriorityInsights)), []);
+  assert.match(d5Priority.prioritySignals[0], /Fraud Incident Response/);
+
+  const d5StrengthSnapshot = {
+    ...snapshot,
+    criticalGapCount: 0,
+    majorGapCount: 0,
+    domains: [{
+      ...snapshot.domains[0],
+      domainCode: 'D5',
+      domainName: 'Fraud Incident Response',
+      rawScore: 85,
+      criticalGapCount: 0
+    }]
+  };
+  const d5StrengthInsights = buildCommercialSnapshotInsights(d5StrengthSnapshot);
+  const d5Strength = buildDeterministicSnapshotNarrative({ snapshot: d5StrengthSnapshot, insights: d5StrengthInsights });
+  assert.deepEqual(validateSnapshotNarrative({
+    headline: d5Strength.headline,
+    executiveDiagnosis: d5Strength.executiveDiagnosis,
+    strength: d5Strength.strength,
+    prioritySignals: d5Strength.prioritySignals,
+    managementImplication: d5Strength.managementImplication
+  }, buildSnapshotNarrativeInput(d5StrengthSnapshot, d5StrengthInsights)), []);
+  assert.match(d5Strength.strength, /Fraud Incident Response/);
+  assert.deepEqual(validateSnapshotNarrative(buildMinimalSafeSnapshotNarrativeContent(), buildSnapshotNarrativeInput(snapshot, insights)), []);
+});
+
 test('Snapshot AI uses a request-scoped OIDC token before static credentials', async () => {
   const previous = {
     apiKey: process.env.AI_GATEWAY_API_KEY,
@@ -139,7 +219,9 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     delete process.env.VERCEL_OIDC_TOKEN;
     let requestHeaders;
     let requestBody;
+    let providerCalls = 0;
     globalThis.fetch = async (_url, init) => {
+      providerCalls += 1;
       requestHeaders = new Headers(init?.headers);
       requestBody = JSON.parse(String(init?.body ?? '{}'));
       throw new Error('TEST_PROVIDER_MOCK');
@@ -155,6 +237,7 @@ test('Snapshot AI uses a request-scoped OIDC token before static credentials', a
     assert.equal(oidcPath.fallbackReason, 'gateway_provider_unavailable');
     assert.equal(requestHeaders.get('ai-gateway-auth-method'), 'oidc');
     assert.equal(requestHeaders.get('authorization'), 'Bearer test-only-request-oidc-token');
+    assert.equal(providerCalls, 1);
     assert.equal(requestBody.maxOutputTokens, 2048);
     assert.equal(requestBody.providerOptions.openai.reasoningEffort, 'minimal');
     assert.deepEqual(requestBody.providerOptions.gateway.only, ['openai']);
@@ -334,7 +417,7 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /assessment-snapshot/);
   assert.match(cacheKey, /score-run/);
   assert.match(cacheKey, /methodology-v1-2/);
-  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v5-deterministic-priority-signals/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v6-bounded-repair-canonical-facts/);
 });
 
 test('Arbitrary AI priority signals are replaced before Snapshot persistence', async () => {
@@ -364,6 +447,147 @@ test('Arbitrary AI priority signals are replaced before Snapshot persistence', a
   assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /elevated exposure|clarity of ownership/i);
 });
 
+test('A repairable AI semantic failure gets one targeted repair and persists ai_call_count 2', async () => {
+  const firstPass = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1,
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The organisation experienced fraud incidents.'
+  };
+  const repairedPass = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1,
+    executiveDiagnosis: 'The recorded responses indicate a position that needs management attention.'
+  };
+  const calls = [];
+  let persisted;
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { return null; },
+      async write(_key, record) { persisted = record; }
+    },
+    generator: async (request) => {
+      calls.push({ repair: request.repair, snapshot: request.snapshot, insights: request.insights });
+      return request.repair ? repairedPass : firstPass;
+    }
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].repair, undefined);
+  assert.equal(calls[0].snapshot, calls[1].snapshot);
+  assert.equal(calls[0].insights, calls[1].insights);
+  assert.deepEqual(calls[1].repair.validationCodes, ['snapshot_unsupported_consequence_claim']);
+  assert.deepEqual(calls[1].repair.fields, ['executiveDiagnosis']);
+  assert.equal(result.mode, 'ai');
+  assert.equal(result.aiCallCount, 2);
+  assert.equal(persisted.status, 'available');
+  assert.equal(persisted.aiCallCount, 2);
+  assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /experienced fraud incidents/i);
+});
+
+test('A second invalid AI pass falls back deterministically without a third call', async () => {
+  const invalid = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1,
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The organisation suffered financial losses.'
+  };
+  let calls = 0;
+  let persisted;
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { return null; },
+      async write(_key, record) { persisted = record; }
+    },
+    generator: async () => {
+      calls += 1;
+      return invalid;
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.mode, 'deterministic');
+  assert.equal(result.aiCallCount, 2);
+  assert.equal(persisted.status, 'fallback');
+  assert.equal(persisted.aiCallCount, 2);
+  assert.match(persisted.fallbackReason, /repair_failed:snapshot_unsupported_consequence_claim/);
+  assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /suffered financial losses/i);
+});
+
+test('first-pass, repaired and fallback cache records remain distinct on cache hits', async () => {
+  const validAi = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1
+  };
+  const invalidAi = {
+    ...validAi,
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The organisation experienced fraud incidents.'
+  };
+  const scenarios = [
+    { label: 'first-pass', outputs: [validAi], status: 'available', mode: 'ai', callCount: 1 },
+    { label: 'repaired', outputs: [invalidAi, validAi], status: 'available', mode: 'ai', callCount: 2 },
+    { label: 'fallback', outputs: [invalidAi, invalidAi], status: 'fallback', mode: 'deterministic', callCount: 2 }
+  ];
+
+  for (const scenario of scenarios) {
+    let persisted;
+    let calls = 0;
+    const outputs = [...scenario.outputs];
+    const generator = async () => {
+      calls += 1;
+      const next = outputs.shift();
+      if (!next) throw new Error(`unexpected extra ${scenario.label} generator call`);
+      return next;
+    };
+    const cache = {
+      async read() { return persisted ?? null; },
+      async write(_key, record) { persisted = record; }
+    };
+
+    const first = await buildCachedSnapshotNarrative({ snapshot, insights, cache, generator });
+    const second = await buildCachedSnapshotNarrative({ snapshot, insights, cache, generator });
+
+    assert.equal(first.mode, scenario.mode, `${scenario.label} first mode`);
+    assert.equal(first.aiCallCount, scenario.callCount, `${scenario.label} first call count`);
+    assert.equal(second.mode, scenario.mode, `${scenario.label} cached mode`);
+    assert.equal(second.aiCallCount, scenario.callCount, `${scenario.label} cached call count`);
+    assert.equal(persisted.status, scenario.status, `${scenario.label} persisted status`);
+    assert.equal(persisted.aiCallCount, scenario.callCount, `${scenario.label} persisted call count`);
+    assert.equal(calls, scenario.outputs.length, `${scenario.label} provider calls before cache hit`);
+    assert.deepEqual(second.prioritySignals, first.prioritySignals, `${scenario.label} cached priority signals`);
+  }
+});
+
+test('Unexpected narrative generator failure returns a safe Snapshot instead of throwing', async () => {
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { return null; },
+      async write() {}
+    },
+    generator: async () => { throw new Error('TEST_ONLY_GENERATOR_FAILURE'); }
+  });
+  assert.equal(result.mode, 'deterministic');
+  assert.deepEqual(validateSnapshotNarrative({
+    headline: result.headline,
+    executiveDiagnosis: result.executiveDiagnosis,
+    strength: result.strength,
+    prioritySignals: result.prioritySignals,
+    managementImplication: result.managementImplication
+  }, input), []);
+  assert.ok(result.headline.length > 0);
+  assert.equal(result.fallbackReason, 'TECHNICAL_PROVIDER_FAILURE');
+});
+
 test('Snapshot validation rejects the known unsupported grounding phrases', () => {
   const failedPhrases = [
     'The controls are not functioning.',
@@ -371,7 +595,9 @@ test('Snapshot validation rejects the known unsupported grounding phrases', () =
     'Fraud Leadership and Governance has 19 critical gaps.',
     'Fraud Risk Identification has 17 major gaps.',
     'These weaknesses drive immediate exposure to fraud losses and account compromise.',
-    'The result requires assurance activities to validate effectiveness.'
+    'The result requires assurance activities to validate effectiveness.',
+    'The organisation experienced fraud incidents.',
+    'The organisation suffered financial losses.'
   ];
   for (const phrase of failedPhrases) {
     const issues = validateSnapshotNarrative({
@@ -488,4 +714,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'deterministic priority signals', 'strict five-field contract', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'AI priority signals are canonicalised before persistence', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'deterministic priority signals', 'strict five-field contract', 'canonical domain fact validation', 'D5 priority and strength fallback', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'AI priority signals are canonicalised before persistence', 'bounded one-repair recovery', 'two-call deterministic fallback', 'safe non-throwing narrative failure', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

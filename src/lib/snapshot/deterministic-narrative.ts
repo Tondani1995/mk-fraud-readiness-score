@@ -37,6 +37,24 @@ export function buildDeterministicSnapshotPrioritySignals(
 }
 
 /**
+ * Last-resort customer-safe copy. The result shell remains authoritative in the Snapshot UI;
+ * this copy is deliberately free of domain names, diagnostic counts and technical details so
+ * an unexpected richer-narrative validation failure cannot make a valid result inaccessible.
+ */
+export function buildMinimalSafeSnapshotNarrativeContent(): SnapshotNarrativeContent {
+  return {
+    headline: 'Your recorded self-assessment result is ready.',
+    executiveDiagnosis: 'The recorded responses provide a result for management review.',
+    strength: 'The self-assessment does not support a specific strength statement in this view.',
+    prioritySignals: [
+      'The recorded responses identify areas for management attention.',
+      'The result points to the next management focus.'
+    ],
+    managementImplication: 'Leadership should use the recorded result to guide the next management actions.'
+  };
+}
+
+/**
  * Browser-safe deterministic Snapshot copy. It only phrases already persisted Snapshot facts;
  * server-side callers validate the resulting content before it is cached or rendered.
  */

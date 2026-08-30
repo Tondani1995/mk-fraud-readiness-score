@@ -172,7 +172,7 @@ test('The score gauge draws no unsupported calculated-score marker', () => {
 
 test('The deterministic fallback occupies the same layout', () => {
   const result = read('src/components/assessment/SnapshotResult.tsx');
-  assert.match(result, /snapshotNarrative \?\? buildDeterministicSnapshotNarrativeContent/);
+  assert.match(result, /snapshotNarrative \?\? buildMinimalSafeSnapshotNarrativeContent/);
   // No provider, model or AI status may be exposed, and no layout may branch on provenance.
   assert.doesNotMatch(result, /\.mode\b|\.model\b|fallbackReason|aiCallCount|provider/i);
 });

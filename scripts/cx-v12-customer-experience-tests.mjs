@@ -141,7 +141,10 @@ check('the review and progress surfaces avoid implementation counts and identifi
   assert.match(adaptiveExperience, /Your assessment is ready to submit/);
   assert.match(adaptiveExperience, /Areas included in your review/);
   assert.match(adaptiveExperience, /Assessment progress/);
-  assert.match(adaptiveExperience, /timeRemaining/);
+  assert.match(adaptiveExperience, /assessmentProgressLabel/);
+  assert.match(adaptiveExperience, /applicable assessment questions completed/);
+  assert.match(adaptiveExperience, /assessment scope is being determined/);
+  assert.doesNotMatch(adaptiveExperience, /timeRemaining|1\.5 minutes/);
   assert.doesNotMatch(adaptiveExperience, /Review your assessed scope/);
   assert.doesNotMatch(adaptiveExperience, /excludedCount|redirectedCount|skipReason|redirectTo/);
   assert.doesNotMatch(adaptiveExperience, /currentNode\.nodeId\}<|domain\.domainCode\}/);

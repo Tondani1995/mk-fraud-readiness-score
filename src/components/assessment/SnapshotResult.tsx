@@ -7,7 +7,7 @@ import { ProductChoice } from '@/components/products/ProductChoice';
 import type { CommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { SnapshotNarrative } from '@/lib/snapshot/narrative';
-import { buildDeterministicSnapshotNarrativeContent } from '@/lib/snapshot/deterministic-narrative';
+import { buildMinimalSafeSnapshotNarrativeContent } from '@/lib/snapshot/deterministic-narrative';
 import { buildFalseComfortPairing, buildGapInventory } from '@/lib/snapshot/gap-inventory';
 import { buildNextStepRecommendation } from '@/lib/snapshot/next-step-recommendation';
 import {
@@ -66,9 +66,10 @@ export function SnapshotResult({
   snapshotNarrative?: SnapshotNarrative;
   methodologyLabel?: string | null;
 }) {
-  // The deterministic fallback occupies the identical layout. Nothing below branches on the
-  // narrative's provenance, and no provider or AI status is exposed to the customer.
-  const narrative = snapshotNarrative ?? buildDeterministicSnapshotNarrativeContent({ snapshot, insights: commercialInsights });
+  // The normal server path supplies a fully validated narrative. If that optional layer is
+  // unavailable, render only the minimal customer-safe copy while keeping the authoritative
+  // result shell below it available.
+  const narrative = snapshotNarrative ?? buildMinimalSafeSnapshotNarrativeContent();
 
   const inventory = buildGapInventory(snapshot);
   const pairing = buildFalseComfortPairing(snapshot);

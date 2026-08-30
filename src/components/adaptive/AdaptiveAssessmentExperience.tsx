@@ -22,14 +22,21 @@ function label(value: string) {
   return value.replace(/^\s*(?:G\d{2}|D\d{1,2}-Q\d{1,2}|OV-[^·:\u2014-]+)\s*(?:[·:\u2014-]\s*)?/i, '').trim();
 }
 
-/** A conservative customer estimate: 1.5 minutes per unanswered applicable control. */
-function timeRemainingLabel(unansweredApplicableCount: number) {
-  const minutes = Math.max(0, unansweredApplicableCount) * 1.5;
-  if (unansweredApplicableCount <= 0) return 'Almost done';
-  if (minutes < 5) return 'Less than 5 minutes remaining';
-  if (minutes <= 10) return 'About 5–10 minutes remaining';
-  if (minutes <= 15) return 'About 10–15 minutes remaining';
-  return 'More than 15 minutes remaining';
+/**
+ * Reports authoritative progress without inventing a time estimate. Adaptive applicability can
+ * change while profile gateways are unanswered, so the current denominator is labelled as
+ * provisional until that scope is resolved.
+ */
+export function assessmentProgressLabel(completedApplicableCount: number, activePathCount: number, applicabilityResolved: boolean) {
+  const completed = Math.max(0, Math.floor(Number.isFinite(completedApplicableCount) ? completedApplicableCount : 0));
+  const applicable = Math.max(0, Math.floor(Number.isFinite(activePathCount) ? activePathCount : 0));
+  if (!applicabilityResolved) {
+    return completed > 0
+      ? `${completed} applicable assessment question${completed === 1 ? '' : 's'} completed. The total will update as your assessment scope is determined.`
+      : 'Your assessment scope is being determined.';
+  }
+  if (applicable <= 0) return 'Your assessment scope is being determined.';
+  return `${completed} of ${applicable} applicable assessment questions completed.`;
 }
 
 function SubmissionProcessingCard({ assessmentReference }: { assessmentReference: string }) {
@@ -79,8 +86,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const currentNode = nodes.find((node: any) => node.nodeId === currentId)
     ?? activeNodes.find((node: any) => node.nodeId === state.path?.currentNextNode)
     ?? null;
-  const progress = state.path?.activePathCount
-    ? Math.round((state.path.completedApplicableCount / state.path.activePathCount) * 100)
+  const activePathCount = Number(state.path?.activePathCount ?? 0);
+  const completedApplicableCount = Number(state.path?.completedApplicableCount ?? 0);
+  const progress = activePathCount > 0
+    ? Math.min(100, Math.max(0, Math.round((completedApplicableCount / activePathCount) * 100)))
     : 0;
   const navigableNodes = nodes.filter((node: any) => node.state === 'active' || (node.kind === 'gateway' && node.state === 'profile-only'));
   const currentIndex = currentNode ? navigableNodes.findIndex((node: any) => node.nodeId === currentNode.nodeId) : -1;
@@ -97,11 +106,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       .filter((domain: any) => domain.activeCount > 0 && domain.name)
       .map((domain: any) => String(domain.name))
   )), [state.path?.domainBoundaries]);
-  const unansweredApplicableCount = Math.max(
-    0,
-    Number(state.path?.activePathCount ?? 0) - Number(state.path?.completedApplicableCount ?? 0)
+  const applicabilityResolved = !nodes.some((node: any) =>
+    node.kind === 'gateway' && node.state === 'active' && !gatewayAnswers[node.nodeId]
   );
-  const timeRemaining = timeRemainingLabel(unansweredApplicableCount);
+  const progressLabel = assessmentProgressLabel(completedApplicableCount, activePathCount, applicabilityResolved);
 
   const reload = useCallback(async () => {
     try {
@@ -377,13 +385,13 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-semibold text-mk-ink">Assessment progress</p>
-            <p className="mt-1 text-xs text-mk-muted">{timeRemaining}</p>
+            <p className="mt-1 text-xs text-mk-muted">{progressLabel}</p>
           </div>
           <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-mk-muted">
             {saving ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save needs attention' : 'Ready'}
           </p>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-mk-line" role="progressbar" aria-label="Assessment completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-mk-line" role="progressbar" aria-label="Assessment completion" aria-valuetext={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
           <div className="h-full bg-mk-charcoal" style={{ width: `${progress}%` }} />
         </div>
       </div>
