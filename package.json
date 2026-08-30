@@ -60,6 +60,7 @@
     "v12:test-response-scale": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/v12-response-scale-correction-tests.mjs",
     "phase13:test-events": "node scripts/phase13-commercial-event-tests.mjs",
     "phase13:test-conversion": "node scripts/phase13-customer-commercial-conversion-tests.mjs",
+    "phase13:test-advisory": "node scripts/phase13-advisory-enquiry-tests.mjs",
     "phase14:test-report-engine": "node scripts/phase14-autonomous-report-tests.mjs",
     "phase14:test-email-delivery": "node scripts/phase14-email-delivery-tests.mjs",
     "phase14:test-security-closure": "node scripts/phase14-security-closure-tests.mjs",

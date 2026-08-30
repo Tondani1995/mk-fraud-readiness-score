@@ -11,7 +11,8 @@ const ALLOWED_EVENT_TYPES = new Set<AssessmentEventType>([
   'report_options_opened',
   'report_option_selected',
   'essential_selected',
-  'comprehensive_selected'
+  'comprehensive_selected',
+  'advisory_selected'
 ]);
 
 /**
@@ -39,6 +40,7 @@ function cleanOptionCode(value: unknown) {
     return COMMERCIAL_OPTION_CODES.essential;
   }
   if (value === COMMERCIAL_OPTION_CODES.comprehensive) return COMMERCIAL_OPTION_CODES.comprehensive;
+  if (value === COMMERCIAL_OPTION_CODES.advisory) return COMMERCIAL_OPTION_CODES.advisory;
   // The legacy personalised-report option belongs to the manual advisory enquiry flow, which this
   // route does not create orders for; it is still a valid selection to record.
   if (value === COMMERCIAL_OPTION_CODES.legacyPersonalisedReport) {

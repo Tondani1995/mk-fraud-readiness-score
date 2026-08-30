@@ -32,6 +32,7 @@ const ALLOWED_FOCUS_AREAS = new Set([
 const ALLOWED_CONTACT_METHODS = new Set(['email', 'phone', 'video_meeting']);
 const ALLOWED_TIMEFRAMES = new Set(['within_one_week', 'within_two_weeks', 'within_one_month', 'exploring_options']);
 const ACTIVE_STATUSES = ['received', 'open', 'in_review'];
+const ADVISORY_REQUEST_TYPE = 'mk_advisory' as const;
 
 function validateChoice(value: unknown, allowed: Set<string>, label: string, errors: string[]) {
   if (typeof value === 'string' && allowed.has(value)) return value;
@@ -73,12 +74,12 @@ function makeRequestReference() {
   return `MKENQ-${year}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
-async function selectActivePersonalisedRequest(db: any, assessmentId: string) {
+async function selectActiveAdvisoryRequest(db: any, assessmentId: string) {
   const { data, error } = await db
     .from('data_requests')
     .select('id,request_reference,status,created_at')
     .eq('assessment_id', assessmentId)
-    .eq('request_type', 'personalised_report_50000')
+    .eq('request_type', ADVISORY_REQUEST_TYPE)
     .in('status', ACTIVE_STATUSES)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -88,7 +89,7 @@ async function selectActivePersonalisedRequest(db: any, assessmentId: string) {
   return data ?? null;
 }
 
-async function updatePersonalisedRequest(db: any, existing: any, payload: Record<string, unknown>) {
+async function updateAdvisoryRequest(db: any, existing: any, payload: Record<string, unknown>) {
   const { data, error } = await db
     .from('data_requests')
     .update({ ...payload, request_reference: existing.request_reference ?? makeRequestReference() })
@@ -99,7 +100,7 @@ async function updatePersonalisedRequest(db: any, existing: any, payload: Record
   return data;
 }
 
-async function createOrUpdatePersonalisedRequest(input: {
+async function createOrUpdateAdvisoryRequest(input: {
   assessment: any;
   respondent: any | null;
   primaryReason: string;
@@ -109,7 +110,7 @@ async function createOrUpdatePersonalisedRequest(input: {
   notes: string | null;
 }) {
   const db = createSupabaseServiceClient() as any;
-  const existing = await selectActivePersonalisedRequest(db, input.assessment.id);
+  const existing = await selectActiveAdvisoryRequest(db, input.assessment.id);
 
   const payload = {
     organisation_id: input.assessment.organisation_id,
@@ -125,7 +126,7 @@ async function createOrUpdatePersonalisedRequest(input: {
   };
 
   if (existing) {
-    const data = await updatePersonalisedRequest(db, existing, payload);
+    const data = await updateAdvisoryRequest(db, existing, payload);
     return { request: data, created: false };
   }
 
@@ -134,7 +135,7 @@ async function createOrUpdatePersonalisedRequest(input: {
     .insert({
       ...payload,
       assessment_id: input.assessment.id,
-      request_type: 'personalised_report_50000',
+      request_type: ADVISORY_REQUEST_TYPE,
       status: 'received',
       request_reference: makeRequestReference()
     })
@@ -143,9 +144,9 @@ async function createOrUpdatePersonalisedRequest(input: {
 
   if (!error) return { request: data, created: true };
 
-  const racedExisting = await selectActivePersonalisedRequest(db, input.assessment.id);
+  const racedExisting = await selectActiveAdvisoryRequest(db, input.assessment.id);
   if (racedExisting) {
-    const racedData = await updatePersonalisedRequest(db, racedExisting, payload);
+    const racedData = await updateAdvisoryRequest(db, racedExisting, payload);
     return { request: racedData, created: false };
   }
 
@@ -169,7 +170,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
   }
 
   if (body?.consentContact !== true) {
-    return NextResponse.json({ ok: false, errors: ['Consent is required before MK can follow up on a personalised report enquiry.'] }, { status: 400 });
+    return NextResponse.json({ ok: false, errors: ['Consent is required before MK can follow up on an Advisory request.'] }, { status: 400 });
   }
 
   const validationErrors: string[] = [];
@@ -206,7 +207,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     : { data: null };
 
   try {
-    const result = await createOrUpdatePersonalisedRequest({
+    const result = await createOrUpdateAdvisoryRequest({
       assessment,
       respondent,
       primaryReason,
@@ -216,45 +217,63 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
       notes
     });
 
+    const organisationName = validation.organisation?.legal_name ?? validation.organisation?.trading_name ?? 'Organisation';
+    const respondentName = respondent?.full_name ?? respondent?.email ?? 'Respondent';
+    const adminUrl = new URL(`/score/admin/enquiries/${encodeURIComponent(result.request.request_reference)}`, request.url).toString();
     const metadata = {
       assessment_reference: assessment.assessment_reference,
       request_reference: result.request.request_reference,
-      source_section: 'personalised_report_enquiry',
+      source_section: 'advisory_enquiry',
       maturity_band: snapshot.finalMaturity,
       score_band: commercialScoreBand(snapshot.overallScore),
       critical_gap_indicator: snapshot.criticalGapCount > 0 || snapshot.capApplied,
+      overall_score: snapshot.overallScore,
+      primary_reason: primaryReason,
+      areas_of_focus: areasOfFocus.join(', '),
+      preferred_contact_method: preferredContactMethod,
+      preferred_consultation_timeframe: preferredConsultationTimeframe,
       request_created: result.created
+    };
+    const notificationMetadata = {
+      ...metadata,
+      organisation_name: organisationName,
+      respondent_name: respondentName,
+      respondent_email: respondent?.email ?? null,
+      note: notes,
+      admin_url: adminUrl
     };
 
     await Promise.all([
       trackAssessmentEvent({
-        eventType: 'personalised_report_50000_selected',
+        eventType: 'advisory_enquiry_submitted',
         assessmentId: assessment.id,
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
+        optionCode: COMMERCIAL_OPTION_CODES.advisory,
         metadata
       }),
       queueInternalNotification({
-        notificationType: 'personalised_report_50000_selected',
+        notificationType: 'advisory_enquiry_submitted',
         assessmentId: assessment.id,
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
-        metadata
+        optionCode: COMMERCIAL_OPTION_CODES.advisory,
+        metadata: notificationMetadata,
+        strict: true
       }),
       db.from('audit_logs').insert({
         actor_type: 'respondent_token',
         assessment_id: assessment.id,
         entity_table: 'data_requests',
         entity_id: result.request.id,
-        action: result.created ? 'personalised_report_enquiry_created' : 'personalised_report_enquiry_updated',
+        action: result.created ? 'advisory_enquiry_created' : 'advisory_enquiry_updated',
         after_json: {
           assessment_reference: assessment.assessment_reference,
           request_reference: result.request.request_reference,
-          option_code: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
+          request_type: ADVISORY_REQUEST_TYPE,
+          option_code: COMMERCIAL_OPTION_CODES.advisory,
           payment_obligation: false,
           order_created: false,
           report_generation: false
@@ -266,10 +285,10 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
       ok: true,
       requestReference: result.request.request_reference,
       status: result.request.status,
-      message: 'MK Fraud Insights will review your assessment context and contact you to discuss the appropriate scope, information requirements, delivery approach and commercial proposal.'
+      message: 'MK Fraud Insights will review your result and contact you to discuss the right scope for the Advisory conversation.'
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The personalised report enquiry could not be submitted.';
-    return NextResponse.json({ ok: false, errors: [message] }, { status: 500 });
+    console.error('advisory enquiry submission failed', { message: error instanceof Error ? error.message : 'unknown_error' });
+    return NextResponse.json({ ok: false, errors: ['The Advisory request could not be submitted. Please try again.'] }, { status: 500 });
   }
 }

@@ -12,7 +12,7 @@ const adminLinks = [
   { href: '/admin/config/content', label: 'Report content library' },
   { href: '/admin/audit-log', label: 'Audit trail' },
   { href: '/admin/orders', label: 'Order controls' },
-  { href: '/admin/enquiries', label: 'Personalised enquiries' },
+  { href: '/admin/enquiries', label: 'MK Advisory enquiries' },
   { href: '/admin/reports', label: 'Report controls' },
   { href: '/admin/operational-alerts', label: 'Operational alerts' },
   { href: '/admin/phase14-activation', label: 'Automation activation controls' }

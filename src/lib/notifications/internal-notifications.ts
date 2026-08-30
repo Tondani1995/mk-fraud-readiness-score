@@ -10,6 +10,7 @@ export type InternalNotificationType =
   | 'personalised_report_50000_selected'
   | 'essential_selected'
   | 'comprehensive_selected'
+  | 'advisory_enquiry_submitted'
   | 'comprehensive_order_created'
   | 'assessment_stalled_lead';
 

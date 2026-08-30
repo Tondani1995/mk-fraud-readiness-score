@@ -43,6 +43,7 @@ const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
 const commercialEventRoute = 'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts';
 const personalisedRoute = 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
+const currentCommercialMigration = 'supabase/migrations/20260830170000_mk_advisory_enquiry_path.sql';
 const reportService = 'src/lib/reports/premium-report-service-core.ts';
 const generateRoute = 'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts';
 
@@ -65,13 +66,19 @@ const requiredEventTypes = [
   'internal_notification_failed'
 ];
 
-for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute, reportService, generateRoute]) {
+for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute, reportService, generateRoute, currentCommercialMigration]) {
   assert(exists(file), `${file} must exist.`);
 }
 
 for (const eventType of requiredEventTypes) {
   assertIncludes(eventHelper, `'${eventType}'`, `Event helper defines ${eventType}`);
   assertIncludes(migration, `'${eventType}'`, `Migration permits ${eventType}`);
+  assertIncludes(taxonomy, `\`${eventType}\``, `Taxonomy documents ${eventType}`);
+}
+
+for (const eventType of ['essential_selected', 'comprehensive_selected', 'advisory_selected', 'advisory_enquiry_submitted']) {
+  assertIncludes(eventHelper, `'${eventType}'`, `Event helper defines ${eventType}`);
+  assertIncludes(currentCommercialMigration, `'${eventType}'`, `Current migration permits ${eventType}`);
   assertIncludes(taxonomy, `\`${eventType}\``, `Taxonomy documents ${eventType}`);
 }
 
@@ -112,6 +119,7 @@ assertIncludes(notificationHelper, "'full_report_5000_selected'", 'Legacy R5 sel
 assertIncludes(notificationHelper, "'personalised_report_50000_selected'", 'Legacy R50 selection notification type stays readable');
 assertIncludes(notificationHelper, "'essential_selected'", 'Essential selection notification type is supported');
 assertIncludes(notificationHelper, "'comprehensive_selected'", 'Comprehensive selection notification type is supported');
+assertIncludes(notificationHelper, "'advisory_enquiry_submitted'", 'Advisory enquiry notification type is supported');
 assertNotIncludes(notificationHelper, "'report_options_opened'", 'Report options views must not queue internal notifications');
 assertNotIncludes(notificationHelper, 'sent_at:', 'Notification helper must not mark queued emails as sent');
 assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification helper must not invent provider message ids');
@@ -144,6 +152,7 @@ assertIncludes(commercialEventRoute, "'report_options_opened'", 'Commercial even
 assertIncludes(commercialEventRoute, "'report_option_selected'", 'Commercial event route permits generic option selected event');
 assertIncludes(commercialEventRoute, "'essential_selected'", 'Commercial event route permits the Essential selected event');
 assertIncludes(commercialEventRoute, "'comprehensive_selected'", 'Commercial event route permits the Comprehensive selected event');
+assertIncludes(commercialEventRoute, "'advisory_selected'", 'Commercial event route permits the Advisory selected event');
 assertNotIncludes(commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route does not permit R50 specific event before enquiry persistence');
 assertNotIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open must not queue internal notification');
 assertIncludes(commercialEventRoute, "notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected'", 'Tier selection queues a deduped internal notification');
@@ -152,21 +161,21 @@ assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial even
 assertNotIncludes(commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
 assertIncludes(personalisedRoute, 'validateSnapshotToken', 'Personalised route validates snapshot token');
-assertIncludes(personalisedRoute, "request_type: 'personalised_report_50000'", 'Personalised route stores the controlled request type');
-assertIncludes(personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'Personalised route tracks specific R50 selection');
-assert(countOccurrences(personalisedRoute, "eventType: 'personalised_report_50000_selected'") === 1, 'Personalised route tracks one R50-specific event after persistence');
+assertIncludes(personalisedRoute, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory route stores the current controlled request type');
+assertIncludes(personalisedRoute, "eventType: 'advisory_enquiry_submitted'", 'Advisory route tracks the submitted enquiry');
+assert(countOccurrences(personalisedRoute, "eventType: 'advisory_enquiry_submitted'") === 1, 'Advisory route tracks one current event after persistence');
 assertNotIncludes(personalisedRoute, "eventType: 'report_option_selected'", 'Personalised route does not duplicate generic option analytics after persistence');
-assertIncludes(personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'Personalised route queues high-priority internal notification after persistence');
-assert(countOccurrences(personalisedRoute, "notificationType: 'personalised_report_50000_selected'") === 1, 'Personalised route queues one R50-specific notification after persistence');
-assertIncludes(personalisedRoute, 'dataRequestId: result.request.id', 'Personalised R50 event and notification are linked to data_request_id');
-assertIncludes(personalisedRoute, 'request_created: result.created', 'Personalised repeat submissions enrich deduped event metadata with create/update state');
-assertIncludes(personalisedRoute, 'payment_obligation: false', 'Personalised route records no payment obligation');
-assertIncludes(personalisedRoute, 'order_created: false', 'Personalised route records no order creation');
-assertIncludes(personalisedRoute, 'report_generation: false', 'Personalised route records no report generation');
+assertIncludes(personalisedRoute, "notificationType: 'advisory_enquiry_submitted'", 'Advisory route queues the current internal notification after persistence');
+assert(countOccurrences(personalisedRoute, "notificationType: 'advisory_enquiry_submitted'") === 1, 'Advisory route queues one current notification after persistence');
+assertIncludes(personalisedRoute, 'dataRequestId: result.request.id', 'Advisory event and notification are linked to data_request_id');
+assertIncludes(personalisedRoute, 'request_created: result.created', 'Advisory repeat submissions enrich deduped event metadata with create/update state');
+assertIncludes(personalisedRoute, 'payment_obligation: false', 'Advisory route records no payment obligation');
+assertIncludes(personalisedRoute, 'order_created: false', 'Advisory route records no order creation');
+assertIncludes(personalisedRoute, 'report_generation: false', 'Advisory route records no report generation');
 assertIncludes(personalisedRoute, 'validateChoice', 'Personalised route validates controlled choice values');
 assertIncludes(personalisedRoute, 'validateFocusAreas', 'Personalised route validates controlled focus areas');
 assertIncludes(personalisedRoute, '{ status: 400 }', 'Personalised route rejects invalid controlled values with 400');
-assertIncludes(personalisedRoute, 'selectActivePersonalisedRequest(db, input.assessment.id)', 'Personalised route reselects active enquiry on insert race');
+assertIncludes(personalisedRoute, 'selectActiveAdvisoryRequest(db, input.assessment.id)', 'Advisory route reselects active enquiry on insert race');
 assertNotIncludes(personalisedRoute, 'cleanChoice', 'Personalised route must not silently replace invalid values with defaults');
 assertNotIncludes(personalisedRoute, 'metadata: { notes', 'Personalised route must not copy notes into event metadata');
 assertNotIncludes(personalisedRoute, 'metadata: { areasOfFocus', 'Personalised route must not include form answers in event metadata');
@@ -180,7 +189,7 @@ const noGoImplementationSources = [
   'src/lib/respondent/start-assessment.ts',
   'src/lib/respondent/assessment-save.ts',
   'src/app/score/snapshot/[assessmentRef]/page.tsx',
-  'src/components/assessment/FreeSnapshot.tsx',
+  'src/lib/snapshot/free-snapshot.ts',
   'src/lib/orders/manual-eft-orders.ts',
   generateRoute,
   'src/app/score/api/admin/reports/[reportId]/download/route.ts'

@@ -82,7 +82,10 @@ function loadCommercialInsights() {
 
 const files = {
   builder: 'src/lib/snapshot/commercial-insights.ts',
-  snapshot: 'src/components/assessment/FreeSnapshot.tsx',
+  snapshot: 'src/components/assessment/SnapshotResult.tsx',
+  snapshotCopy: 'src/lib/snapshot/result-copy.ts',
+  productChoice: 'src/components/products/ProductChoice.tsx',
+  orderJourney: 'src/components/commercial/OrderJourney.tsx',
   snapshotPage: 'src/app/score/snapshot/[assessmentRef]/page.tsx',
   snapshotNarrative: 'src/lib/snapshot/narrative.ts',
   snapshotNarrativeCache: 'src/lib/snapshot/narrative-cache.ts',
@@ -90,8 +93,11 @@ const files = {
   paidOrderRoute: 'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
   reportRequestRoute: 'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts',
   personalisedRoute: 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts',
+  advisoryPage: 'src/app/score/advisory/[assessmentRef]/page.tsx',
+  advisoryForm: 'src/components/assessment/AdvisoryEnquiryForm.tsx',
   freeSnapshot: 'src/lib/snapshot/free-snapshot.ts',
   migration: 'supabase/migrations/0014_phase13_customer_commercial_conversion.sql',
+  advisoryMigration: 'supabase/migrations/20260830170000_mk_advisory_enquiry_path.sql',
   adminShell: 'src/components/admin/AdminShell.tsx',
   adminList: 'src/app/score/admin/enquiries/page.tsx',
   adminDetail: 'src/app/score/admin/enquiries/[requestReference]/page.tsx',
@@ -291,42 +297,37 @@ assertIncludes(files.snapshotNarrativeCache, 'onConflict: \'assessment_id,score_
 assertIncludes(files.freeSnapshot, 'respondentEmail: string | null', 'Free snapshot can prepopulate respondent contact context');
 assertIncludes(files.freeSnapshot, 'respondentEmail: respondent?.email ?? null', 'Free snapshot loads respondent email from server-side relationship');
 
-assertIncludes(files.snapshot, 'Assessment complete', 'Snapshot uses approved result eyebrow');
-assertIncludes(files.snapshot, 'Your organisation&apos;s fraud readiness position', 'Snapshot uses approved result heading');
-assert(
-  read(files.snapshot).includes("Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation\\'s fraud-exposure profile.")
-    || read(files.snapshot).includes('Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.'),
-  'Snapshot uses approved result support copy'
-);
-assertIncludes(files.snapshot, 'What this means for your organisation', 'Snapshot leads with the organisation-specific interpretation');
-assertIncludes(files.snapshot, 'Limited readiness picture', 'Snapshot shows a limited evidence view');
-assertIncludes(files.snapshot, 'Priority signals', 'Snapshot renders the bounded priority-signal block');
-assertIncludes(files.snapshot, 'Management implication', 'Snapshot renders the bounded management implication');
+assertIncludes(files.snapshot, 'What this means', 'Snapshot leads with the organisation-specific interpretation');
+assertIncludes(files.snapshot, 'What needs attention', 'Snapshot shows the attention section');
+assertIncludes(files.snapshot, 'Needs attention first', 'Snapshot renders the bounded priority-signal block');
+assertIncludes(files.snapshot, 'For leadership', 'Snapshot renders the bounded management implication');
+assertIncludes(files.snapshot, 'What this Snapshot covers', 'Snapshot explains the scope of the result');
 assertNotIncludes(files.snapshot, 'personalised interpretation is temporarily unavailable', 'Snapshot must not expose an AI-availability failure message');
 assertNotIncludes(files.snapshot, 'paidReportValue', 'Snapshot must not render the deterministic paid-detail giveaway');
-assertIncludes(files.snapshot, 'Report options', 'Snapshot exposes the current paid-product options');
-assertIncludes(files.snapshot, 'Choose Essential', 'Snapshot exposes the current Essential action');
-assertIncludes(files.snapshot, 'Choose Comprehensive', 'Snapshot exposes the current Comprehensive action');
-assertIncludes(files.snapshot, 'Discuss an Engagement with MK', 'Snapshot exposes the Advisory action');
-assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.essential.priceCents', 'Snapshot reads the current Essential price from the catalogue');
-assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.comprehensive.priceCents', 'Snapshot reads the current Comprehensive price from the catalogue');
-assertNotIncludes(files.snapshot, 'R5,000', 'Snapshot must not present the superseded Essential price');
-assertNotIncludes(files.snapshot, 'R50,000', 'Snapshot must not present the superseded Comprehensive/advisory price');
-assertIncludes(files.snapshot, 'Confirm your report order', 'Current paid-product flow shows an order summary before order creation');
-assertIncludes(files.snapshot, 'Continue to EFT instructions', 'Current paid-product order creation is behind EFT continuation');
-assertIncludes(files.snapshot, 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Current paid-product order remains token-bound');
-assertIncludes(files.snapshot, 'Would you like an invoice for this order?', 'Paid-tier flow asks the invoice question before order creation');
-assertIncludes(files.snapshot, 'legalName', 'Invoice flow collects legal/company name');
-assertIncludes(files.snapshot, 'billingAddress', 'Invoice flow collects billing address');
-assertIncludes(files.snapshot, 'vatNumber', 'Invoice flow supports an optional VAT number');
-assertIncludes(files.snapshot, 'registrationNumber', 'Invoice flow supports an optional registration number');
-assertIncludes(files.snapshot, 'purchaseOrderReference', 'Invoice flow supports an optional PO/reference');
-assertNotIncludes(files.snapshot, 'ComprehensiveRequestPanel', 'Comprehensive selection is not a request-only panel');
+assertIncludes(files.productChoice, 'Your next step', 'Snapshot exposes the current product-choice section');
+assertIncludes(files.productChoice, 'How far do you want to take this?', 'Snapshot exposes the product decision heading');
+assertIncludes(files.productChoice, 'COMMERCIAL_CATALOGUE', 'Product choices read the commercial catalogue');
+assertIncludes(files.productChoice, 'Choose ${product.label}', 'Essential and Comprehensive use catalogue-backed choices');
+assertIncludes(files.productChoice, 'MK Advisory', 'Snapshot exposes the MK Advisory action');
+assertIncludes(files.productChoice, "optionCode: 'advisory'", 'Advisory selection is associated with its option code');
+assertIncludes(files.productChoice, "post('advisory_selected')", 'Advisory selection emits its current commercial event');
+assertIncludes(files.productChoice, '/advisory/', 'Advisory selection uses the readiness-specific route');
+assertIncludes(files.productChoice, 'Opening…', 'Product choices provide immediate navigation feedback');
+assertNotIncludes(files.productChoice, 'priceCents.advisory', 'Advisory has no public price');
+assertIncludes(files.orderJourney, 'StepConfirm', 'Current paid-product flow shows an order summary before order creation');
+assertIncludes(files.orderJourney, 'Do you need a tax invoice for this order?', 'Paid-tier flow asks the invoice question before order creation');
+assertIncludes(files.orderJourney, 'snapshotToken', 'Current paid-product order remains token-bound');
+assertIncludes(files.orderJourney, 'legalName', 'Invoice flow collects legal/company name');
+assertIncludes(files.orderJourney, 'billingAddress', 'Invoice flow collects billing address');
+assertIncludes(files.orderJourney, 'vatNumber', 'Invoice flow supports an optional VAT number');
+assertIncludes(files.orderJourney, 'registrationNumber', 'Invoice flow supports an optional registration number');
+assertIncludes(files.orderJourney, 'purchaseOrderReference', 'Invoice flow supports an optional PO/reference');
+assertNotIncludes(files.productChoice, 'ComprehensiveRequestPanel', 'Comprehensive selection is not a request-only panel');
 assertNotIncludes(files.snapshot, 'personalised interpretation unavailable', 'Snapshot has no customer-visible AI availability message');
 assertIncludes(files.snapshot, 'IntersectionObserver', 'Snapshot view events use IntersectionObserver');
 assertIncludes(files.snapshot, 'threshold: [0.5]', 'Snapshot observes real section at 50% threshold');
 assertIncludes(files.snapshot, 'eventType="executive_summary_viewed"', 'Executive summary view event is emitted at section visibility');
-assertIncludes(files.snapshot, 'eventType="report_options_opened"', 'Report options view event is emitted at section visibility');
+assertIncludes(files.snapshotPage, "eventType: 'snapshot_viewed'", 'Snapshot view event is emitted on private result access');
 assertNotIncludes(files.snapshot, "emitCommercialEvent('personalised_report_50000_selected'", 'R50 card selection must not emit high-value event before enquiry persistence');
 assertNotIncludes(files.snapshot, 'SnapshotEventBeacon', 'Snapshot no longer uses one-pixel beacons');
 assertNotIncludes(files.snapshot, 'Executive Fraud Readiness Advisory', 'Snapshot must not use rejected product name');
@@ -340,14 +341,28 @@ assertNotIncludes(files.snapshot, 'AI-generated', 'Snapshot must not mention AI-
 assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|hard-gate|N\/A rule/i.test(read(files.snapshot)), 'Snapshot must not expose internal methodology codes or rule labels.');
 
 const snapshotSource = read(files.snapshot);
-assertIncludes(files.snapshot, "onClick={() => void selectPaidTier('essential')}", 'Essential selection is a distinct option step');
-assertIncludes(files.snapshot, "onClick={() => void selectPaidTier('comprehensive')}", 'Comprehensive selection is a distinct option step');
-assertIncludes(files.snapshot, 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`)', 'Current tier selection confirms through the paid-order route');
-assertNotIncludes(files.snapshot, 'requestDetailedReport', 'Current snapshot must not use the superseded generic report-request handler');
-assertNotIncludes(files.snapshot, 'selectFullReport', 'Current snapshot must not use the superseded R5 selection handler');
-assertNotIncludes(files.snapshot, 'selectPersonalisedReport', 'Current snapshot must not use the superseded R50 selection handler');
-assertIncludes(files.snapshot, 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Only order-summary confirmation calls the current paid-order handler');
-assertSourceOrder(files.snapshot, 'Choose Essential', 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Paid-tier selection appears before order confirmation action');
+const productChoiceSource = read(files.productChoice);
+assertIncludes(files.productChoice, 'onChoose={() => chooseTier(tier)}', 'Paid selection is a distinct option step');
+assertIncludes(files.productChoice, 'router.push(destination)', 'Product selection navigates through the focused route');
+assertIncludes(files.productChoice, '/order/new?', 'Paid-tier selection uses the focused order route');
+assertNotIncludes(files.productChoice, 'requestDetailedReport', 'Current product choice must not use the superseded generic report-request handler');
+assertNotIncludes(files.productChoice, 'selectFullReport', 'Current product choice must not use the superseded R5 selection handler');
+assertNotIncludes(files.productChoice, 'selectPersonalisedReport', 'Current product choice must not use the superseded R50 selection handler');
+assertIncludes(files.orderJourney, 'onSubmit={() => void submitOrder()}', 'Only the focused order journey submits the current paid-order request');
+assertSourceOrder(files.productChoice, 'chooseTier', 'chooseAdvisory', 'Paid-tier and Advisory choices are defined in the same decision area');
+
+assertIncludes(files.advisoryPage, 'validateSnapshotToken', 'Advisory page requires the private Snapshot token');
+assertIncludes(files.advisoryPage, 'loadFreeSnapshotByReference', 'Advisory page loads the existing Snapshot context');
+assertIncludes(files.advisoryForm, 'Talk to MK about your result', 'Advisory page uses the approved in-flow heading');
+assertIncludes(files.advisoryPage, 'token', 'Advisory page keeps the private token in the private navigation path');
+assertIncludes(files.advisoryForm, 'primaryReason', 'Advisory form collects an approved primary reason');
+assertIncludes(files.advisoryForm, 'areasOfFocus', 'Advisory form collects approved focus areas');
+assertIncludes(files.advisoryForm, 'preferredContactMethod', 'Advisory form collects preferred contact method');
+assertIncludes(files.advisoryForm, 'preferredConsultationTimeframe', 'Advisory form collects timeframe');
+assertIncludes(files.advisoryForm, 'consentContact', 'Advisory form requires explicit contact consent');
+assertIncludes(files.advisoryForm, 'Thanks. MK has your request.', 'Advisory form provides in-flow confirmation');
+assertNotIncludes(files.advisoryForm, '/paid-order', 'Advisory form cannot create a paid order');
+assertNotIncludes(files.advisoryForm, 'snapshot_ai', 'Advisory form cannot invoke Snapshot AI');
 
 assertIncludes(files.paidOrderRoute, 'createPaidOrderForAssessment', 'Current paid-order route uses the commercial order service');
 assertIncludes(files.paidOrderRoute, 'isSelfServicePaidTier', 'Current paid-order route accepts only current self-service tiers');
@@ -367,6 +382,7 @@ assertIncludes(files.commercialEventRoute, "'executive_summary_viewed'", 'Commer
 assertIncludes(files.commercialEventRoute, "'report_options_opened'", 'Commercial event route accepts report options open');
 assertIncludes(files.commercialEventRoute, "'report_option_selected'", 'Commercial event route accepts generic option selected');
 assertIncludes(files.commercialEventRoute, "'essential_selected'", 'Commercial event route accepts the Essential selected event');
+assertIncludes(files.commercialEventRoute, "'advisory_selected'", 'Commercial event route accepts the Advisory selected event');
 assertNotIncludes(files.commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route must not accept pre-enquiry R50 specific event');
 assertNotIncludes(files.commercialEventRoute, "notificationType: 'report_options_opened'", 'Report options open must not queue internal notification');
 assertIncludes(files.commercialEventRoute, "notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected'", 'Tier selection queues internal notification');
@@ -374,19 +390,19 @@ assertNotIncludes(files.commercialEventRoute, "notificationType: 'personalised_r
 assertNotIncludes(files.commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
 const personalisedSource = read(files.personalisedRoute);
-assertIncludes(files.personalisedRoute, "request_type: 'personalised_report_50000'", 'R50 endpoint persists controlled request type');
+assertIncludes(files.personalisedRoute, "const ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory endpoint persists the current controlled request type');
 assertIncludes(files.personalisedRoute, 'request_reference: makeRequestReference()', 'R50 endpoint generates public enquiry reference');
 assertIncludes(files.personalisedRoute, '.in(\'status\', ACTIVE_STATUSES)', 'R50 endpoint reuses active enquiries');
 assertIncludes(files.personalisedRoute, 'validateChoice', 'R50 endpoint validates choices');
 assertIncludes(files.personalisedRoute, 'validateFocusAreas', 'R50 endpoint validates focus areas');
 assertIncludes(files.personalisedRoute, '{ status: 400 }', 'R50 endpoint rejects invalid enum values with 400');
 assertIncludes(files.personalisedRoute, 'At least one approved focus area is required.', 'R50 endpoint requires a focus area');
-assertIncludes(files.personalisedRoute, 'selectActivePersonalisedRequest(db, input.assessment.id)', 'R50 endpoint recovers duplicate active request races');
-assertIncludes(files.personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'R50 endpoint tracks one specific high-value event after persistence');
-assertEqual(countOccurrences(personalisedSource, "eventType: 'personalised_report_50000_selected'"), 1, 'R50 endpoint tracks one specific event per persisted enquiry path');
+assertIncludes(files.personalisedRoute, 'selectActiveAdvisoryRequest(db, input.assessment.id)', 'Advisory endpoint recovers duplicate active request races');
+assertIncludes(files.personalisedRoute, "eventType: 'advisory_enquiry_submitted'", 'Advisory endpoint tracks one current enquiry event after persistence');
+assertEqual(countOccurrences(personalisedSource, "eventType: 'advisory_enquiry_submitted'"), 1, 'Advisory endpoint tracks one specific event per persisted enquiry path');
 assertNotIncludes(files.personalisedRoute, "eventType: 'report_option_selected'", 'R50 endpoint does not duplicate generic option analytics after persistence');
-assertIncludes(files.personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 endpoint queues high-priority notification after persistence');
-assertEqual(countOccurrences(personalisedSource, "notificationType: 'personalised_report_50000_selected'"), 1, 'R50 endpoint queues one specific notification per persisted enquiry path');
+assertIncludes(files.personalisedRoute, "notificationType: 'advisory_enquiry_submitted'", 'Advisory endpoint queues the internal notification after persistence');
+assertEqual(countOccurrences(personalisedSource, "notificationType: 'advisory_enquiry_submitted'"), 1, 'Advisory endpoint queues one specific notification per persisted enquiry path');
 assertIncludes(files.personalisedRoute, 'dataRequestId: result.request.id', 'R50 event and notification are linked to persisted data_request_id');
 assertIncludes(files.personalisedRoute, 'request_created: result.created', 'R50 repeat submissions enrich existing event metadata with create/update status');
 assertIncludes(files.personalisedRoute, 'payment_obligation: false', 'R50 endpoint records no payment obligation');
@@ -398,6 +414,18 @@ assertNotIncludes(files.personalisedRoute, 'renderHtmlToPdfBuffer', 'R50 endpoin
 assertNotIncludes(files.personalisedRoute, 'provider_message_id', 'R50 endpoint must not pretend notification delivery');
 assertNotIncludes(files.personalisedRoute, 'metadata: { notes', 'R50 event metadata must not include free-form notes');
 assertNotIncludes(files.personalisedRoute, 'metadata: { areasOfFocus', 'R50 event metadata must not include form answers');
+
+assertIncludes(files.advisoryMigration, 'data_requests_active_mk_advisory_uidx', 'Advisory migration adds the active-enquiry uniqueness guard');
+assertIncludes(files.advisoryMigration, "request_type = 'mk_advisory'", 'Advisory uniqueness guard is limited to current requests');
+assertIncludes(files.advisoryMigration, 'data_requests_advisory_reason_chk', 'Advisory migration constrains the primary reason');
+assertIncludes(files.advisoryMigration, 'data_requests_advisory_focus_areas_chk', 'Advisory migration constrains focus areas');
+assertIncludes(files.advisoryMigration, 'data_requests_advisory_contact_method_chk', 'Advisory migration constrains contact method');
+assertIncludes(files.advisoryMigration, 'data_requests_advisory_timeframe_chk', 'Advisory migration constrains timeframe');
+assertIncludes(files.advisoryMigration, 'data_requests_advisory_consent_chk', 'Advisory migration requires contact consent');
+assertIncludes(files.advisoryMigration, "'advisory_selected'", 'Advisory migration accepts the current selection event');
+assertIncludes(files.advisoryMigration, "'advisory_enquiry_submitted'", 'Advisory migration accepts the current enquiry event');
+assertNotIncludes(files.advisoryMigration, 'insert into public.orders', 'Advisory migration cannot create orders');
+assertNotIncludes(files.advisoryMigration, 'insert into public.reports', 'Advisory migration cannot create reports');
 
 assertIncludes(files.migration, 'add column if not exists request_reference text', 'Migration adds request reference');
 assertIncludes(files.migration, 'data_requests_request_reference_uidx', 'Migration adds unique request reference index');
@@ -412,7 +440,7 @@ assertNotIncludes(files.migration, 'methodology_versions', 'Migration must not t
 assertNotIncludes(files.migration, 'insert into public.orders', 'Migration must not create orders');
 assertNotIncludes(files.migration, 'insert into public.reports', 'Migration must not create reports');
 
-assertIncludes(files.adminShell, 'Personalised enquiries', 'Admin nav includes personalised enquiries');
+assertIncludes(files.adminShell, 'MK Advisory enquiries', 'Admin nav includes current MK Advisory enquiries');
 assertIncludes(files.adminList, 'requireAdmin', 'Admin enquiry list requires admin before read');
 assertSourceOrder(files.adminList, 'requireAdmin', 'getAdminPersonalisedEnquiryList', 'Admin list authenticates before service-role read');
 assertIncludes(files.adminDetail, 'requireAdmin', 'Admin enquiry detail requires admin before read');
@@ -421,7 +449,9 @@ assertIncludes(files.adminDetail, 'recordPersonalisedEnquiryOpened', 'Admin deta
 assertIncludes(files.adminDetail, 'No order, payment obligation or report is created automatically', 'Admin detail preserves R50 boundary');
 assertNotIncludes(files.adminDetail, 'Executive Fraud Readiness Advisory', 'Admin detail must not use rejected product name');
 assertIncludes(files.adminHelper, 'unstable_noStore', 'Admin enquiry reads are no-store');
-assertIncludes(files.adminHelper, "action: 'personalised_enquiry_opened'", 'Admin enquiry opened audit action exists');
+assertIncludes(files.adminHelper, "'personalised_enquiry_opened'", 'Admin enquiry opened audit action remains available for historical enquiries');
+assertIncludes(files.adminHelper, "action: enquiry.request_type === ADVISORY_REQUEST_TYPE ? 'advisory_enquiry_opened'", 'Admin enquiry audit labels current Advisory requests');
+assertIncludes(files.adminHelper, 'LEGACY_PERSONALISED_REQUEST_TYPE', 'Admin enquiry reader retains historical request type compatibility');
 
 assertIncludes(files.startForm, 'authorised to submit this information for the organisation', 'Start consent restored to approved authority confirmation');
 assertIncludes(files.startForm, 'benchmarking once sufficient data exists', 'Start research copy restored to approved wording');
@@ -433,7 +463,7 @@ assert(packageJson.scripts?.['phase13:test-conversion'] === 'node scripts/phase1
 assert(/^[^0-9]*15\./.test(String(packageJson.dependencies?.next ?? '')), 'Phase 13 conversion must keep the patched Next 15.x line.');
 assertIncludes(files.workflow, 'npm run phase13:test-conversion', 'V1 workflow runs Phase 13 conversion tests');
 
-const customerSources = [files.snapshot, files.snapshotPage].map(read).join('\n');
+const customerSources = [files.snapshot, files.snapshotPage, files.productChoice, files.advisoryPage, files.advisoryForm].map(read).join('\n');
 assert(!/PayFast|Stitch|card payment|proof upload|Download report|client portal|respondent dashboard|subscription|peer average|public benchmark|live AI|instant customer download|automated report release/i.test(customerSources), 'Customer-facing Phase 13 snapshot sources must stay inside no-go boundaries.');
 
 console.log('Phase 13 customer commercial conversion tests passed. Controller correction cases, deterministic commercial insight behavior, approved copy, token-scoped events, R5 manual EFT selection, R50 controlled enquiry flow, admin visibility, migration boundaries and no-go boundaries are covered.');

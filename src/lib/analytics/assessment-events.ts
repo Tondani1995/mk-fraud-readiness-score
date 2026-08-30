@@ -13,6 +13,8 @@ export const ASSESSMENT_EVENT_TYPES = [
   'personalised_report_50000_selected',
   'essential_selected',
   'comprehensive_selected',
+  'advisory_selected',
+  'advisory_enquiry_submitted',
   'comprehensive_order_created',
   'comprehensive_evidence_submitted',
   'comprehensive_review_signed_off',

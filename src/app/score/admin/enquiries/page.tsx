@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
-import { cleanEnquiryStatus, getAdminPersonalisedEnquiryList, labelForChoice } from '@/lib/admin/personalised-enquiries';
+import { cleanEnquiryStatus, enquiryTypeLabel, getAdminPersonalisedEnquiryList, labelForChoice } from '@/lib/admin/personalised-enquiries';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,8 +36,8 @@ export default async function AdminPersonalisedEnquiriesPage(props: { searchPara
       <div className="space-y-6">
         <PageHeader
           eyebrow="Commercial workflow"
-          title="Personalised enquiries"
-          description="Review high-value personalised report enquiries raised from private snapshot pages. These enquiries do not create payment obligations or reports automatically."
+          title="MK Advisory enquiries"
+          description="Review current MK Advisory requests and historical personalised report enquiries raised from private Snapshot pages. These enquiries do not create payment obligations or reports automatically."
         />
 
         <Card>
@@ -54,12 +54,13 @@ export default async function AdminPersonalisedEnquiriesPage(props: { searchPara
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-[0.18em] text-mk-muted">
-                  <tr><th className="py-2">Enquiry</th><th>Assessment</th><th>Organisation</th><th>Contact</th><th>Reason</th><th>Status</th><th>Updated</th><th></th></tr>
+                  <tr><th className="py-2">Enquiry</th><th>Path</th><th>Assessment</th><th>Organisation</th><th>Contact</th><th>Reason</th><th>Status</th><th>Updated</th><th></th></tr>
                 </thead>
                 <tbody className="divide-y divide-mk-line">
                   {enquiries.map((enquiry: any) => (
                     <tr key={enquiry.id}>
                       <td className="py-3 font-semibold text-mk-ink">{enquiry.request_reference ?? 'Pending reference'}</td>
+                      <td className="py-3"><Badge>{enquiryTypeLabel(enquiry.request_type)}</Badge></td>
                       <td className="py-3 text-mk-muted">{enquiry.assessments?.assessment_reference ?? 'Unlinked'}</td>
                       <td className="py-3 text-mk-muted">{organisationName(enquiry)}</td>
                       <td className="py-3 text-mk-muted">
@@ -79,7 +80,7 @@ export default async function AdminPersonalisedEnquiriesPage(props: { searchPara
                 </tbody>
               </table>
             </div>
-            {!enquiries.length ? <p className="text-sm leading-6 text-mk-muted">No personalised enquiries match the current filter.</p> : null}
+            {!enquiries.length ? <p className="text-sm leading-6 text-mk-muted">No MK Advisory or historical personalised enquiries match the current filter.</p> : null}
           </CardContent>
         </Card>
       </div>

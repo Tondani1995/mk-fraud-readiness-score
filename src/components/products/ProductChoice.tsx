@@ -64,8 +64,9 @@ export function ProductChoice({
 }) {
   const router = useRouter();
   const selectionSent = useRef<Set<SelfServicePaidTier>>(new Set());
-  const navigatingTierRef = useRef<SelfServicePaidTier | null>(null);
-  const [navigatingTier, setNavigatingTier] = useState<SelfServicePaidTier | null>(null);
+  const advisorySelectionSent = useRef(false);
+  const navigatingOptionRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
+  const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
 
   useEffect(() => {
     for (const tier of ['essential', 'comprehensive'] as SelfServicePaidTier[]) {
@@ -74,17 +75,21 @@ export function ProductChoice({
       if (snapshotToken) params.set('token', snapshotToken);
       router.prefetch(`${SCORE_BASE_PATH}/order/new?${params.toString()}`);
     }
+    const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
+    const advisoryParams = new URLSearchParams();
+    if (snapshotToken) advisoryParams.set('token', snapshotToken);
+    router.prefetch(`${SCORE_BASE_PATH}/advisory/${encodeURIComponent(snapshot.assessmentReference)}?${advisoryParams.toString()}`);
   }, [router, snapshot.assessmentReference, snapshotUrl]);
 
   function chooseTier(tier: SelfServicePaidTier) {
-    if (navigatingTierRef.current) return;
+    if (navigatingOptionRef.current) return;
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
     const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
     if (snapshotToken) params.set('token', snapshotToken);
     const destination = `${SCORE_BASE_PATH}/order/new?${params.toString()}`;
 
-    navigatingTierRef.current = tier;
-    setNavigatingTier(tier);
+    navigatingOptionRef.current = tier;
+    setNavigatingOption(tier);
     router.push(destination);
 
     if (snapshotToken && !selectionSent.current.has(tier)) {
@@ -98,6 +103,32 @@ export function ProductChoice({
         }).catch(() => null);
       void post('report_option_selected');
       void post(`${tier}_selected`);
+    }
+  }
+
+  function chooseAdvisory() {
+    if (navigatingOptionRef.current) return;
+    const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
+    const params = new URLSearchParams();
+    if (snapshotToken) params.set('token', snapshotToken);
+    const query = params.toString();
+    const destination = `${SCORE_BASE_PATH}/advisory/${encodeURIComponent(snapshot.assessmentReference)}${query ? `?${query}` : ''}`;
+
+    navigatingOptionRef.current = 'advisory';
+    setNavigatingOption('advisory');
+    router.push(destination);
+
+    if (snapshotToken && !advisorySelectionSent.current) {
+      advisorySelectionSent.current = true;
+      const post = (eventType: string) =>
+        fetch(`${SCORE_BASE_PATH}/api/assessments/${snapshot.assessmentReference}/commercial-event`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ snapshotToken, eventType, optionCode: 'advisory', sourceSection: 'next_step' }),
+          keepalive: true
+        }).catch(() => null);
+      void post('report_option_selected');
+      void post('advisory_selected');
     }
   }
 
@@ -132,11 +163,11 @@ export function ProductChoice({
                 key={tier}
                 tier={tier}
                 isBestFit={recommendation.recommendedTier === tier}
-                isNavigating={Boolean(navigatingTier)}
+                isNavigating={Boolean(navigatingOption)}
                 onChoose={() => chooseTier(tier)}
               />
             ))}
-            <AdvisoryCard />
+            <AdvisoryCard isNavigating={navigatingOption === 'advisory'} onChoose={chooseAdvisory} />
           </div>
         </div>
       </section>
@@ -191,7 +222,7 @@ function ProductCard({ tier, isBestFit, isNavigating, onChoose }: { tier: SelfSe
   );
 }
 
-function AdvisoryCard() {
+function AdvisoryCard({ isNavigating, onChoose }: { isNavigating: boolean; onChoose: () => void }) {
   return (
     <article id="advisory" aria-labelledby="advisory-name" className="flex h-full flex-col rounded-2xl bg-mk-navy p-5 text-white">
       <h3 id="advisory-name" className="text-[19px] font-semibold text-white md:text-xl">MK Advisory</h3>
@@ -206,12 +237,14 @@ function AdvisoryCard() {
           <dd className="mt-0.5 text-[12.5px] leading-6 text-white/[.82]">A conversation to define the work, scope, deliverables and fees with MK.</dd>
         </div>
       </dl>
-      <Link
-        href="/contact"
+      <button
+        type="button"
+        onClick={onChoose}
+        disabled={isNavigating}
         className="mt-4 flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-mk-navy"
       >
-        Talk to MK
-      </Link>
+        {isNavigating ? 'Opening…' : 'Talk to MK'}
+      </button>
     </article>
   );
 }

@@ -3,7 +3,7 @@ import type { FreeSnapshot, FreeSnapshotDomain } from '@/lib/snapshot/free-snaps
 /**
  * Commercial option codes recorded against assessment events.
  *
- * `essential` and `comprehensive` are the joint-launch codes and the only ones current code writes.
+ * `essential`, `comprehensive` and `advisory` are the current Snapshot choice codes.
  * `legacyFullReport` and `legacyPersonalisedReport` exist because assessment_events rows carrying
  * them already exist in Production and Staging; they are readable historical fact and must not be
  * rewritten, but nothing emits them any more. See
@@ -12,6 +12,7 @@ import type { FreeSnapshot, FreeSnapshotDomain } from '@/lib/snapshot/free-snaps
 export const COMMERCIAL_OPTION_CODES = {
   essential: 'essential',
   comprehensive: 'comprehensive',
+  advisory: 'advisory',
   legacyFullReport: 'full_report_5000',
   legacyPersonalisedReport: 'personalised_report_50000'
 } as const;
@@ -21,7 +22,8 @@ export type CommercialOptionCode = typeof COMMERCIAL_OPTION_CODES[keyof typeof C
 /** Option codes a current code path is permitted to write. */
 export const CURRENT_COMMERCIAL_OPTION_CODES = [
   COMMERCIAL_OPTION_CODES.essential,
-  COMMERCIAL_OPTION_CODES.comprehensive
+  COMMERCIAL_OPTION_CODES.comprehensive,
+  COMMERCIAL_OPTION_CODES.advisory
 ] as const;
 export type CommercialScoreBand = 'Reactive' | 'Developing' | 'Structured' | 'Strategic';
 

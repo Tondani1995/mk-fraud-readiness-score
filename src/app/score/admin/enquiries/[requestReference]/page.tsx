@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
-import { cleanEnquiryStatus, getAdminPersonalisedEnquiryDetail, labelForChoice, recordPersonalisedEnquiryOpened } from '@/lib/admin/personalised-enquiries';
+import { ADVISORY_REQUEST_TYPE, cleanEnquiryStatus, enquiryTypeLabel, getAdminPersonalisedEnquiryDetail, labelForChoice, recordPersonalisedEnquiryOpened } from '@/lib/admin/personalised-enquiries';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,14 +36,17 @@ export default async function AdminPersonalisedEnquiryDetailPage(props: { params
   const organisation = enquiry.organisations?.legal_name ?? enquiry.organisations?.trading_name ?? 'Organisation';
   const contactName = enquiry.respondents?.full_name ?? enquiry.requested_by_email ?? 'Respondent';
   const contactEmail = enquiry.respondents?.email ?? enquiry.requested_by_email ?? null;
+  const isAdvisory = enquiry.request_type === ADVISORY_REQUEST_TYPE;
 
   return (
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Personalised report enquiry"
+          eyebrow={isAdvisory ? 'MK Advisory enquiry' : 'Historical personalised report enquiry'}
           title={enquiry.request_reference}
-          description="Review the respondent context and follow-up preference for the high-value personalised report path. No order, payment obligation or report is created automatically."
+          description={isAdvisory
+            ? 'Review the Snapshot context and follow-up preference for this MK Advisory request. No order, payment obligation or report is created automatically.'
+            : 'Review the respondent context and follow-up preference for this historical personalised report enquiry. No order, payment obligation or report is created automatically.'}
         />
 
         <Card>
@@ -55,6 +58,7 @@ export default async function AdminPersonalisedEnquiryDetailPage(props: { params
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
             <Detail label="Assessment" value={enquiry.assessments?.assessment_reference} />
+            <Detail label="Path" value={enquiryTypeLabel(enquiry.request_type)} />
             <Detail label="Organisation" value={organisation} />
             <Detail label="Contact" value={contactName} />
             <Detail label="Email" value={contactEmail} />

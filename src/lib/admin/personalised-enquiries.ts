@@ -2,7 +2,8 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { AdminSession } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
-const PERSONALISED_REQUEST_TYPE = 'personalised_report_50000';
+export const ADVISORY_REQUEST_TYPE = 'mk_advisory' as const;
+export const LEGACY_PERSONALISED_REQUEST_TYPE = 'personalised_report_50000' as const;
 
 const CHOICE_LABELS: Record<string, string> = {
   understand_control_weaknesses: 'Understand current fraud-control weaknesses',
@@ -41,13 +42,17 @@ export function labelForChoice(value: string | null | undefined) {
   return CHOICE_LABELS[value] ?? value.replace(/_/g, ' ');
 }
 
+export function enquiryTypeLabel(requestType: string | null | undefined) {
+  return requestType === ADVISORY_REQUEST_TYPE ? 'MK Advisory' : 'Personalised report (historical)';
+}
+
 export async function getAdminPersonalisedEnquiryList(filters: { status?: string; search?: string } = {}) {
   noStore();
   const db = service();
   let query: any = db
     .from('data_requests')
-    .select('id,request_reference,status,primary_reason,preferred_contact_method,preferred_consultation_timeframe,areas_of_focus,requested_by_email,created_at,updated_at,assessments(assessment_reference,status),organisations(legal_name,trading_name),respondents(full_name,email)')
-    .eq('request_type', PERSONALISED_REQUEST_TYPE)
+    .select('id,request_reference,request_type,status,primary_reason,preferred_contact_method,preferred_consultation_timeframe,areas_of_focus,requested_by_email,created_at,updated_at,assessments(assessment_reference,status),organisations(legal_name,trading_name),respondents(full_name,email)')
+    .in('request_type', [ADVISORY_REQUEST_TYPE, LEGACY_PERSONALISED_REQUEST_TYPE])
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -71,8 +76,8 @@ export async function getAdminPersonalisedEnquiryDetail(requestReference: string
   const db = service();
   const { data, error } = await db
     .from('data_requests')
-    .select('id,request_reference,status,primary_reason,areas_of_focus,preferred_contact_method,preferred_consultation_timeframe,consent_contact,requested_by_email,notes,created_at,updated_at,assessment_id,organisation_id,respondent_id,assessments(assessment_reference,status,current_score_run_id,submitted_at),organisations(legal_name,trading_name),respondents(full_name,email)')
-    .eq('request_type', PERSONALISED_REQUEST_TYPE)
+    .select('id,request_reference,request_type,status,primary_reason,areas_of_focus,preferred_contact_method,preferred_consultation_timeframe,consent_contact,requested_by_email,notes,created_at,updated_at,assessment_id,organisation_id,respondent_id,assessments(assessment_reference,status,current_score_run_id,submitted_at),organisations(legal_name,trading_name),respondents(full_name,email)')
+    .in('request_type', [ADVISORY_REQUEST_TYPE, LEGACY_PERSONALISED_REQUEST_TYPE])
     .eq('request_reference', requestReference)
     .maybeSingle();
 
@@ -92,10 +97,10 @@ export async function recordPersonalisedEnquiryOpened(enquiry: any, admin: Admin
     assessment_id: enquiry.assessment_id ?? null,
     entity_table: 'data_requests',
     entity_id: enquiry.id,
-    action: 'personalised_enquiry_opened',
+    action: enquiry.request_type === ADVISORY_REQUEST_TYPE ? 'advisory_enquiry_opened' : 'personalised_enquiry_opened',
     after_json: {
       request_reference: enquiry.request_reference,
-      request_type: PERSONALISED_REQUEST_TYPE,
+      request_type: enquiry.request_type ?? LEGACY_PERSONALISED_REQUEST_TYPE,
       report_generation: false,
       order_created: false
     }

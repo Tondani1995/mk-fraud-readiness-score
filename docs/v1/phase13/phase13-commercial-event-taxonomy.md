@@ -22,6 +22,14 @@ This taxonomy is the foundation only. It does not introduce the customer-facing 
 - Fulfilment expectation: usually within 7 business days after scope and payment confirmation.
 - V1 boundary: not system-generated, no automatic order, no automatic payment obligation and no automated report release.
 
+### MK Advisory
+
+- Customer label: **MK Advisory**
+- Option code: `advisory`
+- Meaning: a short, result-linked request for a manually scoped conversation with MK Fraud Insights.
+- Fulfilment expectation: MK reviews the supplied context and follows up to agree scope, deliverables and fees.
+- V1 boundary: no automatic order, payment obligation, report, fulfilment or customer email.
+
 Use VAT-inclusive customer-facing pricing language throughout Phase 13. Do not hard-code VAT calculations unless a later pricing configuration explicitly supports them.
 
 ## Lead Stage Interpretation
@@ -32,6 +40,8 @@ Use VAT-inclusive customer-facing pricing language throughout Phase 13. Do not h
 | Warm lead | `report_options_opened` | The respondent has reviewed commercial next steps. |
 | Standard commercial report lead | `full_report_5000_selected` | The respondent selected the R5,000 report path. |
 | High-value personalised report lead | `personalised_report_50000_selected` | The respondent selected the R50,000+ personalised report path. |
+| Advisory interest | `advisory_selected` | The respondent opened the result-linked MK Advisory path. |
+| Advisory enquiry | `advisory_enquiry_submitted` | The respondent submitted a result-linked request for manual MK follow-up. |
 | High-intent payment lead | `eft_order_created` | A manual EFT order exists for the R5,000 report. |
 | Customer | `payment_marked_received` | MK manually confirmed payment. |
 | Fulfilled customer | `report_emailed_to_customer` | MK fulfilled the paid report by email. |
@@ -60,6 +70,10 @@ Repeated identical events update `last_seen_at` and increment `event_count`; the
 | `report_option_selected` | Future generic option selection event. | Yes | Later decision | Separate by `option_code`. Not wired in this PR. |
 | `full_report_5000_selected` | Future R5,000 report option is selected. | Yes: standard commercial report lead | Yes | Separate by `option_code = full_report_5000`. Not wired in this PR. |
 | `personalised_report_50000_selected` | Future R50,000+ personalised report option is selected. | Yes: high-value personalised report lead | Yes, high priority | Separate by `option_code = personalised_report_50000`. Not wired in this PR. |
+| `essential_selected` | Current Essential report option is selected from the private Snapshot. | Yes | Yes | Separate by `option_code = essential`. No order exists until the focused order flow is confirmed. |
+| `comprehensive_selected` | Current Comprehensive report option is selected from the private Snapshot. | Yes | Yes | Separate by `option_code = comprehensive`. No report or fulfilment is created by selection. |
+| `advisory_selected` | MK Advisory is selected from the private Snapshot. | Yes: Advisory interest | No | Separate by `option_code = advisory`. No enquiry is created on selection. |
+| `advisory_enquiry_submitted` | A result-linked MK Advisory enquiry is created or updated. | Yes: Advisory enquiry | Yes | Include `data_request_id` and the bounded follow-up context. |
 | `eft_order_created` | Manual EFT order is created or reused for the R5,000 report flow. | Yes: high-intent payment lead | Yes | Include `order_id` and `data_request_id`. |
 | `payment_marked_received` | Admin changes order status to `payment_received`. | Yes: customer | Optional | Include `order_id`. |
 | `report_generated` | Admin report generation succeeds. | Operational fulfilment | No | Include `report_id`. |
@@ -85,6 +99,7 @@ Expected notification behavior:
 - `report_options_opened`: queue once when the future options UI is opened.
 - `full_report_5000_selected`: queue once when the future R5,000 option is selected.
 - `personalised_report_50000_selected`: queue once, high priority, when the future R50,000+ personalised report option is selected.
+- `advisory_enquiry_submitted`: queue once for the active result-linked MK Advisory enquiry; repeated submissions update the existing queue item.
 - `eft_order_created`: queue once when the manual EFT order exists.
 
 If `MK_INTERNAL_LEADS_EMAIL` is not configured, the helper must return `skipped_no_recipient`. It must not pretend an email was sent.
@@ -114,5 +129,6 @@ Later Phase 13 PRs should add:
 - report-options UI
 - R5,000 report option selection
 - R50,000 personalised report lead request
+- current MK Advisory enquiry path with result-linked context and backward-compatible historical enquiry visibility
 - admin fulfilment controls for `report_emailed_to_customer`
 - real notification sending if a provider is approved
