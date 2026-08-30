@@ -164,11 +164,12 @@ assertNotIncludes(
 assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/answers`', 'Assessment autosave posts through score namespace');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/submit`', 'Assessment submit posts through score namespace');
-assertIncludes('src/components/assessment/FreeSnapshot.tsx', "const SCORE_BASE_PATH = '/score'", 'Snapshot defines the score base path');
-assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`)', 'Snapshot paid-order creation posts through score base path');
-assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Snapshot paid-order request remains scoped to the private snapshot token');
-assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`/api/assessments/${snapshot.assessmentReference}/paid-order`', 'Snapshot paid-order creation must not bypass the score namespace');
-assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`https://', 'Snapshot paid-order creation must not hardcode a host');
+assertIncludes('src/components/products/ProductChoice.tsx', "const SCORE_BASE_PATH = '/score'", 'Product choice defines the score base path');
+assertIncludes('src/components/products/ProductChoice.tsx', 'router.push(destination)', 'Product choice performs the focused customer transition');
+assertIncludes('src/components/products/ProductChoice.tsx', 'params.set(\'token\', snapshotToken)', 'Focused order transition remains scoped to the private Snapshot token');
+assertIncludes('src/components/commercial/OrderJourney.tsx', 'fetch(`${SCORE_BASE_PATH}/api/assessments/${assessmentReference}/paid-order`', 'Order journey posts paid-order creation through score base path');
+assertNotIncludes('src/components/commercial/OrderJourney.tsx', 'fetch(`/api/assessments/${assessmentReference}/paid-order`', 'Order journey must not bypass the score namespace');
+assertNotIncludes('src/components/commercial/OrderJourney.tsx', 'fetch(`https://', 'Order journey must not hardcode a host');
 assertIncludes('src/app/score/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');
@@ -187,8 +188,8 @@ assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'EXP-03', 'P
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'D1-Q01', 'Public assessment engine must not carry raw question codes');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'N/A rule:', 'Public N/A guidance must not expose rule labels');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '<Badge>Hard gate</Badge>', 'Public question cards must not expose hard-gate labels');
-assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', '{domain.domainCode} · {domain.domainName}', 'Public snapshot must not show domain codes');
-assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'hard-gate', 'Public snapshot must not expose hard-gate language');
+assertNotIncludes('src/components/assessment/SnapshotResult.tsx', '{domain.domainCode} · {domain.domainName}', 'Public snapshot must not show domain codes');
+assertNotIncludes('src/components/assessment/SnapshotResult.tsx', 'hard-gate', 'Public snapshot must not expose hard-gate language');
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'Complete EXP-', 'Respondent-facing applicability reason must not expose EXP labels');
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode', 'Respondent-facing applicability logic must not depend on question codes');
 
@@ -227,7 +228,9 @@ const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
   'src/components/assessment/StartAssessmentForm.tsx',
   'src/components/assessment/AssessmentEngine.tsx',
-  'src/components/assessment/FreeSnapshot.tsx',
+  'src/components/assessment/SnapshotResult.tsx',
+  'src/components/products/ProductChoice.tsx',
+  'src/components/commercial/OrderJourney.tsx',
   'src/lib/admin/assessment-review.ts',
   'src/lib/admin/dashboard.ts'
 ]).map(read).join('\n');
