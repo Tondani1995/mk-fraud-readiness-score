@@ -1559,6 +1559,15 @@
         "src/lib/comprehensive/artifact-service.ts"
       ],
       "justification": "Atomic release of the complete verified Comprehensive secondary-artifact set; it fails closed on missing human-review records, primary report integrity, or any missing artifact version."
+    },
+    {
+      "signature": "public.bootstrap_phase14_email_hmac_secrets(text, text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/phase14-email-hmac-bootstrap/route.ts:138"
+      ],
+      "classification": "ONE-TIME PRODUCTION-ONLY EMAIL HMAC BOOTSTRAP; service_role RPC execution only, exact two-key allow-list, fingerprint-only return, and no direct runtime-secret table grant"
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -1735,7 +1744,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "597451c8d82effb34f3a4aab62b9bef8d1b87b6fa615141c1de75d6280d729f8"
+    "fullAstInventorySha256": "377e191142969cb283a6449ca39d346f7092aeccfcf4f35b4d3b452b52776b6f"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
