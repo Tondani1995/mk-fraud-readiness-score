@@ -1735,7 +1735,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "ffbabeca31bf921d346818481b3ac0bec336a9e06b9c8df51236bddd3db6fb9c"
+    "fullAstInventorySha256": "597451c8d82effb34f3a4aab62b9bef8d1b87b6fa615141c1de75d6280d729f8"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -1781,6 +1781,54 @@
       "conclusion": "Operator-only audited activation authority; no application caller is represented or invented in the application RPC inventory."
     },
     "conclusion": "Hash drift is one reviewed SELECT call site to an existing manifested table. RC2 introduces no new table target, table write verb, DELETE capability, RPC caller, dynamic database target, Storage API caller or Auth Admin caller."
+  },
+  "currentCandidatePrivilegeReview": {
+    "reviewedAt": "2026-08-30",
+    "reviewedCommit": "4f9b9d107f20a65b6cd553b61626875a6a02e6ca",
+    "productionBaselineSourceCommit": "b0215c7efb2b487cbedc6157ef7421a1a23bd2db",
+    "productionBaselineInventorySha256": "404ef5cb9dd5f037dea997de9bfbeb25df556f7631dcd57b699f8dc933a203fd",
+    "candidateInventorySha256": "597451c8d82effb34f3a4aab62b9bef8d1b87b6fa615141c1de75d6280d729f8",
+    "productionBaselineAstCallSites": 521,
+    "candidateAstCallSites": 523,
+    "productionBaselineServiceRoleItems": 474,
+    "candidateServiceRoleItems": 476,
+    "approvedNewDirectTableCapability": {
+      "table": "public.free_snapshot_narratives",
+      "operations": ["SELECT", "INSERT", "UPDATE"],
+      "implementation": "existing idempotent upsert",
+      "source": "src/lib/snapshot/narrative-cache.ts",
+      "databaseGrantsVerified": ["service_role: SELECT, INSERT, UPDATE"],
+      "databaseGrantsForbidden": ["service_role: DELETE", "anon: SELECT", "authenticated: SELECT"],
+      "purpose": "validated Snapshot narrative cache keyed by assessment, score run, methodology and prompt"
+    },
+    "structuralDelta": {
+      "directServiceRoleTableTargetsAdded": ["public.free_snapshot_narratives"],
+      "newTableWriteVerbs": ["public.free_snapshot_narratives: INSERT", "public.free_snapshot_narratives: UPDATE"],
+      "deletedCapabilitiesAdded": [],
+      "existingTableVerbExpansions": [],
+      "dynamicDatabaseTargetsAdded": [],
+      "storageApiCallSitesAdded": [],
+      "authAdminApiCallSitesAdded": [],
+      "rpcTargetReplacement": {
+        "removedSourceTarget": "create_paid_order",
+        "addedSourceTarget": "create_paid_order_with_invoice",
+        "classification": "replacement of accepted order-path callers; no new live RPC authority",
+        "productionAuthority": "already-provisioned SECURITY INVOKER function with service_role EXECUTE"
+      },
+      "refactoredExistingCapabilities": ["public.data_requests"],
+      "lineOnlyOrComponentMovement": true
+    },
+    "approvedNegativeCapabilities": {
+      "delete": false,
+      "broaderTablePrivileges": false,
+      "anonAccess": false,
+      "authenticatedAccess": false,
+      "newRpcAuthority": false,
+      "newStorageAuthority": false,
+      "newAuthAdminAuthority": false
+    },
+    "ownerApproval": "Owner approved the bounded public.free_snapshot_narratives SELECT/INSERT/UPDATE capability on 2026-08-30.",
+    "conclusion": "No unapproved privilege expansion remains after explicit owner approval of the new Snapshot narrative-cache table capability. The reviewed candidate inventory is the authoritative contract hash."
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
