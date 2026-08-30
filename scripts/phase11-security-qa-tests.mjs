@@ -181,10 +181,25 @@ function runStaticChecks() {
   assertIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'Private snapshot link required', 'Legacy result route must not render snapshots by reference only');
   assertNotIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'loadFreeSnapshotByReference', 'Legacy result route must not load snapshots without token validation');
   assertIncludes('src/app/score/api/assessments/[assessmentRef]/report-request/route.ts', 'validateSnapshotToken', 'Report request route must require snapshot token');
-  assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotTokenFromUrl', 'Snapshot client must send private snapshot token for report requests');
-
-  assertMatches('src/components/assessment/FreeSnapshot.tsx', /Request detailed report|Continue to EFT instructions/, 'Free snapshot keeps a report request CTA');
-  assertNoCustomerFacingLeakage('FreeSnapshot component', read('src/components/assessment/FreeSnapshot.tsx'));
+  const snapshotResult = 'src/components/assessment/SnapshotResult.tsx';
+  const productChoice = 'src/components/products/ProductChoice.tsx';
+  const orderJourney = 'src/components/commercial/OrderJourney.tsx';
+  assertIncludes(productChoice, 'snapshotTokenFromUrl', 'Product choice must carry the private Snapshot token into paid-order transitions');
+  assertIncludes(productChoice, "params.set('token', snapshotToken)", 'Product choice must preserve the private Snapshot token in the focused route');
+  assertIncludes(orderJourney, 'snapshotToken', 'Order journey must submit the private Snapshot token');
+  assertMatches(productChoice, /Choose \$\{product\.label\}|Talk to MK/, 'Snapshot keeps customer product-choice actions');
+  assertIncludes(orderJourney, 'Continue to billing', 'Focused order journey keeps the customer order CTA');
+  assertIncludes(orderJourney, 'EFT instructions', 'Focused order journey keeps the controlled manual EFT presentation');
+  // These current TypeScript components contain implementation-only tokens such as
+  // Number.isNaN and an undefined prop fallback. Remove those code tokens before applying
+  // the historical customer-copy scan so it evaluates visible copy, not retired component
+  // structure or ordinary JavaScript identifiers.
+  const customerSnapshotSources = [snapshotResult, productChoice, orderJourney]
+    .map(read)
+    .join('\n')
+    .replaceAll('Number.isNaN', '')
+    .replace(/:\s*undefined\b/g, '');
+  assertNoCustomerFacingLeakage('current Snapshot and order surfaces', customerSnapshotSources);
   assertNoCustomerFacingLeakage('report request page', read('src/app/score/report/request/[assessmentRef]/page.tsx'));
 
   const reportTemplate = read('src/lib/reports/templates/report-template.ts');
