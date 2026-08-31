@@ -138,11 +138,6 @@ export default function Industries() {
             <div className="bg-white">
                 {/* HERO (dark) */}
                 <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="absolute inset-0">
-                        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                        <div className="absolute -right-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-[#1d3658]/25 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
 
                     <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         <div className="mx-auto max-w-3xl text-center">
@@ -157,7 +152,6 @@ export default function Industries() {
                                 Fraud risk does not follow{" "}
                                 <span className="relative inline-block">
                                     <span className="relative z-10 text-[#c8d6ff]">industry labels</span>
-                                    <span className="absolute -bottom-2 left-0 h-3 w-full bg-white/10 blur-sm" />
                                 </span>
                             </h1>
 
@@ -189,11 +183,6 @@ export default function Industries() {
 
                 {/* CONTENT (light) */}
                 <section className="relative overflow-hidden bg-white">
-                    <div className="absolute inset-0 -z-10">
-                        <div className="absolute -left-24 top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                        <div className="absolute -right-24 bottom-0 h-[560px] w-[560px] rounded-full bg-slate-900/5 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
 
                     <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24">
                         <div className="mx-auto mb-10 max-w-3xl text-center">
@@ -423,11 +412,6 @@ export default function Industries() {
 
                 {/* CTA (dark) */}
                 <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="absolute inset-0">
-                        <div className="absolute -left-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-white/5 blur-3xl" />
-                        <div className="absolute -right-24 -top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/20 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
 
                     <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
                         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">

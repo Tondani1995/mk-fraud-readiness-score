@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Wrapper from "@/components/website/Wrapper";
 import {
     FileText,
@@ -33,7 +34,7 @@ export default function TermsOfUse() {
             content: [
                 {
                     subtitle: "Agreement to Terms",
-                    text: "By accessing or using Mk Fraud Website, you agree to be bound by these Terms of Use and all applicable laws and regulations. If you do not agree with any part of these terms, you must not use our website or services.",
+                    text: "By accessing or using MK Fraud Insights, you agree to be bound by these Terms of Use and all applicable laws and regulations. If you do not agree with any part of these terms, you must not use our website or services.",
                 },
                 {
                     subtitle: "Capacity to Agree",
@@ -63,7 +64,7 @@ export default function TermsOfUse() {
             content: [
                 {
                     subtitle: "Ownership",
-                    text: "All content on this website, including text, graphics, logos, images, and software, is the property of Mk Fraud Website or its licensors and is protected by South African and international intellectual property laws. The Mk Fraud Website name, logo, and all related marks are trademarks owned by Mk Fraud Website.",
+                    text: "All content on this website, including text, graphics, logos, images, and software, is the property of MK Fraud Insights or its licensors and is protected by South African and international intellectual property laws. The MK Fraud Insights name, logo, and all related marks are trademarks owned by MK Fraud Insights.",
                 },
                 {
                     subtitle: "Limited Licence",
@@ -82,7 +83,7 @@ export default function TermsOfUse() {
                 },
                 {
                     subtitle: "Service Engagement",
-                    text: "Any formal engagement for fraud risk advisory services will be subject to a separate written agreement between you and Mk Fraud Website. Website content does not create a client relationship or any contractual obligations.",
+                    text: "Any formal engagement for fraud risk advisory services will be subject to a separate written agreement between you and MK Fraud Insights. Website content does not create a client relationship or any contractual obligations.",
                 },
                 {
                     subtitle: "Information Accuracy",
@@ -101,11 +102,11 @@ export default function TermsOfUse() {
                 },
                 {
                     subtitle: "No Warranties",
-                    text: "This website and all content are provided on an \"as is\" and \"as available\" basis. To the fullest extent permitted by law, Mk Fraud Website disclaims all warranties, express or implied, including warranties of merchantability, fitness for a particular purpose, and non-infringement.",
+                    text: "This website and all content are provided on an \"as is\" and \"as available\" basis. To the fullest extent permitted by law, MK Fraud Insights disclaims all warranties, express or implied, including warranties of merchantability, fitness for a particular purpose, and non-infringement.",
                 },
                 {
                     subtitle: "Limitation of Liability",
-                    text: "To the maximum extent permitted by South African law, Mk Fraud Website shall not be liable for any direct, indirect, incidental, consequential, or punitive damages arising from your use of or inability to use this website, even if we have been advised of the possibility of such damages. This includes but is not limited to loss of data, loss of profits, or business interruption.",
+                    text: "To the maximum extent permitted by South African law, MK Fraud Insights shall not be liable for any direct, indirect, incidental, consequential, or punitive damages arising from your use of or inability to use this website, even if we have been advised of the possibility of such damages. This includes but is not limited to loss of data, loss of profits, or business interruption.",
                 },
             ],
         },
@@ -127,7 +128,7 @@ export default function TermsOfUse() {
             content: [
                 {
                     subtitle: "Submitted Information",
-                    text: "Any information, feedback, or materials you submit through this website, including through contact forms or email, becomes the property of Mk Fraud Website. We may use such submissions for any purpose without compensation or attribution, subject to our Privacy Policy regarding personal information.",
+                    text: "Any information, feedback, or materials you submit through this website, including through contact forms or email, becomes the property of MK Fraud Insights. We may use such submissions for any purpose without compensation or attribution, subject to our Privacy Policy regarding personal information.",
                 },
                 {
                     subtitle: "Accuracy of Information",
@@ -142,7 +143,7 @@ export default function TermsOfUse() {
             content: [
                 {
                     subtitle: "Your Indemnity",
-                    text: "You agree to indemnify, defend, and hold harmless Mk Fraud Website, its directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from your use of this website, your violation of these Terms of Use, or your violation of any rights of another party.",
+                    text: "You agree to indemnify, defend, and hold harmless MK Fraud Insights, its directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from your use of this website, your violation of these Terms of Use, or your violation of any rights of another party.",
                 },
             ],
         },
@@ -179,11 +180,11 @@ export default function TermsOfUse() {
                 },
                 {
                     subtitle: "Entire Agreement",
-                    text: "These Terms of Use, together with our Privacy Policy, constitute the entire agreement between you and Mk Fraud Website regarding your use of this website and supersede all prior agreements and understandings.",
+                    text: "These Terms of Use, together with our Privacy Policy, constitute the entire agreement between you and MK Fraud Insights regarding your use of this website and supersede all prior agreements and understandings.",
                 },
                 {
                     subtitle: "No Waiver",
-                    text: "Our failure to enforce any right or provision of these Terms of Use shall not constitute a waiver of such right or provision. Any waiver must be in writing and signed by an authorised representative of Mk Fraud Website.",
+                    text: "Our failure to enforce any right or provision of these Terms of Use shall not constitute a waiver of such right or provision. Any waiver must be in writing and signed by an authorised representative of MK Fraud Insights.",
                 },
             ],
         },
@@ -194,12 +195,7 @@ export default function TermsOfUse() {
             <div className="bg-white">
                 {/* HERO (brand dark, softer typography) */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#001030] via-[#1d3658] to-[#0b1b33]">
-                    <div className="absolute inset-0">
-                        <div className="absolute left-0 top-0 h-[620px] w-[620px] rounded-full bg-white/10 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                    </div>
 
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:52px_52px]" />
 
                     <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         <div className="text-center">
@@ -229,16 +225,10 @@ export default function TermsOfUse() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-white/15" />
                 </section>
 
                 {/* CONTENT (light, brand accents) */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-white">
-                    <div className="absolute inset-0 -z-10">
-                        <div className="absolute left-0 top-0 h-[560px] w-[560px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[560px] w-[560px] rounded-full bg-[#001030]/6 blur-3xl" />
-                    </div>
-                    <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
 
                     <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         {/* Notice */}
@@ -258,10 +248,20 @@ export default function TermsOfUse() {
                                             our Privacy Policy. If you do not agree to these terms, please
                                             discontinue use of this website immediately.
                                         </p>
+                                        <p className="mt-4 leading-relaxed text-slate-700">
+                                            The Fraud Readiness Assessment and the Snapshot, Essential and
+                                            Comprehensive outputs prepared from it are governed by the{" "}
+                                            <Link
+                                                href="/fraud-readiness-assessment-terms"
+                                                className="font-semibold text-[#001030] underline decoration-[#1d3658] underline-offset-4 hover:text-[#1d3658]"
+                                            >
+                                                Fraud Readiness Assessment Terms
+                                            </Link>
+                                            , which take precedence over these Terms of Use for that purpose.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="h-1 w-full bg-[#1d3658]/15" />
                         </div>
 
                         {/* Accordion */}
@@ -344,7 +344,6 @@ export default function TermsOfUse() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-[#1d3658]/15" />
                 </section>
             </div>
         </Wrapper>

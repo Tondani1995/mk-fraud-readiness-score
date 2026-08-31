@@ -45,11 +45,6 @@ export default function HowWeWorkSection() {
 
     return (
         <section className="relative overflow-hidden bg-white">
-            <div className="absolute inset-0 -z-10">
-                <div className="absolute -left-24 top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                <div className="absolute -right-24 -top-24 h-[520px] w-[520px] rounded-full bg-slate-900/5 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-            </div>
 
             <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
                 <div className="mx-auto mb-14 max-w-3xl text-center">
@@ -83,10 +78,6 @@ export default function HowWeWorkSection() {
                                 onMouseLeave={() => setHoveredPrinciple(null)}
                             >
                                 <div
-                                    className={`absolute -inset-1 rounded-3xl bg-[#001030]/10 opacity-0 blur-xl transition-all duration-500 ${isHovered ? "opacity-100" : ""
-                                        }`}
-                                />
-                                <div
                                     className={`relative h-full overflow-hidden rounded-3xl border bg-white p-8 transition-all duration-500 ${isHovered
                                             ? "scale-[1.02] border-[#1d3658]/25 shadow-2xl"
                                             : "border-slate-200 shadow-xl"
@@ -100,10 +91,6 @@ export default function HowWeWorkSection() {
                                     <p className="mt-2 text-sm font-semibold text-slate-500">{principle.description}</p>
                                     <p className="mt-4 leading-relaxed text-slate-600">{principle.detail}</p>
 
-                                    <div
-                                        className={`absolute bottom-0 left-0 h-1 w-full bg-[#001030] transition-all duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                                            }`}
-                                    />
                                 </div>
                             </div>
                         );

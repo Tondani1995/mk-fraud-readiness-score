@@ -100,12 +100,6 @@ export default function EngagementOptionsSection() {
     return (
         <section className="relative overflow-hidden bg-white">
             {/* Light theme background texture (logo theme, no multi-color gradients) */}
-            <div className="absolute inset-0">
-                <div className="absolute -left-28 -top-28 h-[560px] w-[560px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                <div className="absolute -right-32 -bottom-32 h-[680px] w-[680px] rounded-full bg-[#1d3658]/6 blur-3xl" />
-                <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#001030]/5 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
-            </div>
 
             <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                 {/* Header */}
@@ -121,7 +115,6 @@ export default function EngagementOptionsSection() {
                         Choose your{" "}
                         <span className="relative inline-block">
                             <span className="relative z-10 text-[#1d3658]">starting point</span>
-                            <span className="absolute -bottom-2 left-0 h-3 w-full bg-[#1d3658]/10 blur-sm" />
                         </span>
                     </h2>
 
@@ -144,10 +137,6 @@ export default function EngagementOptionsSection() {
                                 onMouseEnter={() => setHoveredOption(index)}
                                 onMouseLeave={() => setHoveredOption(null)}
                             >
-                                <div
-                                    className={`absolute -inset-0.5 rounded-3xl bg-[#1d3658]/10 blur-2xl transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                                        }`}
-                                />
 
                                 <div
                                     className={`relative h-full overflow-hidden rounded-3xl border bg-white p-7 shadow-xl transition-all duration-500 sm:p-8 ${isHovered
@@ -249,10 +238,6 @@ export default function EngagementOptionsSection() {
                                             </span>
                                         </Button>
 
-                                        <div
-                                            className={`absolute bottom-0 left-0 h-[3px] w-full bg-[#1d3658]/20 transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                                                }`}
-                                        />
                                     </div>
                                 </div>
                             </div>
@@ -302,7 +287,6 @@ export default function EngagementOptionsSection() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 h-px w-full bg-slate-200" />
         </section>
     );
 }

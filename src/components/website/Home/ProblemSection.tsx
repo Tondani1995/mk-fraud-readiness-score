@@ -29,11 +29,6 @@ export default function ProblemSection() {
 
   return (
     <section className="relative overflow-hidden bg-white">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-        <div className="absolute -right-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-slate-900/5 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-      </div>
 
       <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
         <div className="mb-14 max-w-3xl">
@@ -48,7 +43,6 @@ export default function ProblemSection() {
             Fraud is already embedded in your{" "}
             <span className="relative inline-block">
               <span className="relative z-10 text-[#1d3658]">operating model</span>
-              <span className="absolute -bottom-2 left-0 h-3 w-full bg-[#1d3658]/15 blur-sm" />
             </span>
           </h2>
 
@@ -70,10 +64,6 @@ export default function ProblemSection() {
                 onMouseEnter={() => setHoveredCard(index)}
                 onMouseLeave={() => setHoveredCard(null)}
               >
-                <div
-                  className={`absolute -inset-0.5 rounded-3xl bg-[#1d3658]/15 blur-2xl transition-opacity duration-500 ${isHovered ? "opacity-60" : "opacity-0"
-                    }`}
-                />
 
                 <div
                   className={`relative h-full overflow-hidden rounded-3xl border bg-white p-8 shadow-lg transition-all duration-500 ${isHovered
@@ -107,15 +97,7 @@ export default function ProblemSection() {
                     <p className="leading-relaxed text-slate-600">{problem.description}</p>
                   </div>
 
-                  <div
-                    className={`absolute bottom-0 left-0 h-[3px] w-full bg-[#1d3658] transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                      }`}
-                  />
 
-                  <div
-                    className={`pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-[#1d3658]/10 blur-2xl transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                      }`}
-                  />
                 </div>
               </div>
             );

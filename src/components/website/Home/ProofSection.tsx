@@ -42,13 +42,7 @@ export default function ProofSection() {
 
   return (
     <section className="relative overflow-hidden bg-[#001030]">
-      <div className="absolute inset-0">
-        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-white/6 blur-3xl" />
-        <div className="absolute -right-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1d3658]/35 blur-3xl" />
-      </div>
 
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] bg-[size:44px_44px] opacity-25" />
 
       <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
         <div className="mb-16 max-w-3xl">
@@ -64,7 +58,6 @@ export default function ProofSection() {
             Built for{" "}
             <span className="relative inline-block">
               <span className="relative z-10 text-white">real-world</span>
-              <span className="absolute -bottom-2 left-0 h-3 w-full bg-white/12 blur-sm" />
             </span>{" "}
             fraud risk
           </h2>
@@ -105,10 +98,6 @@ export default function ProofSection() {
                 onMouseEnter={() => setHoveredCard(index)}
                 onMouseLeave={() => setHoveredCard(null)}
               >
-                <div
-                  className={`absolute -inset-0.5 rounded-3xl bg-white/10 blur-2xl transition-opacity duration-500 ${isHovered ? "opacity-70" : "opacity-0"
-                    }`}
-                />
 
                 <div
                   className={`relative h-full overflow-hidden rounded-3xl border bg-white/5 p-8 shadow-2xl backdrop-blur-xl transition-all duration-500 ${isHovered
@@ -134,10 +123,6 @@ export default function ProofSection() {
                         <Icon className="h-7 w-7 text-white" strokeWidth={2.5} />
                       </div>
 
-                      <div
-                        className={`h-16 w-16 rounded-full bg-white/10 blur-2xl transition-all duration-500 ${isHovered ? "scale-150 opacity-100" : "scale-0 opacity-0"
-                          }`}
-                      />
                     </div>
 
                     <h3 className="mb-3 text-2xl font-bold leading-tight text-white">{point.title}</h3>
@@ -175,10 +160,6 @@ export default function ProofSection() {
                     </Link>
                   </div>
 
-                  <div
-                    className={`pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-white/10 blur-3xl transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"
-                      }`}
-                  />
                 </div>
               </div>
             );

@@ -55,11 +55,6 @@ export default function ThreatIntelligenceSection() {
 
     return (
         <section id="threat-intelligence" className="relative overflow-hidden bg-white">
-            <div className="absolute inset-0">
-                <div className="absolute -left-40 top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/6 blur-3xl" />
-                <div className="absolute -right-44 bottom-24 h-[560px] w-[560px] rounded-full bg-blue-500/5 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a08_1px,transparent_1px),linear-gradient(to_bottom,#0f172a08_1px,transparent_1px)] bg-[size:56px_56px]" />
-            </div>
 
             <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                 <div className="mx-auto mb-12 max-w-4xl text-center">
@@ -106,7 +101,6 @@ export default function ThreatIntelligenceSection() {
                                         key={index}
                                         className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
                                     >
-                                        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#1d3658]/5 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
 
                                         <div className="flex items-start gap-4">
                                             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-[#1d3658]/15 bg-[#1d3658]/5">
@@ -154,7 +148,6 @@ export default function ThreatIntelligenceSection() {
                                     Threat-to-Fraud Diagnostic Sprint as a starting point.
                                 </div>
                             </div>
-                            <div className="h-1 w-full bg-[#1d3658]/20" />
                         </div>
                     </div>
 
@@ -262,7 +255,6 @@ export default function ThreatIntelligenceSection() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 h-px w-full bg-slate-200" />
         </section>
     );
 }

@@ -7,7 +7,6 @@ export default function FraudReadinessScorePage() {
     <Wrapper>
       <main className="bg-white">
         <section className="relative overflow-hidden bg-[#001030]">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] bg-[size:28px_28px] opacity-30" />
           <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-24">
             <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)] lg:items-center lg:gap-16">
               <div className="min-w-0 max-w-3xl">

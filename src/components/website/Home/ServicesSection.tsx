@@ -65,11 +65,6 @@ export default function ServicesSection() {
 
   return (
     <section className="relative overflow-hidden bg-zinc-50">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute -left-24 -top-24 h-[540px] w-[540px] rounded-full bg-[#1d3658]/10 blur-3xl" />
-        <div className="absolute -right-24 -bottom-24 h-[520px] w-[520px] rounded-full bg-slate-900/5 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-      </div>
 
       <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
         <div className="flex flex-col gap-8 border-b border-slate-200 pb-10 lg:flex-row lg:items-end lg:justify-between">
@@ -113,7 +108,6 @@ export default function ServicesSection() {
         </div>
 
         <div className="mt-10 relative">
-          <div className="absolute -inset-8 -z-10 rounded-3xl bg-[#1d3658]/12 blur-3xl" />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {services.map((service, index) => {
@@ -128,11 +122,6 @@ export default function ServicesSection() {
                   onMouseEnter={() => setHoveredCard(index)}
                   onMouseLeave={() => setHoveredCard(null)}
                 >
-                  <div
-                    className={`absolute -inset-0.5 rounded-3xl bg-[#1d3658]/20 blur-2xl transition-opacity duration-500 ${
-                      isHovered ? "opacity-70" : "opacity-0"
-                    }`}
-                  />
 
                   <div
                     className={`relative h-full overflow-hidden rounded-3xl border bg-white p-8 shadow-lg transition-all duration-500 ${
@@ -181,11 +170,6 @@ export default function ServicesSection() {
                       </div>
                     </div>
 
-                    <div
-                      className={`absolute bottom-0 left-0 h-[3px] w-full bg-[#1d3658] transition-opacity duration-500 ${
-                        isHovered || service.featured ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
                   </div>
                 </Link>
               );

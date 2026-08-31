@@ -64,11 +64,6 @@ export default function ServicesHero() {
     return (
         <section className="relative overflow-hidden bg-[#001030]">
             {/* subtle background texture */}
-            <div className="absolute inset-0">
-                <div className="absolute -left-32 -top-32 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                <div className="absolute -right-32 -bottom-32 h-[640px] w-[640px] rounded-full bg-[#1d3658]/25 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-            </div>
 
             <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                 <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-start">
@@ -87,7 +82,6 @@ export default function ServicesHero() {
                                 <span className="relative z-10 text-[#c8d6ff]">
                                     Structured Prevention
                                 </span>
-                                <span className="absolute -bottom-1 left-0 h-2 w-full bg-white/10 blur-sm" />
                             </span>
                         </h1>
 
@@ -162,7 +156,6 @@ export default function ServicesHero() {
 
                     {/* RIGHT PANEL */}
                     <div className="lg:col-span-6 relative" id="services">
-                        <div className="absolute -inset-6 rounded-3xl bg-white/5 blur-2xl" />
 
                         <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 p-7 backdrop-blur-xl lg:p-9">
                             <div className="mb-6 flex items-center justify-between">
@@ -216,7 +209,6 @@ export default function ServicesHero() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 h-px w-full bg-white/20" />
         </section>
     );
 }

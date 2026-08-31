@@ -7,7 +7,7 @@ const InsightSchema = new Schema(
         excerpt: { type: String, default: "", trim: true },
         content: { type: String, default: "", trim: true },
         tags: { type: [String], default: [] },
-        author: { type: String, default: "Mk Fraud Website", trim: true },
+        author: { type: String, default: "MK Fraud Insights", trim: true },
 
         status: {
             type: String,

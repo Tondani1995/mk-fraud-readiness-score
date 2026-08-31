@@ -30,7 +30,6 @@ export default function Footer() {
 
   return (
     <footer className="relative overflow-hidden bg-[#001030]">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:64px_64px]" />
       <div className="absolute inset-0 bg-[radial-gradient(900px_500px_at_18%_15%,#1d36581f,transparent_60%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(900px_500px_at_85%_85%,#ffffff10,transparent_65%)]" />
 

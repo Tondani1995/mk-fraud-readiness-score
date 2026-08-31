@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
                 },
                 {
                     subtitle: "Communication Records",
-                    text: "We maintain records of communications between you and Mk Fraud Website, including emails, form submissions, and consultation notes, to provide effective service and maintain accurate records of our engagement.",
+                    text: "We maintain records of communications between you and MK Fraud Insights, including emails, form submissions, and consultation notes, to provide effective service and maintain accurate records of our engagement.",
                 },
             ],
         },
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
             content: [
                 {
                     subtitle: "No Sale of Personal Information",
-                    text: "Mk Fraud Website does not sell, rent, or trade your personal information to third parties for marketing purposes.",
+                    text: "MK Fraud Insights does not sell, rent, or trade your personal information to third parties for marketing purposes.",
                 },
                 {
                     subtitle: "Service Providers",
@@ -162,12 +162,7 @@ export default function PrivacyPolicy() {
             <div className="bg-white">
                 {/* HERO */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#001030] via-[#1d3658] to-[#0b1b33]">
-                    <div className="absolute inset-0">
-                        <div className="absolute left-0 top-0 h-[620px] w-[620px] rounded-full bg-white/10 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                    </div>
 
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:52px_52px]" />
 
                     <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         <div className="text-center">
@@ -184,12 +179,11 @@ export default function PrivacyPolicy() {
                                     <span className="relative z-10 bg-gradient-to-r from-white via-white to-white bg-clip-text text-transparent">
                                         Policy
                                     </span>
-                                    <span className="absolute -bottom-2 left-0 h-4 w-full bg-white/20 blur-xl" />
                                 </span>
                             </h1>
 
                             <p className="mx-auto max-w-3xl leading-relaxed text-white/80">
-                                Mk Fraud Website is committed to protecting your privacy and handling
+                                MK Fraud Insights is committed to protecting your privacy and handling
                                 your personal information responsibly in accordance with the Protection
                                 of Personal Information Act (POPIA).
                             </p>
@@ -203,16 +197,10 @@ export default function PrivacyPolicy() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-white/15" />
                 </section>
 
                 {/* CONTENT */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-white">
-                    <div className="absolute inset-0 -z-10">
-                        <div className="absolute left-0 top-0 h-[560px] w-[560px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[560px] w-[560px] rounded-full bg-[#001030]/6 blur-3xl" />
-                    </div>
-                    <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
 
                     <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         {/* commitment card */}
@@ -227,7 +215,7 @@ export default function PrivacyPolicy() {
                                             Our Commitment to Your Privacy
                                         </h2>
                                         <p className="leading-relaxed text-slate-700">
-                                            This privacy policy explains how Mk Fraud Website collects, uses,
+                                            This privacy policy explains how MK Fraud Insights collects, uses,
                                             protects, and manages your personal information when you interact
                                             with our website or engage our services. We handle all personal
                                             information in accordance with POPIA and applicable data protection
@@ -236,7 +224,6 @@ export default function PrivacyPolicy() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="h-1 w-full bg-[#1d3658]/15" />
                         </div>
 
                         {/* accordion */}
@@ -334,7 +321,6 @@ export default function PrivacyPolicy() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-[#1d3658]/15" />
                 </section>
             </div>
         </Wrapper>

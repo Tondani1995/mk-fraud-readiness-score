@@ -6,6 +6,7 @@ export const revalidate = 3600;
 
 const staticRoutes: MetadataRoute.Sitemap = [
   { url: SITE_URL, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
+  { url: absoluteUrl("/fraud-readiness"), lastModified: new Date(), changeFrequency: "weekly", priority: 0.95 },
   { url: absoluteUrl("/fraud-readiness-score"), lastModified: new Date(), changeFrequency: "weekly", priority: 0.95 },
   { url: absoluteUrl("/services"), lastModified: new Date(), changeFrequency: "monthly", priority: 0.9 },
   { url: absoluteUrl("/insights"), lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
@@ -14,6 +15,7 @@ const staticRoutes: MetadataRoute.Sitemap = [
   { url: absoluteUrl("/contact"), lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
   { url: absoluteUrl("/privacy-policy"), lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
   { url: absoluteUrl("/terms-of-use"), lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
+  { url: absoluteUrl("/fraud-readiness-assessment-terms"), lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
 ];
 
 function dateOrNow(value?: string) {

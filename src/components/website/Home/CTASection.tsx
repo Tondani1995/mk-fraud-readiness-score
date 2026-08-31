@@ -35,11 +35,6 @@ export default function CTASection() {
 
   return (
     <section className="relative overflow-hidden bg-white">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/10 blur-3xl" />
-        <div className="absolute -right-28 -bottom-28 h-[600px] w-[600px] rounded-full bg-slate-900/5 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-      </div>
 
       <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
         <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl">
@@ -159,7 +154,6 @@ export default function CTASection() {
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 h-[3px] w-full bg-[#1d3658] opacity-35" />
         </div>
       </div>
     </section>

@@ -177,11 +177,6 @@ export default function NewInsightPage() {
         <Wrapper>
             <main className="bg-white">
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#001030] via-[#1d3658] to-[#0b1b33]">
-                    <div className="absolute inset-0">
-                        <div className="absolute left-0 top-0 h-[520px] w-[520px] rounded-full bg-white/10 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                    </div>
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:52px_52px]" />
 
                     <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8">
                         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -208,14 +203,10 @@ export default function NewInsightPage() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-white/15" />
                 </section>
 
                 <section className="relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-white">
                     <div className="pointer-events-none absolute inset-0 -z-10">
-                        <div className="absolute left-0 top-10 h-[520px] w-[520px] rounded-full bg-[#1d3658]/8 blur-3xl" />
-                        <div className="absolute right-0 bottom-0 h-[560px] w-[560px] rounded-full bg-[#001030]/6 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
                     </div>
 
                     <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8 lg:py-12">
@@ -394,7 +385,6 @@ export default function NewInsightPage() {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-px w-full bg-[#1d3658]/15" />
                 </section>
             </main>
         </Wrapper>

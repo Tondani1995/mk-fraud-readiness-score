@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { NextStepRecommendation } from '@/lib/snapshot/next-step-recommendation';
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
+import { readProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
 
 /** The conversion moment: three equally visible choices with a deterministic recommendation. */
 
@@ -67,6 +68,16 @@ export function ProductChoice({
   const advisorySelectionSent = useRef(false);
   const navigatingOptionRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
   const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
+  const [earlierIntent, setEarlierIntent] = useState<ProductIntent | null>(null);
+
+  /**
+   * A tier the customer chose on the storefront before starting the assessment. It is read after
+   * mount because it lives in browser storage, and it only ever marks a card — the deterministic
+   * best-fit recommendation is unaffected, and every option stays freely choosable.
+   */
+  useEffect(() => {
+    setEarlierIntent(readProductIntent(snapshot.assessmentReference));
+  }, [snapshot.assessmentReference]);
 
   useEffect(() => {
     for (const tier of ['essential', 'comprehensive'] as SelfServicePaidTier[]) {
@@ -163,6 +174,7 @@ export function ProductChoice({
                 key={tier}
                 tier={tier}
                 isBestFit={recommendation.recommendedTier === tier}
+                isEarlierSelection={earlierIntent === tier}
                 isNavigating={Boolean(navigatingOption)}
                 onChoose={() => chooseTier(tier)}
               />
@@ -175,7 +187,7 @@ export function ProductChoice({
   );
 }
 
-function ProductCard({ tier, isBestFit, isNavigating, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; isNavigating: boolean; onChoose: () => void }) {
+function ProductCard({ tier, isBestFit, isEarlierSelection, isNavigating, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; isEarlierSelection: boolean; isNavigating: boolean; onChoose: () => void }) {
   const product = COMMERCIAL_CATALOGUE[tier];
   const card = CARDS[tier];
   // Price is read from the catalogue at render time. No price literal exists in this component.
@@ -184,11 +196,17 @@ function ProductCard({ tier, isBestFit, isNavigating, onChoose }: { tier: SelfSe
   return (
     <article
       aria-labelledby={`${tier}-name`}
-      className={`flex h-full flex-col rounded-2xl bg-mk-paper p-5 ${isBestFit ? 'border-2 border-mk-accent' : 'border border-mk-line'}`}
+      data-earlier-selection={isEarlierSelection ? 'true' : undefined}
+      className={`flex h-full flex-col rounded-2xl bg-mk-paper p-5 ${isBestFit || isEarlierSelection ? 'border-2 border-mk-accent' : 'border border-mk-line'}`}
     >
       {isBestFit ? (
         <p className="mb-2.5 inline-block rounded-[3px] bg-mk-accent px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.13em] text-white">
           Best fit for your result
+        </p>
+      ) : null}
+      {isEarlierSelection ? (
+        <p className="mb-2.5 inline-block rounded-[3px] border border-mk-accent/40 px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.13em] text-mk-accent">
+          You selected this earlier
         </p>
       ) : null}
       <h3 id={`${tier}-name`} className="text-[19px] font-semibold text-mk-navy md:text-xl">{product.label}</h3>

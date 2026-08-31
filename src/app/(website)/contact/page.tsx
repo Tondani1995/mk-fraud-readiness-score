@@ -11,7 +11,8 @@ import {
   MapPin,
   Phone,
 } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/website/ui/button";
 import Wrapper from "@/components/website/Wrapper";
 import Link from "next/link";
@@ -20,7 +21,20 @@ import { LINKEDIN_URL } from "@/lib/website/site";
 
 const CALENDLY_URL = "https://calendly.com/mkfraud/30min?embed_domain=mkfraud.co.za&embed_type=Inline";
 
+/**
+ * `useSearchParams` forces this subtree to render on the client, so it is isolated behind its own
+ * Suspense boundary rather than allowed to opt the whole page out of static rendering.
+ */
 export default function ContactUs() {
+  return (
+    <Suspense fallback={null}>
+      <ContactUsForm />
+    </Suspense>
+  );
+}
+
+function ContactUsForm() {
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,6 +46,16 @@ export default function ContactUs() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  /**
+   * Preselect the enquiry category when a prospect arrives from the Fraud Readiness storefront's
+   * Advisory call to action. Only the one known value is honoured; any other query value leaves the
+   * select untouched, so the URL cannot inject an arbitrary option.
+   */
+  useEffect(() => {
+    if (searchParams.get("enquiry") !== "mk-advisory") return;
+    setFormData((current) => (current.service ? current : { ...current, service: "mk-advisory" }));
+  }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -127,11 +151,6 @@ export default function ContactUs() {
   return (
     <Wrapper>
       <section className="relative overflow-hidden bg-white">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/10 blur-3xl" />
-          <div className="absolute -right-28 -bottom-28 h-[620px] w-[620px] rounded-full bg-slate-900/5 blur-3xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
-        </div>
 
         <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
           <div className="mx-auto max-w-3xl text-center">
@@ -146,7 +165,6 @@ export default function ContactUs() {
               Let&apos;s discuss your{" "}
               <span className="relative inline-block">
                 <span className="relative z-10 text-[#1d3658]">fraud strategy</span>
-                <span className="absolute -bottom-2 left-0 h-3 w-full bg-[#1d3658]/15 blur-sm" />
               </span>
             </h1>
 
@@ -278,6 +296,7 @@ export default function ContactUs() {
                           className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
                         >
                           <option value="">Select a service</option>
+                          <option value="mk-advisory">MK Advisory Engagement</option>
                           <option value="fraud-health-check">Fraud Health Check</option>
                           <option value="threat-intelligence">Threat Intelligence for Fraud</option>
                           <option value="programme-design">Fraud Programme Design</option>

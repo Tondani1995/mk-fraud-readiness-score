@@ -206,6 +206,7 @@
     "v11:comprehensive-interpretation-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-interpretation-gate.mjs",
     "v11:essential-slot-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-slot-ownership-gate.mjs",
     "v11:sustainment-semantic-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/sustainment-semantic-gate.mjs",
+    "cx:test-fraud-readiness-experience": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/cx-fraud-readiness-commercial-experience-tests.mjs",
     "v11:storefront-contract-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/storefront-contract-gate.mjs",
     "v11:comprehensive-presentation-semantics-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-presentation-semantics-gate.mjs",
     "v11:comprehensive-programme-taxonomy-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-programme-taxonomy-gate.mjs",

@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { REQUIRED_LEGAL_ACCEPTANCE } from '@/lib/legal/fraud-readiness-terms';
+import { rememberProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
 
-export function AdaptiveStartForm() {
+export function AdaptiveStartForm({ productIntent = null }: { productIntent?: ProductIntent | null }) {
   const [form, setForm] = useState({ fullName: '', email: '', organisationName: '', roleTitle: '', consentPrivacy: false, consentResearch: false });
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -11,9 +13,18 @@ export function AdaptiveStartForm() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setErrors([]);
-    const response = await fetch('/score/api/adaptive/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, consentResearch: Boolean(form.consentResearch) }) });
+    const response = await fetch('/score/api/adaptive/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // The accepted versions travel with the request. The server re-checks them against the
+      // versions in force and takes its own timestamps; nothing here is trusted as evidence.
+      body: JSON.stringify({ ...form, consentResearch: Boolean(form.consentResearch), legalAcceptance: REQUIRED_LEGAL_ACCEPTANCE })
+    });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) { setErrors(body.errors ?? ['We could not start your assessment right now. Please try again. If the problem continues, contact hello@mkfraud.co.za.']); setBusy(false); return; }
+    // Intent is remembered only once the assessment exists, and only as a browser-local preference
+    // so the Snapshot selector can open on the tier the customer arrived with.
+    rememberProductIntent(body.data?.assessmentReference ?? '', productIntent);
     window.location.assign(body.data.resumeUrl);
   }
 
@@ -25,8 +36,8 @@ export function AdaptiveStartForm() {
     </div>
     <label className="block text-sm font-medium text-mk-ink">Organisation name<input name="organisationName" autoComplete="organization" required value={form.organisationName} onChange={(event) => update('organisationName', event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4" /></label>
     <label className="block text-sm font-medium text-mk-ink">Role (optional)<input name="roleTitle" autoComplete="organization-title" value={form.roleTitle} onChange={(event) => update('roleTitle', event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4" /></label>
-    <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentPrivacy" required type="checkbox" checked={form.consentPrivacy} onChange={(event) => update('consentPrivacy', event.target.checked)} className="mt-1 h-4 w-4" />I agree to the privacy notice and understand this is a readiness self-assessment.</label>
-    <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentResearch" type="checkbox" checked={form.consentResearch} onChange={(event) => update('consentResearch', event.target.checked)} className="mt-1 h-4 w-4" />I am happy for anonymised assessment information to support product improvement.</label>
+    <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentPrivacy" required type="checkbox" checked={form.consentPrivacy} onChange={(event) => update('consentPrivacy', event.target.checked)} className="mt-1 h-4 w-4" />I confirm I am authorised to provide this information on behalf of the organisation.</label>
+    <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentResearch" type="checkbox" checked={form.consentResearch} onChange={(event) => update('consentResearch', event.target.checked)} className="mt-1 h-4 w-4" />Optional: I am happy for anonymised assessment information to support product improvement.</label>
     <Button type="submit" disabled={busy}>{busy ? 'Starting…' : 'Start assessment'}</Button>
   </form>;
 }

@@ -25,7 +25,6 @@ export default function FraudReadinessScoreSection() {
 
   return (
     <section id="readiness-score" className="relative overflow-hidden bg-[#001030]">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] bg-[size:32px_32px] opacity-25" />
       <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-6">

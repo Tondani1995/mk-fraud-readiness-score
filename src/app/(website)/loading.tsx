@@ -11,11 +11,6 @@ export default function Loading() {
           }
         }
       `}</style>
-      <div className="absolute inset-0">
-        <div className="absolute left-[-8%] top-[-12%] h-72 w-72 rounded-full bg-white/8 blur-3xl" />
-        <div className="absolute bottom-[-10%] right-[-6%] h-80 w-80 rounded-full bg-[#1d3658]/30 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] bg-[size:48px_48px]" />
-      </div>
 
       <div
         role="status"

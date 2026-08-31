@@ -17,11 +17,6 @@ export default function About() {
         <Wrapper>
             <main className="bg-white">
                 <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="absolute inset-0">
-                        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                        <div className="absolute -right-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-[#1d3658]/25 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
 
                     <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
                         <div className="mx-auto max-w-3xl text-center">

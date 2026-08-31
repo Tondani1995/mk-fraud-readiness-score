@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { startAdaptiveAssessment, saveAdaptiveAssessmentState, getAdaptiveAssessmentState, submitAdaptiveAssessment } from '../../src/lib/adaptive/server.ts';
+import { REQUIRED_LEGAL_ACCEPTANCE } from '../../src/lib/legal/fraud-readiness-terms.ts';
 
 const MODE = process.argv[2];
 const PERSONA_FILE = process.env.PERSONA_FILE ?? 'outputs/product-owner-acceptance/personas.json';
@@ -45,7 +46,8 @@ async function start(personaId) {
     employeeBand: persona.organisation.employeeBand,
     annualRevenueBand: persona.organisation.annualRevenueBand,
     consentPrivacy: true,
-    consentResearch: false
+    consentResearch: false,
+    legalAcceptance: REQUIRED_LEGAL_ACCEPTANCE
   }, 'http://localhost:3000');
   const token = new URL(result.resumeUrl).searchParams.get('token');
   state[personaId] = { ...result, token, personaId, stage: 'started' };

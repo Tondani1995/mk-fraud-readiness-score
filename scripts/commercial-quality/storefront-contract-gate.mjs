@@ -42,6 +42,12 @@ const SURFACES = [
   'src/lib/commercial/product-catalogue.ts',
   'src/app/score/snapshot/[assessmentRef]/page.tsx',
   'src/app/score/start/page.tsx',
+  // The public storefront reached before an assessment exists. It sells the same three products,
+  // so it is policed by the same contract as the in-journey surfaces.
+  'src/app/(website)/fraud-readiness/page.tsx',
+  'src/components/website/FraudReadiness/FraudReadinessOptions.tsx',
+  'src/components/website/FraudReadiness/FraudReadinessComparison.tsx',
+  'src/lib/commercial/storefront-presentation.ts',
   'src/app/score/order/[assessmentRef]/page.tsx',
   'src/components/comprehensive/CustomerOrderStatusWorkspace.tsx'
 ];

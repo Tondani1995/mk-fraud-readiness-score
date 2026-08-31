@@ -51,9 +51,6 @@ export default function LoginClient() {
     return (
         <main className="min-h-[calc(100vh-0px)] bg-gradient-to-br from-slate-50 via-white to-slate-50">
             <div className="pointer-events-none fixed inset-0 -z-10">
-                <div className="absolute left-0 top-0 h-[520px] w-[520px] rounded-full bg-[#1d3658]/10 blur-3xl" />
-                <div className="absolute right-0 bottom-0 h-[560px] w-[560px] rounded-full bg-[#001030]/8 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
             </div>
 
             <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-16 lg:px-8">

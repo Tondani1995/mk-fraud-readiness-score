@@ -2,7 +2,15 @@ import { createAssessmentReference } from '@/lib/respondent/reference';
 import { createResumeTokenPayload } from '@/lib/respondent/tokens';
 import { hashAssessmentToken } from '@/lib/security/hash';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { parseStartAssessmentInput, type StartAssessmentInput } from '@/lib/respondent/validation';
+import {
+  parseAdaptiveStartAssessmentInput,
+  type AdaptiveStartAssessmentInput
+} from '@/lib/respondent/validation';
+import {
+  buildLegalAcceptanceRecord,
+  isCurrentLegalAcceptance,
+  TERMS_ACCEPTANCE_ERROR
+} from '@/lib/legal/fraud-readiness-terms';
 import {
   deriveAdaptiveIntegritySignals,
   previewGatewayChange,
@@ -398,7 +406,14 @@ function publicState(input: Awaited<ReturnType<typeof loadState>>) {
   };
 }
 
-export async function startAdaptiveAssessment(input: StartAssessmentInput, appBaseUrl: string) {
+export async function startAdaptiveAssessment(input: AdaptiveStartAssessmentInput, appBaseUrl: string) {
+  /**
+   * Re-checked here rather than trusted from the route. This function is the only way an adaptive
+   * assessment row is created, so the acceptance check belongs at the same boundary as the write —
+   * a future caller cannot reach the insert by skipping the route's parser.
+   */
+  if (!isCurrentLegalAcceptance(input.legalAcceptance)) throw new Error(TERMS_ACCEPTANCE_ERROR);
+  const legalAcceptance = buildLegalAcceptanceRecord();
   const { graph, graphRow } = await loadConfiguredAdaptiveGraph();
   const db = createSupabaseServiceClient() as any;
   const created: { organisationId?: string; respondentId?: string; assessmentId?: string } = {};
@@ -419,8 +434,10 @@ export async function startAdaptiveAssessment(input: StartAssessmentInput, appBa
     const { data: assessment, error: assessmentError } = await db.from('assessments').insert({
       assessment_reference: createAssessmentReference(), organisation_id: organisation.id, primary_respondent_id: respondent.id,
       methodology_version_id: graphRow.methodology_version_id, status: 'draft', assessment_mode: 'adaptive', graph_version_id: graphRow.id,
-      graph_version_snapshot: graphRow.graph_version, graph_fingerprint_snapshot: graphRow.graph_fingerprint
-    }).select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at').single();
+      graph_version_snapshot: graphRow.graph_version, graph_fingerprint_snapshot: graphRow.graph_fingerprint,
+      terms_version: legalAcceptance.termsVersion, terms_accepted_at: legalAcceptance.termsAcceptedAt,
+      privacy_notice_version: legalAcceptance.privacyNoticeVersion, privacy_acknowledged_at: legalAcceptance.privacyAcknowledgedAt
+    }).select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,terms_version,terms_accepted_at,privacy_notice_version,privacy_acknowledged_at').single();
     if (assessmentError) throw assessmentError;
     created.assessmentId = assessment.id;
     const { error: navigationError } = await db.from('assessment_navigation_states').insert({ assessment_id: assessment.id, graph_version_id: graphRow.id, current_screen: 'gateway', current_question_id: graph.gateways[0]?.questionId ?? null });
@@ -430,7 +447,21 @@ export async function startAdaptiveAssessment(input: StartAssessmentInput, appBa
     if (tokenError) throw tokenError;
     const resumeUrl = new URL(`/score/adaptive/${assessment.assessment_reference}`, appBaseUrl);
     resumeUrl.searchParams.set('token', token.rawToken);
-    return { assessmentId: assessment.id, assessmentReference: assessment.assessment_reference, resumeUrl: resumeUrl.toString(), resumeTokenExpiresAt: token.expiresAt, graphVersion: graph.graphVersion, graphFingerprint: graph.graphFingerprint };
+    return {
+      assessmentId: assessment.id,
+      assessmentReference: assessment.assessment_reference,
+      resumeUrl: resumeUrl.toString(),
+      resumeTokenExpiresAt: token.expiresAt,
+      graphVersion: graph.graphVersion,
+      graphFingerprint: graph.graphFingerprint,
+      /** Echoed back so the persisted acceptance can be asserted without a second read. */
+      legalAcceptance: {
+        termsVersion: assessment.terms_version,
+        termsAcceptedAt: assessment.terms_accepted_at,
+        privacyNoticeVersion: assessment.privacy_notice_version,
+        privacyAcknowledgedAt: assessment.privacy_acknowledged_at
+      }
+    };
   } catch (error) {
     if (created.assessmentId) await db.from('assessments').delete().eq('id', created.assessmentId);
     if (created.respondentId) await db.from('respondents').delete().eq('id', created.respondentId);
@@ -524,5 +555,5 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
 }
 
 export function parseAdaptiveStartInput(body: unknown) {
-  return parseStartAssessmentInput(body);
+  return parseAdaptiveStartAssessmentInput(body);
 }

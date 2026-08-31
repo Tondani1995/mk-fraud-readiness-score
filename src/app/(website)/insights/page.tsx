@@ -105,11 +105,6 @@ export default function Insights() {
         <Wrapper>
             <div className="bg-white">
                 <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="absolute inset-0">
-                        <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-                        <div className="absolute -right-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-[#1d3658]/20 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
 
                     <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
                         <div className="mx-auto max-w-3xl text-center">
@@ -124,7 +119,6 @@ export default function Insights() {
                                 Fraud Risk{" "}
                                 <span className="relative inline-block">
                                     <span className="relative z-10 text-[#c8d6ff]">Insights</span>
-                                    <span className="absolute -bottom-2 left-0 h-3 w-full bg-white/10 blur-sm" />
                                 </span>
                             </h1>
 
@@ -158,7 +152,6 @@ export default function Insights() {
                     <div className="mx-auto max-w-7xl px-6 lg:px-8">
                         <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white">
                             <div className="absolute inset-0 bg-[radial-gradient(900px_500px_at_18%_20%,rgba(29,54,88,0.10),transparent_60%)]" />
-                            <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b12240a_1px,transparent_1px),linear-gradient(to_bottom,#0b12240a_1px,transparent_1px)] bg-[size:56px_56px]" />
 
                             <div className="relative grid grid-cols-1 gap-10 p-8 lg:grid-cols-12 lg:gap-12 lg:p-12">
                                 <div className="lg:col-span-7">
@@ -268,13 +261,7 @@ export default function Insights() {
 
                 <LatestInsightsSection />
 
-                <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="absolute inset-0">
-                        {/* <div className="absolute -left-28 -bottom-28 h-[640px] w-[640px] rounded-full bg-white/5 blur-3xl" /> */}
-                        <div className="absolute -right-24 -top-24 h-[520px] w-[520px] rounded-full bg-[#1d3658]/20 blur-3xl" />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:56px_56px]" />
-                    </div>
-
+                <section className="bg-[#001030]">
                     <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
                         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
                             <div className="lg:col-span-7">

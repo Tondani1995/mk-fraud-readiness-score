@@ -72,11 +72,6 @@ export default function FraudAwarenessTrainingSection() {
             className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50"
         >
             {/* soft background (logo theme only) */}
-            <div className="absolute inset-0 -z-10">
-                <div className="absolute left-0 top-0 h-[520px] w-[520px] rounded-full bg-[#1d3658]/10 blur-3xl" />
-                <div className="absolute right-0 bottom-0 h-[560px] w-[560px] rounded-full bg-[#001030]/8 blur-3xl" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0b122005_1px,transparent_1px),linear-gradient(to_bottom,#0b122005_1px,transparent_1px)] bg-[size:44px_44px]" />
-            </div>
 
             <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                 {/* header */}
@@ -92,7 +87,6 @@ export default function FraudAwarenessTrainingSection() {
                         Fraud Awareness &{" "}
                         <span className="relative inline-block">
                             <span className="relative z-10 text-[#1d3658]">Training</span>
-                            <span className="absolute -bottom-2 left-0 h-3 w-full bg-[#1d3658]/10 blur-sm" />
                         </span>
                     </h2>
 
@@ -147,7 +141,6 @@ export default function FraudAwarenessTrainingSection() {
                                     key={index}
                                     className="group relative overflow-hidden rounded-3xl border-2 border-slate-200 bg-white p-8 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
                                 >
-                                    <div className="absolute -inset-1 rounded-3xl bg-[#1d3658]/10 opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100" />
                                     <div className="relative">
                                         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#001030] shadow-lg transition-transform duration-300 group-hover:rotate-6">
                                             <Icon className="h-8 w-8 text-white" strokeWidth={2.5} />
@@ -156,7 +149,6 @@ export default function FraudAwarenessTrainingSection() {
                                         <h4 className="mb-3 text-2xl font-bold leading-tight text-[#001030]">{area.title}</h4>
                                         <p className="leading-relaxed text-slate-600">{area.description}</p>
                                     </div>
-                                    <div className="absolute bottom-0 left-0 h-1 w-full bg-[#1d3658]/15" />
                                 </div>
                             );
                         })}
@@ -168,7 +160,6 @@ export default function FraudAwarenessTrainingSection() {
                     {/* Approach */}
                     <div className="lg:col-span-7">
                         <div className="relative overflow-hidden rounded-3xl border-2 border-slate-200 bg-white p-8 shadow-2xl lg:p-10">
-                            <div className="absolute -right-28 -top-28 h-72 w-72 rounded-full bg-[#1d3658]/10 blur-3xl" />
                             <div className="relative">
                                 <div className="mb-8 flex items-start justify-between gap-4">
                                     <div>
@@ -216,7 +207,6 @@ export default function FraudAwarenessTrainingSection() {
                     {/* Benefits */}
                     <div className="lg:col-span-5">
                         <div className="relative overflow-hidden rounded-3xl border-2 border-[#001030]/10 bg-[#001030] p-8 shadow-2xl lg:p-10">
-                            <div className="absolute -left-24 -bottom-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
                             <div className="relative">
                                 <div className="mb-7">
                                     <h3 className="text-3xl font-bold leading-tight text-white">Service benefits</h3>
@@ -268,7 +258,6 @@ export default function FraudAwarenessTrainingSection() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 h-px w-full bg-slate-200" />
         </section>
     );
 }

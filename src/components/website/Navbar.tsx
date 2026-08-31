@@ -20,6 +20,9 @@ const links = [
   { name: "Home", href: "/" },
   { name: "Industries", href: "/industries" },
   { name: "About", href: "/about" },
+  // Fraud Readiness sits immediately before Insights: it is a commercial decision surface, and a
+  // prospect should meet it before the editorial content rather than after it.
+  { name: "Fraud Readiness", href: "/fraud-readiness" },
   { name: "Insights", href: "/insights" },
   { name: "Contact", href: "/contact" },
 ];
