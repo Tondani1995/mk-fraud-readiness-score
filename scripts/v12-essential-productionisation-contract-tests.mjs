@@ -341,7 +341,7 @@ assert.equal(queueTrackEvents.length, 2);
 // throws if an order-event table is touched by either assessment-only notification path.
 function createNotificationLifecycleDb() {
   const state = {
-    setting: { value_json: { enabled: true, inactivity_hours: 24 } },
+    setting: { setting_key: 'v12_adaptive_stalled_lead_controls', value_json: { enabled: true, inactivity_hours: 24 } },
     assessments: [
       {
         id: '00000000-0000-4000-8000-000000000020',
@@ -369,8 +369,8 @@ function createNotificationLifecycleDb() {
         submitted_at: null,
         locked_at: null,
         current_score_run_id: null,
-        started_at: '2026-08-25T08:00:00.000Z',
-        updated_at: '2026-08-25T08:30:00.000Z',
+        started_at: '2026-08-20T08:00:00.000Z',
+        updated_at: '2026-08-20T08:30:00.000Z',
         completion_percentage: 40,
         organisations: { legal_name: 'Stalled Organisation', trading_name: null },
         respondents: { full_name: 'Stalled Respondent', email: 'stalled@example.test' }
@@ -393,7 +393,7 @@ function createNotificationLifecycleDb() {
       }
     ],
     navigationStates: [
-      { assessment_id: '00000000-0000-4000-8000-000000000024', last_saved_at: '2026-08-25T08:45:00.000Z', updated_at: '2026-08-25T08:45:00.000Z' }
+      { assessment_id: '00000000-0000-4000-8000-000000000024', last_saved_at: '2026-08-20T08:45:00.000Z', updated_at: '2026-08-20T08:45:00.000Z' }
     ],
     scoreRuns: [
       { id: '00000000-0000-4000-8000-000000000023', assessment_id: '00000000-0000-4000-8000-000000000020', status: 'completed', locked_at: '2026-08-26T09:00:01.000Z', overall_score: 72, final_maturity: 'Structured' }
@@ -416,7 +416,12 @@ function createNotificationLifecycleDb() {
   function matches(row, filters) {
     return filters.every((filter) => {
       const [kind, field, expected] = filter;
-      if (kind === 'eq') return row[field] === expected;
+      if (kind === 'eq') {
+        if (field.startsWith('metadata_json->>')) {
+          return row.metadata_json?.[field.slice('metadata_json->>'.length)] === expected;
+        }
+        return row[field] === expected;
+      }
       if (kind === 'is') return row[field] === expected;
       if (kind === 'in') return expected.includes(row[field]);
       if (kind === 'lt') return row[field] < expected;
@@ -458,6 +463,16 @@ function createNotificationLifecycleDb() {
         update(values) { return query(table, 'update', values); },
         insert(value) {
           if (table !== 'email_events') throw new Error(`Unexpected notification insert: ${table}`);
+          if (state.emailEvents.some((existing) => existing.dedupe_key && existing.dedupe_key === value.dedupe_key)) {
+            return {
+              select: () => ({
+                single: async () => ({
+                  data: null,
+                  error: { message: 'duplicate email event dedupe key' }
+                })
+              })
+            };
+          }
           const event = {
             ...value,
             id: `00000000-0000-4000-8000-${String(state.nextEmailId++).padStart(12, '0')}`,
@@ -559,6 +574,301 @@ assert.equal(notificationLifecycle.state.emailEvents.length, 2, 'the same thresh
 assert.equal(notificationProviderCalls, 2, 'stalled-lead replay must not send a second email');
 assert.equal(notificationLifecycle.state.rpcCalls.length, 2, 'the alert RPC remains idempotent for the episode');
 
+// A previously stored threshold-bearing key must still resolve by its immutable activity
+// timestamp when the operator changes the eligibility threshold. The old key is retained for
+// the operational-alert upsert, but it must not cause another queue row or provider call.
+const stalledEvent = notificationLifecycle.state.emailEvents.find((event) =>
+  event.notification_type === 'assessment_stalled_lead'
+);
+const stalledLastActivityAt = stalledEvent.metadata_json.last_activity_at;
+const historicalThresholdKey = `assessment_stalled:${stalledEvent.assessment_id}:threshold:24:last_activity:${stalledLastActivityAt}`;
+stalledEvent.dedupe_key = historicalThresholdKey;
+notificationLifecycle.state.setting.value_json.inactivity_hours = 76;
+const thresholdChangedReplay = await monitorAdaptiveStalledLeads({
+  adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+}, notificationDependencies);
+assert.equal(thresholdChangedReplay.stalled, 1);
+assert.equal(thresholdChangedReplay.inactivityHours, 76);
+assert.equal(notificationLifecycle.state.emailEvents.length, 2, 'a threshold change must not create a second activity episode');
+assert.equal(notificationProviderCalls, 2, 'a provider-bound historical episode must not be resent after a threshold change');
+assert.equal(notificationLifecycle.state.rpcCalls.at(-1).args.p_alert_key, historicalThresholdKey,
+  'historical alert identity is reused when the matching event is found');
+assert.equal(notificationLifecycle.state.rpcCalls.at(-1).args.p_email_event_id, stalledEvent.id);
+assert.doesNotMatch(stalledEvent.dedupe_key, /threshold:76/);
+notificationLifecycle.state.setting.value_json.inactivity_hours = 24;
+
+// A later authoritative activity timestamp is a new episode even for the same assessment.
+notificationLifecycle.state.navigationStates[0].last_saved_at = '2026-08-25T09:00:00.000Z';
+notificationLifecycle.state.navigationStates[0].updated_at = '2026-08-25T09:00:00.000Z';
+const resumedStall = await monitorAdaptiveStalledLeads({
+  adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+}, notificationDependencies);
+assert.equal(resumedStall.stalled, 1);
+assert.equal(notificationLifecycle.state.emailEvents.length, 3, 'a changed last-activity timestamp must create a new episode');
+const resumedEvent = notificationLifecycle.state.emailEvents.find((event) =>
+  event.notification_type === 'assessment_stalled_lead'
+  && event.metadata_json.last_activity_at === '2026-08-25T09:00:00.000Z'
+);
+assert.ok(resumedEvent, 'the resumed episode must carry the new activity timestamp');
+assert.equal(resumedEvent.dedupe_key,
+  `assessment_stalled:${resumedEvent.assessment_id}:last_activity:2026-08-25T09:00:00.000Z`);
+assert.equal(notificationProviderCalls, 3);
+
+// Recoverable historical rows are reused by id, including rows created while the provider was
+// disabled and rows left retryable after a provider failure.
+const recoverableFixtures = [
+  {
+    assessment: {
+      id: '00000000-0000-4000-8000-000000000060',
+      assessment_reference: 'MK-RECORDED-DISABLED',
+      assessment_mode: 'adaptive',
+      organisation_id: '00000000-0000-4000-8000-000000000061',
+      primary_respondent_id: '00000000-0000-4000-8000-000000000062',
+      status: 'draft',
+      started_at: '2026-08-24T08:00:00.000Z',
+      updated_at: '2026-08-24T08:15:00.000Z',
+      completion_percentage: 25,
+      organisations: { legal_name: 'Recorded Disabled Organisation', trading_name: null },
+      respondents: { full_name: 'Recorded Disabled Respondent', email: 'recorded@example.test' }
+    },
+    event: {
+      id: '00000000-0000-4000-8000-000000000060',
+      status: 'recorded_disabled',
+      dedupe_key: 'assessment_stalled:recorded-disabled:last_activity:2026-08-24T08:15:00.000Z'
+    }
+  },
+  {
+    assessment: {
+      id: '00000000-0000-4000-8000-000000000063',
+      assessment_reference: 'MK-SEND-FAILED',
+      assessment_mode: 'adaptive',
+      organisation_id: '00000000-0000-4000-8000-000000000064',
+      primary_respondent_id: '00000000-0000-4000-8000-000000000065',
+      status: 'draft',
+      started_at: '2026-08-24T09:00:00.000Z',
+      updated_at: '2026-08-24T09:15:00.000Z',
+      completion_percentage: 35,
+      organisations: { legal_name: 'Send Failed Organisation', trading_name: null },
+      respondents: { full_name: 'Send Failed Respondent', email: 'failed@example.test' }
+    },
+    event: {
+      id: '00000000-0000-4000-8000-000000000063',
+      status: 'send_failed',
+      dedupe_key: 'assessment_stalled:send-failed:last_activity:2026-08-24T09:15:00.000Z'
+    }
+  },
+  {
+    assessment: {
+      id: '00000000-0000-4000-8000-000000000066',
+      assessment_reference: 'MK-QUEUED',
+      assessment_mode: 'adaptive',
+      organisation_id: '00000000-0000-4000-8000-000000000067',
+      primary_respondent_id: '00000000-0000-4000-8000-000000000068',
+      status: 'draft',
+      started_at: '2026-08-24T10:00:00.000Z',
+      updated_at: '2026-08-24T10:15:00.000Z',
+      completion_percentage: 45,
+      organisations: { legal_name: 'Queued Organisation', trading_name: null },
+      respondents: { full_name: 'Queued Respondent', email: 'queued@example.test' }
+    },
+    event: {
+      id: '00000000-0000-4000-8000-000000000066',
+      status: 'queued',
+      dedupe_key: 'assessment_stalled:queued:last_activity:2026-08-24T10:15:00.000Z'
+    }
+  },
+  {
+    assessment: {
+      id: '00000000-0000-4000-8000-000000000069',
+      assessment_reference: 'MK-STALE-SENDING',
+      assessment_mode: 'adaptive',
+      organisation_id: '00000000-0000-4000-8000-000000000070',
+      primary_respondent_id: '00000000-0000-4000-8000-000000000071',
+      status: 'draft',
+      started_at: '2026-08-24T11:00:00.000Z',
+      updated_at: '2026-08-24T11:15:00.000Z',
+      completion_percentage: 55,
+      organisations: { legal_name: 'Stale Sending Organisation', trading_name: null },
+      respondents: { full_name: 'Stale Sending Respondent', email: 'stale@example.test' }
+    },
+    event: {
+      id: '00000000-0000-4000-8000-000000000069',
+      status: 'sending',
+      updated_at: '2026-08-26T09:00:00.000Z',
+      dedupe_key: 'assessment_stalled:stale-sending:last_activity:2026-08-24T11:15:00.000Z'
+    }
+  }
+];
+for (const fixture of recoverableFixtures) {
+  notificationLifecycle.state.assessments.push(fixture.assessment);
+  notificationLifecycle.state.emailEvents.push({
+    ...fixture.event,
+    assessment_id: fixture.assessment.id,
+    order_id: null,
+    recipient_email: 'mk-admin@example.test',
+    notification_type: 'assessment_stalled_lead',
+    retry_count: 0,
+    sent_at: null,
+    provider_message_id: null,
+    updated_at: fixture.event.updated_at ?? '2026-08-26T10:00:00.000Z',
+    metadata_json: { last_activity_at: fixture.assessment.updated_at }
+  });
+}
+const recoverableCountBefore = notificationLifecycle.state.emailEvents.length;
+const recoverableProviderCallsBefore = notificationProviderCalls;
+const recoverableDispatch = await monitorAdaptiveStalledLeads({
+  adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+}, {
+  ...notificationDependencies,
+  providerModeImpl: () => 'disabled',
+  sendEmailImpl: async () => { throw new Error('disabled recovery must not call the provider'); }
+});
+assert.equal(notificationLifecycle.state.emailEvents.length, recoverableCountBefore,
+  'recoverable historical episodes must not create replacement email rows');
+assert.equal(notificationProviderCalls, recoverableProviderCallsBefore,
+  'disabled recovery must not call a provider');
+for (const fixture of recoverableFixtures) {
+  const event = notificationLifecycle.state.emailEvents.find((candidate) => candidate.id === fixture.event.id);
+  assert.equal(event.status, 'recorded_disabled', 'a recoverable row remains the authoritative row');
+  const alert = notificationLifecycle.state.rpcCalls
+    .filter((call) => call.args.p_assessment_id === fixture.assessment.id)
+    .at(-1);
+  assert.ok(alert, 'the reused event must retain an operational alert record');
+  assert.equal(alert.args.p_email_event_id, event.id);
+  assert.equal(alert.args.p_alert_key, fixture.event.dedupe_key);
+}
+assert.equal(recoverableDispatch.inactivityHours, 24);
+
+// The database's unique dedupe index is the final race boundary when two monitor invocations
+// resolve a genuinely new activity episode at the same time. One insert wins, the other reuses
+// that row, and disabled dispatch remains provider-free for both callers.
+const concurrentAssessment = {
+  id: '00000000-0000-4000-8000-000000000072',
+  assessment_reference: 'MK-CONCURRENT-STALL',
+  assessment_mode: 'adaptive',
+  organisation_id: '00000000-0000-4000-8000-000000000073',
+  primary_respondent_id: '00000000-0000-4000-8000-000000000074',
+  status: 'draft',
+  started_at: '2026-08-24T12:00:00.000Z',
+  updated_at: '2026-08-24T12:15:00.000Z',
+  completion_percentage: 65,
+  organisations: { legal_name: 'Concurrent Organisation', trading_name: null },
+  respondents: { full_name: 'Concurrent Respondent', email: 'concurrent@example.test' }
+};
+notificationLifecycle.state.assessments.push(concurrentAssessment);
+const concurrentEventCountBefore = notificationLifecycle.state.emailEvents.length;
+const providerCallsBeforeConcurrentReplay = notificationProviderCalls;
+const providerFreeNotificationDependencies = {
+  ...notificationDependencies,
+  providerModeImpl: () => 'disabled',
+  sendEmailImpl: async () => { throw new Error('concurrent provider-free replay must not call the provider'); }
+};
+const concurrentResults = await Promise.all([
+  monitorAdaptiveStalledLeads({
+    adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+  }, providerFreeNotificationDependencies),
+  monitorAdaptiveStalledLeads({
+    adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+  }, providerFreeNotificationDependencies)
+]);
+assert.equal(notificationLifecycle.state.emailEvents.length, concurrentEventCountBefore + 1,
+  'concurrent monitor invocations must create one new activity episode');
+assert.equal(notificationProviderCalls, providerCallsBeforeConcurrentReplay,
+  'concurrent disabled monitor invocations must remain provider-free');
+const concurrentEvents = notificationLifecycle.state.emailEvents.filter((event) => event.assessment_id === concurrentAssessment.id);
+assert.equal(concurrentEvents.length, 1);
+assert.equal(concurrentEvents[0].dedupe_key,
+  `assessment_stalled:${concurrentAssessment.id}:last_activity:${concurrentAssessment.updated_at}`);
+assert.equal(concurrentEvents[0].status, 'recorded_disabled');
+assert(concurrentResults.every((result) => result.ok && result.inactivityHours === 24));
+const repeatedConcurrent = await monitorAdaptiveStalledLeads({
+  adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+}, providerFreeNotificationDependencies);
+assert.equal(repeatedConcurrent.ok, true);
+assert.equal(notificationLifecycle.state.emailEvents.length, concurrentEventCountBefore + 1,
+  'a repeated invocation must reuse the same activity episode');
+assert.equal(notificationProviderCalls, providerCallsBeforeConcurrentReplay);
+
+// Production-shaped regression: the older sent episode is skipped, E056 reuses its existing
+// recorded-disabled row, and the younger 924 episode remains below the 76-hour isolation cutoff.
+const productionShape = createNotificationLifecycleDb();
+productionShape.state.assessments = [
+  {
+    id: '00000000-0000-4000-8000-000000000080', assessment_reference: 'MKFRS-2026-66E9D85898',
+    assessment_mode: 'adaptive', organisation_id: '00000000-0000-4000-8000-000000000081',
+    primary_respondent_id: '00000000-0000-4000-8000-000000000082', status: 'draft',
+    started_at: '2026-08-26T08:42:10.516Z', updated_at: '2026-08-26T08:42:10.516Z', completion_percentage: 0,
+    organisations: { legal_name: 'STALLED LEAD CERTIFICATION', trading_name: null },
+    respondents: { full_name: 'Terminal Lead', email: 'terminal@example.test' }
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000083', assessment_reference: 'MKFRS-2026-E05626D496',
+    assessment_mode: 'adaptive', organisation_id: '00000000-0000-4000-8000-000000000084',
+    primary_respondent_id: '00000000-0000-4000-8000-000000000085', status: 'draft',
+    started_at: '2026-08-27T12:30:35.383Z', updated_at: '2026-08-27T12:30:35.383Z', completion_percentage: 0,
+    organisations: { legal_name: 'RC2 SYNTHETIC EMAIL TARGET', trading_name: null },
+    respondents: { full_name: 'Recoverable Lead', email: 'recoverable@example.test' }
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000086', assessment_reference: 'MKFRS-2026-924BC16456',
+    assessment_mode: 'adaptive', organisation_id: '00000000-0000-4000-8000-000000000087',
+    primary_respondent_id: '00000000-0000-4000-8000-000000000088', status: 'draft',
+    started_at: '2026-08-27T17:01:25.585Z', updated_at: '2026-08-27T17:01:25.585Z', completion_percentage: 0,
+    organisations: { legal_name: 'YOUNGER SYNTHETIC LEAD', trading_name: null },
+    respondents: { full_name: 'Younger Lead', email: 'younger@example.test' }
+  }
+];
+productionShape.state.navigationStates = [];
+productionShape.state.setting.value_json = { enabled: true, inactivity_hours: 76 };
+const productionShapeEvents = [
+  {
+    id: '00000000-0000-4000-8000-000000000090', assessment_id: '00000000-0000-4000-8000-000000000080',
+    status: 'sent', sent_at: '2026-08-26T08:43:00.000Z', provider_message_id: 'provider-terminal-66e9',
+    dedupe_key: 'assessment_stalled:00000000-0000-4000-8000-000000000080:threshold:24:last_activity:2026-08-26T08:42:10.516Z',
+    metadata_json: { last_activity_at: '2026-08-26T08:42:10.516Z' }
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000091', assessment_id: '00000000-0000-4000-8000-000000000083',
+    status: 'recorded_disabled', sent_at: null, provider_message_id: null,
+    dedupe_key: 'assessment_stalled:00000000-0000-4000-8000-000000000083:threshold:24:last_activity:2026-08-27T12:30:35.383Z',
+    metadata_json: { last_activity_at: '2026-08-27T12:30:35.383Z' }
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000092', assessment_id: '00000000-0000-4000-8000-000000000086',
+    status: 'recorded_disabled', sent_at: null, provider_message_id: null,
+    dedupe_key: 'assessment_stalled:00000000-0000-4000-8000-000000000086:threshold:24:last_activity:2026-08-27T17:01:25.585Z',
+    metadata_json: { last_activity_at: '2026-08-27T17:01:25.585Z' }
+  }
+].map((event) => ({
+  order_id: null, recipient_email: 'mk-admin@example.test', notification_type: 'assessment_stalled_lead',
+  retry_count: 0, updated_at: '2026-08-30T20:30:00.000Z', ...event
+}));
+productionShape.state.emailEvents = productionShapeEvents;
+const productionShapeRpcBefore = productionShape.state.rpcCalls.length;
+const productionShapeResult = await monitorAdaptiveStalledLeads({
+  adminUrlFor: (reference) => `https://mkfraud.co.za/score/admin/assessments/${reference}`
+}, {
+  ...providerFreeNotificationDependencies,
+  db: productionShape.db,
+  now: () => new Date('2026-08-30T20:30:00.000Z')
+});
+assert.equal(productionShapeResult.stalled, 2, 'the 76-hour cutoff must exclude the younger 924 episode');
+assert.equal(productionShape.state.emailEvents.length, 3);
+assert.equal(productionShape.state.rpcCalls.length, productionShapeRpcBefore + 2);
+assert.equal(productionShape.state.emailEvents.find((event) => event.assessment_id === '00000000-0000-4000-8000-000000000080').provider_message_id,
+  'provider-terminal-66e9');
+assert.equal(productionShape.state.emailEvents.find((event) => event.assessment_id === '00000000-0000-4000-8000-000000000083').status,
+  'recorded_disabled');
+assert.equal(productionShape.state.rpcCalls.find((call) => call.args.p_assessment_id === '00000000-0000-4000-8000-000000000080').args.p_email_event_id,
+  '00000000-0000-4000-8000-000000000090');
+assert.equal(productionShape.state.rpcCalls.find((call) => call.args.p_assessment_id === '00000000-0000-4000-8000-000000000083').args.p_email_event_id,
+  '00000000-0000-4000-8000-000000000091');
+assert.equal(productionShape.state.rpcCalls.find((call) => call.args.p_assessment_id === '00000000-0000-4000-8000-000000000080').args.p_alert_key,
+  productionShapeEvents[0].dedupe_key);
+assert.equal(productionShape.state.rpcCalls.find((call) => call.args.p_assessment_id === '00000000-0000-4000-8000-000000000083').args.p_alert_key,
+  productionShapeEvents[1].dedupe_key);
+assert.equal(productionShape.state.rpcCalls.some((call) => call.args.p_assessment_id === '00000000-0000-4000-8000-000000000086'), false);
+
 const resumableEvent = {
   id: '00000000-0000-4000-8000-000000000040',
   assessment_id: '00000000-0000-4000-8000-000000000024',
@@ -573,6 +883,7 @@ const resumableEvent = {
   updated_at: '2026-08-26T10:00:00.000Z'
 };
 notificationLifecycle.state.emailEvents.push(resumableEvent);
+const providerCallsBeforeResumable = notificationProviderCalls;
 const disabledResumable = await dispatchInternalAssessmentNotification({
   emailEventId: resumableEvent.id,
   assessmentId: resumableEvent.assessment_id,
@@ -580,7 +891,7 @@ const disabledResumable = await dispatchInternalAssessmentNotification({
   message: { subject: 'resumable', text: 'resumable', html: '<p>resumable</p>' }
 }, { ...notificationDependencies, providerModeImpl: () => 'disabled' });
 assert.equal(disabledResumable.status, 'recorded_disabled');
-assert.equal(notificationProviderCalls, 2, 'disabled mode must not invoke the provider seam');
+assert.equal(notificationProviderCalls, providerCallsBeforeResumable, 'disabled mode must not invoke the provider seam');
 const recoveredResumable = await dispatchInternalAssessmentNotification({
   emailEventId: resumableEvent.id,
   assessmentId: resumableEvent.assessment_id,
@@ -588,7 +899,7 @@ const recoveredResumable = await dispatchInternalAssessmentNotification({
   message: { subject: 'resumable', text: 'resumable', html: '<p>resumable</p>' }
 }, notificationDependencies);
 assert.equal(recoveredResumable.status, 'sent');
-assert.equal(notificationProviderCalls, 3, 'a recorded-disabled notification remains recoverable when the provider is enabled');
+assert.equal(notificationProviderCalls, providerCallsBeforeResumable + 1, 'a recorded-disabled notification remains recoverable when the provider is enabled');
 
 const completionMessage = buildAssessmentCompletedInternalMessage({
   assessmentReference: 'MK-ESS-TEST',

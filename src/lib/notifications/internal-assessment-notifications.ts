@@ -380,8 +380,99 @@ function clampProgress(value: unknown) {
   return Math.min(100, Math.max(0, Math.round(parsed * 100) / 100));
 }
 
-function stalledEpisodeKey(assessmentId: string, inactivityHours: number, lastActivityAt: string) {
-  return `assessment_stalled:${assessmentId}:threshold:${inactivityHours}:last_activity:${lastActivityAt}`;
+type StalledLeadEmailEvent = {
+  id: string;
+  status?: string | null;
+  retry_count?: number | null;
+  sent_at?: string | null;
+  provider_message_id?: string | null;
+  recipient_email?: string | null;
+  updated_at?: string | null;
+  dedupe_key?: string | null;
+  metadata_json?: Record<string, unknown> | null;
+};
+
+type StalledLeadEpisodeResolution = {
+  kind: 'provider_bound' | 'recoverable' | 'existing' | 'new';
+  event: StalledLeadEmailEvent | null;
+  episodeKey: string;
+};
+
+const TERMINAL_PROVIDER_SENT_STATUSES = new Set([
+  'sent',
+  'delivered',
+  'provider_accepted',
+  'delivered_double',
+  'finalized'
+]);
+
+function stalledEpisodeKey(assessmentId: string, lastActivityAt: string) {
+  return `assessment_stalled:${assessmentId}:last_activity:${lastActivityAt}`;
+}
+
+function providerBoundStalledLeadEvent(event: StalledLeadEmailEvent) {
+  return Boolean(event.provider_message_id)
+    || Boolean(event.sent_at)
+    || TERMINAL_PROVIDER_SENT_STATUSES.has(String(event.status ?? '').toLowerCase());
+}
+
+function recoverableStalledLeadEvent(event: StalledLeadEmailEvent, currentTime: Date) {
+  if (RECOVERABLE_INTERNAL_NOTIFICATION_STATUSES.includes(event.status ?? '')) return true;
+  if (event.status !== 'sending') return false;
+  const updatedAt = isoTime(event.updated_at);
+  if (!updatedAt) return false;
+  return updatedAt.getTime() <= currentTime.getTime() - INTERNAL_NOTIFICATION_CLAIM_LEASE_MS;
+}
+
+async function resolveExistingStalledLeadEpisode(
+  db: any,
+  assessmentId: string,
+  lastActivityAt: string,
+  currentTime: Date
+): Promise<StalledLeadEpisodeResolution> {
+  const canonicalKey = stalledEpisodeKey(assessmentId, lastActivityAt);
+  const { data, error } = await db
+    .from('email_events')
+    .select('id,status,retry_count,sent_at,provider_message_id,recipient_email,updated_at,dedupe_key,metadata_json')
+    .eq('assessment_id', assessmentId)
+    .eq('notification_type', 'assessment_stalled_lead')
+    .eq('metadata_json->>last_activity_at', lastActivityAt)
+    .limit(100);
+
+  if (error) throw error;
+  const events = (Array.isArray(data) ? data : data ? [data] : []) as StalledLeadEmailEvent[];
+  const providerBound = events.find((event) => providerBoundStalledLeadEvent(event));
+  if (providerBound) {
+    return {
+      kind: 'provider_bound',
+      event: providerBound,
+      // Historical threshold-bearing keys remain the identity used by the alert upsert.
+      episodeKey: providerBound.dedupe_key || canonicalKey
+    };
+  }
+
+  const recoverable = events.find((event) => recoverableStalledLeadEvent(event, currentTime));
+  if (recoverable) {
+    return {
+      kind: 'recoverable',
+      event: recoverable,
+      // Reusing a historical row also reuses its existing operational-alert identity.
+      episodeKey: recoverable.dedupe_key || canonicalKey
+    };
+  }
+
+  const existing = events[0];
+  if (existing) {
+    return {
+      kind: 'existing',
+      event: existing,
+      // An active or otherwise non-recoverable row is still the same activity episode. Never
+      // create a threshold-specific replacement while that row remains authoritative.
+      episodeKey: existing.dedupe_key || canonicalKey
+    };
+  }
+
+  return { kind: 'new', event: null, episodeKey: canonicalKey };
 }
 
 export function defaultStalledLeadInactivityHours() {
@@ -436,44 +527,56 @@ export async function monitorAdaptiveStalledLeads(input: {
     const respondentName = assessment.respondents?.full_name ?? null;
     const respondentEmail = assessment.respondents?.email ?? null;
     const lastActivityAt = activity.toISOString();
-    const episodeKey = stalledEpisodeKey(assessment.id, control.inactivityHours, lastActivityAt);
+    const episode = await resolveExistingStalledLeadEpisode(db, assessment.id, lastActivityAt, now());
     const adminUrl = input.adminUrlFor(assessment.assessment_reference);
-    const result = await queueAndDispatchInternalNotification({
-      queue: {
-        notificationType: 'assessment_stalled_lead',
-        assessmentId: assessment.id,
-        organisationId: assessment.organisation_id,
-        respondentId: assessment.primary_respondent_id,
-        recipientEmail: internalRecipient(),
-        dedupeKey: episodeKey,
-        metadata: {
-          assessment_reference: assessment.assessment_reference,
-          organisation: organisationName,
-          respondent: respondentName,
-          respondent_email: respondentEmail,
-          last_activity_at: lastActivityAt,
-          progress_pct: clampProgress(assessment.completion_percentage),
-          inactivity_hours: control.inactivityHours,
-          admin_url: adminUrl
-        }
-      },
-      organisationId: assessment.organisation_id,
-      respondentId: assessment.primary_respondent_id,
-      message: buildAssessmentStalledLeadMessage({
-        assessmentReference: assessment.assessment_reference,
-        organisationName,
-        respondentName,
-        respondentEmail,
-        lastActivityAt,
-        progressPct: clampProgress(assessment.completion_percentage),
-        adminUrl
-      })
-    }, dependencies);
+    const message = buildAssessmentStalledLeadMessage({
+      assessmentReference: assessment.assessment_reference,
+      organisationName,
+      respondentName,
+      respondentEmail,
+      lastActivityAt,
+      progressPct: clampProgress(assessment.completion_percentage),
+      adminUrl
+    });
+    const result = episode.kind === 'provider_bound'
+      ? { ok: true as const, status: 'already_notified' as const, emailEventId: episode.event!.id }
+      : episode.kind === 'recoverable' || episode.kind === 'existing'
+        ? await dispatchInternalAssessmentNotification({
+          emailEventId: episode.event!.id,
+          assessmentId: assessment.id,
+          organisationId: assessment.organisation_id,
+          respondentId: assessment.primary_respondent_id,
+          notificationType: 'assessment_stalled_lead',
+          message
+        }, { ...dependencies, db })
+        : await queueAndDispatchInternalNotification({
+          queue: {
+            notificationType: 'assessment_stalled_lead',
+            assessmentId: assessment.id,
+            organisationId: assessment.organisation_id,
+            respondentId: assessment.primary_respondent_id,
+            recipientEmail: internalRecipient(),
+            dedupeKey: episode.episodeKey,
+            metadata: {
+              assessment_reference: assessment.assessment_reference,
+              organisation: organisationName,
+              respondent: respondentName,
+              respondent_email: respondentEmail,
+              last_activity_at: lastActivityAt,
+              progress_pct: clampProgress(assessment.completion_percentage),
+              inactivity_hours: control.inactivityHours,
+              admin_url: adminUrl
+            }
+          },
+          organisationId: assessment.organisation_id,
+          respondentId: assessment.primary_respondent_id,
+          message
+        }, dependencies);
     if (result.ok) notified += 1;
 
     const emailEventId = result.ok && 'emailEventId' in result ? result.emailEventId : null;
     const { error: alertError } = await db.rpc('record_assessment_stalled_lead_alert', {
-      p_alert_key: episodeKey,
+      p_alert_key: episode.episodeKey,
       p_assessment_id: assessment.id,
       p_email_event_id: emailEventId,
       p_detail_json: {
