@@ -456,7 +456,18 @@ export interface InterpretationRun {
  * change who wrote the report.
  */
 function requireCredential(model: string): { model: string; provider: string } {
-  if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) {
+  // Match the already-proven Essential writer's Vercel AI Gateway runtime contract.
+  // On Vercel, the AI SDK can authenticate through the deployment's OIDC/runtime
+  // identity even when no long-lived AI_GATEWAY_API_KEY is configured. Requiring
+  // only a static API key here made Comprehensive fail in Production while
+  // Essential succeeded on the same deployment.
+  const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
+  const hasGatewayCredential = Boolean(
+    process.env.AI_GATEWAY_API_KEY
+      || process.env.VERCEL_AI_GATEWAY_API_KEY
+      || process.env.VERCEL_OIDC_TOKEN
+  );
+  if (!model || (!hasGatewayCredential && !runningOnVercel)) {
     throw new Error('No AI gateway credential is available for Comprehensive interpretation.');
   }
   return { model, provider: model.split('/')[0]?.trim() || 'vercel-ai-gateway' };
