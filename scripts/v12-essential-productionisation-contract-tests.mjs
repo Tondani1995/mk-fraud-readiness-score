@@ -84,7 +84,7 @@ assert.doesNotMatch(respondentSave, /queueInternalNotification/);
 assert.match(stalledRoute, /CRON_SECRET/);
 assert.match(stalledRoute, /monitorAdaptiveStalledLeads/);
 assert.match(vercel, /adaptive-stalled-leads/);
-assert.match(vercel, /"0 6 \* \* \*"/);
+assert.match(vercel, /"0 \* \* \* \*"/);
 assert.doesNotMatch(vercel, /fulfilment-worker/);
 
 assert.match(adaptiveServer, /configuredSupabaseProjectRef/);

@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/score/api/internal/adaptive-stalled-leads",
-      "schedule": "0 6 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

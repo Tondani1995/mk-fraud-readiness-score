@@ -645,7 +645,7 @@ await test('legacy recovery remains available but dormant in the current launch'
   );
   assert.deepEqual(vercel.crons, [{
     path: '/score/api/internal/adaptive-stalled-leads',
-    schedule: '0 6 * * *'
+    schedule: '0 * * * *'
   }]);
 });
 await test('freeze blocks immediate and scheduled processing', async () => {
