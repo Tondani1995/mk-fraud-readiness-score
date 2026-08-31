@@ -8,7 +8,11 @@ import {
   buildDeterministicSnapshotPrioritySignals,
   buildMinimalSafeSnapshotNarrativeContent
 } from './deterministic-narrative';
-import { classifyAssuranceLanguage } from '../reports/narrative/validation';
+import {
+  classifyAssuranceLanguage,
+  classifyAssuranceLanguageDetailed,
+  type AssuranceSemanticCategory
+} from '../reports/narrative/validation';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
 import {
@@ -157,21 +161,26 @@ const REPAIRABLE_SNAPSHOT_ISSUES = new Set([
   'snapshot_uncalibrated_interpretation'
 ]);
 
-const HARD_UNSUPPORTED_SNAPSHOT_ISSUES = new Set([
+// Only contract/objective truth failures bypass the semantic cascade. The semantic proposition
+// families below are classified at the validator-to-cascade boundary with the bounded Snapshot
+// brief rather than being promoted to hard truth merely because a lexical detector fired.
+const OBJECTIVE_HARD_SNAPSHOT_ISSUES = new Set([
   'snapshot_narrative_schema_invalid',
   'paid_tier_detail_leakage',
   'snapshot_narrative_unavailable_message',
   'raw_internal_id',
   'raw_internal_enum',
-  'assurance_claim',
   'snapshot_procedural_metric_leakage',
   'snapshot_em_dash',
+  'invented_number'
+]);
+
+const SEMANTIC_SNAPSHOT_ISSUES = new Set([
   'snapshot_unsupported_control_assertion',
   'snapshot_unsupported_coverage_claim',
   'snapshot_unsupported_consequence_claim',
   'snapshot_unsupported_assurance_requirement',
-  'snapshot_domain_gap_count_attribution',
-  'invented_number'
+  'snapshot_domain_gap_count_attribution'
 ]);
 
 const AI_FIELDS: SnapshotNarrativeAiField[] = ['headline', 'executiveDiagnosis', 'strength', 'managementImplication'];
@@ -247,7 +256,7 @@ export function classifySnapshotNarrativeFailure(input: {
   }
   if (input.error) return 'TECHNICAL_PROVIDER_FAILURE';
   const issues = [...(input.issues ?? [])];
-  if (issues.some((issue) => HARD_UNSUPPORTED_SNAPSHOT_ISSUES.has(issue))) return 'HARD_UNSUPPORTED_AI_CLAIM';
+  if (issues.some((issue) => OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issue))) return 'HARD_UNSUPPORTED_AI_CLAIM';
   if (issues.some((issue) => REPAIRABLE_SNAPSHOT_ISSUES.has(issue))) return 'REPAIRABLE_AI_SEMANTIC_FAILURE';
   return 'DETERMINISTIC/FALLBACK VALIDATION DEFECT';
 }
@@ -541,7 +550,7 @@ function candidateForSnapshotIssue(
   issueCode: string,
   field: SnapshotNarrativeAiField | null,
   validationInput: SnapshotNarrativeValidationInput,
-  hardTruthOverride = HARD_UNSUPPORTED_SNAPSHOT_ISSUES.has(issueCode)
+  hardTruthOverride = OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issueCode)
 ): SemanticCandidate {
   const text = field ? snapshotFieldText(content, field) : [content.headline, content.executiveDiagnosis, content.strength, ...content.prioritySignals, content.managementImplication].join('\n');
   const hardTruth = hardTruthOverride;
@@ -568,6 +577,86 @@ function candidateForSnapshotIssue(
   };
 }
 
+type SnapshotSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE';
+
+type SnapshotIssueClassification = {
+  disposition: SnapshotSemanticDisposition;
+  fields?: SnapshotNarrativeAiField[];
+  assuranceCategories?: Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>;
+};
+
+function classifySnapshotAssuranceIssue(content: SnapshotNarrativeContent): SnapshotIssueClassification {
+  const assuranceFields = AI_FIELDS.filter((field) => classifyAssuranceLanguage(content[field])?.category === 'prohibited_assurance');
+  const prioritySignalHasLegacyAssurance = content.prioritySignals.some(
+    (signal) => classifyAssuranceLanguage(signal)?.category === 'prohibited_assurance'
+  );
+  if (prioritySignalHasLegacyAssurance || assuranceFields.length === 0) {
+    // Priority signals are deterministic output and a missing field-level explanation for a
+    // legacy assurance issue cannot safely be handed to an AI adapter.
+    return { disposition: 'OBJECTIVE_HARD' };
+  }
+
+  const ambiguousFields: SnapshotNarrativeAiField[] = [];
+  const categories = new Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>();
+  for (const field of assuranceFields) {
+    const classification = classifyAssuranceLanguageDetailed(content[field]);
+    if (!classification) return { disposition: 'OBJECTIVE_HARD' };
+    categories.set(field, classification.category);
+    if (classification.category === 'PROHIBITED_COMPLETED_ASSURANCE' || classification.category === 'PROHIBITED_MK_OR_REPORT_ACTOR') {
+      return { disposition: 'OBJECTIVE_HARD' };
+    }
+    if (classification.category === 'AMBIGUOUS_ASSURANCE') ambiguousFields.push(field);
+  }
+  if (ambiguousFields.length > 0) return { disposition: 'SEMANTIC_CANDIDATE', fields: ambiguousFields, assuranceCategories: categories };
+  return { disposition: 'DETERMINISTIC_ALLOW', assuranceCategories: categories };
+}
+
+function classifySnapshotIssue(content: SnapshotNarrativeContent, issueCode: string): SnapshotIssueClassification {
+  if (issueCode === 'assurance_claim') return classifySnapshotAssuranceIssue(content);
+  if (OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issueCode)) return { disposition: 'OBJECTIVE_HARD' };
+  if (SEMANTIC_SNAPSHOT_ISSUES.has(issueCode)) {
+    // These detectors run against the bounded Snapshot brief. The brief contains no typed
+    // evidence for control effectiveness, complete coverage, consequences, assurance mandates
+    // or domain-level gap counts, so a detected absolute proposition is an objective grounding
+    // failure after this evidence check, not an AI-adjudicable factual invention.
+    return { disposition: 'OBJECTIVE_HARD' };
+  }
+  if (REPAIRABLE_SNAPSHOT_ISSUES.has(issueCode)) return { disposition: 'SEMANTIC_CANDIDATE' };
+  return { disposition: 'OBJECTIVE_HARD' };
+}
+
+function assuranceIssuesAllowedAfterCascade(
+  content: SnapshotNarrativeContent,
+  semanticSafety?: SemanticCascadeDiagnostics
+): boolean {
+  const assuranceFields = AI_FIELDS.filter((field) => classifyAssuranceLanguage(content[field])?.category === 'prohibited_assurance');
+  if (assuranceFields.length === 0 || content.prioritySignals.some(
+    (signal) => classifyAssuranceLanguage(signal)?.category === 'prohibited_assurance'
+  )) return false;
+  const allowedIds = new Set(
+    semanticSafety?.decisions
+      .filter((decision) => decision.disposition === 'MUST_ALLOW')
+      .map((decision) => decision.targetId) ?? []
+  );
+  return assuranceFields.every((field) => {
+    const classification = classifyAssuranceLanguageDetailed(content[field]);
+    return classification?.category === 'SAFE_CUSTOMER_CONTROL'
+      || classification?.category === 'EXPLICIT_LIMITATION'
+      || (classification?.category === 'AMBIGUOUS_ASSURANCE' && allowedIds.has(`snapshot.${field}`));
+  });
+}
+
+function snapshotValidationIssuesAfterCascade(
+  content: SnapshotNarrativeContent,
+  validationInput: SnapshotNarrativeValidationInput,
+  mode: 'ai' | 'deterministic',
+  semanticSafety?: SemanticCascadeDiagnostics
+): string[] {
+  const issues = validateSnapshotNarrative(content, validationInput, { mode });
+  if (!issues.includes('assurance_claim') || !assuranceIssuesAllowedAfterCascade(content, semanticSafety)) return issues;
+  return issues.filter((issue) => issue !== 'assurance_claim');
+}
+
 function snapshotSemanticEvaluation(
   content: SnapshotNarrativeContent | null,
   validationInput: SnapshotNarrativeValidationInput,
@@ -581,18 +670,36 @@ function snapshotSemanticEvaluation(
   const hardCandidates: SemanticCandidate[] = [];
   const candidates: SemanticCandidate[] = [];
   const targetFields = new Map<SnapshotNarrativeAiField, string>();
+  const assuranceCategories = new Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>();
   for (const issueCode of issues) {
-    const isHard = HARD_UNSUPPORTED_SNAPSHOT_ISSUES.has(issueCode) || !REPAIRABLE_SNAPSHOT_ISSUES.has(issueCode);
-    if (isHard) {
+    const classification = classifySnapshotIssue(content, issueCode);
+    if (classification.disposition === 'OBJECTIVE_HARD') {
       hardCandidates.push(candidateForSnapshotIssue(content, issueCode, null, validationInput, true));
       continue;
     }
-    for (const field of repairFieldsForIssues([issueCode])) targetFields.set(field, issueCode);
+    if (classification.disposition === 'DETERMINISTIC_ALLOW') continue;
+    const fields = classification.fields ?? repairFieldsForIssues([issueCode]);
+    for (const field of fields) {
+      targetFields.set(field, issueCode);
+      const category = classification.assuranceCategories?.get(field);
+      if (category) assuranceCategories.set(field, category);
+    }
   }
   for (const [field, issueCode] of targetFields) {
-    candidates.push(candidateForSnapshotIssue(content, issueCode, field, validationInput));
+    const category = assuranceCategories.get(field);
+    candidates.push(candidateForSnapshotIssue(
+      content,
+      issueCode,
+      field,
+      validationInput,
+      false
+    ));
+    if (category) {
+      const candidate = candidates.at(-1)!;
+      candidate.deterministicFeatures = { ...candidate.deterministicFeatures, assuranceCategory: category };
+    }
   }
-  return { hardCandidates, candidates, valid: issues.length === 0, validationIssues: issues };
+  return { hardCandidates, candidates, valid: hardCandidates.length === 0 && candidates.length === 0, validationIssues: issues };
 }
 
 function applySnapshotRepairs(content: SnapshotNarrativeContent, replacements: SemanticRepairResult[], brief: SnapshotNarrativeBrief): SnapshotNarrativeContent {
@@ -726,7 +833,11 @@ export async function buildCachedSnapshotNarrative(input: {
         && typeof cached.model === 'string'
         && cached.model.trim().length > 0
         && validAiCallCount(cached.aiCallCount)
-        && validateSnapshotNarrative(cachedContent, cached.status === 'available' ? narrativeBrief : narrativeInput, { mode: cachedMode }).length === 0) {
+        && snapshotValidationIssuesAfterCascade(
+          cachedContent,
+          cached.status === 'available' ? narrativeBrief : narrativeInput,
+          cachedMode
+        ).length === 0) {
         return narrativeFromCache(key, cached, cachedContent);
       }
     }
@@ -804,7 +915,12 @@ export async function buildCachedSnapshotNarrative(input: {
     }
 
     const finalMode = finalNarrative.mode === 'ai' ? 'ai' : 'deterministic';
-    if (validateSnapshotNarrative(content, finalMode === 'ai' ? narrativeBrief : narrativeInput, { mode: finalMode }).length > 0) {
+    if (snapshotValidationIssuesAfterCascade(
+      content,
+      finalMode === 'ai' ? narrativeBrief : narrativeInput,
+      finalMode,
+      cascade.diagnostics
+    ).length > 0) {
       finalNarrative = fallback('snapshot_final_validation_failed', providerCalls, generated, cascade.diagnostics);
       content = contentFromNarrative(finalNarrative);
     }

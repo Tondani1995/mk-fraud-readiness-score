@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
+import { classifyAssuranceLanguage, classifyAssuranceLanguageDetailed } from '../../src/lib/reports/narrative/validation.ts';
 
 const fail = [
   'MK independently verified the organisation\'s supplier controls.',
@@ -55,6 +55,29 @@ test('negated evidence-validation disclaimer is not an assurance claim', () => {
 
 test('ambiguous independent verification fails closed', () => {
   assert.equal(classifyAssuranceLanguage('Independent verification is important.')?.category, 'prohibited_assurance');
+});
+
+test('detailed assurance classification separates limitations, customer controls and ambiguous wording', () => {
+  assert.equal(
+    classifyAssuranceLanguageDetailed('This assessment is based on management responses and does not constitute independent verification of operating effectiveness.')?.category,
+    'EXPLICIT_LIMITATION'
+  );
+  assert.equal(
+    classifyAssuranceLanguageDetailed('Supplier bank-detail changes should be independently verified before release.')?.category,
+    'SAFE_CUSTOMER_CONTROL'
+  );
+  assert.equal(
+    classifyAssuranceLanguageDetailed('Independent verification is important.')?.category,
+    'AMBIGUOUS_ASSURANCE'
+  );
+  assert.equal(
+    classifyAssuranceLanguageDetailed('This report provides independent assurance that operating effectiveness is confirmed.')?.category,
+    'PROHIBITED_MK_OR_REPORT_ACTOR'
+  );
+  assert.equal(
+    classifyAssuranceLanguageDetailed('MK independently verified the organisation\'s supplier controls.')?.category,
+    'PROHIBITED_MK_OR_REPORT_ACTOR'
+  );
 });
 
 console.log(JSON.stringify({ passed: true, prohibited: fail.length, customerControl: pass.length, checks: ['MK assurance claims remain blocking', 'customer control verification allowed', 'ambiguous verification fails closed'] }, null, 2));

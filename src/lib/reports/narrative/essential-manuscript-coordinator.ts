@@ -13,6 +13,10 @@ import {
   assertBlueprintTextValidation,
   type ParsedBlueprintMarkdown
 } from './blueprint-text';
+import {
+  classifyAssuranceLanguageDetailed,
+  type AssuranceSemanticCategory
+} from './validation';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import {
   runSemanticSafetyCascade,
@@ -313,11 +317,33 @@ function reparseAuthoritativeBlueprint(parsed: ParsedBlueprintMarkdown, blueprin
   return reparsed;
 }
 
+type EssentialSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE';
+
+function essentialAssuranceDisposition(parsed: ParsedBlueprintMarkdown, issue: { code: string; path: string }): {
+  disposition: EssentialSemanticDisposition;
+  category?: AssuranceSemanticCategory;
+} {
+  if (issue.code !== 'assurance_claim') return { disposition: 'OBJECTIVE_HARD' };
+  const block = parsedBlockAtPath(parsed, issue.path);
+  // A missing block is a structural binding failure, not a wording ambiguity. Fail closed.
+  if (!block) return { disposition: 'OBJECTIVE_HARD' };
+  const classification = classifyAssuranceLanguageDetailed(block.text);
+  if (!classification) return { disposition: 'OBJECTIVE_HARD' };
+  if (classification.category === 'SAFE_CUSTOMER_CONTROL' || classification.category === 'EXPLICIT_LIMITATION') {
+    return { disposition: 'DETERMINISTIC_ALLOW', category: classification.category };
+  }
+  if (classification.category === 'AMBIGUOUS_ASSURANCE') {
+    return { disposition: 'SEMANTIC_CANDIDATE', category: classification.category };
+  }
+  return { disposition: 'OBJECTIVE_HARD', category: classification.category };
+}
+
 function essentialCandidatesForReport(
   parsed: ParsedBlueprintMarkdown,
   issues: Array<{ code: string; severity: string; path: string; message: string }>,
   factPack: NarrativeFactPack,
-  hardTruth: boolean
+  hardTruth: boolean,
+  assuranceCategories?: Map<string, AssuranceSemanticCategory>
 ): SemanticCandidate[] {
   const byTarget = new Map<string, SemanticCandidate>();
   for (const issue of issues) {
@@ -337,7 +363,12 @@ function essentialCandidatesForReport(
       fieldRole: 'essential-blueprint-paragraph',
       issueCode: issue.code,
       issueFamily: 'essential_semantic_safety',
-      deterministicFeatures: { hardTruth, validationCode: issue.code, permittedClaimRefCount: block?.permittedClaimRefs.length ?? 0 },
+      deterministicFeatures: {
+        hardTruth,
+        validationCode: issue.code,
+        permittedClaimRefCount: block?.permittedClaimRefs.length ?? 0,
+        ...(assuranceCategories?.has(issue.path) ? { assuranceCategory: assuranceCategories.get(issue.path) } : {})
+      },
       evidenceRefs: [`validation:${issue.code}`, ...((block?.permittedClaimRefs ?? []).slice(0, 8).map((ref) => `claim:${ref}`))],
       evidence: { productTier: factPack.productTier, targetPath: issue.path },
       hardTruth,
@@ -345,6 +376,70 @@ function essentialCandidatesForReport(
     });
   }
   return [...byTarget.values()];
+}
+
+function partitionEssentialValidationIssues(
+  parsed: ParsedBlueprintMarkdown,
+  hardIssues: Array<{ code: string; severity: string; path: string; message: string }>,
+  semanticIssues: Array<{ code: string; severity: string; path: string; message: string }>,
+  factPack: NarrativeFactPack
+): { hardCandidates: SemanticCandidate[]; candidates: SemanticCandidate[] } {
+  const hardIssuesForCascade: typeof hardIssues = [];
+  const candidateIssues: typeof semanticIssues = [];
+  const hardAssuranceCategories = new Map<string, AssuranceSemanticCategory>();
+  const candidateAssuranceCategories = new Map<string, AssuranceSemanticCategory>();
+
+  const classify = (issue: { code: string; severity: string; path: string; message: string }, source: 'hard' | 'semantic') => {
+    if (issue.code !== 'assurance_claim') {
+      (source === 'hard' ? hardIssuesForCascade : candidateIssues).push(issue);
+      return;
+    }
+    const result = essentialAssuranceDisposition(parsed, issue);
+    if (result.disposition === 'DETERMINISTIC_ALLOW') {
+      return;
+    } else if (result.disposition === 'SEMANTIC_CANDIDATE') {
+      candidateIssues.push(issue);
+      if (result.category) candidateAssuranceCategories.set(issue.path, result.category);
+    } else {
+      hardIssuesForCascade.push(issue);
+      if (result.category) hardAssuranceCategories.set(issue.path, result.category);
+    }
+  };
+
+  for (const issue of hardIssues) classify(issue, 'hard');
+  for (const issue of semanticIssues) classify(issue, 'semantic');
+
+  return {
+    hardCandidates: essentialCandidatesForReport(parsed, hardIssuesForCascade, factPack, true, hardAssuranceCategories),
+    candidates: essentialCandidatesForReport(parsed, candidateIssues, factPack, false, candidateAssuranceCategories)
+  };
+}
+
+function finalEssentialValidationReport(
+  parsed: ParsedBlueprintMarkdown,
+  report: ReturnType<typeof validateBlueprintTextManuscript>,
+  semanticSafety: SemanticCascadeDiagnostics
+): ReturnType<typeof validateBlueprintTextManuscript> {
+  const allowedByCascade = new Set(
+    semanticSafety.decisions
+      .filter((decision) => decision.disposition === 'MUST_ALLOW')
+      .map((decision) => decision.targetId.replace(/^essential:/, ''))
+  );
+  const hardIssues = report.hardTruth.issues.filter((issue) => {
+    if (issue.code !== 'assurance_claim') return true;
+    const classification = essentialAssuranceDisposition(parsed, issue);
+    if (classification.disposition === 'DETERMINISTIC_ALLOW') return false;
+    return !allowedByCascade.has(issue.path);
+  });
+  return {
+    ...report,
+    ok: hardIssues.length === 0,
+    hardTruth: {
+      ...report.hardTruth,
+      status: hardIssues.length === 0 ? 'PASS' : 'FAIL',
+      issues: hardIssues
+    }
+  };
 }
 
 const essentialAdjudicationSchema = z.object({
@@ -502,12 +597,21 @@ export async function composeEssentialManuscript(input: {
   ledger.claim('generation');
   const evaluate = (candidate: ParsedBlueprintMarkdown) => {
     const report = validateBlueprintTextManuscript(candidate, authoritativeBlueprint, factPack);
+    const partition = partitionEssentialValidationIssues(
+      candidate,
+      report.hardTruth.issues,
+      report.repairableSemantic.issues,
+      factPack
+    );
     return {
       value: candidate,
-      valid: report.hardTruth.issues.length === 0 && report.repairableSemantic.issues.length === 0,
+      // The legacy validator's hardTruth bucket is intentionally broader than the semantic
+      // cascade's hard truth. Explicit limitations are retained in that legacy report for old
+      // callers, but are not objective failures at this adapter boundary.
+      valid: partition.hardCandidates.length === 0 && partition.candidates.length === 0,
       validationIssues: [...report.hardTruth.issues, ...report.repairableSemantic.issues].map((issue) => issue.code),
-      hardCandidates: essentialCandidatesForReport(candidate, report.hardTruth.issues, factPack, true),
-      candidates: essentialCandidatesForReport(candidate, report.repairableSemantic.issues, factPack, false)
+      hardCandidates: partition.hardCandidates,
+      candidates: partition.candidates
     };
   };
   const adapters = input.semanticAdapters ?? createEssentialSemanticAdapters({ writer, factPack, blueprint: authoritativeBlueprint });
@@ -538,7 +642,11 @@ export async function composeEssentialManuscript(input: {
   }
 
   const finalNarrative = reparseAuthoritativeBlueprint(cascade.value, authoritativeBlueprint);
-  const finalReport = validateBlueprintTextManuscript(finalNarrative, authoritativeBlueprint, factPack);
+  const finalReport = finalEssentialValidationReport(
+    finalNarrative,
+    validateBlueprintTextManuscript(finalNarrative, authoritativeBlueprint, factPack),
+    cascade.diagnostics
+  );
   try {
     assertBlueprintTextValidation(finalReport);
   } catch (error) {

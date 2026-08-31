@@ -37,6 +37,19 @@ export interface AssuranceLanguageClassification {
   matched: string;
 }
 
+export type AssuranceSemanticCategory =
+  | 'SAFE_CUSTOMER_CONTROL'
+  | 'EXPLICIT_LIMITATION'
+  | 'PROHIBITED_COMPLETED_ASSURANCE'
+  | 'PROHIBITED_MK_OR_REPORT_ACTOR'
+  | 'AMBIGUOUS_ASSURANCE';
+
+export interface DetailedAssuranceLanguageClassification {
+  category: AssuranceSemanticCategory;
+  matched: string;
+  rationale: string;
+}
+
 const ABSOLUTELY_PROHIBITED_ASSURANCE = [
   /\b(?:evidence-linked|evidence-based)\b.{0,100}\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b/i,
   /\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b.{0,100}\b(?:evidence-linked|evidence-based)\b/i,
@@ -74,6 +87,104 @@ const PROHIBITED_ASSURANCE_SUBJECT = /\b(?:MK|the assessment|this assessment|the
 // Narrow, deterministic exception for the supplied management-versus-assurance role-separation
 // control. Generic independent-review wording remains fail-closed.
 const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equivalent assurance function|assurance function)\b.{0,180}\bindependent review(?: responsibilities)?\b|\bindependent review(?: responsibilities)?\b.{0,180}\b(?:management|internal audit|equivalent assurance function|assurance function)\b/i;
+
+/**
+ * Explicit limitations are safe boundary statements, even when the legacy lexical validator
+ * notices the assurance vocabulary inside them. Keep the patterns bounded to one sentence so a
+ * genuine prohibited assertion later in the same block is still inspected independently.
+ */
+const EXPLICIT_ASSURANCE_LIMITATIONS = [
+  /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,180}\bdoes not constitute\s+(?:an?\s+)?(?:independent\s+)?(?:assurance|verification|validation)(?:\s+of\s+[^.!?]{0,120})?/gi,
+  /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,140}\b(?:does not|cannot|is not intended to|isn't intended to)\s+(?:provide|establish|confirm|demonstrate|verify|validate|constitute|offer)\b[^.!?]{0,120}\b(?:assurance|verification|validation|operating effectiveness|effectiveness|evidence|controls?)\b/gi,
+  new RegExp(NEGATED_ASSURANCE_DISCLAIMER.source, 'gi'),
+  /\b(?:not|without)\s+(?:an?\s+)?(?:independent\s+)?(?:assurance|verification|validation)\b[^.!?]{0,100}/gi
+];
+
+function stripExplicitAssuranceLimitations(text: string): { residual: string; matched: string[] } {
+  let residual = text;
+  const matched: string[] = [];
+  for (const pattern of EXPLICIT_ASSURANCE_LIMITATIONS) {
+    residual = residual.replace(pattern, (match) => {
+      matched.push(match.trim());
+      return ' ';
+    });
+  }
+  return { residual, matched };
+}
+
+function hasProhibitedAssuranceActor(text: string): boolean {
+  return /\b(?:MK(?:'s)?|the assessment|this assessment|the findings?|the report|this report)\b/i.test(text)
+    || MK_ASSURANCE_ACTOR.test(text)
+    || PROHIBITED_ASSURANCE_SUBJECT.test(text);
+}
+
+/**
+ * Rich assurance classification for validator adapters. The older public classifier below is
+ * intentionally left behaviour-compatible for callers that use its release-validation shape.
+ * This richer result is the semantic disposition boundary: safe customer control language and
+ * explicit limitations may be allowed, completed assurance remains hard, and genuinely unclear
+ * assurance wording is eligible for bounded adjudication.
+ */
+export function classifyAssuranceLanguageDetailed(text: string): DetailedAssuranceLanguageClassification | null {
+  const original = String(text ?? '');
+  const limitation = stripExplicitAssuranceLimitations(original);
+  const assuranceText = limitation.residual;
+
+  for (const pattern of ABSOLUTELY_PROHIBITED_ASSURANCE) {
+    const match = assuranceText.match(pattern);
+    if (match) {
+      return {
+        category: hasProhibitedAssuranceActor(assuranceText)
+          ? 'PROHIBITED_MK_OR_REPORT_ACTOR'
+          : 'PROHIBITED_COMPLETED_ASSURANCE',
+        matched: match[0],
+        rationale: hasProhibitedAssuranceActor(assuranceText)
+          ? 'The assessment, report or MK is presented as having completed assurance activity.'
+          : 'The wording presents verification, validation or operating effectiveness as completed.'
+      };
+    }
+  }
+
+  const ambiguous = assuranceText.match(AMBIGUOUS_CONTROL_VERIFICATION);
+  if (ambiguous) {
+    if (hasProhibitedAssuranceActor(assuranceText)) {
+      return {
+        category: 'PROHIBITED_MK_OR_REPORT_ACTOR',
+        matched: ambiguous[0],
+        rationale: 'The assessment, report or MK is positioned as the actor for independent assurance activity.'
+      };
+    }
+
+    const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(assuranceText);
+    const hasControlAction = CONTROL_ACTIVITY_ACTION.test(assuranceText);
+    if ((hasControlSubject && hasControlAction)
+      || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
+      || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
+      || CUSTOMER_PASSIVE_CONTROL_VERIFICATION.test(assuranceText)
+      || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
+      return {
+        category: 'SAFE_CUSTOMER_CONTROL',
+        matched: ambiguous[0],
+        rationale: 'The wording describes a customer-owned control activity or recommendation, not completed MK or report assurance.'
+      };
+    }
+
+    return {
+      category: 'AMBIGUOUS_ASSURANCE',
+      matched: ambiguous[0],
+      rationale: 'Independent verification or review is mentioned without enough actor, tense or control context for a deterministic disposition.'
+    };
+  }
+
+  if (limitation.matched.length > 0) {
+    return {
+      category: 'EXPLICIT_LIMITATION',
+      matched: limitation.matched[0]!,
+      rationale: 'The wording explicitly limits the self-assessment and does not claim that assurance or operating effectiveness was established.'
+    };
+  }
+  return null;
+}
 
 /**
  * Classifies only assurance language in customer-facing narrative text. Explicit claims about MK,
