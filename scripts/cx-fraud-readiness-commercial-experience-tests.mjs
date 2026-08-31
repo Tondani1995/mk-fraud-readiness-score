@@ -71,7 +71,7 @@ const START_PAGE = 'src/app/score/start/page.tsx';
 const START_FORM = 'src/components/adaptive/AdaptiveStartForm.tsx';
 const TERMS_GATE = 'src/components/adaptive/FraudReadinessTermsGate.tsx';
 const ADAPTIVE_SERVER = 'src/lib/adaptive/server.ts';
-const MIGRATION = 'supabase/migrations/20260831180000_fraud_readiness_terms_acceptance.sql';
+const MIGRATION = 'supabase/migrations/20260831200000_fraud_readiness_terms_acceptance.sql';
 
 console.log('fraud readiness commercial experience');
 

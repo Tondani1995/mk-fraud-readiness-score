@@ -355,7 +355,7 @@ check('both intakes are rate limited per IP and per email', () => {
 check('persistence is service-role only and no anon write path exists', () => {
   const service = read('src/lib/enquiries/public-enquiry-service.ts');
   assert.ok(service.includes('createSupabaseServiceClient'));
-  const migration = read('supabase/migrations/20260831190000_public_enquiry_intake.sql');
+  const migration = read('supabase/migrations/20260831201000_public_enquiry_intake.sql');
   assert.ok(migration.includes('revoke all on table public.data_requests from anon, authenticated'));
   assert.ok(migration.includes('enable row level security'));
   // No service-role credential may be referenced from a client component.
@@ -467,7 +467,7 @@ check('the admin queue queries all enquiry types and the lead columns', () => {
 // --- MIGRATION -----------------------------------------------------------------------------------
 
 check('the enquiry migration is additive and orders after the terms migration', () => {
-  const migration = read('supabase/migrations/20260831190000_public_enquiry_intake.sql');
+  const migration = read('supabase/migrations/20260831201000_public_enquiry_intake.sql');
   for (const column of ['contact_name', 'company_name', 'contact_phone', 'service_interest', 'enquiry_source']) {
     assert.ok(migration.includes(`add column if not exists ${column}`));
   }
@@ -477,7 +477,7 @@ check('the enquiry migration is additive and orders after the terms migration', 
   assert.ok(!/create table/i.test(migration), 'no second enquiry table');
 
   const all = fs.readdirSync(path.join(root, 'supabase/migrations')).filter((name) => name.endsWith('.sql')).sort();
-  assert.equal(all[all.length - 1], '20260831190000_public_enquiry_intake.sql');
+  assert.equal(all[all.length - 1], '20260831201000_public_enquiry_intake.sql');
   assert.ok(all[all.length - 1].slice(0, 14) > '20260831153650', 'must order after the production ledger head');
   assert.ok(all[all.length - 1].slice(0, 14) > all[all.length - 2].slice(0, 14));
 });
@@ -487,7 +487,7 @@ check('the migration keeps public Advisory inside the existing Advisory constrai
   // The accepted constraints are scoped by request_type, so they still bind a public enquiry.
   assert.ok(advisoryMigration.includes("request_type <> 'mk_advisory'"));
   assert.ok(advisoryMigration.includes('data_requests_advisory_consent_chk'));
-  const migration = read('supabase/migrations/20260831190000_public_enquiry_intake.sql');
+  const migration = read('supabase/migrations/20260831201000_public_enquiry_intake.sql');
   assert.ok(migration.includes('data_requests_public_advisory_identity_chk'));
   assert.ok(migration.includes('data_requests_website_contact_chk'));
 });

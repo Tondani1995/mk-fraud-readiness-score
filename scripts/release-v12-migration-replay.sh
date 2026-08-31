@@ -164,7 +164,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=9
+forward_migration_count=11
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
