@@ -44,6 +44,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 const root = process.cwd();
+const SCHEDULER_MIGRATION_NAME = '20260831181553_v12_stalled_lead_supabase_scheduler.sql';
 function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
 function ok(condition, label) { if (!condition) throw new Error(`FAIL: ${label}`); console.log(`  ok - ${label}`); }
 function includes(file, needle, label) { ok(read(file).includes(needle), `${label} (expected ${file} to include ${JSON.stringify(needle)})`); }
@@ -377,6 +378,32 @@ try {
     create table if not exists auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, not_after timestamptz);
     create schema if not exists vault;
     create table if not exists vault.decrypted_secrets (id uuid primary key default gen_random_uuid(), name text, decrypted_secret text);
+    create schema if not exists cron;
+    create schema if not exists net;
+    create table if not exists cron.job (jobid bigint generated always as identity primary key, jobname text not null unique, schedule text not null, command text not null, active boolean not null default true);
+    create or replace function cron.schedule(p_job_name text, p_schedule text, p_command text)
+    returns bigint
+    language plpgsql
+    as $$
+    declare
+      v_job_id bigint;
+    begin
+      insert into cron.job(jobname, schedule, command)
+      values (p_job_name, p_schedule, p_command)
+      returning jobid into v_job_id;
+      return v_job_id;
+    end;
+    $$;
+    create or replace function net.http_get(
+      url text,
+      params jsonb default null,
+      headers jsonb default null,
+      timeout_milliseconds integer default 1000
+    ) returns bigint
+    language sql
+    as $$ select 1::bigint $$;
+    insert into vault.decrypted_secrets(name, decrypted_secret)
+    values ('v12_stalled_lead_cron_secret', 'scheduler-test-secret-never-in-command-256-bit');
     create schema if not exists storage;
     create table if not exists storage.buckets (id text primary key, name text not null, owner uuid, owner_id text, public boolean default false, avif_autodetection boolean default false, file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now(), updated_at timestamptz default now());
     create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now());
@@ -396,7 +423,16 @@ try {
   console.log(`Applying ${migrationFiles.length} real migration files verbatim, in order (including Release D's)...`);
   ok(migrationFiles.includes('20260725150000_release_d_operational_alert_lifecycle.sql'), 'Release D\'s migration is present in the replay set');
   for (const name of migrationFiles) {
-    await db.query(fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8'));
+    let migrationSql = fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8');
+    if (name === SCHEDULER_MIGRATION_NAME) {
+      // Embedded Postgres does not ship Supabase's managed extensions. The production
+      // migration installs them normally; this disposable replay replaces only those
+      // install statements with the local Cron/net stubs created above.
+      migrationSql = migrationSql
+        .replace(/create extension if not exists pg_cron with schema pg_catalog;\s*/i, '')
+        .replace(/create extension if not exists pg_net;\s*/i, '');
+    }
+    await db.query(migrationSql);
 
     if (name === '20260821090000_adaptive_v1_2_staging_activation.sql') {
       // The historical activation migration delegates V1.2 graph/scale registration to the
@@ -428,6 +464,21 @@ try {
         'historical V1.2 activation must create 0-based response-scale rows before correction',
       );
       ok(true, 'historical V1.2 activation seam created the expected 0-based response scale');
+    }
+
+    if (name === SCHEDULER_MIGRATION_NAME) {
+      const schedulerJob = await db.query(`
+        select jobname, schedule, command, active
+        from cron.job
+        where jobname = 'v12-stalled-lead-monitor'
+      `);
+      assert.equal(schedulerJob.rows.length, 1, 'exactly one stalled-lead scheduler job exists');
+      assert.equal(schedulerJob.rows[0].schedule, '0 * * * *');
+      assert.equal(schedulerJob.rows[0].active, true);
+      assert.match(schedulerJob.rows[0].command, /v12_stalled_lead_cron_secret/);
+      assert.match(schedulerJob.rows[0].command, /decrypted_secret/);
+      assert.doesNotMatch(schedulerJob.rows[0].command, /scheduler-test-secret-never-in-command-256-bit/);
+      ok(true, 'Supabase scheduler stores a runtime Vault lookup and no plaintext bearer secret');
     }
   }
   console.log('All migrations applied.');

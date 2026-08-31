@@ -15,9 +15,18 @@ import ts from 'typescript';
 
 const root = process.cwd();
 const migrationName = '20260831173230_v12_adaptive_stalled_lead_controls_setter.sql';
+const schedulerMigrationName = '20260831181553_v12_stalled_lead_supabase_scheduler.sql';
 const migrationPath = path.join(root, 'supabase/migrations', migrationName);
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const schedulerMigration = fs.readFileSync(
+  path.join(root, 'supabase/migrations', schedulerMigrationName),
+  'utf8',
+);
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+const stalledRoute = fs.readFileSync(
+  path.join(root, 'src/app/score/api/internal/adaptive-stalled-leads/route.ts'),
+  'utf8',
+);
 const notificationSource = fs.readFileSync(
   path.join(root, 'src/lib/notifications/internal-assessment-notifications.ts'),
   'utf8',
@@ -42,12 +51,21 @@ check(/insert into public\.audit_logs/i.test(migration), 'setter records the con
 check(/v12_stalled_lead_controls_changed/i.test(migration), 'setter uses the required audit action');
 check(/revoke all on function public\.set_v12_adaptive_stalled_lead_controls/i.test(migration), 'setter execution is explicitly revoked before the grant');
 check(/grant execute on function public\.set_v12_adaptive_stalled_lead_controls[\s\S]*to service_role/i.test(migration), 'setter is service_role-only');
+check(!Array.isArray(vercel.crons) || vercel.crons.length === 0, 'Vercel has no stalled-lead cron');
 check(
-  vercel.crons.length === 1
-    && vercel.crons[0].path === '/score/api/internal/adaptive-stalled-leads'
-    && vercel.crons[0].schedule === '0 * * * *',
-  'the only cron is the hourly stalled-lead route',
+  schedulerMigration.includes('create extension if not exists pg_cron')
+    && schedulerMigration.includes('create extension if not exists pg_net'),
+  'scheduler migration enables the Supabase pg_cron and pg_net extensions',
 );
+check(schedulerMigration.includes("cron.schedule(\n    'v12-stalled-lead-monitor'"), 'scheduler migration creates the fixed job name');
+check(schedulerMigration.includes("'0 * * * *'"), 'scheduler migration uses the hourly schedule');
+check(schedulerMigration.includes("name = 'v12_stalled_lead_cron_secret'"), 'scheduler resolves the bearer from the fixed Vault secret name');
+check(schedulerMigration.includes('select net.http_get('), 'scheduler invokes the existing pg_net HTTP function');
+check(/revoke all on schema cron/i.test(schedulerMigration) && /revoke all on schema net/i.test(schedulerMigration), 'scheduler keeps Cron and pg_net schemas private');
+check(/revoke all on function %s from public, anon, authenticated/i.test(schedulerMigration), 'scheduler revokes managed-extension function execution from public roles');
+check(!schedulerMigration.includes('scheduler-test-secret-never-in-command'), 'scheduler migration contains no plaintext test secret');
+check(stalledRoute.includes('process.env.MK_STALLED_LEAD_CRON_SECRET'), 'stalled-lead route uses the dedicated secret');
+check(!stalledRoute.includes('process.env.CRON_SECRET'), 'stalled-lead route does not use the shared CRON_SECRET');
 check(
   notificationSource.includes('return `assessment_stalled:${assessmentId}:last_activity:${lastActivityAt}`'),
   'existing stalled-lead episode identity remains threshold-independent',
@@ -158,6 +176,39 @@ function loadMonitorModule() {
   return module.exports;
 }
 
+function loadStalledRoute() {
+  const output = ts.transpileModule(stalledRoute, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+  const module = { exports: {} };
+  const monitorCalls = [];
+  const stubs = {
+    'next/server': {
+      NextResponse: {
+        json(body, init = {}) {
+          return { body, status: init.status ?? 200 };
+        },
+      },
+    },
+    '@/lib/notifications/internal-assessment-notifications': {
+      monitorAdaptiveStalledLeads: async (options) => {
+        monitorCalls.push(options);
+        return { ok: true, notified: 0 };
+      },
+    },
+  };
+  const resolveImport = (specifier) => {
+    if (stubs[specifier]) return stubs[specifier];
+    throw new Error(`unexpected runtime dependency in stalled-route auth test: ${specifier}`);
+  };
+  new Function('require', 'module', 'exports', output)(resolveImport, module, module.exports);
+  return { route: module.exports, monitorCalls };
+}
+
 console.log('Booting disposable Postgres for the stalled-lead control setter replay...');
 await postgres.initialise();
 await postgres.start();
@@ -173,6 +224,8 @@ try {
     create schema if not exists auth;
     create schema if not exists storage;
     create schema if not exists vault;
+    create schema if not exists cron;
+    create schema if not exists net;
     create schema if not exists supabase_migrations;
     create or replace function auth.jwt() returns jsonb language sql stable as $$
       select nullif(current_setting('request.jwt.claims', true), '')::jsonb
@@ -202,6 +255,44 @@ try {
       metadata jsonb
     );
     alter table storage.objects enable row level security;
+    create table if not exists vault.decrypted_secrets (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      description text,
+      decrypted_secret text not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+    create table if not exists cron.job (
+      jobid bigint generated always as identity primary key,
+      jobname text not null unique,
+      schedule text not null,
+      command text not null,
+      active boolean not null default true
+    );
+    create or replace function cron.schedule(p_job_name text, p_schedule text, p_command text)
+    returns bigint
+    language plpgsql
+    as $$
+    declare
+      v_job_id bigint;
+    begin
+      insert into cron.job(jobname, schedule, command)
+      values (p_job_name, p_schedule, p_command)
+      returning jobid into v_job_id;
+      return v_job_id;
+    end;
+    $$;
+    create or replace function net.http_get(
+      url text,
+      params jsonb default null,
+      headers jsonb default null,
+      timeout_milliseconds integer default 1000
+    ) returns bigint
+    language sql
+    as $$ select 1::bigint $$;
+    insert into vault.decrypted_secrets(name, decrypted_secret)
+    values ('v12_stalled_lead_cron_secret', 'scheduler-test-secret-never-in-command-256-bit');
   `);
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await db.query(`do $$ begin if not exists (select 1 from pg_roles where rolname='${role}') then create role ${role} nologin; end if; end $$;`);
@@ -211,7 +302,16 @@ try {
   let applied = 0;
   for (const name of migrationFiles) {
     try {
-      await db.query(fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8'));
+      let sql = fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8');
+      if (name === schedulerMigrationName) {
+        // Embedded Postgres does not ship Supabase's managed extensions. The production migration
+        // still installs them normally; this replay replaces only those install statements with
+        // the disposable cron/net stubs created above.
+        sql = sql
+          .replace(/create extension if not exists pg_cron with schema pg_catalog;\s*/i, '')
+          .replace(/create extension if not exists pg_net;\s*/i, '');
+      }
+      await db.query(sql);
       applied += 1;
     } catch (error) {
       throw new Error(`migration ${name} failed to replay: ${error.message}`);
@@ -234,6 +334,39 @@ try {
       `);
       check(historicalScale.rows[0].display_orders === '0,1,2,3,4,5', 'historical V1.2 seam remains 0..5 before correction');
     }
+
+    if (name === schedulerMigrationName) {
+      const schedulerJob = await db.query(`
+        select jobname, schedule, command, active
+        from cron.job
+        where jobname = 'v12-stalled-lead-monitor'
+      `);
+      assert.equal(schedulerJob.rows.length, 1, 'exactly one stalled-lead scheduler job exists');
+      assert.equal(schedulerJob.rows[0].schedule, '0 * * * *');
+      assert.equal(schedulerJob.rows[0].active, true);
+      assert.match(schedulerJob.rows[0].command, /v12_stalled_lead_cron_secret/);
+      assert.match(schedulerJob.rows[0].command, /decrypted_secret/);
+      assert.doesNotMatch(schedulerJob.rows[0].command, /scheduler-test-secret-never-in-command-256-bit/);
+      const schedulerAuthority = await db.query(`
+        select
+          has_schema_privilege('anon', 'cron', 'USAGE') as anon_cron_usage,
+          has_schema_privilege('authenticated', 'cron', 'USAGE') as authenticated_cron_usage,
+          has_schema_privilege('anon', 'net', 'USAGE') as anon_net_usage,
+          has_schema_privilege('authenticated', 'net', 'USAGE') as authenticated_net_usage,
+          has_function_privilege('anon', 'cron.schedule(text,text,text)', 'EXECUTE') as anon_schedule_execute,
+          has_function_privilege('authenticated', 'cron.schedule(text,text,text)', 'EXECUTE') as authenticated_schedule_execute
+      `);
+      assert.deepEqual(schedulerAuthority.rows[0], {
+        anon_cron_usage: false,
+        authenticated_cron_usage: false,
+        anon_net_usage: false,
+        authenticated_net_usage: false,
+        anon_schedule_execute: false,
+        authenticated_schedule_execute: false,
+      });
+      check(true, 'Supabase scheduler stores the Vault lookup, not a plaintext bearer secret');
+      check(true, 'anon/authenticated cannot use Cron or pg_net scheduling authorities');
+    }
   }
   check(applied === migrationFiles.length, `all ${applied} migrations replayed cleanly`);
 
@@ -255,6 +388,37 @@ try {
   assert.equal(functionContract.rows[0].authenticated_execute, false);
   assert.ok((functionContract.rows[0].proconfig ?? []).some((entry) => entry === 'search_path=""' || entry === 'search_path='));
   console.log('  ok - setter has SECURITY DEFINER, empty search_path, service_role-only execution');
+
+  const { route, monitorCalls } = loadStalledRoute();
+  const previousDedicated = process.env.MK_STALLED_LEAD_CRON_SECRET;
+  const previousShared = process.env.CRON_SECRET;
+  try {
+    process.env.MK_STALLED_LEAD_CRON_SECRET = 'dedicated-test-secret';
+    process.env.CRON_SECRET = 'shared-test-secret';
+    for (const [label, authorization, expectedStatus] of [
+      ['missing dedicated secret', undefined, 403],
+      ['wrong dedicated secret', 'Bearer wrong-test-secret', 403],
+      ['shared secret is rejected', 'Bearer shared-test-secret', 403],
+      ['dedicated secret is accepted', 'Bearer dedicated-test-secret', 200],
+    ]) {
+      if (label === 'missing dedicated secret') delete process.env.MK_STALLED_LEAD_CRON_SECRET;
+      else process.env.MK_STALLED_LEAD_CRON_SECRET = 'dedicated-test-secret';
+      const headers = new Headers();
+      if (authorization) headers.set('authorization', authorization);
+      const response = await route.GET({
+        headers,
+        url: 'https://preview.invalid/score/api/internal/adaptive-stalled-leads',
+      });
+      assert.equal(response.status, expectedStatus, label);
+    }
+    assert.equal(monitorCalls.length, 1, 'only the correct dedicated secret reaches the monitor');
+    check(true, 'stalled-lead route rejects missing/wrong/shared credentials and accepts the dedicated secret');
+  } finally {
+    if (previousDedicated === undefined) delete process.env.MK_STALLED_LEAD_CRON_SECRET;
+    else process.env.MK_STALLED_LEAD_CRON_SECRET = previousDedicated;
+    if (previousShared === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = previousShared;
+  }
 
   await db.query(`
     insert into public.app_settings(setting_key, value_json)

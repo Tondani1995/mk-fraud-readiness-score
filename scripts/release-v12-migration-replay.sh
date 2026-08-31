@@ -61,6 +61,38 @@ create table vault.decrypted_secrets (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+create schema cron;
+create schema net;
+create table cron.job (
+  jobid bigint generated always as identity primary key,
+  jobname text not null unique,
+  schedule text not null,
+  command text not null,
+  active boolean not null default true
+);
+create or replace function cron.schedule(p_job_name text, p_schedule text, p_command text)
+returns bigint
+language plpgsql
+as $function$
+declare
+  v_job_id bigint;
+begin
+  insert into cron.job(jobname, schedule, command)
+  values (p_job_name, p_schedule, p_command)
+  returning jobid into v_job_id;
+  return v_job_id;
+end;
+$function$;
+create or replace function net.http_get(
+  url text,
+  params jsonb default null,
+  headers jsonb default null,
+  timeout_milliseconds integer default 1000
+) returns bigint
+language sql
+as $function$ select 1::bigint $function$;
+insert into vault.decrypted_secrets(name, decrypted_secret)
+values ('v12_stalled_lead_cron_secret', 'scheduler-test-secret-never-in-command-256-bit');
 create or replace function vault.create_secret(text, text, text, uuid)
 returns uuid
 language plpgsql
@@ -132,7 +164,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=4
+forward_migration_count=9
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
@@ -150,7 +182,18 @@ for migration_file in "${migration_files[@]}"; do
   migration_label="${migration_label%.sql}"
   ordinal="$((ordinal + 1))"
   printf 'replay %03d %s\n' "${ordinal}" "${migration_name}"
-  psql "${psql_args[@]}" --file="${migration_file}" >/dev/null
+  if [[ "${migration_name}" == "20260831181553_v12_stalled_lead_supabase_scheduler.sql" ]]; then
+    # Embedded/local Postgres does not include Supabase-managed pg_cron or pg_net. The production
+    # migration installs them; this disposable replay replaces only those two install statements
+    # and exercises the stored scheduler command against the local cron/net stubs.
+    psql "${psql_args[@]}" \
+      --file=<(sed \
+        -e '/^[[:space:]]*create extension if not exists pg_cron with schema pg_catalog;[[:space:]]*$/d' \
+        -e '/^[[:space:]]*create extension if not exists pg_net;[[:space:]]*$/d' \
+        "${migration_file}") >/dev/null
+  else
+    psql "${psql_args[@]}" --file="${migration_file}" >/dev/null
+  fi
 
   # The historical V1.2 activation migration registers the candidate through a controlled RPC
   # rather than inserting its data as migration SQL. Reproduce that accepted activation seam in
@@ -183,6 +226,18 @@ for migration_file in "${migration_files[@]}"; do
     --command="insert into replay.replay_log(ordinal, version, name) values (${ordinal}, '${migration_version}', '${migration_label}')" \
     >/dev/null
 done
+
+scheduler_job_contract="$(psql "${psql_args[@]}" -At --command="
+  select count(*)::text || '|' || coalesce(string_agg(schedule, ',' order by jobid), '') || '|' ||
+         coalesce(string_agg(case when command like '%v12_stalled_lead_cron_secret%' and command like '%decrypted_secret%' and command not like '%scheduler-test-secret-never-in-command-256-bit%' then 'vault' else 'invalid' end, ',' order by jobid), '')
+  from cron.job
+  where jobname = 'v12-stalled-lead-monitor'")"
+if [[ "${scheduler_job_contract}" != "1|0 * * * *|vault" ]]; then
+  printf 'FAIL: stalled-lead Supabase scheduler contract is not exactly one hourly Vault-backed job; got %s\n' \
+    "${scheduler_job_contract}" >&2
+  exit 1
+fi
+printf 'PASS: exactly one hourly stalled-lead scheduler uses a runtime Vault lookup with no plaintext secret.\n'
 
 final_v12_scale_rows="$(psql "${psql_args[@]}" -At --command="
   select coalesce(

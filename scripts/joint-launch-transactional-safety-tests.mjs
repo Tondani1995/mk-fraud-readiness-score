@@ -72,6 +72,8 @@ try {
     create schema if not exists auth;
     create schema if not exists storage;
     create schema if not exists vault;
+    create schema if not exists cron;
+    create schema if not exists net;
     create schema if not exists supabase_migrations;
     create or replace function auth.jwt() returns jsonb language sql stable as $$
       select nullif(current_setting('request.jwt.claims', true), '')::jsonb
@@ -93,6 +95,44 @@ try {
       name text, owner uuid, metadata jsonb, user_metadata jsonb
     );
     alter table storage.objects enable row level security;
+    create table if not exists vault.decrypted_secrets (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      description text,
+      decrypted_secret text not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+    create table if not exists cron.job (
+      jobid bigint generated always as identity primary key,
+      jobname text not null unique,
+      schedule text not null,
+      command text not null,
+      active boolean not null default true
+    );
+    create or replace function cron.schedule(p_job_name text, p_schedule text, p_command text)
+    returns bigint
+    language plpgsql
+    as $$
+    declare
+      v_job_id bigint;
+    begin
+      insert into cron.job(jobname, schedule, command)
+      values (p_job_name, p_schedule, p_command)
+      returning jobid into v_job_id;
+      return v_job_id;
+    end;
+    $$;
+    create or replace function net.http_get(
+      url text,
+      params jsonb default null,
+      headers jsonb default null,
+      timeout_milliseconds integer default 1000
+    ) returns bigint
+    language sql
+    as $$ select 1::bigint $$;
+    insert into vault.decrypted_secrets(name, decrypted_secret)
+    values ('v12_stalled_lead_cron_secret', 'scheduler-test-secret-never-in-command-256-bit');
   `);
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await db.query(`do $$ begin if not exists (select 1 from pg_roles where rolname='${role}') then create role ${role} nologin; end if; end $$;`);
@@ -101,7 +141,16 @@ try {
 
   for (const name of migrationFiles) {
     try {
-      await db.query(fs.readFileSync(path.join(migrationsDir, name), 'utf8'));
+      let migrationSql = fs.readFileSync(path.join(migrationsDir, name), 'utf8');
+      if (name === '20260831181553_v12_stalled_lead_supabase_scheduler.sql') {
+        // Embedded Postgres does not ship Supabase's managed extensions. The production
+        // migration still installs them normally; this disposable replay replaces only those
+        // install statements with the Cron/net stubs created above.
+        migrationSql = migrationSql
+          .replace(/create extension if not exists pg_cron with schema pg_catalog;\s*/i, '')
+          .replace(/create extension if not exists pg_net;\s*/i, '');
+      }
+      await db.query(migrationSql);
     } catch (error) {
       throw new Error(`migration ${name} failed to replay: ${error.message}`);
     }

@@ -30,6 +30,7 @@ try {
 const root = process.cwd();
 const migrationsDir = path.join(root, 'supabase/migrations');
 const migrationFiles = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort();
+const SCHEDULER_MIGRATION_NAME = '20260831181553_v12_stalled_lead_supabase_scheduler.sql';
 
 const JOINT_LAUNCH_MIGRATIONS = [
   '20260810120000_joint_launch_product_catalogue.sql',
@@ -78,6 +79,8 @@ try {
     create schema if not exists auth;
     create schema if not exists storage;
     create schema if not exists vault;
+    create schema if not exists cron;
+    create schema if not exists net;
     create schema if not exists supabase_migrations;
     create or replace function auth.jwt() returns jsonb language sql stable as $$
       select nullif(current_setting('request.jwt.claims', true), '')::jsonb
@@ -100,6 +103,44 @@ try {
       name text, owner uuid, metadata jsonb
     );
     alter table storage.objects enable row level security;
+    create table if not exists vault.decrypted_secrets (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      description text,
+      decrypted_secret text not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+    create table if not exists cron.job (
+      jobid bigint generated always as identity primary key,
+      jobname text not null unique,
+      schedule text not null,
+      command text not null,
+      active boolean not null default true
+    );
+    create or replace function cron.schedule(p_job_name text, p_schedule text, p_command text)
+    returns bigint
+    language plpgsql
+    as $$
+    declare
+      v_job_id bigint;
+    begin
+      insert into cron.job(jobname, schedule, command)
+      values (p_job_name, p_schedule, p_command)
+      returning jobid into v_job_id;
+      return v_job_id;
+    end;
+    $$;
+    create or replace function net.http_get(
+      url text,
+      params jsonb default null,
+      headers jsonb default null,
+      timeout_milliseconds integer default 1000
+    ) returns bigint
+    language sql
+    as $$ select 1::bigint $$;
+    insert into vault.decrypted_secrets(name, decrypted_secret)
+    values ('v12_stalled_lead_cron_secret', 'scheduler-test-secret-never-in-command-256-bit');
   `);
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await db.query(`do $$ begin if not exists (select 1 from pg_roles where rolname='${role}') then create role ${role} nologin; end if; end $$;`);
@@ -109,7 +150,15 @@ try {
   // --- Replay the committed chain in filename order -----------------------------------------------
   let applied = 0;
   for (const name of migrationFiles) {
-    const sql = fs.readFileSync(path.join(migrationsDir, name), 'utf8');
+    let sql = fs.readFileSync(path.join(migrationsDir, name), 'utf8');
+    if (name === SCHEDULER_MIGRATION_NAME) {
+      // The disposable binary does not ship Supabase-managed extensions. Keep the real migration
+      // SQL intact in the repository while replacing only extension installation with the local
+      // cron/net stubs above; the scheduler job contract itself is still replayed end to end.
+      sql = sql
+        .replace(/create extension if not exists pg_cron with schema pg_catalog;\s*/i, '')
+        .replace(/create extension if not exists pg_net;\s*/i, '');
+    }
     try {
       await db.query(sql);
       applied += 1;
@@ -147,6 +196,39 @@ try {
         'historical V1.2 activation must create 0-based response-scale rows before correction',
       );
       check('historical V1.2 activation seam created the expected 0-based response scale');
+    }
+
+    if (name === SCHEDULER_MIGRATION_NAME) {
+      const schedulerJob = await db.query(`
+        select jobname, schedule, command, active
+        from cron.job
+        where jobname = 'v12-stalled-lead-monitor'
+      `);
+      assert.equal(schedulerJob.rows.length, 1, 'exactly one stalled-lead scheduler job exists');
+      assert.equal(schedulerJob.rows[0].schedule, '0 * * * *');
+      assert.equal(schedulerJob.rows[0].active, true);
+      assert.match(schedulerJob.rows[0].command, /v12_stalled_lead_cron_secret/);
+      assert.match(schedulerJob.rows[0].command, /decrypted_secret/);
+      assert.doesNotMatch(schedulerJob.rows[0].command, /scheduler-test-secret-never-in-command-256-bit/);
+      const schedulerAuthority = await db.query(`
+        select
+          has_schema_privilege('anon', 'cron', 'USAGE') as anon_cron_usage,
+          has_schema_privilege('authenticated', 'cron', 'USAGE') as authenticated_cron_usage,
+          has_schema_privilege('anon', 'net', 'USAGE') as anon_net_usage,
+          has_schema_privilege('authenticated', 'net', 'USAGE') as authenticated_net_usage,
+          has_function_privilege('anon', 'cron.schedule(text,text,text)', 'EXECUTE') as anon_schedule_execute,
+          has_function_privilege('authenticated', 'cron.schedule(text,text,text)', 'EXECUTE') as authenticated_schedule_execute
+      `);
+      assert.deepEqual(schedulerAuthority.rows[0], {
+        anon_cron_usage: false,
+        authenticated_cron_usage: false,
+        anon_net_usage: false,
+        authenticated_net_usage: false,
+        anon_schedule_execute: false,
+        authenticated_schedule_execute: false,
+      });
+      check('Supabase scheduler stores a Vault lookup and no plaintext bearer secret');
+      check('anon/authenticated cannot use Cron or pg_net scheduling authorities');
     }
   }
   check(`all ${applied} committed migrations replayed cleanly, joint-launch migrations included`);

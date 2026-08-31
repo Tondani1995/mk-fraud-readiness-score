@@ -18,6 +18,7 @@ const reportTemplate = await read('src/lib/reports/templates/report-template.ts'
 const privateAccess = await read('src/lib/reports/private-report-access.ts');
 const assessmentAccess = await read('src/lib/reports/assessment-report-access.ts');
 const vercel = await read('vercel.json');
+const vercelConfig = JSON.parse(vercel);
 
 assert.match(migration, /alter column order_id drop not null/);
 assert.match(migration, /alter column assessment_id set not null/);
@@ -81,10 +82,14 @@ assert(legacySubmit.indexOf('loadFreeSnapshotByReference') < legacySubmit.indexO
 assert.match(adaptiveSubmit, /loadFreeSnapshotByReference/);
 assert(adaptiveSubmit.indexOf('loadFreeSnapshotByReference') < adaptiveSubmit.indexOf('notifyScoredAssessmentCompletion'));
 assert.doesNotMatch(respondentSave, /queueInternalNotification/);
-assert.match(stalledRoute, /CRON_SECRET/);
+assert.match(stalledRoute, /MK_STALLED_LEAD_CRON_SECRET/);
+assert.doesNotMatch(stalledRoute, /process\.env\.CRON_SECRET/);
 assert.match(stalledRoute, /monitorAdaptiveStalledLeads/);
-assert.match(vercel, /adaptive-stalled-leads/);
-assert.match(vercel, /"0 \* \* \* \*"/);
+assert.equal(
+  Array.isArray(vercelConfig.crons) ? vercelConfig.crons.length : 0,
+  0,
+  'stalled-lead monitoring is not scheduled by Vercel'
+);
 assert.doesNotMatch(vercel, /fulfilment-worker/);
 
 assert.match(adaptiveServer, /configuredSupabaseProjectRef/);

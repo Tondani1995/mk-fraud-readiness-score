@@ -638,15 +638,17 @@ await test('provider failure enters retry or reconciliation state safely', async
 await test('legacy recovery remains available but dormant in the current launch', async () => {
   includes(worker, "db.rpc('claim_next_fulfilment_job'", 'GET retains global claim');
   includes(replay, 'daily recovery invocation can claim a stranded eligible queued attempt', 'DB proof is present');
+  const crons = Array.isArray(vercel.crons) ? vercel.crons : [];
   assert.equal(
-    vercel.crons.some((entry) => entry.path === '/score/api/internal/fulfilment-worker'),
+    crons.some((entry) => entry.path === '/score/api/internal/fulfilment-worker'),
     false,
     'legacy fulfilment worker must remain unscheduled in the current launch'
   );
-  assert.deepEqual(vercel.crons, [{
-    path: '/score/api/internal/adaptive-stalled-leads',
-    schedule: '0 * * * *'
-  }]);
+  assert.equal(
+    crons.some((entry) => entry.path === '/score/api/internal/adaptive-stalled-leads'),
+    false,
+    'stalled-lead monitor must not remain in Vercel cron configuration'
+  );
 });
 await test('freeze blocks immediate and scheduled processing', async () => {
   includes(worker, "getRc1OperationFreezeResponse('worker', 'worker')", 'both methods share freeze guard');
@@ -691,9 +693,9 @@ await test('historical RC1 postflight remains frozen at its certified ledger bou
 });
 await test('current V1.2 migration source is certified by the exact disposable replay contract', async () => {
   includes(v12Replay, 'canonical_reconstructed_migration_count=121', 'replay preserves 121 reconstructed migrations');
-  includes(v12Replay, 'forward_migration_count=4', 'replay has four forward migrations');
+  includes(v12Replay, 'forward_migration_count=9', 'replay has nine current forward migrations');
   includes(v12Replay, 'expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"', 'replay derives exact expected total');
-  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 125/125 evidence');
+  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 130/130 evidence');
   includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
