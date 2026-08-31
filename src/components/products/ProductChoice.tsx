@@ -6,6 +6,7 @@ import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { NextStepRecommendation } from '@/lib/snapshot/next-step-recommendation';
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 import { readProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
+import { trackEvent } from '@/lib/website/gtag';
 
 /** The conversion moment: three equally visible choices with a deterministic recommendation. */
 
@@ -65,6 +66,8 @@ export function ProductChoice({
   const router = useRouter();
   const selectionSent = useRef<Set<SelfServicePaidTier>>(new Set());
   const advisorySelectionSent = useRef(false);
+  const reportOptionsViewedRef = useRef(false);
+  const optionSectionRef = useRef<HTMLElement | null>(null);
   const navigatingOptionRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
   const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
   const [earlierIntent, setEarlierIntent] = useState<ProductIntent | null>(null);
@@ -77,6 +80,37 @@ export function ProductChoice({
   useEffect(() => {
     setEarlierIntent(readProductIntent(snapshot.assessmentReference));
   }, [snapshot.assessmentReference]);
+
+  useEffect(() => {
+    const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
+    const section = optionSectionRef.current;
+    if (!snapshotToken || !section || reportOptionsViewedRef.current) return;
+
+    const recordOptionsViewed = () => {
+      if (reportOptionsViewedRef.current) return;
+      reportOptionsViewedRef.current = true;
+      void fetch(`${SCORE_BASE_PATH}/api/assessments/${snapshot.assessmentReference}/commercial-event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshotToken, eventType: 'report_options_opened', sourceSection: 'next_step' }),
+        keepalive: true
+      }).catch(() => null);
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      recordOptionsViewed();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0)) recordOptionsViewed();
+      },
+      { threshold: [0.5] }
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [snapshot.assessmentReference, snapshotUrl]);
 
   useEffect(() => {
     for (const tier of ['essential', 'comprehensive'] as SelfServicePaidTier[]) {
@@ -100,6 +134,7 @@ export function ProductChoice({
 
     navigatingOptionRef.current = tier;
     setNavigatingOption(tier);
+    trackEvent('product_selected', { tier });
     router.push(destination);
 
     if (snapshotToken && !selectionSent.current.has(tier)) {
@@ -126,6 +161,7 @@ export function ProductChoice({
 
     navigatingOptionRef.current = 'advisory';
     setNavigatingOption('advisory');
+    trackEvent('product_selected', { tier: 'advisory' });
     router.push(destination);
 
     if (snapshotToken && !advisorySelectionSent.current) {
@@ -144,7 +180,7 @@ export function ProductChoice({
 
   return (
     <>
-      <section id="next-step" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
+      <section ref={optionSectionRef} id="next-step" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
           <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">Your next step</p>
           <h2 className="mt-2.5 text-[22px] font-semibold tracking-tight text-mk-navy md:text-[28px]">How far do you want to take this?</h2>

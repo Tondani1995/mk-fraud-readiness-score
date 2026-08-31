@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { customerExplanationForNode } from '@/lib/adaptive/customer-explanations';
+import { trackEvent } from '@/lib/website/gtag';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
@@ -315,6 +316,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       setSubmitted(true);
       setSaveState('saved');
       setSubmissionState('idle');
+      trackEvent('fraud_readiness_completed', { flow: 'adaptive' });
       window.location.replace(body.snapshotUrl);
     } catch {
       setSubmissionState('error');

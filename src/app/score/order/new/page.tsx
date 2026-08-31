@@ -54,7 +54,7 @@ export default async function NewOrderPage(props: OrderPageProps) {
     : new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(product.priceCents / 100);
 
   return (
-    <ResultChrome assessmentReference={snapshot.assessmentReference} orderStep={{ current: 1, total: 3 }}>
+    <ResultChrome assessmentReference={snapshot.assessmentReference}>
       <OrderJourney
         tier={tier}
         productLabel={product.label}

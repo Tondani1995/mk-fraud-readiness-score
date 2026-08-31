@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
+import { trackEvent } from '@/lib/website/gtag';
 
 const REASONS = [
   ['understand_control_weaknesses', 'Understand current fraud-control weaknesses'],
@@ -97,6 +98,7 @@ export function AdvisoryEnquiryForm({
       }
 
       setSuccess({ requestReference: String(payload.requestReference), message: String(payload.message) });
+      trackEvent('advisory_enquiry_submitted', { source: 'snapshot' });
     } catch {
       setError('The Advisory request could not be submitted. Please try again.');
     } finally {

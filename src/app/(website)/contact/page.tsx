@@ -126,6 +126,9 @@ function ContactUsForm() {
         service_interest: formData.service || "not_specified",
         page_location: "/contact",
       });
+      trackEvent("website_contact_submitted", {
+        service_interest: formData.service || "not_specified",
+      });
 
       setEnquiryReference(body.requestReference ?? null);
       setIsSubmitted(true);

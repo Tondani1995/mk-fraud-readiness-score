@@ -42,6 +42,7 @@
     "v11:six-archetype-pre-ai": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-six-archetype-existing-pre-ai.mjs",
     "v11:high-readiness-sustainment": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-high-readiness-sustainment.mjs",
     "consolidation:test-routes": "node scripts/consolidation-route-tests.mjs",
+    "website:test-indexing-analytics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/website-indexing-analytics-health-tests.mjs",
     "consolidation:test-respondent": "node scripts/consolidation-local-respondent-integration.mjs",
     "phase3:smoke": "node scripts/phase3-smoke-check.mjs",
     "phase4:smoke": "node scripts/phase4-smoke-check.mjs",

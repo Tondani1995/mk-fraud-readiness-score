@@ -19,6 +19,9 @@ const essential = getPostPurchaseCopy('essential');
 const comprehensive = getPostPurchaseCopy('comprehensive');
 assert.equal(essential.productLabel, 'Essential Fraud Readiness');
 assert.equal(comprehensive.productLabel, 'Comprehensive Fraud Readiness');
+assert.equal(essential.paymentSummary, 'Once your EFT payment is confirmed, MK prepares your Essential Fraud Readiness report.');
+assert.equal(comprehensive.paymentSummary, 'Once your EFT payment is confirmed, MK prepares the full Comprehensive Fraud Readiness package.');
+assert.equal(comprehensive.deliverableSummary, 'A detailed report with supporting registers, target-state control design and implementation material.');
 assert.notDeepEqual(essential.nextSteps, comprehensive.nextSteps, 'Essential and Comprehensive must have distinct post-purchase next steps');
 assert.match(essential.nextSteps.join(' '), /EFT|payment reference/i);
 assert.match(essential.nextSteps.join(' '), /Essential.*report/i);
@@ -125,6 +128,7 @@ const comprehensiveWorkspace = 'src/components/comprehensive/CustomerOrderStatus
 const adminSendRoute = 'src/app/score/api/admin/reports/[reportId]/send-email/route.ts';
 const fulfilmentActions = 'src/components/admin/FulfilmentActions.tsx';
 
+assertNotIncludes('src/app/score/order/new/page.tsx', 'orderStep={{ current: 1, total: 3 }}', 'Order route does not render stale static progress chrome');
 assertIncludes(orderService, 'notifyInternalOrderCreated', 'Catalogue paid orders use the internal order notification boundary');
 assertNotIncludes(orderService, 'queueInternalNotification', 'Catalogue paid orders do not bypass the internal order notification boundary');
 assertIncludes(legacyEssentialOrder, 'notifyInternalOrderCreated', 'Essential EFT orders use the internal order notification boundary');
@@ -139,6 +143,13 @@ assertIncludes(provider, "input.audience !== 'internal'", 'The low-level email b
 assertIncludes(internalOrderNotification, 'invoice_details: invoiceDetails', 'Internal order notification includes the closed invoice details when requested');
 assertNotIncludes(internalOrderNotification, 'buildOrderConfirmationMessage', 'Internal order notification does not use the customer confirmation template');
 assertNotIncludes(internalOrderNotification, 'buildPaymentConfirmedMessage', 'Internal payment notification does not use the customer payment template');
+assertIncludes(orderJourney, 'Review billing requirements', 'Order summary names the billing review as the confirm-step next action');
+assertIncludes(orderJourney, 'Confirm order, then make EFT payment', 'Order summary names EFT payment as the billing-step next action');
+assertIncludes(orderJourney, 'getPostPurchaseCopy(tier).paymentSummary', 'Payment-step order summary uses product-specific preparation copy');
+assertIncludes(orderJourney, 'MK will prepare the VAT invoice using the details below and send it to the billing email you provide.', 'Invoice helper explains VAT invoice delivery');
+assertIncludes(orderJourney, 'No tax invoice is required. Confirm your order to view the EFT payment details and payment reference.', 'No-invoice state uses customer-facing payment guidance');
+assertNotIncludes(orderJourney, 'Customer transactional emails are not sent automatically.', 'Order journey does not expose internal email implementation language');
+assertNotIncludes(orderJourney, 'supporting management, register and implementation material from the Comprehensive product catalogue', 'Order journey does not expose the retired Comprehensive catalogue phrase');
 
 const reportDeliverySource = read(reportDelivery);
 const deliveryFunction = reportDeliverySource.slice(reportDeliverySource.indexOf('export async function deliverPremiumReportEmail'));

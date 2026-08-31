@@ -1,45 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { GA_MEASUREMENT_ID, pageview } from "@/lib/website/gtag";
-
-const CONSENT_KEY = "mk_fraud_cookie_consent";
-
-function hasAnalyticsConsent() {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(CONSENT_KEY) === "accepted";
-}
+import { GA_CONSENT_EVENT, GA_MEASUREMENT_ID, GA_READY_EVENT, hasAnalyticsConsent, pageview } from "@/lib/website/gtag";
 
 export default function GoogleAnalytics() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
+    const [analyticsReady, setAnalyticsReady] = useState(false);
+    const lastPageviewRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!GA_MEASUREMENT_ID) return;
 
-        const syncConsent = () => setAnalyticsEnabled(hasAnalyticsConsent());
+        const syncConsent = () => {
+            const enabled = hasAnalyticsConsent();
+            setAnalyticsEnabled(enabled);
+            if (typeof window.gtag === "function") {
+                window.gtag("consent", "update", {
+                    analytics_storage: enabled ? "granted" : "denied",
+                });
+            }
+        };
+        const syncReady = () => setAnalyticsReady(typeof window.gtag === "function");
         syncConsent();
+        syncReady();
 
         window.addEventListener("storage", syncConsent);
-        window.addEventListener("mk-fraud-consent-updated", syncConsent);
+        window.addEventListener(GA_CONSENT_EVENT, syncConsent);
+        window.addEventListener(GA_READY_EVENT, syncReady);
 
         return () => {
             window.removeEventListener("storage", syncConsent);
-            window.removeEventListener("mk-fraud-consent-updated", syncConsent);
+            window.removeEventListener(GA_CONSENT_EVENT, syncConsent);
+            window.removeEventListener(GA_READY_EVENT, syncReady);
         };
     }, []);
 
-    useEffect(() => {
-        if (!GA_MEASUREMENT_ID || !analyticsEnabled) return;
+    const search = searchParams.toString();
 
-        const search = searchParams.toString();
+    useEffect(() => {
+        if (!GA_MEASUREMENT_ID || !analyticsEnabled) {
+            if (!analyticsEnabled) lastPageviewRef.current = null;
+            return;
+        }
+        if (!analyticsReady) return;
+
         const url = search ? `${pathname}?${search}` : pathname;
-        pageview(url);
-    }, [analyticsEnabled, pathname, searchParams]);
+        if (lastPageviewRef.current === url) return;
+        if (pageview(url)) lastPageviewRef.current = url;
+    }, [analyticsEnabled, analyticsReady, pathname, search]);
 
     if (!GA_MEASUREMENT_ID || !analyticsEnabled) return null;
 
@@ -61,7 +74,8 @@ export default function GoogleAnalytics() {
                     ad_personalization: 'denied'
                   });
                   gtag('js', new Date());
-                  gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
+                  gtag('config', ${JSON.stringify(GA_MEASUREMENT_ID)}, { send_page_view: false });
+                  window.dispatchEvent(new Event(${JSON.stringify(GA_READY_EVENT)}));
                 `}
             </Script>
         </>

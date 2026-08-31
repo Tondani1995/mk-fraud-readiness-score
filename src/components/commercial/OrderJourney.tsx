@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { InvoiceDetails } from '@/lib/commercial/invoice-details';
-import type { SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
+import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 import { getPostPurchaseCopy } from '@/lib/commercial/post-purchase-copy';
+import { trackEvent } from '@/lib/website/gtag';
 
 /**
  * Three steps on one focused route: confirm, billing, payment.
@@ -94,6 +95,8 @@ export function OrderJourney({
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderConfirmation | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
+  const invoiceEventSentRef = useRef(false);
+  const orderEventSentRef = useRef(false);
 
   // The order exists once step 3 is reached, so a browser back from there needs a warning.
   useEffect(() => {
@@ -134,6 +137,15 @@ export function OrderJourney({
         return;
       }
       setOrder(body.order ?? null);
+      const catalogueProduct = COMMERCIAL_CATALOGUE[tier];
+      if (!orderEventSentRef.current && catalogueProduct.priceCents !== null) {
+        orderEventSentRef.current = true;
+        trackEvent('order_recorded', {
+          tier,
+          value: catalogueProduct.priceCents / 100,
+          currency: catalogueProduct.currency
+        });
+      }
       setStep(3);
     } finally {
       setSubmitting(false);
@@ -185,7 +197,14 @@ export function OrderJourney({
               details={details}
               submitting={submitting}
               error={error}
-              onInvoiceRequested={(value) => { setInvoiceRequested(value); setError(''); }}
+              onInvoiceRequested={(value) => {
+                setInvoiceRequested(value);
+                setError('');
+                if (value && !invoiceEventSentRef.current) {
+                  invoiceEventSentRef.current = true;
+                  trackEvent('invoice_requested', { tier });
+                }
+              }}
               onDetail={(field, value) => setDetails((current) => ({ ...current, [field]: value }))}
               onBack={() => setStep(1)}
               onSubmit={() => void submitOrder()}
@@ -205,7 +224,13 @@ export function OrderJourney({
               <SummaryRow label="Organisation" value={organisationName} />
               <SummaryRow label="Reference" value={assessmentReference} />
               <SummaryRow label="Deliverable" value={tier === 'comprehensive' ? 'Full package and supporting material' : 'Essential report'} />
-              <SummaryRow label="Next step" value="After MK confirms payment" />
+              <SummaryRow label="Next step" value={
+                step === 1
+                  ? 'Review billing requirements'
+                  : step === 2
+                    ? 'Confirm order, then make EFT payment'
+                    : getPostPurchaseCopy(tier).paymentSummary
+              } />
             </dl>
           </div>
         </aside>
@@ -265,7 +290,7 @@ function StepConfirm({
       <dl className="mt-7 border border-mk-line">
         <DetailRow label="Organisation" value={organisationName} />
         <DetailRow label="Reference" value={assessmentReference} />
-        <DetailRow label="Next step" value="MK confirms payment and prepares the selected product" last />
+        <DetailRow label="Next step" value="Review billing requirements" last />
       </dl>
       <div className="mt-7 flex flex-wrap items-center gap-3">
         <button
@@ -323,7 +348,7 @@ function StepBilling({
 
       {invoiceRequested === true ? (
         <div className="mt-7">
-          <p className="text-sm leading-6 text-mk-muted">If you request an invoice, MK will prepare it from the details below.</p>
+          <p className="text-sm leading-6 text-mk-muted">MK will prepare the VAT invoice using the details below and send it to the billing email you provide.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Field id="legalName" label="Registered company name" value={details.legalName} onChange={onDetail} autoComplete="organization" required />
             <Field id="addressee" label="Invoice addressed to" value={details.addressee} onChange={onDetail} autoComplete="name" required />
@@ -338,7 +363,7 @@ function StepBilling({
 
       {invoiceRequested === false ? (
         <p className="mt-7 max-w-[60ch] text-[15px] leading-7 text-mk-slate">
-          Payment confirmation is handled directly by MK. Customer transactional emails are not sent automatically.
+          No tax invoice is required. Confirm your order to view the EFT payment details and payment reference.
         </p>
       ) : null}
 

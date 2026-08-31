@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ANALYTICS_CONSENT_STORAGE_KEY, GA_CONSENT_EVENT } from "@/lib/website/gtag";
 
-const CONSENT_KEY = "mk_fraud_cookie_consent";
+const CONSENT_KEY = ANALYTICS_CONSENT_STORAGE_KEY;
 
 export default function CookieConsent() {
     const [visible, setVisible] = useState(false);
@@ -15,13 +16,13 @@ export default function CookieConsent() {
 
     function accept() {
         window.localStorage.setItem(CONSENT_KEY, "accepted");
-        window.dispatchEvent(new Event("mk-fraud-consent-updated"));
+        window.dispatchEvent(new Event(GA_CONSENT_EVENT));
         setVisible(false);
     }
 
     function decline() {
         window.localStorage.setItem(CONSENT_KEY, "declined");
-        window.dispatchEvent(new Event("mk-fraud-consent-updated"));
+        window.dispatchEvent(new Event(GA_CONSENT_EVENT));
         setVisible(false);
     }
 

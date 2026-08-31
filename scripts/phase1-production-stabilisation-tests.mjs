@@ -98,7 +98,7 @@ assert.ok(internalOrderNotifications.includes("'eft_order_created'"), 'Essential
 assert.ok(internalOrderNotifications.includes("'comprehensive_order_created'"), 'Comprehensive order creates an internal MK notification');
 assert.ok(internalOrderNotifications.includes('dedupeKey'), 'internal order notifications are idempotent');
 assert.ok(postPurchaseCopy.includes('full Comprehensive Fraud Readiness package'), 'Comprehensive next steps use the current product-specific fulfilment copy');
-assert.ok(postPurchaseCopy.includes('supporting registers and implementation material'), 'Comprehensive next steps name catalogue-backed deliverables');
+assert.ok(postPurchaseCopy.includes('supporting registers, target-state control design and implementation material'), 'Comprehensive next steps name the approved deliverables');
 assert.ok(postPurchaseCopy.includes('contact you directly if clarification is needed'), 'Comprehensive next steps preserve the manual MK contact boundary');
 assert.doesNotMatch(postPurchaseCopy, /named reviewer|independent(?:ly)? validat|assurance opinion|automated (?:delivery|email)|customer portal|access link|customer access token|price floor/i, 'customer fulfilment copy does not promise retired delivery or assurance mechanics');
 

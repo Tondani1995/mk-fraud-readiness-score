@@ -8,6 +8,7 @@ import {
   ADVISORY_REASONS,
   ADVISORY_TIMEFRAMES
 } from '@/lib/enquiries/taxonomy';
+import { trackEvent } from '@/lib/website/gtag';
 
 /**
  * Pre-assessment MK Advisory intake.
@@ -74,6 +75,7 @@ export function PublicAdvisoryEnquiryForm() {
       }
       // Only a persisted enquiry produces a success state, and the reference proves it exists.
       setSuccess({ requestReference: body.requestReference, message: body.message });
+      trackEvent('advisory_enquiry_submitted', { source: 'public_advisory' });
     } catch {
       setErrors(['Your enquiry could not be submitted right now. Please try again.']);
       setSubmitting(false);
