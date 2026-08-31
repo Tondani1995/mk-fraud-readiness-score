@@ -64,7 +64,10 @@ const EDITORIAL: Record<StorefrontTier, { forWho: string; outcome: string; ctaLa
     forWho: 'An organisation that needs MK to do the work with them, not prepare an analysis for them.',
     outcome: 'A scope agreed with MK, with deliverables, timing and fees set for the engagement.',
     ctaLabel: 'Discuss an Advisory engagement',
-    ctaHref: '/contact?enquiry=mk-advisory'
+    // The dedicated MK Advisory intake, not the generic contact form. Advisory is a scoped
+    // commercial workflow with its own enquiry taxonomy and its own admin queue; routing it to a
+    // general "send us a message" form would drop it out of that workflow.
+    ctaHref: '/fraud-readiness/advisory'
   }
 };
 

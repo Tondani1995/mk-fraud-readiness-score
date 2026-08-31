@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { NextStepRecommendation } from '@/lib/snapshot/next-step-recommendation';
@@ -158,13 +157,20 @@ export function ProductChoice({
               {recommendation.reason}{' '}
               <span className="font-semibold">{recommendation.freedomClause}</span>
             </p>
+            {/* The certified MK Advisory route, not the generic contact form. This customer has a
+                Snapshot and a private token, so their assessment context travels with the enquiry
+                — sending them to a general "send us a message" form would discard exactly the
+                context that makes the conversation useful, and drop them out of the Advisory
+                workflow and its admin queue. */}
             {recommendation.speakToMkFirst ? (
-              <Link
-                href="/contact"
-                className="mt-3.5 inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
+              <button
+                type="button"
+                onClick={chooseAdvisory}
+                disabled={Boolean(navigatingOption)}
+                className="mt-3.5 inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
               >
-                Talk to MK first
-              </Link>
+                {navigatingOption === 'advisory' ? 'Opening…' : 'Talk to MK first'}
+              </button>
             ) : null}
           </div>
 

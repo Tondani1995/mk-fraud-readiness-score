@@ -495,11 +495,18 @@ check('the terms migration sorts after the production ledger head', () => {
     stamp > PRODUCTION_LEDGER_HEAD,
     `migration ${stamp} must sort after the production ledger head ${PRODUCTION_LEDGER_HEAD}`
   );
-  // It must also be the newest migration in the tree, so the ledger applies in filename order
-  // with no out-of-order exception.
+  // Every timestamped migration after the ledger head must apply in filename order with no
+  // out-of-order exception, and no two may share a stamp.
   const all = fs.readdirSync(path.join(root, 'supabase/migrations')).filter((name) => name.endsWith('.sql')).sort();
-  assert.equal(all[all.length - 1], path.basename(MIGRATION), 'the terms migration must be the newest in the tree');
+  assert.ok(all.includes(path.basename(MIGRATION)), 'the terms migration must be present');
   assert.equal(all.filter((name) => name.startsWith(stamp)).length, 1, 'the timestamp must be unused');
+  const timestamped = all.map((name) => name.slice(0, 14)).filter((value) => /^\d{14}$/.test(value));
+  assert.deepEqual(timestamped, [...timestamped].sort(), 'timestamped migrations must be in chronological order');
+  assert.equal(new Set(timestamped).size, timestamped.length, 'no two migrations may share a timestamp');
+  assert.ok(
+    timestamped[timestamped.length - 1] > PRODUCTION_LEDGER_HEAD,
+    'the newest migration must sort after the production ledger head'
+  );
 });
 
 check('the legal naming is consistently MK Fraud Insights', () => {

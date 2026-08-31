@@ -46,6 +46,8 @@ function ContactUsForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [enquiryReference, setEnquiryReference] = useState<string | null>(null);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
   /**
    * Preselect the enquiry category when a prospect arrives from the Fraud Readiness storefront's
@@ -73,76 +75,63 @@ function ContactUsForm() {
     "Expert guidance",
   ];
 
-  const WEB3FORMS_ACCESS_KEY = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY!;
-
+  /**
+   * The enquiry is submitted to MK's own API, which validates it, persists it to
+   * public.data_requests as a `website_contact` enquiry and queues one internal notification.
+   *
+   * It previously posted from the browser straight to api.web3forms.com, which meant a customer
+   * enquiry existed only in a third party's inbox: MK could not see it in the admin queue, could
+   * not answer it from a reference, and had no record if the third party dropped it. There is no
+   * dual delivery — the browser posts to MK and nowhere else.
+   *
+   * Success is shown only when the enquiry was actually persisted and the API returned its
+   * reference. A failure is reported as a failure.
+   */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
-    setIsSubmitted(false);
+    setSubmitErrors([]);
 
     const submittedForm = new FormData(e.currentTarget);
-    const honeypot = submittedForm.get("botcheck")?.toString();
-
-    if (honeypot) {
-      setIsSubmitted(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const cleanName = formData.name.trim();
-    const cleanEmail = formData.email.trim();
-    const cleanMessage = formData.message.trim();
-    const cleanService = formData.service.trim();
-
-    if (!cleanName || !cleanEmail || !cleanMessage || !cleanService) {
-      setIsSubmitting(false);
-      setIsSubmitted(false);
-      return;
-    }
+    const honeypot = submittedForm.get("botcheck")?.toString() ?? "";
 
     try {
-      const fd = new FormData();
-      fd.append("access_key", WEB3FORMS_ACCESS_KEY);
-      fd.append("name", cleanName);
-      fd.append("email", cleanEmail);
-      fd.append("message", cleanMessage);
-      fd.append("company", formData.company.trim());
-      fd.append("phone", formData.phone.trim());
-      fd.append("service", cleanService);
-      fd.append("botcheck", "");
-      fd.append("subject", `New Contact Form: ${cleanService || "General"}: ${cleanName}`);
-      fd.append("from_name", cleanName);
-
-      const res = await fetch("https://api.web3forms.com/submit", {
+      const response = await fetch("/score/api/enquiries/contact", {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company,
+          phone: formData.phone,
+          service: formData.service,
+          message: formData.message,
+          botcheck: honeypot,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok || !body.ok) {
+        setSubmitErrors(
+          body.errors ?? ["Your message could not be sent right now. Please try again."]
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      trackEvent("generate_lead", {
+        form_name: "contact_form",
+        service_interest: formData.service || "not_specified",
+        page_location: "/contact",
       });
 
-      const data = await res.json();
-
-      if (data.success) {
-        trackEvent("generate_lead", {
-          form_name: "contact_form",
-          service_interest: cleanService || "not_specified",
-          page_location: "/contact",
-        });
-
-        setIsSubmitted(true);
-
-        setFormData({
-          name: "",
-          email: "",
-          company: "",
-          phone: "",
-          service: "",
-          message: "",
-        });
-      } else {
-        setIsSubmitted(false);
-      }
+      setEnquiryReference(body.requestReference ?? null);
+      setIsSubmitted(true);
+      setFormData({ name: "", email: "", company: "", phone: "", service: "", message: "" });
     } catch {
-      setIsSubmitted(false);
+      setSubmitErrors(["Your message could not be sent right now. Please try again."]);
     } finally {
       setIsSubmitting(false);
     }
@@ -190,14 +179,37 @@ function ContactUsForm() {
                       <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#001030]">
                         <CheckCircle2 className="h-7 w-7 text-white" strokeWidth={3} />
                       </div>
-                      <h3 className="text-2xl font-bold leading-tight text-[#001030]">Message sent</h3>
+                      <h3 className="text-2xl font-bold leading-tight text-[#001030]">Message received</h3>
                       <p className="mt-2 text-slate-600">
                         Thanks. We&apos;ll review your message and reply within 24 hours during business
                         days.
                       </p>
+                      {enquiryReference ? (
+                        <div className="mt-6 border-t border-slate-200 pt-6">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Your enquiry reference
+                          </p>
+                          <p className="mt-1.5 text-lg font-semibold tabular-nums tracking-tight text-[#001030]">
+                            {enquiryReference}
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            Quote this if you follow up with us.
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
+                      {submitErrors.length ? (
+                        <div
+                          role="alert"
+                          className="rounded-2xl border border-[#9B2C2C]/30 bg-[#9B2C2C]/[0.06] p-4 text-sm leading-6 text-[#9B2C2C]"
+                        >
+                          {submitErrors.map((error) => (
+                            <p key={error}>{error}</p>
+                          ))}
+                        </div>
+                      ) : null}
                       <input
                         type="checkbox"
                         name="botcheck"

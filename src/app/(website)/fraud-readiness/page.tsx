@@ -25,15 +25,16 @@ export default function FraudReadinessPage() {
                 Choose the depth of fraud-readiness insight your organisation needs.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-white/75">
-                Every option starts from the same Fraud Readiness Assessment. What differs is how
-                far MK takes the result — from a prioritised diagnosis of where you stand, to a
-                designed control environment with an implementation programme, to an engagement
-                scoped and run with you.
+                Essential and Comprehensive begin with the Fraud Readiness Assessment and differ in
+                how far MK takes the result — from a prioritised diagnosis of where you stand, to a
+                designed control environment with an implementation programme. Advisory can be
+                discussed with MK directly, whether or not you have assessed yet.
               </p>
               <p className="mt-6 max-w-2xl text-sm leading-7 text-white/70">
                 All amounts are in South African Rand. Essential and Comprehensive are confirmed
                 after you have completed the assessment and seen your Snapshot; nothing is charged
-                before then.
+                before then. If you choose Advisory after completing an assessment, MK carries your
+                assessment context into the enquiry automatically.
               </p>
             </div>
           </div>

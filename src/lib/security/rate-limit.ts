@@ -91,5 +91,12 @@ export const RATE_LIMITS = {
   // Brute-force protection on 6-digit TOTP verification (both first-time enrollment verify and
   // later step-up challenges). Keyed per admin user id, not per IP, since the thing being
   // protected is a specific account's second factor regardless of source address.
-  adminMfaVerifyPerAdmin: () => ({ maxHits: getNumberEnv('RATE_LIMIT_ADMIN_MFA_VERIFY_PER_ADMIN', 10), windowSeconds: 15 * 60 })
+  adminMfaVerifyPerAdmin: () => ({ maxHits: getNumberEnv('RATE_LIMIT_ADMIN_MFA_VERIFY_PER_ADMIN', 10), windowSeconds: 15 * 60 }),
+  // Public enquiry intake (pre-assessment MK Advisory and the general website contact form).
+  // These routes are unauthenticated by necessity -- a prospect has no token yet -- so the budget
+  // is the volumetric control that sits underneath the honeypot and the allow-listed payload.
+  // Sized for a person who mistypes an address and resubmits, not for a campaign: a genuine
+  // enquirer sends one message, while a form-spam run needs volume to be worth anything.
+  publicEnquiryPerIp: () => ({ maxHits: getNumberEnv('RATE_LIMIT_PUBLIC_ENQUIRY_PER_IP', 10), windowSeconds: 60 * 60 }),
+  publicEnquiryPerEmail: () => ({ maxHits: getNumberEnv('RATE_LIMIT_PUBLIC_ENQUIRY_PER_EMAIL', 5), windowSeconds: 60 * 60 })
 };

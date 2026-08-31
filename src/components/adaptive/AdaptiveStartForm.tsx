@@ -6,7 +6,7 @@ import { REQUIRED_LEGAL_ACCEPTANCE } from '@/lib/legal/fraud-readiness-terms';
 import { rememberProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
 
 export function AdaptiveStartForm({ productIntent = null }: { productIntent?: ProductIntent | null }) {
-  const [form, setForm] = useState({ fullName: '', email: '', organisationName: '', roleTitle: '', consentPrivacy: false, consentResearch: false });
+  const [form, setForm] = useState({ fullName: '', email: '', organisationName: '', roleTitle: '', consentResearch: false });
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const update = (key: keyof typeof form, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
@@ -18,6 +18,10 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
       headers: { 'Content-Type': 'application/json' },
       // The accepted versions travel with the request. The server re-checks them against the
       // versions in force and takes its own timestamps; nothing here is trusted as evidence.
+      // consentPrivacy is NOT collected as a form checkbox. The privacy acknowledgement is the
+      // versioned one made in the Fraud Readiness Terms gate, and the server derives the legacy
+      // respondents.consent_privacy flag from it. The authority representation lives in Terms
+      // clause 1.2 and is a term of the agreement, not a privacy consent.
       body: JSON.stringify({ ...form, consentResearch: Boolean(form.consentResearch), legalAcceptance: REQUIRED_LEGAL_ACCEPTANCE })
     });
     const body = await response.json().catch(() => ({}));
@@ -36,7 +40,6 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
     </div>
     <label className="block text-sm font-medium text-mk-ink">Organisation name<input name="organisationName" autoComplete="organization" required value={form.organisationName} onChange={(event) => update('organisationName', event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4" /></label>
     <label className="block text-sm font-medium text-mk-ink">Role (optional)<input name="roleTitle" autoComplete="organization-title" value={form.roleTitle} onChange={(event) => update('roleTitle', event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4" /></label>
-    <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentPrivacy" required type="checkbox" checked={form.consentPrivacy} onChange={(event) => update('consentPrivacy', event.target.checked)} className="mt-1 h-4 w-4" />I confirm I am authorised to provide this information on behalf of the organisation.</label>
     <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input name="consentResearch" type="checkbox" checked={form.consentResearch} onChange={(event) => update('consentResearch', event.target.checked)} className="mt-1 h-4 w-4" />Optional: I am happy for anonymised assessment information to support product improvement.</label>
     <Button type="submit" disabled={busy}>{busy ? 'Starting…' : 'Start assessment'}</Button>
   </form>;

@@ -93,6 +93,7 @@ const files = {
   paidOrderRoute: 'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
   reportRequestRoute: 'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts',
   personalisedRoute: 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts',
+  enquiryTaxonomy: 'src/lib/enquiries/taxonomy.ts',
   advisoryPage: 'src/app/score/advisory/[assessmentRef]/page.tsx',
   advisoryForm: 'src/components/assessment/AdvisoryEnquiryForm.tsx',
   freeSnapshot: 'src/lib/snapshot/free-snapshot.ts',
@@ -390,7 +391,10 @@ assertNotIncludes(files.commercialEventRoute, "notificationType: 'personalised_r
 assertNotIncludes(files.commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
 const personalisedSource = read(files.personalisedRoute);
-assertIncludes(files.personalisedRoute, "const ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory endpoint persists the current controlled request type');
+// Shared with the public Advisory intake, so the constant is asserted at its definition and at
+// its use rather than as an inline declaration in the route.
+assertIncludes(files.enquiryTaxonomy, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory request type is defined once as mk_advisory');
+assertIncludes(files.personalisedRoute, 'request_type: ADVISORY_REQUEST_TYPE', 'Advisory endpoint persists the current controlled request type');
 assertIncludes(files.personalisedRoute, 'request_reference: makeRequestReference()', 'R50 endpoint generates public enquiry reference');
 assertIncludes(files.personalisedRoute, '.in(\'status\', ACTIVE_STATUSES)', 'R50 endpoint reuses active enquiries');
 assertIncludes(files.personalisedRoute, 'validateChoice', 'R50 endpoint validates choices');
@@ -450,7 +454,10 @@ assertIncludes(files.adminDetail, 'No order, payment obligation or report is cre
 assertNotIncludes(files.adminDetail, 'Executive Fraud Readiness Advisory', 'Admin detail must not use rejected product name');
 assertIncludes(files.adminHelper, 'unstable_noStore', 'Admin enquiry reads are no-store');
 assertIncludes(files.adminHelper, "'personalised_enquiry_opened'", 'Admin enquiry opened audit action remains available for historical enquiries');
-assertIncludes(files.adminHelper, "action: enquiry.request_type === ADVISORY_REQUEST_TYPE ? 'advisory_enquiry_opened'", 'Admin enquiry audit labels current Advisory requests');
+// The action is now selected across three enquiry types, so the assertion pins the branch that
+// matters rather than the whole expression: an Advisory enquiry still audits as Advisory.
+assertIncludes(files.adminHelper, 'enquiry.request_type === ADVISORY_REQUEST_TYPE', 'Admin enquiry audit branches on the current Advisory type');
+assertIncludes(files.adminHelper, "? 'advisory_enquiry_opened'", 'Admin enquiry audit labels current Advisory requests');
 assertIncludes(files.adminHelper, 'LEGACY_PERSONALISED_REQUEST_TYPE', 'Admin enquiry reader retains historical request type compatibility');
 
 assertIncludes(files.startForm, 'authorised to submit this information for the organisation', 'Start consent restored to approved authority confirmation');

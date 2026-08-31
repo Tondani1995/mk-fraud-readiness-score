@@ -29,6 +29,8 @@ const files = {
   notifications: 'src/lib/notifications/internal-notifications.ts',
   optionCodes: 'src/lib/snapshot/commercial-insights.ts',
   adminHelper: 'src/lib/admin/personalised-enquiries.ts',
+  enquiryTaxonomy: 'src/lib/enquiries/taxonomy.ts',
+  presentation: 'src/lib/enquiries/presentation.ts',
   adminList: 'src/app/score/admin/enquiries/page.tsx',
   adminDetail: 'src/app/score/admin/enquiries/[requestReference]/page.tsx',
   migration: 'supabase/migrations/20260830170000_mk_advisory_enquiry_path.sql'
@@ -72,7 +74,12 @@ includes(files.form, 'Book a 30-minute conversation', 'Advisory success offers t
 includes(files.eventRoute, "'advisory_selected'", 'Commercial event route accepts Advisory selection');
 includes(files.eventRoute, 'COMMERCIAL_OPTION_CODES.advisory', 'Commercial event route records the Advisory option');
 excludes(files.eventRoute, "notificationType: 'advisory_selected'", 'Advisory selection does not notify MK before an enquiry exists');
-includes(files.enquiryRoute, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Current enquiry uses the MK Advisory request type');
+// The request type is defined once, in the taxonomy both Advisory entry points read, and used by
+// the assessment-linked endpoint through that import. Checking both halves keeps the guarantee
+// end-to-end now that the constant is shared rather than declared inline.
+includes(files.enquiryTaxonomy, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory request type is defined once as mk_advisory');
+includes(files.enquiryRoute, "from '@/lib/enquiries/taxonomy'", 'Current enquiry reads the shared Advisory taxonomy');
+includes(files.enquiryRoute, 'request_type: ADVISORY_REQUEST_TYPE', 'Current enquiry persists the MK Advisory request type');
 includes(files.enquiryRoute, "eventType: 'advisory_enquiry_submitted'", 'Submitted enquiry records the current event');
 includes(files.enquiryRoute, "notificationType: 'advisory_enquiry_submitted'", 'Submitted enquiry queues the current internal notification');
 includes(files.enquiryRoute, 'selectActiveAdvisoryRequest', 'Submitted enquiry reuses an active Advisory request');
@@ -92,11 +99,23 @@ includes(files.notifications, "'advisory_enquiry_submitted'", 'Notification unio
 includes(files.optionCodes, "advisory: 'advisory'", 'Commercial option codes include Advisory');
 includes(files.optionCodes, 'COMMERCIAL_OPTION_CODES.advisory', 'Advisory is a current commercial option code');
 
-includes(files.adminHelper, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Admin reader knows the current Advisory type');
-includes(files.adminHelper, "LEGACY_PERSONALISED_REQUEST_TYPE = 'personalised_report_50000'", 'Admin reader preserves the historical type');
-includes(files.adminHelper, "in('request_type', [ADVISORY_REQUEST_TYPE, LEGACY_PERSONALISED_REQUEST_TYPE])", 'Admin reader shows current and historical enquiries');
+// The admin reader now imports the shared constant instead of declaring its own copy; the value
+// itself is asserted at its single definition above.
+includes(files.adminHelper, "from '@/lib/enquiries/taxonomy'", 'Admin reader reads the shared Advisory taxonomy');
+includes(files.adminHelper, 'ADVISORY_REQUEST_TYPE', 'Admin reader knows the current Advisory type');
+includes(files.enquiryTaxonomy, "LEGACY_PERSONALISED_REQUEST_TYPE = 'personalised_report_50000'", 'Historical enquiry type is preserved at its single definition');
+includes(files.adminHelper, 'LEGACY_PERSONALISED_REQUEST_TYPE', 'Admin reader preserves the historical type');
+// The queue now also answers public Advisory and website contact enquiries, so it filters on the
+// full set. The guarantee this assertion protects -- that current Advisory and historical
+// personalised enquiries both remain visible -- is checked on the set itself.
+includes(files.adminHelper, "in('request_type', ADMIN_ENQUIRY_REQUEST_TYPES", 'Admin reader queries the full enquiry set');
+includes(files.adminHelper, 'ADVISORY_REQUEST_TYPE,\n  WEBSITE_CONTACT_REQUEST_TYPE,\n  LEGACY_PERSONALISED_REQUEST_TYPE', 'Admin reader shows current, public and historical enquiries');
 includes(files.adminHelper, 'enquiryTypeLabel', 'Admin reader labels current and historical paths');
-includes(files.adminList, 'MK Advisory enquiries', 'Admin list is labelled for the current path');
+// The list serves more than Advisory now, so its heading is no longer Advisory-specific. What
+// must remain true is that the Advisory paths are still labelled distinctly in the queue.
+includes(files.presentation, "'MK Advisory — assessment linked'", 'Queue labels assessment-linked Advisory');
+includes(files.presentation, "'MK Advisory — public enquiry'", 'Queue labels public Advisory distinctly');
+includes(files.adminList, 'enquiryTypeLabel(enquiry.request_type, enquiry.assessment_id)', 'Admin list renders the enquiry path label');
 includes(files.adminDetail, 'Historical personalised report enquiry', 'Admin detail preserves a historical label');
 includes(files.adminDetail, 'MK Advisory enquiry', 'Admin detail labels current enquiries');
 

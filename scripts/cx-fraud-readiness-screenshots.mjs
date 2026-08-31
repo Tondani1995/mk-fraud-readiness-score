@@ -32,6 +32,8 @@ const SHOTS = [
   { slug: 'home', path: '/', fullPage: false },
   { slug: 'fraud-readiness', path: '/fraud-readiness', fullPage: true },
   { slug: 'fraud-readiness-assessment-terms', path: '/fraud-readiness-assessment-terms', fullPage: false },
+  { slug: 'fraud-readiness-advisory', path: '/fraud-readiness/advisory', fullPage: true },
+  { slug: 'contact', path: '/contact', fullPage: false },
   { slug: 'score-start-terms-modal', path: '/score/start', fullPage: false },
   { slug: 'score-start-terms-modal-essential', path: '/score/start?product=essential', fullPage: false },
   { slug: 'score-start-accepted', path: '/score/start', fullPage: true, accept: true },

@@ -39,7 +39,11 @@ function cleanOptional(value: unknown): string | null {
   return cleaned.length ? cleaned : null;
 }
 
-export function parseStartAssessmentInput(body: unknown): { ok: true; data: StartAssessmentInput } | { ok: false; errors: string[] } {
+export function parseStartAssessmentInput(
+  body: unknown,
+  options: { requirePrivacyConsentField?: boolean } = {}
+): { ok: true; data: StartAssessmentInput } | { ok: false; errors: string[] } {
+  const requirePrivacyConsentField = options.requirePrivacyConsentField ?? true;
   const record = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
   const errors: string[] = [];
 
@@ -52,7 +56,9 @@ export function parseStartAssessmentInput(body: unknown): { ok: true; data: Star
   if (fullName.length < 2) errors.push('Full name is required.');
   if (!EMAIL_RE.test(email)) errors.push('A valid work email address is required.');
   if (organisationName.length < 2) errors.push('Organisation name is required.');
-  if (!consentPrivacy) errors.push('Privacy consent is required to start the assessment.');
+  if (requirePrivacyConsentField && !consentPrivacy) {
+    errors.push('Privacy consent is required to start the assessment.');
+  }
 
   if (errors.length) return { ok: false, errors };
 
@@ -92,7 +98,9 @@ export function parseStartAssessmentInput(body: unknown): { ok: true; data: Star
 export function parseAdaptiveStartAssessmentInput(
   body: unknown
 ): { ok: true; data: AdaptiveStartAssessmentInput } | { ok: false; errors: string[] } {
-  const base = parseStartAssessmentInput(body);
+  // The adaptive journey collects the privacy acknowledgement in the terms gate, as a versioned
+  // acknowledgement, rather than as an unversioned boolean on the form.
+  const base = parseStartAssessmentInput(body, { requirePrivacyConsentField: false });
   if (!base.ok) return base;
 
   const record = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
@@ -104,6 +112,12 @@ export function parseAdaptiveStartAssessmentInput(
     ok: true,
     data: {
       ...base.data,
+      // The legacy respondents.consent_privacy flag is derived from the versioned privacy
+      // acknowledgement made in the terms gate, which is the acknowledgement that actually
+      // happened. It is never derived from the authority representation: authority is a term of
+      // the agreement (Fraud Readiness Assessment Terms clause 1.2), and recording it in a column
+      // named consent_privacy would misstate what the respondent consented to.
+      consentPrivacy: true,
       legalAcceptance: {
         termsVersion: record.legalAcceptance.termsVersion,
         privacyNoticeVersion: record.legalAcceptance.privacyNoticeVersion

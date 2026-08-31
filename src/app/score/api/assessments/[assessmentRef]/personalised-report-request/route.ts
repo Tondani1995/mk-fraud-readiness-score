@@ -7,32 +7,25 @@ import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { COMMERCIAL_OPTION_CODES, commercialScoreBand } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import {
+  ADVISORY_REQUEST_TYPE,
+  ALLOWED_ADVISORY_CONTACT_METHODS,
+  ALLOWED_ADVISORY_FOCUS_AREAS,
+  ALLOWED_ADVISORY_REASONS,
+  ALLOWED_ADVISORY_TIMEFRAMES,
+  ENQUIRY_ACTIVE_STATUSES
+} from '@/lib/enquiries/taxonomy';
 
-const ALLOWED_REASONS = new Set([
-  'understand_control_weaknesses',
-  'design_strengthen_programme',
-  'respond_incident_audit_control',
-  'prepare_governance_response',
-  'review_policies_controls',
-  'other'
-]);
-
-const ALLOWED_FOCUS_AREAS = new Set([
-  'fraud_governance_oversight',
-  'fraud_risk_identification_assessment',
-  'operational_fraud_controls',
-  'third_party_supplier_procurement_risk',
-  'digital_identity_channel_fraud',
-  'fraud_monitoring_detection',
-  'incident_response_investigations',
-  'fraud_culture_awareness',
-  'other'
-]);
-
-const ALLOWED_CONTACT_METHODS = new Set(['email', 'phone', 'video_meeting']);
-const ALLOWED_TIMEFRAMES = new Set(['within_one_week', 'within_two_weeks', 'within_one_month', 'exploring_options']);
-const ACTIVE_STATUSES = ['received', 'open', 'in_review'];
-const ADVISORY_REQUEST_TYPE = 'mk_advisory' as const;
+/**
+ * The taxonomy is shared with the public pre-assessment Advisory intake so the two entry points
+ * remain one commercial model. It is also the taxonomy the data_requests CHECK constraints
+ * enforce, so a value that is valid here is valid at the database.
+ */
+const ALLOWED_REASONS = ALLOWED_ADVISORY_REASONS;
+const ALLOWED_FOCUS_AREAS = ALLOWED_ADVISORY_FOCUS_AREAS;
+const ALLOWED_CONTACT_METHODS = ALLOWED_ADVISORY_CONTACT_METHODS;
+const ALLOWED_TIMEFRAMES = ALLOWED_ADVISORY_TIMEFRAMES;
+const ACTIVE_STATUSES = [...ENQUIRY_ACTIVE_STATUSES];
 
 function validateChoice(value: unknown, allowed: Set<string>, label: string, errors: string[]) {
   if (typeof value === 'string' && allowed.has(value)) return value;
@@ -122,6 +115,7 @@ async function createOrUpdateAdvisoryRequest(input: {
     preferred_consultation_timeframe: input.preferredConsultationTimeframe,
     consent_contact: true,
     notes: input.notes,
+    enquiry_source: 'snapshot_advisory',
     updated_at: new Date().toISOString()
   };
 

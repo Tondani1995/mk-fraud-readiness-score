@@ -48,6 +48,9 @@ const SURFACES = [
   'src/components/website/FraudReadiness/FraudReadinessOptions.tsx',
   'src/components/website/FraudReadiness/FraudReadinessComparison.tsx',
   'src/lib/commercial/storefront-presentation.ts',
+  // The public MK Advisory intake sells the Advisory engagement, so it is policed too.
+  'src/app/(website)/fraud-readiness/advisory/page.tsx',
+  'src/components/website/FraudReadiness/PublicAdvisoryEnquiryForm.tsx',
   'src/app/score/order/[assessmentRef]/page.tsx',
   'src/components/comprehensive/CustomerOrderStatusWorkspace.tsx'
 ];
