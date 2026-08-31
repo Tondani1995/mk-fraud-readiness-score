@@ -463,4 +463,15 @@ check('payment state changes stay a finance concern and delivery stays an approv
   assert.match(service, /reviewer_not_eligible/);
 });
 
+check('Comprehensive uses the same Vercel AI Gateway runtime credential boundary as Essential', () => {
+  const comprehensive = read('src/lib/reports/comprehensive/interpretation.ts');
+  const essential = read('src/lib/reports/narrative/whole-manuscript-writer.ts');
+  for (const source of [comprehensive, essential]) {
+    assert.match(source, /process\.env\.VERCEL_OIDC_TOKEN/);
+    assert.match(source, /process\.env\.VERCEL === '1'/);
+    assert.match(source, /Boolean\(process\.env\.VERCEL_ENV\)/);
+  }
+  assert.match(comprehensive, /!hasGatewayCredential && !runningOnVercel/);
+});
+
 console.log(`\njoint-launch comprehensive: ${checks} checks passed.`);
