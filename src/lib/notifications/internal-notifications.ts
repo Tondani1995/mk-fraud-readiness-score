@@ -12,6 +12,7 @@ export type InternalNotificationType =
   | 'comprehensive_selected'
   | 'advisory_enquiry_submitted'
   | 'comprehensive_order_created'
+  | 'payment_received'
   | 'assessment_stalled_lead';
 
 export type QueueInternalNotificationInput = {

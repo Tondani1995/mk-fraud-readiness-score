@@ -17,6 +17,7 @@ import { executeClaimedReportDelivery, markReconciliationRequired } from './deli
 import { createProviderLookupDatabaseAttestation } from './resend-webhook';
 import { assertReportAccessEligible, resolveCurrentReportId } from '../report-access-eligibility';
 import { logPremiumReportPhase } from '../automation/phase-timing';
+import { MANUAL_CUSTOMER_DELIVERY_MESSAGE, MANUAL_CUSTOMER_DELIVERY_REASON } from '@/lib/commercial/manual-fulfilment-policy';
 
 export type ReportDeliveryActor = {
   actorType: 'system' | 'admin';
@@ -125,6 +126,13 @@ function isProductionDeployment() {
 }
 
 export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmailInput): Promise<DeliverPremiumReportEmailResult> {
+  // V1.2 deliberately leaves customer delivery outside the automated email/access-token path.
+  // Keep this guard before any claim or provider work so a legacy caller cannot create a new
+  // customer delivery event while MK fulfils the selected product manually.
+  void input;
+  throw new Error(`${MANUAL_CUSTOMER_DELIVERY_REASON}: ${MANUAL_CUSTOMER_DELIVERY_MESSAGE}`);
+
+  /* istanbul ignore next: retained Release C implementation for historical reconciliation. */
   const deliveryStartedAt = Date.now();
   const developmentMode = input.developmentMode === true;
   const flags = developmentMode ? null : await getPremiumReportAutomationFlags();
@@ -145,7 +153,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   const privilegedDb = developmentMode
     ? createSupabaseServiceClient() as any
     : input.workerLease
-      ? (await requirePhase14WorkerAction(input.workerLease, action)).client
+      ? (await requirePhase14WorkerAction(input.workerLease!, action)).client
       : (await requirePhase14Action(action)).client;
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
@@ -296,7 +304,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     transport: input.transport ?? sendReportEmailWithResend,
     transportInput: {
       from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
-      to: recipient,
+      to: recipient!,
       replyTo: process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || 'hello@mkfraud.co.za',
       subject: copy.subject,
       html: copy.html,
@@ -305,7 +313,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
         filename: `${report.report_reference}-MK-Fraud-Readiness-Report.pdf`,
         contentBase64: ''
       },
-      idempotencyKey,
+      idempotencyKey: idempotencyKey!,
       // H4 correlation tags: sufficient to find this exact delivery attempt in the Resend
       // dashboard by hand if our own provider_message_id capture is ever lost, without carrying
       // any respondent token, secret, signed URL, customer answer, or payment detail.
@@ -321,8 +329,8 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   });
   return {
     emailEventId: claim.email_event_id,
-    providerMessageId: dispatch.providerMessageId,
-    recipient,
+    providerMessageId: dispatch.providerMessageId!,
+    recipient: recipient!,
     reusedExistingSend: false,
     status: 'sent',
     testDelivery: claim.test_delivery

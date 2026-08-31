@@ -1,8 +1,7 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
-import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
-import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order-notifications';
+import { notifyInternalOrderCreated } from '@/lib/notifications/internal-order-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions } from '@/lib/orders/eft-instructions';
 import { COMMERCIAL_CURRENCY, ESSENTIAL_PRICE_CENTS, ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
@@ -16,6 +15,7 @@ export type ManualOrderStatus = 'draft' | 'awaiting_payment' | 'payment_received
 const CUSTOMER_STATUSES: ManualOrderStatus[] = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
 export type CustomerOrderConfirmation = {
+  tier: 'essential';
   orderReference: string;
   productName: string;
   amountDisplay: string;
@@ -75,13 +75,14 @@ async function getEssentialProduct(db: any) {
 function toCustomerOrder(order: any): CustomerOrderConfirmation {
   const snapshot = order.eft_instructions_snapshot ?? {};
   return {
+    tier: 'essential',
     orderReference: order.order_reference,
     productName: order.product_name,
     amountDisplay: formatOrderAmount(order.amount_cents, order.currency),
     status: normaliseStatus(order.status),
     paymentReference: paymentReference(order.order_reference),
     invoiceRequested: Boolean(order.invoice_requested),
-    manualConfirmationNote: 'MK Fraud Insights will confirm EFT payment manually before any detailed report is released.',
+    manualConfirmationNote: 'MK Fraud Insights will confirm EFT payment manually before preparing the selected product.',
     eftInstructions: {
       active: snapshot.active === true,
       bankName: snapshot.bankName ?? snapshot.bank_name,
@@ -122,16 +123,6 @@ async function trackEftOrderEvent(input: {
       optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata
     }),
-    queueInternalNotification({
-      notificationType: 'eft_order_created',
-      assessmentId: input.assessment.id,
-      organisationId: input.assessment.organisation_id,
-      respondentId: input.assessment.primary_respondent_id,
-      orderId: order.id,
-      dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: COMMERCIAL_OPTION_CODES.essential,
-      metadata
-    })
   ]);
 }
 
@@ -148,7 +139,7 @@ export async function createOrGetOrderForReportRequest(input: {
   const existing = input.dataRequest?.id
     ? await db
       .from('orders')
-      .select('id,order_reference,status,product_id,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,invoice_requested,eft_instructions_snapshot,products:product_id(product_code,name)')
+      .select('id,order_reference,status,product_id,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,invoice_requested,invoice_details,eft_instructions_snapshot,products:product_id(product_code,name)')
       .eq('assessment_id', input.assessment.id)
       .eq('report_request_id', input.dataRequest.id)
       .maybeSingle()
@@ -156,11 +147,12 @@ export async function createOrGetOrderForReportRequest(input: {
 
   if (existing.data) {
     await trackEftOrderEvent(input, existing.data, false);
-    await recordPhase1OrderNotifications({
+    await notifyInternalOrderCreated({
       ...input,
+      tier: 'essential',
       order: existing.data,
       product: Array.isArray(existing.data.products) ? existing.data.products[0] : existing.data.products,
-      eftSnapshot: existing.data.eft_instructions_snapshot
+      invoiceDetails: existing.data.invoice_details
     });
     return toCustomerOrder(existing.data);
   }
@@ -207,6 +199,7 @@ export async function createOrGetOrderForReportRequest(input: {
     organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
     created_at: new Date().toISOString(),
     invoice_requested: Boolean(created.invoice_requested ?? input.invoiceRequested),
+    invoice_details: input.invoiceDetails,
     eft_instructions_snapshot: eftSnapshot
   };
 
@@ -225,11 +218,12 @@ export async function createOrGetOrderForReportRequest(input: {
   });
 
   await trackEftOrderEvent(input, inserted, true);
-  await recordPhase1OrderNotifications({
+  await notifyInternalOrderCreated({
     ...input,
+    tier: 'essential',
     order: inserted,
     product,
-    eftSnapshot
+    invoiceDetails: input.invoiceDetails
   });
 
   return toCustomerOrder(inserted);

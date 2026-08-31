@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { InvoiceDetails } from '@/lib/commercial/invoice-details';
 import type { SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
-import { ORDER_RELEASE_NOTE, WHAT_HAPPENS_NEXT } from '@/lib/snapshot/result-copy';
+import { getPostPurchaseCopy } from '@/lib/commercial/post-purchase-copy';
 
 /**
  * Three steps on one focused route: confirm, billing, payment.
@@ -21,6 +21,7 @@ import { ORDER_RELEASE_NOTE, WHAT_HAPPENS_NEXT } from '@/lib/snapshot/result-cop
 const SCORE_BASE_PATH = '/score';
 
 type OrderConfirmation = {
+  tier?: SelfServicePaidTier;
   orderReference: string;
   productName: string;
   amountDisplay: string;
@@ -147,7 +148,7 @@ export function OrderJourney({
       `Amount: ${order.amountDisplay}`,
       `Payment reference: ${order.paymentReference}`,
       ...(eft?.active
-        ? [`Bank: ${eft.bankName}`, `Account holder: ${eft.accountHolder}`, `Account number: ${eft.accountNumber}`, `Branch code: ${eft.branchCode}`]
+        ? [`Bank: ${eft.bankName}`, `Account holder: ${eft.accountHolder}`, `Account number: ${eft.accountNumber}`, `Branch code: ${eft.branchCode}`, ...(eft.accountType ? [`Account type: ${eft.accountType}`] : []), `Currency: ${eft.currency}`]
         : [])
     ];
     try {
@@ -167,7 +168,7 @@ export function OrderJourney({
         <div className="md:col-span-8">
           {step === 1 ? (
             <StepConfirm
-              productLabel={productLabel}
+              productLabel={getPostPurchaseCopy(tier).productLabel}
               amountDisplay={amountDisplay}
               organisationName={organisationName}
               assessmentReference={assessmentReference}
@@ -182,7 +183,6 @@ export function OrderJourney({
               tier={tier}
               invoiceRequested={invoiceRequested}
               details={details}
-              respondentEmail={respondentEmail}
               submitting={submitting}
               error={error}
               onInvoiceRequested={(value) => { setInvoiceRequested(value); setError(''); }}
@@ -199,13 +199,13 @@ export function OrderJourney({
 
         <aside className="md:col-span-4">
           <div className="hidden border border-mk-line p-5 md:sticky md:top-6 md:block">
-            <h2 className="text-[19px] font-semibold text-mk-navy">{productLabel}</h2>
+            <h2 className="text-[19px] font-semibold text-mk-navy">{getPostPurchaseCopy(tier).productLabel}</h2>
             <p className="mt-1 text-lg font-semibold tabular-nums text-mk-navy">{amountDisplay}</p>
             <dl className="mt-4 flex flex-col gap-2.5 border-t border-mk-line pt-4">
               <SummaryRow label="Organisation" value={organisationName} />
               <SummaryRow label="Reference" value={assessmentReference} />
-              <SummaryRow label="Delivery" value={tier === 'comprehensive' ? 'PDF and supporting XLSX' : 'Professionally prepared PDF'} />
-              <SummaryRow label="Release" value="After payment is confirmed" />
+              <SummaryRow label="Deliverable" value={tier === 'comprehensive' ? 'Full package and supporting material' : 'Essential report'} />
+              <SummaryRow label="Next step" value="After MK confirms payment" />
             </dl>
           </div>
         </aside>
@@ -265,7 +265,7 @@ function StepConfirm({
       <dl className="mt-7 border border-mk-line">
         <DetailRow label="Organisation" value={organisationName} />
         <DetailRow label="Reference" value={assessmentReference} />
-        <DetailRow label="Delivery" value="Private link, emailed to you" last />
+        <DetailRow label="Next step" value="MK confirms payment and prepares the selected product" last />
       </dl>
       <div className="mt-7 flex flex-wrap items-center gap-3">
         <button
@@ -284,12 +284,11 @@ function StepConfirm({
 }
 
 function StepBilling({
-  tier, invoiceRequested, details, respondentEmail, submitting, error, onInvoiceRequested, onDetail, onBack, onSubmit
+  tier, invoiceRequested, details, submitting, error, onInvoiceRequested, onDetail, onBack, onSubmit
 }: {
   tier: SelfServicePaidTier;
   invoiceRequested: boolean | null;
   details: InvoiceDetails;
-  respondentEmail: string | null;
   submitting: boolean;
   error: string;
   onInvoiceRequested: (value: boolean) => void;
@@ -324,7 +323,7 @@ function StepBilling({
 
       {invoiceRequested === true ? (
         <div className="mt-7">
-          <p className="text-sm leading-6 text-mk-muted">We&apos;ll issue a tax invoice against the details below.</p>
+          <p className="text-sm leading-6 text-mk-muted">If you request an invoice, MK will prepare it from the details below.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Field id="legalName" label="Registered company name" value={details.legalName} onChange={onDetail} autoComplete="organization" required />
             <Field id="addressee" label="Invoice addressed to" value={details.addressee} onChange={onDetail} autoComplete="name" required />
@@ -339,7 +338,7 @@ function StepBilling({
 
       {invoiceRequested === false ? (
         <p className="mt-7 max-w-[60ch] text-[15px] leading-7 text-mk-slate">
-          We&apos;ll email a payment confirmation to {respondentEmail ?? 'the address on your assessment'}.
+          Payment confirmation is handled directly by MK. Customer transactional emails are not sent automatically.
         </p>
       ) : null}
 
@@ -367,13 +366,14 @@ function StepBilling({
 
 function StepPayment({ order, copiedAll, onCopyAll, snapshotToken }: { order: OrderConfirmation; copiedAll: boolean; onCopyAll: () => void; snapshotToken: string }) {
   const eft = order.eftInstructions;
+  const copy = getPostPurchaseCopy(order.tier ?? 'essential');
   return (
     <section aria-labelledby="payment-heading">
       <h1 id="payment-heading" className="text-[26px] font-semibold tracking-tight text-mk-navy md:text-[32px]">
         Your order is recorded. Payment details are below.
       </h1>
       <p className="mt-4 text-sm leading-6 text-mk-slate">
-        {order.productName} · <span className="tabular-nums">{order.amountDisplay}</span> · Invoice requested: {order.invoiceRequested ? 'Yes' : 'No'}
+        {copy.productLabel} · <span className="tabular-nums">{order.amountDisplay}</span> · Invoice requested: {order.invoiceRequested ? 'Yes' : 'No'}
       </p>
 
       <p className="mt-6 text-[10px] uppercase tracking-[0.16em] text-mk-muted">Order reference</p>
@@ -388,6 +388,8 @@ function StepPayment({ order, copiedAll, onCopyAll, snapshotToken }: { order: Or
           <DetailRow label="Account holder" value={eft.accountHolder} />
           <DetailRow label="Account number" value={eft.accountNumber} />
           <DetailRow label="Branch code" value={eft.branchCode} />
+          {eft.accountType ? <DetailRow label="Account type" value={eft.accountType} /> : null}
+          <DetailRow label="Currency" value={eft.currency} />
           <DetailRow label="Payment reference" value={order.paymentReference} last />
         </dl>
       ) : (
@@ -416,14 +418,15 @@ function StepPayment({ order, copiedAll, onCopyAll, snapshotToken }: { order: Or
       <p aria-live="polite" className="sr-only">{copiedAll ? 'Payment details copied' : ''}</p>
 
       <ol className="mt-9 grid gap-5 md:grid-cols-2">
-        {WHAT_HAPPENS_NEXT.map((stepText, index) => (
+        {copy.nextSteps.map((stepText, index) => (
           <li key={stepText} className="border-t border-mk-accent/40 pt-3">
             <span className="text-[10px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
             <p className="mt-1.5 text-sm leading-6 text-mk-slate">{stepText}</p>
           </li>
         ))}
       </ol>
-      <p className="mt-7 max-w-[62ch] text-sm leading-6 text-mk-navy">{ORDER_RELEASE_NOTE}</p>
+      <p className="mt-7 max-w-[62ch] text-sm font-semibold leading-6 text-mk-navy">{copy.paymentSummary}</p>
+      <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-slate">{copy.deliverableSummary}</p>
       <p className="mt-3 text-sm leading-6 text-mk-muted">
         Questions about this order: <a href="mailto:hello@mkfraud.co.za" className="text-mk-accent underline-offset-2 hover:underline">hello@mkfraud.co.za</a>
       </p>

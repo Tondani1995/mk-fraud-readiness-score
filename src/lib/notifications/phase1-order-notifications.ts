@@ -1,16 +1,12 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { COMPREHENSIVE_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
 import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
 } from '@/lib/reports/phase1-schema-capability';
 import { getEmailProviderMode, sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
 import {
-  buildAdminNewOrderAlertMessage,
-  buildInternalExceptionAlertMessage,
-  buildOrderConfirmationMessage,
-  buildPaymentConfirmedMessage
+  buildInternalExceptionAlertMessage
 } from '@/lib/notifications/message-templates';
 
 type NotificationContext = {
@@ -28,46 +24,6 @@ type AutomaticExceptionAlertDependencies = {
   sendEmailImpl?: typeof defaultSendEmail;
   providerModeImpl?: typeof getEmailProviderMode;
 };
-
-function displayAmount(cents: number, currency: string) {
-  return `${currency} ${(Number(cents) / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function nextStep(productCode: string | null) {
-  // COMPREHENSIVE_PRODUCT_CODE. A Comprehensive order enters the reviewer-led engagement workflow
-  // after payment rather than automatic report generation.
-  if (productCode === COMPREHENSIVE_PRODUCT_CODE) {
-    return 'Payment confirmation is followed by evidence intake, named-reviewer validation and reviewer sign-off before any deliverable is released.';
-  }
-  return 'MK Fraud Insights will confirm payment manually, generate the report, and record delivery as a separate controlled step.';
-}
-
-// Mirrors src/lib/orders/manual-eft-orders.ts's paymentReference() -- duplicated rather than
-// imported, since that module imports recordPhase1OrderNotifications from this one and importing
-// back would create a cycle.
-function manualEftPaymentReference(orderReference: string) {
-  return orderReference.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
-}
-
-function formatEftAccountSummary(eftSnapshot: any): string {
-  const snapshot = eftSnapshot ?? {};
-  if (snapshot.active !== true) {
-    return 'MK Fraud Insights will send EFT payment instructions directly.';
-  }
-  const bankName = snapshot.bankName ?? snapshot.bank_name ?? 'Not configured';
-  const accountHolder = snapshot.accountHolder ?? snapshot.account_holder ?? 'Not configured';
-  const accountNumber = snapshot.accountNumber ?? snapshot.account_number ?? 'Not configured';
-  const branchCode = snapshot.branchCode ?? snapshot.branch_code ?? 'Not configured';
-  const accountType = snapshot.accountType ?? snapshot.account_type ?? null;
-  const lines = [
-    `Bank: ${bankName}`,
-    `Account holder: ${accountHolder}`,
-    `Account number: ${accountNumber}`,
-    `Branch code: ${branchCode}`
-  ];
-  if (accountType) lines.push(`Account type: ${accountType}`);
-  return lines.join('\n');
-}
 
 // An event is a delivery candidate only while it carries no proof of having reached the provider.
 // sent_at and provider_message_id are the two authoritative marks of a real dispatch, so any row
@@ -193,6 +149,7 @@ async function deliverUnsentNotification(db: any, existing: {
     subject: input.message.subject,
     html: input.message.html,
     text: input.message.text,
+    audience: 'internal',
     idempotencyKey: providerIdempotencyKeyFor(existing.id)
   });
 
@@ -237,7 +194,7 @@ async function deliverUnsentNotification(db: any, existing: {
 // email before either claimed the dedupe slot.
 async function recordNotification(db: any, input: {
   context: NotificationContext;
-  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert' | 'automatic_fulfilment_exception_alert';
+  notificationType: 'delivery_recipient_required_alert' | 'automatic_fulfilment_exception_alert';
   recipient: string | null;
   payload: Record<string, unknown>;
   message: { subject: string; text: string; html: string };
@@ -311,6 +268,7 @@ async function recordNotification(db: any, input: {
     subject: input.message.subject,
     html: input.message.html,
     text: input.message.text,
+    audience: 'internal',
     idempotencyKey: providerIdempotencyKeyFor(data.id)
   });
 
@@ -362,77 +320,12 @@ async function recordNotification(db: any, input: {
 }
 
 export async function recordPhase1OrderNotifications(context: NotificationContext) {
-  const db = createSupabaseServiceClient() as any;
-  const capability = await getPhase1SchemaCapability(db);
-  if (capability.status !== 'available') {
-    return {
-      skipped: true,
-      reason: capability.status,
-      message: capability.message
-    };
-  }
-  const { data: score } = context.assessment.current_score_run_id
-    ? await db.from('score_runs').select('overall_score,final_maturity').eq('id', context.assessment.current_score_run_id).maybeSingle()
-    : { data: null };
-  const contactEmail = context.eftSnapshot?.contactEmail ?? context.eftSnapshot?.contact_email ?? 'hello@mkfraud.co.za';
-  const adminRecipient = process.env.MK_INTERNAL_LEADS_EMAIL?.trim()
-    || process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim()
-    || contactEmail;
-  const orderReference = context.order.order_reference;
-  const organisationName = context.order.organisation_name ?? context.organisation?.legal_name ?? context.organisation?.trading_name ?? null;
-  const customerName = context.order.customer_name ?? context.respondent?.full_name ?? null;
-  const productName = context.order.product_name ?? context.product?.name ?? 'MK Fraud Readiness Report';
-  const amountCents = Number(context.order.amount_cents ?? 0);
-  const currency = context.order.currency ?? 'ZAR';
-  const common = {
-    order_reference: orderReference,
-    organisation: organisationName,
-    customer: customerName,
-    product: productName,
-    amount: displayAmount(amountCents, currency),
-    payment_state: context.order.status,
-    submission_timestamp: context.order.created_at ?? new Date().toISOString(),
-    next_step: nextStep(context.product?.product_code ?? null),
-    mk_contact: contactEmail
+  void context;
+  return {
+    skipped: true,
+    reason: 'customer_transactional_email_disabled',
+    message: 'Current V1.2 order notifications are internal-only.'
   };
-  const customer = await recordNotification(db, {
-    context,
-    notificationType: 'customer_order_confirmation',
-    recipient: context.order.customer_email ?? context.respondent?.email ?? null,
-    payload: common,
-    message: buildOrderConfirmationMessage({
-      customerName,
-      orderReference,
-      productName,
-      amountCents,
-      currency,
-      eftAccountSummary: formatEftAccountSummary(context.eftSnapshot),
-      paymentReference: manualEftPaymentReference(orderReference)
-    })
-  });
-  const admin = await recordNotification(db, {
-    context,
-    notificationType: 'admin_new_order_notification',
-    recipient: adminRecipient,
-    payload: {
-      ...common,
-      email: context.order.customer_email ?? context.respondent?.email ?? null,
-      phone: context.respondent?.phone ?? null,
-      industry: context.organisation?.industry ?? context.organisation?.sector ?? null,
-      score: score?.overall_score ?? null,
-      maturity: score?.final_maturity ?? null,
-      admin_path: `/score/admin/orders/${encodeURIComponent(orderReference)}`
-    },
-    message: buildAdminNewOrderAlertMessage({
-      orderReference,
-      organisationName,
-      customerName,
-      productName,
-      amountCents,
-      currency
-    })
-  });
-  return { customer, admin };
 }
 
 export type PaymentConfirmedNotificationInput = {
@@ -447,36 +340,12 @@ export type PaymentConfirmedNotificationInput = {
 };
 
 export async function recordPaymentConfirmedNotification(input: PaymentConfirmedNotificationInput) {
-  const db = createSupabaseServiceClient() as any;
-  const capability = await getPhase1SchemaCapability(db);
-  if (capability.status !== 'available') {
-    return { skipped: true, reason: capability.status, message: capability.message };
-  }
-  return recordNotification(db, {
-    context: {
-      assessment: { id: input.assessmentId },
-      organisation: null,
-      respondent: null,
-      dataRequest: null,
-      order: { id: input.orderId },
-      product: null,
-      eftSnapshot: null
-    },
-    notificationType: 'payment_confirmed',
-    recipient: input.customerEmail,
-    payload: {
-      order_reference: input.orderReference,
-      amount: displayAmount(input.amountCents, input.currency),
-      verified_at: input.verifiedAtIso
-    },
-    message: buildPaymentConfirmedMessage({
-      customerName: input.customerName,
-      orderReference: input.orderReference,
-      amountCents: input.amountCents,
-      currency: input.currency,
-      verifiedAtIso: input.verifiedAtIso
-    })
-  });
+  void input;
+  return {
+    skipped: true,
+    reason: 'customer_transactional_email_disabled',
+    message: 'Payment notifications are internal-only in V1.2.'
+  };
 }
 
 // Release C closure: fires exactly once per order (dedupe_key is phase1:delivery_recipient_

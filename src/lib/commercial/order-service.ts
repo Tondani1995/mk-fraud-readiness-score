@@ -1,5 +1,5 @@
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
-import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
+import { notifyInternalOrderCreated } from '@/lib/notifications/internal-order-notifications';
 import { buildEftInstructionSnapshot, customerSafeEftInstructions, formatOrderAmount, type CustomerSafeEftInstructions } from '@/lib/orders/eft-instructions';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import {
@@ -194,39 +194,44 @@ export async function createPaidOrderForAssessment(input: {
 
   // Post-commit only. A notification failure must never undo an authoritative commercial write, so
   // these run after the transaction and their outcome does not change the result.
-  if (created) {
-    const metadata = {
-      assessment_reference: input.assessment.assessment_reference,
-      order_reference: data.order_reference,
-      tier,
-      product_code: product.productCode,
-      amount_cents: data.amount_cents,
-      invoice_requested: input.invoiceRequested
-    };
+  const metadata = {
+    assessment_reference: input.assessment.assessment_reference,
+    order_reference: data.order_reference,
+    tier,
+    product_code: product.productCode,
+    amount_cents: data.amount_cents,
+    invoice_requested: input.invoiceRequested
+  };
 
-    await Promise.all([
-      trackAssessmentEvent({
-        eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
-        assessmentId: input.assessment.id,
-        organisationId: input.assessment.organisation_id,
-        respondentId: input.assessment.primary_respondent_id,
-        orderId: data.order_id,
-        dataRequestId: input.dataRequest?.id ?? null,
-        optionCode: tier,
-        metadata
-      }),
-      queueInternalNotification({
-        notificationType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
-        assessmentId: input.assessment.id,
-        organisationId: input.assessment.organisation_id,
-        respondentId: input.assessment.primary_respondent_id,
-        orderId: data.order_id,
-        dataRequestId: input.dataRequest?.id ?? null,
-        optionCode: tier,
-        metadata
-      })
-    ]);
-  }
+  await Promise.all([
+    created
+      ? trackAssessmentEvent({
+          eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
+          assessmentId: input.assessment.id,
+          organisationId: input.assessment.organisation_id,
+          respondentId: input.assessment.primary_respondent_id,
+          orderId: data.order_id,
+          dataRequestId: input.dataRequest?.id ?? null,
+          optionCode: tier,
+          metadata
+        })
+      : Promise.resolve(),
+    notifyInternalOrderCreated({
+      tier,
+      assessment: input.assessment,
+      organisation: input.organisation,
+      respondent: input.respondent,
+      dataRequest: input.dataRequest,
+      order: {
+        ...data,
+        id: data.order_id,
+        invoice_requested: Boolean(data.invoice_requested ?? input.invoiceRequested),
+        invoice_details: input.invoiceDetails
+      },
+      product,
+      invoiceDetails: input.invoiceDetails
+    })
+  ]);
 
   return {
     ok: true,

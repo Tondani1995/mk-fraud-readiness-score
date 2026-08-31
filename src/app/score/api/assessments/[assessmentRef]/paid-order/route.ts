@@ -71,6 +71,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
       created: result.created,
       tier: result.tier,
       order: {
+        tier: result.tier,
         orderReference: result.orderReference,
         productName: result.productName,
         amountCents: result.amountCents,
@@ -85,7 +86,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
       engagement: result.engagementId
         ? { id: result.engagementId, state: result.engagementState }
         : null,
-      manualConfirmationNote: 'Use your order reference as the payment reference. MK Fraud Insights confirms EFT payments manually before any deliverable is released.'
+      manualConfirmationNote: 'Use your order reference as the payment reference. MK Fraud Insights confirms payment manually before preparing the selected product.'
     },
     { status: 200, headers: { 'Cache-Control': 'no-store' } }
   );

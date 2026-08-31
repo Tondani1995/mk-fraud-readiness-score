@@ -336,7 +336,7 @@ export default async function AdminOrderDetailPage(
               </div>
             ))}
             {!operations.notifications.length ? <p className="text-sm text-mk-muted">No notification records found.</p> : null}
-            <p className="text-xs text-mk-muted">Provider mode is disabled unless MK_EMAIL_PROVIDER_MODE is set to test or live. When enabled, these notifications and the Reissue &amp; Resend action below send real email.</p>
+            <p className="text-xs text-mk-muted">Internal MK notifications are sent only when the configured provider mode permits it. Customer report delivery remains a manual MK process after payment confirmation and preparation.</p>
           </CardContent>
         </Card>
 

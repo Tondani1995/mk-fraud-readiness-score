@@ -41,6 +41,8 @@ const cleanupMigration = 'supabase/migrations/0013_phase13_event_index_cleanup.s
 const taxonomy = 'docs/v1/phase13/phase13-commercial-event-taxonomy.md';
 const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
+const assessmentNotificationHelper = 'src/lib/notifications/internal-assessment-notifications.ts';
+const internalOrderNotificationHelper = 'src/lib/notifications/internal-order-notifications.ts';
 const commercialEventRoute = 'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts';
 const personalisedRoute = 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
 const currentCommercialMigration = 'supabase/migrations/20260830170000_mk_advisory_enquiry_path.sql';
@@ -66,7 +68,7 @@ const requiredEventTypes = [
   'internal_notification_failed'
 ];
 
-for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute, reportService, generateRoute, currentCommercialMigration]) {
+for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, assessmentNotificationHelper, internalOrderNotificationHelper, commercialEventRoute, personalisedRoute, reportService, generateRoute, currentCommercialMigration]) {
   assert(exists(file), `${file} must exist.`);
 }
 
@@ -121,20 +123,24 @@ assertIncludes(notificationHelper, "'essential_selected'", 'Essential selection 
 assertIncludes(notificationHelper, "'comprehensive_selected'", 'Comprehensive selection notification type is supported');
 assertIncludes(notificationHelper, "'advisory_enquiry_submitted'", 'Advisory enquiry notification type is supported');
 assertNotIncludes(notificationHelper, "'report_options_opened'", 'Report options views must not queue internal notifications');
-assertNotIncludes(notificationHelper, 'sent_at:', 'Notification helper must not mark queued emails as sent');
-assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification helper must not invent provider message ids');
+assertIncludes(internalOrderNotificationHelper, 'notifyInternalOrderCreated', 'Paid orders use the internal order-notification boundary');
+assertIncludes(internalOrderNotificationHelper, "notificationType: input.tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created'", 'Paid orders use tier-specific internal notification types');
+assertIncludes(internalOrderNotificationHelper, 'invoice_details: invoiceDetails', 'Internal order notification carries the closed invoice schema when requested');
+assertIncludes(assessmentNotificationHelper, "audience: 'internal'", 'The provider boundary requires an internal audience for current operational notifications');
+assertNotIncludes(internalOrderNotificationHelper, 'buildOrderConfirmationMessage', 'Current paid-order notifications do not use the customer order-confirmation template');
+assertNotIncludes(internalOrderNotificationHelper, 'buildPaymentConfirmedMessage', 'Current payment notifications do not use the customer payment-confirmed template');
 
 assertIncludes('src/lib/respondent/start-assessment.ts', "eventType: 'assessment_started'", 'Assessment start is tracked server-side');
 assertIncludes('src/lib/respondent/assessment-save.ts', "eventType: 'assessment_submitted'", 'Assessment submission is tracked server-side');
 assertNotIncludes('src/lib/respondent/assessment-save.ts', 'queueInternalNotification', 'Pre-score assessment submission must not queue the authoritative completion email');
 assertIncludes('src/app/score/api/assessments/[assessmentRef]/submit/route.ts', 'notifyScoredAssessmentCompletion', 'Legacy completion notification is dispatched after score and snapshot persistence');
 assertIncludes('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts', 'notifyScoredAssessmentCompletion', 'Adaptive completion notification is dispatched after score and snapshot persistence');
-assertSourceOrder('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts', 'loadFreeSnapshotByReference', 'notifyScoredAssessmentCompletion', 'Adaptive completion email must follow snapshot availability');
+assertSourceOrder('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts', 'loadFreeSnapshotByReference', 'notifyScoredAssessmentCompletion', 'Adaptive internal completion notification must follow snapshot availability');
 assertSourceOrder('src/lib/respondent/assessment-save.ts', 'if (!lockedAssessment)', "eventType: 'assessment_submitted'", 'Submission event must be after stale-submit conflict guard');
 assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', "eventType: 'snapshot_viewed'", 'Snapshot view is tracked server-side');
 assertSourceOrder('src/app/score/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'eft_order_created'", 'EFT order creation/reuse is tracked');
-assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_order_created'", 'EFT order queues internal lead notification');
+assertIncludes(internalOrderNotificationHelper, "notificationType: input.tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created'", 'EFT order queues an internal lead notification');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', 'optionCode: COMMERCIAL_OPTION_CODES.essential', 'EFT order event is linked to the Essential option code');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marked_received'", 'Payment received admin status is tracked');
 assertIncludes(generateRoute, 'generateManualPhase1Report', 'Admin report route delegates to the controlled manual generation service');
@@ -161,7 +167,8 @@ assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial even
 assertNotIncludes(commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
 assertIncludes(personalisedRoute, 'validateSnapshotToken', 'Personalised route validates snapshot token');
-assertIncludes(personalisedRoute, "ADVISORY_REQUEST_TYPE = 'mk_advisory'", 'Advisory route stores the current controlled request type');
+assertIncludes(personalisedRoute, 'ADVISORY_REQUEST_TYPE', 'Advisory route stores the current controlled request type');
+assertIncludes(personalisedRoute, 'request_type: ADVISORY_REQUEST_TYPE', 'Advisory route writes the current controlled request type');
 assertIncludes(personalisedRoute, "eventType: 'advisory_enquiry_submitted'", 'Advisory route tracks the submitted enquiry');
 assert(countOccurrences(personalisedRoute, "eventType: 'advisory_enquiry_submitted'") === 1, 'Advisory route tracks one current event after persistence');
 assertNotIncludes(personalisedRoute, "eventType: 'report_option_selected'", 'Personalised route does not duplicate generic option analytics after persistence');

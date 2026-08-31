@@ -30,7 +30,6 @@ export function FulfilmentActions(props: Props) {
   // under manual fulfilment where nothing drains the queue, was permanent.
   const generationActive = props.generationState === 'REPORT_GENERATING' && !props.generationStuck;
   const generationPending = props.generationState === 'REPORT_QUEUED' && !props.generationStuck;
-  const deliveryActive = ['DELIVERY_PENDING', 'DELIVERING'].includes(props.deliveryState);
 
   function requestKey(action: string) {
     requestKeys.current[action] ||= crypto.randomUUID();
@@ -97,28 +96,6 @@ export function FulfilmentActions(props: Props) {
     }
   }
 
-  async function deliver() {
-    if (!props.reportId || running) return;
-    const action = props.deliveryState === 'DELIVERY_FAILED' ? 'retry_delivery' : 'initiate_delivery';
-    setRunning(action);
-    setNotice({ tone: 'info', text: 'Recording delivery request…' });
-    try {
-      const response = await fetch(`/score/api/admin/reports/${encodeURIComponent(props.reportId)}/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': requestKey(action) },
-        body: JSON.stringify({ orderReference: props.orderReference, requestKey: requestKey(action) })
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message ?? 'Delivery request failed.');
-      setNotice({ tone: 'success', text: result.message ?? 'Delivery request recorded.' });
-      window.setTimeout(() => window.location.reload(), 700);
-    } catch (error) {
-      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Delivery request failed.' });
-    } finally {
-      setRunning(null);
-    }
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -141,11 +118,6 @@ export function FulfilmentActions(props: Props) {
               {running === 'download' ? 'Preparing download…' : 'Download Report'}
             </Button>
           </>
-        ) : null}
-        {props.capabilityAvailable && props.canDeliver && props.storageReady && props.deliveryState !== 'DELIVERED' ? (
-          <Button type="button" disabled={Boolean(running) || deliveryActive} onClick={deliver}>
-            {deliveryActive ? 'Delivery Pending' : props.deliveryState === 'DELIVERY_FAILED' ? 'Retry Delivery' : 'Initiate Delivery'}
-          </Button>
         ) : null}
         {props.capabilityAvailable && props.canRegenerate && props.storageReady ? (
           <Button type="button" variant="secondary" disabled={Boolean(running) || generationActive} onClick={() => generation('admin_regenerate')}>
@@ -171,6 +143,11 @@ export function FulfilmentActions(props: Props) {
       {props.storageCandidate && !props.storageReady ? (
         <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           This legacy report has storage metadata but is not ready for delivery until Preview or Download verifies the private file.
+        </p>
+      ) : null}
+      {props.capabilityAvailable && props.canDeliver && props.storageReady ? (
+        <p className="rounded-xl border border-mk-line bg-mk-cream p-3 text-sm text-mk-ink">
+          Customer delivery is handled directly by MK after manual preparation. No automated customer delivery action is available here.
         </p>
       ) : null}
       {notice ? (

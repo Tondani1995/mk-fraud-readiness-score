@@ -107,7 +107,9 @@ assert.doesNotMatch(manualRoute, /authorize_bounce_retry/);
 assert.doesNotMatch(manualRoute, /send_bounce_retry/);
 assert.doesNotMatch(manualRoute, /contactVerificationId/);
 assert.doesNotMatch(manualRoute, /correctedRecipientEvidence/);
-assert.match(manualRoute, /deliverPhase1Report/);
+assert.match(manualRoute, /MANUAL_CUSTOMER_DELIVERY_REASON/);
+assert.match(manualRoute, /MANUAL_CUSTOMER_DELIVERY_MESSAGE/);
+assert.doesNotMatch(manualRoute, /deliverPremiumReportEmail|sendReportEmailWithResend|sendEmail/);
 assert.doesNotMatch(manualRoute, /recipientOverride/);
 const phase1Delivery = read('src/lib/reports/phase1-manual-delivery.ts');
 assert.match(phase1Delivery, /PHASE1_DELIVERY_MODE/);
@@ -215,4 +217,4 @@ await assert.rejects(
   /limit/i
 );
 
-console.log('Phase 14 PDF email delivery, retry recovery, test-recipient isolation and replay-safe webhook tests passed.');
+console.log('Phase 14 PDF delivery safety, retry recovery, test-recipient isolation and replay-safe webhook tests passed; current customer delivery remains manual and fail-closed.');

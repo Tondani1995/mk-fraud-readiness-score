@@ -49,31 +49,11 @@ for (const message of manifest.messages) {
   assert(message.providerIdempotencyKeyConstruction);
   assert(message.expectedDatabaseEventType.includes(message.templateOrMessageType));
   assert(message.duplicateRetryBehaviour);
-  assert(
-    line(message.source.file, message.source.functionLine).includes(
-      message.sourceFunction === 'recordPhase1OrderNotifications'
-        ? 'recordPhase1OrderNotifications'
-        : message.sourceFunction,
-    ),
-    `${message.id} function source line drifted`,
-  );
+  // The manifest is retained as immutable evidence of the historical RC1 synthetic journey.
+  // Current V1.2 launch behaviour is asserted below because those historical call sites are no
+  // longer the active customer-notification path.
+  assert(message.source.file && Number.isInteger(message.source.functionLine), `${message.id} historical source location missing`);
 }
-assert(line(
-  manifest.messages[0].source.file,
-  manifest.messages[0].source.messageLine,
-).includes('const customer = await recordNotification'));
-assert(line(
-  manifest.messages[1].source.file,
-  manifest.messages[1].source.messageLine,
-).includes('const admin = await recordNotification'));
-assert(line(
-  manifest.messages[2].source.file,
-  manifest.messages[2].source.messageLine,
-).includes('return recordNotification'));
-assert(line(
-  manifest.messages[3].source.file,
-  manifest.messages[3].source.messageLine,
-).includes('const dispatch = await executeClaimedReportDelivery'));
 
 const phase1Notifications = read('src/lib/notifications/phase1-order-notifications.ts');
 assert.match(
@@ -113,22 +93,35 @@ assert.equal(
 );
 assert.equal(
   (phase1Notifications.match(/notificationType: 'customer_order_confirmation',/g) ?? []).length,
-  1,
+  0,
 );
 assert.equal(
   (phase1Notifications.match(/notificationType: 'admin_new_order_notification',/g) ?? []).length,
-  1,
+  0,
 );
 assert.equal(
   (phase1Notifications.match(/notificationType: 'payment_confirmed',/g) ?? []).length,
-  1,
+  0,
 );
 
 const paymentService = read('src/lib/payments/payment-service.ts');
 assert.match(
   paymentService,
-  /if \(target\.state === 'PAID' && !data\.duplicate\)[\s\S]*?recordPaymentConfirmedNotification/,
+  /if \(target\.state === 'PAID' && !data\.duplicate\)[\s\S]*?notifyInternalPaymentReceived/,
 );
+const currentOrderService = read('src/lib/commercial/order-service.ts');
+const currentEssentialOrderService = read('src/lib/orders/manual-eft-orders.ts');
+assert.match(currentOrderService, /notifyInternalOrderCreated/);
+assert.match(currentEssentialOrderService, /notifyInternalOrderCreated/);
+assert.doesNotMatch(currentOrderService, /queueInternalNotification/);
+assert.doesNotMatch(currentEssentialOrderService, /recordPhase1OrderNotifications/);
+assert.doesNotMatch(paymentService, /recordPaymentConfirmedNotification/);
+const currentDeliveryRoute = read('src/app/score/api/admin/reports/[reportId]/send-email/route.ts');
+assert.match(currentDeliveryRoute, /MANUAL_CUSTOMER_DELIVERY_REASON/);
+assert.doesNotMatch(currentDeliveryRoute, /deliverPhase1Report/);
+const currentDelivery = read('src/lib/reports/email/report-delivery-service-core.ts');
+const currentDeliveryFunction = currentDelivery.slice(currentDelivery.indexOf('export async function deliverPremiumReportEmail'));
+assert.match(currentDeliveryFunction, /void input;\s*throw new Error\(`\$\{MANUAL_CUSTOMER_DELIVERY_REASON\}/);
 
 const reportDelivery = read('src/lib/reports/email/report-delivery-service-core.ts');
 assert.match(
@@ -139,7 +132,7 @@ assert.match(
   reportDelivery,
   /const idempotencyKey = authorization\.provider_request_key\?\.trim\(\)/,
 );
-assert.match(reportDelivery, /idempotencyKey,/);
+assert.match(reportDelivery, /idempotencyKey:\s*idempotencyKey/);
 assert.match(reportDelivery, /message_type', value: 'premium_report_pdf'/);
 
 const deliveryDispatch = read('src/lib/reports/email/delivery-dispatch.ts');

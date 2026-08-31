@@ -1,9 +1,7 @@
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { createSupabaseAuthenticatedServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
-import { getNumberEnv } from '@/lib/env/server';
-import { sendEmail } from '@/lib/notifications/email-provider';
-import { buildReportReadyMessage } from '@/lib/notifications/message-templates';
 import type { AdminRole } from '@/lib/types/domain';
+import { MANUAL_CUSTOMER_DELIVERY_MESSAGE, MANUAL_CUSTOMER_DELIVERY_REASON } from '@/lib/commercial/manual-fulfilment-policy';
 import { classifyDeliveryBucket } from './phase1-operations';
 
 // Release C admin recovery for the real delivery/access-token layer (docs/safe-launch/
@@ -252,68 +250,6 @@ export async function reissueAccessToken(input: {
   reason: string;
   overrideSuppression?: boolean;
 }): Promise<DeliveryRecoveryServiceResult<{ token: CustomerAccessToken; emailSent: boolean; emailError: string | null }>> {
-  const note = input.reason?.trim() ?? '';
-  if (note.length < 5) return { ok: false, reason: 'reason_too_short', message: 'A reason of at least 5 characters is required.' };
-  const client = privilegedClient();
-  if (!client) return { ok: false, reason: 'no_session', message: 'Your admin session has expired. Sign in again.' };
-
-  const ttlSeconds = getNumberEnv('CUSTOMER_REPORT_ACCESS_TOKEN_TTL_SECONDS', 7 * 24 * 60 * 60);
-  const { data, error } = await client.rpc('reissue_customer_report_access_token', {
-    p_order_id: input.orderId,
-    p_report_id: input.reportId,
-    p_recipient_email: input.recipientEmail,
-    p_reason: note,
-    p_ttl_seconds: ttlSeconds,
-    p_override_suppression: input.overrideSuppression === true
-  });
-  if (error || !data) { const mapped = mapError(error); return { ok: false, ...mapped }; }
-
-  const result = data as { token: string; token_id: string; expires_at: string; email_event_id: string };
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://mkfraud.co.za').replace(/\/$/, '');
-  const accessUrl = `${appUrl}/score/report/access/${encodeURIComponent(result.token)}`;
-  const message = buildReportReadyMessage({
-    customerName: input.customerName,
-    orderReference: input.orderReference,
-    accessUrl,
-    expiresAtIso: result.expires_at
-  });
-
-  const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
-  const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
-  const sendResult = await sendEmail({
-    from: fromAddress,
-    to: input.recipientEmail,
-    replyTo,
-    subject: message.subject,
-    html: message.html,
-    text: message.text,
-    idempotencyKey: result.email_event_id
-  });
-
-  const db = createSupabaseServiceClient() as any;
-  const sentSuccessfully = sendResult.ok && sendResult.mode !== 'disabled';
-  await db.from('email_events').update({
-    status: !sendResult.ok ? 'FAILED_TERMINAL' : sendResult.mode === 'disabled' ? 'recorded_disabled' : 'PROVIDER_ACCEPTED',
-    provider_message_id: sentSuccessfully ? sendResult.providerMessageId : null,
-    sent_at: sentSuccessfully ? new Date().toISOString() : null,
-    error_message: sendResult.ok ? null : sendResult.error,
-    updated_at: new Date().toISOString()
-  }).eq('id', result.email_event_id);
-
-  const { data: tokenRow } = await db.from('customer_report_access_tokens')
-    .select('id,report_id,recipient_email,issued_at,expires_at,revoked_at,revoked_reason,last_accessed_at,access_count')
-    .eq('id', result.token_id).single();
-
-  return {
-    ok: true,
-    data: {
-      token: tokenRow ? mapToken(tokenRow) : {
-        id: result.token_id, reportId: input.reportId, recipientEmail: input.recipientEmail,
-        issuedAt: new Date().toISOString(), expiresAt: result.expires_at,
-        revokedAt: null, revokedReason: null, lastAccessedAt: null, accessCount: 0
-      },
-      emailSent: sendResult.ok,
-      emailError: sendResult.ok ? null : sendResult.error
-    }
-  };
+  void input;
+  return { ok: false, reason: MANUAL_CUSTOMER_DELIVERY_REASON, message: MANUAL_CUSTOMER_DELIVERY_MESSAGE };
 }

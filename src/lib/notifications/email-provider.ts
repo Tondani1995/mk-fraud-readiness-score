@@ -20,11 +20,16 @@ export type SendEmailResult =
   | { ok: true; mode: 'live'; providerMessageId: string }
   | { ok: false; mode: EmailProviderMode; error: string };
 
+export type InternalEmailTransportInput = ReportEmailTransportInput & { audience: 'internal' };
+
 // `test` mode never contacts a real customer -- callers are responsible for only invoking this
 // with an explicitly designated MK test mailbox when mode is 'test' (see the runbook). This
 // function does not and cannot verify the recipient is a test address; that discipline lives at
 // the call site and in the external-resource decision gate (docs/safe-launch/15-...-design.md).
-export async function sendEmail(input: ReportEmailTransportInput): Promise<SendEmailResult> {
+export async function sendEmail(input: InternalEmailTransportInput): Promise<SendEmailResult> {
+  if (input.audience !== 'internal') {
+    return { ok: false, mode: getEmailProviderMode(), error: 'Customer transactional email is disabled for V1.2.' };
+  }
   const mode = getEmailProviderMode();
 
   if (mode === 'disabled') {

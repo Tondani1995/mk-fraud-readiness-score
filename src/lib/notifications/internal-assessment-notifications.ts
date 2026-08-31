@@ -30,7 +30,7 @@ const INTERNAL_NOTIFICATION_CLAIM_LEASE_MS = 10 * 60 * 1000;
 const INTERNAL_NOTIFICATION_MAX_ATTEMPTS = 5;
 const RECOVERABLE_INTERNAL_NOTIFICATION_STATUSES = ['queued', 'recorded_disabled', 'send_failed'];
 
-type InternalAssessmentNotificationDependencies = {
+export type InternalAssessmentNotificationDependencies = {
   createClient?: typeof createSupabaseServiceClient;
   /** Shared client seam for provider-free lifecycle tests and queue/dispatch consistency. */
   db?: any;
@@ -40,7 +40,7 @@ type InternalAssessmentNotificationDependencies = {
   trackAssessmentEventImpl?: typeof trackAssessmentEvent;
 };
 
-type InternalNotificationMessage = {
+export type InternalNotificationMessage = {
   subject: string;
   text: string;
   html: string;
@@ -211,6 +211,7 @@ export async function dispatchInternalAssessmentNotification(input: {
       subject: input.message.subject,
       text: input.message.text,
       html: input.message.html,
+      audience: 'internal',
       idempotencyKey: providerIdempotencyKeyFor(event.id)
     });
   const actualProviderMode: EmailProviderMode | 'external' = sendResult.mode === 'disabled' ? 'disabled' : 'external';
@@ -245,7 +246,7 @@ export async function dispatchInternalAssessmentNotification(input: {
   } as const;
 }
 
-async function queueAndDispatchInternalNotification(input: {
+export async function queueAndDispatchInternalNotification(input: {
   queue: QueueInternalNotificationInput;
   message: InternalNotificationMessage;
   organisationId?: string | null;

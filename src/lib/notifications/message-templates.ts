@@ -54,6 +54,65 @@ export function buildAdminNewOrderAlertMessage(input: AdminNewOrderAlertInput) {
   return { subject, text, html };
 }
 
+export type InternalOrderCreatedInput = {
+  orderReference: string;
+  assessmentReference: string | null;
+  organisationName: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  productName: string;
+  amountCents: number;
+  currency: string;
+  paymentReference: string;
+  invoiceRequested: boolean;
+  invoiceDetails: Record<string, string> | null;
+  adminUrl: string;
+};
+
+function invoiceLines(details: Record<string, string> | null) {
+  if (!details) return 'Invoice requested: No';
+  const labels: Array<[string, string]> = [
+    ['Legal name', 'legalName'],
+    ['Addressee', 'addressee'],
+    ['Billing email', 'billingEmail'],
+    ['Billing address', 'billingAddress'],
+    ['VAT number', 'vatNumber'],
+    ['Registration number', 'registrationNumber'],
+    ['PO / billing reference', 'purchaseOrderReference']
+  ];
+  return ['Invoice requested: Yes', ...labels.map(([label, key]) => `${label}: ${details[key] || 'Not supplied'}`)].join('\n');
+}
+
+export function buildInternalOrderCreatedMessage(input: InternalOrderCreatedInput) {
+  const amount = money(input.amountCents, input.currency);
+  const subject = `[MK action] ${input.productName} order: ${input.orderReference}`;
+  const invoice = input.invoiceRequested ? invoiceLines(input.invoiceDetails) : 'Invoice requested: No';
+  const text = `A customer order requires manual MK handling.\n\nOrder reference: ${input.orderReference}\nAssessment reference: ${input.assessmentReference ?? 'Not captured'}\nOrganisation: ${input.organisationName ?? 'Not captured'}\nCustomer: ${input.customerName ?? 'Not captured'}\nCustomer email: ${input.customerEmail ?? 'Not captured'}\nCustomer phone: ${input.customerPhone ?? 'Not captured'}\nProduct: ${input.productName}\nAmount: ${amount}\nPayment reference: ${input.paymentReference}\n${invoice}\n\nNext action: verify the manual EFT payment. After confirmation, prepare the selected deliverable and send it directly to the customer outside the automated customer-email service.\n\nOpen order in MK admin: ${input.adminUrl}`;
+  const detailsHtml = input.invoiceRequested && input.invoiceDetails
+    ? `<ul>${[['Legal name', 'legalName'], ['Addressee', 'addressee'], ['Billing email', 'billingEmail'], ['Billing address', 'billingAddress'], ['VAT number', 'vatNumber'], ['Registration number', 'registrationNumber'], ['PO / billing reference', 'purchaseOrderReference']].map(([label, key]) => `<li>${escapeHtml(label)}: ${escapeHtml(input.invoiceDetails?.[key] || 'Not supplied')}</li>`).join('')}</ul>`
+    : '<p>Invoice requested: No</p>';
+  const html = `<p>A customer order requires manual MK handling.</p><ul><li>Order reference: <strong>${escapeHtml(input.orderReference)}</strong></li><li>Assessment reference: ${escapeHtml(input.assessmentReference ?? 'Not captured')}</li><li>Organisation: ${escapeHtml(input.organisationName ?? 'Not captured')}</li><li>Customer: ${escapeHtml(input.customerName ?? 'Not captured')}</li><li>Customer email: ${escapeHtml(input.customerEmail ?? 'Not captured')}</li><li>Customer phone: ${escapeHtml(input.customerPhone ?? 'Not captured')}</li><li>Product: ${escapeHtml(input.productName)}</li><li>Amount: ${escapeHtml(amount)}</li><li>Payment reference: <strong>${escapeHtml(input.paymentReference)}</strong></li></ul>${detailsHtml}<p>Next action: verify the manual EFT payment. After confirmation, prepare the selected deliverable and send it directly to the customer outside the automated customer-email service.</p><p><a href="${escapeHtml(input.adminUrl)}">Open order in MK admin</a></p>`;
+  return { subject, text, html };
+}
+
+export type InternalPaymentReceivedInput = {
+  orderReference: string;
+  amountCents: number;
+  currency: string;
+  paymentSource: string;
+  verifiedAtIso: string;
+  adminUrl: string;
+};
+
+export function buildInternalPaymentReceivedMessage(input: InternalPaymentReceivedInput) {
+  const amount = money(input.amountCents, input.currency);
+  const subject = `[MK action] Payment received: ${input.orderReference}`;
+  const text = `A payment was recorded for manual fulfilment.\n\nOrder reference: ${input.orderReference}\nAmount: ${amount}\nSource: ${input.paymentSource}\nVerified at: ${input.verifiedAtIso}\n\nNext action: review the payment and prepare the selected product through the authorised manual workflow. Customer delivery remains outside the automated email service.\n\nOpen order in MK admin: ${input.adminUrl}`;
+  const html = `<p>A payment was recorded for manual fulfilment.</p><ul><li>Order reference: <strong>${escapeHtml(input.orderReference)}</strong></li><li>Amount: ${escapeHtml(amount)}</li><li>Source: ${escapeHtml(input.paymentSource)}</li><li>Verified at: ${escapeHtml(input.verifiedAtIso)}</li></ul><p>Next action: review the payment and prepare the selected product through the authorised manual workflow. Customer delivery remains outside the automated email service.</p><p><a href="${escapeHtml(input.adminUrl)}">Open order in MK admin</a></p>`;
+  return { subject, text, html };
+}
+
 export type PaymentConfirmedInput = {
   customerName: string | null;
   orderReference: string;

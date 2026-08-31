@@ -15,10 +15,11 @@ import ts from 'typescript';
 const root = process.cwd();
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
-// Transpile and load the real module in-process, exactly as the existing phase14 email tests do,
-// so the dedupe and claim logic under test is the shipped source rather than a restatement of it.
+// Transpile and load the current internal-notification module in-process, so the recovery and
+// claim logic under test is the shipped source rather than a restatement of it. The historical
+// phase1 customer-notification entry point is intentionally a no-op in the V1.2 manual model.
 function loadNotifications(dependencies) {
-  const output = ts.transpileModule(read('src/lib/notifications/phase1-order-notifications.ts'), {
+  const output = ts.transpileModule(read('src/lib/notifications/internal-assessment-notifications.ts'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
   }).outputText;
   const module = { exports: {} };
@@ -104,31 +105,68 @@ const failing = async () => ({ ok: false, mode: 'external', error: 'provider 500
 function run(db, sendEmailImpl) {
   const mod = loadNotifications({
     '@/lib/supabase/server': { createSupabaseServiceClient: () => db },
-    '@/lib/reports/phase1-schema-capability': {
-      getPhase1SchemaCapability: async () => ({ status: 'available' }),
-      requirePhase1SchemaCapability: async () => ({ status: 'available' })
+    '@/lib/analytics/assessment-events': {
+      sanitiseEventMetadata: (metadata = {}) => metadata,
+      trackAssessmentEvent: async () => ({ ok: true, status: 'created' })
     },
-    '@/lib/commercial/product-catalogue': {
-      COMPREHENSIVE_PRODUCT_CODE: 'mk_validated_assessment'
+    '@/lib/notifications/internal-notifications': {
+      queueInternalNotification: async () => ({ ok: false, status: 'failed', error: 'queue not used by this recovery harness' })
     },
     '@/lib/notifications/email-provider': {
       sendEmail: sendEmailImpl,
       getEmailProviderMode: () => sendEmailImpl === disabled ? 'disabled' : 'live'
     },
     '@/lib/notifications/message-templates': {
-      buildOrderConfirmationMessage: () => MSG,
-      buildAdminNewOrderAlertMessage: () => MSG,
-      buildPaymentConfirmedMessage: () => MSG,
-      buildInternalExceptionAlertMessage: () => MSG
+      buildAssessmentCompletedInternalMessage: () => MSG,
+      buildAssessmentStalledLeadMessage: () => MSG
+    },
+    '@/lib/notifications/phase1-order-notifications': {
+      isRecipientPermitted: (recipient) => {
+        const address = recipient?.trim().toLowerCase() ?? '';
+        const allowlist = process.env.MK_EMAIL_RECIPIENT_ALLOWLIST?.split(',')
+          .map((entry) => entry.trim().toLowerCase()).filter(Boolean) ?? [];
+        return Boolean(address) && (allowlist.length === 0 || allowlist.includes(address));
+      },
+      providerIdempotencyKeyFor: (emailEventId) => emailEventId,
+      recipientAllowlist: () => process.env.MK_EMAIL_RECIPIENT_ALLOWLIST?.split(',')
+        .map((entry) => entry.trim().toLowerCase()).filter(Boolean) || null
     }
   });
-  return mod.recordPhase1OrderNotifications(CONTEXT);
+  let event = db.events.find((candidate) => candidate.notification_type === 'eft_order_created');
+  if (!event) {
+    event = {
+      id: `evt_${db.events.length + 1}`,
+      assessment_id: CONTEXT.assessment.id,
+      notification_type: 'eft_order_created',
+      status: 'recorded_disabled',
+      retry_count: 0,
+      sent_at: null,
+      provider_message_id: null,
+      recipient_email: CONTEXT.order.customer_email,
+      updated_at: new Date().toISOString(),
+      dedupe_key: 'internal_notification:eft_order_created:assessment:asm_1',
+      metadata_json: {}
+    };
+    db.events.push(event);
+  }
+  return mod.dispatchInternalAssessmentNotification({
+    emailEventId: event.id,
+    assessmentId: CONTEXT.assessment.id,
+    organisationId: 'org_1',
+    notificationType: 'eft_order_created',
+    message: MSG
+  }, {
+    db,
+    sendEmailImpl,
+    providerModeImpl: () => sendEmailImpl === disabled ? 'disabled' : 'live',
+    trackAssessmentEventImpl: async () => ({ ok: true, status: 'created' })
+  });
 }
 const MSG = { subject: 'cert', text: 'cert', html: '<p>cert</p>' };
 
 test('T1 provider disabled: event is recorded but not sent', async () => {
   const db = makeDb(); await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   assert.equal(e.status, 'recorded_disabled');
   assert.equal(e.sent_at, null);
   assert.equal(e.provider_message_id, null);
@@ -138,7 +176,7 @@ test('T1 provider disabled: event is recorded but not sent', async () => {
 test('T2 provider enabled later: the same event is delivered', async () => {
   const db = makeDb(); await run(db, disabled);
   const before = db.events.length;
-  const id = db.events.find((x) => x.notification_type === 'customer_order_confirmation').id;
+  const id = db.events.find((x) => x.notification_type === 'eft_order_created').id;
   let calls = 0;
   await run(db, async (...a) => { calls += 1; return live(...a); });
   const e = db.events.find((x) => x.id === id);
@@ -182,7 +220,7 @@ test('T5 concurrent recovery: at most one provider send', async () => {
 
 test('T6 unapproved recipient stays blocked', async () => {
   const db = makeDb(); await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   e.recipient_email = null;
   let calls = 0;
   await run(db, async (...a) => { calls += 1; return live(...a); });
@@ -193,7 +231,7 @@ test('T6 unapproved recipient stays blocked', async () => {
 test('T7 provider failure leaves the event safely retryable', async () => {
   const db = makeDb(); await run(db, disabled);
   await run(db, failing);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   assert.equal(e.status, 'send_failed');
   assert.equal(e.sent_at, null); assert.equal(e.provider_message_id, null);
   let calls = 0;
@@ -214,7 +252,7 @@ const UNAPPROVED = 'not-on-the-allowlist@example.com';
 test('T8 crash after claim, before provider: row is left in sending', async () => {
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   // Simulate a process that claimed the row and then died before calling the provider.
   e.status = 'sending'; e.updated_at = new Date().toISOString();
   let calls = 0;   // scoped to THIS event: the sibling admin notification also dispatches
@@ -227,7 +265,7 @@ test('T8 crash after claim, before provider: row is left in sending', async () =
 test('T9 stale sending claim is safely recovered after the lease expires', async () => {
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   const before = db.events.length;
   e.status = 'sending';
   e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();  // an hour old
@@ -244,7 +282,7 @@ test('T9 stale sending claim is safely recovered after the lease expires', async
 test('T10 provider accepted then persistence failed: retry sends no second message', async () => {
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   // Provider accepted, but the local success write never landed: row still looks unsent.
   e.status = 'sending';
   e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -268,7 +306,7 @@ test('T10 provider accepted then persistence failed: retry sends no second messa
 test('T11 retry presents the same provider idempotency key', async () => {
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   const keys = [];
   const capture = async (input) => { keys.push(input.idempotencyKey); return { ok: false, mode: 'external', error: 'transient' }; };
   await run(db, capture);
@@ -285,7 +323,7 @@ test('T12 non-empty unapproved recipient is blocked by the real recovery path', 
   process.env.MK_EMAIL_RECIPIENT_ALLOWLIST = ALLOWED;
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   e.recipient_email = UNAPPROVED;              // syntactically valid, simply not allowlisted
   let calls = 0;   // scoped to THIS event
   await run(db, async (input) => { if (input.idempotencyKey === e.id) calls += 1; return live(input); });
@@ -300,7 +338,7 @@ test('T13 approved recipient remains deliverable under the same allowlist', asyn
   process.env.MK_EMAIL_RECIPIENT_ALLOWLIST = ALLOWED;
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   assert.equal(e.recipient_email, ALLOWED);
   let calls = 0;
   await run(db, async (input) => { if (input.idempotencyKey === e.id) calls += 1; return live(input); });
@@ -313,7 +351,7 @@ test('T13 approved recipient remains deliverable under the same allowlist', asyn
 test('T14 concurrent active claims still yield at most one provider invocation', async () => {
   const db = makeDb();
   await run(db, disabled);
-  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const e = db.events.find((x) => x.notification_type === 'eft_order_created');
   let calls = 0;
   const counting = async (...a) => { calls += 1; return live(...a); };
   await Promise.all([run(db, counting), run(db, counting), run(db, counting), run(db, counting)]);

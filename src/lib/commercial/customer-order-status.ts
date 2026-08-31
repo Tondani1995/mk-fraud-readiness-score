@@ -15,6 +15,7 @@ export type CustomerPaidOrderStatus = {
   amountDisplay: string;
   paymentReference: string;
   orderStatus: string;
+  invoiceRequested: boolean;
   paymentVerified: boolean;
   eftInstructions: CustomerSafeEftInstructions | null;
   createdAt: string;
@@ -53,16 +54,14 @@ export type CustomerPaidOrderStatus = {
 const EVIDENCE_ACCEPTING_STATES = new Set(['payment_received', 'evidence_requested', 'evidence_received', 'in_review']);
 
 const EVIDENCE_GUIDANCE = [
-  'Upload current organisation-level records that show how the control operates in practice.',
-  'Remove unnecessary personal information before upload and use the optional label to identify the control or process.',
-  'One file is accepted per upload; MK will record a separate reviewer status for each item.'
+  'MK may contact you directly if clarification is needed before preparing the selected Comprehensive package.'
 ];
 
 export async function getCustomerPaidOrderStatus(input: { assessmentId: string; orderReference: string }): Promise<CustomerPaidOrderStatus | null> {
   const db = createSupabaseServiceClient() as any;
   const { data: order, error } = await db
     .from('orders')
-    .select('id,assessment_id,order_reference,status,amount_cents,currency,product_name,created_at,verified_at,customer_email,eft_instructions_snapshot,products:product_id(product_code)')
+    .select('id,assessment_id,order_reference,status,amount_cents,currency,product_name,created_at,verified_at,invoice_requested,customer_email,eft_instructions_snapshot,products:product_id(product_code)')
     .eq('assessment_id', input.assessmentId)
     .eq('order_reference', input.orderReference)
     .maybeSingle();
@@ -82,40 +81,7 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
         .eq('engagement_id', row.id)
         .order('uploaded_at', { ascending: false });
       const evidenceRows = evidence ?? [];
-      const { data: releasedArtifacts } = await db.from('report_artifacts')
-        .select('artefact_type,file_name,mime_type,file_size_bytes,artifact_version,release_state')
-        .eq('engagement_id', row.id)
-        .eq('artifact_version', row.signed_off_artifact_version ?? 0)
-        .eq('release_state', 'released')
-        .eq('storage_status', 'VERIFIED')
-        .order('artefact_type', { ascending: true });
       const evidenceAccepting = EVIDENCE_ACCEPTING_STATES.has(row.state);
-      let customerAccessToken: string | null = null;
-      let customerAccessTokenExpiresAt: string | null = null;
-      if (row.state === 'delivered' && row.signed_off_artifact_version && order.customer_email) {
-        const { data: report } = await db.from('reports')
-          .select('id,status,storage_status')
-          .eq('order_id', order.id)
-          .eq('report_type', 'mk_validated')
-          .eq('version_number', row.signed_off_artifact_version)
-          .eq('status', 'released')
-          .eq('storage_status', 'VERIFIED')
-          .order('version_number', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (report) {
-          const { data: access } = await db.rpc('issue_customer_report_access_token', {
-            p_order_id: order.id,
-            p_report_id: report.id,
-            p_recipient_email: order.customer_email,
-            p_ttl_seconds: 3600
-          });
-          if (access?.token) {
-            customerAccessToken = String(access.token);
-            customerAccessTokenExpiresAt = access.expires_at ?? null;
-          }
-        }
-      }
       engagement = {
         state: row.state,
         stateVersion: Number(row.state_version),
@@ -136,15 +102,9 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
           validationStatus: item.validation_status,
           reviewerObservation: item.reviewer_observation ?? null
         })),
-        releasedArtifacts: (releasedArtifacts ?? []).map((item: any) => ({
-          artefactType: item.artefact_type,
-          fileName: item.file_name,
-          mimeType: item.mime_type,
-          fileSizeBytes: Number(item.file_size_bytes),
-          artifactVersion: Number(item.artifact_version)
-        })),
-        customerAccessToken,
-        customerAccessTokenExpiresAt
+        releasedArtifacts: [],
+        customerAccessToken: null,
+        customerAccessTokenExpiresAt: null
       };
     }
   }
@@ -158,6 +118,7 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
     amountDisplay: new Intl.NumberFormat('en-ZA', { style: 'currency', currency: order.currency, maximumFractionDigits: 0 }).format(amountCents / 100),
     paymentReference: paymentReferenceFor(order.order_reference),
     orderStatus: order.status,
+    invoiceRequested: Boolean(order.invoice_requested),
     paymentVerified: Boolean(order.verified_at) || order.status === 'verified',
     eftInstructions: customerSafeEftInstructions(order.eft_instructions_snapshot),
     createdAt: order.created_at,
