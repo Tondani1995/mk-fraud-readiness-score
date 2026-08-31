@@ -1744,7 +1744,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:96:rpc"
     ],
-    "fullAstInventorySha256": "377e191142969cb283a6449ca39d346f7092aeccfcf4f35b4d3b452b52776b6f"
+    "fullAstInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -1838,6 +1838,41 @@
     },
     "ownerApproval": "Owner approved the bounded public.free_snapshot_narratives SELECT/INSERT/UPDATE capability on 2026-08-30.",
     "conclusion": "No unapproved privilege expansion remains after explicit owner approval of the new Snapshot narrative-cache table capability. The reviewed candidate inventory is the authoritative contract hash."
+  },
+  "stalledLeadDedupeReview": {
+    "reviewedAt": "2026-08-31",
+    "reviewedCommit": "f2519a5d5c19085aec0ff80488595f7595d24fe8",
+    "parentCommit": "e22a8018d1fb735914875afd5a38c1645adee98e",
+    "previousInventorySha256": "377e191142969cb283a6449ca39d346f7092aeccfcf4f35b4d3b452b52776b6f",
+    "reviewedInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a",
+    "normalizedComparison": {
+      "ignoredFields": ["line", "importsServiceFactory"],
+      "structuralDifferenceCount": 1,
+      "addedCallSites": [
+        {
+          "source": "src/lib/notifications/internal-assessment-notifications.ts",
+          "function": "resolveExistingStalledLeadEpisode",
+          "operationKind": "table",
+          "target": "public.email_events",
+          "databaseVerbs": ["SELECT"],
+          "purpose": "Resolve an existing assessment_stalled_lead event for the same authoritative last_activity_at before queueing."
+        }
+      ],
+      "removedCallSites": [],
+      "capabilityLevelAdditions": {
+        "newDirectTableTarget": false,
+        "newTableWriteVerb": false,
+        "newDeleteCapability": false,
+        "newRpcCaller": false,
+        "newDynamicDatabaseTarget": false,
+        "newStorageApiAuthority": false,
+        "newAuthAdminApiAuthority": false,
+        "newServiceRoleGrant": false
+      },
+      "lineNumberOnlyOrComponentMovementAccepted": true
+    },
+    "ownerApproval": "Owner approved this additional SELECT as within the already-approved public.email_events SELECT/INSERT/UPDATE service-role capability; no privilege expansion or ACL change is required.",
+    "conclusion": "The only normalized capability-level addition is the reviewed read of public.email_events used to prevent threshold-only stalled-lead duplicate episodes."
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
