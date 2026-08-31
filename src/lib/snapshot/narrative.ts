@@ -13,6 +13,7 @@ import {
   classifyAssuranceLanguageDetailed,
   type AssuranceSemanticCategory
 } from '../reports/narrative/validation';
+import { classifyNarrativeRecoveryIssue } from '../reports/narrative/validation-severity';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
 import {
@@ -550,7 +551,9 @@ function candidateForSnapshotIssue(
   issueCode: string,
   field: SnapshotNarrativeAiField | null,
   validationInput: SnapshotNarrativeValidationInput,
-  hardTruthOverride = OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issueCode)
+  hardTruthOverride = OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issueCode),
+  directRepairEligible = false,
+  semanticRepairEligible = false
 ): SemanticCandidate {
   const text = field ? snapshotFieldText(content, field) : [content.headline, content.executiveDiagnosis, content.strength, ...content.prioritySignals, content.managementImplication].join('\n');
   const hardTruth = hardTruthOverride;
@@ -573,19 +576,23 @@ function candidateForSnapshotIssue(
       attentionAreaCount: validationInput.attentionAreas.length
     },
     hardTruth,
-    deterministicRepairAvailable: false
+    deterministicRepairAvailable: false,
+    directRepairEligible,
+    semanticRepairEligible
   };
 }
 
-type SnapshotSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE';
+type SnapshotSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE' | 'DIRECT_REPAIR_CANDIDATE';
 
 type SnapshotIssueClassification = {
   disposition: SnapshotSemanticDisposition;
   fields?: SnapshotNarrativeAiField[];
+  directRepairFields?: SnapshotNarrativeAiField[];
+  semanticRepairFields?: SnapshotNarrativeAiField[];
   assuranceCategories?: Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>;
 };
 
-function classifySnapshotAssuranceIssue(content: SnapshotNarrativeContent): SnapshotIssueClassification {
+function classifySnapshotAssuranceIssue(content: SnapshotNarrativeContent, hasObjectiveHardTruth: boolean): SnapshotIssueClassification {
   const assuranceFields = AI_FIELDS.filter((field) => classifyAssuranceLanguage(content[field])?.category === 'prohibited_assurance');
   const prioritySignalHasLegacyAssurance = content.prioritySignals.some(
     (signal) => classifyAssuranceLanguage(signal)?.category === 'prohibited_assurance'
@@ -597,22 +604,35 @@ function classifySnapshotAssuranceIssue(content: SnapshotNarrativeContent): Snap
   }
 
   const ambiguousFields: SnapshotNarrativeAiField[] = [];
+  const directRepairFields: SnapshotNarrativeAiField[] = [];
   const categories = new Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>();
   for (const field of assuranceFields) {
     const classification = classifyAssuranceLanguageDetailed(content[field]);
     if (!classification) return { disposition: 'OBJECTIVE_HARD' };
     categories.set(field, classification.category);
     if (classification.category === 'PROHIBITED_COMPLETED_ASSURANCE' || classification.category === 'PROHIBITED_MK_OR_REPORT_ACTOR') {
-      return { disposition: 'OBJECTIVE_HARD' };
+      if (hasObjectiveHardTruth) return { disposition: 'OBJECTIVE_HARD', assuranceCategories: categories };
+      const recovery = classifyNarrativeRecoveryIssue({ code: 'assurance_claim', localSemanticEligible: true });
+      if (!recovery.repairEligible) return { disposition: 'OBJECTIVE_HARD', assuranceCategories: categories };
+      directRepairFields.push(field);
     }
     if (classification.category === 'AMBIGUOUS_ASSURANCE') ambiguousFields.push(field);
   }
-  if (ambiguousFields.length > 0) return { disposition: 'SEMANTIC_CANDIDATE', fields: ambiguousFields, assuranceCategories: categories };
+  const repairFields = [...directRepairFields, ...ambiguousFields];
+  if (repairFields.length > 0) {
+    return {
+      disposition: ambiguousFields.length > 0 ? 'SEMANTIC_CANDIDATE' : 'DIRECT_REPAIR_CANDIDATE',
+      fields: repairFields,
+      directRepairFields,
+      semanticRepairFields: repairFields,
+      assuranceCategories: categories
+    };
+  }
   return { disposition: 'DETERMINISTIC_ALLOW', assuranceCategories: categories };
 }
 
-function classifySnapshotIssue(content: SnapshotNarrativeContent, issueCode: string): SnapshotIssueClassification {
-  if (issueCode === 'assurance_claim') return classifySnapshotAssuranceIssue(content);
+function classifySnapshotIssue(content: SnapshotNarrativeContent, issueCode: string, hasObjectiveHardTruth = false): SnapshotIssueClassification {
+  if (issueCode === 'assurance_claim') return classifySnapshotAssuranceIssue(content, hasObjectiveHardTruth);
   if (OBJECTIVE_HARD_SNAPSHOT_ISSUES.has(issueCode)) return { disposition: 'OBJECTIVE_HARD' };
   if (SEMANTIC_SNAPSHOT_ISSUES.has(issueCode)) {
     // These detectors run against the bounded Snapshot brief. The brief contains no typed
@@ -667,12 +687,16 @@ function snapshotSemanticEvaluation(
     return { hardCandidates: [candidate], candidates: [], valid: false, validationIssues: ['snapshot_narrative_schema_invalid'] };
   }
   const issues = validateSnapshotNarrative(content, validationInput, { mode });
+  const hasObjectiveHardTruth = issues.some((issueCode) => issueCode !== 'assurance_claim'
+    && classifySnapshotIssue(content, issueCode).disposition === 'OBJECTIVE_HARD');
   const hardCandidates: SemanticCandidate[] = [];
   const candidates: SemanticCandidate[] = [];
   const targetFields = new Map<SnapshotNarrativeAiField, string>();
   const assuranceCategories = new Map<SnapshotNarrativeAiField, AssuranceSemanticCategory>();
+  const directRepairFields = new Set<SnapshotNarrativeAiField>();
+  const semanticRepairFields = new Set<SnapshotNarrativeAiField>();
   for (const issueCode of issues) {
-    const classification = classifySnapshotIssue(content, issueCode);
+    const classification = classifySnapshotIssue(content, issueCode, hasObjectiveHardTruth);
     if (classification.disposition === 'OBJECTIVE_HARD') {
       hardCandidates.push(candidateForSnapshotIssue(content, issueCode, null, validationInput, true));
       continue;
@@ -680,9 +704,12 @@ function snapshotSemanticEvaluation(
     if (classification.disposition === 'DETERMINISTIC_ALLOW') continue;
     const fields = classification.fields ?? repairFieldsForIssues([issueCode]);
     for (const field of fields) {
-      targetFields.set(field, issueCode);
+      const existingIssueCode = targetFields.get(field);
+      targetFields.set(field, existingIssueCode ? `${existingIssueCode},${issueCode}` : issueCode);
       const category = classification.assuranceCategories?.get(field);
       if (category) assuranceCategories.set(field, category);
+      if (classification.directRepairFields?.includes(field)) directRepairFields.add(field);
+      if (classification.semanticRepairFields?.includes(field)) semanticRepairFields.add(field);
     }
   }
   for (const [field, issueCode] of targetFields) {
@@ -692,7 +719,9 @@ function snapshotSemanticEvaluation(
       issueCode,
       field,
       validationInput,
-      false
+      false,
+      directRepairFields.has(field),
+      semanticRepairFields.has(field)
     ));
     if (category) {
       const candidate = candidates.at(-1)!;

@@ -165,10 +165,57 @@ test('Essential ambiguous assurance reaches one adjudication and one repair afte
   assert.equal(validateBlueprintTextManuscript(result.narrative, result.blueprint, factPack).hardTruth.issues.length, 0);
 });
 
-test('Essential completed assurance is deterministic hard rejection with no adapter calls', async () => {
+test('Essential completed assurance is a direct bounded repair with no adjudication call', async () => {
+  const factPack = buildFactPack();
+  const repaired = 'The recorded responses indicate a position requiring management attention.';
+  let adjudicationCalls = 0;
+  let repairCalls = 0;
+  const result = await composeEssentialManuscript({
+    factPack,
+    writer: writerFor('This report provides independent assurance that operating effectiveness is confirmed.'),
+    semanticAdapters: adaptersFor({
+      adjudicate: async () => { adjudicationCalls += 1; return []; },
+      repair: async (targets) => {
+        repairCalls += 1;
+        assert.deepEqual(targets.map((target) => target.targetId), ['essential:EXECUTIVE-ASSESSMENT-POSITION.paragraphs[0]']);
+        return targets.map((target) => ({ targetId: target.targetId, repairedText: repaired }));
+      }
+    })
+  });
+  assert.equal(adjudicationCalls, 0);
+  assert.equal(repairCalls, 1);
+  assert.equal(result.semanticSafety.generationCalls, 1);
+  assert.equal(result.semanticSafety.adjudicationCalls, 0);
+  assert.equal(result.semanticSafety.repairCalls, 1);
+  assert.equal(result.semanticSafety.totalProviderCalls, 2);
+  assert.equal(result.semanticSafety.finalResult, 'ACCEPT');
+  assert.doesNotMatch(result.narrative.markdown, /independent assurance|operating effectiveness is confirmed/i);
+  assert.equal(validateBlueprintTextManuscript(result.narrative, result.blueprint, factPack).hardTruth.issues.length, 0);
+});
+
+test('Essential completed assurance without a pre-validation rewrite is also directly repairable', async () => {
+  const factPack = buildFactPack();
+  const result = await composeEssentialManuscript({
+    factPack,
+    writer: writerFor('This report provides assurance that operating effectiveness is confirmed.'),
+    semanticAdapters: adaptersFor({
+      adjudicate: async () => { throw new Error('direct assurance repair must not adjudicate'); },
+      repair: async (targets) => targets.map((target) => ({
+        targetId: target.targetId,
+        repairedText: 'The recorded responses indicate a position requiring management attention.'
+      }))
+    })
+  });
+  assert.equal(result.semanticSafety.adjudicationCalls, 0);
+  assert.equal(result.semanticSafety.repairCalls, 1);
+  assert.equal(result.semanticSafety.totalProviderCalls, 2);
+  assert.equal(result.semanticSafety.finalResult, 'ACCEPT');
+});
+
+test('Essential assurance mixed with unsupported numeric truth remains hard and cannot be repaired', async () => {
   await expectEssentialSemanticReject(
     buildFactPack(),
-    'This report provides independent assurance that operating effectiveness is confirmed.'
+    'This report provides independent assurance that operating effectiveness is confirmed for 999999 controls.'
   );
 });
 
@@ -298,7 +345,7 @@ test('Snapshot ambiguous assurance consumes adjudication and repair exactly once
   assert.deepEqual(validateSnapshotNarrative(narrativeContent(result), buildSnapshotNarrativeInput(snapshot, insights)), []);
 });
 
-test('Snapshot completed assurance remains hard and cannot be AI-overridden', async () => {
+test('Snapshot completed assurance uses one direct repair and remains bounded', async () => {
   const { snapshot, insights } = snapshotFixture();
   let adjudicationCalls = 0;
   let repairCalls = 0;
@@ -306,7 +353,37 @@ test('Snapshot completed assurance remains hard and cannot be AI-overridden', as
     snapshot,
     insights,
     cache: { async read() { return null; }, async write() {} },
-    generator: async () => generatedSnapshot({ executiveDiagnosis: 'The recorded responses indicate a position requiring management attention. This report provides independent assurance that operating effectiveness is confirmed.' }),
+    generator: async () => generatedSnapshot({ executiveDiagnosis: 'The recorded responses indicate a position requiring management attention. Operating effectiveness was independently verified.' }),
+    adjudicator: async () => { adjudicationCalls += 1; return []; },
+    repairer: async (targets) => {
+      repairCalls += 1;
+      assert.deepEqual(targets.map((target) => target.targetId), ['snapshot.executiveDiagnosis']);
+      return targets.map((target) => ({
+        targetId: target.targetId,
+        repairedText: 'The recorded responses indicate a position requiring management attention.'
+      }));
+    }
+  });
+  assert.equal(adjudicationCalls, 0);
+  assert.equal(repairCalls, 1);
+  assert.equal(result.mode, 'ai');
+  assert.equal(result.aiCallCount, 2);
+  assert.equal(result.semanticSafety.adjudicationCalls, 0);
+  assert.equal(result.semanticSafety.repairCalls, 1);
+  assert.equal(result.semanticSafety.totalProviderCalls, 2);
+  assert.equal(result.semanticSafety.finalResult, 'ACCEPT');
+  assert.deepEqual(validateSnapshotNarrative(narrativeContent(result), buildSnapshotNarrativeInput(snapshot, insights)), []);
+});
+
+test('Snapshot assurance mixed with unsupported numeric truth remains hard and cannot be repaired', async () => {
+  const { snapshot, insights } = snapshotFixture();
+  let adjudicationCalls = 0;
+  let repairCalls = 0;
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: { async read() { return null; }, async write() {} },
+    generator: async () => generatedSnapshot({ executiveDiagnosis: 'The recorded responses indicate a position requiring management attention. This report provides independent assurance that operating effectiveness is confirmed for 999999 controls.' }),
     adjudicator: async () => { adjudicationCalls += 1; return []; },
     repairer: async () => { repairCalls += 1; return []; }
   });
@@ -363,11 +440,14 @@ console.log(JSON.stringify({
     'legacy assurance bucket is not automatic Essential hard truth',
     'Essential explicit limitation allow',
     'Essential ambiguous assurance 1+1+1 cascade',
-    'Essential completed assurance hard reject',
+    'Essential completed assurance direct repair',
+    'Essential completed assurance without rewrite direct repair',
+    'Essential mixed hard truth and assurance hard reject',
     'Essential objective numeric hard reject',
     'Snapshot explicit limitation allow and cache',
     'Snapshot ambiguous assurance 1+1+1 cascade',
-    'Snapshot completed assurance hard reject',
+    'Snapshot completed assurance direct repair',
+    'Snapshot mixed hard truth and assurance hard reject',
     'Snapshot unsupported consequence hard reject'
   ]
 }, null, 2));

@@ -93,6 +93,57 @@ test('deterministic MUST_REPAIR is applied before any adjudicator call', async (
   assert.equal(adjudicatorCalls, 0);
 });
 
+test('directly repairable semantic candidate skips adjudication and uses one repair call', async () => {
+  const repairable = candidate('direct.repair', { directRepairEligible: true, semanticRepairEligible: true });
+  let adjudicatorCalls = 0;
+  let repairCalls = 0;
+  const ledger = ledgerWithGeneration();
+  const result = await runSemanticSafetyCascade({
+    initialValue: { text: 'before' },
+    ledger,
+    evaluate: (value) => value.text === 'after'
+      ? evaluation(value, [], [], true)
+      : evaluation(value, [repairable], [], true),
+    adjudicate: async () => { adjudicatorCalls += 1; return []; },
+    repair: async (targets) => {
+      repairCalls += 1;
+      assert.deepEqual(targets.map((target) => target.targetId), ['direct.repair']);
+      return targets.map((target) => ({ targetId: target.targetId, repairedText: 'after' }));
+    },
+    applyRepairs: (value) => ({ ...value, text: 'after' })
+  });
+  assert.equal(result.outcome, 'ACCEPT');
+  assert.equal(adjudicatorCalls, 0);
+  assert.equal(repairCalls, 1);
+  assert.equal(result.diagnostics.deterministicDispositionCounts.MUST_REPAIR, 1);
+  assert.equal(result.diagnostics.repairCalls, 1);
+  assert.equal(result.diagnostics.totalProviderCalls, 2);
+});
+
+test('confirmed violation for a locally repairable candidate enters the repair batch', async () => {
+  const repairable = candidate('confirmed.local', { semanticRepairEligible: true });
+  let repairCalls = 0;
+  const ledger = ledgerWithGeneration();
+  const result = await runSemanticSafetyCascade({
+    initialValue: { repaired: false },
+    ledger,
+    evaluate: (value) => value.repaired
+      ? evaluation(value, [], [], true)
+      : evaluation(value, [repairable], [], true),
+    adjudicate: async (candidates) => candidates.map((item) => adjudication(item.targetId, 'CONFIRMED_VIOLATION')),
+    repair: async (targets) => {
+      repairCalls += 1;
+      return targets.map((target) => ({ targetId: target.targetId, repairedText: 'repaired' }));
+    },
+    applyRepairs: (value) => ({ ...value, repaired: true })
+  });
+  assert.equal(result.outcome, 'ACCEPT');
+  assert.equal(repairCalls, 1);
+  assert.equal(result.diagnostics.adjudicationCalls, 1);
+  assert.equal(result.diagnostics.repairCalls, 1);
+  assert.equal(result.diagnostics.totalProviderCalls, 3);
+});
+
 test('hard factual failure is HARD_REJECT with zero adjudicator calls', async () => {
   const hard = candidate('hard.truth', { hardTruth: true });
   let adjudicatorCalls = 0;

@@ -27,6 +27,10 @@ export type SemanticCandidate = {
   hardTruth?: boolean;
   explicitContextAllow?: boolean;
   deterministicRepairAvailable?: boolean;
+  /** The candidate is locally repairable without an adjudication call. */
+  directRepairEligible?: boolean;
+  /** A confirmed violation may still use the bounded repair path for this candidate. */
+  semanticRepairEligible?: boolean;
 };
 
 export type SemanticDecision = {
@@ -122,6 +126,7 @@ export function determineSemanticDisposition(input: {
   hardReject?: boolean;
   explicitAllow?: boolean;
   deterministicRepair?: boolean;
+  directRepair?: boolean;
   reasonCode?: string;
   confidence?: number;
 }): SemanticDecision {
@@ -129,11 +134,12 @@ export function determineSemanticDisposition(input: {
   const hardReject = input.hardReject ?? candidate.hardTruth ?? false;
   const explicitAllow = input.explicitAllow ?? candidate.explicitContextAllow ?? false;
   const deterministicRepair = input.deterministicRepair ?? candidate.deterministicRepairAvailable ?? false;
+  const directRepair = input.directRepair ?? candidate.directRepairEligible ?? false;
   const disposition: SemanticDisposition = hardReject
     ? 'HARD_REJECT'
     : explicitAllow
       ? 'MUST_ALLOW'
-      : deterministicRepair
+      : deterministicRepair || directRepair
         ? 'MUST_REPAIR'
         : 'AMBIGUOUS';
   return {
@@ -256,7 +262,21 @@ export async function runSemanticSafetyCascade<T>(input: {
   }
 
   let value = input.initialValue;
-  const deterministicRepairs = allDecisions.filter((decision) => decision.disposition === 'MUST_REPAIR');
+  const initialCandidateById = new Map(candidates.map((candidate) => [candidate.targetId, candidate]));
+  const isDeterministicRepair = (decision: SemanticDecision, candidateById: Map<string, SemanticCandidate>) =>
+    decision.disposition === 'MUST_REPAIR' && candidateById.get(decision.targetId)?.deterministicRepairAvailable === true;
+  const isDirectRepair = (decision: SemanticDecision, candidateById: Map<string, SemanticCandidate>) => {
+    const candidate = candidateById.get(decision.targetId);
+    return decision.disposition === 'MUST_REPAIR'
+      && candidate?.hardTruth !== true
+      && candidate?.directRepairEligible === true;
+  };
+  const hasUnroutableRepair = allDecisions.some((decision) => decision.disposition === 'MUST_REPAIR'
+    && !isDeterministicRepair(decision, initialCandidateById)
+    && !isDirectRepair(decision, initialCandidateById));
+  if (hasUnroutableRepair) return reject(diagnostics, 'deterministic_repair_unavailable', 'AMBIGUOUS');
+
+  const deterministicRepairs = allDecisions.filter((decision) => isDeterministicRepair(decision, initialCandidateById));
   if (deterministicRepairs.length > 0) {
     if (!input.applyDeterministicRepairs) return reject(diagnostics, 'deterministic_repair_unavailable', 'AMBIGUOUS');
     try {
@@ -274,52 +294,66 @@ export async function runSemanticSafetyCascade<T>(input: {
   if (postDeterministicDecisions.some((decision) => decision.disposition === 'HARD_REJECT')) {
     return reject(diagnostics, 'hard_truth_failure_after_deterministic_repair', 'HARD_REJECT');
   }
-  if (postDeterministicDecisions.some((decision) => decision.disposition === 'MUST_REPAIR')) {
+  const evaluationCandidateById = new Map(evaluation.candidates.map((candidate) => [candidate.targetId, candidate]));
+  if (postDeterministicDecisions.some((decision) => decision.disposition === 'MUST_REPAIR'
+    && !isDeterministicRepair(decision, evaluationCandidateById)
+    && !isDirectRepair(decision, evaluationCandidateById))) {
     return reject(diagnostics, 'deterministic_repair_incomplete', 'REPAIR_FAILED');
   }
-  let unresolved = evaluation.candidates
-    .map((candidate) => determineSemanticDisposition({ candidate }))
+  let unresolved = postDeterministicDecisions
     .filter((decision) => decision.disposition === 'AMBIGUOUS')
-    .map((decision) => evaluation.candidates.find((candidate) => candidate.targetId === decision.targetId)!)
+    .map((decision) => evaluationCandidateById.get(decision.targetId)!)
     .filter(Boolean);
-  if (unresolved.length === 0) {
+  const directRepairTargets = postDeterministicDecisions
+    .filter((decision) => isDirectRepair(decision, evaluationCandidateById))
+    .map((decision) => evaluationCandidateById.get(decision.targetId)!)
+    .filter(Boolean);
+  if (unresolved.length === 0 && directRepairTargets.length === 0) {
     diagnostics.outcome = 'ACCEPT';
     diagnostics.finalResult = evaluation.valid === false ? 'VALIDATION_FAILED' : 'ACCEPT';
     return { outcome: diagnostics.outcome, value, diagnostics };
   }
-  if (!input.adjudicate) return reject(diagnostics, 'adjudication_adapter_unavailable', 'AMBIGUOUS');
 
   try {
-    input.ledger.claim('adjudication');
-    diagnostics.adjudicationCalls = input.ledger.adjudicationCalls;
-    diagnostics.totalProviderCalls = input.ledger.totalProviderCalls;
-    const adjudications = await input.adjudicate(unresolved);
-    if (invalidAdjudication(unresolved, adjudications)) return reject(diagnostics, 'invalid_adjudication', 'AMBIGUOUS');
-    diagnostics.adjudicationCounts = countBy(adjudications.map((result) => result.label), labels);
-    const adjudicationById = new Map(adjudications.map((result) => [result.targetId, result]));
-    const decisions = unresolved.map((candidate) => {
-      const result = adjudicationById.get(candidate.targetId)!;
-      const disposition: SemanticDisposition = result.label === 'ALLOW_CONTEXT'
-        ? 'MUST_ALLOW'
-        : result.label === 'REPAIRABLE'
-          ? 'MUST_REPAIR'
-          : result.label === 'CONFIRMED_VIOLATION'
-            ? 'HARD_REJECT'
-            : 'AMBIGUOUS';
-      return {
-        targetId: candidate.targetId,
-        disposition,
-        reasonCode: result.reasonCode,
-        confidence: result.confidence,
-        evidenceRefs: [...result.evidenceRefs]
-      } satisfies SemanticDecision;
-    });
-    diagnostics.decisions = [...diagnostics.decisions, ...decisions];
-    if (decisions.some((decision) => decision.disposition === 'HARD_REJECT')) return reject(diagnostics, 'ai_confirmed_violation', 'HARD_REJECT');
-    if (decisions.some((decision) => decision.disposition === 'AMBIGUOUS')) return reject(diagnostics, 'ai_ambiguous_or_low_confidence', 'AMBIGUOUS');
+    let decisions: SemanticDecision[] = [];
+    if (unresolved.length > 0) {
+      if (!input.adjudicate) return reject(diagnostics, 'adjudication_adapter_unavailable', 'AMBIGUOUS');
+      input.ledger.claim('adjudication');
+      diagnostics.adjudicationCalls = input.ledger.adjudicationCalls;
+      diagnostics.totalProviderCalls = input.ledger.totalProviderCalls;
+      const adjudications = await input.adjudicate(unresolved);
+      if (invalidAdjudication(unresolved, adjudications)) return reject(diagnostics, 'invalid_adjudication', 'AMBIGUOUS');
+      diagnostics.adjudicationCounts = countBy(adjudications.map((result) => result.label), labels);
+      const adjudicationById = new Map(adjudications.map((result) => [result.targetId, result]));
+      decisions = unresolved.map((candidate) => {
+        const result = adjudicationById.get(candidate.targetId)!;
+        const disposition: SemanticDisposition = result.label === 'ALLOW_CONTEXT'
+          ? 'MUST_ALLOW'
+          : result.label === 'REPAIRABLE'
+            ? 'MUST_REPAIR'
+            : result.label === 'CONFIRMED_VIOLATION'
+              ? candidate.semanticRepairEligible === true && candidate.hardTruth !== true ? 'MUST_REPAIR' : 'HARD_REJECT'
+              : 'AMBIGUOUS';
+        return {
+          targetId: candidate.targetId,
+          disposition,
+          reasonCode: result.reasonCode,
+          confidence: result.confidence,
+          evidenceRefs: [...result.evidenceRefs]
+        } satisfies SemanticDecision;
+      });
+      diagnostics.decisions = [...diagnostics.decisions, ...decisions];
+      if (decisions.some((decision) => decision.disposition === 'HARD_REJECT')) return reject(diagnostics, 'ai_confirmed_violation', 'HARD_REJECT');
+      if (decisions.some((decision) => decision.disposition === 'AMBIGUOUS')) return reject(diagnostics, 'ai_ambiguous_or_low_confidence', 'AMBIGUOUS');
+    }
 
     const allowedIds = new Set(decisions.filter((decision) => decision.disposition === 'MUST_ALLOW').map((decision) => decision.targetId));
-    const repairTargets = unresolved.filter((candidate) => decisions.some((decision) => decision.targetId === candidate.targetId && decision.disposition === 'MUST_REPAIR'));
+    const repairTargetIds = new Set(directRepairTargets.map((candidate) => candidate.targetId));
+    const repairTargets = [
+      ...directRepairTargets,
+      ...unresolved.filter((candidate) => decisions.some((decision) => decision.targetId === candidate.targetId && decision.disposition === 'MUST_REPAIR'))
+        .filter((candidate) => !repairTargetIds.has(candidate.targetId))
+    ];
     diagnostics.repairTargetCount = repairTargets.length;
     if (repairTargets.length === 0) {
       const finalEvaluation = input.evaluate(value);

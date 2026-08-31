@@ -17,6 +17,7 @@ import {
   classifyAssuranceLanguageDetailed,
   type AssuranceSemanticCategory
 } from './validation';
+import { classifyNarrativeRecoveryIssue } from './validation-severity';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import {
   runSemanticSafetyCascade,
@@ -317,7 +318,7 @@ function reparseAuthoritativeBlueprint(parsed: ParsedBlueprintMarkdown, blueprin
   return reparsed;
 }
 
-type EssentialSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE';
+type EssentialSemanticDisposition = 'OBJECTIVE_HARD' | 'DETERMINISTIC_ALLOW' | 'SEMANTIC_CANDIDATE' | 'DIRECT_REPAIR_CANDIDATE';
 
 function essentialAssuranceDisposition(parsed: ParsedBlueprintMarkdown, issue: { code: string; path: string }): {
   disposition: EssentialSemanticDisposition;
@@ -335,7 +336,10 @@ function essentialAssuranceDisposition(parsed: ParsedBlueprintMarkdown, issue: {
   if (classification.category === 'AMBIGUOUS_ASSURANCE') {
     return { disposition: 'SEMANTIC_CANDIDATE', category: classification.category };
   }
-  return { disposition: 'OBJECTIVE_HARD', category: classification.category };
+  const recovery = classifyNarrativeRecoveryIssue({ code: 'assurance_claim', localSemanticEligible: true });
+  return recovery.repairEligible
+    ? { disposition: 'DIRECT_REPAIR_CANDIDATE', category: classification.category }
+    : { disposition: 'OBJECTIVE_HARD', category: classification.category };
 }
 
 function essentialCandidatesForReport(
@@ -343,7 +347,9 @@ function essentialCandidatesForReport(
   issues: Array<{ code: string; severity: string; path: string; message: string }>,
   factPack: NarrativeFactPack,
   hardTruth: boolean,
-  assuranceCategories?: Map<string, AssuranceSemanticCategory>
+  assuranceCategories?: Map<string, AssuranceSemanticCategory>,
+  semanticRepairPaths: ReadonlySet<string> = new Set(),
+  directRepairPaths: ReadonlySet<string> = new Set()
 ): SemanticCandidate[] {
   const byTarget = new Map<string, SemanticCandidate>();
   for (const issue of issues) {
@@ -372,7 +378,9 @@ function essentialCandidatesForReport(
       evidenceRefs: [`validation:${issue.code}`, ...((block?.permittedClaimRefs ?? []).slice(0, 8).map((ref) => `claim:${ref}`))],
       evidence: { productTier: factPack.productTier, targetPath: issue.path },
       hardTruth,
-      deterministicRepairAvailable: false
+      deterministicRepairAvailable: false,
+      directRepairEligible: !hardTruth && directRepairPaths.has(issue.path),
+      semanticRepairEligible: !hardTruth && semanticRepairPaths.has(issue.path)
     });
   }
   return [...byTarget.values()];
@@ -389,29 +397,52 @@ function partitionEssentialValidationIssues(
   const hardAssuranceCategories = new Map<string, AssuranceSemanticCategory>();
   const candidateAssuranceCategories = new Map<string, AssuranceSemanticCategory>();
 
-  const classify = (issue: { code: string; severity: string; path: string; message: string }, source: 'hard' | 'semantic') => {
-    if (issue.code !== 'assurance_claim') {
-      (source === 'hard' ? hardIssuesForCascade : candidateIssues).push(issue);
-      return;
-    }
-    const result = essentialAssuranceDisposition(parsed, issue);
-    if (result.disposition === 'DETERMINISTIC_ALLOW') {
-      return;
-    } else if (result.disposition === 'SEMANTIC_CANDIDATE') {
-      candidateIssues.push(issue);
-      if (result.category) candidateAssuranceCategories.set(issue.path, result.category);
-    } else {
-      hardIssuesForCascade.push(issue);
-      if (result.category) hardAssuranceCategories.set(issue.path, result.category);
-    }
-  };
+  type SourcedIssue = (typeof hardIssues[number] | typeof semanticIssues[number]) & { source: 'hard' | 'semantic' };
+  const issuesByPath = new Map<string, SourcedIssue[]>();
+  for (const issue of hardIssues) {
+    const entries = issuesByPath.get(issue.path) ?? [];
+    entries.push({ ...issue, source: 'hard' });
+    issuesByPath.set(issue.path, entries);
+  }
+  for (const issue of semanticIssues) {
+    const entries = issuesByPath.get(issue.path) ?? [];
+    entries.push({ ...issue, source: 'semantic' });
+    issuesByPath.set(issue.path, entries);
+  }
 
-  for (const issue of hardIssues) classify(issue, 'hard');
-  for (const issue of semanticIssues) classify(issue, 'semantic');
+  const semanticRepairPaths = new Set<string>();
+  const directRepairPaths = new Set<string>();
+  for (const [path, entries] of issuesByPath) {
+    const hasObjectiveHardTruth = entries.some((entry) => entry.source === 'hard' && entry.code !== 'assurance_claim');
+    const assuranceEntries = entries.filter((entry) => entry.code === 'assurance_claim');
+
+    for (const issue of entries.filter((entry) => entry.code !== 'assurance_claim')) {
+      if (issue.source === 'hard') hardIssuesForCascade.push(issue);
+      else if (!hasObjectiveHardTruth) candidateIssues.push(issue);
+    }
+
+    for (const issue of assuranceEntries) {
+      const result = essentialAssuranceDisposition(parsed, issue);
+      if (result.disposition === 'DETERMINISTIC_ALLOW') continue;
+      if (result.disposition === 'DIRECT_REPAIR_CANDIDATE' && !hasObjectiveHardTruth) {
+        candidateIssues.push(issue);
+        directRepairPaths.add(path);
+        semanticRepairPaths.add(path);
+        if (result.category) candidateAssuranceCategories.set(path, result.category);
+      } else if (result.disposition === 'SEMANTIC_CANDIDATE' && !hasObjectiveHardTruth) {
+        candidateIssues.push(issue);
+        semanticRepairPaths.add(path);
+        if (result.category) candidateAssuranceCategories.set(path, result.category);
+      } else {
+        hardIssuesForCascade.push(issue);
+        if (result.category) hardAssuranceCategories.set(path, result.category);
+      }
+    }
+  }
 
   return {
     hardCandidates: essentialCandidatesForReport(parsed, hardIssuesForCascade, factPack, true, hardAssuranceCategories),
-    candidates: essentialCandidatesForReport(parsed, candidateIssues, factPack, false, candidateAssuranceCategories)
+    candidates: essentialCandidatesForReport(parsed, candidateIssues, factPack, false, candidateAssuranceCategories, semanticRepairPaths, directRepairPaths)
   };
 }
 
