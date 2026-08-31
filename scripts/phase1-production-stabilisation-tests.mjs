@@ -87,21 +87,26 @@ assert.ok(delivery.includes('providerSendAttempted: false'), 'delivery double ne
 assert.ok(!delivery.includes('resend'), 'Phase 1 delivery does not invoke Resend');
 
 const notifications = read('src/lib/notifications/phase1-order-notifications.ts');
-assert.ok(notifications.indexOf('getPhase1SchemaCapability') < notifications.indexOf(".select('overall_score,final_maturity')"), 'new notification work checks capability before Phase 1 persistence');
-assert.ok(notifications.includes('customer_order_confirmation'), 'customer order confirmation is recorded');
-assert.ok(notifications.includes('admin_new_order_notification'), 'admin new-order notification is recorded');
-assert.ok(notifications.includes('dedupeKey'), 'notifications are idempotent');
-// Joint launch: the Comprehensive next step now names the actual reviewer-led boundary
-// (evidence intake -> named-reviewer validation -> sign-off) instead of the generic
-// "consultant review and engagement" wording. The boundary being asserted is unchanged:
-// a human review step stands between payment and any deliverable.
-assert.ok(notifications.includes('COMPREHENSIVE_PRODUCT_CODE'), 'Comprehensive next step is keyed off the authoritative product code');
-assert.ok(notifications.includes('named-reviewer validation and reviewer sign-off before any deliverable is released'), 'professional assessment communication preserves the human review boundary');
+const internalOrderNotifications = read('src/lib/notifications/internal-order-notifications.ts');
+const postPurchaseCopy = read('src/lib/commercial/post-purchase-copy.ts');
+assert.ok(
+  notifications.indexOf('const capability = await getPhase1SchemaCapability(db);')
+    < notifications.indexOf(".from('orders').select('id,order_reference,created_at')"),
+  'active Phase 1 operational notification work checks capability before its order read'
+);
+assert.ok(internalOrderNotifications.includes("'eft_order_created'"), 'Essential order creates an internal MK notification');
+assert.ok(internalOrderNotifications.includes("'comprehensive_order_created'"), 'Comprehensive order creates an internal MK notification');
+assert.ok(internalOrderNotifications.includes('dedupeKey'), 'internal order notifications are idempotent');
+assert.ok(postPurchaseCopy.includes('full Comprehensive Fraud Readiness package'), 'Comprehensive next steps use the current product-specific fulfilment copy');
+assert.ok(postPurchaseCopy.includes('supporting registers and implementation material'), 'Comprehensive next steps name catalogue-backed deliverables');
+assert.ok(postPurchaseCopy.includes('contact you directly if clarification is needed'), 'Comprehensive next steps preserve the manual MK contact boundary');
+assert.doesNotMatch(postPurchaseCopy, /named reviewer|independent(?:ly)? validat|assurance opinion|automated (?:delivery|email)|customer portal|access link|customer access token|price floor/i, 'customer fulfilment copy does not promise retired delivery or assurance mechanics');
 
 const actions = read('src/components/admin/FulfilmentActions.tsx');
-for (const label of ['Generating report…', 'Retry Generation', 'Preview Report', 'Download Report', 'Initiate Delivery', 'Retry Delivery', 'Create New Version']) {
+for (const label of ['Generating report…', 'Retry Generation', 'Preview Report', 'Download Report', 'Create New Version']) {
   assert.ok(actions.includes(label), `admin action ${label} is visible`);
 }
+assert.ok(actions.includes('Customer delivery is handled directly by MK'), 'admin actions preserve manual customer delivery');
 assert.ok(actions.includes('Report generation is already in progress for this order.'), 'active generation message is exact');
 assert.ok(actions.includes('generationStuck'), 'stale generation attempts expose a manual retry control');
 
@@ -262,11 +267,12 @@ assert.equal(local.deliver(reportB, 'success').status, 'DELIVERED');
 assert.equal(local.reports.length, reportCountBeforeDelivery);
 
 // Notifications are idempotent and no provider call exists in this double.
-const customerNotice = local.notify(orderA, 'customer_order_confirmation');
-assert.equal(local.notify(orderA, 'customer_order_confirmation'), customerNotice);
-const adminNotice = local.notify(orderA, 'admin_new_order_notification');
+const internalOrderNotice = local.notify(orderA, 'eft_order_created');
+assert.equal(local.notify(orderA, 'eft_order_created'), internalOrderNotice);
+const internalPaymentNotice = local.notify(orderA, 'payment_received');
 assert.equal(local.notifications.size, 2);
-assert.equal(adminNotice.status, 'recorded_disabled');
+assert.equal(internalPaymentNotice.status, 'recorded_disabled');
+assert.equal(local.notifications.has('customer_order_confirmation:' + orderA.id), false);
 
 // P1-F: paid/no-report and ready/not-delivered remain observable.
 const orderF1 = local.addOrder();
