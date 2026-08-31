@@ -181,7 +181,7 @@ async function expectManuscriptRejection(factPack, prose, expectedCode) {
     () => composeEssentialManuscript({ factPack, writer: state.writer }),
     (error) => {
       assert.equal(error.name, 'EssentialManuscriptError');
-      assert.equal(error.stage, 'validate_manuscript');
+      assert.equal(error.stage, 'semantic_safety');
       assert.ok(
         error.diagnostics.validationIssues.some((issue) => issue.code === expectedCode),
         `expected ${expectedCode} in ${JSON.stringify(error.diagnostics.validationIssues)}`

@@ -1,4 +1,5 @@
 import { createGateway, generateText, NoOutputGeneratedError, Output } from 'ai';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { FreeSnapshot } from './free-snapshot';
 import type { CommercialSnapshotInsights } from './commercial-insights';
@@ -10,8 +11,16 @@ import {
 import { classifyAssuranceLanguage } from '../reports/narrative/validation';
 import { parseAiGatewayExecutionIdentity } from '../reports/automation/ai-gateway-identity';
 import { selectSnapshotModel } from '../reports/ai-model-policy';
+import {
+  runSemanticSafetyCascade,
+  SemanticCallLedger,
+  type SemanticAdjudicationResult,
+  type SemanticCandidate,
+  type SemanticRepairResult,
+  type SemanticCascadeDiagnostics
+} from '../reports/narrative/semantic-safety-cascade';
 
-export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v6-bounded-repair-canonical-facts';
+export const SNAPSHOT_NARRATIVE_PROMPT_VERSION = 'mk-snapshot-five-part-advisory-v7-semantic-safety-cascade';
 export const SNAPSHOT_NARRATIVE_MAX_WORDS = 180;
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
@@ -71,11 +80,6 @@ type SnapshotNarrativeValidationOptions = { mode?: 'ai' | 'deterministic' };
 
 export type SnapshotNarrativeAiField = 'headline' | 'executiveDiagnosis' | 'strength' | 'managementImplication';
 
-export type SnapshotNarrativeRepairRequest = {
-  validationCodes: string[];
-  fields: SnapshotNarrativeAiField[];
-};
-
 export type SnapshotNarrativeFailureClass =
   | 'VALIDATOR_FALSE_POSITIVE / CANONICAL_FACT'
   | 'REPAIRABLE_AI_SEMANTIC_FAILURE'
@@ -94,8 +98,8 @@ export type SnapshotNarrative = SnapshotNarrativeContent & {
   outputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
-  /** Internal hand-off from a rejected first AI pass to one targeted repair attempt. */
-  repairRequest?: SnapshotNarrativeRepairRequest;
+  /** Bounded internal diagnostics for the semantic cascade. Never persisted as customer prose. */
+  semanticSafety?: SemanticCascadeDiagnostics;
 };
 
 export type SnapshotNarrativeCacheKey = {
@@ -130,7 +134,7 @@ export type SnapshotGatewayAuth = {
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function wordCount(value: string): number { return (value.match(/\b[\p{L}\p{N}][\p{L}\p{N}'’-]*\b/gu) ?? []).length; }
 function numbers(value: string): Set<string> { return new Set((value.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []).map((item) => item.replace('%', ''))); }
-function validAiCallCount(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 2; }
+function validAiCallCount(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 3; }
 function sentenceCount(value: string): number {
   const trimmed = value.trim();
   if (!trimmed) return 0;
@@ -150,23 +154,18 @@ const UNSUPPORTED_PROCEDURAL_METRIC_DISCUSSION = /\b(?:assessment\s+coverage|con
 const REPAIRABLE_SNAPSHOT_ISSUES = new Set([
   'snapshot_narrative_too_long',
   'snapshot_diagnosis_too_long',
+  'snapshot_uncalibrated_interpretation'
+]);
+
+const HARD_UNSUPPORTED_SNAPSHOT_ISSUES = new Set([
+  'snapshot_narrative_schema_invalid',
   'paid_tier_detail_leakage',
   'snapshot_narrative_unavailable_message',
   'raw_internal_id',
   'raw_internal_enum',
   'assurance_claim',
-  'invented_number',
   'snapshot_procedural_metric_leakage',
   'snapshot_em_dash',
-  'snapshot_uncalibrated_interpretation',
-  'snapshot_unsupported_control_assertion',
-  'snapshot_unsupported_coverage_claim',
-  'snapshot_unsupported_consequence_claim',
-  'snapshot_unsupported_assurance_requirement',
-  'snapshot_domain_gap_count_attribution'
-]);
-
-const HARD_UNSUPPORTED_SNAPSHOT_ISSUES = new Set([
   'snapshot_unsupported_control_assertion',
   'snapshot_unsupported_coverage_claim',
   'snapshot_unsupported_consequence_claim',
@@ -258,38 +257,13 @@ function repairFieldsForIssues(issues: readonly string[]): SnapshotNarrativeAiFi
   for (const issue of issues) {
     switch (issue) {
       case 'snapshot_diagnosis_too_long':
-      case 'snapshot_unsupported_consequence_claim':
-      case 'snapshot_unsupported_control_assertion':
-      case 'snapshot_unsupported_coverage_claim':
-      case 'snapshot_unsupported_assurance_requirement':
-      case 'snapshot_domain_gap_count_attribution':
         fields.add('executiveDiagnosis');
-        break;
-      case 'assurance_claim':
-        fields.add('executiveDiagnosis');
-        fields.add('strength');
-        fields.add('managementImplication');
         break;
       default:
         for (const field of AI_FIELDS) fields.add(field);
     }
   }
   return AI_FIELDS.filter((field) => fields.has(field));
-}
-
-function repairRequestFor(
-  content: SnapshotNarrativeContent | null,
-  issues: readonly string[],
-  validationInput: SnapshotNarrativeValidationInput
-): SnapshotNarrativeRepairRequest | undefined {
-  if (!content || issues.length === 0) return undefined;
-  // This branch is defensive. The canonical-label fix should make the issue list empty, and a
-  // recognised fact must never consume a second provider call merely to satisfy a regex.
-  if (isCanonicalConsequenceFalsePositive(content, validationInput)) return undefined;
-  if (issues.some((issue) => !REPAIRABLE_SNAPSHOT_ISSUES.has(issue))) return undefined;
-  const fields = repairFieldsForIssues(issues);
-  if (fields.length === 0) return undefined;
-  return { validationCodes: [...new Set(issues)], fields };
 }
 
 type SnapshotGatewayFailureReason =
@@ -476,7 +450,6 @@ export function buildDeterministicSnapshotNarrative(input: {
   outputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
-  repairRequest?: SnapshotNarrativeRepairRequest;
 }): SnapshotNarrative {
   const validationInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
   const candidate = normaliseSnapshotNarrativeContent(buildDeterministicSnapshotNarrativeContent(input));
@@ -503,8 +476,7 @@ export function buildDeterministicSnapshotNarrative(input: {
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
     totalTokens: input.totalTokens,
-    providerCostMicros: input.providerCostMicros,
-    repairRequest: input.repairRequest
+    providerCostMicros: input.providerCostMicros
   };
 }
 
@@ -545,24 +517,176 @@ function narrativeFromCache(key: SnapshotNarrativeCacheKey, cached: SnapshotNarr
   };
 }
 
-function mergeAttemptedModels(...values: Array<readonly string[] | undefined>): string[] | undefined {
-  const models = [...new Set(values.flatMap((value) => value ?? []).filter((value) => typeof value === 'string' && value.trim()))];
-  return models.length > 0 ? models : undefined;
-}
-
-function sumOptional(...values: Array<number | undefined>): number | undefined {
-  const present = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  return present.length > 0 ? present.reduce((sum, value) => sum + value, 0) : undefined;
-}
-
 type SnapshotNarrativeGeneratorInput = {
   snapshot: FreeSnapshot;
   insights: CommercialSnapshotInsights;
   gatewayAuth?: SnapshotGatewayAuth;
-  repair?: SnapshotNarrativeRepairRequest;
 };
 
 type SnapshotNarrativeGenerator = (value: SnapshotNarrativeGeneratorInput) => Promise<SnapshotNarrative>;
+
+export type SnapshotSemanticAdjudicator = (candidates: SemanticCandidate[]) => Promise<SemanticAdjudicationResult[]>;
+export type SnapshotSemanticRepairer = (targets: SemanticCandidate[]) => Promise<SemanticRepairResult[]>;
+
+function candidateHash(value: unknown): string {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function snapshotFieldText(content: SnapshotNarrativeContent, field: SnapshotNarrativeAiField): string {
+  return content[field];
+}
+
+function candidateForSnapshotIssue(
+  content: SnapshotNarrativeContent,
+  issueCode: string,
+  field: SnapshotNarrativeAiField | null,
+  validationInput: SnapshotNarrativeValidationInput,
+  hardTruthOverride = HARD_UNSUPPORTED_SNAPSHOT_ISSUES.has(issueCode)
+): SemanticCandidate {
+  const text = field ? snapshotFieldText(content, field) : [content.headline, content.executiveDiagnosis, content.strength, ...content.prioritySignals, content.managementImplication].join('\n');
+  const hardTruth = hardTruthOverride;
+  return {
+    targetId: field ? `snapshot.${field}` : `snapshot.issue.${issueCode}`,
+    candidateHash: candidateHash({ issueCode, field, text }),
+    text,
+    fieldRole: field ?? 'customer-facing-snapshot-narrative',
+    issueCode,
+    issueFamily: issueCode.startsWith('snapshot_') ? 'snapshot_semantic_safety' : 'snapshot_contract',
+    deterministicFeatures: {
+      issueCode,
+      hardTruth,
+      hasAuthoritativeNumbers: Boolean(validationInput && 'overallScore' in validationInput)
+    },
+    evidenceRefs: ['snapshot-validation', field ? `snapshot-field:${field}` : 'snapshot-contract'],
+    evidence: {
+      resultStatus: validationInput.resultStatus,
+      strongestAreaCount: validationInput.strongestAreas.length,
+      attentionAreaCount: validationInput.attentionAreas.length
+    },
+    hardTruth,
+    deterministicRepairAvailable: false
+  };
+}
+
+function snapshotSemanticEvaluation(
+  content: SnapshotNarrativeContent | null,
+  validationInput: SnapshotNarrativeValidationInput,
+  mode: 'ai' | 'deterministic'
+): { hardCandidates: SemanticCandidate[]; candidates: SemanticCandidate[]; valid: boolean; validationIssues: string[] } {
+  if (!content) {
+    const candidate = candidateForSnapshotIssue(buildMinimalSafeSnapshotNarrativeContent(), 'snapshot_narrative_schema_invalid', null, validationInput);
+    return { hardCandidates: [candidate], candidates: [], valid: false, validationIssues: ['snapshot_narrative_schema_invalid'] };
+  }
+  const issues = validateSnapshotNarrative(content, validationInput, { mode });
+  const hardCandidates: SemanticCandidate[] = [];
+  const candidates: SemanticCandidate[] = [];
+  const targetFields = new Map<SnapshotNarrativeAiField, string>();
+  for (const issueCode of issues) {
+    const isHard = HARD_UNSUPPORTED_SNAPSHOT_ISSUES.has(issueCode) || !REPAIRABLE_SNAPSHOT_ISSUES.has(issueCode);
+    if (isHard) {
+      hardCandidates.push(candidateForSnapshotIssue(content, issueCode, null, validationInput, true));
+      continue;
+    }
+    for (const field of repairFieldsForIssues([issueCode])) targetFields.set(field, issueCode);
+  }
+  for (const [field, issueCode] of targetFields) {
+    candidates.push(candidateForSnapshotIssue(content, issueCode, field, validationInput));
+  }
+  return { hardCandidates, candidates, valid: issues.length === 0, validationIssues: issues };
+}
+
+function applySnapshotRepairs(content: SnapshotNarrativeContent, replacements: SemanticRepairResult[], brief: SnapshotNarrativeBrief): SnapshotNarrativeContent {
+  const next = { ...content } as SnapshotNarrativeContent;
+  for (const replacement of replacements) {
+    const field = replacement.targetId.replace(/^snapshot\./, '') as SnapshotNarrativeAiField;
+    if (!AI_FIELDS.includes(field)) throw new Error('unknown_snapshot_repair_target');
+    (next as Record<string, unknown>)[field] = replacement.repairedText;
+  }
+  return canonicaliseSnapshotNarrativeContent({ ...next, prioritySignals: deterministicPrioritySignalsFor(brief) }, brief)!;
+}
+
+function snapshotAdjudicationSchema() {
+  return z.object({
+    decisions: z.array(z.object({
+      targetId: z.string().min(1).max(100),
+      label: z.enum(['ALLOW_CONTEXT', 'REPAIRABLE', 'CONFIRMED_VIOLATION', 'AMBIGUOUS']),
+      confidence: z.number().min(0).max(1),
+      reasonCode: z.string().min(1).max(120),
+      evidenceRefs: z.array(z.string().min(1).max(120)).max(8)
+    }).strict()).max(12)
+  }).strict();
+}
+
+function snapshotRepairSchema() {
+  return z.object({
+    repairs: z.array(z.object({
+      targetId: z.string().min(1).max(100),
+      repairedText: z.string().trim().min(1).max(700)
+    }).strict()).max(12)
+  }).strict();
+}
+
+function createSnapshotSemanticAdapters(input: {
+  gatewayAuth?: SnapshotGatewayAuth;
+  model: string;
+  brief: SnapshotNarrativeBrief;
+}): { adjudicate: SnapshotSemanticAdjudicator; repair: SnapshotSemanticRepairer } | undefined {
+  const credential = resolveSnapshotGatewayCredential(input.gatewayAuth);
+  if (!credential) return undefined;
+  const provider = providerFromModel(input.model);
+  const model = input.model;
+  const gatewayModel = snapshotGatewayModel(model, credential);
+  return {
+    async adjudicate(candidates) {
+      const boundedCandidates = candidates.map((candidate) => ({
+        targetId: candidate.targetId,
+        fieldRole: candidate.fieldRole,
+        issueCode: candidate.issueCode,
+        issueFamily: candidate.issueFamily,
+        candidateHash: candidate.candidateHash,
+        candidateText: candidate.text.slice(0, 1200),
+        neighbourText: candidate.neighborText?.slice(0, 600),
+        deterministicFeatures: candidate.deterministicFeatures,
+        evidenceRefs: candidate.evidenceRefs,
+        evidence: candidate.evidence
+      }));
+      const response = await generateText({
+        model: gatewayModel,
+        system: 'You are the bounded semantic adjudicator for customer-facing MK Fraud Readiness narrative. Adjudicate only the supplied candidate snippets against their bounded deterministic evidence. You cannot rewrite text. Use ALLOW_CONTEXT only when the wording is supported in context, REPAIRABLE only when a bounded prose repair can preserve the deterministic meaning, CONFIRMED_VIOLATION for a hard unsupported claim, and AMBIGUOUS whenever evidence or confidence is insufficient. Return only the requested structured object.',
+        prompt: `Return one decision for every candidate. Use confidence at least ${0.8} only when the label is supported by the supplied evidence. Do not add facts.\n\nNARRATIVE BRIEF\n${JSON.stringify(input.brief)}\n\nCANDIDATES\n${JSON.stringify(boundedCandidates)}`,
+        output: Output.object({ schema: snapshotAdjudicationSchema(), name: 'mk_snapshot_semantic_adjudication' }),
+        maxOutputTokens: 1024,
+        maxRetries: 0,
+        providerOptions: { openai: { reasoningEffort: 'minimal' }, gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'stage:semantic-adjudication'] } },
+        abortSignal: AbortSignal.timeout(120_000)
+      });
+      return response.output.decisions;
+    },
+    async repair(targets) {
+      const boundedTargets = targets.map((target) => ({
+        targetId: target.targetId,
+        fieldRole: target.fieldRole,
+        issueCode: target.issueCode,
+        originalText: target.text.slice(0, 1200),
+        deterministicFeatures: target.deterministicFeatures,
+        evidenceRefs: target.evidenceRefs,
+        evidence: target.evidence
+      }));
+      const response = await generateText({
+        model: gatewayModel,
+        system: 'You are the bounded semantic repair editor for customer-facing MK Fraud Readiness narrative. Return one replacement for every supplied target ID and no other IDs. Repair prose only. Preserve deterministic facts, score, maturity, evidence, findings, scenarios, owners, timing and product boundaries. Use calibrated self-assessment language. Do not use em dashes, internal identifiers, assurance claims, invented consequences or unsupported numbers. Return only the requested structured object.',
+        prompt: `Repair only the supplied target fields. Do not rewrite any other field.\n\nNARRATIVE BRIEF\n${JSON.stringify(input.brief)}\n\nREPAIR TARGETS\n${JSON.stringify(boundedTargets)}`,
+        output: Output.object({ schema: snapshotRepairSchema(), name: 'mk_snapshot_semantic_repairs' }),
+        maxOutputTokens: 1536,
+        maxRetries: 0,
+        providerOptions: { openai: { reasoningEffort: 'minimal' }, gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'stage:semantic-repair'] } },
+        abortSignal: AbortSignal.timeout(120_000)
+      });
+      return response.output.repairs;
+    }
+  };
+}
+
 
 export async function buildCachedSnapshotNarrative(input: {
   snapshot: FreeSnapshot;
@@ -570,175 +694,124 @@ export async function buildCachedSnapshotNarrative(input: {
   cache: SnapshotNarrativeCache;
   gatewayAuth?: SnapshotGatewayAuth;
   generator?: SnapshotNarrativeGenerator;
+  adjudicator?: SnapshotSemanticAdjudicator;
+  repairer?: SnapshotSemanticRepairer;
 }): Promise<SnapshotNarrative> {
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
   const narrativeBrief = buildSnapshotNarrativeBrief(input.snapshot, input.insights);
+  const fallback = (reason: string | undefined, aiCallCount = 0, generated?: SnapshotNarrative, semanticSafety?: SemanticCascadeDiagnostics): SnapshotNarrative => ({
+    ...buildDeterministicSnapshotNarrative({
+      snapshot: input.snapshot,
+      insights: input.insights,
+      aiCallCount,
+      attemptedModels: generated?.attemptedModels,
+      inputTokens: generated?.inputTokens,
+      outputTokens: generated?.outputTokens,
+      totalTokens: generated?.totalTokens,
+      providerCostMicros: generated?.providerCostMicros,
+      fallbackReason: reason
+    }),
+    ...(semanticSafety ? { semanticSafety } : {})
+  });
+
   let key: SnapshotNarrativeCacheKey;
   try {
     key = cacheKeyForSnapshot(input.snapshot);
-  } catch {
-    return buildDeterministicSnapshotNarrative({
-      snapshot: input.snapshot,
-      insights: input.insights,
-      fallbackReason: 'deterministic_fallback_validation_defect'
-    });
-  }
-
-  let cached: SnapshotNarrativeCacheRecord | null = null;
-  try {
-    cached = await input.cache.read(key);
-  } catch {
-    // A cache outage must not make an otherwise valid Snapshot inaccessible. Continue with the
-    // bounded generation/fallback path and avoid exposing the storage error to the customer.
-  }
-  if (cached) {
-    try {
-      const content = canonicaliseSnapshotNarrativeContent(cached.narrativeJson, narrativeBrief);
-      const validationInput = cached.status === 'available' ? narrativeBrief : narrativeInput;
-      if (content
+    const cached = await input.cache.read(key);
+    if (cached) {
+      const cachedContent = canonicaliseSnapshotNarrativeContent(cached.narrativeJson, narrativeBrief);
+      const cachedMode = cached.status === 'available' ? 'ai' : 'deterministic';
+      if (cachedContent
         && (cached.status === 'available' || cached.status === 'fallback')
         && typeof cached.model === 'string'
         && cached.model.trim().length > 0
         && validAiCallCount(cached.aiCallCount)
-        && validateSnapshotNarrative(content, validationInput, { mode: cached.status === 'available' ? 'ai' : 'deterministic' }).length === 0) {
-        return narrativeFromCache(key, cached, content);
+        && validateSnapshotNarrative(cachedContent, cached.status === 'available' ? narrativeBrief : narrativeInput, { mode: cachedMode }).length === 0) {
+        return narrativeFromCache(key, cached, cachedContent);
       }
-    } catch {
-      // Treat malformed historical cache data as a miss. The final validation below still
-      // guarantees that only safe content is returned.
     }
+  } catch {
+    return fallback('snapshot_cache_or_key_failure');
   }
 
-  const generator = input.generator ?? buildSnapshotNarrative;
-  let generated: SnapshotNarrative;
+  const persistNarrative = async (finalNarrative: SnapshotNarrative): Promise<SnapshotNarrative> => {
+    try {
+      const content = contentFromNarrative(finalNarrative);
+      const record: SnapshotNarrativeCacheRecord = {
+        status: finalNarrative.mode === 'ai' ? 'available' : 'fallback',
+        narrativeJson: content,
+        model: finalNarrative.model,
+        aiCallCount: validAiCallCount(finalNarrative.aiCallCount) ? finalNarrative.aiCallCount : 0,
+        inputTokens: finalNarrative.inputTokens,
+        outputTokens: finalNarrative.outputTokens,
+        totalTokens: finalNarrative.totalTokens,
+        providerCostMicros: finalNarrative.providerCostMicros,
+        fallbackReason: finalNarrative.fallbackReason ?? null
+      };
+      await input.cache.write(key, record);
+      return { ...finalNarrative, ...content };
+    } catch {
+      // Cache persistence is inside the outer safety boundary. Do not return an AI narrative that
+      // could not be durably addressed; the pre-certified deterministic shell remains renderable.
+      return fallback('snapshot_cache_persistence_failure', finalNarrative.aiCallCount, finalNarrative, finalNarrative.semanticSafety);
+    }
+  };
+
   try {
-    generated = await generator({
+    const generated = await (input.generator ?? buildSnapshotNarrative)({
       snapshot: input.snapshot,
       insights: input.insights,
       gatewayAuth: input.gatewayAuth
     });
-  } catch {
-    generated = buildDeterministicSnapshotNarrative({
-      snapshot: input.snapshot,
-      insights: input.insights,
-      fallbackReason: 'TECHNICAL_PROVIDER_FAILURE'
-    });
-  }
-
-  const firstCallCount = validAiCallCount(generated.aiCallCount) ? generated.aiCallCount : 0;
-  let finalNarrative = generated;
-  let content = canonicaliseSnapshotNarrativeContent(contentFromNarrative(generated), narrativeBrief);
-  const validationInput = generated.mode === 'ai' ? narrativeBrief : narrativeInput;
-  let validationIssues = content
-    ? validateSnapshotNarrative(content, validationInput, { mode: generated.mode })
-    : ['snapshot_narrative_schema_invalid'];
-  let repairRequest = generated.repairRequest
-    ?? repairRequestFor(content, validationIssues, validationInput);
-
-  if (repairRequest && firstCallCount === 1) {
-    let repaired: SnapshotNarrative;
-    try {
-      repaired = await generator({
-        snapshot: input.snapshot,
-        insights: input.insights,
-        gatewayAuth: input.gatewayAuth,
-        repair: repairRequest
-      });
-    } catch {
-      repaired = buildDeterministicSnapshotNarrative({
-        snapshot: input.snapshot,
-        insights: input.insights,
-        aiCallCount: 2,
-        attemptedModels: mergeAttemptedModels(generated.attemptedModels),
-        fallbackReason: 'TECHNICAL_PROVIDER_FAILURE'
-      });
+    const generationCalls = validAiCallCount(generated.aiCallCount) ? generated.aiCallCount : 0;
+    if (generated.mode !== 'ai' || generationCalls !== 1) {
+      return await persistNarrative(fallback(generated.fallbackReason, generationCalls, generated));
     }
 
-    const repairedContent = canonicaliseSnapshotNarrativeContent(contentFromNarrative(repaired), narrativeBrief);
-    const repairedInput = repaired.mode === 'ai' ? narrativeBrief : narrativeInput;
-    const repairedIssues = repairedContent
-      ? validateSnapshotNarrative(repairedContent, repairedInput, { mode: repaired.mode })
-      : ['snapshot_narrative_schema_invalid'];
-    const repairedIsSafeAi = repaired.mode === 'ai' && Boolean(repairedContent) && repairedIssues.length === 0;
+    const ledger = new SemanticCallLedger();
+    ledger.claim('generation');
+    const initialContent = canonicaliseSnapshotNarrativeContent(contentFromNarrative(generated), narrativeBrief);
+    const adapters = createSnapshotSemanticAdapters({ model: generated.model, gatewayAuth: input.gatewayAuth, brief: narrativeBrief });
+    const cascade = await runSemanticSafetyCascade({
+      initialValue: initialContent,
+      ledger,
+      evaluate: (value) => {
+        const evaluation = snapshotSemanticEvaluation(value, narrativeBrief, 'ai');
+        return { ...evaluation, value: value ?? undefined };
+      },
+      adjudicate: input.adjudicator ?? adapters?.adjudicate,
+      repair: input.repairer ?? adapters?.repair,
+      applyRepairs: (value, replacements) => {
+        if (!value) throw new Error('snapshot_repair_requires_valid_content');
+        return applySnapshotRepairs(value, replacements, narrativeBrief);
+      }
+    });
 
-    if (repairedIsSafeAi) {
-      finalNarrative = {
-        ...repaired,
-        aiCallCount: 2,
-        attemptedModels: mergeAttemptedModels(generated.attemptedModels, repaired.attemptedModels),
-        inputTokens: sumOptional(generated.inputTokens, repaired.inputTokens),
-        outputTokens: sumOptional(generated.outputTokens, repaired.outputTokens),
-        totalTokens: sumOptional(generated.totalTokens, repaired.totalTokens),
-        providerCostMicros: sumOptional(generated.providerCostMicros, repaired.providerCostMicros),
-        repairRequest: undefined
-      };
-      content = repairedContent;
-      validationIssues = [];
-    } else {
-      finalNarrative = buildDeterministicSnapshotNarrative({
-        snapshot: input.snapshot,
-        insights: input.insights,
-        aiCallCount: 2,
-        attemptedModels: mergeAttemptedModels(generated.attemptedModels, repaired.attemptedModels),
-        inputTokens: sumOptional(generated.inputTokens, repaired.inputTokens),
-        outputTokens: sumOptional(generated.outputTokens, repaired.outputTokens),
-        totalTokens: sumOptional(generated.totalTokens, repaired.totalTokens),
-        providerCostMicros: sumOptional(generated.providerCostMicros, repaired.providerCostMicros),
-        fallbackReason: `repair_failed:${repairedIssues.join(',') || 'snapshot_narrative_schema_invalid'}`
-      });
+    const providerCalls = ledger.totalProviderCalls;
+    let finalNarrative: SnapshotNarrative;
+    let content: SnapshotNarrativeContent;
+    if (cascade.outcome !== 'ACCEPT' || !cascade.value) {
+      finalNarrative = fallback(`semantic_${cascade.diagnostics.reasonCode ?? cascade.diagnostics.finalResult.toLowerCase()}`, providerCalls, generated, cascade.diagnostics);
       content = contentFromNarrative(finalNarrative);
-      validationIssues = [];
+    } else {
+      content = cascade.value;
+      finalNarrative = {
+        ...generated,
+        ...content,
+        aiCallCount: providerCalls,
+        semanticSafety: cascade.diagnostics
+      };
     }
-    repairRequest = undefined;
-  } else if (firstCallCount !== generated.aiCallCount || !content || validationIssues.length > 0) {
-    finalNarrative = buildDeterministicSnapshotNarrative({
-      snapshot: input.snapshot,
-      insights: input.insights,
-      aiCallCount: validAiCallCount(finalNarrative.aiCallCount) ? finalNarrative.aiCallCount : firstCallCount,
-      attemptedModels: generated.attemptedModels,
-      inputTokens: generated.inputTokens,
-      outputTokens: generated.outputTokens,
-      totalTokens: generated.totalTokens,
-      providerCostMicros: generated.providerCostMicros,
-      fallbackReason: generated.fallbackReason ?? `deterministic_fallback_validation_defect:${validationIssues.join(',') || 'invalid_call_count'}`
-    });
-    content = contentFromNarrative(finalNarrative);
-    validationIssues = [];
-    repairRequest = undefined;
-  }
 
-  // Final non-AI validation is always applied immediately before persistence. If a future change
-  // makes the richer deterministic copy invalid, buildDeterministicSnapshotNarrative has already
-  // reduced it to the minimal safe presentation rather than throwing through the page.
-  if (!content || validateSnapshotNarrative(content, finalNarrative.mode === 'ai' ? narrativeBrief : narrativeInput, { mode: finalNarrative.mode }).length > 0) {
-    finalNarrative = buildDeterministicSnapshotNarrative({
-      snapshot: input.snapshot,
-      insights: input.insights,
-      aiCallCount: validAiCallCount(finalNarrative.aiCallCount) ? finalNarrative.aiCallCount : firstCallCount,
-      attemptedModels: finalNarrative.attemptedModels,
-      fallbackReason: 'deterministic_fallback_validation_defect'
-    });
-    content = contentFromNarrative(finalNarrative);
-  }
-
-  const record: SnapshotNarrativeCacheRecord = {
-    status: finalNarrative.mode === 'ai' ? 'available' : 'fallback',
-    narrativeJson: content,
-    model: finalNarrative.model,
-    aiCallCount: validAiCallCount(finalNarrative.aiCallCount) ? finalNarrative.aiCallCount : 0,
-    inputTokens: finalNarrative.inputTokens,
-    outputTokens: finalNarrative.outputTokens,
-    totalTokens: finalNarrative.totalTokens,
-    providerCostMicros: finalNarrative.providerCostMicros,
-    fallbackReason: finalNarrative.fallbackReason ?? null
-  };
-  try {
-    await input.cache.write(key, record);
+    const finalMode = finalNarrative.mode === 'ai' ? 'ai' : 'deterministic';
+    if (validateSnapshotNarrative(content, finalMode === 'ai' ? narrativeBrief : narrativeInput, { mode: finalMode }).length > 0) {
+      finalNarrative = fallback('snapshot_final_validation_failed', providerCalls, generated, cascade.diagnostics);
+      content = contentFromNarrative(finalNarrative);
+    }
+    return await persistNarrative(finalNarrative);
   } catch {
-    // Cache persistence is an optimisation. Return the already validated result if storage is
-    // temporarily unavailable, without surfacing an implementation exception to the customer.
+    return fallback('snapshot_narrative_pipeline_failure');
   }
-  return { ...finalNarrative, ...content, repairRequest };
 }
 
 export async function buildSnapshotNarrative(input: SnapshotNarrativeGeneratorInput): Promise<SnapshotNarrative> {
@@ -748,28 +821,24 @@ export async function buildSnapshotNarrative(input: SnapshotNarrativeGeneratorIn
   if (!gatewayCredential) {
     return buildDeterministicSnapshotNarrative({
       ...input,
-      aiCallCount: input.repair ? 1 : 0,
-      fallbackReason: 'snapshot_ai_unavailable',
-      repairRequest: undefined
+      aiCallCount: 0,
+      fallbackReason: 'snapshot_ai_unavailable'
     });
   }
 
-  // The cache schema permits one initial attempt and one targeted semantic repair. Technical
-  // failures never consume the repair budget and fall back deterministically.
+  // This function owns generation only. Semantic adjudication and batch repair are owned by
+  // buildCachedSnapshotNarrative so their independent call roles cannot be conflated.
   const model = policy.primaryModel;
   const provider = providerFromModel(model);
-  const attemptedCallCount = input.repair ? 2 : 1;
+  const attemptedCallCount = 1;
   try {
     const strengthInstruction = narrativeBrief.strongestAreas.length > 0
       ? `Interpret only the supplied strongest areas: ${narrativeBrief.strongestAreas.join(', ')}.`
       : 'Do not manufacture a strength from coverage, completion, visibility, absence of unknowns or any other procedural fact. The strength field should say: "The recorded responses do not yet support identifying a dependable organisational strength."';
-    const repairInstruction = input.repair
-      ? `This is the single targeted repair attempt. Repair only these fields: ${input.repair.fields.join(', ')}. The rejected validation codes are: ${input.repair.validationCodes.join(', ')}. Use the exact same narrative brief and add no facts. Preserve the bounded four-field response shape and return only the requested object.`
-      : '';
     const response = await generateText({
       model: snapshotGatewayModel(model, gatewayCredential),
       system: 'You are the constrained MK Fraud Readiness free Snapshot editor. This is a self-assessment interpretation, not an independent finding or assurance opinion. Use only the supplied narrative brief. Return exactly four AI-authored fields: headline, executiveDiagnosis, strength, and managementImplication. Priority signals are constructed deterministically after generation from the supplied attention areas and are not model-authored. Keep the headline short and organisation-specific; keep the diagnosis to at most two sentences. Use calibrated language such as "the recorded responses indicate", "the self-assessment suggests", "the result points to" and "leadership attention should focus on". Do not state that controls are absent, failing, ineffective or non-functioning. Do not invent consequences such as losses, compromise, incidents or realised harm. Do not require or imply assurance, independent validation or independent review. Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the AI-authored fields. These are presented separately by the deterministic result interface. Do not include internal IDs, paid-report depth, roadmaps, blueprints, scenarios, registers, target-state controls, decision libraries, provider/model details or technical fallback language. Do not use em dashes. Use normal sentence punctuation instead. Use only supplied facts and return only the requested object.',
-      prompt: 'Use this narrative brief and return only the four AI-authored fields. Priority signals will be added deterministically after generation from the supplied attention areas. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. ' + strengthInstruction + ' Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the AI-authored fields. These are presented separately by the deterministic result interface. Do not use em dashes. Use normal sentence punctuation instead. ' + repairInstruction + '\n\n' + JSON.stringify(narrativeBrief),
+      prompt: 'Use this narrative brief and return only the four AI-authored fields. Priority signals will be added deterministically after generation from the supplied attention areas. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. ' + strengthInstruction + ' Do not mention assessment coverage, control visibility, unknown-share percentages, completeness, blind spots or gap counts in the AI-authored fields. These are presented separately by the deterministic result interface. Do not use em dashes. Use normal sentence punctuation instead.\n\n' + JSON.stringify(narrativeBrief),
       output: Output.object({ schema: snapshotAiNarrativeContentSchema, name: 'mk_fraud_readiness_snapshot_ai_narrative' }),
       maxOutputTokens: 2048,
       maxRetries: 0,
@@ -785,18 +854,7 @@ export async function buildSnapshotNarrative(input: SnapshotNarrativeGeneratorIn
         ...input,
         aiCallCount: attemptedCallCount,
         attemptedModels: [model],
-        fallbackReason: 'snapshot_schema_invalid',
-        repairRequest: undefined
-      });
-    }
-    const issues = validateSnapshotNarrative(parsed, narrativeBrief, { mode: 'ai' });
-    if (issues.length > 0) {
-      return buildDeterministicSnapshotNarrative({
-        ...input,
-        aiCallCount: attemptedCallCount,
-        attemptedModels: [model],
-        fallbackReason: issues.join(','),
-        repairRequest: input.repair ? undefined : repairRequestFor(parsed, issues, narrativeBrief)
+        fallbackReason: 'snapshot_schema_invalid'
       });
     }
     const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });

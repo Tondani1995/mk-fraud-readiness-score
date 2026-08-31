@@ -417,7 +417,7 @@ test('a valid Snapshot cache hit avoids another narrative generation', async () 
   assert.match(cacheKey, /assessment-snapshot/);
   assert.match(cacheKey, /score-run/);
   assert.match(cacheKey, /methodology-v1-2/);
-  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v6-bounded-repair-canonical-facts/);
+  assert.match(cacheKey, /mk-snapshot-five-part-advisory-v7-semantic-safety-cascade/);
 });
 
 test('Arbitrary AI priority signals are replaced before Snapshot persistence', async () => {
@@ -447,13 +447,13 @@ test('Arbitrary AI priority signals are replaced before Snapshot persistence', a
   assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /elevated exposure|clarity of ownership/i);
 });
 
-test('A repairable AI semantic failure gets one targeted repair and persists ai_call_count 2', async () => {
+test('A residual semantic ambiguity uses one batch adjudication and one batch repair', async () => {
   const firstPass = {
     ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
     mode: 'ai',
     model: 'openai/gpt-5-mini',
     aiCallCount: 1,
-    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The organisation experienced fraud incidents.'
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The result points to management review. A further discussion may help.'
   };
   const repairedPass = {
     ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
@@ -462,7 +462,6 @@ test('A repairable AI semantic failure gets one targeted repair and persists ai_
     aiCallCount: 1,
     executiveDiagnosis: 'The recorded responses indicate a position that needs management attention.'
   };
-  const calls = [];
   let persisted;
   const result = await buildCachedSnapshotNarrative({
     snapshot,
@@ -471,25 +470,31 @@ test('A repairable AI semantic failure gets one targeted repair and persists ai_
       async read() { return null; },
       async write(_key, record) { persisted = record; }
     },
-    generator: async (request) => {
-      calls.push({ repair: request.repair, snapshot: request.snapshot, insights: request.insights });
-      return request.repair ? repairedPass : firstPass;
-    }
+    generator: async () => firstPass,
+    adjudicator: async (candidates) => candidates.map((candidate) => ({
+      targetId: candidate.targetId,
+      label: 'REPAIRABLE',
+      confidence: 0.95,
+      reasonCode: 'bounded_prose_repair',
+      evidenceRefs: ['snapshot-validation']
+    })),
+    repairer: async (targets) => targets.map((target) => ({
+      targetId: target.targetId,
+      repairedText: repairedPass.executiveDiagnosis
+    }))
   });
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].repair, undefined);
-  assert.equal(calls[0].snapshot, calls[1].snapshot);
-  assert.equal(calls[0].insights, calls[1].insights);
-  assert.deepEqual(calls[1].repair.validationCodes, ['snapshot_unsupported_consequence_claim']);
-  assert.deepEqual(calls[1].repair.fields, ['executiveDiagnosis']);
+  assert.equal(result.semanticSafety.adjudicationCalls, 1);
+  assert.equal(result.semanticSafety.repairCalls, 1);
+  assert.equal(result.semanticSafety.generationCalls, 1);
+  assert.equal(result.semanticSafety.totalProviderCalls, 3);
   assert.equal(result.mode, 'ai');
-  assert.equal(result.aiCallCount, 2);
+  assert.equal(result.aiCallCount, 3);
   assert.equal(persisted.status, 'available');
-  assert.equal(persisted.aiCallCount, 2);
-  assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /experienced fraud incidents/i);
+  assert.equal(persisted.aiCallCount, 3);
+  assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /A further discussion may help/i);
 });
 
-test('A second invalid AI pass falls back deterministically without a third call', async () => {
+test('A hard factual AI failure falls back without adjudication or repair', async () => {
   const invalid = {
     ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
     mode: 'ai',
@@ -497,7 +502,8 @@ test('A second invalid AI pass falls back deterministically without a third call
     aiCallCount: 1,
     executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The organisation suffered financial losses.'
   };
-  let calls = 0;
+  let adjudicationCalls = 0;
+  let repairCalls = 0;
   let persisted;
   const result = await buildCachedSnapshotNarrative({
     snapshot,
@@ -506,21 +512,20 @@ test('A second invalid AI pass falls back deterministically without a third call
       async read() { return null; },
       async write(_key, record) { persisted = record; }
     },
-    generator: async () => {
-      calls += 1;
-      return invalid;
-    }
+    generator: async () => invalid,
+    adjudicator: async () => { adjudicationCalls += 1; return []; },
+    repairer: async () => { repairCalls += 1; return []; }
   });
-  assert.equal(calls, 2);
+  assert.equal(adjudicationCalls, 0);
+  assert.equal(repairCalls, 0);
   assert.equal(result.mode, 'deterministic');
-  assert.equal(result.aiCallCount, 2);
+  assert.equal(result.aiCallCount, 1);
   assert.equal(persisted.status, 'fallback');
-  assert.equal(persisted.aiCallCount, 2);
-  assert.match(persisted.fallbackReason, /repair_failed:snapshot_unsupported_consequence_claim/);
+  assert.equal(persisted.aiCallCount, 1);
   assert.doesNotMatch(JSON.stringify(persisted.narrativeJson), /suffered financial losses/i);
 });
 
-test('first-pass, repaired and fallback cache records remain distinct on cache hits', async () => {
+test('available and fallback semantic outcomes remain distinct on cache hits', async () => {
   const validAi = {
     ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
     mode: 'ai',
@@ -533,8 +538,7 @@ test('first-pass, repaired and fallback cache records remain distinct on cache h
   };
   const scenarios = [
     { label: 'first-pass', outputs: [validAi], status: 'available', mode: 'ai', callCount: 1 },
-    { label: 'repaired', outputs: [invalidAi, validAi], status: 'available', mode: 'ai', callCount: 2 },
-    { label: 'fallback', outputs: [invalidAi, invalidAi], status: 'fallback', mode: 'deterministic', callCount: 2 }
+    { label: 'fallback', outputs: [invalidAi], status: 'fallback', mode: 'deterministic', callCount: 1 }
   ];
 
   for (const scenario of scenarios) {
@@ -585,7 +589,77 @@ test('Unexpected narrative generator failure returns a safe Snapshot instead of 
     managementImplication: result.managementImplication
   }, input), []);
   assert.ok(result.headline.length > 0);
-  assert.equal(result.fallbackReason, 'TECHNICAL_PROVIDER_FAILURE');
+  assert.equal(result.fallbackReason, 'snapshot_narrative_pipeline_failure');
+});
+
+test('Snapshot cache persistence failure returns deterministic pre-certified content', async () => {
+  let writes = 0;
+  const generated = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1
+  };
+  const result = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { return null; },
+      async write() {
+        writes += 1;
+        throw new Error('TEST_CACHE_PERSISTENCE_FAILURE');
+      }
+    },
+    generator: async () => generated
+  });
+  assert.equal(writes, 1);
+  assert.equal(result.mode, 'deterministic');
+  assert.equal(result.fallbackReason, 'snapshot_cache_persistence_failure');
+  assert.deepEqual(validateSnapshotNarrative({
+    headline: result.headline,
+    executiveDiagnosis: result.executiveDiagnosis,
+    strength: result.strength,
+    prioritySignals: result.prioritySignals,
+    managementImplication: result.managementImplication
+  }, input), []);
+});
+
+test('Snapshot cache-read and semantic-adapter failures remain customer-safe', async () => {
+  const cacheFailure = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: {
+      async read() { throw new Error('TEST_CACHE_READ_FAILURE'); },
+      async write() { throw new Error('must not write after cache-read failure'); }
+    },
+    generator: async () => { throw new Error('must not generate after cache-read failure'); }
+  });
+  assert.equal(cacheFailure.mode, 'deterministic');
+  assert.equal(cacheFailure.fallbackReason, 'snapshot_cache_or_key_failure');
+
+  const ambiguous = {
+    ...buildDeterministicSnapshotNarrative({ snapshot, insights }),
+    mode: 'ai',
+    model: 'openai/gpt-5-mini',
+    aiCallCount: 1,
+    executiveDiagnosis: 'The recorded responses indicate a position that needs attention. The result points to management review. A further discussion may help.'
+  };
+  const adapterFailure = await buildCachedSnapshotNarrative({
+    snapshot,
+    insights,
+    cache: { async read() { return null; }, async write() {} },
+    generator: async () => ambiguous,
+    adjudicator: async () => { throw new Error('TEST_ADJUDICATOR_FAILURE'); }
+  });
+  assert.equal(adapterFailure.mode, 'deterministic');
+  assert.match(adapterFailure.fallbackReason, /semantic_/);
+  assert.deepEqual(validateSnapshotNarrative({
+    headline: adapterFailure.headline,
+    executiveDiagnosis: adapterFailure.executiveDiagnosis,
+    strength: adapterFailure.strength,
+    prioritySignals: adapterFailure.prioritySignals,
+    managementImplication: adapterFailure.managementImplication
+  }, input), []);
 });
 
 test('Snapshot validation rejects the known unsupported grounding phrases', () => {
@@ -714,4 +788,4 @@ test('Snapshot policy is Mini-first with technical fallback and one successful g
   assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'deterministic priority signals', 'strict five-field contract', 'canonical domain fact validation', 'D5 priority and strength fallback', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'AI priority signals are canonicalised before persistence', 'bounded one-repair recovery', 'two-call deterministic fallback', 'safe non-throwing narrative failure', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'AI brief excludes diagnostic metrics', 'no-strength fallback', 'deterministic priority signals', 'strict five-field contract', 'canonical domain fact validation', 'D5 priority and strength fallback', 'request OIDC auth precedence', 'Mini minimal reasoning and 2048-token budget', 'no-output failure classification', 'static API-key auth path', 'no-auth deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'assurance rejection', 'em-dash normalisation', 'procedural metric rejection', 'AI priority signals are canonicalised before persistence', 'one batch adjudication and repair', 'hard truth skips semantic adapters', 'cache persistence failure returns deterministic content', 'cache-read and semantic-adapter failures remain safe', 'safe non-throwing narrative failure', 'cache hit avoids auth and generation', 'Mini-first policy'] }, null, 2));

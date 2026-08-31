@@ -665,8 +665,11 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
-        // One provider request per Generate. Tail, repair and coherence remain available
-        // globally; they simply cannot be spent silently inside an acceptance generation.
+        // The semantic-safety coordinator owns the three fixed provider roles. Technical tail,
+        // repair and coherence retries are not allowed to consume those roles implicitly.
+        // Keep the generation role independently capped at one request. The shared semantic
+        // cascade owns its separate adjudication and repair roles, so no technical writer
+        // recovery path can consume either of those slots.
         writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
       });
       essentialNarrative = composed.narrative;
@@ -675,7 +678,8 @@ export async function generateManualPhase1Report(
         model: composed.manuscript.writerMetadata?.model,
         generationId: composed.manuscript.writerMetadata?.generationId,
         totalTokens: composed.manuscript.writerMetadata?.totalTokens,
-        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1
+        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1,
+        semanticSafety: composed.semanticSafety
       });
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {

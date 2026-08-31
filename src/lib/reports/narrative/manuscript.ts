@@ -181,6 +181,8 @@ export interface WholeManuscriptWriterInput {
   context: WholeManuscriptWriterContext;
   factPack: NarrativeFactPack;
   blueprint: ReportBlueprint;
+  /** Semantic-cascade mode forbids technical tail/coherence retries from spending a role slot. */
+  semanticSafety?: boolean;
 }
 
 /**

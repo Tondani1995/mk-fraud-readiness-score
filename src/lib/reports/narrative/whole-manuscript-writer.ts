@@ -189,6 +189,20 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) })
     };
     const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
+    if (input.semanticSafety && !initialParsed.ok) {
+      // Semantic-cascade generation has a fixed role budget. A technical tail retry is a
+      // different operation and must not silently consume the adjudication or repair slots.
+      const failure = new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a complete manuscript in semantic-safety mode.', { parsed: initialParsed.errors });
+      (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
+        stage: 'initial_manuscript_not_recoverable',
+        writerMetadata: initialResult.writerMetadata,
+        classification: 'SEMANTIC_SAFETY_TECHNICAL_TRUNCATION',
+        missingTail: { ok: false, missingHeadingCount: 0, lastCompleteHeading: undefined, errors: initialParsed.errors.map((issue) => issue.message) },
+        providerCalls: this.providerCallsUsed,
+        structural: buildManuscriptStructuralDiagnostics({ markdown: initialResult.markdown, blueprint: input.blueprint, parsed: initialParsed })
+      };
+      throw failure;
+    }
     // A structurally complete manuscript is returned to the caller even when text-first
     // validation identifies an editorial/semantic issue; the existing bounded semantic-repair
     // policy owns that path. Only a structurally incomplete, proven truncation may enter tail

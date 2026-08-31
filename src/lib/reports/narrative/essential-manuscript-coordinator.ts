@@ -1,3 +1,6 @@
+import crypto from 'node:crypto';
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
 import type { NarrativeFactPack } from './fact-pack';
 import type { WholeManuscriptWriter, WholeManuscriptTextResult } from './manuscript';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from './story-plan';
@@ -11,6 +14,14 @@ import {
   type ParsedBlueprintMarkdown
 } from './blueprint-text';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
+import {
+  runSemanticSafetyCascade,
+  SemanticCallLedger,
+  type SemanticAdjudicationResult,
+  type SemanticCandidate,
+  type SemanticRepairResult,
+  type SemanticCascadeDiagnostics
+} from './semantic-safety-cascade';
 
 /**
  * The Essential production narrative path.
@@ -31,6 +42,7 @@ export interface EssentialManuscriptResult {
   narrative: ParsedBlueprintMarkdown;
   blueprint: ReportBlueprint;
   manuscript: WholeManuscriptTextResult;
+  semanticSafety?: SemanticCascadeDiagnostics;
 }
 
 /** Evidence the writer attaches when it rejects its own initial response. */
@@ -89,6 +101,7 @@ export interface EssentialManuscriptDiagnostics {
   /** Outcome of classifyWholeManuscriptGeneration, when the writer rejected the response. */
   classification?: string;
   missingTail?: { ok: boolean; missingHeadingCount: number; lastCompleteHeading?: string; errors: string[] };
+  semanticSafety?: SemanticCascadeDiagnostics;
 }
 
 export class EssentialManuscriptError extends Error {
@@ -246,9 +259,160 @@ function rawWriterThrowWasDispatched(error: unknown, forwarded?: WriterFailureDi
   return true;
 }
 
+function semanticCandidateHash(value: unknown): string {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function parsedBlockAtPath(parsed: ParsedBlueprintMarkdown, path: string): { text: string; permittedClaimRefs: string[] } | undefined {
+  const match = /^(.+)\.paragraphs\[(\d+)\]$/.exec(path);
+  if (!match) return undefined;
+  const owner = match[1];
+  const index = Number(match[2]);
+  for (const chapter of parsed.chapters) {
+    for (const section of chapter.sections) {
+      if (section.sectionId === owner) return section.paragraphs[index];
+      for (const subsection of section.subsections) if (subsection.subsectionId === owner) return subsection.paragraphs[index];
+    }
+  }
+  return undefined;
+}
+
+function cloneParsedBlueprint(parsed: ParsedBlueprintMarkdown): ParsedBlueprintMarkdown {
+  return JSON.parse(JSON.stringify(parsed)) as ParsedBlueprintMarkdown;
+}
+
+function serializeParsedBlueprint(parsed: ParsedBlueprintMarkdown): string {
+  const blocks: string[] = [];
+  for (const chapter of parsed.chapters) {
+    blocks.push(`# ${chapter.title}`);
+    for (const section of chapter.sections) {
+      blocks.push(`## ${section.title}`);
+      blocks.push(...section.paragraphs.map((paragraph) => paragraph.text));
+      for (const subsection of section.subsections) {
+        blocks.push(`### ${subsection.title}`);
+        blocks.push(...subsection.paragraphs.map((paragraph) => paragraph.text));
+      }
+    }
+  }
+  return `${blocks.filter((block) => block.trim()).join('\n\n')}\n`;
+}
+
+function replaceParsedBlock(parsed: ParsedBlueprintMarkdown, targetId: string, repairedText: string): ParsedBlueprintMarkdown {
+  const path = targetId.replace(/^essential:/, '');
+  const next = cloneParsedBlueprint(parsed);
+  const block = parsedBlockAtPath(next, path);
+  if (!block) throw new Error('unknown_essential_repair_target');
+  block.text = repairedText.trim();
+  next.markdown = serializeParsedBlueprint(next);
+  return next;
+}
+
+function reparseAuthoritativeBlueprint(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint): ParsedBlueprintMarkdown {
+  const reparsed = parseBlueprintMarkdown(parsed.markdown, blueprint);
+  if (!reparsed.ok) throw new Error('semantic_repair_structural_validation_failed');
+  return reparsed;
+}
+
+function essentialCandidatesForReport(
+  parsed: ParsedBlueprintMarkdown,
+  issues: Array<{ code: string; severity: string; path: string; message: string }>,
+  factPack: NarrativeFactPack,
+  hardTruth: boolean
+): SemanticCandidate[] {
+  const byTarget = new Map<string, SemanticCandidate>();
+  for (const issue of issues) {
+    const targetId = `essential:${issue.path}`;
+    const block = parsedBlockAtPath(parsed, issue.path);
+    const text = block?.text ?? issue.message;
+    const existing = byTarget.get(targetId);
+    if (existing) {
+      existing.issueCode = `${existing.issueCode},${issue.code}`;
+      existing.evidenceRefs.push(`validation:${issue.code}`);
+      continue;
+    }
+    byTarget.set(targetId, {
+      targetId,
+      candidateHash: semanticCandidateHash({ targetId, text, issue: issue.code }),
+      text: text.slice(0, 1800),
+      fieldRole: 'essential-blueprint-paragraph',
+      issueCode: issue.code,
+      issueFamily: 'essential_semantic_safety',
+      deterministicFeatures: { hardTruth, validationCode: issue.code, permittedClaimRefCount: block?.permittedClaimRefs.length ?? 0 },
+      evidenceRefs: [`validation:${issue.code}`, ...((block?.permittedClaimRefs ?? []).slice(0, 8).map((ref) => `claim:${ref}`))],
+      evidence: { productTier: factPack.productTier, targetPath: issue.path },
+      hardTruth,
+      deterministicRepairAvailable: false
+    });
+  }
+  return [...byTarget.values()];
+}
+
+const essentialAdjudicationSchema = z.object({
+  decisions: z.array(z.object({
+    targetId: z.string().min(1).max(200),
+    label: z.enum(['ALLOW_CONTEXT', 'REPAIRABLE', 'CONFIRMED_VIOLATION', 'AMBIGUOUS']),
+    confidence: z.number().min(0).max(1),
+    reasonCode: z.string().min(1).max(120),
+    evidenceRefs: z.array(z.string().min(1).max(120)).max(8)
+  }).strict()).max(64)
+}).strict();
+
+const essentialRepairSchema = z.object({
+  repairs: z.array(z.object({
+    targetId: z.string().min(1).max(200),
+    repairedText: z.string().trim().min(1).max(2400)
+  }).strict()).max(64)
+}).strict();
+
+export type EssentialSemanticAdapters = {
+  adjudicate: (candidates: SemanticCandidate[]) => Promise<SemanticAdjudicationResult[]>;
+  repair: (targets: SemanticCandidate[]) => Promise<SemanticRepairResult[]>;
+};
+
+function createEssentialSemanticAdapters(input: {
+  writer: WholeManuscriptWriter;
+  factPack: NarrativeFactPack;
+  blueprint: ReportBlueprint;
+}): EssentialSemanticAdapters | undefined {
+  if (!input.writer.model) return undefined;
+  const provider = input.writer.provider || input.writer.model.split('/')[0] || 'openai';
+  const model = input.writer.model;
+  const gateway = { only: [provider], tags: ['feature:mk-fraud-readiness-essential', 'stage:semantic-safety'] };
+  const boundedFacts = input.factPack.facts.slice(0, 40).map((fact) => ({ id: fact.id, kind: fact.kind, value: fact.value }));
+  return {
+    async adjudicate(candidates) {
+      const response = await generateText({
+        model,
+        system: 'You are a bounded semantic adjudicator for an MK Fraud Readiness Essential report. Assess only the candidate prose and bounded evidence supplied. You cannot rewrite text. Hard factual or structural failures are already excluded from this call. Use ALLOW_CONTEXT only when the candidate is supported, REPAIRABLE only when a bounded prose repair can preserve the deterministic meaning, and AMBIGUOUS when evidence is insufficient. Return only the structured object.',
+        prompt: `Return exactly one disposition for every candidate. Do not add facts or identifiers.\n\nBOUNDED FACTS\n${JSON.stringify(boundedFacts)}\n\nCANDIDATES\n${JSON.stringify(candidates.map((candidate) => ({ targetId: candidate.targetId, fieldRole: candidate.fieldRole, issueCode: candidate.issueCode, issueFamily: candidate.issueFamily, candidateHash: candidate.candidateHash, text: candidate.text, neighbourText: candidate.neighborText, deterministicFeatures: candidate.deterministicFeatures, evidenceRefs: candidate.evidenceRefs, evidence: candidate.evidence })))}\n\nBLUEPRINT SUMMARY\n${JSON.stringify({ schemaVersion: input.blueprint.schemaVersion, reportTier: input.blueprint.reportTier, chapterCount: input.blueprint.chapters.length })}`,
+        output: Output.object({ schema: essentialAdjudicationSchema, name: 'mk_essential_semantic_adjudication' }),
+        maxOutputTokens: 2048,
+        maxRetries: 0,
+        providerOptions: { gateway },
+        abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      });
+      return response.output.decisions;
+    },
+    async repair(targets) {
+      const response = await generateText({
+        model,
+        system: 'You are a bounded semantic repair editor for an MK Fraud Readiness Essential report. Return one replacement prose value for each supplied target ID and no other target. Preserve every deterministic fact, evidence reference, finding, scenario, owner, timing, score, maturity and Blueprint hierarchy. Repair only the flagged wording. Do not use em dashes, raw IDs, unsupported numbers, unsupported assurance, invented consequences or new facts. Return only the structured object.',
+        prompt: `Repair exactly these target IDs and nothing else.\n\nBOUNDED FACTS\n${JSON.stringify(boundedFacts)}\n\nTARGETS\n${JSON.stringify(targets.map((target) => ({ targetId: target.targetId, fieldRole: target.fieldRole, issueCode: target.issueCode, text: target.text, deterministicFeatures: target.deterministicFeatures, evidenceRefs: target.evidenceRefs, evidence: target.evidence })))}\n\nBLUEPRINT SUMMARY\n${JSON.stringify({ schemaVersion: input.blueprint.schemaVersion, reportTier: input.blueprint.reportTier })}`,
+        output: Output.object({ schema: essentialRepairSchema, name: 'mk_essential_semantic_repairs' }),
+        maxOutputTokens: 4096,
+        maxRetries: 0,
+        providerOptions: { gateway },
+        abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      });
+      return response.output.repairs;
+    }
+  };
+}
+
 export async function composeEssentialManuscript(input: {
   factPack: NarrativeFactPack;
   writer: WholeManuscriptWriter;
+  semanticAdapters?: EssentialSemanticAdapters;
 }): Promise<EssentialManuscriptResult> {
   const { factPack, writer } = input;
 
@@ -262,7 +426,7 @@ export async function composeEssentialManuscript(input: {
   const writerStartedAt = Date.now();
   let manuscript: WholeManuscriptTextResult;
   try {
-    manuscript = await writer.writeManuscript({ context, factPack, blueprint });
+    manuscript = await writer.writeManuscript({ context, factPack, blueprint, semanticSafety: true });
   } catch (error) {
     // The writer already holds evidence when it rejects a non-conforming manuscript. Raw
     // provider/SDK/network throws do not, so preserve a closed set of safe transport fields
@@ -334,9 +498,49 @@ export async function composeEssentialManuscript(input: {
     });
   }
 
-  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
+  const ledger = new SemanticCallLedger();
+  ledger.claim('generation');
+  const evaluate = (candidate: ParsedBlueprintMarkdown) => {
+    const report = validateBlueprintTextManuscript(candidate, authoritativeBlueprint, factPack);
+    return {
+      value: candidate,
+      valid: report.hardTruth.issues.length === 0 && report.repairableSemantic.issues.length === 0,
+      validationIssues: [...report.hardTruth.issues, ...report.repairableSemantic.issues].map((issue) => issue.code),
+      hardCandidates: essentialCandidatesForReport(candidate, report.hardTruth.issues, factPack, true),
+      candidates: essentialCandidatesForReport(candidate, report.repairableSemantic.issues, factPack, false)
+    };
+  };
+  const adapters = input.semanticAdapters ?? createEssentialSemanticAdapters({ writer, factPack, blueprint: authoritativeBlueprint });
+  const cascade = await runSemanticSafetyCascade({
+    initialValue: narrative,
+    ledger,
+    evaluate,
+    adjudicate: adapters?.adjudicate,
+    repair: adapters?.repair,
+    applyRepairs: (value, replacements) => reparseAuthoritativeBlueprint(
+      replacements.reduce((current, replacement) => replaceParsedBlock(current, replacement.targetId, replacement.repairedText), value),
+      authoritativeBlueprint
+    )
+  });
+  if (cascade.outcome !== 'ACCEPT' || !cascade.value) {
+    const finalReport = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
+    throw new EssentialManuscriptError(
+      'semantic_safety',
+      `The manuscript failed the semantic safety cascade (${cascade.diagnostics.reasonCode ?? cascade.diagnostics.finalResult}).`,
+      {
+        ...diagnosticsFrom('semantic_safety', writerIdentity, manuscript),
+        parseOk: true,
+        validationCode: finalReport.hardTruth.issues[0]?.code,
+        validationIssues: finalReport.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) })),
+        semanticSafety: cascade.diagnostics
+      }
+    );
+  }
+
+  const finalNarrative = reparseAuthoritativeBlueprint(cascade.value, authoritativeBlueprint);
+  const finalReport = validateBlueprintTextManuscript(finalNarrative, authoritativeBlueprint, factPack);
   try {
-    assertBlueprintTextValidation(report);
+    assertBlueprintTextValidation(finalReport);
   } catch (error) {
     throw new EssentialManuscriptError(
       'validate_manuscript',
@@ -344,15 +548,12 @@ export async function composeEssentialManuscript(input: {
       {
         ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
         parseOk: true,
-        validationCode: report.hardTruth.issues[0]?.code,
-        validationIssues: report.hardTruth.issues.map((issue) => ({
-          code: issue.code,
-          path: issue.path,
-          message: String(issue.message ?? '').slice(0, 200)
-        }))
+        validationCode: finalReport.hardTruth.issues[0]?.code,
+        validationIssues: finalReport.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) })),
+        semanticSafety: cascade.diagnostics
       }
     );
   }
-
-  return { narrative, blueprint: authoritativeBlueprint, manuscript };
+  const finalManuscript = finalNarrative.markdown === manuscript.markdown ? manuscript : { ...manuscript, markdown: finalNarrative.markdown };
+  return { narrative: finalNarrative, blueprint: authoritativeBlueprint, manuscript: finalManuscript, semanticSafety: cascade.diagnostics };
 }
