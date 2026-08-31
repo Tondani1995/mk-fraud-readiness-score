@@ -45,8 +45,8 @@ jobs:
       - name: Verify seven accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
 
-      - name: Verify RC1 near-real-time automatic fulfilment
-        run: npm run rc1:test-near-real-time-fulfilment
+      - name: Verify V1.2 manual commercial fulfilment contract
+        run: npm run v12:test-manual-fulfilment
 
       - name: Verify RC1 synthetic notification contract
         run: npm run rc1:test-synthetic-notification-contract

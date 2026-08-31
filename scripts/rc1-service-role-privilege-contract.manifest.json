@@ -279,8 +279,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/reports/customer-report-access.ts:131 S",
-        "src/lib/reports/delivery-recovery-service.ts:166 S",
-        "src/lib/reports/delivery-recovery-service.ts:303 S"
+        "src/lib/reports/delivery-recovery-service.ts:166 S"
       ],
       "justification": "Token validation/consumption and recovery-state inspection."
     },
@@ -358,7 +357,6 @@
         "src/lib/notifications/phase1-order-notifications.ts:318 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:599 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:602 SIU",
-        "src/lib/reports/delivery-recovery-service.ts:295 SIU",
         "src/lib/reports/email/report-delivery-service-core.ts:356 SIU",
         "src/lib/reports/phase1-operations.ts:98 SIU",
         "src/lib/respondent/start-assessment.ts:115 SIU"
@@ -482,7 +480,6 @@
         "src/app/score/api/internal/fulfilment-worker/route.ts:184 SIU",
         "src/app/score/api/payments/[orderReference]/session/route.ts:21 SIU",
         "src/lib/admin/dashboard.ts:8 SIU",
-        "src/lib/fulfilment/delivery-worker.ts:132 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:490 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:540 SIU",
         "src/lib/orders/manual-eft-orders.ts:232 SIU",
@@ -771,7 +768,6 @@
         "src/app/score/admin/orders/[orderReference]/page.tsx:65 SU",
         "src/app/score/admin/reports/page.tsx:19 SU",
         "src/lib/admin/dashboard.ts:9 SU",
-        "src/lib/fulfilment/delivery-worker.ts:127 SU",
         "src/lib/reports/automation/processor.ts:27 SU",
         "src/lib/reports/customer-report-access.ts:194 SU",
         "src/lib/reports/customer-report-access.ts:236 SU",
@@ -1066,14 +1062,6 @@
       ]
     },
     {
-      "signature": "public.claim_exact_delivery(uuid,uuid,text,integer)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:97"
-      ]
-    },
-    {
       "signature": "public.claim_exact_fulfilment_job(uuid,text,integer)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1113,14 +1101,6 @@
         "src/lib/reports/phase1-manual-fulfilment.ts:429"
       ],
       "classification": "Assessment-scoped Essential generation claim; service-role-only RPC"
-    },
-    {
-      "signature": "public.claim_next_delivery(text,integer)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:103"
-      ]
     },
     {
       "signature": "public.claim_next_fulfilment_job(text,integer)",
@@ -1181,14 +1161,6 @@
       ]
     },
     {
-      "signature": "public.fail_delivery(uuid,uuid,text,text,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:285"
-      ]
-    },
-    {
       "signature": "public.fail_fulfilment_job(uuid,text,text,text,text)",
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
@@ -1213,14 +1185,6 @@
         "src/lib/reports/phase1-manual-fulfilment.ts:213"
       ],
       "classification": "Assessment-scoped Essential generation failure transition; service-role-only RPC"
-    },
-    {
-      "signature": "public.finalize_delivery(uuid,uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:213"
-      ]
     },
     {
       "signature": "public.get_phase14_worker_attestation_context(uuid)",
@@ -1248,30 +1212,6 @@
         "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:18"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
-    },
-    {
-      "signature": "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:148"
-      ]
-    },
-    {
-      "signature": "public.mark_delivery_dispatch_started(uuid,uuid)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:164"
-      ]
-    },
-    {
-      "signature": "public.mark_delivery_reconciliation_required(uuid,uuid,text,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/fulfilment/delivery-worker.ts:219"
-      ]
     },
     {
       "signature": "public.payment_automation_capability()",
@@ -1303,7 +1243,6 @@
       "searchPath": "",
       "sources": [
         "src/app/score/api/internal/fulfilment-worker/route.ts:98",
-        "src/lib/fulfilment/delivery-worker.ts:50",
         "src/lib/fulfilment/immediate-dispatch.ts:79"
       ]
     },
@@ -1543,15 +1482,6 @@
       "justification": "Atomic persisted Comprehensive package registration: one verified primary report and exactly four verified secondary artefacts at one immutable version."
     },
     {
-      "signature": "public.record_customer_report_artefact_access(uuid, uuid, uuid, boolean, text, text, text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/customer-report-access.ts"
-      ],
-      "justification": "Artefact-aware customer access audit bound to the exact possession token, order and report."
-    },
-    {
       "signature": "public.finalise_comprehensive_artifact_set(uuid, uuid, integer, uuid)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1688,7 +1618,6 @@
   },
   "analysis": {
     "serviceRoleAdapterFiles": [
-      "src/lib/fulfilment/delivery-worker.ts",
       "src/lib/reports/automation/manual-ai-attempt-store.ts",
       "src/lib/reports/automation/manual-narrative-provenance.ts",
       "src/lib/reports/download-verification.ts",
@@ -1703,13 +1632,25 @@
       ,"src/lib/commercial/customer-order-status.ts"
     ],
     "nonServiceCallSites": [
-      "src/lib/reports/phase14-security.ts:76:rpc",
-      "src/lib/reports/phase14-security.ts:102:rpc",
-      "src/lib/reports/phase14-security.ts:122:from",
-      "src/lib/reports/automation/fulfilment.ts:58:rpc",
+      "src/lib/rc1/control-plane.ts:96:rpc",
       "src/lib/reports/automation/fulfilment.ts:109:from",
       "src/lib/reports/automation/fulfilment.ts:130:rpc",
-      "src/lib/reports/premium-report-service-core.ts:74:rpc",
+      "src/lib/reports/automation/fulfilment.ts:58:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:210:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:222:rpc",
+      "src/lib/reports/delivery-recovery-service.ts:232:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:113:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:157:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:206:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:73:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:211:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:280:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:349:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:403:rpc",
+      "src/lib/reports/phase14-security.ts:102:rpc",
+      "src/lib/reports/phase14-security.ts:122:from",
+      "src/lib/reports/phase14-security.ts:76:rpc",
+      "src/lib/reports/premium-report-download.ts:19:rpc",
       "src/lib/reports/premium-report-service-core.ts:188:rpc",
       "src/lib/reports/premium-report-service-core.ts:266:rpc",
       "src/lib/reports/premium-report-service-core.ts:298:rpc",
@@ -1718,33 +1659,9 @@
       "src/lib/reports/premium-report-service-core.ts:627:rpc",
       "src/lib/reports/premium-report-service-core.ts:660:rpc",
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
-      "src/lib/reports/delivery-recovery-service.ts:212:rpc",
-      "src/lib/reports/delivery-recovery-service.ts:224:rpc",
-      "src/lib/reports/delivery-recovery-service.ts:234:rpc",
-      "src/lib/reports/delivery-recovery-service.ts:261:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:203:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:272:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:341:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:395:rpc",
-      "src/lib/reports/premium-report-download.ts:19:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:73:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:113:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:140:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:157:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:181:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:206:rpc",
-      "src/lib/reports/premium-report-service-core.ts:263:rpc",
-      "src/lib/reports/premium-report-service-core.ts:295:rpc",
-      "src/lib/reports/premium-report-service-core.ts:341:rpc",
-      "src/lib/reports/premium-report-service-core.ts:624:rpc",
-      "src/lib/reports/premium-report-service-core.ts:657:rpc",
-      "src/lib/reports/premium-report-service-core.ts:705:rpc",
-      "src/lib/rc1/control-plane.ts:76:from",
-      "src/lib/rc1/control-plane.ts:96:rpc"
+      "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a"
+    "fullAstInventorySha256": "518263f2916c194965415d966271050a24371fd5c5614958a6b1ee0d9d123648"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -1873,6 +1790,253 @@
     },
     "ownerApproval": "Owner approved this additional SELECT as within the already-approved public.email_events SELECT/INSERT/UPDATE service-role capability; no privilege expansion or ACL change is required.",
     "conclusion": "The only normalized capability-level addition is the reviewed read of public.email_events used to prevent threshold-only stalled-lead duplicate episodes."
+  },
+  "commercialManualFulfilmentReview": {
+    "reviewedAt": "2026-08-31",
+    "reviewedCommit": "2fc384d42107ed638cd6b81d5930b921a6655207",
+    "parentCommit": "11f41494e22a8ef2d2535e20ce5a12dddf2a94bf",
+    "productionBaselineSourceCommit": "3f416ae65f7f353912c3177c96865eb50b6abe0c",
+    "previousInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a",
+    "candidateInventorySha256": "518263f2916c194965415d966271050a24371fd5c5614958a6b1ee0d9d123648",
+    "normalizedComparison": {
+      "ignoredFields": ["line", "formatting", "receiver", "function", "importsServiceFactory"],
+      "baselineAstCallSites": 525,
+      "candidateAstCallSites": 512,
+      "structuralDifferenceCount": 21,
+      "addedCallSiteCount": 4,
+      "removedCallSiteCount": 17,
+      "addedCallSites": [
+        {
+          "source": "src/lib/enquiries/public-enquiry-service.ts",
+          "function": "queuePublicEnquiryNotification",
+          "operationKind": "table",
+          "target": "public.email_events",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "purpose": "Read the enquiry notification dedupe key before queueing an internal MK notification."
+        },
+        {
+          "source": "src/lib/enquiries/public-enquiry-service.ts",
+          "function": "queuePublicEnquiryNotification",
+          "operationKind": "table",
+          "target": "public.email_events",
+          "databaseVerbs": ["INSERT", "SELECT"],
+          "executionContext": "service_role",
+          "purpose": "Queue one internal-only public-enquiry notification with no customer fulfilment side effect."
+        },
+        {
+          "source": "src/lib/enquiries/public-enquiry-service.ts",
+          "function": "recordPublicEnquiryAudit",
+          "operationKind": "table",
+          "target": "public.audit_logs",
+          "databaseVerbs": ["INSERT"],
+          "executionContext": "service_role",
+          "purpose": "Append audit evidence for a public enquiry without a fabricated assessment identity."
+        },
+        {
+          "source": "src/lib/enquiries/public-enquiry-service.ts",
+          "function": "insertEnquiry",
+          "operationKind": "table",
+          "target": "public.data_requests",
+          "databaseVerbs": ["INSERT", "SELECT"],
+          "executionContext": "service_role",
+          "purpose": "Persist an MK-owned public enquiry and return its generated reference."
+        }
+      ],
+      "removedCallSites": [
+        {
+          "source": "src/lib/commercial/customer-order-status.ts",
+          "function": "getCustomerPaidOrderStatus",
+          "operationKind": "rpc",
+          "target": "public.issue_customer_report_access_token",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer access-token issuance."
+        },
+        {
+          "source": "src/lib/commercial/customer-order-status.ts",
+          "function": "getCustomerPaidOrderStatus",
+          "operationKind": "table",
+          "target": "public.report_artifacts",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer package/access presentation."
+        },
+        {
+          "source": "src/lib/commercial/customer-order-status.ts",
+          "function": "getCustomerPaidOrderStatus",
+          "operationKind": "table",
+          "target": "public.reports",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Retired customer-facing automatic-delivery read; manual fulfilment status remains authoritative."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.claim_next_delivery",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer-delivery claim."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "table",
+          "target": "public.reports",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Retired automatic-delivery report lookup."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "table",
+          "target": "public.orders",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Retired automatic-delivery order lookup."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.issue_customer_report_access_token",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer access-token issuance."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.mark_delivery_dispatch_started",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer-delivery dispatch state transition."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.finalize_delivery",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer-delivery finalisation."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.mark_delivery_reconciliation_required",
+          "executionContext": "service_role",
+          "classification": "Retired automatic-delivery reconciliation path."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.fail_delivery",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer-delivery failure transition."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "recordAndNotifyException",
+          "operationKind": "rpc",
+          "target": "public.record_automatic_fulfilment_exception",
+          "executionContext": "service_role",
+          "classification": "Retired automatic-delivery exception path."
+        },
+        {
+          "source": "src/lib/fulfilment/delivery-worker.ts",
+          "function": "processOneDelivery",
+          "operationKind": "rpc",
+          "target": "public.claim_exact_delivery",
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer-delivery claim."
+        },
+        {
+          "source": "src/lib/notifications/phase1-order-notifications.ts",
+          "function": "recordPhase1OrderNotifications",
+          "operationKind": "table",
+          "target": "public.score_runs",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Removed notification dependency on the retired automatic-fulfilment path."
+        },
+        {
+          "source": "src/lib/reports/delivery-recovery-service.ts",
+          "function": "reissueAccessToken",
+          "operationKind": "rpc",
+          "target": "public.reissue_customer_report_access_token",
+          "executionContext": "authenticated_admin_session",
+          "classification": "Retired customer access-token reissue under the manual delivery boundary."
+        },
+        {
+          "source": "src/lib/reports/delivery-recovery-service.ts",
+          "function": "reissueAccessToken",
+          "operationKind": "table",
+          "target": "public.email_events",
+          "databaseVerbs": ["UPDATE"],
+          "executionContext": "service_role",
+          "classification": "Retired automatic customer report-delivery email outcome update."
+        },
+        {
+          "source": "src/lib/reports/delivery-recovery-service.ts",
+          "function": "reissueAccessToken",
+          "operationKind": "table",
+          "target": "public.customer_report_access_tokens",
+          "databaseVerbs": ["SELECT"],
+          "executionContext": "service_role",
+          "classification": "Retired customer access-token reissue lookup."
+        }
+      ]
+    },
+    "capabilityLevelDelta": {
+      "newDirectTableTarget": false,
+      "removedDirectTableTarget": false,
+      "newTableVerb": false,
+      "removedTableVerb": false,
+      "newRpcCaller": false,
+      "removedRpcCallers": [
+        "public.claim_exact_delivery(uuid,uuid,text,integer)",
+        "public.claim_next_delivery(text,integer)",
+        "public.fail_delivery(uuid,uuid,text,text,text)",
+        "public.finalize_delivery(uuid,uuid,text)",
+        "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
+        "public.mark_delivery_dispatch_started(uuid,uuid)",
+        "public.mark_delivery_reconciliation_required(uuid,uuid,text,text)"
+      ],
+      "newDynamicDatabaseTarget": false,
+      "newStorageAuthority": false,
+      "removedStorageAuthority": false,
+      "newAuthAdminAuthority": false,
+      "removedAuthAdminAuthority": false,
+      "newServiceRoleGrant": false,
+      "existingTableVerbSetsUnchanged": true,
+      "approvedExistingTargetsUsedByAddedCallSites": {
+        "public.data_requests": ["INSERT", "SELECT"],
+        "public.email_events": ["INSERT", "SELECT"],
+        "public.audit_logs": ["INSERT"]
+      }
+    },
+    "activeInventory": {
+      "astCallSites": 512,
+      "directServiceRoleTableTargets": 61,
+      "serviceRoleRpcCallers": 59,
+      "storageApiCallSites": 34,
+      "authAdminApiCallSites": 0,
+      "retiredServiceRoleRpcEntriesRemovedFromManifest": [
+        "public.claim_exact_delivery(uuid,uuid,text,integer)",
+        "public.claim_next_delivery(text,integer)",
+        "public.fail_delivery(uuid,uuid,text,text,text)",
+        "public.finalize_delivery(uuid,uuid,text)",
+        "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
+        "public.mark_delivery_dispatch_started(uuid,uuid)",
+        "public.mark_delivery_reconciliation_required(uuid,uuid,text,text)"
+      ],
+      "manifestTablesWithoutActiveCaller": [],
+      "manifestServiceRoleRpcEntriesWithoutActiveCaller": []
+    },
+    "ownerApproval": "Owner authorised this manual-fulfilment CI contract reconciliation on 2026-08-31. The four new service-role call sites are within existing data_requests, email_events and audit_logs capabilities; retired automatic-delivery callers are removed from the active manifest without changing database ACLs.",
+    "conclusion": "The manual V1.2 fulfilment correction adds four service-role call sites only on already-approved public.data_requests, public.email_events and public.audit_logs targets, and removes seventeen retired automatic-delivery/access-token call sites including seven RPC callers. There is no new direct table target, table verb, RPC authority, dynamic database target, Storage/Auth Admin authority or privilege expansion."
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
