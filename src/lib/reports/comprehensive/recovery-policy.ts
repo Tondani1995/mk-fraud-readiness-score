@@ -11,10 +11,9 @@ import {
 
 export const COMPREHENSIVE_RECOVERY_POLICY_VERSION = 'mk-comprehensive-v12-essential-aligned-recovery-v1' as const;
 
-export const COMPREHENSIVE_PRIMARY_MODEL = 'openai/gpt-5.6-luna' as const;
+export const COMPREHENSIVE_PRIMARY_MODEL = 'openai/gpt-5.6-terra' as const;
 export const COMPREHENSIVE_TECHNICAL_MODEL_CHAIN = Object.freeze([
   COMPREHENSIVE_PRIMARY_MODEL,
-  'openai/gpt-5.6-terra',
   'openai/gpt-5.6-sol'
 ] as const);
 
