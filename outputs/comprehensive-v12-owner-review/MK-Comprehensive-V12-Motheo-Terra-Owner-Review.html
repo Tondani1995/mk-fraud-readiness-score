@@ -1,0 +1,451 @@
+<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>Fraud Readiness Strategy and Control Blueprint · Motheo Financial Services (Pty) Ltd</title><style>
+  :root{
+  --mk-navy-900: #01123A;
+  --mk-navy-700: #142F4C;
+  --mk-navy-500: #2C4A6B;
+  --mk-ink: #1A2634;
+  --mk-muted: #47515A;
+  --mk-slate: #47515A;
+  --mk-rule: #D9E1E7;
+  --mk-cream: #FBF9F5;
+  --mk-white: #FFFFFF;
+  --mk-brass: #C9A227;
+  --mk-brass-text: #7A6011;
+  --mk-brass-soft: #F0E6C8;
+  --mk-critical: #A32020;
+  --mk-critical-bg: #FBEDED;
+  --mk-major: #B8761F;
+  --mk-major-bg: #FDF4E7;
+  --mk-confirmed: #1F6B4A;
+  --mk-confirmed-bg: #EDF5F0;
+  --mk-neutral: var(--mk-navy-700);
+  --mk-neutral-bg: var(--mk-cream);
+  --mk-white-25: rgba(255, 255, 255, .25);
+  --mk-white-35: rgba(255, 255, 255, .35);
+  --mk-navy-grid: rgba(16, 46, 87, .06);
+  --mk-navy-rule: rgba(20, 47, 76, .18);
+}
+  @page{size:A4;margin:17mm 16mm 20mm}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:10.6pt/1.58 Arial,Helvetica,sans-serif;color:var(--mk-ink);background:#fff}
+  .cover{height:260mm;page-break-after:always;background:var(--mk-navy-900);color:#fff;padding:24mm 20mm;display:flex;flex-direction:column;justify-content:space-between}
+  .cover .eyebrow,.chapter-marker{text-transform:uppercase;letter-spacing:.13em;font-size:7.5pt;font-weight:700}
+  .cover .eyebrow{color:var(--mk-brass)}
+  .cover h1{font-size:35pt;line-height:1.02;letter-spacing:-.035em;max-width:155mm;margin:8mm 0 5mm}
+  .cover h2{font-size:15pt;font-weight:400;color:#dfe7ed;margin:0;max-width:150mm}
+  .cover-score{display:flex;align-items:flex-end;gap:10mm;border-top:1px solid #ffffff35;padding-top:9mm}
+  .cover-score strong{font-size:38pt;line-height:.9;color:#fff}
+  .cover-score.positive strong{color:var(--mk-confirmed)}
+  .cover-score.watch strong{color:var(--mk-major)}
+  .cover-score.critical strong{color:var(--mk-critical)}
+  .cover-score span{display:block;color:#dfe7ed}
+  .cover-meta{font-size:9pt;color:#dfe7ed}
+  .chapter{break-before:page;padding-top:2mm}
+  .chapter-marker{color:var(--mk-muted);margin-bottom:5mm}
+  .tone-positive .chapter-marker{color:var(--mk-confirmed)}
+  .chapter h2{font-size:25pt;line-height:1.08;letter-spacing:-.025em;color:var(--mk-navy-700);margin:0 0 8mm;max-width:165mm}
+  .narrative-block{max-width:168mm;margin-bottom:8mm}
+  .narrative-block h3{font-size:14.5pt;color:var(--mk-navy-700);margin:7mm 0 3mm}
+  .narrative-copy{max-width:162mm}
+  .narrative-copy p{margin:0 0 4.5mm;font-size:11pt;line-height:1.6}
+  .management-implication{margin:7mm 0 8mm;padding:4.5mm 5mm;border-left:4px solid var(--mk-navy-700);background:var(--mk-neutral-bg);break-inside:avoid}
+  .management-implication span{font-size:7.5pt;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--mk-muted)}
+  .management-implication p{font-size:11.2pt;margin:1.5mm 0 0}
+  .management-implication.positive{border-left-color:var(--mk-confirmed);background:var(--mk-confirmed-bg)}
+  .management-implication.watch{border-left-color:var(--mk-major);background:var(--mk-neutral-bg)}
+  .management-implication.critical{border-left-color:var(--mk-critical);background:var(--mk-critical-bg)}
+  .exhibit{break-inside:avoid;margin:10mm 0 4mm;padding-top:5mm;border-top:1px solid var(--mk-rule)}
+  figcaption{display:flex;justify-content:space-between;gap:8mm;align-items:baseline;margin-bottom:5mm}
+  figcaption strong{font-size:12pt;color:var(--mk-navy-700)}
+  figcaption span{font-size:8.5pt;color:var(--mk-muted);text-align:right;max-width:78mm}
+  .positive-exhibit{border-top:2px solid var(--mk-confirmed)}
+  .positive-exhibit .priority-item,.positive-exhibit .control-item{border-left:2px solid var(--mk-confirmed);padding-left:4mm}
+  .watch-exhibit{border-top:2px solid var(--mk-major)}
+  .domain-profile{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm 9mm}
+  .domain-label{display:flex;justify-content:space-between;gap:4mm;font-size:8.8pt;margin-bottom:1mm}
+  .domain-label strong{color:var(--mk-navy-700)}
+  .bar{height:3mm;background:var(--mk-neutral-100);border-radius:8px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--mk-navy-500)}
+  .bar i.positive{background:var(--mk-confirmed)}
+  .bar i.watch{background:var(--mk-major)}
+  .bar i.critical{background:var(--mk-critical)}
+  .strength-grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+  .strength-grid article,.priority-item,.control-item,.decision-item,.scenario-stack article{break-inside:avoid}
+  .strength-grid article{padding:4mm 0;border-bottom:1px solid var(--mk-rule)}
+  h4{font-size:11pt;color:var(--mk-navy-700);margin:0 0 2mm}
+  .strength-grid p,.priority-item p,.control-item p,.decision-item p,.scenario-stack p{margin:0 0 3mm}
+  .priority-stack,.control-stack,.decision-stack,.scenario-stack{display:grid;gap:6mm}
+  .priority-item,.control-item,.decision-item,.scenario-stack article{padding:5mm 0;border-bottom:1px solid var(--mk-rule)}
+  .priority-item:last-child,.control-item:last-child,.decision-item:last-child,.scenario-stack article:last-child{border-bottom:0}
+  .fact-strip{display:flex;flex-wrap:wrap;gap:3mm 7mm;font-size:8.3pt;color:var(--mk-muted);margin-top:3mm}
+  .fact-strip b{color:var(--mk-ink)}
+  .watchpoint{color:var(--mk-ink);background:transparent;border-left:2px solid var(--mk-major);padding:1.5mm 0 1.5mm 3mm;margin-top:3mm!important;font-size:8.7pt}
+  .options{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin:4mm 0}
+  .options div{background:var(--mk-neutral-bg);padding:3.5mm}
+  .options strong,.options span,.options small{display:block}
+  .options span{margin:1.5mm 0}
+  .options small,.small{font-size:8.3pt;color:var(--mk-muted)}
+  .recommended{color:var(--mk-confirmed)}
+  .stage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
+  .stage-grid article{padding:4mm;background:var(--mk-confirmed-bg);border-top:3px solid var(--mk-confirmed);min-height:36mm}
+  .stage-grid .muted-stage{background:var(--mk-neutral-bg);border-top-color:var(--mk-rule)}
+  .stage-name{font-weight:700;font-size:8pt;letter-spacing:.08em;color:var(--mk-confirmed)}
+  .companion{break-before:page;background:var(--mk-neutral-bg);padding:12mm 10mm;margin-top:10mm;border-top:3px solid var(--mk-navy-700)}
+  .companion h2{font-size:19pt}
+  .companion p{max-width:155mm}
+  .sheet-list{display:flex;flex-wrap:wrap;gap:2mm;margin-top:5mm}
+  .sheet-list span{padding:2mm 3mm;border:1px solid var(--mk-rule);background:#fff;font-size:8pt}
+  .scope-note{break-inside:avoid;margin:10mm 0 0;padding-top:5mm;border-top:1px solid var(--mk-rule);font-size:8.8pt;color:var(--mk-muted)}
+  </style></head><body><section class="cover">
+    <div>
+      <div class="eyebrow">MK Fraud Readiness · Comprehensive</div>
+      <h1>Fraud Readiness Strategy and Control Blueprint</h1>
+      <h2>Motheo Financial Services (Pty) Ltd</h2>
+    </div>
+    <div class="cover-score positive">
+      <strong>80</strong>
+      <div><span>Fraud Readiness Score / 100</span><span>Strategic · Sustainment</span></div>
+    </div>
+    <div class="cover-meta">Assessment MKFRS-V12-COMP-MOTHEO · Confidential</div>
+  </section><section class="chapter tone-positive" data-chapter="EXECUTIVE-ASSESSMENT">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 01</div>
+    <h2>Executive assessment</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>Motheo Financial Services (Pty) Ltd has an assessed fraud readiness score of 80 out of 100, placing it at Strategic maturity. This is a strong assessed position and indicates that fraud readiness is established as a management discipline rather than treated as an isolated control topic.</p><p>The management task is therefore preservation, not corrective remediation. The assessment responses did not identify material weaknesses. The value of the current position will be retained where leadership continues to protect accountable ownership, timely review, clear escalation and a current understanding of fraud risk as the operating context changes.</p><p>This assessment is based on management’s own responses and the MK scoring method. It is strategic fraud-risk analysis and control design, without verification of operating effectiveness by this review.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>The result is the starting point for the connected management story.</p>
+    </aside>
+  </div>
+    <figure class="exhibit profile-exhibit">
+    <figcaption><strong>Readiness profile</strong><span>The profile supports the narrative. It is not the narrative itself.</span></figcaption>
+    <div class="domain-profile">
+      <div class="domain-row">
+          <div class="domain-label"><span>Fraud Leadership and Governance</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Risk Identification</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Operational Fraud Controls</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Detection Capability</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Incident Response</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Whistleblowing and Reporting Culture</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Third-Party and Supply Chain Fraud Risk</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Digital and Identity Fraud Risk</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Culture and Awareness</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Continuous Improvement and Fraud Risk Monitoring</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div>
+    </div>
+  </figure><figure class="exhibit positive-exhibit">
+    <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that the narrative explains and management should preserve.</span></figcaption>
+    <div class="strength-grid">
+      <article><h4>Fraud Leadership and Governance is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Fraud Risk Identification is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Operational Fraud Controls is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="ANALYTICAL-BASIS">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 02</div>
+    <h2>Analytical basis</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The assessed position is supported by a notably consistent profile. Each of the ten assessed domains recorded a score of 80 out of 100, with full assessed coverage and no critical gaps recorded. The pattern matters because it indicates that readiness is not dependent on an isolated area of strength. Governance, risk identification, operational controls, detection, response, reporting culture, third-party risk, digital and identity risk, awareness, and continuous improvement are all represented within the assessed profile.</p><p>The strongest explicitly identified capabilities are Fraud Leadership and Governance, Fraud Risk Identification, and Operational Fraud Controls. Each is recorded as an established capability at 80 out of 100. Together, these disciplines provide the foundation for sustained readiness. Leadership and governance establish direction and accountability. Fraud risk identification keeps management attention connected to material processes and changing conditions. Operational controls translate the risk view into day-to-day safeguards.</p><p>The wider domain pattern reinforces this foundation. A consistent position in Fraud Detection Capability and Fraud Incident Response supports the ability to identify and manage concerns through an organised response route. Whistleblowing and Reporting Culture, Fraud Culture and Awareness, and Continuous Improvement and Fraud Risk Monitoring provide the management disciplines required to keep the environment visible and current over time. Third-Party and Supply Chain Fraud Risk, together with Digital and Identity Fraud Risk, are particularly relevant to an organisation operating technology, digital or platform services, using external suppliers and intermediaries, operating customer digital channels and accepting digital payments.</p><p>The assessment also records a mixed operating environment that includes physical cash handling, stock or valuable physical assets, internally delivered payroll, manual financial or stock adjustments, distributed operations, temporary, seasonal or subcontracted workers, and remote access to systems or organisation data. These characteristics do not alter the strong assessed position, but they underline why consistent governance, current risk assessment and disciplined monitoring remain important. The recorded arrangement of two or more people approving higher-risk payments or significant spending is also aligned with the broader pattern of established operational control discipline.</p><p>The analytical conclusion is bounded. It follows from the recorded management responses and the MK scoring method. It does not constitute independent confirmation that controls are operating effectively in practice.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>The analytical basis is transparent and bounded.</p>
+    </aside>
+  </div>
+    <figure class="exhibit profile-exhibit">
+    <figcaption><strong>Readiness profile</strong><span>The profile supports the narrative. It is not the narrative itself.</span></figcaption>
+    <div class="domain-profile">
+      <div class="domain-row">
+          <div class="domain-label"><span>Fraud Leadership and Governance</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Risk Identification</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Operational Fraud Controls</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Detection Capability</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Incident Response</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Whistleblowing and Reporting Culture</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Third-Party and Supply Chain Fraud Risk</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Digital and Identity Fraud Risk</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Fraud Culture and Awareness</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div><div class="domain-row">
+          <div class="domain-label"><span>Continuous Improvement and Fraud Risk Monitoring</span><strong>80</strong></div>
+          <div class="bar"><i class="positive" style="width:80%"></i></div>
+        </div>
+    </div>
+  </figure><figure class="exhibit positive-exhibit">
+    <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that the narrative explains and management should preserve.</span></figcaption>
+    <div class="strength-grid">
+      <article><h4>Fraud Leadership and Governance is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Fraud Risk Identification is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Operational Fraud Controls is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="READINESS-SUPPORTING-STANDARDS">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 03</div>
+    <h2>Strengths supporting readiness</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The principal strength of the assessed profile is its coherence. Fraud readiness appears as a connected management environment rather than a series of disconnected measures. The established position in leadership and governance gives fraud risk a route for ownership, reporting and escalation. The established position in fraud risk identification gives that governance structure an informed basis for prioritisation. The established position in operational fraud controls provides the means to translate those priorities into consistent practice.</p><p>This combination is valuable because it joins strategic oversight to operational action. A fraud-risk programme is more durable where senior accountability is explicit, material exceptions remain visible, and reporting reaches the governing body through a defined route. It is equally durable where the fraud-risk view is structured, repeatable, assigned to named owners and linked to treatment actions. These disciplines help management distinguish between a control environment that exists on paper and one that remains actively governed.</p><p>The uniformly strong domain profile adds breadth to these core strengths. Detection capability and incident response support a management environment in which concerns can be recognised and addressed. Reporting culture and awareness support the flow of relevant information into management processes. Third-party, supply-chain, digital and identity risk disciplines extend readiness across the external relationships, digital channels, payments and information handling recorded in the assessment. Continuous improvement and monitoring complete the cycle by ensuring that the organisation’s readiness can be revisited as circumstances develop.</p><p>The management implication is positive and clear. The organisation has an assessed foundation capable of being sustained. Its durability will depend on retaining visible ownership, maintaining the scheduled rhythm of review, preserving action closure discipline and keeping current records that allow management to see whether the standard remains in place.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>Strength is durable when its operating rhythm remains visible.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that the narrative explains and management should preserve.</span></figcaption>
+    <div class="strength-grid">
+      <article><h4>Fraud Leadership and Governance is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Fraud Risk Identification is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article><article><h4>Operational Fraud Controls is an established capability in the assessed profile</h4><p>The assessed domain position is 80 out of 100.</p></article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="SUSTAINMENT-PRIORITIES">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 04</div>
+    <h2>Sustainment and resilience priorities</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The priority for the next stage is to make the current standard repeatable through normal management routines. Sustainment should not be treated as a deficiency list. It is the discipline of ensuring that established capability remains owned, reviewed, evidenced and responsive to change.</p><p>The first priority is to sustain fraud leadership and governance readiness. The recorded standard is that a named senior executive owns the fraud-risk programme, its budget, unresolved exceptions and reporting to the governing body. This creates a direct management route from fraud-risk activity to oversight. The operating rhythm is quarterly governance reporting, supported by monthly review of overdue actions. The key preservation test is whether every material fraud action has a funded owner and due date, with overdue items escalated within 30 days. A material action without an owner, or one overdue by more than 30 days, should be treated as a deterioration signal requiring attention through the named ownership and oversight route.</p><p>The second priority is to sustain continuous improvement and fraud risk monitoring readiness. The recorded standard is a scheduled review that reassesses fraud risks, considers whether key controls continue to operate as designed, and reports a consolidated position with owned actions to governance. The focus is not merely completion of a review cycle. It is whether control-effectiveness measures, review records, exceptions and improvement actions stay within the ordinary management rhythm. The intended cadence is at least annual review, with further review after a material incident or restructuring. Management should independently review the relevant control information through its normal governance route and ensure that any identified deterioration has a named owner and due date.</p><p>The third priority is to sustain fraud risk identification readiness. The recorded standard is a structured fraud risk assessment completed within the past two years, covering material processes through a repeatable method, inherent and residual risk ratings, named owners and a tracked treatment plan. This is the bridge between changes in the operating model and the continuing relevance of fraud controls. The full assessment should remain within a two-year cycle, with an interim refresh after material change. The core indicator is that the assessment remains less than 24 months old, covers all material processes and is supported by an approved, current treatment plan. An assessment becoming older than 24 months, or a material residual-risk change without a funded owner and due date, is a condition to monitor rather than evidence of a current deficiency.</p><p>Across all three priorities, the retained management record is important. Accountability mandates, governance packs, action logs, review scopes, exception records, risk assessments, treatment plans and approval records provide the means for management to maintain continuity and identify drift before it affects the assessed standard.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>Sustainment is an operating rhythm, not a deficiency list.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>Resilience priorities</strong><span>These are disciplines to preserve, not findings or weaknesses.</span></figcaption>
+    <div class="priority-stack">
+      <article class="priority-item">
+        <div><h4>Sustain fraud leadership and governance readiness</h4><p>Preserve clear senior ownership, decision rights and escalation routes for fraud risk.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> 100% of material fraud actions have a funded owner and due date, with overdue items escalated within 30 days.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> Any material control action without an owner or more than 30 days overdue.</p>
+      </article><article class="priority-item">
+        <div><h4>Sustain continuous improvement and fraud risk monitoring readiness</h4><p>Keep control-effectiveness measures, review records and improvement actions in the normal management rhythm.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> Every key control is evidence-tested within the review cycle, with deterioration addressed by due date.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> review overdue, or a key control has deteriorated without a named owner.</p>
+      </article><article class="priority-item">
+        <div><h4>Sustain fraud risk identification readiness</h4><p>Keep the fraud-risk view current and connected to management review when the operating model changes.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> Assessment older than 24 months, or any material residual-risk change without a funded owner and due date.</p>
+      </article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-watch" data-chapter="DETERIORATION-WATCHPOINTS">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 05</div>
+    <h2>Emerging or deterioration watchpoints</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The strong assessed position should be monitored through defined future-condition watchpoints. These are not current failures. They are practical indicators that the conditions supporting readiness may be weakening following change, competing priorities or a break in the management rhythm.</p><p>The first watchpoint concerns ownership and action closure. The governing standard depends on a named senior executive owning the fraud-risk programme, its budget, unresolved exceptions and reporting route. Deterioration would become visible if a material control action had no owner or remained overdue for more than 30 days. This is significant because unowned or persistently overdue actions can disconnect governance reporting from practical follow-through. The appropriate management response is to ensure that accountability, oversight routes and the review calendar remain current, rather than to create an additional structure without a clear need.</p><p>The second watchpoint concerns the continuity of the control-effectiveness review cycle. The assessed standard depends on a scheduled review that brings together fraud-risk reassessment, management consideration of key controls, exceptions and owned actions. A review becoming overdue, or a key control deteriorating without a named owner, would indicate that the cycle needs renewed management attention. This watchpoint is especially relevant after material incidents or restructuring, when established routines may need to be refreshed against changed conditions.</p><p>The third watchpoint concerns the currency of the fraud-risk assessment and treatment plan. A fraud-risk assessment older than 24 months, or a material residual-risk change without a funded owner and due date, would indicate that the risk view may no longer be sufficiently connected to the operating environment. This is a forward-looking concern because the assessment records a varied environment involving digital channels and payments, personal or identity information, supplier and intermediary relationships, cash, physical assets, manual adjustments, distributed operations, temporary or subcontracted workers and remote access. Material change in those conditions should trigger consideration of whether the fraud-risk view and associated treatment plans remain current.</p><p>The early implementation route provides a practical way to keep these watchpoints visible. Within the first 30 days, management should confirm the accountable executive, process owner, oversight route and next review date. Within the following 31 to 90 days, the scheduled control-effectiveness review should be completed through the normal route, with any exceptions assigned for action. By the end of the 90-day period, selected effectiveness indicators should be included in management information and change-triggered reviews recorded. This sequence is intended to preserve the current standard and make deterioration visible, not to imply that the standard is presently absent.</p></div>
+    <aside class="management-implication watch">
+      <span>Management implication</span>
+      <p>Watchpoints make the strong position maintainable.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>Control disciplines to preserve and strengthen</strong><span>Compact operating specifications only. Full control blueprints remain in the workbook.</span></figcaption>
+    <div class="control-stack">
+      <article class="control-item">
+        <h4>Preserve a named senior executive owns the fraud-risk programme, its budget, unresolved exceptions and reporting to the governing body and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> Quarterly governance reporting; monthly overdue-action review</span>
+          <span><b>Measure</b> 100% of material fraud actions have a funded owner and due date, with overdue items escalated within 30 days.</span>
+        </div>
+      </article><article class="control-item">
+        <h4>Preserve a scheduled review reassesses fraud risks, tests whether key controls still operate as designed, and reports a consolidated position with owned actions to governance and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> At least annually, and after any material incident or restructuring</span>
+          <span><b>Measure</b> Every key control is evidence-tested within the review cycle, with deterioration addressed by due date.</span>
+        </div>
+      </article><article class="control-item">
+        <h4>Preserve a structured fraud risk assessment completed within the past two years covers the material processes, uses a repeatable method, rates inherent and residual risk, names owners and produces a tracked treatment plan and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> Full assessment at least every two years, with interim refresh on material change</span>
+          <span><b>Measure</b> A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.</span>
+        </div>
+      </article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="TARGET-RESILIENT-CONTROL-ENVIRONMENT">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 06</div>
+    <h2>Target resilient control environment</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The target environment is one in which the current strong standard remains explicitly owned, periodically reviewed and responsive to material change. It should preserve the disciplines already reflected in the assessment while making their operation visible to management through clear responsibilities, retained records, escalation triggers and defined indicators.</p><p>For fraud leadership and governance, the target state is a continuing mandate under which the CEO or Managing Director is accountable and a named fraud-risk executive acts as process owner. The full in-scope population should remain subject to the governance standard. Quarterly governance reporting and monthly overdue-action review should maintain visibility over the fraud-risk programme, budget, unresolved exceptions and reporting to the governing body. Records should include the executive accountability mandate, recent governance packs and the overdue-action escalation log. Management should independently review the relevant control-effectiveness information through the normal governance route. Any material action without an owner, or overdue by more than 30 days, should be escalated in the next scheduled management cycle and after material change. The intended indicator is complete assignment of funded owners and due dates for material fraud actions, with overdue items escalated within 30 days.</p><p>For continuous improvement and fraud risk monitoring, the target state is a scheduled review process owned by the Head of Risk, with accountability retained by the CEO or Managing Director. The process should cover the complete in-scope population for the standard, occur at least annually and be refreshed after a material incident or restructuring. The retained record should include the review scope and schedule, sampled key-control operating information from the period, a control currency and deterioration record, and a consolidated report to governance containing actions and due dates. Management should use the normal governance route to review whether key controls remain current and whether exceptions are being addressed. A review becoming overdue, or a key control deteriorating without a named owner, should trigger escalation and a recorded management response. The intended measure is that each key control is considered within the review cycle and that identified deterioration is addressed by its due date.</p><p>For fraud risk identification, the target state is a current, structured assessment owned by the Head of Risk and accountable to the CEO or Managing Director. It should continue to cover material processes, use a repeatable method, record inherent and residual risk, name owners and maintain an approved treatment plan with due dates. The assessment should be completed at least every two years, with an interim refresh where material change affects the operating context. Supporting records should include the dated assessment report, documented method and participant list, scenario-level ratings, approved treatment plan and governing-body approval record. Management should independently review the assessment and treatment information through the normal governance route. If the assessment exceeds 24 months, or a material residual-risk change lacks a funded owner and due date, the matter should be escalated and the management response recorded. The target indicator is a current assessment covering material processes with an approved, in-date treatment plan.</p><p>The common principle is that resilience depends on more than the existence of a control design. It depends on sustained ownership, current information, clear challenge and timely action when a deterioration signal arises.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>The target state protects what is already working and makes deterioration visible.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>Control disciplines to preserve and strengthen</strong><span>Compact operating specifications only. Full control blueprints remain in the workbook.</span></figcaption>
+    <div class="control-stack">
+      <article class="control-item">
+        <h4>Preserve a named senior executive owns the fraud-risk programme, its budget, unresolved exceptions and reporting to the governing body and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> Quarterly governance reporting; monthly overdue-action review</span>
+          <span><b>Measure</b> 100% of material fraud actions have a funded owner and due date, with overdue items escalated within 30 days.</span>
+        </div>
+      </article><article class="control-item">
+        <h4>Preserve a scheduled review reassesses fraud risks, tests whether key controls still operate as designed, and reports a consolidated position with owned actions to governance and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> At least annually, and after any material incident or restructuring</span>
+          <span><b>Measure</b> Every key control is evidence-tested within the review cycle, with deterioration addressed by due date.</span>
+        </div>
+      </article><article class="control-item">
+        <h4>Preserve a structured fraud risk assessment completed within the past two years covers the material processes, uses a repeatable method, rates inherent and residual risk, names owners and produces a tracked treatment plan and detect deterioration when the operating context changes.</h4>
+        <p>The current standard remains owned, reviewed and responsive to material change.</p>
+        <div class="fact-strip">
+          <span><b>Accountable</b> CEO / Managing Director</span>
+          <span><b>Operate</b> Full assessment at least every two years, with interim refresh on material change</span>
+          <span><b>Measure</b> A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.</span>
+        </div>
+      </article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="LEADERSHIP-DECISIONS-TO-PRESERVE">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 07</div>
+    <h2>Leadership decisions to preserve maturity</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>Leadership should make an explicit preservation choice across governance, continuous improvement and fraud risk identification: retain the current management cadence, introduce a simple deterioration indicator and refresh the relevant review after material change. This is the recommended route because it protects the strong assessed position without creating unnecessary additional overhead.</p><p>For governance, management may maintain the current review cadence with a change-triggered refresh, add a focused management-information view for deterioration indicators, or place the priority into the next resilience or control-effectiveness review cycle. Maintaining the existing cadence makes best use of the established management rhythm and preserves ownership with minimal additional overhead. Its trade-off is that disciplined attendance and action closure must remain reliable. A focused management-information view requires modest reporting and data-owner capacity, but makes early deterioration visible before the standard is materially affected. Using the next planned review cycle connects the priority to the wider control environment and change agenda, while accepting that timing will follow the established calendar.</p><p>The same decision logic applies to continuous improvement and fraud risk monitoring. Management should protect the scheduled review route, make overdue review or unowned deterioration visible in management information, and require a refresh after material change. The benefit is continuity between the fraud-risk view, control review, exception management and action closure. The trade-off is a recurring obligation to maintain current data, attend the review rhythm and close actions through the agreed route.</p><p>For fraud risk identification, leadership should preserve the two-year full assessment cycle and require interim refresh where material operating conditions change. A simple indicator should show whether the assessment remains current, whether material processes remain covered and whether material residual-risk changes have funded owners and due dates. This approach supports management oversight without turning the assessment into a static periodic document. It does, however, require clear recognition of change triggers and timely follow-through when they arise.</p><p>The accountable executive for these decisions is the CEO or Managing Director. The recommended route is to be established within the next 90 days. Delay would not indicate a current failure, but it could allow ownership or review discipline to drift after change without an early management signal.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>The decisions keep ownership and review routes current.</p>
+    </aside>
+  </div>
+    <figure class="exhibit">
+    <figcaption><strong>Leadership choices</strong><span>The narrative explains why the choice matters; this exhibit keeps the options visible.</span></figcaption>
+    <div class="decision-stack">
+      <article class="decision-item">
+        <h4>What management rhythm will preserve sustain fraud leadership and governance readiness as the organisation changes?</h4>
+        <p class="recommended"><b>Recommended route:</b> Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.</p>
+        <div class="options"><div><strong>Maintain the current review cadence with a change-triggered refresh.</strong><span>Preserves ownership with minimal additional overhead.</span><small>Requires disciplined attendance and action closure.</small></div><div><strong>Add a focused management-information view for deterioration indicators.</strong><span>Makes early deterioration visible before the standard is materially affected.</span><small>Adds a recurring reporting obligation.</small></div><div><strong>Include the priority in the next resilience or control-effectiveness review cycle.</strong><span>Connects sustainment to the wider control environment and change agenda.</span><small>Timing follows the established review calendar.</small></div></div>
+        <p class="small"><b>Owner:</b> CEO / Managing Director · <b>Target:</b> Within the next 90 days · <b>If delayed:</b> Ownership or review discipline may drift after change without an early management signal.</p>
+      </article><article class="decision-item">
+        <h4>What management rhythm will preserve sustain continuous improvement and fraud risk monitoring readiness as the organisation changes?</h4>
+        <p class="recommended"><b>Recommended route:</b> Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.</p>
+        <div class="options"><div><strong>Maintain the current review cadence with a change-triggered refresh.</strong><span>Preserves ownership with minimal additional overhead.</span><small>Requires disciplined attendance and action closure.</small></div><div><strong>Add a focused management-information view for deterioration indicators.</strong><span>Makes early deterioration visible before the standard is materially affected.</span><small>Adds a recurring reporting obligation.</small></div><div><strong>Include the priority in the next resilience or control-effectiveness review cycle.</strong><span>Connects sustainment to the wider control environment and change agenda.</span><small>Timing follows the established review calendar.</small></div></div>
+        <p class="small"><b>Owner:</b> CEO / Managing Director · <b>Target:</b> Within the next 90 days · <b>If delayed:</b> Ownership or review discipline may drift after change without an early management signal.</p>
+      </article><article class="decision-item">
+        <h4>What management rhythm will preserve sustain fraud risk identification readiness as the organisation changes?</h4>
+        <p class="recommended"><b>Recommended route:</b> Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.</p>
+        <div class="options"><div><strong>Maintain the current review cadence with a change-triggered refresh.</strong><span>Preserves ownership with minimal additional overhead.</span><small>Requires disciplined attendance and action closure.</small></div><div><strong>Add a focused management-information view for deterioration indicators.</strong><span>Makes early deterioration visible before the standard is materially affected.</span><small>Adds a recurring reporting obligation.</small></div><div><strong>Include the priority in the next resilience or control-effectiveness review cycle.</strong><span>Connects sustainment to the wider control environment and change agenda.</span><small>Timing follows the established review calendar.</small></div></div>
+        <p class="small"><b>Owner:</b> CEO / Managing Director · <b>Target:</b> Within the next 90 days · <b>If delayed:</b> Ownership or review discipline may drift after change without an early management signal.</p>
+      </article>
+    </div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="SUSTAINMENT-OPTIMISATION">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 08</div>
+    <h2>Twelve-month sustainment and optimisation blueprint</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>The twelve-month route should begin by preserving the current standard, then embed the management rhythm, measure the information generated by that rhythm and use the resulting insight to mature the environment deliberately. The sequence is designed to strengthen continuity while leaving room for controlled optimisation after the first cycles are established.</p><p>During the first 30 days, the immediate outcome is that ownership and the review calendar remain current. Management should confirm the accountable executive, named process owners, oversight route and next review date. For fraud leadership and governance, the relevant proof of progress is the current ownership record and approved review calendar. The success condition is that each sustainment priority has a named owner and scheduled review date. This establishes the foundation for later monitoring and ensures that action ownership is visible from the outset.</p><p>During days 31 to 90, management should establish the next control-effectiveness review cycle and make deterioration indicators visible in management information. The control-effectiveness review should be completed through the normal route, with exceptions recorded and assigned where necessary. The review record, exception log and action decisions should be retained. In parallel, management should add the selected effectiveness indicator to its reporting rhythm and record any review triggered by material change. The resulting management information should show whether the agreed indicator is being reported and whether change-triggered reviews are occurring when required.</p><p>From months four to six, the focus moves to embedding. Fraud-risk accountability should be embedded into the governance calendar through named executive ownership, established challenge routes and regular management reporting. Priority fraud-risk decisions should have an accountable executive, recorded route and scheduled review, supported by governance agendas, decision records and action-closure information.</p><p>Over the same period, control performance should be embedded through current measures, review records, exception escalation and action tracking. The intended outcome is that priority controls have current measures, documented reviews and closed improvement actions. Scorecards, review records, exception logs and action-closure information should support management’s ability to see whether the cycle is functioning as intended.</p><p>The fraud-risk register should also be embedded as a living management tool. Priority fraud pathways should remain connected to current owners, linked treatments and a recorded review cadence. Dated risk registers, review records, treatment decisions and evidence of change-triggered review should allow management to keep the risk view connected to the operating environment.</p><p>From months seven to twelve, the environment can mature through repeatability, challenge and trend information. Governance should use trend review, independent challenge and closed-loop improvement to support timely action closure and documented decisions that affect the control environment. Continuous improvement should use measured performance, challenge and controlled design updates so that improvement activity follows information rather than assumption. Fraud risk identification should use trend analysis, emerging-risk review and feedback on treatment effectiveness to update the risk view and control priorities within the agreed management cycle.</p><p>The intended mature state is not a claim of guaranteed protection. It is a management environment in which governance is repeatable, control performance is visible, fraud-risk information is current, and material change is linked to deliberate review and owned action.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>The twelve-month route protects resilience while creating room for deliberate optimisation.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>Twelve-month sustainment path</strong><span>Progression and outcomes, not a register dump.</span></figcaption>
+    <div class="stage-grid"><article class="supported">
+      <span class="stage-name">PRESERVE</span><p>Preserve the assessed readiness standard through a deliberate sustainment rhythm.</p>
+    </article><article class="supported">
+      <span class="stage-name">EMBED</span><p>Embed the assessed readiness standard through a deliberate sustainment rhythm.</p>
+    </article><article class="muted-stage">
+      <span class="stage-name">MEASURE</span><p>Measure the assessed readiness standard through a deliberate sustainment rhythm.</p>
+    </article><article class="muted-stage">
+      <span class="stage-name">OPTIMISE</span><p>Optimise the assessed readiness standard through a deliberate sustainment rhythm.</p>
+    </article></div>
+  </figure>
+  </section><section class="chapter tone-positive" data-chapter="MANAGEMENT-CONCLUSION">
+    <div class="chapter-marker">MK Fraud Readiness · Comprehensive · 09</div>
+    <h2>Management conclusion</h2>
+    <div class="narrative-block">
+    
+    <div class="narrative-copy"><p>Motheo Financial Services (Pty) Ltd has a strong assessed fraud readiness position at Strategic maturity. The appropriate management commitment is to preserve that position through sustained ownership, regular review and early detection of drift.</p><p>The core disciplines are clear. Fraud leadership and governance should remain visibly owned and supported by timely escalation of overdue material actions. Continuous improvement and fraud risk monitoring should retain a scheduled review cycle, current management information and owned treatment of exceptions. Fraud risk identification should remain current, structured and refreshed when material change affects the operating context.</p><p>The first twelve months should therefore be used to confirm accountability and review dates, complete the planned review cycle, make deterioration indicators visible, embed the governance and control rhythm, and mature the use of trend information and management challenge. Readiness will hold where these disciplines are revisited after material change and where resulting actions remain clearly owned through closure.</p></div>
+    <aside class="management-implication positive">
+      <span>Management implication</span>
+      <p>Readiness holds only where it is revisited after material change.</p>
+    </aside>
+  </div>
+    <figure class="exhibit positive-exhibit">
+    <figcaption><strong>Resilience priorities</strong><span>These are disciplines to preserve, not findings or weaknesses.</span></figcaption>
+    <div class="priority-stack">
+      <article class="priority-item">
+        <div><h4>Sustain fraud leadership and governance readiness</h4><p>Preserve clear senior ownership, decision rights and escalation routes for fraud risk.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> 100% of material fraud actions have a funded owner and due date, with overdue items escalated within 30 days.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> Any material control action without an owner or more than 30 days overdue.</p>
+      </article><article class="priority-item">
+        <div><h4>Sustain continuous improvement and fraud risk monitoring readiness</h4><p>Keep control-effectiveness measures, review records and improvement actions in the normal management rhythm.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> Every key control is evidence-tested within the review cycle, with deterioration addressed by due date.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> review overdue, or a key control has deteriorated without a named owner.</p>
+      </article><article class="priority-item">
+        <div><h4>Sustain fraud risk identification readiness</h4><p>Keep the fraud-risk view current and connected to management review when the operating model changes.</p></div>
+        <div class="fact-strip">
+          <span><b>Owner</b> CEO / Managing Director</span>
+          <span><b>Indicator</b> A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.</span>
+        </div>
+        <p class="watchpoint"><b>Deterioration signal:</b> Assessment older than 24 months, or any material residual-risk change without a funded owner and due date.</p>
+      </article>
+    </div>
+  </figure>
+  </section><section class="companion">
+    <div class="chapter-marker">Companion analytical record</div>
+    <h2>MK Fraud Readiness Comprehensive Workbook</h2>
+    <p>The companion workbook carries the detailed analytical and implementation record so the management report can remain narrative-led.</p>
+    <div class="sheet-list"><span>Read me</span><span>Summary</span><span>Material Findings</span><span>Risk Register</span><span>Control Blueprints</span><span>Implementation Blueprint</span><span>Management Decisions</span><span>Question Traceability</span></div>
+    <p class="scope-note">The assessment is based on management&#39;s own responses and the MK scoring method. It is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.</p>
+  </section></body></html>

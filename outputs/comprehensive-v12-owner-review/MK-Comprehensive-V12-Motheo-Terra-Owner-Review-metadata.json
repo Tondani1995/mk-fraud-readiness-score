@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "mk-comprehensive-v12-owner-review-capture-v1",
+  "organisation": "Motheo Financial Services (Pty) Ltd",
+  "assessmentReference": "MKFRS-V12-COMP-MOTHEO",
+  "score": 80,
+  "maturity": "Strategic",
+  "accounting": {
+    "architecture": "whole-manuscript",
+    "model": "openai/gpt-5.6-terra",
+    "provider": "openai",
+    "writerCalls": 1,
+    "semanticCalls": 1,
+    "endToEndProviderCalls": 1,
+    "targetedRepairs": 0,
+    "coherencePasses": 0,
+    "semanticSafety": {
+      "contractVersion": "mk-semantic-safety-cascade-v1",
+      "outcome": "ACCEPT",
+      "candidateCount": 0,
+      "deterministicDispositionCounts": {
+        "HARD_REJECT": 0,
+        "MUST_ALLOW": 0,
+        "MUST_REPAIR": 0,
+        "AMBIGUOUS": 0
+      },
+      "generationCalls": 1,
+      "adjudicationCalls": 0,
+      "adjudicationCounts": {
+        "ALLOW_CONTEXT": 0,
+        "REPAIRABLE": 0,
+        "CONFIRMED_VIOLATION": 0,
+        "AMBIGUOUS": 0
+      },
+      "repairCalls": 0,
+      "repairTargetCount": 0,
+      "totalProviderCalls": 1,
+      "confidenceThreshold": 0.8,
+      "decisions": [],
+      "finalResult": "ACCEPT"
+    },
+    "totalTokens": 26493,
+    "writerCostMicros": 103709,
+    "pdfBytes": 259743
+  },
+  "capturedFrom": {
+    "qaBranch": "qa/comprehensive-motheo-owner-review-20260901",
+    "qaHead": "69db4b93ef656593715ed3124db3615d2f4d4d1f",
+    "deploymentRoute": "https://mk-fraud-platform-git-qa-comprehensive-2e648d-tondanis-projects.vercel.app/score/api/qa/comprehensive-v12-motheo-narrative-owner-review"
+  }
+}
