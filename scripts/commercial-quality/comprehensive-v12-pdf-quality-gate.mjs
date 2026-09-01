@@ -112,3 +112,8 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`PASS: ${results.length} Comprehensive V1.2 PDFs survive maximum bounded-interpretation layout stress with zero page-level failures.`);
+// Chromium can leave child-process handles alive in a one-shot Actions runner
+// even after Puppeteer's browser.close() resolves. All evidence is already
+// flushed synchronously above; terminate the CLI explicitly so a successful
+// proof cannot consume the job until its outer timeout.
+process.exit(0);
