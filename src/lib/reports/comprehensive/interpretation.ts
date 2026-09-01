@@ -489,6 +489,50 @@ export interface InterpretationRun {
   accounting: InterpretationAccounting;
 }
 
+export class ComprehensiveInterpretationAcceptanceError extends Error {
+  readonly issueCodes: string[];
+  constructor(message: string, issueCodes: string[] = []) {
+    super(message);
+    this.name = 'ComprehensiveInterpretationAcceptanceError';
+    this.issueCodes = [...issueCodes];
+  }
+}
+
+/**
+ * Final fail-closed boundary between bounded interpretation and customer output.
+ *
+ * Validation issues are not advisory. A report with an unresolved hard-truth,
+ * semantic or quality issue must never be rendered, stored or finalised. Manual
+ * fulfilment authorises one provider call and zero repair calls; the accounting
+ * contract is enforced here alongside content acceptance.
+ */
+export function assertComprehensiveInterpretationAccepted(
+  run: InterpretationRun,
+  limits: { maxCalls?: number; maxRepairs?: number } = {}
+): void {
+  const maxCalls = limits.maxCalls ?? 1;
+  const maxRepairs = limits.maxRepairs ?? 0;
+  if (run.accounting.calls < 1 || run.accounting.calls > maxCalls) {
+    throw new ComprehensiveInterpretationAcceptanceError(
+      `Comprehensive interpretation call budget violated: ${run.accounting.calls} call(s), maximum ${maxCalls}.`,
+      ['CALL_BUDGET']
+    );
+  }
+  if (run.accounting.repairs > maxRepairs) {
+    throw new ComprehensiveInterpretationAcceptanceError(
+      `Comprehensive interpretation repair budget violated: ${run.accounting.repairs} repair(s), maximum ${maxRepairs}.`,
+      ['REPAIR_BUDGET']
+    );
+  }
+  if (run.issues.length > 0) {
+    const codes = [...new Set(run.issues.map((issue) => issue.code))].sort();
+    throw new ComprehensiveInterpretationAcceptanceError(
+      `Comprehensive interpretation failed final acceptance with ${run.issues.length} unresolved issue(s): ${codes.join(', ')}.`,
+      codes
+    );
+  }
+}
+
 /**
  * Same credential rule as the Essential bounded writer: the model string carries
  * the provider, and the gateway is pinned to it so a silent substitution cannot
