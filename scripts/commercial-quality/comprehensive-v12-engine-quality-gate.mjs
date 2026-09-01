@@ -35,7 +35,7 @@ import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 import { claimsVerification } from '../../src/lib/reports/comprehensive/product-contract.ts';
 import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
 import { comprehensiveAssessmentScopeFromData } from '../../src/lib/reports/comprehensive/assessment-scope.ts';
-import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation, assertComprehensiveInterpretationAccepted, ComprehensiveInterpretationAcceptanceError } from '../../src/lib/reports/comprehensive/interpretation.ts';
+import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation, assertComprehensiveInterpretationAccepted, ComprehensiveInterpretationAcceptanceError, COMPREHENSIVE_INTERPRETATION_MODEL } from '../../src/lib/reports/comprehensive/interpretation.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -109,6 +109,9 @@ function proveInterpretationAcceptanceBoundary() {
 }
 
 proveInterpretationAcceptanceBoundary();
+if (COMPREHENSIVE_INTERPRETATION_MODEL !== 'openai/gpt-5.6-luna') {
+  fail('portfolio', 'MODEL_CONTRACT', `Comprehensive writer model drifted to ${COMPREHENSIVE_INTERPRETATION_MODEL}`);
+}
 
 for (const profileKey of Object.keys(profiles)) {
   const { data, score, path: resolvedPath, profile, graph } = buildV12ProfileAssembled(profileKey);
