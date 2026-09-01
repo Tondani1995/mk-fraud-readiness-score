@@ -13,6 +13,7 @@ const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:3211').replace(/\/$/, ''
 const CANDIDATE_SHA = process.env.CANDIDATE_SHA ?? '';
 const OUTPUT = path.resolve(process.env.KEYBOARD_EVIDENCE_PATH ?? `outputs/v12-premium-experience-recovery/${CANDIDATE_SHA || 'local'}/keyboard-a11y-evidence.json`);
 const CHROME_PATH = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const PREVIEW_SHARE_URL = process.env.VERCEL_SHARE_URL ?? null;
 
 if (!CANDIDATE_SHA) throw new Error('CANDIDATE_SHA is required so keyboard evidence cannot be detached from a commit.');
 
@@ -26,6 +27,13 @@ const CASES = [
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+async function primePreviewAccess(page) {
+  if (!PREVIEW_SHARE_URL) return;
+  await page.goto(PREVIEW_SHARE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  if (page.url().includes('vercel.com/login')) throw new Error('Preview share URL did not grant browser access.');
+  await delay(400);
+}
+
 const result = { schemaVersion: 1, candidateSha: CANDIDATE_SHA, baseUrl: BASE, cases: [], ok: false };
 const browser = await puppeteer.launch({ executablePath: CHROME_PATH, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 
@@ -33,6 +41,7 @@ try {
   for (const item of CASES) {
     const page = await browser.newPage();
     await page.setViewport({ width: item.width, height: 900, isMobile: item.width < 500, hasTouch: item.width < 500 });
+    await primePreviewAccess(page);
     await page.goto(`${BASE}${item.path}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await delay(700);
 

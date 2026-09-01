@@ -20,6 +20,7 @@ const DEPLOYMENT_URL = process.env.VERCEL_DEPLOYMENT_URL ?? BASE;
 const GITHUB_COMMIT_SHA = process.env.VERCEL_GITHUB_COMMIT_SHA ?? CANDIDATE_SHA;
 const READY_STATE = process.env.VERCEL_READY_STATE ?? 'UNKNOWN';
 const PRODUCTION_SHA = process.env.PRODUCTION_SHA ?? '8376242581772153c897687af3acd4da436509eb';
+const PREVIEW_SHARE_URL = process.env.VERCEL_SHARE_URL ?? null;
 const OUT = path.resolve(process.env.EVIDENCE_DIR ?? `outputs/v12-premium-experience-recovery/${CANDIDATE_SHA || 'local'}`);
 const FULL_OUT = path.join(OUT, 'full');
 const DELTA_OUT = path.join(OUT, 'owner-delta');
@@ -98,6 +99,13 @@ async function waitForStableRender(page) {
     delay(5000)
   ]);
   await delay(450);
+}
+
+async function primePreviewAccess(page) {
+  if (!PREVIEW_SHARE_URL) return;
+  await page.goto(PREVIEW_SHARE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  if (page.url().includes('vercel.com/login')) throw new Error('Preview share URL did not grant browser access.');
+  await delay(400);
 }
 
 async function acceptTerms(page) {
@@ -302,6 +310,7 @@ async function main() {
         await dialog.accept();
       });
       page.on('pageerror', (error) => pageErrors.push({ viewport: viewport.width, message: error.message }));
+      await primePreviewAccess(page);
       await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.evaluate(() => window.localStorage.setItem('mk_fraud_cookie_consent', 'declined'));
       await page.evaluate(() => {
@@ -355,7 +364,7 @@ async function main() {
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     candidate: { sha: CANDIDATE_SHA, branch: BRANCH, remoteHead: CANDIDATE_SHA, productionSha: PRODUCTION_SHA },
-    vercel: { deploymentId: DEPLOYMENT_ID, deploymentUrl: DEPLOYMENT_URL, branch: BRANCH, githubCommitSha: GITHUB_COMMIT_SHA, readyState: READY_STATE },
+    vercel: { deploymentId: DEPLOYMENT_ID, deploymentUrl: DEPLOYMENT_URL, branch: BRANCH, githubCommitSha: GITHUB_COMMIT_SHA, readyState: READY_STATE, previewShareAccessUsed: Boolean(PREVIEW_SHARE_URL) },
     capture: {
       browserRendered: true,
       exactPreviewSha: CANDIDATE_SHA,
