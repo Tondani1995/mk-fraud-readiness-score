@@ -31,6 +31,12 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     'The deterministic Blueprint owns every chapter, section, subsection, order, analytical role, required fact, management takeaway and exhibit. Write only narrative beneath the existing headings in the exact skeleton below.',
     'Do not remove, rename, add or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata outside the skeleton. Do not repeat the executive judgement as a new opening in later chapters. Use connected professional prose with natural transitions. Separate diagnosis, evidence, exposure, target state, response, implementation and conclusion by their assigned Blueprint roles.',
     'Use only the deterministic Fact Pack and the permitted claim references assigned to each Blueprint section. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance. Do not claim that MK, the assessment or the report independently verified operating effectiveness. Customer control design may describe what management should independently review or verify.',
+    ...(input.blueprint.reportTier === 'comprehensive' ? [
+      'COMPREHENSIVE DEPTH. This is the premium automated management report. The reader is paying for interpretation, synthesis and a coherent management view, not for a narrated scorecard or register.',
+      'Lead each chapter with the management judgement supported by the authorised facts, then explain the relationships and implications that make that judgement useful. Do not walk through deterministic objects one by one.',
+      'Use positive assessed capability positively. A strong or Sustainment position must read as a strong position. Do not manufacture a weakness, concern or caution merely to create balance or drama.',
+      'Where a deterioration watchpoint is authorised, describe it as a future condition to monitor, not as a current failure. Detailed registers, field mechanics and traceability belong in the companion workbook, not in the prose.'
+    ] : []),
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
