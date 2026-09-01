@@ -107,7 +107,7 @@ function readMeRows(model, factPack, blueprint) {
     ['Blueprint identity', `${blueprint.schemaVersion} · Reporting Bible ${blueprint.bibleVersion}`, 'One Fact Pack, one Story Plan and one Blueprint feed both artifacts.'],
     ['Sustainment sequence', 'PRESERVE → EMBED → MEASURE → OPTIMISE', 'Positive-state operating language; not a weakness register.'],
     ['Technical references', 'IDs and question codes are retained for traceability.', 'They should not be copied into customer-facing narrative prose.'],
-    ['Phase boundary', 'Provider-free Phase A–F owner-review proof only.', 'Phase G Luna/Terra comparison was not run.']
+    ['Phase boundary', 'Provider-free Phase A–F structural workbook QA only.', 'Controller cross-artifact acceptance remains pending; Phase G Luna/Terra comparison was not run.']
   ];
 }
 

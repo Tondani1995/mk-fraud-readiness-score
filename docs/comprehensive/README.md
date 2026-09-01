@@ -8,9 +8,9 @@ The active remediation path is now the manuscript-first Comprehensive chain:
 
 `Fact Pack → Story Plan → Report Blueprint → whole-manuscript generation/recovery → provenance validation → narrative-led PDF → companion workbook`
 
-The provider-free A–F evidence lane exercises the current path for Motheo (sustainment) and Bokamoso (weak remediation). It includes bounded recovery behavior, current-path PDF rendering, structural brand regression and owner-review screenshots. Phase G provider-backed Luna/Terra generation was intentionally not run, and this evidence is not a commercial acceptance claim.
+The provider-free A–F evidence lane exercises the current path for Motheo (sustainment) and Bokamoso (a bounded structural-composition fixture using remediation data). It includes bounded recovery behavior, current-path PDF rendering, structural brand regression and comparison screenshots. Bokamoso is not live commercial narrative evidence and is not an R35,000-value acceptance claim. Phase G provider-backed Luna/Terra generation was intentionally not run.
 
-Comprehensive branding is governed by the accepted Essential production implementation. The current renderer imports the shared MK design tokens and uses the approved vector logo through `renderCoverLogo`; it does not create a separate Comprehensive mark or use renderer/browser assets. The required owner-review evidence is four views per profile: cover, narrative, exhibit and conclusion.
+Comprehensive branding is governed by the accepted Essential production implementation. The current renderer imports the shared MK design tokens and uses the approved vector logo through `renderCoverLogo`; it does not create a separate Comprehensive mark or use renderer/browser assets. The required comparison evidence is four views per profile: cover, narrative, exhibit and conclusion. The Bokamoso views are structural-fixture evidence only.
 
 The reproducible local gates are:
 

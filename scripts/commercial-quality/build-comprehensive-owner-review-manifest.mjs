@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Build the compact, hash-addressed handoff manifest for the bounded A–F owner-review pack.
- * This is deliberately provider-free and reads only local evidence already produced by the
- * current-path acceptance and workbook inspection gates.
+ * Build the compact, hash-addressed handoff manifest for the bounded A–F structural evidence
+ * pack. This is deliberately provider-free and reads only local evidence already produced by
+ * the current-path, layout/leakage and workbook inspection gates. Bokamoso is a composition
+ * fixture in this manifest, not a live commercial narrative or R35,000-value acceptance.
  */
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -11,9 +12,11 @@ import path from 'node:path';
 
 const outputDir = path.resolve(process.env.CURRENT_COMPREHENSIVE_OUTPUT_DIR ?? path.join(process.cwd(), 'outputs', 'comprehensive-a-f'));
 const acceptancePath = path.join(outputDir, 'comprehensive-current-path-acceptance.json');
+const layoutPath = path.join(outputDir, 'comprehensive-current-layout-composition.json');
+const leakagePath = path.join(outputDir, 'comprehensive-customer-copy-leakage.json');
 const screenshotPages = {
-  motheo: { coverPage: 1, representativeNarrative: 3, representativeExhibit: 4, finalConclusion: 23 },
-  bokamoso: { coverPage: 1, representativeNarrative: 10, representativeExhibit: 24, finalConclusion: 35 }
+  motheo: { coverPage: 1, representativeNarrative: 3, representativeExhibit: 11, finalConclusion: 17 },
+  bokamoso: { coverPage: 1, representativeNarrative: 4, representativeExhibit: 25, finalConclusion: 30 }
 };
 
 function gitValue(args) {
@@ -28,6 +31,14 @@ async function fileRecord(filePath) {
 const acceptance = JSON.parse(await fs.readFile(acceptancePath, 'utf8'));
 if (acceptance.status !== 'PASS' || acceptance.providerCalls !== 0 || acceptance.databaseWrites !== 0) {
   throw new Error('Current-path acceptance evidence is not a provider-free PASS.');
+}
+const layout = JSON.parse(await fs.readFile(layoutPath, 'utf8'));
+if (layout.status !== 'PASS' || layout.providerCalls !== 0 || layout.databaseWrites !== 0) {
+  throw new Error('Layout/composition evidence is not a provider-free PASS.');
+}
+const leakage = JSON.parse(await fs.readFile(leakagePath, 'utf8'));
+if (leakage.status !== 'PASS' || leakage.providerCalls !== 0 || leakage.databaseWrites !== 0) {
+  throw new Error('Customer-copy leakage evidence is not a provider-free PASS.');
 }
 
 const profiles = {};
@@ -45,6 +56,9 @@ for (const evidence of acceptance.outputs) {
     finalConclusion: path.join(screenshotDir, 'final-conclusion.png')
   };
   const screenshots = {};
+  if (Object.values(pageMap).some((page) => page < 1 || page > evidence.pdf.pages)) {
+    throw new Error(`${key}: screenshot page map falls outside the regenerated PDF.`);
+  }
   for (const [name, filePath] of Object.entries(screenshotPaths)) screenshots[name] = { page: pageMap[name], ...(await fileRecord(filePath)) };
   profiles[key] = {
     organisation: evidence.organisation,
@@ -57,26 +71,37 @@ for (const evidence of acceptance.outputs) {
     manuscript: evidence.manuscript,
     pdf: { ...(evidence.pdf ?? {}), ...(await fileRecord(evidence.pdfPath)) },
     html: await fileRecord(path.join(outputDir, path.basename(evidence.pdfPath).replace(/\.pdf$/i, '.html'))),
+    acceptance: evidence.acceptance,
     workbook: { ...(workbookQa.workbook ?? {}), ...(await fileRecord(workbookQa.workbook.path)) },
     workbookQa: {
       status: workbookQa.status,
+      evidenceClass: 'provider-free-structural-workbook-QA',
       sheets: workbookQa.sheets,
       formulaCells: workbookQa.formulaCells,
       formulaErrorScan: workbookQa.formulaErrorScan,
       renderedSheets: workbookQa.renderedSheets
     },
-    screenshots
+    controllerCrossArtifactAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
+    screenshots,
+    layout: layout.profiles.find((item) => item.profile === key),
+    customerCopyLeakage: leakage.profiles.find((item) => item.profile === key)
   };
 }
 
 const manifest = {
   status: 'PASS',
   generatedAt: new Date().toISOString(),
-  scope: 'bounded Phase A–F owner-review evidence',
+  scope: 'bounded Phase A–F structural evidence handoff; Bokamoso is fixture-only',
   providerCalls: 0,
   databaseWrites: 0,
   phaseG: 'NOT_RUN',
-  commercialAcceptance: 'NOT_CLAIMED',
+  acceptance: {
+    providerFreeStructuralAcceptance: 'PASS',
+    liveCommercialNarrativeAcceptance: 'NOT_RUN',
+    commercialValue: 'NOT_CLAIMED',
+    bokamosoEvidenceClass: 'provider-free-structural-composition-fixture-only'
+  },
+  workbookControllerAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
   source: {
     branch: gitValue(['branch', '--show-current']),
     commit: gitValue(['rev-parse', 'HEAD']),
@@ -95,7 +120,10 @@ const manifest = {
     recoveryBehaviour: 'PASS',
     brandRegression: 'PASS',
     currentPathAcceptance: acceptance.status,
-    workbooks: 'PASS',
+    customerCopyLeakage: leakage.status,
+    layoutComposition: layout.status,
+    workbooks: 'PASS_STRUCTURAL_QA_ONLY',
+    workbookControllerAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
     typecheck: 'PASS',
     build: 'PASS'
   },

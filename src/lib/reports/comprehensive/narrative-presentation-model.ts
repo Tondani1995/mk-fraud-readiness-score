@@ -52,6 +52,8 @@ export interface ComprehensiveNarrativePresentationModel {
     purpose: string;
     sheets: string[];
   };
+  /** Visible only on provider-free internal composition fixtures. */
+  qaLabel?: string;
 }
 
 function chapterRefs(chapter: BlueprintChapter): Set<string> {
@@ -123,8 +125,9 @@ export function buildComprehensiveNarrativePresentationModel(input: {
   factPack: NarrativeFactPack;
   blueprint: ReportBlueprint;
   narrative: ParsedBlueprintMarkdown;
+  qaLabel?: string;
 }): ComprehensiveNarrativePresentationModel {
-  const { factPack, blueprint, narrative } = input;
+  const { factPack, blueprint, narrative, qaLabel } = input;
   if (factPack.productTier !== 'comprehensive' || blueprint.reportTier !== 'comprehensive') {
     throw new Error('Comprehensive narrative presentation requires the Comprehensive Fact Pack and Blueprint.');
   }
@@ -177,8 +180,9 @@ export function buildComprehensiveNarrativePresentationModel(input: {
     transformationSequence: blueprint.transformationSequence,
     companionWorkbook: {
       title: 'MK Fraud Readiness Comprehensive Workbook',
-      purpose: 'The companion workbook carries the detailed analytical and implementation record so the management report can remain narrative-led.',
+      purpose: 'The companion workbook carries the detailed control, implementation and traceability record for management use.',
       sheets: ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability']
-    }
+    },
+    qaLabel
   };
 }

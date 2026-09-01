@@ -131,6 +131,30 @@ export interface TextFirstValidationReport {
   paragraphCount: number;
 }
 
+/**
+ * Customer-copy boundary for the manuscript surface. These expressions are
+ * intentionally structural rather than pixel or wording snapshots: the
+ * report may use different fluent language, but it must not expose the
+ * machinery used to compose it.
+ */
+export const CUSTOMER_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: RegExp; description: string }> = [
+  { id: 'connected-management-story', pattern: /connected management story/i, description: 'connected management story' },
+  { id: 'profile-supports-narrative', pattern: /the profile supports the narrative|not the narrative itself/i, description: 'narrative self-reference in a profile caption' },
+  { id: 'register-dump', pattern: /progression and outcomes,?\s*not a register dump|register dump/i, description: 'register-dump construction language' },
+  { id: 'narrative-led-report', pattern: /management report can remain narrative[- ]led/i, description: 'narrative-led report construction language' },
+  { id: 'fixture-section-template', pattern: /translates the authorised evidence into a specific management account/i, description: 'fixture section template language' },
+  { id: 'viewed-through-lens', pattern: /viewed through the .* lens/i, description: 'deterministic lens-template language' },
+  { id: 'explicit-in-this-section', pattern: /management consequence .* explicit in this section/i, description: 'section-construction language' },
+  { id: 'engine-vocabulary', pattern: /\b(?:narrative|renderer|rendered|deterministic|provider[- ]?(?:free|backed|call)|fact[ -]?pack|story[ -]?plan|whole[- ]manuscript|report (?:construction|architecture))\b/i, description: 'report-engine vocabulary' }
+];
+
+export function findCustomerCopyLeakage(text: string): Array<{ id: string; description: string; match: string }> {
+  return CUSTOMER_COPY_LEAKAGE_CHECKS.flatMap(({ id, pattern, description }) => {
+    const match = text.match(pattern);
+    return match ? [{ id, description, match: match[0] }] : [];
+  });
+}
+
 const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
 const normalise = (value: string): string => value.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
 const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -538,6 +562,7 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
     }
     const assurance = classifyAssuranceLanguage(text);
     if (assurance?.category === 'prohibited_assurance') hardTruth.push({ code: 'assurance_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Unsupported MK or assessment assurance language is prohibited (${assurance.matched}).` });
+    for (const leakage of findCustomerCopyLeakage(text)) hardTruth.push({ code: 'customer_copy_leakage', severity: 'HARD_TRUTH_FAILURE', path, message: `Report-engine language is not permitted in customer prose (${leakage.description}: ${leakage.match}).` });
     if (/^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(text)) quality.push({ code: 'mechanical_format', severity: 'QUALITY_FAILURE', path, message: 'The section contains list or code formatting rather than connected prose.' });
   }
   const duplicateCount = paragraphsSeen.filter((value, index) => value && paragraphsSeen.indexOf(value) !== index).length;

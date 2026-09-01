@@ -218,6 +218,8 @@
     "v11:comprehensive-recovery-behaviour": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs",
     "v11:comprehensive-brand-regression": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-brand-regression.mjs",
     "v11:comprehensive-current-path": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs",
+    "v11:comprehensive-customer-copy-leakage": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs",
+    "v11:comprehensive-current-layout": "node scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs",
     "v11:comprehensive-current-workbooks": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-current-comprehensive-workbooks.mjs",
     "v11:comprehensive-owner-review-manifest": "node scripts/commercial-quality/build-comprehensive-owner-review-manifest.mjs",
     "v11:portfolio-census": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/portfolio-census.mjs",

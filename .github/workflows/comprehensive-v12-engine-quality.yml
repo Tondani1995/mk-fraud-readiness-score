@@ -15,6 +15,8 @@ on:
       - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
       - scripts/commercial-quality/comprehensive-brand-regression.mjs
       - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs
+      - scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs
       - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
@@ -38,6 +40,8 @@ on:
       - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
       - scripts/commercial-quality/comprehensive-brand-regression.mjs
       - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs
+      - scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs
       - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
@@ -98,6 +102,16 @@ jobs:
         env:
           CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
         run: npm run v11:comprehensive-current-path
+
+      - name: Reject customer-copy report-engine leakage
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-customer-copy-leakage
+
+      - name: Reject orphaned and underfilled PDF composition
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-current-layout
 
       - name: Upload quality evidence
         if: always()

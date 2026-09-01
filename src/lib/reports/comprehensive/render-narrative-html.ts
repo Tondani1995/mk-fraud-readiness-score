@@ -11,6 +11,11 @@ const esc = (value: unknown): string => String(value ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 
+const fieldSentence = (value: unknown, fallback: string): string => {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+  return `${text || fallback}.`;
+};
+
 const paragraphs = (value: string): string => value
   .split(/\n\s*\n/)
   .map((part) => part.trim())
@@ -32,7 +37,7 @@ function exhibitAttrs(exhibit: ReportBlueprintExhibit): string {
 function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.domainProfile.length) return '';
   return `<figure class="exhibit profile-exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>Readiness profile</strong><span>The profile supports the narrative. It is not the narrative itself.</span></figcaption>
+    <figcaption><strong>Readiness profile</strong><span>Recorded domain results supporting the management position.</span></figcaption>
     <div class="domain-profile">
       ${chapter.domainProfile.map((domain) => {
         const score = typeof domain.score === 'number' ? Math.max(0, Math.min(100, domain.score)) : 0;
@@ -49,9 +54,9 @@ function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBl
 function scoreDisplay(model: ComprehensiveNarrativePresentationModel, exhibit: ReportBlueprintExhibit): string {
   const boundary = model.narrativeMode === 'SUSTAINMENT'
     ? 'No material weaknesses are promoted from the recorded sustainment profile.'
-    : 'The score is the deterministic starting point for the management story.';
+    : 'The score is the starting point for the management response.';
   return `<figure class="exhibit score-exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>Recorded readiness position</strong><span>Deterministic assessment result; not an assurance conclusion.</span></figcaption>
+    <figcaption><strong>Recorded readiness position</strong><span>Recorded assessment position; not an assurance conclusion.</span></figcaption>
     <div class="score-strip"><strong>${Math.round(model.score)}</strong><div><b>${esc(model.maturity)}</b><span>Fraud Readiness Score / 100</span><span>${esc(boundary)}</span></div></div>
   </figure>`;
 }
@@ -59,7 +64,7 @@ function scoreDisplay(model: ComprehensiveNarrativePresentationModel, exhibit: R
 function themeMap(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.themes.length) return '';
   return `<figure class="exhibit theme-exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>Connected management patterns</strong><span>Systemic themes are explained in the narrative and retained here as a navigation aid.</span></figcaption>
+    <figcaption><strong>Connected management patterns</strong><span>Patterns that management should address together.</span></figcaption>
     <div class="theme-stack">${chapter.themes.slice(0, 5).map((item) => `<article><h4>${esc(item.title)}</h4><p>${esc(item.managementImplicationBasis)}</p><span>${esc(item.fraudRiskRelationship)}</span></article>`).join('')}</div>
   </figure>`;
 }
@@ -67,7 +72,7 @@ function themeMap(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepri
 function strengths(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.strengths.length) return '';
   return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that the narrative explains and management should preserve.</span></figcaption>
+    <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that management should preserve.</span></figcaption>
     <div class="strength-grid">
       ${chapter.strengths.slice(0, 5).map((item) => `<article><h4>${esc(item.title)}</h4><p>${esc(item.basis)}</p></article>`).join('')}
     </div>
@@ -94,7 +99,7 @@ function sustainmentPriorities(chapter: ComprehensiveNarrativeChapter, exhibit: 
 function findings(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.findings.length) return '';
   return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>Material observations supporting this chapter</strong><span>Detailed finding and risk registers remain in the companion workbook.</span></figcaption>
+    <figcaption><strong>Material observations supporting this chapter</strong><span>Detailed analytical records remain in the companion workbook.</span></figcaption>
     <div class="priority-stack">
       ${chapter.findings.slice(0, 5).map((item) => `<article class="priority-item">
         <h4>${esc(item.title)}</h4>
@@ -112,7 +117,7 @@ function scenarios(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
     <div class="scenario-stack">
       ${chapter.scenarios.slice(0, 4).map((item) => `<article>
         <h4>${esc(item.title)}</h4>
-        <p>${esc(item.actorClass)} may use ${esc(item.entryPoint).replace(/\.$/, '')} to ${esc(item.mechanism).replace(/^./, (c) => c.toLowerCase())}</p>
+        <p><b>Actor:</b> ${esc(fieldSentence(item.actorClass, 'An actor may act through the recorded pathway'))} <b>Entry point:</b> ${esc(fieldSentence(item.entryPoint, 'A sensitive process entry point is involved'))} <b>Mechanism:</b> ${esc(fieldSentence(item.mechanism, 'The pathway may proceed before timely challenge'))}</p>
         <p class="small"><b>Warning indicators:</b> ${esc(item.warningIndicators.slice(0, 3).join('; '))}</p>
       </article>`).join('')}
     </div>
@@ -139,8 +144,8 @@ function controls(chapter: ComprehensiveNarrativeChapter, positive: boolean, exh
 
 function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.decisions.length) return '';
-  return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>Leadership choices</strong><span>The narrative explains why the choice matters; this exhibit keeps the options visible.</span></figcaption>
+  return `<figure class="exhibit decision-exhibit" ${exhibitAttrs(exhibit)}>
+    <figcaption><strong>Leadership choices</strong><span>Options, trade-offs and the recommended route.</span></figcaption>
     <div class="decision-stack">
       ${chapter.decisions.slice(0, 4).map((item) => `<article class="decision-item">
         <h4>${esc(item.question)}</h4>
@@ -155,10 +160,21 @@ function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
 
 function transformation(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!/SUSTAINMENT-OPTIMISATION|IMPLEMENTATION-BLUEPRINT|TWELVE-MONTH-MATURATION/.test(chapter.chapterId)) return '';
+  if (exhibit.type === 'roadmap_30_60_90') {
+    if (!chapter.roadmap.length) return '';
+    return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
+      <figcaption><strong>First 90-day management route</strong><span>Owners, outcomes and completion records for the opening cycle.</span></figcaption>
+      <div class="stage-grid roadmap-grid">${chapter.roadmap.slice(0, 6).map((item) => `<article class="supported">
+        <span class="stage-name">${esc(item.phaseWindow)}</span><p>${esc(item.managementOutcome)}</p>
+        <p class="small"><b>Priority work:</b> ${esc(item.priorityWork)}</p>
+        <div class="fact-strip"><span><b>Owner</b> ${esc(item.accountableExecutive)}</span><span><b>Proof</b> ${esc(item.proofOfCompletion)}</span></div>
+      </article>`).join('')}</div>
+    </figure>`;
+  }
   const stages = model.transformationSequence;
   if (!stages.length) return '';
   return `<figure class="exhibit ${model.narrativeMode === 'SUSTAINMENT' ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
-    <figcaption><strong>${model.narrativeMode === 'SUSTAINMENT' ? 'Twelve-month sustainment path' : 'Twelve-month transformation path'}</strong><span>Progression and outcomes, not a register dump.</span></figcaption>
+    <figcaption><strong>${model.narrativeMode === 'SUSTAINMENT' ? 'Twelve-month sustainment path' : 'Twelve-month transformation path'}</strong><span>Progression, outcomes and management checkpoints.</span></figcaption>
     <div class="stage-grid">${stages.map((stage) => `<article class="${stage.supported ? 'supported' : 'muted-stage'}">
       <span class="stage-name">${esc(stage.stage)}</span><p>${esc(stage.purpose)}</p>
     </article>`).join('')}</div>
@@ -187,18 +203,42 @@ function chapterExhibits(model: ComprehensiveNarrativePresentationModel, chapter
 
 function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter): string {
   const takeaways = new Set<string>();
-  const blocks = chapter.blocks.map((block) => `<div class="narrative-block">
-    ${chapter.blocks.length > 1 ? `<h3>${esc(block.title)}</h3>` : ''}
-    <div class="narrative-copy">${block.paragraphs.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')}</div>
-    ${takeaways.has(block.managementTakeaway) ? '' : (takeaways.add(block.managementTakeaway), `<aside class="management-implication ${chapter.tone}">
-      <span>Management implication</span>
-      <p>${esc(block.managementTakeaway)}</p>
-    </aside>`)}
-  </div>`).join('');
+  const implication = (block: ComprehensiveNarrativeChapter['blocks'][number]): string => takeaways.has(block.managementTakeaway) ? '' : (takeaways.add(block.managementTakeaway), `<aside class="management-implication ${chapter.tone}">
+    <span>Management implication</span>
+    <p>${esc(block.managementTakeaway)}</p>
+  </aside>`);
+  const renderBlock = (block: ComprehensiveNarrativeChapter['blocks'][number], includeTitle = chapter.blocks.length > 1): string => {
+    const paragraphs = block.paragraphs;
+    const leadingParagraphs = paragraphs.slice(0, -1).map((paragraph) => `<p>${esc(paragraph)}</p>`).join('');
+    const closingParagraph = paragraphs.length
+      ? `<div class="block-close"><p>${esc(paragraphs.at(-1))}</p>${implication(block)}</div>`
+      : implication(block);
+    return `<div class="narrative-block">
+      ${includeTitle ? `<h3>${esc(block.title)}</h3>` : ''}
+      <div class="narrative-copy">${leadingParagraphs}${closingParagraph}</div>
+    </div>`;
+  };
+  const firstBlock = chapter.blocks[0];
+  const firstParagraph = firstBlock?.paragraphs[0] ?? '';
+  const firstBlockHasRemainder = Boolean(firstBlock && firstBlock.paragraphs.length > 1);
+  const openingImplication = firstBlock && !firstBlockHasRemainder ? implication(firstBlock) : '';
+  const opening = firstBlock && firstParagraph
+    ? `<div class="narrative-block chapter-opening-block">
+        ${chapter.blocks.length > 1 ? `<h3>${esc(firstBlock.title)}</h3>` : ''}
+        <div class="narrative-copy"><p>${esc(firstParagraph)}</p></div>
+      </div>${openingImplication}`
+    : '';
+  const firstRemainder = firstBlockHasRemainder
+    ? renderBlock({ ...firstBlock, paragraphs: firstBlock.paragraphs.slice(1) }, false)
+    : '';
+  const remainingBlocks = chapter.blocks.slice(1).map((block) => renderBlock(block)).join('');
   return `<section class="chapter tone-${chapter.tone}" data-chapter="${esc(chapter.chapterId)}">
-    <div class="chapter-marker"><span class="chapter-brand">MK Fraud Insights</span> · Comprehensive · ${String(chapter.order).padStart(2, '0')}</div>
-    <h2>${esc(chapter.title)}</h2>
-    ${blocks}
+    <div class="chapter-opening">
+      <div class="chapter-marker"><span class="chapter-brand">MK Fraud Insights</span> · Comprehensive · ${String(chapter.order).padStart(2, '0')}</div>
+      <h2>${esc(chapter.title)}</h2>
+      ${opening}
+    </div>
+    ${firstRemainder}${remainingBlocks}
     ${chapterExhibits(model, chapter)}
   </section>`;
 }
@@ -217,6 +257,7 @@ function css(): string {
   .cover-rule{width:28mm;border-top:1.2mm solid var(--mk-brass);margin:9mm 0}
   .cover .cover-eyebrow,.chapter-marker{text-transform:uppercase;letter-spacing:.13em;font-size:7.5pt;font-weight:700}
   .cover .cover-eyebrow{color:var(--mk-brass)}
+  .cover-qa-label{display:inline-block;margin-top:4mm;padding:2mm 3mm;border:1px solid var(--mk-brass);color:var(--mk-brass);font-size:7pt;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
   .cover h1{font-size:35pt;line-height:1.02;letter-spacing:-.035em;max-width:155mm;margin:8mm 0 5mm}
   .cover h2{font-size:15pt;font-weight:400;color:var(--mk-rule);margin:0;max-width:150mm}
   .cover-score{display:flex;align-items:flex-end;gap:10mm;border-top:1px solid var(--mk-white-25);padding-top:9mm}
@@ -229,12 +270,14 @@ function css(): string {
   .cover-confidential{text-transform:uppercase;letter-spacing:.1em;font-size:7.5pt}
   .chapter{break-before:auto;padding-top:2mm;margin-top:14mm;orphans:3;widows:3}
   .chapter:first-of-type{margin-top:0}
-  .chapter-marker{color:var(--mk-muted);margin-bottom:5mm}
+  .chapter-opening{break-inside:avoid;page-break-inside:avoid}
+  .chapter-marker{color:var(--mk-muted);margin-bottom:5mm;break-after:avoid;page-break-after:avoid}
   .chapter-brand{color:var(--mk-navy-700)}
   .tone-positive .chapter-marker{color:var(--mk-confirmed)}
-  .chapter h2{font-size:25pt;line-height:1.08;letter-spacing:-.025em;color:var(--mk-navy-700);margin:0 0 8mm;max-width:165mm;break-after:avoid}
-  .narrative-block{max-width:168mm;margin-bottom:8mm;break-inside:avoid}
-  .tone-neutral .narrative-block,.tone-watch .narrative-block,.tone-critical .narrative-block{break-inside:auto}
+  .chapter h2{font-size:25pt;line-height:1.08;letter-spacing:-.025em;color:var(--mk-navy-700);margin:0 0 8mm;max-width:165mm;break-after:avoid;page-break-after:avoid}
+  .narrative-block{max-width:168mm;margin-bottom:8mm;break-inside:auto;page-break-inside:auto}
+  .chapter-opening-block{margin-bottom:0}
+  .block-close{break-inside:avoid;page-break-inside:avoid}
   .narrative-block h3{font-size:14.5pt;color:var(--mk-navy-700);margin:7mm 0 3mm;break-after:avoid}
   .narrative-copy{max-width:162mm}
   .narrative-copy p{margin:0 0 4.5mm;font-size:11pt;line-height:1.6}
@@ -245,6 +288,7 @@ function css(): string {
   .management-implication.watch{border-left-color:var(--mk-major);background:var(--mk-neutral-bg)}
   .management-implication.critical{border-left-color:var(--mk-critical);background:var(--mk-critical-bg)}
   .exhibit{break-inside:avoid;margin:8mm 0 4mm;padding-top:4mm;border-top:1px solid var(--mk-rule);font-size:9.4pt}
+  .decision-exhibit{break-inside:auto;page-break-inside:auto}
   figcaption{display:flex;justify-content:space-between;gap:8mm;align-items:baseline;margin-bottom:5mm}
   figcaption strong{font-size:12pt;color:var(--mk-navy-700)}
   figcaption span{font-size:8.5pt;color:var(--mk-muted);text-align:right;max-width:78mm}
@@ -299,6 +343,7 @@ export function renderComprehensiveNarrativeReportHtml(model: ComprehensiveNarra
       <div class="cover-brand" data-brand-asset="approved-mk-fraud-insights-mark">${renderCoverLogo()}</div>
       <div class="cover-rule"></div>
       <div class="cover-eyebrow">Fraud readiness advisory</div>
+      ${model.qaLabel ? `<div class="cover-qa-label">${esc(model.qaLabel)}</div>` : ''}
       <h1>${esc(model.title)}</h1>
       <h2>${esc(model.organisationName)}</h2>
     </div>

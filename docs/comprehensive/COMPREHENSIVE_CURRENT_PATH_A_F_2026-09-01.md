@@ -2,7 +2,14 @@
 
 ## Status
 
-Bounded engineering and QA remediation is complete for the current A–F path. The provider-backed Phase G Luna/Terra generation and A/B calibration step was not run. The evidence below is therefore a release-readiness handoff, not a commercial acceptance or R35,000 value claim.
+Bounded engineering and QA remediation is complete for the current A–F path. The provider-backed Phase G Luna/Terra generation and A/B calibration step was not run. The evidence below is a provider-free structural handoff, not live commercial narrative acceptance or an R35,000 value claim.
+
+The acceptance classes are intentionally separate:
+
+- `provider-free structural acceptance`: PASS for the regenerated local PDFs, layout/composition checks, customer-copy leakage checks and preserved object availability;
+- `live commercial narrative acceptance`: NOT RUN;
+- `commercial value`: NOT CLAIMED;
+- Bokamoso: provider-free structural composition fixture only, not owner-review commercial narrative proof.
 
 ## Accepted defect baseline
 
@@ -26,10 +33,14 @@ Both profiles run through the same deterministic chain:
 
 `Fact Pack → Story Plan → Report Blueprint → current coordinator → bounded whole-manuscript validation → narrative presentation model → PDF renderer`
 
-- Motheo: sustainment, score 80, Strategic, 53 facts, no findings/risks/scenarios, 9 chapters, 7 exhibits, 24 pages.
-- Bokamoso: remediation, score 30.12, Reactive, 261 facts, 8 findings, 8 risks, 4 scenarios, 9 chapters, 8 exhibits, 36 pages.
+- Motheo: sustainment, score 80, Strategic, 53 facts, no findings/risks/scenarios, 9 chapters, 7 exhibits, 18 measured pages. This PDF is a structural replay of the preserved accepted Terra manuscript; it is not a new provider generation.
+- Bokamoso: remediation, score 30.12, Reactive, 261 facts, 8 findings, 8 risks, 4 scenarios, 9 chapters, 8 exhibits, 30 measured pages. This PDF is the bounded provider-free composition fixture `MK-Comprehensive-Bokamoso-Provider-Free-Structural-Composition-Fixture`, clearly watermarked as internal QA and excluded from commercial narrative/value acceptance.
 
-The page gate is capped at the Reporting Bible’s 36-page upper bound. The current renderer preserves protected positive sustainment pacing while allowing remediation narrative blocks to flow naturally to avoid unnecessary white space.
+Page count is measured only; there is no Bible-range target or upper-bound optimisation gate. The layout gate rejects orphan headings, orphan management implications, chapter-marker-only pages, materially underfilled pages and title splits. It also reconciles exhibit IDs/order/content and checks duplicate decision structures. Motheo therefore resolves the previously observed p10, p14, p16, p19 and p20 defects without padding the report toward a target page count.
+
+The customer-copy leakage gate scans both generated HTML and extracted PDF text for eight structural checks: connected management story; profile/narrative self-reference; register-dump language; narrative-led report-construction language; fixture section-template wording; viewed-through-lens wording; section-construction wording; and report-engine vocabulary. All checks pass for both generated outputs. The QA watermark is the only explicitly allowed fixture label.
+
+Sustainment control titles are authored as natural management-control statements, and the three Motheo leadership decisions are independently fingerprinted and pairwise compared. The current proof is exact uniqueness with maximum pairwise structural similarity `0.3051` (threshold `< 0.90`). Exhibit IDs and primary homes are unique and ordered; duplicate content groups are empty for both PDFs.
 
 ## Provider-free recovery evidence
 
@@ -37,15 +48,15 @@ The page gate is capped at the Reporting Bible’s 36-page upper bound. The curr
 
 ## Owner-review evidence
 
-The A–F output pack contains one PDF and one companion XLSX workbook for each profile, plus four rendered PNG views per owner-review pack:
+The A–F output pack contains the corrected Motheo PDF, the corrected Bokamoso structural fixture PDF, one preserved companion XLSX workbook for each profile, and four rendered PNG views per profile for direct Essential-brand comparison:
 
 - cover page;
 - representative narrative page;
 - representative exhibit page;
 - final/conclusion page.
 
-The workbooks contain the eight required sheets: `Read me`, `Summary`, `Material Findings`, `Risk Register`, `Control Blueprints`, `Implementation Blueprint`, `Management Decisions` and `Question Traceability`. Motheo’s current sustainment register contains no fabricated findings or risks. Bokamoso retains its current remediation detail. Workbook formulas were recalculated/inspected and structural formula error scans passed.
+The workbooks contain the eight required sheets: `Read me`, `Summary`, `Material Findings`, `Risk Register`, `Control Blueprints`, `Implementation Blueprint`, `Management Decisions` and `Question Traceability`. Motheo’s current sustainment register contains no fabricated findings or risks. Bokamoso retains its current remediation detail. Workbook formulas were recalculated/inspected and structural formula error scans passed. This is provider-free structural workbook QA only; the existence of the sheets is not commercial reconciliation proof. Controller cross-artifact workbook acceptance remains `PENDING_CROSS_ARTIFACT_INSPECTION`.
 
 ## Operational boundary
 
-All current-path evidence is provider-free and uses no database writes. Preserved Terra evidence remains historical recovery evidence, not current production truth. The next authorized step is the explicitly separate Phase G provider-backed generation/calibration run; it is not implied by this A–F handoff.
+All current-path evidence is provider-free and uses no database writes. Preserved Terra evidence remains historical recovery evidence, not current production truth. Phase G is `NOT_RUN` and is not authorized by this handoff. The corrected Motheo PDF must still receive independent owner review before any provider spending or live commercial acceptance.

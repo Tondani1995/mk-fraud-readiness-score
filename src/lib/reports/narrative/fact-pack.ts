@@ -298,6 +298,13 @@ function cleanSustainmentLanguage(value: unknown, fallback = ''): string {
     .trim();
 }
 
+function naturalSustainmentTitle(value: unknown, fallback = 'Fraud-control readiness'): string {
+  return cleanSustainmentLanguage(value, fallback)
+    .replace(/^sustain\s+/i, '')
+    .replace(/^maintain\s+/i, '')
+    .trim();
+}
+
 function phaseFor(action: RoadmapAction): NarrativeRoadmapFact['phase'] {
   return action.period === '30 days' ? 'STABILISE' : 'ESTABLISH';
 }
@@ -915,7 +922,7 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
 function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): NarrativeSustainmentPriorityFact[] {
   return priorities.map((priority, index) => ({
     factRef: `SUSTAINMENT-${String(index + 1).padStart(3, '0')}`,
-    title: priority.title,
+    title: naturalSustainmentTitle(priority.title),
     domain: priority.domainName,
     semanticFamily: priority.primarySemanticFamily,
     recordedPosition: `${priority.responseLabel}: ${cleanSustainmentLanguage(priority.responseOperationalMeaning)}`,
@@ -936,9 +943,9 @@ function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]
     factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
     sourceId: priority.factRef,
     primarySemanticFamily: priority.semanticFamily,
-    objective: `Preserve the current ${priority.title.toLowerCase()} standard, with deterioration detected when the operating context changes.`,
+    objective: `Maintain ${priority.title.toLowerCase()} through clear ownership, regular review and early attention to material change.`,
     currentState: `${priority.recordedPosition} This position supports a sustainment treatment.`,
-    targetState: `The current standard remains owned, reviewed and responsive to material change.`,
+    targetState: `The ${priority.title.toLowerCase()} standard remains owned, reviewed and responsive to material change.`,
     accountableExecutive: priority.accountableExecutive,
     processOwner: priority.processOwner,
     population: 'The complete in-scope population for the control standard.',
@@ -956,25 +963,80 @@ function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]
 }
 
 function buildSustainmentDecisions(priorities: NarrativeSustainmentPriorityFact[]): NarrativeDecisionFact[] {
-  return priorities.slice(0, 5).map((priority, index) => ({
-    factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
-    sourceId: priority.factRef,
-    decisionFamily: 'governance_reporting_cadence',
-    decisionSemanticFamily: priority.semanticFamily === 'CONTINUOUS_IMPROVEMENT' ? 'CONTROL_EFFECTIVENESS_CADENCE' : 'FRAUD_GOVERNANCE_MODEL',
-    question: `What management rhythm will preserve ${priority.title.toLowerCase()} as the organisation changes?`,
-    options: [
-      { option: 'Maintain the current review cadence with a change-triggered refresh.', cost: 'Uses the existing management rhythm.', benefit: 'Preserves ownership with minimal additional overhead.', tradeOff: 'Requires disciplined attendance and action closure.' },
-      { option: 'Add a focused management-information view for deterioration indicators.', cost: 'Requires modest reporting and data-owner capacity.', benefit: 'Makes early deterioration visible before the standard is materially affected.', tradeOff: 'Adds a recurring reporting obligation.' },
-      { option: 'Include the priority in the next resilience or control-effectiveness review cycle.', cost: 'Uses planned review capacity.', benefit: 'Connects sustainment to the wider control environment and change agenda.', tradeOff: 'Timing follows the established review calendar.' }
-    ],
-    recommendedRoute: 'Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.',
-    rationale: `The current ${priority.title.toLowerCase()} position is strongest when ownership, review rhythm and change-triggered attention remain explicit.`,
-    owner: priority.accountableExecutive,
-    targetDate: 'Within the next 90 days',
-    consequenceOfDelay: 'Ownership or review discipline may drift after change without an early management signal.',
-    linkedFindingRefs: [],
-    linkedSustainmentPriorityRefs: [priority.factRef]
-  }));
+  const profiles: Record<string, {
+    semanticFamily: string;
+    question: string;
+    options: Array<{ option: string; cost: string; benefit: string; tradeOff: string }>;
+    recommendedRoute: string;
+    rationale: string;
+    consequenceOfDelay: string;
+  }> = {
+    FRAUD_GOVERNANCE: {
+      semanticFamily: 'FRAUD_GOVERNANCE_MODEL',
+      question: 'What governance commitment will keep fraud-risk ownership and escalation current as the organisation changes?',
+      options: [
+        { option: 'Reconfirm the executive mandate and decision rights each quarter.', cost: 'Leadership time to refresh the mandate and resolve boundary questions.', benefit: 'Keeps accountability, funding and escalation authority visible.', tradeOff: 'Requires prompt action when ownership or priorities change.' },
+        { option: 'Add overdue-action escalation to the governing-body pack.', cost: 'A small reporting and data-owner burden each cycle.', benefit: 'Makes unowned and delayed actions visible before they become a wider governance concern.', tradeOff: 'Needs reliable action data and disciplined exception follow-through.' },
+        { option: 'Use the annual governance review to test funding and succession cover.', cost: 'Dedicated agenda time and evidence from the accountable executive.', benefit: 'Checks that the standard can withstand role or resource change.', tradeOff: 'May surface decisions that require additional management capacity.' }
+      ],
+      recommendedRoute: 'Reconfirm the executive mandate and add overdue-action escalation to the quarterly governance pack.',
+      rationale: 'The governance standard depends on visible decision rights, funded ownership and timely escalation. A short quarterly confirmation protects those conditions without adding a parallel committee.',
+      consequenceOfDelay: 'A change in executive ownership or unresolved action load could weaken the route from fraud-risk activity to governing-body oversight.'
+    },
+    CONTINUOUS_IMPROVEMENT: {
+      semanticFamily: 'CONTROL_EFFECTIVENESS_CADENCE',
+      question: 'What review discipline will keep control-effectiveness learning current?',
+      options: [
+        { option: 'Protect the annual control-effectiveness review and record action closure.', cost: 'Review capacity, evidence collation and action-owner time.', benefit: 'Keeps the established learning cycle visible and connected to governance.', tradeOff: 'The cycle can lose value if actions are recorded without timely closure.' },
+        { option: 'Require an event-triggered review after a material incident or restructuring.', cost: 'A defined trigger assessment and additional review capacity when needed.', benefit: 'Refreshes the control view when the operating environment changes materially.', tradeOff: 'Requires management to recognise and record trigger events consistently.' },
+        { option: 'Report deteriorated key controls through the normal risk route.', cost: 'A recurring exception view and named data owner.', benefit: 'Connects control deterioration to an accountable response and due date.', tradeOff: 'Needs a consistent threshold for what is reported as deterioration.' }
+      ],
+      recommendedRoute: 'Protect the annual review, add event-triggered refresh and require named action closure for deterioration.',
+      rationale: 'The improvement discipline is strongest when review records, exceptions and lessons feed a recurring management cycle. The decision should preserve that cycle while making material change a clear reason to refresh it.',
+      consequenceOfDelay: 'Overdue review or unowned deterioration could allow control-learning signals to remain outside the ordinary management route.'
+    },
+    FRAUD_RISK_IDENTIFICATION: {
+      semanticFamily: 'FRAUD_RISK_IDENTIFICATION_MODEL',
+      question: 'How will management keep the fraud-risk view current when material processes or ownership change?',
+      options: [
+        { option: 'Keep the full fraud-risk assessment within the two-year cycle.', cost: 'Assessment planning, participant time and treatment-plan refresh.', benefit: 'Maintains a current view across material processes and residual risks.', tradeOff: 'A periodic cycle alone may not capture an important change between assessments.' },
+        { option: 'Trigger an interim refresh after a material process, product or ownership change.', cost: 'A documented trigger review and focused assessment effort.', benefit: 'Keeps the risk view connected to the operating environment as it changes.', tradeOff: 'Requires a clear threshold and timely recognition of material change.' },
+        { option: 'Require each material process to carry a current owner and treatment date.', cost: 'Ongoing ownership maintenance and review of treatment records.', benefit: 'Makes gaps in coverage and follow-through visible between full assessments.', tradeOff: 'The record must be kept current to remain useful for governance.' }
+      ],
+      recommendedRoute: 'Keep the two-year assessment current and require an interim refresh after material change, with owners and treatment dates visible.',
+      rationale: 'The risk-identification standard remains useful when its age, process coverage and treatment ownership are visible. A defined interim trigger closes the gap between scheduled assessments and material operating change.',
+      consequenceOfDelay: 'An outdated assessment or material residual-risk change without an owner could leave management relying on a risk view that no longer reflects the operating environment.'
+    }
+  };
+  return priorities.slice(0, 5).map((priority, index) => {
+    const profile = profiles[priority.semanticFamily] ?? {
+      semanticFamily: `${priority.semanticFamily}_MODEL`,
+      question: `What management commitment will keep ${priority.title.toLowerCase()} current?`,
+      options: [
+        { option: `Keep the ${priority.title.toLowerCase()} review current.`, cost: 'Protected management and review capacity.', benefit: 'Keeps the standard visible and owned.', tradeOff: 'Requires disciplined follow-through.' },
+        { option: `Add a change-triggered review for ${priority.title.toLowerCase()}.`, cost: 'A defined trigger review when conditions change.', benefit: 'Makes material change visible in time to respond.', tradeOff: 'Requires a clear change threshold.' },
+        { option: `Report exceptions affecting ${priority.title.toLowerCase()} through the normal governance route.`, cost: 'A recurring exception view.', benefit: 'Connects deterioration to an accountable response.', tradeOff: 'Needs reliable records and action closure.' }
+      ],
+      recommendedRoute: `Keep ${priority.title.toLowerCase()} current through scheduled review and change-triggered attention.`,
+      rationale: `The ${priority.title.toLowerCase()} standard is strongest when ownership, review timing and change-triggered attention remain explicit.`,
+      consequenceOfDelay: `A material change could weaken ${priority.title.toLowerCase()} without an early management signal.`
+    };
+    return {
+      factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
+      sourceId: priority.factRef,
+      decisionFamily: 'governance_reporting_cadence',
+      decisionSemanticFamily: profile.semanticFamily,
+      question: profile.question,
+      options: profile.options,
+      recommendedRoute: profile.recommendedRoute,
+      rationale: profile.rationale,
+      owner: priority.accountableExecutive,
+      targetDate: 'Within the next 90 days',
+      consequenceOfDelay: profile.consequenceOfDelay,
+      linkedFindingRefs: [],
+      linkedSustainmentPriorityRefs: [priority.factRef]
+    };
+  });
 }
 
 function buildSustainmentRoadmap(priorities: NarrativeSustainmentPriorityFact[]): NarrativeRoadmapFact[] {
