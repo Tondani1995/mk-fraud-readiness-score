@@ -157,7 +157,7 @@ function chapterExhibits(model: ComprehensiveNarrativePresentationModel, chapter
 function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter): string {
   const blocks = chapter.blocks.map((block, index) => `<div class="narrative-block">
     ${chapter.blocks.length > 1 ? `<h3>${esc(block.title)}</h3>` : ''}
-    <div class="narrative-copy">${paragraphs(block.narrative)}</div>
+    <div class="narrative-copy">${block.paragraphs.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')}</div>
     <aside class="management-implication ${chapter.tone}">
       <span>Management implication</span>
       <p>${esc(block.managementImplication)}</p>
