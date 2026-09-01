@@ -18,9 +18,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
 
-  Sentry.captureException(new Error('MK Preview controlled server error'), {
+  const sentryClientInitialized = Boolean(Sentry.getClient());
+  const eventId = Sentry.captureException(new Error('MK Preview controlled server error'), {
     tags: { mk_controlled_test: 'true', error_category: 'sentry_server_controlled' }
   });
-  await Sentry.flush(2000);
-  return NextResponse.json({ ok: false, error: 'controlled_preview_error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+  const flushed = await Sentry.flush(2000);
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'controlled_preview_error',
+      sentry: {
+        client_initialized: sentryClientInitialized,
+        event_queued: Boolean(eventId),
+        flushed
+      }
+    },
+    { status: 500, headers: { 'Cache-Control': 'no-store' } }
+  );
 }
