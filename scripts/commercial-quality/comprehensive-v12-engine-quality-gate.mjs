@@ -33,6 +33,7 @@ import {
 } from '../../src/lib/reports/comprehensive/customer-visible-adaptation.ts';
 import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 import { claimsVerification } from '../../src/lib/reports/comprehensive/product-contract.ts';
+import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -74,6 +75,13 @@ for (const profileKey of Object.keys(profiles)) {
   if (data.scoreRun.overallScore !== score.summary.overallScore) fail(profileKey, 'SCORE_PARITY', 'assembled score differs from V1.2 scorer');
   if (data.scoreRun.finalMaturity !== score.summary.finalMaturity) fail(profileKey, 'MATURITY_PARITY', 'assembled maturity differs from V1.2 scorer');
   if (data.domainResults.length !== 10) fail(profileKey, 'DOMAIN_COVERAGE', `${data.domainResults.length} domains rendered into assembled truth`);
+
+  const methodologyIdentity = data.scoreRun;
+  const activeQuestionCodes = graph.questions.map((question) => question.questionCode);
+  const registry = listQuestionPlaybooks(methodologyIdentity);
+  if (registry.length !== 68) fail(profileKey, 'PLAYBOOK_REGISTRY_COVERAGE', `${registry.length}/68 V1.2 playbooks resolved`);
+  const missingPlaybooks = activeQuestionCodes.filter((questionCode) => !getQuestionPlaybook(questionCode, methodologyIdentity));
+  if (missingPlaybooks.length) fail(profileKey, 'PLAYBOOK_REGISTRY_COVERAGE', `missing: ${missingPlaybooks.join(', ')}`);
 
   const evidence = buildAdvisoryEvidenceModel(data);
   const customerEvidence = adaptComprehensiveEvidenceModel(evidence);
