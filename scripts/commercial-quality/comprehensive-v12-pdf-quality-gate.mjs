@@ -19,7 +19,7 @@ const engineDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engi
 const outDir = process.env.PDF_OUTPUT_DIR ?? 'outputs/comprehensive-v12-pdf-quality';
 fs.mkdirSync(outDir, { recursive: true });
 
-const profiles = ['bokamoso', 'siyakhula', 'vhutshilo'];
+const profiles = ['bokamoso', 'siyakhula', 'vhutshilo', 'motheo'];
 const failures = [];
 const results = [];
 
@@ -37,7 +37,7 @@ function stressProse(targetWords, slotLabel) {
   // Add ordinary punctuation without changing the word count so Chromium wraps
   // prose rather than a single pathological sentence.
   for (let i = 19; i < exact.length; i += 20) exact[i] = `${exact[i]}.`;
-  return `${slotLabel}. ${exact.join(' ')}`;
+  return exact.join(' ');
 }
 
 function fillInterpretationSlots(html) {
