@@ -14,6 +14,19 @@ on:
       - src/lib/reports/narrative/fact-pack.ts
       - src/lib/scoring/**
       - src/lib/adaptive/**
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+      - .github/workflows/comprehensive-v12-engine-quality.yml
+      - src/lib/reports/comprehensive/**
+      - src/lib/reports/evidence-model/**
+      - src/lib/reports/essential-projection.ts
+      - src/lib/reports/narrative/fact-pack.ts
+      - src/lib/scoring/**
+      - src/lib/adaptive/**
 
 permissions:
   contents: read
