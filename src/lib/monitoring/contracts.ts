@@ -107,11 +107,17 @@ export const MONITORING_FORECAST = Object.freeze({
   checkly: {
     plan: 'Hobby',
     monthlyCostUsd: 0,
-    uptimeMonitors: 4,
+    // Three uptime checks are active in Checkly today. The readiness check is
+    // planned for the later owner-approved cutover and must not be presented
+    // as active monitoring before it is created.
+    uptimeMonitors: 3,
     uptimeCadenceMinutes: 5,
-    apiChecks: 1,
+    apiChecks: 0,
     apiCadenceMinutes: 5,
-    apiRunsPer31DayMonth: 8928,
+    apiRunsPer31DayMonth: 0,
+    plannedUptimeMonitors: 4,
+    plannedApiChecks: 1,
+    plannedApiRunsPer31DayMonth: 8928,
     coreBrowserRunsPer31DayMonth: 372,
     fullDesktopBrowserRunsPer31DayMonth: 124,
     fullMobileBrowserRunsPer31DayMonth: 31,

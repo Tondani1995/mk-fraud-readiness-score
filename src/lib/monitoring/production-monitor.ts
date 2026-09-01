@@ -234,7 +234,7 @@ function textForAlert(candidate: MonitorAlertCandidate, input: { firstDetected?:
     input.recovery ? `Outage duration: ${input.durationMinutes ?? 0} minutes` : null,
     `Current deployment: ${candidate.deploymentSha ?? 'unavailable'}`,
     candidate.safeReference ? `Technical reference: ${candidate.safeReference}` : null,
-    input.recovery ? 'Recovery guidance: confirm the next scheduled monitor run remains healthy.' : 'Recovery guidance: inspect the Production monitoring dashboard and the linked runbook.'
+    input.recovery ? 'Recovery guidance: confirm the next scheduled monitor run remains healthy.' : 'Recovery guidance: review /score/admin/monitoring and the production-observability runbook.'
   ];
   return lines.filter((line): line is string => Boolean(line)).join('\n');
 }
@@ -259,7 +259,7 @@ async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { fi
 }
 
 async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, dependencies: ProductionMonitorDependencies) {
-  const { data: existing } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count').eq('alert_key', candidate.alertKey).maybeSingle();
+  const { data: existing } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count').eq('source', 'production_monitor').eq('alert_key', candidate.alertKey).maybeSingle();
   const { data: recorded, error } = await db.rpc('record_production_monitor_alert', {
     p_alert_key: candidate.alertKey,
     p_priority: candidate.priority,
