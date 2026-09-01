@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { generateText, Output } from 'ai';
-import { selectNarrativeModel } from '../ai-model-policy';
 import type { ComprehensiveManagementModel } from './management-model';
 import { claimsVerification } from './product-contract';
 import { comprehensiveAssessmentScopeStatement, type ComprehensiveAssessmentScope } from './assessment-scope';
@@ -22,6 +21,13 @@ import { comprehensiveAssessmentScopeStatement, type ComprehensiveAssessmentScop
  */
 
 export const COMPREHENSIVE_INTERPRETATION_VERSION = 'mk-comprehensive-interpretation-v1' as const;
+/**
+ * Comprehensive is a R35k management product and its proven writer model is an
+ * explicit product contract. Do not inherit this from Essential's fallback
+ * ordering: changing an unrelated tier's model policy must never silently
+ * change the model that writes Comprehensive interpretation.
+ */
+export const COMPREHENSIVE_INTERPRETATION_MODEL = 'openai/gpt-5.6-luna' as const;
 
 export type InterpretationSlotId =
   | 'executiveInterpretation'
@@ -654,8 +660,7 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
   maxRepairsPerSlot?: number;
   timeoutMs?: number;
 }): Promise<InterpretationRun> {
-  const selection = selectNarrativeModel();
-  const resolved = requireCredential(options?.model ?? selection.fallbackModels[0] ?? 'openai/gpt-5.6-luna');
+  const resolved = requireCredential(options?.model ?? COMPREHENSIVE_INTERPRETATION_MODEL);
   const maxRepairs = options?.maxRepairsPerSlot ?? 2;
   const timeoutMs = options?.timeoutMs ?? 240_000;
   const accounting: InterpretationAccounting = { calls: 0, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costMicros: 0, durationMs: 0, model: resolved.model, repairedSlots: [] };
