@@ -255,6 +255,7 @@ export function buildV12ProfileAssembled(profileKey: V12ProfileKey) {
       id: ids.score,
       assessmentId: ids.assessment,
       methodologyVersionId: V12_METHODOLOGY_ID,
+      ...{ methodologyVersionCode: COMPREHENSIVE_V12_QUALITY_METHODOLOGY },
       status: 'completed',
       lockedAt: COMPREHENSIVE_V12_QUALITY_GENERATED_AT,
       inputHash: score.inputHash,
