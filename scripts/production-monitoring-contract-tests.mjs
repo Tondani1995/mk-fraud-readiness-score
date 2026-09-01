@@ -145,6 +145,8 @@ assert.match(sentryClientSource, /ReplayCanvas/);
 const sentryTestRoute = read('src/app/score/api/internal/sentry-test-error/route.ts');
 assert.match(sentryTestRoute, /process\.env\.VERCEL_ENV !== 'preview'/);
 assert.match(sentryTestRoute, /Sentry\.getClient\(\)/);
+assert.match(sentryTestRoute, /Sentry\.init\(/);
+assert.match(sentryTestRoute, /sendDefaultPii:\s*false/);
 assert.match(sentryTestRoute, /Sentry\.flush\(2000\)/);
 assert.match(read('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts'), /safeErrorCategory\(error\)/);
 const monitoringAdminPage = read('src/app/score/admin/monitoring/page.tsx');

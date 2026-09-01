@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
 import { verifyReadinessRequest } from '@/lib/monitoring/signatures';
+import { scrubSentryEvent, sentryServerEnvironment } from '@/lib/monitoring/sentry';
 
 const TEST_PATH = '/score/api/internal/sentry-test-error';
 
@@ -16,6 +17,17 @@ export async function GET(request: Request) {
   const secret = process.env.MK_PRODUCTION_MONITOR_SECRET;
   if (!verifyReadinessRequest(request, secret, TEST_PATH)) {
     return NextResponse.json({ ok: false }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (!Sentry.getClient()) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN?.trim() || process.env.NEXT_PUBLIC_SENTRY_DSN?.trim(),
+      environment: sentryServerEnvironment(),
+      sendDefaultPii: false,
+      tracesSampleRate: 0,
+      enableLogs: false,
+      beforeSend: scrubSentryEvent
+    });
   }
 
   const sentryClientInitialized = Boolean(Sentry.getClient());
