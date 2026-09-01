@@ -14,6 +14,7 @@ const outputDir = path.resolve(process.env.CURRENT_COMPREHENSIVE_OUTPUT_DIR ?? p
 const acceptancePath = path.join(outputDir, 'comprehensive-current-path-acceptance.json');
 const layoutPath = path.join(outputDir, 'comprehensive-current-layout-composition.json');
 const leakagePath = path.join(outputDir, 'comprehensive-customer-copy-leakage.json');
+const workbookReconciliationPath = path.join(outputDir, 'comprehensive-current-workbook-reconciliation.json');
 const screenshotPages = {
   motheo: { coverPage: 1, representativeNarrative: 3, representativeExhibit: 11, finalConclusion: 17 },
   bokamoso: { coverPage: 1, representativeNarrative: 4, representativeExhibit: 25, finalConclusion: 30 }
@@ -39,6 +40,10 @@ if (layout.status !== 'PASS' || layout.providerCalls !== 0 || layout.databaseWri
 const leakage = JSON.parse(await fs.readFile(leakagePath, 'utf8'));
 if (leakage.status !== 'PASS' || leakage.providerCalls !== 0 || leakage.databaseWrites !== 0) {
   throw new Error('Customer-copy leakage evidence is not a provider-free PASS.');
+}
+const workbookReconciliation = JSON.parse(await fs.readFile(workbookReconciliationPath, 'utf8'));
+if (workbookReconciliation.status !== 'PASS' || workbookReconciliation.providerCalls !== 0 || workbookReconciliation.databaseWrites !== 0) {
+  throw new Error('Workbook cross-artifact reconciliation evidence is not a provider-free PASS.');
 }
 
 const profiles = {};
@@ -81,7 +86,8 @@ for (const evidence of acceptance.outputs) {
       formulaErrorScan: workbookQa.formulaErrorScan,
       renderedSheets: workbookQa.renderedSheets
     },
-    controllerCrossArtifactAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
+    crossArtifactReconciliation: workbookReconciliation.profiles[key],
+    controllerCrossArtifactAcceptance: 'PENDING_OWNER_ACCEPTANCE_OF_CORRECTED_XLSX',
     screenshots,
     layout: layout.profiles.find((item) => item.profile === key),
     customerCopyLeakage: leakage.profiles.find((item) => item.profile === key)
@@ -97,11 +103,17 @@ const manifest = {
   phaseG: 'NOT_RUN',
   acceptance: {
     providerFreeStructuralAcceptance: 'PASS',
+    providerFreeCrossArtifactRegression: workbookReconciliation.status,
     liveCommercialNarrativeAcceptance: 'NOT_RUN',
     commercialValue: 'NOT_CLAIMED',
     bokamosoEvidenceClass: 'provider-free-structural-composition-fixture-only'
   },
-  workbookControllerAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
+  workbookControllerAcceptance: 'PENDING_OWNER_ACCEPTANCE_OF_CORRECTED_XLSX',
+  evidenceFiles: {
+    workbookCrossArtifactReconciliation: await fileRecord(workbookReconciliationPath),
+    layoutComposition: await fileRecord(layoutPath),
+    customerCopyLeakage: await fileRecord(leakagePath)
+  },
   source: {
     branch: gitValue(['branch', '--show-current']),
     commit: gitValue(['rev-parse', 'HEAD']),
@@ -122,8 +134,9 @@ const manifest = {
     currentPathAcceptance: acceptance.status,
     customerCopyLeakage: leakage.status,
     layoutComposition: layout.status,
-    workbooks: 'PASS_STRUCTURAL_QA_ONLY',
-    workbookControllerAcceptance: 'PENDING_CROSS_ARTIFACT_INSPECTION',
+    workbookCrossArtifactRegression: workbookReconciliation.status,
+    workbooks: 'PASS_PROVIDER_FREE_WORKBOOK_AND_CROSS_ARTIFACT_REGRESSION',
+    workbookControllerAcceptance: 'PENDING_OWNER_ACCEPTANCE_OF_CORRECTED_XLSX',
     typecheck: 'PASS',
     build: 'PASS'
   },

@@ -1,5 +1,7 @@
 import type { ComprehensiveDeliveryModel } from './types';
+import type { NarrativeFactPack } from '../narrative/fact-pack';
 import { buildComprehensiveNarrativeFactPack } from '../narrative/fact-pack';
+import { buildAuthoritativeComprehensiveObjects } from './authoritative-objects';
 
 export interface RegisterSheet<T extends Record<string, unknown> = Record<string, unknown>> { name: string; columns: string[]; rows: T[]; }
 
@@ -20,10 +22,10 @@ function date(value: unknown): string { const raw = String(value ?? '').trim(); 
 
 export function safeSpreadsheetCell(value: unknown): string | number | boolean | null { return safeCell(value); }
 
-export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryModel): RegisterSheet[] {
-  const sustainmentPack = model.analytical.evidenceModel.narrativeMode === 'SUSTAINMENT'
-    ? buildComprehensiveNarrativeFactPack(model)
-    : null;
+export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryModel, factPackOverride?: NarrativeFactPack): RegisterSheet[] {
+  const factPack = factPackOverride ?? buildComprehensiveNarrativeFactPack(model);
+  const sustainmentPack = factPack.narrativeMode === 'SUSTAINMENT' ? factPack : null;
+  const authoritative = buildAuthoritativeComprehensiveObjects(factPack);
   const findings = (sustainmentPack ? [] : model.findings).map((finding) => ({
     id: safeCell(finding.id), title: safeCell(finding.title), domain: safeCell(finding.domainName), questionCode: safeCell(finding.questionCode),
     recordedResponse: safeCell(finding.responseMeaning), diagnosis: safeCell(finding.diagnosis), whyItMatters: safeCell(finding.whyItMatters),
@@ -43,7 +45,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
   }));
 
   const controls = sustainmentPack
-    ? sustainmentPack.controls.map((control) => ({
+    ? authoritative.controls.map((control) => ({
       id: safeCell(control.sourceId), linkedFindingId: '', linkedRiskIds: '', questionCode: '',
       currentState: safeCell(control.currentState), targetState: safeCell(control.targetState), controlObjective: safeCell(control.objective), controlDesign: safeCell(control.targetState),
       accountableExecutive: safeCell(control.accountableExecutive), processOwner: safeCell(control.processOwner), oversightFunction: '',
@@ -77,7 +79,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     }));
 
   const roadmap = sustainmentPack
-    ? sustainmentPack.roadmap.map((action) => ({
+    ? authoritative.roadmap.map((action) => ({
       id: safeCell(action.sourceId), period: safeCell(action.targetPeriod), domain: safeCell(action.primarySemanticFamily), deliverable: safeCell(action.priorityWork),
       accountableExecutive: safeCell(action.accountableExecutive), processOwner: safeCell(action.processOwner), oversightFunction: '',
       supportingFunctions: '', dependencies: safeCell(list(action.dependencies)), successMeasure: safeCell(action.successMeasure),
@@ -90,58 +92,79 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
       proofOfCompletion: safeCell(action.evidenceOfCompletion), escalationThreshold: safeCell(action.escalationThreshold), linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
     }));
 
+  const sourceFindingIdForRef = (findingRef: string): string => factPack.findings.find((finding) => finding.factRef === findingRef)?.sourceId ?? '';
+  const sustainmentRoadmapStage = (targetPeriod: string): string => /^30\s*days?$/i.test(targetPeriod.trim()) ? 'PRESERVE' : 'MEASURE';
+  const maturationStage = (phase: string): string => sustainmentPack && phase === 'MATURE' ? 'OPTIMISE' : phase;
+  const roadmapPhaseForSourceId = (sourceId: string): string => authoritative.roadmap.find((item) => item.sourceId === sourceId)?.phase ?? '';
   const implementation = sustainmentPack
     ? [
-      ...sustainmentPack.roadmap.map((action) => ({
-        recordType: 'Roadmap action', technicalId: safeCell(action.sourceId), period: safeCell(action.targetPeriod), domain: safeCell(action.primarySemanticFamily),
+      ...authoritative.roadmap.map((action) => ({
+        recordType: 'Roadmap action', technicalId: safeCell(action.sourceId), blueprintStage: safeCell(sustainmentRoadmapStage(action.targetPeriod)), period: safeCell(action.targetPeriod), domain: safeCell(action.primarySemanticFamily),
         requirementOrDeliverable: safeCell(action.priorityWork), accountableOwner: safeCell(action.accountableExecutive), processOwner: safeCell(action.processOwner),
         oversightFunction: '', dependencies: safeCell(list(action.dependencies)), proofOrCompletion: safeCell(action.proofOfCompletion),
         successMeasure: safeCell(action.successMeasure), expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: '', linkedRiskIds: ''
       })),
       ...sustainmentPack.proofOfProgress.map((item) => ({
-        recordType: 'Proof requirement', technicalId: safeCell(item.factRef), period: '', domain: '',
+        recordType: 'Proof requirement', technicalId: safeCell(item.factRef), blueprintStage: '', period: '', domain: '',
         requirementOrDeliverable: safeCell(item.requirement), accountableOwner: safeCell(item.owner), processOwner: '', oversightFunction: '', dependencies: '',
         proofOrCompletion: safeCell(item.whyItMatters), successMeasure: '', expectedRecency: safeCell(item.expectedRecency), requiredPopulation: safeCell(item.requiredPopulation),
         acceptableExamples: safeCell(list(item.acceptableExamples)), linkedFindingIds: '', linkedRiskIds: ''
+      })),
+      ...authoritative.maturationSteps.map((item) => ({
+        recordType: 'Maturation step', technicalId: safeCell(item.maturationRef), blueprintStage: safeCell(maturationStage(item.phase)), period: safeCell(item.phaseWindow), domain: safeCell(item.semanticFamily),
+        requirementOrDeliverable: safeCell(item.priorityActivity), accountableOwner: safeCell(item.accountableExecutive), processOwner: safeCell(item.processOwner),
+        oversightFunction: '', dependencies: safeCell(item.dependency), proofOrCompletion: safeCell(item.proofOfProgress), successMeasure: safeCell(item.successMeasure),
+        expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: '', linkedRiskIds: ''
       }))
     ]
     : [
     ...model.roadmapActions.map((action) => ({
-      recordType: 'Roadmap action', technicalId: safeCell(action.id), period: safeCell(action.period), domain: safeCell(action.domainName),
+      recordType: 'Roadmap action', technicalId: safeCell(action.id), blueprintStage: safeCell(roadmapPhaseForSourceId(action.id)), period: safeCell(action.period), domain: safeCell(action.domainName),
       requirementOrDeliverable: safeCell(action.deliverable), accountableOwner: safeCell(action.accountableExecutive), processOwner: safeCell(action.processOwner),
       oversightFunction: safeCell(action.oversightFunction), dependencies: safeCell(refs(action.dependencyIds)), proofOrCompletion: safeCell(action.evidenceOfCompletion),
       successMeasure: safeCell(action.successMeasure), expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
     })),
     ...model.proofRequirements.map((item) => ({
-      recordType: 'Proof requirement', technicalId: safeCell(item.proofRef), period: '', domain: safeCell(item.linkedDomain),
+      recordType: 'Proof requirement', technicalId: safeCell(item.proofRef), blueprintStage: '', period: '', domain: safeCell(item.linkedDomain),
       requirementOrDeliverable: safeCell(item.requirement), accountableOwner: safeCell(item.proofOwner), processOwner: '', oversightFunction: '', dependencies: '',
       proofOrCompletion: safeCell(item.whyItMatters), successMeasure: '', expectedRecency: safeCell(item.expectedRecency), requiredPopulation: safeCell(item.requiredPopulation),
       acceptableExamples: safeCell(list(item.acceptableExamples)), linkedFindingIds: safeCell(refs(item.linkedFindingIds)), linkedRiskIds: safeCell(refs(item.linkedRiskIds))
+    })),
+    ...authoritative.maturationSteps.map((item) => ({
+      recordType: 'Maturation step', technicalId: safeCell(item.maturationRef), blueprintStage: safeCell(maturationStage(item.phase)), period: safeCell(item.phaseWindow), domain: safeCell(item.semanticFamily),
+      requirementOrDeliverable: safeCell(item.priorityActivity), accountableOwner: safeCell(item.accountableExecutive), processOwner: safeCell(item.processOwner),
+      oversightFunction: '', dependencies: safeCell(item.dependency), proofOrCompletion: safeCell(item.proofOfProgress), successMeasure: safeCell(item.successMeasure),
+      expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: safeCell(sourceFindingIdForRef(item.linkedFindingRef) ? refs([`finding:${sourceFindingIdForRef(item.linkedFindingRef)}`]) : ''), linkedRiskIds: ''
     }))
   ];
 
   const traces = (model.analytical.assembled?.questionTraces ?? model.findings.map((finding) => ({ questionCode: finding.questionCode, domainCode: finding.domainCode, domainName: finding.domainName, prompt: finding.questionPrompt, responseValue: finding.responseValue, normalisedScore: finding.normalisedScore, applicable: true, isCritical: finding.isCriticalControl, isHardGate: finding.isHardGate, isCriticalGap: finding.gapClassification === 'critical', isMajorGap: finding.gapClassification === 'major', triggeredRules: [] }))).map((trace) => {
-    const finding = model.findings.find((candidate) => candidate.questionCode === trace.questionCode);
+    const finding = sustainmentPack ? undefined : model.findings.find((candidate) => candidate.questionCode === trace.questionCode);
     return { questionCode: safeCell(trace.questionCode), domain: safeCell(trace.domainName), prompt: safeCell(trace.prompt), recordedResponse: safeCell(trace.responseValue), normalisedScore: safeCell(trace.normalisedScore), applicable: safeCell(trace.applicable), materiality: safeCell(trace.isCriticalGap ? 'Critical gap' : trace.isMajorGap ? 'Major gap' : trace.isCritical ? 'Critical control' : 'Recorded response'), linkedFindingIds: safeCell(finding ? finding.id : ''), linkedRiskIds: safeCell(finding ? list(model.riskRegister.filter((risk) => risk.linkedFindingIds.includes(finding.id)).map((risk) => risk.id)) : ''), linkedControlIds: safeCell(finding ? list(model.controlImprovements.filter((control) => control.linkedFindingId === finding.id).map((control) => control.id)) : ''), sourceRefs: safeCell(refs([`question:${trace.questionCode}`, ...(finding ? [`finding:${finding.id}`] : [])])) };
   });
 
-  const decisions = sustainmentPack
-    ? sustainmentPack.decisions.map((decision) => ({
-      id: safeCell(decision.sourceId), decisionRequired: safeCell(decision.question), whyNow: safeCell(decision.rationale), evidenceDrivingIt: safeCell(decision.rationale), consequenceOfDelay: safeCell(decision.consequenceOfDelay),
+  const decisions = authoritative.decisions.map((decision) => {
+    const sourceDecision = model.leadershipDecisions.find((candidate) => candidate.id === decision.sourceId);
+    return {
+      id: safeCell(decision.sourceId), decisionRequired: safeCell(decision.question), whyNow: safeCell(sourceDecision?.whyNow ?? decision.rationale), evidenceDrivingIt: safeCell(sourceDecision?.evidenceDrivingIt ?? decision.rationale), consequenceOfDelay: safeCell(decision.consequenceOfDelay),
       viableOptions: safeCell(list(decision.options.map((item) => item.option))), optionAnalysis: safeCell(decision.options.map((item) => `${item.option}: cost: ${item.cost}; benefit: ${item.benefit}; trade-off: ${item.tradeOff}`).join(' | ')),
-      deterministicRecommendation: safeCell(decision.recommendedRoute), recommendationRationale: safeCell(decision.rationale), accountableOwner: safeCell(decision.owner), targetPeriod: '', targetDate: safeCell(decision.targetDate), immediateNextDeliverable: '', linkedFindingIds: '', linkedRiskIds: ''
-    }))
-    : model.leadershipDecisions.map((decision) => {
-    const options = model.decisionOptionSets.find((candidate) => candidate.decisionId === decision.id);
-    return { id: safeCell(decision.id), decisionRequired: safeCell(decision.decisionRequired), whyNow: safeCell(decision.whyNow), evidenceDrivingIt: safeCell(decision.evidenceDrivingIt), consequenceOfDelay: safeCell(decision.consequenceOfDelay), viableOptions: safeCell(list(options?.viableOptions ?? [])), optionAnalysis: safeCell((options?.optionDetails ?? []).map((item) => `${item.option}: cost: ${item.cost}; benefit: ${item.benefit}; trade-off: ${item.tradeOff}`).join(' | ')), deterministicRecommendation: safeCell(options?.deterministicRecommendation ?? decision.recommendedDecision), recommendationRationale: safeCell(options?.recommendationRationale), accountableOwner: safeCell(decision.accountableExecutive), targetPeriod: safeCell(decision.targetPeriod), targetDate: safeCell(date(decision.deadline)), immediateNextDeliverable: safeCell(decision.immediateNextDeliverable), linkedFindingIds: safeCell(refs(decision.linkedFindingIds)), linkedRiskIds: safeCell(refs(decision.linkedRiskIds)) };
-    });
+      recommendedRoute: safeCell(decision.recommendedRoute), recommendationRationale: safeCell(decision.rationale), accountableOwner: safeCell(decision.owner), targetPeriod: safeCell(sourceDecision?.targetPeriod ?? decision.targetDate), targetDate: safeCell(date(decision.targetDate)), immediateNextDeliverable: safeCell(sourceDecision?.immediateNextDeliverable), linkedFindingIds: sustainmentPack ? '' : safeCell(refs(sourceDecision?.linkedFindingIds ?? [])), linkedRiskIds: sustainmentPack ? '' : safeCell(refs(sourceDecision?.linkedRiskIds ?? []))
+    };
+  });
+
+  const customerLineageColumns = new Set(['linkedFindingId', 'linkedRiskIds', 'linkedFindingIds', 'linkedRiskId']);
+  const customerSheet = (name: string, columns: string[], rows: Array<Record<string, unknown>>): RegisterSheet => {
+    if (!sustainmentPack) return { name, columns, rows };
+    const visibleColumns = columns.filter((column) => !customerLineageColumns.has(column));
+    return { name, columns: visibleColumns, rows: rows.map((row) => Object.fromEntries(visibleColumns.map((column) => [column, row[column]]))) };
+  };
 
   return [
-    { name: 'Material Findings', columns: Object.keys(findings[0] ?? { id: '' }), rows: findings },
-    { name: 'Risk Register', columns: Object.keys(risks[0] ?? { id: '' }), rows: risks },
-    { name: 'Control Blueprints', columns: Object.keys(controls[0] ?? { id: '' }), rows: controls },
-    { name: 'Implementation Blueprint', columns: Object.keys(implementation[0] ?? { technicalId: '' }), rows: implementation },
-    { name: 'Management Decisions', columns: Object.keys(decisions[0] ?? { id: '' }), rows: decisions },
-    { name: 'Question Traceability', columns: Object.keys(traces[0] ?? { questionCode: '' }), rows: traces }
+    customerSheet('Material Findings', Object.keys(findings[0] ?? { id: '' }), findings),
+    customerSheet('Risk Register', Object.keys(risks[0] ?? { id: '' }), risks),
+    customerSheet('Control Blueprints', Object.keys(controls[0] ?? { id: '' }), controls),
+    customerSheet('Implementation Blueprint', Object.keys(implementation[0] ?? { technicalId: '' }), implementation),
+    customerSheet('Management Decisions', Object.keys(decisions[0] ?? { id: '' }), decisions),
+    customerSheet('Question Traceability', Object.keys(traces[0] ?? { questionCode: '' }), traces)
   ];
 }

@@ -88,6 +88,7 @@ function friendlyHeader(column) {
 
 function value(value) {
   if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   const text = String(value);
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
@@ -97,17 +98,21 @@ function rowsToValues(rows, columns) {
   return rows.map((row) => columns.map((column) => value(row[column])));
 }
 
-function readMeRows(model, factPack, blueprint) {
+function workbookDate(value) {
+  const parsed = value instanceof Date ? value : new Date(String(value ?? ''));
+  return Number.isNaN(parsed.getTime()) ? value : parsed;
+}
+
+function readMeRows(factPack) {
   return [
-    ['Workbook purpose', 'Comprehensive Fraud Readiness Strategy and Control Blueprint', 'Owner-review companion to the narrative PDF.'],
+    ['Workbook purpose', 'Comprehensive Fraud Readiness Strategy and Control Blueprint', 'Companion record for management use alongside the report.'],
     ['Customer basis', "The workbook is grounded in management's recorded Fraud Readiness assessment responses.", 'It does not independently verify operating effectiveness.'],
     ['Current product mode', factPack.narrativeMode, factPack.narrativeMode === 'SUSTAINMENT' ? 'Preserve and monitor the recorded positive position.' : 'Remediate the recorded material weaknesses.'],
-    ['Assessment reference', factPack.assessment.reference, 'Technical reference retained for reconciliation.'],
-    ['Narrative boundary', 'The PDF is narrative-led; detailed registers remain here.', 'The workbook is not a substitute for the management story.'],
-    ['Blueprint identity', `${blueprint.schemaVersion} · Reporting Bible ${blueprint.bibleVersion}`, 'One Fact Pack, one Story Plan and one Blueprint feed both artifacts.'],
+    ['Assessment reference', factPack.assessment.reference, 'Reference used in the accompanying report.'],
+    ['How to read', 'Start with Summary, then review findings and risks, control blueprints, management decisions and the Implementation Blueprint.', 'Use the detailed records to assign ownership, timing, proof and review.'],
+    ['Implementation Blueprint', 'The Implementation Blueprint records sequenced work, maturation steps and the management records that show progress.', 'Use the period, owner, dependency, proof and measure fields together.'],
     ['Sustainment sequence', 'PRESERVE → EMBED → MEASURE → OPTIMISE', 'Positive-state operating language; not a weakness register.'],
-    ['Technical references', 'IDs and question codes are retained for traceability.', 'They should not be copied into customer-facing narrative prose.'],
-    ['Phase boundary', 'Provider-free Phase A–F structural workbook QA only.', 'Controller cross-artifact acceptance remains pending; Phase G Luna/Terra comparison was not run.']
+    ['Traceability', 'Question codes and source references are retained to support review and follow-through.', 'Use the assessment reference when discussing a record.']
   ];
 }
 
@@ -116,24 +121,25 @@ function buildWorkbookData(model, factPack, blueprint, registerSheets) {
   const summaryColumns = ['field', 'value', 'note'];
   const summaryRows = [
     ['Organisation', model.analytical.organisationName, ''],
-    ['Assessment reference', model.analytical.assessmentReference, 'Technical reference retained for traceability.'],
-    ['Narrative mode', factPack.narrativeMode, 'SUSTAINMENT or REMEDIATION is deterministic.'],
-    ['Readiness score', model.analytical.score.overallScore, 'Recorded deterministic score; narrative does not change it.'],
+    ['Assessment reference', model.analytical.assessmentReference, 'Reference used in the accompanying report.'],
+    ['Product mode', factPack.narrativeMode, 'The treatment route for this assessment.'],
+    ['Readiness score', model.analytical.score.overallScore, 'Recorded assessment score; the accompanying report interpretation does not alter it.'],
     ['Final maturity', model.analytical.score.finalMaturity, ''],
-    ['Exposure position', `${model.analytical.score.exposureScore ?? 'Not supplied'} · ${model.analytical.score.exposureBand ?? 'Not supplied'}`, ''],
-    ['Material findings', null, 'Formula reconciles to Material Findings.'],
-    ['Risk register rows', null, 'Formula reconciles to Risk Register.'],
-    ['Control blueprint rows', null, 'Formula reconciles to Control Blueprints.'],
-    ['Implementation rows', null, 'Formula reconciles to Implementation Blueprint.'],
-    ['Leadership decisions', null, 'Formula reconciles to Management Decisions.'],
-    ['Question traces', null, 'Formula reconciles to Question Traceability.'],
-    ['Total detailed rows', null, 'Formula sum across six detailed sheets.'],
-    ['Workbook reconciliation', null, 'PASS means the formula layer is internally non-negative and present.'],
-    ['Methodology version', model.analytical.score.methodologyVersionId, 'Technical traceability.'],
-    ['Generated', model.analytical.generatedAt, 'Source generation timestamp.']
+    ['Material findings', null, 'Number of material findings in this report.'],
+    ['Risk register rows', null, 'Number of risk records in this report.'],
+    ['Control blueprint rows', null, 'Number of control blueprints.'],
+    ['Implementation rows', null, 'Number of implementation records.'],
+    ['Leadership decisions', null, 'Number of management decisions.'],
+    ['Question traces', null, 'Number of assessment question traces.'],
+    ['Total detailed records', null, 'Formula sum across the detailed records.'],
+    ['Scoring method reference', model.analytical.score.methodologyVersionId, 'Reference for the recorded result.'],
+    ['Generated', workbookDate(model.analytical.generatedAt), 'Workbook generation time.']
   ];
+  if (model.analytical.score.exposureScore !== null || model.analytical.score.exposureBand !== null) {
+    summaryRows.splice(5, 0, ['Exposure position', `${model.analytical.score.exposureScore ?? ''} · ${model.analytical.score.exposureBand ?? ''}`.replace(/^ · | · $/g, ''), '']);
+  }
   return [
-    { name: 'Read me', columns: readMeColumns, rows: readMeRows(model, factPack, blueprint).map(([field, cellValue, note]) => ({ field, value: cellValue, note })) },
+    { name: 'Read me', columns: readMeColumns, rows: readMeRows(factPack).map(([field, cellValue, note]) => ({ field, value: cellValue, note })) },
     { name: 'Summary', columns: summaryColumns, rows: summaryRows.map(([field, cellValue, note]) => ({ field, value: cellValue, note })) },
     ...registerSheets
   ];
@@ -166,7 +172,7 @@ async function buildForProfile(profileKey) {
   assertNarrativeStoryPlan(storyPlan, factPack);
   const blueprint = buildReportBlueprint(factPack, storyPlan);
   assertReportBlueprint(blueprint, factPack);
-  const registerSheets = buildComprehensiveRegisterSheets(model).map((sheet) => ({
+  const registerSheets = buildComprehensiveRegisterSheets(model, factPack).map((sheet) => ({
     ...sheet,
     rows: sheet.rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, cell]) => [key, value(cell)])))
   }));
@@ -196,16 +202,19 @@ async function buildForProfile(profileKey) {
 
   const readMe = worksheets.get('Read me');
   readMe.getRange('A1:C1').format = { fill: colors.navy, font: { bold: true, color: colors.white, size: 12 }, rowHeight: 30 };
-  readMe.getRange('A2:A10').format = { fill: colors.cream, font: { bold: true, color: colors.navy700 } };
-  readMe.getRange('A1:C10').format.borders = { preset: 'all', style: 'thin', color: colors.rule };
+  const readMeRowCount = workbookData.find((sheet) => sheet.name === 'Read me')?.rows.length ?? 0;
+  readMe.getRange(`A2:A${readMeRowCount + 1}`).format = { fill: colors.cream, font: { bold: true, color: colors.navy700 } };
+  readMe.getRange(`A1:C${readMeRowCount + 1}`).format.borders = { preset: 'all', style: 'thin', color: colors.rule };
 
   const summary = worksheets.get('Summary');
   summary.getRange('A1:F1').merge();
-  summary.getRange('A1').values = [[`MK Fraud Insights · Comprehensive owner-review workbook · ${factPack.assessment.reference}`]];
+  summary.getRange('A1').values = [[`MK Fraud Insights · Comprehensive workbook · ${factPack.assessment.reference}`]];
   summary.getRange('A1:F1').format = { fill: colors.navy, font: { bold: true, color: colors.white, size: 15 }, rowHeight: 32 };
   summary.getRange('A2:C2').format = { fill: colors.brass, font: { bold: true, color: colors.white } };
-  summary.getRange('A2:A17').format = { fill: colors.cream, font: { bold: true, color: colors.navy700 } };
-  summary.getRange('A1:C18').format.borders = { preset: 'all', style: 'thin', color: colors.rule };
+  const summaryData = workbookData.find((sheet) => sheet.name === 'Summary');
+  const summaryRowCount = summaryData?.rows.length ?? 0;
+  summary.getRange(`A2:A${summaryRowCount + 1}`).format = { fill: colors.cream, font: { bold: true, color: colors.navy700 } };
+  summary.getRange(`A1:C${summaryRowCount + 1}`).format.borders = { preset: 'all', style: 'thin', color: colors.rule };
   summary.getRange('E3:G3').merge();
   summary.getRange('E3').values = [['Semantic palette']];
   summary.getRange('E3:G3').format = { fill: colors.brass, font: { bold: true, color: colors.white } };
@@ -222,6 +231,9 @@ async function buildForProfile(profileKey) {
   summary.getRange('G:G').format.columnWidth = 28;
   summary.freezePanes.freezeRows(2);
 
+  const summaryRow = (field) => (summaryData?.rows.findIndex((row) => row.field === field) ?? -1) + 2;
+  const summaryCell = (field) => `B${summaryRow(field)}`;
+
   const counts = {
     findings: workbookData.find((sheet) => sheet.name === 'Material Findings'),
     risks: workbookData.find((sheet) => sheet.name === 'Risk Register'),
@@ -231,18 +243,25 @@ async function buildForProfile(profileKey) {
     traces: workbookData.find((sheet) => sheet.name === 'Question Traceability')
   };
   const firstDataRow = (sheetData) => `A2:A${Math.max(2, sheetData.rows.length + 1)}`;
-  summary.getRange('B8').formulas = [[`=COUNTA('Material Findings'!${firstDataRow(counts.findings)})`]];
-  summary.getRange('B9').formulas = [[`=COUNTA('Risk Register'!${firstDataRow(counts.risks)})`]];
-  summary.getRange('B10').formulas = [[`=COUNTA('Control Blueprints'!${firstDataRow(counts.controls)})`]];
-  summary.getRange('B11').formulas = [[`=COUNTA('Implementation Blueprint'!${firstDataRow(counts.implementation)})`]];
-  summary.getRange('B12').formulas = [[`=COUNTA('Management Decisions'!${firstDataRow(counts.decisions)})`]];
-  summary.getRange('B13').formulas = [[`=COUNTA('Question Traceability'!${firstDataRow(counts.traces)})`]];
-  summary.getRange('B14').formulas = [['=SUM(B8:B13)']];
-  summary.getRange('B15').formulas = [['=IF(B14>=0,"PASS","CHECK")']];
-  summary.getRange('B8:B15').format = { font: { bold: true, color: colors.navy700 } };
+  summary.getRange(summaryCell('Material findings')).formulas = [[`=COUNTA('Material Findings'!${firstDataRow(counts.findings)})`]];
+  summary.getRange(summaryCell('Risk register rows')).formulas = [[`=COUNTA('Risk Register'!${firstDataRow(counts.risks)})`]];
+  summary.getRange(summaryCell('Control blueprint rows')).formulas = [[`=COUNTA('Control Blueprints'!${firstDataRow(counts.controls)})`]];
+  summary.getRange(summaryCell('Implementation rows')).formulas = [[`=COUNTA('Implementation Blueprint'!${firstDataRow(counts.implementation)})`]];
+  summary.getRange(summaryCell('Leadership decisions')).formulas = [[`=COUNTA('Management Decisions'!${firstDataRow(counts.decisions)})`]];
+  summary.getRange(summaryCell('Question traces')).formulas = [[`=COUNTA('Question Traceability'!${firstDataRow(counts.traces)})`]];
+  const firstCountRow = summaryRow('Material findings');
+  const lastCountRow = summaryRow('Question traces');
+  summary.getRange(summaryCell('Total detailed records')).formulas = [[`=SUM(B${firstCountRow}:B${lastCountRow})`]];
+  summary.getRange(`B${firstCountRow}:B${summaryRow('Total detailed records')}`).format = { font: { bold: true, color: colors.navy700 } };
+  summary.getRange(summaryCell('Readiness score')).setNumberFormat('0.0');
+  summary.getRange(summaryCell('Generated')).setNumberFormat('yyyy-mm-dd hh:mm');
+  const formulaCells = [
+    'Material findings', 'Risk register rows', 'Control blueprint rows', 'Implementation rows',
+    'Leadership decisions', 'Question traces', 'Total detailed records'
+  ].map((field) => `Summary!${summaryCell(field)}`);
 
   const formulaScan = await workbook.inspect({ kind: 'match', searchTerm: '#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A', options: { useRegex: true, maxResults: 300 }, summary: 'Current Comprehensive workbook formula error scan' });
-  const summaryInspect = await workbook.inspect({ kind: 'table', range: 'Summary!A1:G18', include: 'values,formulas', tableMaxRows: 20, tableMaxCols: 8 });
+  const summaryInspect = await workbook.inspect({ kind: 'table', range: `Summary!A1:G${Math.max(18, summaryRowCount + 1)}`, include: 'values,formulas', tableMaxRows: 20, tableMaxCols: 8 });
   const previewDir = path.join(previewRoot, profileKey);
   await fs.mkdir(previewDir, { recursive: true });
   const previews = [];
@@ -264,7 +283,7 @@ async function buildForProfile(profileKey) {
     providerCalls: 0,
     workbook: { path: xlsxPath, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length },
     sheets: workbookData.map((sheet) => ({ name: sheet.name, rows: sheet.rows.length, columns: sheet.columns.length })),
-    formulaCells: ['Summary!B8', 'Summary!B9', 'Summary!B10', 'Summary!B11', 'Summary!B12', 'Summary!B13', 'Summary!B14', 'Summary!B15'],
+    formulaCells,
     formulaErrorScan: formulaScan.ndjson ?? formulaScan,
     summaryInspect: summaryInspect.ndjson ?? summaryInspect,
     renderedSheets: previews.map((preview) => preview.sheet),

@@ -1,6 +1,7 @@
 import type { NarrativeFactPack } from '../narrative/fact-pack';
 import type { BlueprintChapter, NarrativeRole, ReportBlueprint, ReportBlueprintExhibit } from '../narrative/report-blueprint';
 import type { NarrativeParagraphProvenance, ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
+import { buildAuthoritativeComprehensiveObjects } from './authoritative-objects';
 
 export type ComprehensiveSemanticTone = 'positive' | 'neutral' | 'watch' | 'critical';
 
@@ -140,6 +141,8 @@ export function buildComprehensiveNarrativePresentationModel(input: {
     throw new Error('Sustainment presentation cannot contain customer-facing findings, risks, scenarios or weakness themes.');
   }
 
+  const authoritative = buildAuthoritativeComprehensiveObjects(factPack, blueprint);
+
   const chapters = [...blueprint.chapters].sort((a, b) => a.order - b.order).map((chapter) => {
     const refs = chapterRefs(chapter);
     const include = (ref: string): boolean => refs.has(ref);
@@ -158,10 +161,10 @@ export function buildComprehensiveNarrativePresentationModel(input: {
       sustainmentPriorities: factPack.sustainmentPriorities.filter((item) => include(item.factRef)),
       findings: factPack.findings.filter((item) => include(item.factRef)),
       scenarios: factPack.scenarios.filter((item) => include(item.factRef)),
-      controls: factPack.controls.filter((item) => include(item.factRef)),
-      decisions: factPack.decisions.filter((item) => include(item.factRef)),
-      roadmap: factPack.roadmap.filter((item) => include(item.factRef)),
-      maturationSteps: factPack.maturationSteps.filter((item) => include(item.maturationRef)),
+      controls: authoritative.controls.filter((item) => include(item.factRef)),
+      decisions: authoritative.decisions.filter((item) => include(item.factRef)),
+      roadmap: authoritative.roadmap.filter((item) => include(item.factRef)),
+      maturationSteps: authoritative.maturationSteps.filter((item) => include(item.maturationRef)),
       exhibits: chapter.exhibits.map((item) => ({ ...item, sourceRefs: [...item.sourceRefs] }))
     } satisfies ComprehensiveNarrativeChapter;
   });

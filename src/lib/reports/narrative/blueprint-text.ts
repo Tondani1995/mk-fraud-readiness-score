@@ -148,8 +148,24 @@ export const CUSTOMER_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: 
   { id: 'engine-vocabulary', pattern: /\b(?:narrative|renderer|rendered|deterministic|provider[- ]?(?:free|backed|call)|fact[ -]?pack|story[ -]?plan|whole[- ]manuscript|report (?:construction|architecture))\b/i, description: 'report-engine vocabulary' }
 ];
 
+/** Customer workbooks have the same boundary as the PDF, plus workbook-only
+ * QA and certification language that must remain in evidence files. */
+export const CUSTOMER_WORKBOOK_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: RegExp; description: string }> = [
+  { id: 'owner-review-workbook', pattern: /owner[- ]review workbook/i, description: 'owner-review workbook label' },
+  { id: 'provider-free-qa-wording', pattern: /provider[- ]free|phase\s*A[-–]F|owner[- ]review proof|structural workbook QA|QA only/i, description: 'provider, QA or owner-review status wording' },
+  { id: 'engineering-certification-language', pattern: /\b(?:engineering\s+(?:quality|acceptance|gate|certification)|(?:certification|certified)\s+(?:gate|status|proof|evidence|only)|architecture|compositor|composition fixture|acceptance gate|release gate)\b/i, description: 'engineering or certification language' }
+];
+
 export function findCustomerCopyLeakage(text: string): Array<{ id: string; description: string; match: string }> {
   return CUSTOMER_COPY_LEAKAGE_CHECKS.flatMap(({ id, pattern, description }) => {
+    const match = text.match(pattern);
+    return match ? [{ id, description, match: match[0] }] : [];
+  });
+}
+
+export function findCustomerWorkbookCopyLeakage(text: string): Array<{ id: string; description: string; match: string }> {
+  const checks = [...CUSTOMER_COPY_LEAKAGE_CHECKS, ...CUSTOMER_WORKBOOK_COPY_LEAKAGE_CHECKS];
+  return checks.flatMap(({ id, pattern, description }) => {
     const match = text.match(pattern);
     return match ? [{ id, description, match: match[0] }] : [];
   });

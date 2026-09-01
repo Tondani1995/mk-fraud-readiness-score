@@ -7,19 +7,18 @@ export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
 export const COMPREHENSIVE_READ_ME_SHEET = 'Read me';
 
 function cell(value: unknown): string { return value === null || value === undefined ? '' : String(value); }
-function humanDate(value: unknown): string { const raw = String(value ?? '').trim(); if (!raw) return ''; const date = new Date(raw); return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+function humanDate(value: unknown): string { const raw = String(value ?? '').trim(); if (!raw) return ''; const date = new Date(raw); return Number.isNaN(date.getTime()) ? raw : date.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }); }
 function friendlyHeader(column: string): string { return column.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^(?:id|technical id)$/i, 'Technical ID').replace(/^question code$/i, 'Question code (technical)').replace(/^source refs$/i, 'Source references (technical)').replace(/^proof ref$/i, 'Proof reference (technical)').replace(/^linked (finding|risk|control) ids?$/i, 'Linked $1 IDs (technical)').replace(/^./, (letter) => letter.toUpperCase()); }
 function technicalColumn(column: string): boolean { return /(^id$|technicalId|questionCode|sourceRefs|proofRef|linked(?:Finding|Risk|Control)Ids?)/i.test(column); }
 function orderedColumns(columns: string[]): string[] { return [...columns].sort((a, b) => Number(technicalColumn(a)) - Number(technicalColumn(b))); }
 
 function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
-  return [
+  const rows = [
     { field: 'Organisation', value: cell(model.analytical.organisationName), note: '' },
     { field: 'Assessment reference', value: cell(model.analytical.assessmentReference), note: 'Technical reference retained for traceability.' },
     { field: 'Assessment basis', value: "Management's recorded Fraud Readiness assessment responses", note: 'The automated Comprehensive product does not require customer evidence upload or human approval records.' },
-    { field: 'Deterministic readiness', value: cell(model.analytical.score.overallScore), note: 'Recorded score; narrative does not change it.' },
+    { field: 'Readiness score', value: cell(model.analytical.score.overallScore), note: 'Recorded assessment score; the accompanying report interpretation does not alter it.' },
     { field: 'Final maturity', value: cell(model.analytical.score.finalMaturity), note: '' },
-    { field: 'Exposure position', value: `${cell(model.analytical.score.exposureScore)} · ${cell(model.analytical.score.exposureBand)}`, note: '' },
     { field: 'Material findings', value: cell(model.findings.length), note: 'Diagnosis.' },
     { field: 'Target control blueprints', value: cell(model.controlImprovements.length), note: 'Design.' },
     { field: 'Leadership decisions', value: cell(model.leadershipDecisions.length), note: 'Design.' },
@@ -27,13 +26,17 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
     { field: 'Methodology version', value: cell(model.analytical.score.methodologyVersionId), note: 'Technical traceability.' },
     { field: 'Generated', value: humanDate(model.analytical.generatedAt), note: 'DD MMM YYYY.' }
   ];
+  if (model.analytical.score.exposureScore !== null || model.analytical.score.exposureBand !== null) {
+    rows.splice(5, 0, { field: 'Exposure position', value: `${cell(model.analytical.score.exposureScore)} · ${cell(model.analytical.score.exposureBand)}`.replace(/^ · | · $/g, ''), note: '' });
+  }
+  return rows;
 }
 
 function readMeRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
   return [
     { field: 'Workbook purpose', value: 'Comprehensive Fraud Readiness Strategy and Control Blueprint', note: 'Use the workbook to understand, decide, build and monitor.' },
     { field: 'Customer basis', value: "This report provides strategic fraud-risk analysis and control design based on management's recorded Fraud Readiness assessment responses.", note: 'It does not independently verify operating effectiveness.' },
-    { field: 'Analytical boundary', value: 'The deterministic engine decides; bounded narrative explains the recorded result.', note: 'No identity or sign-off record is required for generation.' },
+    { field: 'How to read', value: 'Start with Summary, then Findings and Risks, then Control Blueprints, Decisions and the Implementation Blueprint.', note: 'Technical IDs and question codes support traceability.' },
     { field: 'How to read', value: 'Start with Summary, then Findings and Risks, then Control Blueprints, Decisions and the Implementation Blueprint.', note: 'Technical IDs and question codes support traceability.' },
     { field: 'Implementation blueprint', value: 'The Implementation Blueprint combines sequenced roadmap work with the proof management should retain while building and monitoring controls.', note: 'It is an implementation register, not an upload workflow.' },
     { field: 'Control completeness', value: 'What; Who; Population; Frequency; Proof retained; Independent check; Escalation trigger / recipient; SLA; Effectiveness measure; Failure response.', note: 'Use these fields to close design gaps.' }
