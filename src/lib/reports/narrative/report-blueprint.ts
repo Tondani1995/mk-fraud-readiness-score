@@ -1238,7 +1238,25 @@ export function buildWholeManuscriptContext(pack: NarrativeFactPack, blueprint: 
     reportBlueprint: blueprint,
     permittedDeterministicFacts: pack.facts,
     boundaries: { assurance: commonAssuranceBoundary(), customerLanguage: ['advisory', 'specific', 'conditional where scenario-based', 'plain-language management communication'], prohibitedClaims: blueprint.prohibitedClaims, sourceOfTruth: 'Deterministic Fact Pack and Report Blueprint only.' },
-    style: { voice: 'Senior MK advisory voice: clear, commercially useful, specific, calm and connected.', continuity: ['one authorial voice', 'no repeated executive diagnosis', 'no duplicate conclusion', 'no next-section stitching', 'no register dump as narrative'] },
+    style: {
+      voice: pack.productTier === 'comprehensive'
+        ? 'Senior MK advisory voice: executive-level, commercially useful, specific, calm, connected and interpretive. Comprehensive must deliver deeper management synthesis than Essential while remaining bounded to deterministic truth.'
+        : 'Senior MK advisory voice: clear, commercially useful, specific, calm and connected.',
+      continuity: [
+        'one authorial voice',
+        'no repeated executive diagnosis',
+        'no duplicate conclusion',
+        'no next-section stitching',
+        'no register dump as narrative',
+        ...(pack.productTier === 'comprehensive' ? [
+          'the narrative carries the report; exhibits and the workbook support it',
+          'synthesise relationships across authorised facts before discussing individual details',
+          'explain why the pattern matters to management, not merely what each deterministic object says',
+          'use supported strengths as part of the management judgement and do not manufacture weakness for balance',
+          'do not narrate register rows, field labels or implementation mechanics one by one'
+        ] : [])
+      ]
+    },
     projectedInputTokens,
     projectedOutputTokens,
     outputBudget,
