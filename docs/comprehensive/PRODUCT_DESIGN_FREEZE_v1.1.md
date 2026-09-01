@@ -20,9 +20,11 @@ as an opaque database join key only.
 ## Architecture
 
 Deterministic assembly → management model → six registers, rendered without AI.
-Bounded interpretation adds six prose slots over that core in **one structured
-provider call per report**, with targeted per-field repair. The AI explains the
-analysis; it never produces it.
+Bounded interpretation adds six prose slots over that core. The normal path begins
+with **one structured initial generation**, then uses the shared bounded reporting
+recovery policy where validation justifies it: targeted semantic repair, one complete
+regeneration, one quality-model escalation, one coherence pass and technical fallback
+are separately limited and accounted. The AI explains the analysis; it never produces it.
 
 | Layer | Origin | May assert |
 |---|---|---|
@@ -119,9 +121,10 @@ Certification consumed **6 live Comprehensive reports against a stated maximum o
 defect found and fixed. The owner has noted this as a process exception which does not
 invalidate the certification evidence or block the freeze.
 
-Standing instruction from this point: **any stated provider, report or time ceiling is a
-hard owner-authorisation boundary.** On reaching a ceiling, stop and request approval
-before the next paid call.
+Standing instruction from this point: **the configured bounded recovery policy is the
+provider-call authority.** Do not invent a tighter ad hoc ceiling, and do not exceed the
+policy. Hard-truth failures remain fail-closed; bounded recovery calls are allowed only
+for the safety-net conditions the policy explicitly permits.
 
 ## Frozen surface
 
