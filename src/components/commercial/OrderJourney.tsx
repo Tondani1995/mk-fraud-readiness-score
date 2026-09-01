@@ -21,7 +21,7 @@ import { trackEvent } from '@/lib/website/gtag';
 
 const SCORE_BASE_PATH = '/score';
 
-type OrderConfirmation = {
+export type OrderConfirmation = {
   tier?: SelfServicePaidTier;
   orderReference: string;
   productName: string;
@@ -71,7 +71,11 @@ export function OrderJourney({
   respondentName,
   respondentEmail,
   snapshotToken,
-  snapshotPath
+  snapshotPath,
+  initialStep = 1,
+  initialInvoiceRequested = null,
+  initialOrder = null,
+  visualReview = false
 }: {
   tier: SelfServicePaidTier;
   productLabel: string;
@@ -82,9 +86,14 @@ export function OrderJourney({
   respondentEmail: string | null;
   snapshotToken: string;
   snapshotPath: string;
+  initialStep?: 1 | 2 | 3;
+  initialInvoiceRequested?: boolean | null;
+  initialOrder?: OrderConfirmation | null;
+  /** Preview-only fixture mode. It never changes the normal customer order path. */
+  visualReview?: boolean;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [invoiceRequested, setInvoiceRequested] = useState<boolean | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
+  const [invoiceRequested, setInvoiceRequested] = useState<boolean | null>(initialInvoiceRequested);
   const [details, setDetails] = useState<InvoiceDetails>({
     ...EMPTY_INVOICE_DETAILS,
     legalName: organisationName ?? '',
@@ -93,7 +102,7 @@ export function OrderJourney({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [order, setOrder] = useState<OrderConfirmation | null>(null);
+  const [order, setOrder] = useState<OrderConfirmation | null>(initialOrder);
   const [copiedAll, setCopiedAll] = useState(false);
   const invoiceEventSentRef = useRef(false);
   const orderEventSentRef = useRef(false);
@@ -110,6 +119,10 @@ export function OrderJourney({
   }, [step]);
 
   async function submitOrder() {
+    if (visualReview) {
+      setError('This is a deterministic visual-review fixture. No order is recorded.');
+      return;
+    }
     if (invoiceRequested === null) {
       setError('Please choose whether you need a tax invoice before continuing.');
       return;
@@ -173,7 +186,7 @@ export function OrderJourney({
   }
 
   return (
-    <div className="mx-auto max-w-[1120px] px-[18px] pb-28 pt-8 md:px-6 md:pb-16 md:pt-12">
+    <div data-order-journey="true" className="mx-auto max-w-[1120px] px-[18px] pb-28 pt-8 md:px-6 md:pb-16 md:pt-12">
       <StepIndicator step={step} />
 
       <div className="mt-7 grid gap-8 md:grid-cols-12">
@@ -212,7 +225,7 @@ export function OrderJourney({
           ) : null}
 
           {step === 3 && order ? (
-            <StepPayment order={order} copiedAll={copiedAll} onCopyAll={() => void copyAllPaymentDetails()} snapshotToken={snapshotToken} />
+            <StepPayment order={order} copiedAll={copiedAll} onCopyAll={() => void copyAllPaymentDetails()} snapshotToken={snapshotToken} visualReview={visualReview} />
           ) : null}
         </div>
 
@@ -389,7 +402,7 @@ function StepBilling({
   );
 }
 
-function StepPayment({ order, copiedAll, onCopyAll, snapshotToken }: { order: OrderConfirmation; copiedAll: boolean; onCopyAll: () => void; snapshotToken: string }) {
+function StepPayment({ order, copiedAll, onCopyAll, snapshotToken, visualReview }: { order: OrderConfirmation; copiedAll: boolean; onCopyAll: () => void; snapshotToken: string; visualReview: boolean }) {
   const eft = order.eftInstructions;
   const copy = getPostPurchaseCopy(order.tier ?? 'essential');
   return (
@@ -431,7 +444,7 @@ function StepPayment({ order, copiedAll, onCopyAll, snapshotToken }: { order: Or
         >
           {copiedAll ? 'Payment details copied' : 'Copy all payment details'}
         </button>
-        {order.assessmentReference ? (
+        {order.assessmentReference && !visualReview ? (
           <Link
             href={`/score/order/${encodeURIComponent(order.assessmentReference)}?token=${encodeURIComponent(snapshotToken)}&orderReference=${encodeURIComponent(order.orderReference)}`}
             className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"

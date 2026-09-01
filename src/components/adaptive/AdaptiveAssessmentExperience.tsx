@@ -59,7 +59,7 @@ function SubmissionProcessingCard({ assessmentReference }: { assessmentReference
   );
 }
 
-export function AdaptiveAssessmentExperience({ assessmentReference, token, initialState }: { assessmentReference: string; token: string; initialState: AdaptiveState }) {
+export function AdaptiveAssessmentExperience({ assessmentReference, token, initialState, visualReview = false }: { assessmentReference: string; token: string; initialState: AdaptiveState; visualReview?: boolean }) {
   const [state, setState] = useState<AdaptiveState>(initialState);
   const [gatewayAnswers, setGatewayAnswers] = useState<Record<string, string>>(initialState.gatewayAnswers ?? {});
   const [controlResponses, setControlResponses] = useState<Record<string, any>>(initialState.controlResponses ?? {});
@@ -111,6 +111,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const progressLabel = assessmentProgressLabel(completedApplicableCount, activePathCount, applicabilityResolved);
 
   const reload = useCallback(async () => {
+    if (visualReview) {
+      setMessage('This is a deterministic visual-review fixture. No assessment data is saved.');
+      return;
+    }
     try {
       const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state?token=${encodeURIComponent(token)}`);
       const body = await response.json().catch(() => ({}));
@@ -127,7 +131,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       setSaveState('error');
       setMessage('The saved assessment could not be reloaded. Please try again.');
     }
-  }, [assessmentReference, token]);
+  }, [assessmentReference, token, visualReview]);
 
   useEffect(() => { headingRef.current?.focus(); }, [currentId, screen]);
 
@@ -190,6 +194,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     confirmGatewayChange = false
   ) {
     if (savingRef.current) return false;
+    if (visualReview) {
+      setMessage('This is a deterministic visual-review fixture. No assessment data is saved.');
+      return false;
+    }
 
     const write: PendingWrite = {
       nextGatewayAnswers,
@@ -286,6 +294,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
 
   async function submit() {
     if (savingRef.current || submissionState === 'processing') return;
+    if (visualReview) {
+      setMessage('This is a deterministic visual-review fixture. No assessment is submitted.');
+      return;
+    }
     savingRef.current = true;
     setSubmissionState('processing');
     setSaveState('saving');
@@ -380,7 +392,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const saving = saveState === 'saving';
 
   return <>
-    <div ref={rootRef} className="space-y-5" data-adaptive-assessment="true">
+      <div ref={rootRef} className="space-y-5" data-adaptive-assessment="true" data-visual-review={visualReview ? 'true' : undefined}>
       <div className="rounded-2xl border border-mk-line bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

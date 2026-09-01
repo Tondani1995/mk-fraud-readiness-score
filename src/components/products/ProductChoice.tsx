@@ -58,11 +58,14 @@ const CARDS: Record<SelfServicePaidTier, { answers: string; forWho: string; rece
 export function ProductChoice({
   snapshot,
   snapshotUrl,
-  recommendation
+  recommendation,
+  visualReview = false
 }: {
   snapshot: FreeSnapshot;
   snapshotUrl?: string | null;
   recommendation: NextStepRecommendation;
+  /** Preview-only fixture mode. It never changes the normal customer conversion path. */
+  visualReview?: boolean;
 }) {
   const router = useRouter();
   const selectionSent = useRef<Set<SelfServicePaidTier>>(new Set());
@@ -79,8 +82,9 @@ export function ProductChoice({
    * best-fit recommendation is unaffected, and every option stays freely choosable.
    */
   useEffect(() => {
+    if (visualReview) return;
     setEarlierIntent(readProductIntent(snapshot.assessmentReference));
-  }, [snapshot.assessmentReference]);
+  }, [snapshot.assessmentReference, visualReview]);
 
   useEffect(() => {
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
@@ -114,6 +118,7 @@ export function ProductChoice({
   }, [snapshot.assessmentReference, snapshotUrl]);
 
   useEffect(() => {
+    if (visualReview) return;
     for (const tier of ['essential', 'comprehensive'] as SelfServicePaidTier[]) {
       const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
       const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
@@ -124,10 +129,15 @@ export function ProductChoice({
     const advisoryParams = new URLSearchParams();
     if (snapshotToken) advisoryParams.set('token', snapshotToken);
     router.prefetch(`${SCORE_BASE_PATH}/advisory/${encodeURIComponent(snapshot.assessmentReference)}?${advisoryParams.toString()}`);
-  }, [router, snapshot.assessmentReference, snapshotUrl]);
+  }, [router, snapshot.assessmentReference, snapshotUrl, visualReview]);
 
   function chooseTier(tier: SelfServicePaidTier) {
     if (navigatingTierRef.current) return;
+    if (visualReview) {
+      navigatingTierRef.current = tier;
+      setNavigatingOption(tier);
+      return;
+    }
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
     const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
     if (snapshotToken) params.set('token', snapshotToken);
@@ -154,6 +164,11 @@ export function ProductChoice({
 
   function chooseAdvisory() {
     if (navigatingTierRef.current) return;
+    if (visualReview) {
+      navigatingTierRef.current = 'advisory';
+      setNavigatingOption('advisory');
+      return;
+    }
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
     const params = new URLSearchParams();
     if (snapshotToken) params.set('token', snapshotToken);

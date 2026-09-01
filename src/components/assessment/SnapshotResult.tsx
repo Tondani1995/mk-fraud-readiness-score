@@ -58,13 +58,16 @@ export function SnapshotResult({
   snapshotUrl,
   commercialInsights,
   snapshotNarrative,
-  methodologyLabel
+  methodologyLabel,
+  visualReview = false
 }: {
   snapshot: FreeSnapshot;
   snapshotUrl?: string | null;
   commercialInsights: CommercialSnapshotInsights;
   snapshotNarrative?: SnapshotNarrative;
   methodologyLabel?: string | null;
+  /** Preview-only fixture mode. It never changes the normal customer result path. */
+  visualReview?: boolean;
 }) {
   // The normal server path supplies a fully validated narrative. If that optional layer is
   // unavailable, render only the minimal customer-safe copy while keeping the authoritative
@@ -211,6 +214,7 @@ export function SnapshotResult({
         snapshot={snapshot}
         snapshotUrl={snapshotUrl}
         recommendation={recommendation}
+        visualReview={visualReview}
       />
 
       <section aria-label="What happens after you order" className="border-b border-mk-line bg-mk-surface">

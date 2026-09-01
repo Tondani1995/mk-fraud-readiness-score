@@ -34,6 +34,8 @@ const wrapper = await read('src/components/website/Wrapper.tsx');
 const globalCss = await read('src/app/globals.css');
 const ownerBrief = await read('docs/product/v12-premium-experience-recovery-owner-brief.md');
 const routeMap = await read('docs/product/v12-premium-experience-recovery-route-map.md');
+const visualReviewRoute = await read('src/app/score/visual-review/[[...scenario]]/page.tsx');
+const visualReviewFixtures = await read('src/lib/visual-review/fixtures.ts');
 
 check('both public Fraud Readiness routes use one shared premium storefront', () => {
   assert.match(scoreLanding, /FraudReadinessStorefront/);
@@ -153,6 +155,26 @@ check('the owner brief preserves enabled Production starts and approval-controll
   assert.match(routeMap, /score\/snapshot/);
   assert.match(routeMap, /score\/order\/new/);
   assert.match(routeMap, /Advisory/);
+});
+
+check('private visual review is Preview/local-only and uses deterministic real-component fixtures', () => {
+  assert.match(visualReviewRoute, /notFound\(\)/);
+  assert.match(visualReviewRoute, /process\.env\.VERCEL_ENV === 'preview'/);
+  assert.match(visualReviewRoute, /process\.env\.NODE_ENV !== 'production'/);
+  assert.match(visualReviewRoute, /AdaptiveAssessmentExperience/);
+  assert.match(visualReviewRoute, /SnapshotResult/);
+  assert.match(visualReviewRoute, /OrderJourney/);
+  assert.match(visualReviewFixtures, /resolveAdaptivePath/);
+  assert.match(visualReviewFixtures, /adaptive-graph-v1-2-candidate\.json/);
+  for (const state of ['early', 'mid', 'late', 'review', 'submitted', 'score-100', 'score-60', 'score-20', 'insufficient-visibility']) {
+    assert.match(visualReviewRoute, new RegExp(state.replaceAll('-', '\\-')));
+  }
+  assert.doesNotMatch(`${visualReviewRoute}\n${visualReviewFixtures}`, /createSupabase|validateSnapshotToken|loadFreeSnapshot|fetch\(|\.from\(/i);
+  assert.match(adaptiveExperience, /visualReview = false/);
+  assert.match(adaptiveExperience, /No assessment data is saved/);
+  assert.match(adaptiveExperience, /No assessment is submitted/);
+  assert.match(orderJourney, /if \(visualReview\) \{/);
+  assert.match(productChoice, /if \(visualReview\) return;/);
 });
 
 console.log(JSON.stringify({ ok: true, checks, mutation: 'no Supabase or Production mutation' }, null, 2));
