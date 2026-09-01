@@ -60,6 +60,7 @@ function expectedContract(env: NodeJS.ProcessEnv) {
   return {
     environment: production ? EXPECTED_PRODUCTION.environment : (env.MK_READINESS_EXPECTED_ENVIRONMENT?.trim().toLowerCase() || env.VERCEL_ENV?.trim().toLowerCase() || 'local'),
     supabaseProjectRef: production ? EXPECTED_PRODUCTION.supabaseProjectRef : (env.MK_EXPECTED_SUPABASE_PROJECT_REF?.trim() || configuredSupabaseProjectRef(env) || ''),
+    adaptiveActivationSha: production ? EXPECTED_PRODUCTION.deploymentSha : (env.MK_EXPECTED_ADAPTIVE_ACTIVATION_SHA?.trim().toLowerCase() || null),
     adaptiveGraphVersion: env.MK_EXPECTED_ADAPTIVE_GRAPH_VERSION?.trim() || EXPECTED_PRODUCTION.adaptiveGraphVersion,
     adaptiveGraphFingerprint: env.MK_EXPECTED_ADAPTIVE_GRAPH_FINGERPRINT?.trim() || EXPECTED_PRODUCTION.adaptiveGraphFingerprint,
     activeMethodologyVersion: env.MK_EXPECTED_ACTIVE_METHODOLOGY_VERSION?.trim() || EXPECTED_PRODUCTION.activeMethodologyVersion
@@ -126,7 +127,8 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   const deploymentSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() || null;
   const supabaseProjectRef = configuredSupabaseProjectRef(env);
 
-  addCheck(checks, 'deployment_environment', 'release', contract.environment === 'production' && env.VERCEL_ENV === 'production' && isValidDeploymentSha(deploymentSha) ? 'PASS' : production ? 'FAIL' : 'WARN', contract.environment === 'production' ? 'production_environment_bound' : 'non_production_environment');
+  const environmentBound = env.VERCEL_ENV?.trim().toLowerCase() === contract.environment && isValidDeploymentSha(deploymentSha);
+  addCheck(checks, 'deployment_environment', 'release', environmentBound ? 'PASS' : production ? 'FAIL' : 'WARN', environmentBound ? 'deployment_environment_bound' : 'deployment_environment_unexpected');
   addCheck(checks, 'supabase_project_identity', 'dependency', supabaseProjectRef && supabaseProjectRef === contract.supabaseProjectRef ? 'PASS' : production ? 'FAIL' : 'WARN', supabaseProjectRef && supabaseProjectRef === contract.supabaseProjectRef ? 'supabase_project_expected' : 'supabase_project_unexpected');
   checkRequiredEnvironment(checks, env, production);
 
@@ -162,7 +164,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     && policy.supabase_project === contract.supabaseProjectRef
     && policy.enabled === true
     && isValidDeploymentSha(policy.activation_sha)
-    && policy.activation_sha.toLowerCase() === deploymentSha
+    && policy.activation_sha.toLowerCase() === contract.adaptiveActivationSha
     ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_binding_checked' : 'adaptive_policy_unavailable');
 
   const graph = graphs.data;
