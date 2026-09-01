@@ -11,6 +11,7 @@ import fs from 'node:fs';
 const manual = fs.readFileSync('src/lib/reports/comprehensive/manual-generation.ts', 'utf8');
 const interpretation = fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8');
 const recovery = fs.readFileSync('src/lib/reports/comprehensive/recovery-policy.ts', 'utf8');
+const sharedRecovery = fs.readFileSync('src/lib/reports/narrative/recovery-policy.ts', 'utf8');
 
 const failures = [];
 const check = (code, ok, detail) => { if (!ok) failures.push({ code, detail }); };
@@ -41,7 +42,8 @@ check(
 check(
   'HARD_TRUTH_FAIL_CLOSED',
   /return 'HARD_TRUTH_FAILURE'/.test(recovery)
-    && /HUMAN_REVIEW_REQUIRED/.test(recovery + interpretation),
+    && /recoveryDecision\(/.test(recovery)
+    && /issueSeverity === 'HARD_TRUTH_FAILURE'[\s\S]*?action: 'HUMAN_REVIEW_REQUIRED'/.test(sharedRecovery),
   'hard-truth failures must not be routed to automatic repair'
 );
 check(
