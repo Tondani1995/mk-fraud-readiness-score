@@ -3,6 +3,7 @@ import { generateText, Output } from 'ai';
 import { selectNarrativeModel } from '../ai-model-policy';
 import type { ComprehensiveManagementModel } from './management-model';
 import { claimsVerification } from './product-contract';
+import { comprehensiveAssessmentScopeStatement, type ComprehensiveAssessmentScope } from './assessment-scope';
 
 /**
  * Bounded interpretation for the Comprehensive management core.
@@ -130,6 +131,7 @@ export interface InterpretationBrief {
   score: number;
   maturity: string;
   narrativeMode: string;
+  assessmentScope?: ComprehensiveAssessmentScope | null;
   domains: Array<{ name: string; score: number; band: string }>;
   managementThemes: Array<{ title: string; findings: number; critical: number; hardGate: number; question: string }>;
   exposureThemes: Array<{ title: string; risks: number; question: string }>;
@@ -145,6 +147,7 @@ export function buildInterpretationBrief(input: {
   organisationName: string;
   score: number;
   maturity: string;
+  assessmentScope?: ComprehensiveAssessmentScope | null;
   domains: Array<{ name: string; score: number; band: string }>;
 }): InterpretationBrief {
   const { model } = input;
@@ -154,6 +157,7 @@ export function buildInterpretationBrief(input: {
     score: input.score,
     maturity: input.maturity,
     narrativeMode: model.narrativeMode,
+    assessmentScope: input.assessmentScope ?? null,
     domains: input.domains,
     managementThemes: model.core.managementThemes.map((theme) => ({ title: theme.title, findings: theme.findingIds.length, critical: theme.criticalFindingCount, hardGate: theme.hardGateFindingCount, question: theme.managementQuestion })),
     exposureThemes: model.core.exposureThemes.map((theme) => ({ title: theme.title, risks: theme.riskIds.length, question: theme.managementQuestion })),
@@ -190,6 +194,16 @@ function authorisedNumbers(brief: InterpretationBrief): Set<string> {
     out.add(String(Math.round(num)));
   };
   add(brief.score);
+  if (brief.assessmentScope) {
+    add(brief.assessmentScope.applicableCount);
+    add(brief.assessmentScope.excludedCount);
+    add(brief.assessmentScope.redirectedCount);
+    add(brief.assessmentScope.invalidatedCount);
+    add(brief.assessmentScope.unknownCount);
+    add(brief.assessmentScope.unansweredApplicableCount);
+    add(brief.assessmentScope.assessmentCoveragePct);
+    add(brief.assessmentScope.controlVisibilityPct);
+  }
   for (const domain of brief.domains) add(domain.score);
   for (const theme of brief.managementThemes) { add(theme.findings); add(theme.critical); add(theme.hardGate); }
   for (const theme of brief.exposureThemes) add(theme.risks);
@@ -291,6 +305,18 @@ export function validateInterpretation(result: Partial<ComprehensiveInterpretati
     for (const pattern of OBSERVATION_VOICE) {
       if (pattern.test(text)) issues.push({ slot, kind: 'HARD_TRUTH', code: 'CLAIMS_OBSERVATION', detail: String(pattern) });
     }
+    // HARD TRUTH — adaptive scope is part of the scored truth, not optional prose.
+    // A provisional V1.2 result must never be narrated as definitive or fully
+    // comparable simply because a numeric score exists.
+    if (brief.assessmentScope?.resultStatus === 'PROVISIONAL') {
+      if (slot === 'executiveInterpretation' && !/\b(?:provisional|directional)\b/i.test(text)) {
+        issues.push({ slot, kind: 'HARD_TRUTH', code: 'PROVISIONAL_STATUS_OMITTED', detail: 'executive interpretation must identify the reported position as provisional or directional' });
+      }
+      if (/\b(?:definitive result|definitive position|fully comparable|confirmed maturity|confirmed readiness)\b/i.test(text)) {
+        issues.push({ slot, kind: 'HARD_TRUTH', code: 'PROVISIONAL_STATUS_CONTRADICTED', detail: 'provisional result described as definitive, confirmed or fully comparable' });
+      }
+    }
+
     // HARD TRUTH — the maturity band and mode may not be contradicted.
     for (const band of ['Reactive', 'Developing', 'Structured', 'Strategic']) {
       if (band === brief.maturity) continue;
@@ -405,7 +431,19 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
   const contracts = INTERPRETATION_CONTRACTS.filter((contract) => !only || only.includes(contract.id));
   // narrativeMode is retained on the brief for validation and withheld here.
   const { narrativeMode, ...visible } = brief;
-  const promptBrief = { ...visible, posture: POSTURE[narrativeMode] ?? '' };
+  const promptBrief = {
+    ...visible,
+    assessmentScope: visible.assessmentScope
+      ? {
+        ...visible.assessmentScope,
+        customerStatement: comprehensiveAssessmentScopeStatement(visible.assessmentScope)
+      }
+      : null,
+    posture: POSTURE[narrativeMode] ?? ''
+  };
+  const adaptiveRule = brief.assessmentScope?.resultStatus === 'PROVISIONAL'
+    ? '- This is a provisional adaptive result. The executiveInterpretation must say once, naturally, that the position is provisional or directional. Do not describe it as definitive, confirmed or fully comparable. Legitimate exclusions are outside scope, not weaknesses; oversight-routed controls remain scored.'
+    : null;
   return [
     'You are writing the management interpretation for an MK Fraud Readiness Comprehensive report.',
     '',
@@ -419,6 +457,7 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
     '- Write for a CFO or Head of Risk. Plain, specific, unhedged. No consultancy filler.',
     '- Each field below answers a different question. Do not repeat another field.',
     '- Do not use em dashes. Use normal sentence punctuation instead.',
+    ...(adaptiveRule ? [adaptiveRule] : []),
     '',
     '================ THE ANALYSIS ================',
     JSON.stringify(promptBrief),
