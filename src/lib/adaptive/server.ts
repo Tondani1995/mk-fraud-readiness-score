@@ -2,6 +2,7 @@ import { createAssessmentReference } from '@/lib/respondent/reference';
 import { createResumeTokenPayload } from '@/lib/respondent/tokens';
 import { hashAssessmentToken } from '@/lib/security/hash';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import {
   parseAdaptiveStartAssessmentInput,
   type AdaptiveStartAssessmentInput
@@ -36,6 +37,8 @@ type AdaptiveAssessment = {
   graph_fingerprint_snapshot: string;
   submitted_at: string | null;
   locked_at: string | null;
+  monitoring_synthetic: boolean;
+  monitoring_run_id: string | null;
 };
 
 type AdaptiveNavigation = {
@@ -240,7 +243,7 @@ async function loadAdaptiveByToken(
   const activation = await loadAdaptiveActivationPolicy(db);
 
   const { data: assessment, error: assessmentError } = await db.from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at')
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,monitoring_synthetic,monitoring_run_id')
     .eq('id', token.assessment_id).eq('assessment_reference', assessmentReference).maybeSingle();
   if (assessmentError || !assessment) throw new Error('adaptive_assessment_not_found');
   if (assessment.assessment_mode !== 'adaptive') throw new Error('adaptive_mode_required');
@@ -406,7 +409,11 @@ function publicState(input: Awaited<ReturnType<typeof loadState>>) {
   };
 }
 
-export async function startAdaptiveAssessment(input: AdaptiveStartAssessmentInput, appBaseUrl: string) {
+export async function startAdaptiveAssessment(
+  input: AdaptiveStartAssessmentInput,
+  appBaseUrl: string,
+  options: { monitoringRunId?: string | null } = {}
+) {
   /**
    * Re-checked here rather than trusted from the route. This function is the only way an adaptive
    * assessment row is created, so the acceptance check belongs at the same boundary as the write —
@@ -435,6 +442,7 @@ export async function startAdaptiveAssessment(input: AdaptiveStartAssessmentInpu
       assessment_reference: createAssessmentReference(), organisation_id: organisation.id, primary_respondent_id: respondent.id,
       methodology_version_id: graphRow.methodology_version_id, status: 'draft', assessment_mode: 'adaptive', graph_version_id: graphRow.id,
       graph_version_snapshot: graphRow.graph_version, graph_fingerprint_snapshot: graphRow.graph_fingerprint,
+      monitoring_synthetic: Boolean(options.monitoringRunId), monitoring_run_id: options.monitoringRunId ?? null,
       terms_version: legalAcceptance.termsVersion, terms_accepted_at: legalAcceptance.termsAcceptedAt,
       privacy_notice_version: legalAcceptance.privacyNoticeVersion, privacy_acknowledged_at: legalAcceptance.privacyAcknowledgedAt
     }).select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,terms_version,terms_accepted_at,privacy_notice_version,privacy_acknowledged_at').single();
@@ -445,6 +453,21 @@ export async function startAdaptiveAssessment(input: AdaptiveStartAssessmentInpu
     const token = createResumeTokenPayload();
     const { error: tokenError } = await db.from('assessment_tokens').insert({ assessment_id: assessment.id, token_hash: token.tokenHash, token_type: 'resume', expires_at: token.expiresAt, max_uses: 25 });
     if (tokenError) throw tokenError;
+    try {
+      await trackAssessmentEvent({
+        eventType: 'assessment_started',
+        assessmentId: assessment.id,
+        organisationId: organisation.id,
+        respondentId: respondent.id,
+        metadata: {
+          flow: 'adaptive',
+          monitoring_synthetic: Boolean(options.monitoringRunId),
+          release_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
+        }
+      });
+    } catch {
+      // Event instrumentation is deliberately non-blocking. The authoritative start already committed.
+    }
     const resumeUrl = new URL(`/score/adaptive/${assessment.assessment_reference}`, appBaseUrl);
     resumeUrl.searchParams.set('token', token.rawToken);
     return {
@@ -454,6 +477,8 @@ export async function startAdaptiveAssessment(input: AdaptiveStartAssessmentInpu
       resumeTokenExpiresAt: token.expiresAt,
       graphVersion: graph.graphVersion,
       graphFingerprint: graph.graphFingerprint,
+      monitoringSynthetic: Boolean(options.monitoringRunId),
+      monitoringRunId: options.monitoringRunId ?? null,
       /** Echoed back so the persisted acceptance can be asserted without a second read. */
       legalAcceptance: {
         termsVersion: assessment.terms_version,
@@ -476,7 +501,7 @@ export async function getAdaptiveAssessmentState(assessmentReference: string, to
   return { ...state, assessment: access.assessment, organisation: access.organisation, respondent: access.respondent, publicState: { ...publicState(state), organisation: access.organisation, respondent: access.respondent } };
 }
 
-export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, dependencies: { db?: any } = {}) {
+export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, dependencies: { db?: any; trackEventImpl?: typeof trackAssessmentEvent } = {}) {
   const access = await loadAdaptiveByToken(input.assessmentReference, input.token, { db: dependencies.db, includeIdentity: false });
   if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   const current = await loadState(access.db, access.assessment, access.activation);
@@ -526,6 +551,35 @@ export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, depe
     saveSequence,
     savedAt: typeof saveResult?.saved_at === 'string' ? saveResult.saved_at : null
   });
+  const hadAnswer = Object.keys(current.gatewayAnswers).length + Object.keys(current.controlResponses).length > 0;
+  const hasAnswer = Object.keys(updated.gatewayAnswers).length + Object.keys(updated.controlResponses).length > 0;
+  const trackEvent = dependencies.trackEventImpl ?? trackAssessmentEvent;
+  const eventMetadata = {
+    flow: 'adaptive',
+    current_screen: input.currentScreen,
+    save_sequence: saveSequence,
+    monitoring_synthetic: access.assessment.monitoring_synthetic
+  };
+  try {
+    if (!hadAnswer && hasAnswer) {
+      await trackEvent({
+        eventType: 'first_answer_saved',
+        assessmentId: access.assessment.id,
+        organisationId: access.assessment.organisation_id,
+        respondentId: access.assessment.primary_respondent_id,
+        metadata: eventMetadata
+      });
+    }
+    await trackEvent({
+      eventType: 'assessment_progress_activity',
+      assessmentId: access.assessment.id,
+      organisationId: access.assessment.organisation_id,
+      respondentId: access.assessment.primary_respondent_id,
+      metadata: eventMetadata
+    });
+  } catch {
+    // Event instrumentation is deliberately non-blocking. The authoritative save already committed.
+  }
   return { ok: true as const, state: { ...publicState(updated), organisation: access.organisation, respondent: access.respondent }, invalidatedQuestionIds: invalidateQuestionIds };
 }
 
@@ -533,7 +587,16 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
   const access = await loadAdaptiveByToken(assessmentReference, token);
   if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) {
     if (access.assessment.status === 'submitted' && !access.assessment.current_score_run_id) {
-      return { ok: true as const, alreadySubmitted: true, submittedAt: access.assessment.submitted_at, state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState };
+      return {
+        ok: true as const,
+        alreadySubmitted: true,
+        submittedAt: access.assessment.submitted_at,
+        state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState,
+        assessmentId: access.assessment.id,
+        organisationId: access.assessment.organisation_id,
+        respondentId: access.assessment.primary_respondent_id,
+        monitoringSynthetic: access.assessment.monitoring_synthetic
+      };
     }
     return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   }
@@ -551,7 +614,33 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
   const { data, error } = await access.db.rpc('adaptive_submit_assessment', { p_assessment_id: access.assessment.id, p_expected_save_sequence: expectedSaveSequence, p_profile: profileRowsForPath(current.path), p_signals: rpcSignals });
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
   if (data?.conflict) return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: data };
-  return { ok: true as const, submittedAt: data?.submitted_at ?? null, state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState, profileCount: current.path.nodes.length, signalCount: signals.length };
+  try {
+    await trackAssessmentEvent({
+      eventType: 'assessment_submitted',
+      assessmentId: access.assessment.id,
+      organisationId: access.assessment.organisation_id,
+      respondentId: access.assessment.primary_respondent_id,
+      metadata: {
+        flow: 'adaptive',
+        profile_count: current.path.nodes.length,
+        signal_count: signals.length,
+        monitoring_synthetic: access.assessment.monitoring_synthetic
+      }
+    });
+  } catch {
+    // Submission is authoritative; analytics cannot make a committed submission fail.
+  }
+  return {
+    ok: true as const,
+    submittedAt: data?.submitted_at ?? null,
+    state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState,
+    profileCount: current.path.nodes.length,
+    signalCount: signals.length,
+    assessmentId: access.assessment.id,
+    organisationId: access.assessment.organisation_id,
+    respondentId: access.assessment.primary_respondent_id,
+    monitoringSynthetic: access.assessment.monitoring_synthetic
+  };
 }
 
 export function parseAdaptiveStartInput(body: unknown) {

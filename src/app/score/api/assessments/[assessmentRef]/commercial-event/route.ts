@@ -112,6 +112,17 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
     metadata
   });
 
+  if (optionCode && (eventType === 'report_option_selected' || Boolean(selectionTier))) {
+    await trackAssessmentEvent({
+      eventType: 'product_selected',
+      assessmentId: assessment.id,
+      organisationId: assessment.organisation_id,
+      respondentId: assessment.primary_respondent_id,
+      optionCode,
+      metadata
+    });
+  }
+
   if (selectionTier) {
     await queueInternalNotification({
       notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected',

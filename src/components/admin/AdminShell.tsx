@@ -15,6 +15,7 @@ const adminLinks = [
   { href: '/admin/enquiries', label: 'MK Advisory enquiries' },
   { href: '/admin/reports', label: 'Report controls' },
   { href: '/admin/operational-alerts', label: 'Operational alerts' },
+  { href: '/admin/monitoring', label: 'Production monitoring' },
   { href: '/admin/phase14-activation', label: 'Automation activation controls' }
 ];
 

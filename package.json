@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "monitoring:test-contracts": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitoring-contract-tests.mjs",
     "test": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/test-stage1-foundations.mjs",
     "quality:gates": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/quality-gates.mjs",
     "quality:scan": "node scripts/commercial-quality/v11-manuscript-gate-scan.mjs",

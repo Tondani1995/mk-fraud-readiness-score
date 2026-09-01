@@ -205,16 +205,28 @@ export async function createPaidOrderForAssessment(input: {
 
   await Promise.all([
     created
-      ? trackAssessmentEvent({
-          eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
-          assessmentId: input.assessment.id,
-          organisationId: input.assessment.organisation_id,
-          respondentId: input.assessment.primary_respondent_id,
-          orderId: data.order_id,
-          dataRequestId: input.dataRequest?.id ?? null,
-          optionCode: tier,
-          metadata
-        })
+      ? Promise.all([
+          trackAssessmentEvent({
+            eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
+            assessmentId: input.assessment.id,
+            organisationId: input.assessment.organisation_id,
+            respondentId: input.assessment.primary_respondent_id,
+            orderId: data.order_id,
+            dataRequestId: input.dataRequest?.id ?? null,
+            optionCode: tier,
+            metadata
+          }),
+          trackAssessmentEvent({
+            eventType: 'order_recorded',
+            assessmentId: input.assessment.id,
+            organisationId: input.assessment.organisation_id,
+            respondentId: input.assessment.primary_respondent_id,
+            orderId: data.order_id,
+            dataRequestId: input.dataRequest?.id ?? null,
+            optionCode: tier,
+            metadata: { tier, product_code: product.productCode }
+          })
+        ])
       : Promise.resolve(),
     notifyInternalOrderCreated({
       tier,

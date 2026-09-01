@@ -2,11 +2,18 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const ASSESSMENT_EVENT_TYPES = [
   'assessment_started',
+  'first_answer_saved',
+  'assessment_progress_activity',
   'assessment_submitted',
+  'snapshot_generation_started',
+  'snapshot_generation_succeeded',
+  'snapshot_generation_failed',
   'snapshot_viewed',
   'executive_summary_viewed',
   'report_options_opened',
   'report_option_selected',
+  'product_selected',
+  'order_recorded',
   // Historical compatibility only. Rows carrying these values already exist and remain readable,
   // but no current code path emits them -- the joint launch emits the tier-named events below.
   'full_report_5000_selected',
@@ -50,6 +57,7 @@ export type TrackAssessmentEventResult =
   | { ok: false; status: 'failed' | 'skipped_missing_assessment'; error?: string };
 
 const SAFE_METADATA_KEY_RE = /^[a-zA-Z0-9_.-]{1,64}$/;
+const SENSITIVE_METADATA_KEY_RE = /(?:name|email|phone|mobile|organisation|organization|company|answer|response|token|cookie|authorization|password|secret|invoice|customer|respondent|address|notes|free.?text|content|prompt|input|output)/i;
 
 function segment(label: string, value?: string | null) {
   return `${label}:${value && value.trim() ? value.trim() : 'none'}`;
@@ -71,7 +79,7 @@ export function sanitiseEventMetadata(metadata?: AssessmentEventMetadata): Recor
   if (!metadata || typeof metadata !== 'object') return safe;
 
   for (const [key, value] of Object.entries(metadata)) {
-    if (!SAFE_METADATA_KEY_RE.test(key)) continue;
+    if (!SAFE_METADATA_KEY_RE.test(key) || SENSITIVE_METADATA_KEY_RE.test(key)) continue;
     if (value === null || typeof value === 'boolean') safe[key] = value;
     else if (typeof value === 'number' && Number.isFinite(value)) safe[key] = value;
     else if (typeof value === 'string') safe[key] = value.slice(0, 500);
