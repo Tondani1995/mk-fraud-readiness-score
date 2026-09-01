@@ -1,8 +1,8 @@
 # Comprehensive V1.2 Report-Quality Engineering Record — 2026-09-01
 
-**Status:** engineering evidence only; not a launch or Production certification.  
-**Branch:** `work/comprehensive-report-quality-20260901`  
-**Draft PR:** #61  
+**Status:** engineering evidence only; not a launch or Production certification.
+**Branch:** `work/comprehensive-report-quality-20260901`
+**Draft PR:** #61
 **V1.2 source baseline:** `8376242581772153c897687af3acd4da436509eb`
 
 ## Purpose
