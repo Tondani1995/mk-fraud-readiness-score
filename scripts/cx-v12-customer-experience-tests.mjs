@@ -211,7 +211,8 @@ check('the three-way commercial ladder preserves identity/history and restores p
   assert.match(productChoice, /Choose \$\{product\.label\}/);
   assert.doesNotMatch(snapshot, /ComprehensiveRequestPanel/);
   assert.match(productChoice, /MK Advisory/);
-  assert.match(productChoice, /href="\/contact"/);
+  assert.match(productChoice, /function chooseAdvisory/);
+  assert.match(productChoice, /SCORE_BASE_PATH\}\/advisory\//);
   const publicComprehensive = listCatalogue().find((listing) => listing.tier === 'comprehensive');
   assert.equal(publicComprehensive?.selfServiceOrderable, true);
   assert.equal(publicComprehensive?.fulfilmentModel, 'automated_analytical');
