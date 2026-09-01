@@ -1,0 +1,110 @@
+name: Comprehensive V1.2 Engineering Certification
+
+on:
+  push:
+    branches:
+      - work/comprehensive-report-quality-20260901
+    paths:
+      - src/lib/reports/comprehensive/**
+      - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - scripts/commercial-quality/comprehensive-v12-**
+      - scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+      - scripts/commercial-quality/customer-specific-logic-gate.mjs
+      - .github/workflows/comprehensive-v12-engineering-certification.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/lib/reports/comprehensive/**
+      - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - scripts/commercial-quality/comprehensive-v12-**
+      - scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+      - scripts/commercial-quality/customer-specific-logic-gate.mjs
+      - .github/workflows/comprehensive-v12-engineering-certification.yml
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # This certification is deliberately provider-free.
+      AI_GATEWAY_API_KEY: ''
+      VERCEL_AI_GATEWAY_API_KEY: ''
+      VERCEL_OIDC_TOKEN: ''
+      CERT_OUTPUT_DIR: outputs/comprehensive-v12-engineering-certification
+      PDF_OUTPUT_DIR: outputs/comprehensive-v12-engineering-certification/pdf
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PDF inspection tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Diff hygiene
+        run: |
+          git diff --check origin/main...HEAD
+
+      - name: Prove frozen Comprehensive commercial and assurance contract
+        run: npm run v11:comprehensive-contract-gate
+
+      - name: Prove no customer-specific report logic
+        run: npm run v11:customer-specific-logic-gate
+
+      - name: Prove customer-visible adaptation boundary
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          --test
+          scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+
+      - name: Prove current V1.2 truth, Sustainment semantics, AI acceptance and model contract
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+
+      - name: Prove maximum bounded interpretation fits real PDFs
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+
+      - name: Prove temporary paid-call surfaces are closed
+        run: |
+          test ! -e src/app/score/api/qa/comprehensive-v12-one-call-proof/route.ts
+          test ! -e .github/workflows/comprehensive-v12-one-call-live-proof.yml
+          test ! -e scripts/commercial-quality/comprehensive-v12-live-interpretation-proof.mjs
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-v12-engineering-certification
+          path: outputs/comprehensive-v12-engineering-certification
+          if-no-files-found: warn
+          retention-days: 30
