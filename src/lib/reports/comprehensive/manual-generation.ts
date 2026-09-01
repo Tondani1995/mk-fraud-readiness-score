@@ -6,6 +6,7 @@ import { getMaturityBand } from '@/lib/scoring/maturity-band';
 import { assembleComprehensive } from './assembly';
 import { buildComprehensiveManagementModel } from './management-model';
 import { renderComprehensiveManagementReportHtml } from './render-comprehensive-html';
+import { comprehensiveAssessmentScopeFromData } from './assessment-scope';
 import {
   adaptComprehensiveEvidenceModel,
   adaptComprehensiveScenarioFacts
@@ -48,6 +49,7 @@ export async function renderComprehensiveReportPdf(input: {
   // Use one adapted copy for every customer-visible Comprehensive consumer so the
   // interpretation brief, management model and PDF cannot disagree with each other.
   const customerEvidenceModel = adaptComprehensiveEvidenceModel(evidenceModel);
+  const assessmentScope = comprehensiveAssessmentScopeFromData(assembled);
   const pack = buildEssentialNarrativeFactPack(
     assembled,
     customerEvidenceModel,
@@ -77,6 +79,7 @@ export async function renderComprehensiveReportPdf(input: {
       organisationName: pack.organisation.name,
       score,
       maturity,
+      assessmentScope,
       domains
     }),
     { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
@@ -88,6 +91,7 @@ export async function renderComprehensiveReportPdf(input: {
     assessmentReference: pack.assessment.reference,
     score,
     maturity,
+    assessmentScope,
     domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band })),
     commentary: interpretationToCommentary(interpretationRun.interpretation)
   });
