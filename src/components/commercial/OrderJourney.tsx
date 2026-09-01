@@ -393,7 +393,7 @@ function StepBilling({
         >
           {submitting ? 'Recording…' : 'Confirm order'}
         </button>
-        <button type="button" onClick={onBack} className="text-[13px] font-semibold text-mk-accent underline-offset-2 hover:underline">
+        <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center justify-center px-2 text-[13px] font-semibold text-mk-accent underline-offset-2 hover:underline">
           Back
         </button>
       </div>
