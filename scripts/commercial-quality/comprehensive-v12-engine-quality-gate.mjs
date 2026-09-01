@@ -34,6 +34,8 @@ import {
 import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 import { claimsVerification } from '../../src/lib/reports/comprehensive/product-contract.ts';
 import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
+import { comprehensiveAssessmentScopeFromData } from '../../src/lib/reports/comprehensive/assessment-scope.ts';
+import { buildInterpretationBrief } from '../../src/lib/reports/comprehensive/interpretation.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -83,6 +85,7 @@ for (const profileKey of Object.keys(profiles)) {
   const missingPlaybooks = activeQuestionCodes.filter((questionCode) => !getQuestionPlaybook(questionCode, methodologyIdentity));
   if (missingPlaybooks.length) fail(profileKey, 'PLAYBOOK_REGISTRY_COVERAGE', `missing: ${missingPlaybooks.join(', ')}`);
 
+  const assessmentScope = comprehensiveAssessmentScopeFromData(data);
   const evidence = buildAdvisoryEvidenceModel(data);
   const customerEvidence = adaptComprehensiveEvidenceModel(evidence);
   const projection = buildEssentialProjection(data, customerEvidence);
@@ -110,12 +113,22 @@ for (const profileKey of Object.keys(profiles)) {
     })
   );
 
+  const brief = buildInterpretationBrief({
+    model,
+    organisationName: pack.organisation.name,
+    score: pack.assessment.score,
+    maturity: pack.assessment.maturity,
+    assessmentScope,
+    domains
+  });
+
   const html = renderComprehensiveManagementReportHtml({
     model,
     organisationName: pack.organisation.name,
     assessmentReference: pack.assessment.reference,
     score: pack.assessment.score,
     maturity: pack.assessment.maturity,
+    assessmentScope,
     domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band }))
   });
   const plain = textOf(html);
@@ -124,6 +137,35 @@ for (const profileKey of Object.keys(profiles)) {
   if (plain.includes('MK Fraud Readiness Essential')) fail(profileKey, 'TIER_LABEL', 'Essential title leaked into Comprehensive output');
   if (!plain.includes('has not been independently reviewed')) fail(profileKey, 'ASSURANCE_BOUNDARY', 'independent-review limitation missing');
   if (!plain.includes('No evidence has been examined')) fail(profileKey, 'ASSURANCE_BOUNDARY', 'evidence limitation missing');
+
+  if (!assessmentScope) {
+    fail(profileKey, 'ADAPTIVE_SCOPE', 'V1.2 profile lost adaptive scope before Comprehensive generation');
+  } else {
+    if (assessmentScope.resultStatus !== score.resultStatus) {
+      fail(profileKey, 'ADAPTIVE_SCOPE', `scope status ${assessmentScope.resultStatus} differs from scorer ${score.resultStatus}`);
+    }
+    if (brief.assessmentScope?.resultStatus !== score.resultStatus) {
+      fail(profileKey, 'ADAPTIVE_SCOPE', 'interpretation brief lost adaptive result status');
+    }
+    if (brief.assessmentScope?.excludedCount !== score.metrics.excludedCount
+      || brief.assessmentScope?.redirectedCount !== score.metrics.redirectedCount
+      || brief.assessmentScope?.unknownCount !== score.metrics.unknownCount) {
+      fail(profileKey, 'ADAPTIVE_SCOPE', 'interpretation brief scope counts differ from scorer');
+    }
+    if (score.resultStatus === 'PROVISIONAL' && !/provisional adaptive result/i.test(plain)) {
+      fail(profileKey, 'ADAPTIVE_SCOPE_DISCLOSURE', 'provisional status is not visible in rendered report');
+    }
+    if (score.metrics.excludedCount > 0 && !plain.includes(`Excluded ${score.metrics.excludedCount}`)) {
+      fail(profileKey, 'ADAPTIVE_SCOPE_DISCLOSURE', 'excluded count is not visible in assessed-position page');
+    }
+    if (score.metrics.redirectedCount > 0 && !plain.includes(`Oversight-routed ${score.metrics.redirectedCount}`)) {
+      fail(profileKey, 'ADAPTIVE_SCOPE_DISCLOSURE', 'oversight-routed count is not visible in assessed-position page');
+    }
+    if (score.resultStatus !== 'INSUFFICIENT_VISIBILITY' && /did not provide enough visibility for a reliable scored result/i.test(plain)) {
+      fail(profileKey, 'ADAPTIVE_SCOPE_DISCLOSURE', 'renderer falsely describes an issuable result as insufficient visibility');
+    }
+  }
+
   const verification = claimsVerification(plain);
   if (verification.violation) fail(profileKey, 'ASSURANCE_CLAIM', `forbidden verification claim: ${verification.matched}`);
 
@@ -181,6 +223,8 @@ for (const profileKey of Object.keys(profiles)) {
     score: pack.assessment.score,
     maturity: pack.assessment.maturity,
     resultStatus: score.resultStatus,
+    assessmentScope,
+    interpretationScope: brief.assessmentScope,
     activeNodes: resolvedPath.activeNodes.length,
     applicableQuestions: score.metrics.applicableCount,
     excludedQuestions: score.metrics.excludedCount,
@@ -198,6 +242,8 @@ for (const profileKey of Object.keys(profiles)) {
     score: pack.assessment.score,
     maturity: pack.assessment.maturity,
     resultStatus: score.resultStatus,
+    assessmentScope,
+    interpretationScope: brief.assessmentScope,
     activeNodes: resolvedPath.activeNodes.length,
     applicableQuestions: score.metrics.applicableCount,
     excludedQuestions: score.metrics.excludedCount,
