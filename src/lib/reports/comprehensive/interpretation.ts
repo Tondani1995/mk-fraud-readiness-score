@@ -255,40 +255,47 @@ export interface InterpretationIssue { slot: InterpretationSlotId; kind: Interpr
 
 const words = (value: string): number => value.trim().split(/\s+/).filter(Boolean).length;
 
-/** Every number the brief authorises, as bare tokens. */
+/** Every number the deterministic brief authorises, as bare tokens. */
 function authorisedNumbers(brief: InterpretationBrief): Set<string> {
   const out = new Set<string>();
-  const add = (value: unknown) => {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return;
-    out.add(String(num));
-    out.add(num.toFixed(2));
-    out.add(String(Math.round(num)));
+  const addNumber = (value: number) => {
+    if (!Number.isFinite(value)) return;
+    out.add(String(value));
+    out.add(value.toFixed(2));
+    out.add(String(Math.round(value)));
   };
-  add(brief.score);
-  if (brief.assessmentScope) {
-    add(brief.assessmentScope.applicableCount);
-    add(brief.assessmentScope.excludedCount);
-    add(brief.assessmentScope.redirectedCount);
-    add(brief.assessmentScope.invalidatedCount);
-    add(brief.assessmentScope.unknownCount);
-    add(brief.assessmentScope.unansweredApplicableCount);
-    add(brief.assessmentScope.assessmentCoveragePct);
-    add(brief.assessmentScope.controlVisibilityPct);
-  }
-  for (const domain of brief.domains) add(domain.score);
-  for (const theme of brief.managementThemes) { add(theme.findings); add(theme.critical); add(theme.hardGate); }
-  for (const theme of brief.exposureThemes) add(theme.risks);
-  for (const programme of brief.controlProgrammes) { add(programme.controls); add(programme.evidence); add(programme.measures); }
-  for (const phase of brief.phases) add(phase.actions);
-  for (const value of Object.values(brief.totals)) add(value);
-  for (const row of brief.assuranceCoverage) add(row.score);
-  add(brief.managementThemes.length); add(brief.exposureThemes.length);
-  add(brief.controlProgrammes.length); add(brief.decisions.length); add(brief.phases.length);
-  add(brief.governance.length); add(brief.domains.length);
-  add(brief.assuranceCoverage.length); add(brief.assurancePriorities.length); add(brief.resilienceTests.length);
-  // Ordinals and durations that appear in phase names are part of the brief.
-  for (const phase of brief.phases) for (const token of phase.phase.match(/\d+/g) ?? []) out.add(token);
+  const harvest = (value: unknown): void => {
+    if (typeof value === 'number') {
+      addNumber(value);
+      return;
+    }
+    if (typeof value === 'string') {
+      // Some authoritative methodology values are intentionally prose, for
+      // example "Assessment older than 24 months". The provider sees those
+      // strings in the deterministic brief and is therefore allowed to repeat
+      // their numbers. The old validator inspected only numeric properties and
+      // falsely rejected Motheo's exact D2-Q01 24-month threshold.
+      for (const raw of value.match(/(?<![\d.])\d[\d,]*(?:\.\d+)?/g) ?? []) {
+        const token = raw.replace(/,/g, '');
+        const num = Number(token);
+        if (Number.isFinite(num)) addNumber(num);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const child of value) harvest(child);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      for (const child of Object.values(value as Record<string, unknown>)) harvest(child);
+    }
+  };
+
+  // The entire InterpretationBrief is deterministic and is exactly the source
+  // from which buildInterpretationPrompt constructs THE ANALYSIS. Harvesting
+  // recursively keeps the number validator aligned with what the writer was
+  // actually authorised to see rather than maintaining a brittle parallel list.
+  harvest(brief);
   return out;
 }
 
