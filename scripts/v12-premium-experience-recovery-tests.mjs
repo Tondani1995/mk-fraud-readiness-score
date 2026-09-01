@@ -36,7 +36,7 @@ const globalCss = await read('src/app/globals.css');
 const ownerBrief = await read('docs/product/v12-premium-experience-recovery-owner-brief.md');
 const routeMap = await read('docs/product/v12-premium-experience-recovery-route-map.md');
 const visualReviewRoute = await read('src/app/score/visual-review/[[...scenario]]/page.tsx');
-const visualReviewFixtures = await read('src/lib/visual-review/fixtures.ts');
+const visualReviewFixtures = await read('src/lib/visual-review/fixtures.ts');\nconst termsGate = await read('src/components/adaptive/FraudReadinessTermsGate.tsx');
 
 check('both public Fraud Readiness routes use one shared premium storefront', () => {
   assert.match(scoreLanding, /FraudReadinessStorefront/);
@@ -144,6 +144,11 @@ check('customer-facing copy in the recovered path contains no em dash', async ()
   ];
   const source = await readMany(customerFiles);
   assert.doesNotMatch(source, /—/);
+});
+
+check('terms summary uses bullets rather than dash-like line markers', () => {
+  assert.match(termsGate, /h-1\.5 w-1\.5[^\n]*rounded-full/);
+  assert.doesNotMatch(termsGate, /h-px w-3/);
 });
 
 check('the owner brief preserves enabled Production starts and approval-controlled interruption', () => {
