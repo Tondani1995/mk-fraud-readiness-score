@@ -635,24 +635,39 @@ export async function generateManualPhase1Report(
     let essentialNarrative: ParsedBlueprintMarkdown | undefined;
     let comprehensivePdf: Buffer | undefined;
     if (isComprehensive) {
-      // One bounded interpretation call against the certified Comprehensive pipeline.
-      // Repairs are additional paid calls and are not authorised here, so a slot that
-      // fails surfaces as a visible generation failure rather than more spend.
+      // Comprehensive uses the Reporting Bible manuscript-first architecture:
+      // deterministic truth -> Comprehensive Fact Pack -> Story Plan / Blueprint ->
+      // bounded narrative -> validation -> narrative-led PDF. Detailed registers
+      // stay in the companion workbook rather than becoming PDF appendices.
       try {
         const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
         const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
         comprehensivePdf = comprehensive.pdf;
-        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
+        const accounting = comprehensive.narrativeRun.accounting;
+        const models = [...new Set(Object.values(accounting.modelBySlot ?? {}))];
+        const model = models[0] ?? null;
+        logPremiumReportPhase({
+          phase: 'ai_route_authorised',
+          status: 'completed',
+          startedAt: generationStartedAt,
+          technicalReference,
+          generationAttemptId: attemptId,
+          provider: model?.split('/')[0] ?? null,
+          model
+        });
         console.info('comprehensive_manual_generation', {
           technicalReference,
           orderReference: targetReference,
-          providerCalls: comprehensive.interpretationRun.accounting.calls,
-          repairs: comprehensive.interpretationRun.accounting.repairs,
-          model: comprehensive.interpretationRun.accounting.model
+          providerCalls: accounting.calls.length,
+          repairs: accounting.repairCalls,
+          qualityEscalations: accounting.qualityEscalations,
+          totalTokens: accounting.totalTokens,
+          model,
+          architecture: accounting.architecture
         });
       } catch (error) {
-        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
+        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_manuscript', error: messageOf(error) });
         throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
       }
     } else {

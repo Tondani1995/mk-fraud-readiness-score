@@ -8,6 +8,7 @@ on:
       - src/lib/reports/comprehensive/**
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
       - scripts/commercial-quality/comprehensive-v12-**
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
       - scripts/commercial-quality/comprehensive-recovery-routing-gate.mjs
       - scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
       - scripts/commercial-quality/customer-specific-logic-gate.mjs
@@ -78,25 +79,20 @@ jobs:
       - name: Prove tier routing uses bounded Comprehensive recovery
         run: node scripts/commercial-quality/comprehensive-recovery-routing-gate.mjs
 
-      - name: Prove current V1.2 truth, Sustainment semantics, AI acceptance and model contract
+      - name: Prove manuscript-first Comprehensive customer architecture
         run: >
           node
           --experimental-strip-types
           --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
-          scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
-
-      - name: Prove maximum bounded interpretation fits real PDFs
-        run: >
-          node
-          --experimental-strip-types
-          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
-          scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+          scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
 
       - name: Prove temporary paid-call surfaces are closed
         run: |
           test ! -e src/app/score/api/qa/comprehensive-v12-one-call-proof/route.ts
           test ! -e .github/workflows/comprehensive-v12-one-call-live-proof.yml
           test ! -e scripts/commercial-quality/comprehensive-v12-live-interpretation-proof.mjs
+          test ! -e src/app/score/api/qa/comprehensive-v12-recovery-proof/route.ts
+          test ! -e src/app/score/api/qa/comprehensive-v12-owner-review-pdf/route.ts
 
       - name: Typecheck
         run: npm run typecheck
