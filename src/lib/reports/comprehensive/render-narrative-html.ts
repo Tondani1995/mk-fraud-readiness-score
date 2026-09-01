@@ -34,6 +34,10 @@ function exhibitAttrs(exhibit: ReportBlueprintExhibit): string {
   return `data-exhibit-id="${esc(exhibit.exhibitId)}" data-exhibit-type="${esc(exhibit.type)}" data-primary-home="${esc(`${exhibit.placement.chapterId}/${exhibit.placement.sectionId}`)}"`;
 }
 
+function compositionObjectAttrs(exhibit: ReportBlueprintExhibit, kind: string, index: number): string {
+  return `data-composition-object="${esc(`${exhibit.exhibitId}:${kind}:${index + 1}`)}"`;
+}
+
 function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.domainProfile.length) return '';
   return `<figure class="exhibit profile-exhibit" ${exhibitAttrs(exhibit)}>
@@ -53,7 +57,7 @@ function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBl
 
 function scoreDisplay(model: ComprehensiveNarrativePresentationModel, exhibit: ReportBlueprintExhibit): string {
   const boundary = model.narrativeMode === 'SUSTAINMENT'
-    ? 'No material weaknesses are promoted from the recorded sustainment profile.'
+    ? 'The assessment responses did not identify material weaknesses.'
     : 'The score is the starting point for the management response.';
   return `<figure class="exhibit score-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Recorded readiness position</strong><span>Recorded assessment position; not an assurance conclusion.</span></figcaption>
@@ -65,7 +69,7 @@ function themeMap(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepri
   if (!chapter.themes.length) return '';
   return `<figure class="exhibit theme-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Connected management patterns</strong><span>Patterns that management should address together.</span></figcaption>
-    <div class="theme-stack">${chapter.themes.slice(0, 5).map((item) => `<article><h4>${esc(item.title)}</h4><p>${esc(item.managementImplicationBasis)}</p><span>${esc(item.fraudRiskRelationship)}</span></article>`).join('')}</div>
+    <div class="theme-stack">${chapter.themes.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'theme', index)}><h4>${esc(item.title)}</h4><p>${esc(item.managementImplicationBasis)}</p><span>${esc(item.fraudRiskRelationship)}</span></article>`).join('')}</div>
   </figure>`;
 }
 
@@ -74,7 +78,7 @@ function strengths(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
   return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that management should preserve.</span></figcaption>
     <div class="strength-grid">
-      ${chapter.strengths.slice(0, 5).map((item) => `<article><h4>${esc(item.title)}</h4><p>${esc(item.basis)}</p></article>`).join('')}
+      ${chapter.strengths.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'strength', index)}><h4>${esc(item.title)}</h4><p>${esc(item.basis)}</p></article>`).join('')}
     </div>
   </figure>`;
 }
@@ -84,7 +88,7 @@ function sustainmentPriorities(chapter: ComprehensiveNarrativeChapter, exhibit: 
   return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Resilience priorities</strong><span>These are disciplines to preserve, not findings or weaknesses.</span></figcaption>
     <div class="priority-stack">
-      ${chapter.sustainmentPriorities.slice(0, 5).map((item) => `<article class="priority-item">
+      ${chapter.sustainmentPriorities.slice(0, 5).map((item, index) => `<article class="priority-item" ${compositionObjectAttrs(exhibit, 'priority', index)}>
         <div><h4>${esc(item.title)}</h4><p>${esc(item.managementFocus)}</p></div>
         <div class="fact-strip">
           <span><b>Owner</b> ${esc(item.accountableExecutive)}</span>
@@ -101,7 +105,7 @@ function findings(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepri
   return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Material observations supporting this chapter</strong><span>Detailed analytical records remain in the companion workbook.</span></figcaption>
     <div class="priority-stack">
-      ${chapter.findings.slice(0, 5).map((item) => `<article class="priority-item">
+      ${chapter.findings.slice(0, 5).map((item, index) => `<article class="priority-item" ${compositionObjectAttrs(exhibit, 'finding', index)}>
         <h4>${esc(item.title)}</h4>
         <p>${esc(item.advisoryMeaningBasis || item.interpretation)}</p>
         <div class="fact-strip"><span><b>Owner</b> ${esc(item.owner)}</span><span><b>Target</b> ${esc(item.targetPeriod)}</span></div>
@@ -115,7 +119,7 @@ function scenarios(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
   return `<figure class="exhibit watch-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Conditional fraud pathways</strong><span>Management tests, not allegations.</span></figcaption>
     <div class="scenario-stack">
-      ${chapter.scenarios.slice(0, 4).map((item) => `<article>
+      ${chapter.scenarios.slice(0, 4).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'scenario', index)}>
         <h4>${esc(item.title)}</h4>
         <p><b>Actor:</b> ${esc(fieldSentence(item.actorClass, 'An actor may act through the recorded pathway'))} <b>Entry point:</b> ${esc(fieldSentence(item.entryPoint, 'A sensitive process entry point is involved'))} <b>Mechanism:</b> ${esc(fieldSentence(item.mechanism, 'The pathway may proceed before timely challenge'))}</p>
         <p class="small"><b>Warning indicators:</b> ${esc(item.warningIndicators.slice(0, 3).join('; '))}</p>
@@ -129,7 +133,7 @@ function controls(chapter: ComprehensiveNarrativeChapter, positive: boolean, exh
   return `<figure class="exhibit ${positive ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>${positive ? 'Control disciplines to preserve and strengthen' : 'Target control environment'}</strong><span>Compact operating specifications only. Full control blueprints remain in the workbook.</span></figcaption>
     <div class="control-stack">
-      ${chapter.controls.slice(0, 5).map((item) => `<article class="control-item">
+      ${chapter.controls.slice(0, 5).map((item, index) => `<article class="control-item" ${compositionObjectAttrs(exhibit, 'control', index)}>
         <h4>${esc(item.objective)}</h4>
         <p>${esc(item.targetState)}</p>
         <div class="fact-strip">
@@ -147,7 +151,7 @@ function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
   return `<figure class="exhibit decision-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Leadership choices</strong><span>Options, trade-offs and the recommended route.</span></figcaption>
     <div class="decision-stack">
-      ${chapter.decisions.slice(0, 4).map((item) => `<article class="decision-item">
+      ${chapter.decisions.slice(0, 4).map((item, index) => `<article class="decision-item" ${compositionObjectAttrs(exhibit, 'decision', index)}>
         <h4>${esc(item.question)}</h4>
         <p class="recommended"><b>Recommended route:</b> ${esc(item.recommendedRoute)}</p>
         <p class="small"><b>Why now:</b> ${esc(item.rationale)}</p>
@@ -164,7 +168,7 @@ function transformation(model: ComprehensiveNarrativePresentationModel, chapter:
     if (!chapter.roadmap.length) return '';
     return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
       <figcaption><strong>First 90-day management route</strong><span>Owners, outcomes and completion records for the opening cycle.</span></figcaption>
-      <div class="stage-grid roadmap-grid">${chapter.roadmap.slice(0, 6).map((item) => `<article class="supported">
+      <div class="stage-grid roadmap-grid">${chapter.roadmap.slice(0, 6).map((item, index) => `<article class="supported" ${compositionObjectAttrs(exhibit, 'roadmap-card', index)}>
         <span class="stage-name">${esc(item.phaseWindow)}</span><p>${esc(item.managementOutcome)}</p>
         <p class="small"><b>Priority work:</b> ${esc(item.priorityWork)}</p>
         <div class="fact-strip"><span><b>Owner</b> ${esc(item.accountableExecutive)}</span><span><b>Proof</b> ${esc(item.proofOfCompletion)}</span></div>
@@ -175,7 +179,7 @@ function transformation(model: ComprehensiveNarrativePresentationModel, chapter:
   if (!stages.length) return '';
   return `<figure class="exhibit ${model.narrativeMode === 'SUSTAINMENT' ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>${model.narrativeMode === 'SUSTAINMENT' ? 'Twelve-month sustainment path' : 'Twelve-month transformation path'}</strong><span>Progression, outcomes and management checkpoints.</span></figcaption>
-    <div class="stage-grid">${stages.map((stage) => `<article class="${stage.supported ? 'supported' : 'muted-stage'}">
+    <div class="stage-grid">${stages.map((stage, index) => `<article class="${stage.supported ? 'supported' : 'muted-stage'}" ${compositionObjectAttrs(exhibit, 'maturation-card', index)}>
       <span class="stage-name">${esc(stage.stage)}</span><p>${esc(stage.purpose)}</p>
     </article>`).join('')}</div>
   </figure>`;
@@ -240,7 +244,21 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
     </div>
     ${firstRemainder}${remainingBlocks}
     ${chapterExhibits(model, chapter)}
+    ${chapter.narrativeRole === 'CONCLUSION' ? companionPanel(model) : ''}
   </section>`;
+}
+
+function companionPanel(model: ComprehensiveNarrativePresentationModel): string {
+  const fixturePanel = Boolean(model.qaLabel);
+  return `<aside class="companion-panel" data-companion-workbook="true">
+    <div class="companion-kicker">Companion analytical record</div>
+    <h3>${esc(model.companionWorkbook.title)}</h3>
+    <p>${esc(model.companionWorkbook.purpose)}</p>
+    ${fixturePanel
+      ? `<p class="companion-compact-note"><b>Sheets supplied:</b> ${model.companionWorkbook.sheets.map((sheet) => esc(sheet)).join(' · ')}</p>`
+      : `<div class="sheet-list">${model.companionWorkbook.sheets.map((sheet) => `<span>${esc(sheet)}</span>`).join('')}</div>
+         <p class="scope-note">${esc(model.assuranceBoundary)}</p>`}
+  </aside>`;
 }
 
 function css(): string {
@@ -308,7 +326,7 @@ function css(): string {
   .bar i.watch{background:var(--mk-major)}
   .bar i.critical{background:var(--mk-critical)}
   .strength-grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
-  .strength-grid article,.priority-item,.control-item,.decision-item,.scenario-stack article{break-inside:avoid}
+  .strength-grid article,.priority-item,.control-item,.decision-item,.scenario-stack article,.stage-grid article{break-inside:avoid;page-break-inside:avoid}
   .strength-grid article{padding:4mm 0;border-bottom:1px solid var(--mk-rule)}
   h4{font-size:11pt;color:var(--mk-navy-700);margin:0 0 2mm}
   .strength-grid p,.priority-item p,.control-item p,.decision-item p,.scenario-stack p{margin:0 0 3mm}
@@ -325,15 +343,17 @@ function css(): string {
   .options small,.small{font-size:8.3pt;color:var(--mk-muted)}
   .recommended{color:var(--mk-confirmed)}
   .stage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
-  .stage-grid article{padding:4mm;background:var(--mk-confirmed-bg);border-top:3px solid var(--mk-confirmed);min-height:36mm}
+  .stage-grid article{padding:4mm;background:var(--mk-confirmed-bg);border-top:3px solid var(--mk-confirmed);min-height:36mm;break-inside:avoid;page-break-inside:avoid}
   .stage-grid .muted-stage{background:var(--mk-neutral-bg);border-top-color:var(--mk-rule)}
   .stage-name{font-weight:700;font-size:8pt;letter-spacing:.08em;color:var(--mk-confirmed)}
-  .companion{break-before:auto;background:var(--mk-neutral-bg);padding:12mm 10mm;margin-top:14mm;border-top:3px solid var(--mk-navy-700);break-inside:avoid}
-  .companion h2{font-size:19pt}
-  .companion p{max-width:155mm}
-  .sheet-list{display:flex;flex-wrap:wrap;gap:2mm;margin-top:5mm}
-  .sheet-list span{padding:2mm 3mm;border:1px solid var(--mk-rule);background:var(--mk-white);font-size:8pt}
-  .scope-note{break-inside:avoid;margin:10mm 0 0;padding-top:5mm;border-top:1px solid var(--mk-rule);font-size:8.8pt;color:var(--mk-muted)}
+  .companion-panel{break-before:auto;break-inside:avoid;page-break-inside:avoid;background:var(--mk-neutral-bg);padding:4mm 5mm;margin-top:4mm;border-top:3px solid var(--mk-navy-700)}
+  .companion-kicker{font-size:6.5pt;text-transform:uppercase;letter-spacing:.1em;color:var(--mk-muted);font-weight:700;margin-bottom:1mm}
+  .companion-panel h3{font-size:11pt;color:var(--mk-navy-700);margin:0 0 1mm}
+  .companion-panel p{max-width:none;font-size:7.5pt;line-height:1.2;margin:0 0 2mm}
+  .companion-panel .companion-compact-note{font-size:6.5pt;margin:1mm 0 0}
+  .sheet-list{display:flex;flex-wrap:wrap;gap:1mm;margin-top:2mm}
+  .sheet-list span{padding:1mm 1.5mm;border:1px solid var(--mk-rule);background:var(--mk-white);font-size:6.5pt}
+  .companion-panel .scope-note{break-inside:avoid;margin:2mm 0 0;padding-top:2mm;border-top:1px solid var(--mk-rule);font-size:6.5pt;color:var(--mk-muted)}
   </style>`;
 }
 
@@ -356,13 +376,5 @@ export function renderComprehensiveNarrativeReportHtml(model: ComprehensiveNarra
   </section>`;
 
   const chapters = model.chapters.map((chapter) => chapterHtml(model, chapter)).join('');
-  const companion = `<section class="companion">
-    <div class="chapter-marker">Companion analytical record</div>
-    <h2>${esc(model.companionWorkbook.title)}</h2>
-    <p>${esc(model.companionWorkbook.purpose)}</p>
-    <div class="sheet-list">${model.companionWorkbook.sheets.map((sheet) => `<span>${esc(sheet)}</span>`).join('')}</div>
-    <p class="scope-note">${esc(model.assuranceBoundary)}</p>
-  </section>`;
-
-  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(model.title)} · ${esc(model.organisationName)}</title>${css()}</head><body>${cover}${chapters}${companion}</body></html>`;
+  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(model.title)} · ${esc(model.organisationName)}</title>${css()}</head><body>${cover}${chapters}</body></html>`;
 }

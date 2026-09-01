@@ -112,6 +112,28 @@ function titleSplits(pages, headings) {
   return splits;
 }
 
+function pageMatchText(value) {
+  return compact(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function compositionObjectSpans(pages, html) {
+  const stopWords = new Set('the and or of to a an in for with is are this that through from should keep make use management control fraud readiness position current recorded assessed standard owner owners route review material by its as not after into remain has have be will on their'.split(' '));
+  const pageTokens = pages.map((page) => new Set(pageMatchText(page.text).split(/\s+/).filter(Boolean)));
+  const objects = [...html.matchAll(/<article\b[^>]*data-composition-object="([^"]+)"[^>]*>([\s\S]*?)<\/article>/gi)];
+  return objects.flatMap((match) => {
+    const objectId = match[1];
+    const tokens = [...new Set(pageMatchText(visibleHtml(match[2])).split(/\s+/).filter((word) => word.length >= 4 && !stopWords.has(word)))];
+    if (tokens.length < 4) return [];
+    const coverage = pageTokens.map((set, index) => {
+      const matchedTokens = tokens.filter((token) => set.has(token));
+      return { page: pages[index].page, matchedTokens: matchedTokens.length, totalTokens: tokens.length, coverage: Number((matchedTokens.length / tokens.length).toFixed(4)) };
+    }).sort((left, right) => right.coverage - left.coverage);
+    const best = coverage[0];
+    if (best.coverage >= 0.82) return [];
+    return [{ objectId, bestPage: best.page, bestCoverage: best.coverage, coverage: coverage.filter((item) => item.coverage >= 0.2), reason: 'object content does not fit one PDF page' }];
+  });
+}
+
 function repeatedExhibits(html, expectedIds) {
   const actualIds = [...html.matchAll(/data-exhibit-id="([^"]+)"/g)].map((match) => match[1]);
   const duplicateIds = actualIds.filter((id, index) => actualIds.indexOf(id) !== index);
@@ -152,6 +174,11 @@ function inspectProfile(key, fileStem, acceptanceEvidence) {
   const markerOnlyPages = pages.filter((page) => page.markerOnly).map((page) => ({ page: page.page, text: page.text }));
   const materiallyUnderfilledPages = pages.filter((page) => page.materiallyUnderfilled).map((page) => ({ page: page.page, bodyWords: page.bodyWords, text: page.text }));
   const duplicateDecisionProof = acceptanceEvidence?.visual?.decisionProof ?? null;
+  const cardSpans = compositionObjectSpans(pages, sourceHtml);
+  const companionPages = pages.filter((page) => /Companion analytical record|MK Fraud Readiness Comprehensive Workbook|Question Traceability/i.test(page.text));
+  const standaloneCompanionPages = companionPages
+    .filter((page) => !/Management conclusion/i.test(page.text))
+    .map((page) => ({ page: page.page, text: page.text }));
   assert.equal(exhibitProof.expectedOrderMatches, true, `${key}: PDF HTML exhibit IDs do not match the Blueprint order`);
   assert.equal(exhibitProof.duplicateIds.length, 0, `${key}: repeated exhibit IDs detected`);
   assert.equal(exhibitProof.duplicateHomes.length, 0, `${key}: repeated exhibit primary homes detected`);
@@ -161,6 +188,8 @@ function inspectProfile(key, fileStem, acceptanceEvidence) {
   assert.equal(orphanManagementImplications.length, 0, `${key}: orphan management implications detected: ${JSON.stringify(orphanManagementImplications)}`);
   assert.equal(materiallyUnderfilledPages.length, 0, `${key}: materially underfilled pages detected: ${JSON.stringify(materiallyUnderfilledPages)}`);
   assert.equal(titleSplitProof.length, 0, `${key}: split titles detected: ${JSON.stringify(titleSplitProof)}`);
+  assert.equal(cardSpans.length, 0, `${key}: exhibit/card objects span pages: ${JSON.stringify(cardSpans)}`);
+  assert.equal(standaloneCompanionPages.length, 0, `${key}: companion workbook content is not integrated into the conclusion page: ${JSON.stringify(standaloneCompanionPages)}`);
   if (duplicateDecisionProof) {
     assert.equal(duplicateDecisionProof.exactUnique, true, `${key}: decision structure fingerprints are not unique`);
     assert.ok(duplicateDecisionProof.maxPairwiseSimilarity < 0.9, `${key}: decision structures are materially similar`);
@@ -176,6 +205,9 @@ function inspectProfile(key, fileStem, acceptanceEvidence) {
       markerOnlyPages,
       materiallyUnderfilledPages,
       titleSplits: titleSplitProof,
+      cardSpans,
+      companionPages: companionPages.map((page) => page.page),
+      standaloneCompanionPages,
       repeatedExhibits: exhibitProof,
       duplicateDecisionStructures: duplicateDecisionProof
     }
@@ -208,7 +240,9 @@ const summary = {
     { id: 'management-implication-only-or-nearly-only-page', rejects: 'A management implication with <= 42 words of surrounding page content.' },
     { id: 'chapter-marker-only-page', rejects: 'A chapter marker whose page has no other report content.' },
     { id: 'materially-underfilled-page', rejects: 'A non-cover page with fewer than 60 body words after footer/marker removal.' },
-    { id: 'split-title', rejects: 'A known heading prefix at the end of one page with its suffix at the start of the next.' }
+    { id: 'split-title', rejects: 'A known heading prefix at the end of one page with its suffix at the start of the next.' },
+    { id: 'exhibit-card-spanning-pages', rejects: 'A marked exhibit/card object whose opening and closing content land on different PDF pages.' },
+    { id: 'companion-panel-not-integrated', rejects: 'Companion-workbook content on a page without the management conclusion.' }
   ],
   profiles: inspected,
   evidenceSha256: crypto.createHash('sha256').update(JSON.stringify(inspected)).digest('hex')

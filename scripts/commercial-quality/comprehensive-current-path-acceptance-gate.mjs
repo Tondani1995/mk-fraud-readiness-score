@@ -261,6 +261,7 @@ function assertPresentationQuality({ key, data, factPack, blueprint, html }) {
   assert.doesNotMatch(html, /<table\b/i, `${key}: narrative must not be table-led`);
   assert.doesNotMatch(html, /<h[1-6][^>]*>[^<]*(?:appendix|finding register|risk register|evidence requirement register)|class="[^"]*card register/i, `${key}: register/card presentation leaked into customer PDF`);
   assert.doesNotMatch(html, /Preserve a named senior executive owns/i, `${key}: malformed control wording remains`);
+  assert.doesNotMatch(html, /No material weaknesses are promoted/i, `${key}: internal-sounding sustainment boundary remains`);
   assert.doesNotMatch(html, /\bThe the\b/i, `${key}: synthetic manuscript contains duplicated article wording`);
   assert.doesNotMatch(html, /\.chapter\{[^}]*break-before:page/i, `${key}: forced chapter pagination remains`);
   assert.match(html, /data-brand-asset="approved-mk-fraud-insights-mark"/, `${key}: approved MK logo asset marker missing`);
@@ -275,6 +276,9 @@ function assertPresentationQuality({ key, data, factPack, blueprint, html }) {
   assert.match(html, /data-exhibit-type="score_display"/, `${key}: score exhibit missing`);
   assert.match(html, /Management implication/, `${key}: management conclusion framing missing`);
   assert.match(html, /Companion analytical record/, `${key}: workbook boundary missing`);
+  assert.equal((html.match(/data-companion-workbook="true"/g) ?? []).length, 1, `${key}: companion workbook panel must render exactly once`);
+  assert.match(html, /<section class="chapter[^"]*"[^>]*data-chapter="MANAGEMENT-CONCLUSION"[\s\S]*data-companion-workbook="true"/, `${key}: companion workbook panel must be integrated into the conclusion chapter`);
+  assert.doesNotMatch(html, /<section class="companion"/i, `${key}: standalone companion-workbook page remains`);
   assert.equal((html.match(/<section class="chapter/g) ?? []).length, blueprint.chapters.length, `${key}: chapter count`);
   assert.ok(blueprint.transformationSequence.length >= 4, `${key}: transformation stages missing`);
   assert.equal(new Set(blueprint.transformationSequence.map((stage) => stage.purpose)).size, blueprint.transformationSequence.length, `${key}: transformation stages are not differentiated`);
