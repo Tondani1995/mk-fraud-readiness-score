@@ -3,6 +3,17 @@ import { generateText, Output } from 'ai';
 import type { ComprehensiveManagementModel } from './management-model';
 import { claimsVerification } from './product-contract';
 import { comprehensiveAssessmentScopeStatement, type ComprehensiveAssessmentScope } from './assessment-scope';
+import type { NarrativeRecoveryBudget } from '../narrative/recovery-policy';
+import {
+  COMPREHENSIVE_PRIMARY_MODEL,
+  COMPREHENSIVE_TECHNICAL_MODEL_CHAIN,
+  COMPREHENSIVE_MAX_TARGETED_REPAIRS,
+  assertComprehensiveRecoveryBudget,
+  classifyComprehensiveRecoveryIssue,
+  comprehensiveRecoveryDecision,
+  dominantComprehensiveRecoverySeverity,
+  emptyComprehensiveRecoveryBudget
+} from './recovery-policy';
 
 /**
  * Bounded interpretation for the Comprehensive management core.
@@ -27,7 +38,7 @@ export const COMPREHENSIVE_INTERPRETATION_VERSION = 'mk-comprehensive-interpreta
  * ordering: changing an unrelated tier's model policy must never silently
  * change the model that writes Comprehensive interpretation.
  */
-export const COMPREHENSIVE_INTERPRETATION_MODEL = 'openai/gpt-5.6-luna' as const;
+export const COMPREHENSIVE_INTERPRETATION_MODEL = COMPREHENSIVE_PRIMARY_MODEL;
 
 export type InterpretationSlotId =
   | 'executiveInterpretation'
@@ -557,15 +568,20 @@ export function buildInterpretationPrompt(brief: InterpretationBrief, only?: Int
 }
 
 export interface InterpretationAccounting {
+  /** Backwards-compatible total provider dispatch count. */
   calls: number;
+  /** Backwards-compatible alias for targetedRepairCount. */
   repairs: number;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
   costMicros: number;
   durationMs: number;
+  /** Model that produced the current accepted/rejected candidate. */
   model: string;
+  modelsUsed: string[];
   repairedSlots: InterpretationSlotId[];
+  recovery: NarrativeRecoveryBudget;
 }
 
 export interface InterpretationRun {
@@ -586,27 +602,35 @@ export class ComprehensiveInterpretationAcceptanceError extends Error {
 /**
  * Final fail-closed boundary between bounded interpretation and customer output.
  *
- * Validation issues are not advisory. A report with an unresolved hard-truth,
- * semantic or quality issue must never be rendered, stored or finalised. Manual
- * fulfilment authorises one provider call and zero repair calls; the accounting
- * contract is enforced here alongside content acceptance.
+ * Recovery is allowed only inside the same bounded policy used by Essential.
+ * Hard-truth failures remain unreleasable, and exhausting the recovery budget
+ * never weakens validation. There is deliberately no arbitrary one-call cap.
  */
-export function assertComprehensiveInterpretationAccepted(
-  run: InterpretationRun,
-  limits: { maxCalls?: number; maxRepairs?: number } = {}
-): void {
-  const maxCalls = limits.maxCalls ?? 1;
-  const maxRepairs = limits.maxRepairs ?? 0;
-  if (run.accounting.calls < 1 || run.accounting.calls > maxCalls) {
+export function assertComprehensiveInterpretationAccepted(run: InterpretationRun): void {
+  try {
+    assertComprehensiveRecoveryBudget(run.accounting.recovery);
+  } catch (error) {
     throw new ComprehensiveInterpretationAcceptanceError(
-      `Comprehensive interpretation call budget violated: ${run.accounting.calls} call(s), maximum ${maxCalls}.`,
-      ['CALL_BUDGET']
+      error instanceof Error ? error.message : 'Comprehensive recovery budget is invalid.',
+      ['RECOVERY_BUDGET']
     );
   }
-  if (run.accounting.repairs > maxRepairs) {
+  if (run.accounting.calls !== run.accounting.recovery.totalCalls) {
     throw new ComprehensiveInterpretationAcceptanceError(
-      `Comprehensive interpretation repair budget violated: ${run.accounting.repairs} repair(s), maximum ${maxRepairs}.`,
-      ['REPAIR_BUDGET']
+      `Comprehensive interpretation accounting mismatch: calls=${run.accounting.calls}, recovery.totalCalls=${run.accounting.recovery.totalCalls}.`,
+      ['CALL_ACCOUNTING']
+    );
+  }
+  if (run.accounting.repairs !== run.accounting.recovery.targetedRepairCount) {
+    throw new ComprehensiveInterpretationAcceptanceError(
+      `Comprehensive interpretation repair accounting mismatch: repairs=${run.accounting.repairs}, targetedRepairCount=${run.accounting.recovery.targetedRepairCount}.`,
+      ['REPAIR_ACCOUNTING']
+    );
+  }
+  if (run.accounting.recovery.initialGenerationCount !== 1) {
+    throw new ComprehensiveInterpretationAcceptanceError(
+      `Comprehensive interpretation requires exactly one initial generation; received ${run.accounting.recovery.initialGenerationCount}.`,
+      ['INITIAL_GENERATION_BUDGET']
     );
   }
   if (run.issues.length > 0) {
@@ -624,11 +648,6 @@ export function assertComprehensiveInterpretationAccepted(
  * change who wrote the report.
  */
 function requireCredential(model: string): { model: string; provider: string } {
-  // Match the already-proven Essential writer's Vercel AI Gateway runtime contract.
-  // On Vercel, the AI SDK can authenticate through the deployment's OIDC/runtime
-  // identity even when no long-lived AI_GATEWAY_API_KEY is configured. Requiring
-  // only a static API key here made Comprehensive fail in Production while
-  // Essential succeeded on the same deployment.
   const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
   const hasGatewayCredential = Boolean(
     process.env.AI_GATEWAY_API_KEY
@@ -644,82 +663,220 @@ function requireCredential(model: string): { model: string; provider: string } {
 const SYSTEM = 'You are the MK Fraud Readiness Comprehensive interpretation writer. The deterministic analysis you are given is the only authority. RETURN EXACTLY ONE JSON OBJECT as plain text: no commentary, no Markdown, no code fences, no additional keys.';
 
 function parseObject(raw: string): Record<string, unknown> {
-  const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+  const trimmed = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\`\`\`$/, '').trim();
   const start = trimmed.indexOf('{');
   const end = trimmed.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('No JSON object in provider output.');
   return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
 }
 
+function nextModel(model: string): string | null {
+  const index = COMPREHENSIVE_TECHNICAL_MODEL_CHAIN.indexOf(model as (typeof COMPREHENSIVE_TECHNICAL_MODEL_CHAIN)[number]);
+  return index >= 0 && index < COMPREHENSIVE_TECHNICAL_MODEL_CHAIN.length - 1
+    ? COMPREHENSIVE_TECHNICAL_MODEL_CHAIN[index + 1]!
+    : null;
+}
+
+function repairPrompt(
+  brief: InterpretationBrief,
+  current: Partial<ComprehensiveInterpretation>,
+  issues: InterpretationIssue[],
+  slots: InterpretationSlotId[]
+): string {
+  const reasons = slots.map((slot) =>
+    `- ${slot}: ${issues.filter((issue) => issue.slot === slot).map((issue) => `${issue.code} (${issue.detail})`).join('; ')}`
+  ).join('\n');
+  return [
+    buildInterpretationPrompt(brief, slots),
+    '',
+    '================ TARGETED REPAIR ================',
+    'Correct only the named rejected fields. Preserve every deterministic fact and every accepted field. Do not add analysis.',
+    reasons,
+    '',
+    'PREVIOUS TEXT:',
+    JSON.stringify(Object.fromEntries(slots.map((slot) => [slot, current[slot] ?? '']))),
+    '',
+    `Return exactly one JSON object with exactly these keys: ${slots.join(', ')}.`
+  ].join('\n');
+}
+
+function coherencePrompt(brief: InterpretationBrief, current: ComprehensiveInterpretation, issues: InterpretationIssue[]): string {
+  return [
+    buildInterpretationPrompt(brief),
+    '',
+    '================ BOUNDED COHERENCE PASS ================',
+    'The six fields below already carry the authorised meaning. Improve only the editorial defects named below.',
+    'Do not add, remove or change any fact, number, owner, decision, programme, timing, maturity statement or assurance boundary.',
+    issues.map((issue) => `- ${issue.slot}: ${issue.code} (${issue.detail})`).join('\n'),
+    '',
+    'CURRENT SIX FIELDS:',
+    JSON.stringify(current),
+    '',
+    'Return exactly one JSON object with all six required keys.'
+  ].join('\n');
+}
+
 /**
- * One structured call for all six slots, then targeted repair of any slot that
- * fails. A failing slot never causes the other five to be regenerated.
+ * One initial six-slot generation followed by Essential-aligned bounded recovery.
+ *
+ * Recovery sequence:
+ * - hard truth: stop; never auto-repair;
+ * - repairable semantic wording: up to four targeted slot repairs;
+ * - persistent semantic rejection: at most one complete six-slot regeneration;
+ * - quality-only rejection: at most one model-rung escalation;
+ * - residual quality-only rejection: at most one bounded coherence pass;
+ * - provider/transport failure: technical fallback Luna -> Terra -> Sol.
+ *
+ * Every provider dispatch, token and cost is accounted. Validation remains the
+ * release authority throughout.
  */
 export async function generateComprehensiveInterpretation(brief: InterpretationBrief, options?: {
   model?: string;
-  maxRepairsPerSlot?: number;
   timeoutMs?: number;
 }): Promise<InterpretationRun> {
-  const resolved = requireCredential(options?.model ?? COMPREHENSIVE_INTERPRETATION_MODEL);
-  const maxRepairs = options?.maxRepairsPerSlot ?? 2;
+  let activeModel = options?.model ?? COMPREHENSIVE_INTERPRETATION_MODEL;
+  requireCredential(activeModel);
   const timeoutMs = options?.timeoutMs ?? 240_000;
-  const accounting: InterpretationAccounting = { calls: 0, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costMicros: 0, durationMs: 0, model: resolved.model, repairedSlots: [] };
+  const recovery = emptyComprehensiveRecoveryBudget();
+  const accounting: InterpretationAccounting = {
+    calls: 0,
+    repairs: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    costMicros: 0,
+    durationMs: 0,
+    model: activeModel,
+    modelsUsed: [],
+    repairedSlots: [],
+    recovery
+  };
   const startedAt = Date.now();
 
-  const call = async (prompt: string) => {
-    accounting.calls += 1;
-    const response: any = await generateText({
-      model: resolved.model,
-      system: SYSTEM,
-      prompt,
-      output: Output.text(),
-      maxOutputTokens: 6_000,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [resolved.provider] } },
-      abortSignal: AbortSignal.timeout(timeoutMs)
-    });
-    accounting.inputTokens += Number(response?.usage?.inputTokens ?? 0);
-    accounting.outputTokens += Number(response?.usage?.outputTokens ?? 0);
-    accounting.totalTokens += Number(response?.usage?.totalTokens ?? 0);
-    const cost = Number(response?.providerMetadata?.gateway?.cost ?? 0);
-    if (Number.isFinite(cost)) accounting.costMicros += Math.round(cost * 1e6);
-    const text = typeof response.output === 'string' ? response.output : typeof response.text === 'string' ? response.text : '';
-    return parseObject(text);
+  const callWithTechnicalFallback = async (prompt: string, requestedModel = activeModel): Promise<Record<string, unknown>> => {
+    let model = requestedModel;
+    let lastError: unknown;
+    while (model) {
+      const resolved = requireCredential(model);
+      accounting.calls += 1;
+      recovery.totalCalls += 1;
+      if (!accounting.modelsUsed.includes(model)) accounting.modelsUsed.push(model);
+      try {
+        const response: any = await generateText({
+          model: resolved.model,
+          system: SYSTEM,
+          prompt,
+          output: Output.text(),
+          maxOutputTokens: 6_000,
+          maxRetries: 0,
+          providerOptions: { gateway: { only: [resolved.provider] } },
+          abortSignal: AbortSignal.timeout(timeoutMs)
+        });
+        const inputTokens = Number(response?.usage?.inputTokens ?? 0);
+        const outputTokens = Number(response?.usage?.outputTokens ?? 0);
+        const totalTokens = Number(response?.usage?.totalTokens ?? 0);
+        const cost = Number(response?.providerMetadata?.gateway?.cost ?? 0);
+        accounting.inputTokens += inputTokens;
+        accounting.outputTokens += outputTokens;
+        accounting.totalTokens += totalTokens;
+        recovery.totalTokens += totalTokens;
+        if (Number.isFinite(cost)) {
+          const micros = Math.round(cost * 1e6);
+          accounting.costMicros += micros;
+          recovery.totalProviderCostMicros += micros;
+        }
+        const raw = typeof response.output === 'string' ? response.output : typeof response.text === 'string' ? response.text : '';
+        activeModel = model;
+        accounting.model = model;
+        try {
+          return parseObject(raw);
+        } catch {
+          // A provider returned a response but not the required object. Treat that
+          // as a rejected generation, not a transport outage that may silently
+          // walk the technical fallback chain.
+          return {};
+        }
+      } catch (error) {
+        lastError = error;
+        const fallback = nextModel(model);
+        if (!fallback) throw error;
+        recovery.technicalFallbackCount += 1;
+        model = fallback;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Comprehensive provider call failed.');
   };
 
-  const initial = await call(buildInterpretationPrompt(brief));
+  const initial = await callWithTechnicalFallback(buildInterpretationPrompt(brief), activeModel);
+  recovery.initialGenerationCount = 1;
   let current = interpretationSchema.partial().parse(initial) as Partial<ComprehensiveInterpretation>;
   let issues = validateInterpretation(current, brief);
 
-  for (let attempt = 1; attempt <= maxRepairs; attempt += 1) {
-    const failing = [...new Set(issues.map((issue) => issue.slot))];
-    if (!failing.length) break;
-    const reasons = failing.map((slot) => `- ${slot}: ${issues.filter((issue) => issue.slot === slot).map((issue) => `${issue.code} (${issue.detail})`).join('; ')}`).join('\n');
-    const prompt = [
-      buildInterpretationPrompt(brief, failing),
-      '',
-      '================ REPAIR ================',
-      'Your previous attempt at these fields was rejected. Correct only these reasons. Keep the meaning; change what the reasons name.',
-      reasons,
-      '',
-      'PREVIOUS TEXT:',
-      JSON.stringify(Object.fromEntries(failing.map((slot) => [slot, current[slot] ?? '']))),
-      '',
-      `Return exactly one JSON object with exactly these keys: ${failing.join(', ')}.`
-    ].join('\n');
-    const repaired = await call(prompt);
-    accounting.repairs += 1;
-    for (const slot of failing) {
-      const value = repaired[slot];
-      if (typeof value === 'string' && value.trim()) {
-        current = { ...current, [slot]: value };
-        if (!accounting.repairedSlots.includes(slot)) accounting.repairedSlots.push(slot);
+  while (issues.length > 0) {
+    const severity = dominantComprehensiveRecoverySeverity(issues);
+    if (!severity || severity === 'HARD_TRUTH_FAILURE') break;
+
+    const decision = comprehensiveRecoveryDecision({ budget: recovery, issues });
+    if (!decision) break;
+
+    if (decision.action === 'TARGETED_REPAIR') {
+      if (recovery.targetedRepairCount >= COMPREHENSIVE_MAX_TARGETED_REPAIRS) break;
+      const repairableSlots = [...new Set(
+        issues
+          .filter((issue) => classifyComprehensiveRecoveryIssue(issue) === 'REPAIRABLE_SEMANTIC_FAILURE')
+          .map((issue) => issue.slot)
+      )];
+      if (!repairableSlots.length) break;
+      const repaired = await callWithTechnicalFallback(repairPrompt(brief, current, issues, repairableSlots), activeModel);
+      recovery.targetedRepairCount += 1;
+      accounting.repairs = recovery.targetedRepairCount;
+      for (const slot of repairableSlots) {
+        const value = repaired[slot];
+        if (typeof value === 'string' && value.trim()) {
+          current = { ...current, [slot]: value.trim() };
+          if (!accounting.repairedSlots.includes(slot)) accounting.repairedSlots.push(slot);
+        }
       }
+      issues = validateInterpretation(current, brief);
+      continue;
     }
-    issues = validateInterpretation(current, brief);
+
+    if (decision.action === 'FULL_REGENERATION') {
+      const regenerated = await callWithTechnicalFallback(buildInterpretationPrompt(brief), activeModel);
+      recovery.fullRegenerationCount += 1;
+      current = interpretationSchema.partial().parse(regenerated) as Partial<ComprehensiveInterpretation>;
+      issues = validateInterpretation(current, brief);
+      continue;
+    }
+
+    if (decision.action === 'QUALITY_ESCALATION') {
+      const escalatedModel = nextModel(activeModel);
+      if (!escalatedModel) break;
+      const escalated = await callWithTechnicalFallback(buildInterpretationPrompt(brief), escalatedModel);
+      recovery.qualityEscalationCount += 1;
+      activeModel = accounting.model;
+      current = interpretationSchema.partial().parse(escalated) as Partial<ComprehensiveInterpretation>;
+      issues = validateInterpretation(current, brief);
+      continue;
+    }
+
+    if (decision.action === 'COHERENCE_PASS' && severity === 'QUALITY_FAILURE') {
+      const complete = interpretationSchema.safeParse(current);
+      if (!complete.success) break;
+      const coherent = await callWithTechnicalFallback(coherencePrompt(brief, complete.data, issues), activeModel);
+      recovery.coherenceCount += 1;
+      current = interpretationSchema.partial().parse(coherent) as Partial<ComprehensiveInterpretation>;
+      issues = validateInterpretation(current, brief);
+      continue;
+    }
+
+    break;
   }
 
   accounting.durationMs = Date.now() - startedAt;
+  accounting.repairs = recovery.targetedRepairCount;
+  accounting.calls = recovery.totalCalls;
+  assertComprehensiveRecoveryBudget(recovery);
   return { interpretation: interpretationSchema.parse(current), issues, accounting };
 }
 
