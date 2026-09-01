@@ -69,10 +69,19 @@ export async function GET() {
     }, { status: 409 });
   }
 
+  if (typeof pack.assessment.score !== 'number' || !pack.assessment.maturity) {
+    return NextResponse.json({
+      status: 'PRE_PROVIDER_REJECTED',
+      reason: 'Motheo fact pack lost its scored assessment position.',
+      providerCalls: 0,
+      repairs: 0
+    }, { status: 409 });
+  }
+
   const brief = buildInterpretationBrief({
     model,
     organisationName: pack.organisation.name,
-    score: pack.assessment.score as number,
+    score: pack.assessment.score,
     maturity: pack.assessment.maturity,
     assessmentScope,
     domains
