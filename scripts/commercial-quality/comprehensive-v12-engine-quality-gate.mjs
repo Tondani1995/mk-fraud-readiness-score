@@ -285,6 +285,42 @@ for (const profileKey of Object.keys(profiles)) {
   }
 
   if (model.narrativeMode === 'SUSTAINMENT') {
+    // The live V1.2 Motheo call exposed a mode-contract defect: the generic
+    // "material exposure" question pushed assurance priorities into weakness-
+    // shaped prose. Sustainment must instead be grounded in the deterministic
+    // assurance/resilience management objects already rendered in the report.
+    if (brief.assuranceCoverage.length !== domains.length) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', `brief carries ${brief.assuranceCoverage.length} assurance-coverage rows for ${domains.length} domains`);
+    }
+    if (brief.assurancePriorities.length < 1 || brief.resilienceTests.length < 1) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'brief lost assurance priorities or resilience tests');
+    }
+    if (!interpretationPrompt.includes('"assurancePriorities":[') || interpretationPrompt.includes('"assurancePriorities":[]')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'provider prompt lost bounded assurance priorities');
+    }
+    if (!interpretationPrompt.includes('"resilienceTests":[') || interpretationPrompt.includes('"resilienceTests":[]')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'provider prompt lost bounded resilience tests');
+    }
+    if (!interpretationPrompt.includes('What does the strong position depend on, and what could cause it to deteriorate?')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'Sustainment-specific why-this-matters contract is absent');
+    }
+    if (interpretationPrompt.includes('Why does the material exposure pattern matter operationally?')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'remediation-shaped exposure question leaked into Sustainment prompt');
+    }
+
+    const liveDefect = validateInterpretation({
+      whyThisMatters: 'The material exposure is concentrated in fraud governance and risk identification, followed by culture and continuous improvement.'
+    }, brief);
+    if (!liveDefect.some((issue) => issue.code === 'SUSTAINMENT_EXPOSURE_AS_WEAKNESS')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'validator would still accept the exact live-call exposure-as-weakness framing');
+    }
+    const soundSustainment = validateInterpretation({
+      whyThisMatters: 'The assurance priorities matter because the reported position depends on management preserving clear ownership, current risk understanding and a dependable learning rhythm. The resilience focus is therefore on the conditions that could erode those capabilities over time, the dependencies management should keep visible, and the deterioration signals that should trigger attention. This does not indicate a present control failure. It identifies where confirmation and continued management give leadership confidence that the strong assessed position remains dependable as the organisation changes and new fraud pressures emerge.'
+    }, brief);
+    if (soundSustainment.some((issue) => issue.code === 'SUSTAINMENT_EXPOSURE_AS_WEAKNESS' || issue.code === 'MANUFACTURED_WEAKNESS')) {
+      fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'validator rejects legitimate resilience-oriented Sustainment prose');
+    }
+
     if (model.core.managementThemes.length > 4) {
       fail(profileKey, 'SUSTAINMENT_SCOPE', `${model.core.managementThemes.length} management themes exceeds sustainment ceiling`);
     }
