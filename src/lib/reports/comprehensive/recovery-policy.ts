@@ -6,8 +6,7 @@ import {
   assertRecoveryBudget,
   emptyNarrativeRecoveryBudget,
   recoveryDecision,
-  type NarrativeRecoveryBudget,
-  type NarrativeValidationSeverity
+  type NarrativeRecoveryBudget
 } from '../narrative/recovery-policy';
 
 export const COMPREHENSIVE_RECOVERY_POLICY_VERSION = 'mk-comprehensive-v12-essential-aligned-recovery-v1' as const;
@@ -29,7 +28,7 @@ export interface ComprehensiveRecoverableIssue {
   code: string;
 }
 
-export type ComprehensiveRecoverySeverity = NarrativeValidationSeverity;
+export type ComprehensiveRecoverySeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE' | 'TECHNICAL_TRUNCATION';
 
 /**
  * Comprehensive uses the same recovery philosophy and shared ceilings as
