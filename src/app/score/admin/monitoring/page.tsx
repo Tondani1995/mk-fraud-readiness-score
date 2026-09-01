@@ -1,8 +1,9 @@
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { requireAdmin } from '@/lib/auth/admin-route';
+import { getAuthenticatedAdminSession, ADMIN_ROLE_PRIORITY } from '@/lib/auth/admin-route';
 import { getProductionMonitoringSnapshot } from '@/lib/admin/monitoring';
+import { redirect } from 'next/navigation';
 
 function statusClass(status: string) {
   if (status === 'PASS' || status === 'HEALTHY' || status === 'resolved') return 'bg-emerald-100 text-emerald-800';
@@ -24,7 +25,8 @@ function valueOrDash(value: unknown) {
 }
 
 export default async function MonitoringAdminPage() {
-  const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']);
+  const admin = await getAuthenticatedAdminSession();
+  if (!admin || !ADMIN_ROLE_PRIORITY.includes(admin.role)) redirect('/score/admin/login');
   const snapshot = await getProductionMonitoringSnapshot();
   const funnelCards = [
     ['Starts', snapshot.funnel.starts],
