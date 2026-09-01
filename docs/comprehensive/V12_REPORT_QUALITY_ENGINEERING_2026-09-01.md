@@ -45,11 +45,11 @@ All six interpretation slots were filled to their contract maximums without a pr
 
 Provider calls: **0**. Database reads/writes: **0**. Production mutations: **0**.
 
-## One authorised live interpretation proof
+## First live interpretation proof
 
 A synthetic-only Preview route was used because GitHub Actions held no AI Gateway credential. The route hard-refused Production and any branch other than the Comprehensive QA branch and imported no Supabase, storage or fulfilment code.
 
-Exactly one provider call was authorised and made against Motheo.
+The first live proof completed in one provider call against Motheo. This was an observed run outcome, not a product-level one-call ceiling.
 
 - Model: `openai/gpt-5.6-luna`
 - Calls: **1**
@@ -65,7 +65,13 @@ Exactly one provider call was authorised and made against Motheo.
 - Database writes: **0**
 - Storage writes: **0**
 
-The stated one-call ceiling is exhausted. **No second live provider call is authorised by this record.**
+### Recovery-policy correction
+
+The initial engineering pass incorrectly treated the first live call as a hard one-call ceiling. That was a stale interpretation of the older Comprehensive freeze and contradicted the subsequently agreed Essential safety-net architecture.
+
+The current product rule is now explicit: Comprehensive uses the same bounded recovery philosophy and shared ceilings as Essential, adapted to its six interpretation slots. One initial generation may therefore be followed, when deterministic validation justifies it, by up to four targeted semantic-repair calls, one complete six-slot regeneration, one quality-model escalation and one bounded coherence pass. Technical fallback is separately bounded by the Comprehensive Luna → Terra → Sol chain and fully accounted. Hard-truth failures remain fail-closed and are never automatically rewritten.
+
+The manual fulfilment override that forced zero repairs has been removed, and CI now rejects reintroduction of that stale single-call behaviour.
 
 ## Defect exposed by manual owner-quality review
 
@@ -94,6 +100,6 @@ Remediation and Mixed interpretation continue to use the original exposure-orien
 
 ## Current quality position
 
-The deterministic V1.2 Comprehensive engine and maximum-word PDF layouts are green across remediation and Sustainment. The single live call proved that the bounded AI path can produce a structurally valid, specific management interpretation in one call with zero repairs, while manual review identified and closed one Sustainment semantic weakness that the prior validator did not detect.
+The deterministic V1.2 Comprehensive engine and maximum-word PDF layouts are green across remediation and Sustainment. The first live call proved that the normal path can complete in one call with zero repairs, while manual review identified and closed one Sustainment semantic weakness that the prior validator did not detect. The recovery engine has since been aligned to Essential so later live quality proof can use bounded safety-net calls when validation legitimately requires them.
 
 This record does **not** authorise launch. Final provider-free certification and later owner-authorised launch integration remain separate steps.
