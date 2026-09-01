@@ -148,6 +148,8 @@ assert.match(sentryTestRoute, /Sentry\.getClient\(\)/);
 assert.match(sentryTestRoute, /Sentry\.init\(/);
 assert.match(sentryTestRoute, /sendDefaultPii:\s*false/);
 assert.match(sentryTestRoute, /Sentry\.flush\(2000\)/);
+assert.match(read('src/lib/monitoring/production-monitor.ts'), /production_monitor_events'.*eq\('synthetic', false\)/);
+assert.match(read('src/app/score/api/internal/client-error/route.ts'), /mk_sentry_client_test/);
 assert.match(read('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts'), /safeErrorCategory\(error\)/);
 const monitoringAdminPage = read('src/app/score/admin/monitoring/page.tsx');
 assert.match(monitoringAdminPage, /getAuthenticatedAdminSession/);

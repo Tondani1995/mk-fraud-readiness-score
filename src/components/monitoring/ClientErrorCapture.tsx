@@ -13,6 +13,11 @@ function routePath() {
 export function ClientErrorCapture() {
   useEffect(() => {
     const seen = new Set<string>();
+    const previewSentryTest = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT === 'preview'
+      && window.location.search.includes('mk_sentry_client_test=1');
+    const clientErrorEndpoint = previewSentryTest
+      ? '/score/api/internal/client-error?mk_sentry_client_test=1'
+      : '/score/api/internal/client-error';
     const send = (name: string, category: string) => {
       const key = `${routePath()}:${name}:${category}`;
       if (seen.has(key) || seen.size >= MAX_UNIQUE_ERRORS) return;
@@ -21,7 +26,7 @@ export function ClientErrorCapture() {
         level: 'error',
         tags: { error_category: category, route: routePath() }
       });
-      void fetch('/score/api/internal/client-error', {
+      void fetch(clientErrorEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, errorCategory: category, route: routePath() }),
@@ -41,7 +46,7 @@ export function ClientErrorCapture() {
 
     // Explicitly opt-in Preview certification aid. It never runs in Production and carries only
     // fixed test copy through the Sentry client-error path.
-    if (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT === 'preview' && window.location.search.includes('mk_sentry_client_test=1')) {
+    if (previewSentryTest) {
       queueMicrotask(() => { throw new Error('MK Preview controlled client error'); });
     }
 

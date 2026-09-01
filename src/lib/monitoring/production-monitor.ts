@@ -133,7 +133,7 @@ export async function readProductionFunnelMetrics(db: any, since: string) {
   const [eventRows, syntheticRows, monitorRows, emailRows] = await Promise.all([
     db.from('assessment_events').select('assessment_id,event_type,event_count,last_seen_at,metadata_json').gte('last_seen_at', since).limit(10000),
     db.from('assessments').select('id').eq('monitoring_synthetic', true).gte('created_at', since).limit(10000),
-    db.from('production_monitor_events').select('stage,outcome,route,error_category,occurred_at').gte('occurred_at', since).eq('outcome', 'fail').limit(10000),
+    db.from('production_monitor_events').select('stage,outcome,route,error_category,occurred_at').gte('occurred_at', since).eq('outcome', 'fail').eq('synthetic', false).limit(10000),
     db.from('email_events').select('id,status').gte('created_at', since).in('status', ['send_failed', 'reconciliation_required']).not('notification_type', 'is', null).limit(10000)
   ]);
 

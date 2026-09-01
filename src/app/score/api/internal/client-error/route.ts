@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false }, { status: 400 }); }
   const payload = sanitiseClientErrorPayload(body);
   if (!payload) return NextResponse.json({ ok: false }, { status: 400 });
+  const syntheticPreviewTest = process.env.VERCEL_ENV === 'preview'
+    && new URL(request.url).searchParams.get('mk_sentry_client_test') === '1';
 
   await recordProductionMonitorEvent({
     stage: 'browser_javascript',
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
     httpStatus: 500,
     errorCategory: payload.errorCategory,
     deploymentSha: process.env.VERCEL_GIT_COMMIT_SHA,
+    synthetic: syntheticPreviewTest,
     details: { error_name: payload.errorName }
   });
   return NextResponse.json({ ok: true });
