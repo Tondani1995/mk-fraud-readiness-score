@@ -75,7 +75,11 @@ jobs:
           scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
 
       - name: Prove tier routing uses bounded Comprehensive recovery
-        run: node scripts/commercial-quality/tier-entitlement-routing-gate.mjs
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/tier-entitlement-routing-gate.mjs
 
       - name: Prove current V1.2 truth, Sustainment semantics, AI acceptance and model contract
         run: >
