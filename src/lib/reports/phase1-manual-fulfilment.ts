@@ -644,27 +644,27 @@ export async function generateManualPhase1Report(
         logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
         const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
         comprehensivePdf = comprehensive.pdf;
-        const accounting = comprehensive.narrativeRun.accounting;
-        const models = [...new Set(Object.values(accounting.modelBySlot ?? {}))];
-        const model = models[0] ?? null;
+        const metadata = comprehensive.narrativeRun.writerMetadata;
+        const model = metadata.model ?? null;
         logPremiumReportPhase({
           phase: 'ai_route_authorised',
           status: 'completed',
           startedAt: generationStartedAt,
           technicalReference,
           generationAttemptId: attemptId,
-          provider: model?.split('/')[0] ?? null,
+          provider: metadata.provider ?? model?.split('/')[0] ?? null,
           model
         });
         console.info('comprehensive_manual_generation', {
           technicalReference,
           orderReference: targetReference,
-          providerCalls: accounting.calls.length,
-          repairs: accounting.repairCalls,
-          qualityEscalations: accounting.qualityEscalations,
-          totalTokens: accounting.totalTokens,
+          providerCalls: metadata.recovery?.totalCalls ?? 1,
+          targetedRepairs: metadata.recovery?.targetedRepairCount ?? 0,
+          coherencePasses: metadata.recovery?.coherenceCount ?? 0,
+          totalTokens: metadata.totalTokens,
           model,
-          architecture: accounting.architecture
+          architecture: metadata.architecture,
+          semanticSafety: comprehensive.semanticSafety
         });
       } catch (error) {
         console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_manuscript', error: messageOf(error) });

@@ -4,7 +4,6 @@ import { buildComprehensiveDeliveryModel } from '../../src/lib/reports/comprehen
 import { buildComprehensiveNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
 import { buildReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
-import { buildNarrativeSlotPlan, buildReportThesis } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 import { buildComprehensiveNarrativePresentationModel } from '../../src/lib/reports/comprehensive/narrative-presentation-model.ts';
 import { renderComprehensiveNarrativeReportHtml } from '../../src/lib/reports/comprehensive/render-narrative-html.ts';
 
@@ -36,8 +35,6 @@ const delivery = buildComprehensiveDeliveryModel({
 const pack = buildComprehensiveNarrativeFactPack(delivery);
 const story = buildNarrativeStoryPlan(pack);
 const blueprint = buildReportBlueprint(pack, story);
-const thesis = buildReportThesis(pack, blueprint);
-const plan = buildNarrativeSlotPlan(pack, blueprint, thesis);
 
 if (pack.productTier !== 'comprehensive') fail('TIER', pack.productTier);
 if (pack.narrativeMode !== 'SUSTAINMENT') fail('MODE', pack.narrativeMode);
@@ -47,11 +44,10 @@ if (pack.findings.length || pack.risks.length || pack.scenarios.length || pack.s
   }));
 }
 if (!pack.sustainmentPriorities.length) fail('SUSTAINMENT_PRIORITIES', 'none');
-if (blueprint.chapters.some((chapter) => /material finding|fraud risk theme|scenario/i.test(chapter.title))) {
-  fail('SUSTAINMENT_CHAPTER_SEMANTICS', blueprint.chapters.map((chapter) => chapter.title).join(' | '));
-}
+
 const requiredSustainmentChapters = [
   'EXECUTIVE-ASSESSMENT',
+  'ANALYTICAL-BASIS',
   'READINESS-SUPPORTING-STANDARDS',
   'SUSTAINMENT-PRIORITIES',
   'DETERIORATION-WATCHPOINTS',
@@ -61,49 +57,44 @@ const requiredSustainmentChapters = [
   'MANAGEMENT-CONCLUSION'
 ];
 for (const id of requiredSustainmentChapters) if (!blueprint.chapters.some((chapter) => chapter.chapterId === id)) fail('MISSING_CHAPTER', id);
+if (blueprint.chapters.some((chapter) => /material finding|fraud risk theme|scenario/i.test(chapter.title))) {
+  fail('SUSTAINMENT_CHAPTER_SEMANTICS', blueprint.chapters.map((chapter) => chapter.title).join(' | '));
+}
 
-const approvedSlots = plan.slots.map((slot) => ({
-  contract: {
-    slotId: slot.slotId,
-    narrativeRole: slot.narrativeRole,
-    title: slot.title
-  },
-  result: {
-    narrative: `Management narrative for ${slot.title}. This paragraph explains the authorised management meaning of the assessed position in connected advisory prose. It exists only to prove that the renderer treats prose as the primary report surface and keeps analytical detail subordinate to that story. The section moves from judgement to implication without presenting a register or database export as the report itself.`,
-    managementImplication: `Management should use this section to act on the authorised ${slot.narrativeRole.toLowerCase()} conclusion while retaining detailed traceability in the companion workbook.`
-  }
-}));
-const manuscript = {
-  approvedSlots,
-  validation: {
-    ok: true,
-    totalWordCount: 0,
-    totalCharacterCount: 0,
-    expectedSlotIds: plan.slots.map((slot) => slot.slotId),
-    compiledSlotIds: plan.slots.map((slot) => slot.slotId),
-    missingPrimaryContentRefs: [],
-    duplicatePrimaryContentRefs: [],
-    issues: []
-  },
-  accounting: {},
-  markdown: ''
+const narrative = {
+  ok: true,
+  markdown: '',
+  errors: [],
+  chapters: blueprint.chapters.map((chapter) => ({
+    chapterId: chapter.chapterId,
+    title: chapter.title,
+    sections: chapter.sections.map((section) => ({
+      chapterId: chapter.chapterId,
+      sectionId: section.sectionId,
+      title: section.title,
+      permittedClaimRefs: section.claimRefs,
+      paragraphs: [{
+        text: `This is a complete management narrative for ${section.title}. It explains the authorised meaning in connected advisory prose and keeps analytical machinery subordinate to the management story. The detailed register remains in the companion workbook rather than being reproduced as the report itself.`,
+        permittedClaimRefs: section.claimRefs
+      }],
+      subsections: section.optionalSubsections.map((subsection) => ({
+        subsectionId: subsection.subsectionId,
+        title: subsection.title,
+        paragraphs: [{
+          text: `This narrative explains ${subsection.title} as part of the connected management story without converting the report into a deterministic table or register export.`,
+          permittedClaimRefs: subsection.claimRefs
+        }]
+      }))
+    }))
+  }))
 };
 
-const presentation = buildComprehensiveNarrativePresentationModel({ factPack: pack, blueprint, plan, manuscript });
+const presentation = buildComprehensiveNarrativePresentationModel({ factPack: pack, blueprint, narrative });
 const html = renderComprehensiveNarrativeReportHtml(presentation);
-
 const forbidden = [
-  'Finding register',
-  'Fraud risk register',
-  'Evidence requirement register',
-  'Measurement register',
-  '12-month action and assurance register',
-  'Appendix A',
-  'Appendix B',
-  'Appendix C',
-  'Appendix D',
-  'Appendix E',
-  'Appendix F'
+  'Finding register', 'Fraud risk register', 'Evidence requirement register',
+  'Measurement register', '12-month action and assurance register',
+  'Appendix A', 'Appendix B', 'Appendix C', 'Appendix D', 'Appendix E', 'Appendix F'
 ];
 for (const phrase of forbidden) if (html.includes(phrase)) fail('REGISTER_LEAK', phrase);
 if (/<table\b/i.test(html)) fail('TABLE_LED_REPORT', 'narrative renderer contains an HTML table');
@@ -112,16 +103,15 @@ if (!/var\(--mk-confirmed\)/.test(html) || !/confirmed-bg/.test(html)) fail('POS
 if (!/Deterioration signal/.test(html)) fail('WATCHPOINT_SEMANTICS', 'amber is not isolated to an explicit deterioration signal');
 if (!/companion workbook/i.test(html)) fail('WORKBOOK_BOUNDARY', 'detailed analytical record is not routed to companion workbook');
 if (!/PRESERVE/.test(html) || !/OPTIMISE/.test(html)) fail('SUSTAINMENT_PATH', 'PRESERVE → EMBED → MEASURE → OPTIMISE is not visible');
-if (/<section class="chapter/g.test(html)?.length < 7) fail('NARRATIVE_DEPTH', 'too few narrative chapters');
+if ((html.match(/<section class="chapter/g) ?? []).length < 8) fail('NARRATIVE_DEPTH', 'too few narrative chapters');
 
 console.log(JSON.stringify({
   status: process.exitCode ? 'FAIL' : 'PASS',
   mode: pack.narrativeMode,
   chapters: blueprint.chapters.length,
-  slots: plan.slots.length,
   sustainmentPriorities: pack.sustainmentPriorities.length,
   tables: (html.match(/<table\b/gi) ?? []).length,
   registerAppendices: forbidden.filter((phrase) => html.includes(phrase)),
   semanticPalette: { positive: 'green', watchpoint: 'amber-only', structure: 'navy' }
 }, null, 2));
-if (!process.exitCode) console.log('PASS: Comprehensive customer PDF architecture is narrative-first, workbook-backed and positive-state aware.');
+if (!process.exitCode) console.log('PASS: Comprehensive customer architecture is whole-manuscript, narrative-first, workbook-backed and positive-state aware.');

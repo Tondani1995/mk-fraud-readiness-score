@@ -1,15 +1,15 @@
 import type { NarrativeFactPack } from '../narrative/fact-pack';
 import type { BlueprintChapter, NarrativeRole, ReportBlueprint } from '../narrative/report-blueprint';
-import type { BoundedCompiledManuscript, NarrativeSlotPlan } from '../narrative/bounded-section-engine';
+import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
 
 export type ComprehensiveSemanticTone = 'positive' | 'neutral' | 'watch' | 'critical';
 
 export interface ComprehensiveNarrativeBlock {
-  slotId: string;
+  blockId: string;
   title: string;
   narrativeRole: NarrativeRole;
-  narrative: string;
-  managementImplication: string;
+  paragraphs: string[];
+  managementTakeaway: string;
 }
 
 export interface ComprehensiveNarrativeChapter {
@@ -50,8 +50,6 @@ export interface ComprehensiveNarrativePresentationModel {
   };
 }
 
-const unique = <T>(values: T[]): T[] => [...new Set(values)];
-
 function chapterRefs(chapter: BlueprintChapter): Set<string> {
   return new Set([
     ...chapter.requiredFacts,
@@ -70,11 +68,8 @@ function chapterRefs(chapter: BlueprintChapter): Set<string> {
 }
 
 function roleTone(mode: NarrativeFactPack['narrativeMode'], role: NarrativeRole): ComprehensiveSemanticTone {
-  if (mode === 'SUSTAINMENT') {
-    return role === 'EXPOSURE' ? 'watch' : 'positive';
-  }
+  if (mode === 'SUSTAINMENT') return role === 'EXPOSURE' ? 'watch' : 'positive';
   if (role === 'EXPOSURE' || role === 'EXPOSURE_ILLUSTRATION') return 'watch';
-  if (role === 'EVIDENCE') return 'neutral';
   return 'neutral';
 }
 
@@ -85,19 +80,47 @@ function overallTone(mode: NarrativeFactPack['narrativeMode'], score: number): C
   return 'neutral';
 }
 
+function blocksForChapter(chapter: BlueprintChapter, narrative: ParsedBlueprintMarkdown): ComprehensiveNarrativeBlock[] {
+  const parsedChapter = narrative.chapters.find((item) => item.chapterId === chapter.chapterId);
+  if (!parsedChapter) throw new Error(`Validated manuscript is missing chapter ${chapter.chapterId}.`);
+  const blocks: ComprehensiveNarrativeBlock[] = [];
+  for (const section of parsedChapter.sections) {
+    const contractSection = chapter.sections.find((item) => item.sectionId === section.sectionId);
+    if (!contractSection) throw new Error(`Validated manuscript section ${section.sectionId} is not in the Blueprint.`);
+    if (section.paragraphs.length) {
+      blocks.push({
+        blockId: section.sectionId,
+        title: section.title,
+        narrativeRole: contractSection.narrativeRole,
+        paragraphs: section.paragraphs.map((paragraph) => paragraph.text.trim()).filter(Boolean),
+        managementTakeaway: contractSection.requiredManagementTakeaway
+      });
+    }
+    for (const subsection of section.subsections) {
+      const contractSubsection = contractSection.optionalSubsections.find((item) => item.subsectionId === subsection.subsectionId);
+      if (!contractSubsection) throw new Error(`Validated manuscript subsection ${subsection.subsectionId} is not in the Blueprint.`);
+      blocks.push({
+        blockId: subsection.subsectionId,
+        title: subsection.title,
+        narrativeRole: contractSubsection.narrativeRole,
+        paragraphs: subsection.paragraphs.map((paragraph) => paragraph.text.trim()).filter(Boolean),
+        managementTakeaway: contractSubsection.requiredManagementTakeaway
+      });
+    }
+  }
+  return blocks;
+}
+
 export function buildComprehensiveNarrativePresentationModel(input: {
   factPack: NarrativeFactPack;
   blueprint: ReportBlueprint;
-  plan: NarrativeSlotPlan;
-  manuscript: BoundedCompiledManuscript;
+  narrative: ParsedBlueprintMarkdown;
 }): ComprehensiveNarrativePresentationModel {
-  const { factPack, blueprint, plan, manuscript } = input;
+  const { factPack, blueprint, narrative } = input;
   if (factPack.productTier !== 'comprehensive' || blueprint.reportTier !== 'comprehensive') {
     throw new Error('Comprehensive narrative presentation requires the Comprehensive Fact Pack and Blueprint.');
   }
-  if (!manuscript.validation.ok) {
-    throw new Error(`Comprehensive manuscript is not publishable: ${manuscript.validation.issues.join(' | ')}`);
-  }
+  if (!narrative.ok) throw new Error('Comprehensive narrative presentation requires an accepted whole manuscript.');
   if (typeof factPack.assessment.score !== 'number' || !factPack.assessment.maturity) {
     throw new Error('Comprehensive narrative presentation requires a scored assessment.');
   }
@@ -106,25 +129,10 @@ export function buildComprehensiveNarrativePresentationModel(input: {
     throw new Error('Sustainment presentation cannot contain customer-facing findings, risks, scenarios or weakness themes.');
   }
 
-  const approved = new Map(manuscript.approvedSlots.map((slot) => [slot.contract.slotId, slot]));
   const chapters = [...blueprint.chapters].sort((a, b) => a.order - b.order).map((chapter) => {
     const refs = chapterRefs(chapter);
-    const slots = plan.slots.filter((slot) => slot.chapterId === chapter.chapterId);
-    const blocks = slots.map((slot) => {
-      const accepted = approved.get(slot.slotId);
-      if (!accepted) throw new Error(`Missing approved Comprehensive narrative slot ${slot.slotId}.`);
-      return {
-        slotId: slot.slotId,
-        title: slot.title,
-        narrativeRole: slot.narrativeRole,
-        narrative: accepted.result.narrative.trim(),
-        managementImplication: accepted.result.managementImplication.trim()
-      };
-    });
-
     const include = (ref: string): boolean => refs.has(ref);
     const isExecutive = chapter.narrativeRole === 'JUDGEMENT' || chapter.chapterId === 'ANALYTICAL-BASIS';
-
     return {
       chapterId: chapter.chapterId,
       order: chapter.order,
@@ -132,7 +140,7 @@ export function buildComprehensiveNarrativePresentationModel(input: {
       purpose: chapter.purpose,
       narrativeRole: chapter.narrativeRole,
       tone: roleTone(factPack.narrativeMode, chapter.narrativeRole),
-      blocks,
+      blocks: blocksForChapter(chapter, narrative),
       domainProfile: isExecutive ? factPack.domains : [],
       strengths: factPack.relativeStrengths.filter((item) => include(item.factRef)),
       sustainmentPriorities: factPack.sustainmentPriorities.filter((item) => include(item.factRef)),
@@ -160,16 +168,7 @@ export function buildComprehensiveNarrativePresentationModel(input: {
     companionWorkbook: {
       title: 'MK Fraud Readiness Comprehensive Workbook',
       purpose: 'The companion workbook carries the detailed analytical and implementation record so the management report can remain narrative-led.',
-      sheets: unique([
-        'Read me',
-        'Summary',
-        'Material Findings',
-        'Risk Register',
-        'Control Blueprints',
-        'Implementation Blueprint',
-        'Management Decisions',
-        'Question Traceability'
-      ])
+      sheets: ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability']
     }
   };
 }

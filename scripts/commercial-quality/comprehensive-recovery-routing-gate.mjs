@@ -2,73 +2,71 @@
 /**
  * Provider-free Comprehensive recovery-routing gate.
  *
- * Proves that the fulfilment path delegates to the bounded interpretation
- * recovery engine and cannot silently restore the retired zero-repair override.
- * No database, storage, provider or environment credential is required.
+ * Comprehensive must use the same whole-manuscript and semantic-safety
+ * architecture as Essential, not a private one-call or six-slot recovery path.
  */
 import fs from 'node:fs';
 
 const manual = fs.readFileSync('src/lib/reports/comprehensive/manual-generation.ts', 'utf8');
-const interpretation = fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8');
-const recovery = fs.readFileSync('src/lib/reports/comprehensive/recovery-policy.ts', 'utf8');
+const generation = fs.readFileSync('src/lib/reports/comprehensive/narrative-generation.ts', 'utf8');
+const coordinator = fs.readFileSync('src/lib/reports/narrative/essential-manuscript-coordinator.ts', 'utf8');
+const writer = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
 const sharedRecovery = fs.readFileSync('src/lib/reports/narrative/recovery-policy.ts', 'utf8');
 
 const failures = [];
 const check = (code, ok, detail) => { if (!ok) failures.push({ code, detail }); };
 
 check(
-  'FULFILMENT_DELEGATES_RECOVERY',
-  /generateComprehensiveInterpretation\(\s*buildInterpretationBrief\(/s.test(manual),
-  'manual fulfilment must call the bounded Comprehensive interpretation engine'
+  'FULFILMENT_DELEGATES_MANUSCRIPT',
+  /generateComprehensiveNarrativeReport\(input\)/.test(manual),
+  'manual fulfilment must delegate to the manuscript-first Comprehensive generator'
 );
 check(
-  'STALE_ZERO_REPAIR_OVERRIDE',
-  !/maxRepairsPerSlot|maxRepairs\s*=\s*input\./.test(manual),
-  'manual fulfilment must not force repairs to zero or expose a caller-controlled repair budget'
+  'WHOLE_MANUSCRIPT_ARCHITECTURE',
+  /composeEssentialManuscript as composeReportingManuscript/.test(generation)
+    && /createV11WholeManuscriptWriter\(COMPREHENSIVE_INTERPRETATION_MODEL, \{ providerCallBudget: 1 \}\)/.test(generation),
+  'Comprehensive must use the same whole-manuscript writer architecture as Essential'
 );
 check(
-  'FINAL_ACCEPTANCE_REQUIRED',
-  /assertComprehensiveInterpretationAccepted\(interpretationRun\)/.test(manual),
-  'manual fulfilment must enforce final fail-closed acceptance before rendering'
+  'NO_RETIRED_SIX_SLOT_PATH',
+  !/generateComprehensiveInterpretation|buildInterpretationBrief|maxRepairsPerSlot/.test(manual + generation),
+  'customer fulfilment must not route through the retired six-slot interpretation path'
+);
+check(
+  'SEMANTIC_SAFETY_CASCADE',
+  /runSemanticSafetyCascade/.test(coordinator)
+    && /SemanticCallLedger/.test(coordinator)
+    && /semanticSafety: true/.test(coordinator),
+  'whole-manuscript output must pass the shared semantic safety cascade'
 );
 check(
   'ESSENTIAL_SHARED_LIMITS',
-  /MAX_TARGETED_REPAIRS/.test(recovery)
-    && /MAX_FULL_REGENERATIONS/.test(recovery)
-    && /MAX_QUALITY_ESCALATIONS/.test(recovery)
-    && /MAX_COHERENCE_PASSES/.test(recovery),
-  'Comprehensive recovery must derive its bounded ceilings from the shared reporting recovery policy'
+  /MAX_TARGETED_REPAIRS\s*=\s*4/.test(sharedRecovery)
+    && /MAX_FULL_REGENERATIONS\s*=\s*1/.test(sharedRecovery)
+    && /MAX_QUALITY_ESCALATIONS\s*=\s*1/.test(sharedRecovery)
+    && /MAX_COHERENCE_PASSES\s*=\s*1/.test(sharedRecovery),
+  'Comprehensive recovery authority must remain the shared reporting policy'
 );
 check(
   'HARD_TRUTH_FAIL_CLOSED',
-  /return 'HARD_TRUTH_FAILURE'/.test(recovery)
-    && /recoveryDecision\(/.test(recovery)
-    && /issueSeverity === 'HARD_TRUTH_FAILURE'[\s\S]*?action: 'HUMAN_REVIEW_REQUIRED'/.test(sharedRecovery),
-  'hard-truth failures must not be routed to automatic repair'
+  /issueSeverity === 'HARD_TRUTH_FAILURE'[\s\S]*?action: 'HUMAN_REVIEW_REQUIRED'/.test(sharedRecovery),
+  'hard-truth failures must not be auto-rewritten'
 );
 check(
-  'MULTI_CALL_ACCOUNTING',
-  /recovery\.totalCalls \+= 1/.test(interpretation)
-    && /recovery\.targetedRepairCount \+= 1/.test(interpretation)
-    && /recovery\.fullRegenerationCount \+= 1/.test(interpretation)
-    && /recovery\.qualityEscalationCount \+= 1/.test(interpretation)
-    && /recovery\.coherenceCount \+= 1/.test(interpretation),
-  'every bounded recovery phase must be explicitly counted'
+  'BOUNDED_REPAIR_AND_COHERENCE',
+  /repairBlock\(/.test(writer)
+    && /coherencePass\(/.test(writer)
+    && /targetedRepairCount:\s*1/.test(writer)
+    && /coherenceCount:\s*1/.test(writer),
+  'whole-manuscript writer must expose bounded repair and coherence safety nets'
 );
 check(
-  'TECHNICAL_FALLBACK_CHAIN',
-  /openai\/gpt-5\.6-luna/.test(recovery)
-    && /openai\/gpt-5\.6-terra/.test(recovery)
-    && /openai\/gpt-5\.6-sol/.test(recovery),
-  'technical fallback chain must remain Luna -> Terra -> Sol'
-);
-check(
-  'NO_ARBITRARY_ONE_CALL_CAP',
-  !/maxCalls\s*\?\?\s*1|single-call budget|zero repair calls/.test(manual + interpretation),
-  'the production Comprehensive path must not contain the retired arbitrary one-call ceiling'
+  'PROVEN_WRITER_MODEL',
+  /COMPREHENSIVE_INTERPRETATION_MODEL/.test(generation)
+    && /openai\/gpt-5\.6-luna/.test(fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8')),
+  'Comprehensive must explicitly pin the proven Luna writer model'
 );
 
-const summary = { gate: 'comprehensive-recovery-routing', checks: 8, failures: failures.length, failureDetail: failures };
-console.log(JSON.stringify(summary, null, 2));
+console.log(JSON.stringify({ gate: 'comprehensive-recovery-routing', checks: 8, failures: failures.length, failureDetail: failures }, null, 2));
 if (failures.length) process.exit(1);
-console.log('PASS: Comprehensive fulfilment uses the bounded Essential-aligned recovery safety net.');
+console.log('PASS: Comprehensive uses Essential-aligned whole-manuscript semantic safety and bounded recovery.');

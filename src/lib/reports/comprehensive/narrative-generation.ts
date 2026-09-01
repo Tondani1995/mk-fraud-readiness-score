@@ -2,33 +2,28 @@ import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
 import { buildComprehensiveDeliveryModel } from './contract';
 import { buildComprehensiveNarrativeFactPack } from '../narrative/fact-pack';
-import { buildNarrativeStoryPlan } from '../narrative/story-plan';
-import { buildReportBlueprint } from '../narrative/report-blueprint';
-import {
-  buildNarrativeSlotPlan,
-  buildReportThesis,
-  generateBoundedNarrativeReport,
-  type BoundedCompiledManuscript
-} from '../narrative/bounded-section-engine';
-import { createV11BoundedSectionWriter } from '../narrative/bounded-section-writer';
+import { composeEssentialManuscript as composeReportingManuscript, type EssentialManuscriptResult } from '../narrative/essential-manuscript-coordinator';
+import { createV11WholeManuscriptWriter } from '../narrative/whole-manuscript-writer';
 import { renderHtmlToPdfBuffer } from '../render-pdf';
 import { COMPREHENSIVE_INTERPRETATION_MODEL } from './interpretation';
 import { buildComprehensiveNarrativePresentationModel } from './narrative-presentation-model';
 import { renderComprehensiveNarrativeReportHtml } from './render-narrative-html';
+import type { WholeManuscriptTextResult } from '../narrative/manuscript';
 
 export interface ComprehensiveNarrativeGenerationResult {
   pdf: Buffer;
-  manuscript: BoundedCompiledManuscript;
+  narrativeRun: WholeManuscriptTextResult;
+  semanticSafety?: EssentialManuscriptResult['semanticSafety'];
   html: string;
 }
 
 /**
  * Customer-facing Comprehensive generation.
  *
- * The deterministic engine still owns truth. The existing Reporting Bible
- * Blueprint owns the story. The bounded writer explains each authorised
- * movement. The PDF publishes the validated manuscript; detailed registers stay
- * in the companion XLSX rather than being reproduced as report appendices.
+ * The deterministic engine owns truth. The Reporting Bible Blueprint owns the
+ * story. One whole-manuscript writer creates a coherent advisory narrative and
+ * the same semantic-safety cascade used by Essential decides whether the prose
+ * can be published. Detailed registers stay in the companion XLSX.
  */
 export async function generateComprehensiveNarrativeReport(input: {
   assembled: AssembledReportData;
@@ -58,29 +53,28 @@ export async function generateComprehensiveNarrativeReport(input: {
   });
 
   const factPack = buildComprehensiveNarrativeFactPack(delivery);
-  const storyPlan = buildNarrativeStoryPlan(factPack);
-  const blueprint = buildReportBlueprint(factPack, storyPlan);
-  const thesis = buildReportThesis(factPack, blueprint);
-  const plan = buildNarrativeSlotPlan(factPack, blueprint, thesis);
-  const manuscript = await generateBoundedNarrativeReport({
-    reportGenerationId: `comprehensive:${assembled.orderId}:${assembled.assessmentReference}`,
-    pack: factPack,
-    blueprint,
-    thesis,
-    plan,
-    provider: createV11BoundedSectionWriter(COMPREHENSIVE_INTERPRETATION_MODEL)
+  const composed = await composeReportingManuscript({
+    factPack,
+    // Match Essential's production safety architecture: one generation-role
+    // dispatch, with semantic adjudication/repair roles owned separately by the
+    // coordinator rather than hidden inside the writer.
+    writer: createV11WholeManuscriptWriter(COMPREHENSIVE_INTERPRETATION_MODEL, { providerCallBudget: 1 })
   });
 
   const presentation = buildComprehensiveNarrativePresentationModel({
     factPack,
-    blueprint,
-    plan,
-    manuscript
+    blueprint: composed.blueprint,
+    narrative: composed.narrative
   });
   const html = renderComprehensiveNarrativeReportHtml(presentation);
   const pdf = await renderHtmlToPdfBuffer(html, {
     footerLabel: `MK Fraud Readiness · Comprehensive · ${factPack.organisation.name}`
   });
 
-  return { pdf, manuscript, html };
+  return {
+    pdf,
+    narrativeRun: composed.manuscript,
+    semanticSafety: composed.semanticSafety,
+    html
+  };
 }
