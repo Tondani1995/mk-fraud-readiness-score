@@ -15,6 +15,7 @@ async function check(label, fn) {
 
 const sitemap = read('src/app/sitemap.ts');
 const robots = read('src/app/robots.ts');
+const legacyFraudReadinessLayout = read('src/app/(website)/fraud-readiness-score/layout.tsx');
 const analytics = read('src/components/website/GoogleAnalytics.tsx');
 const gtagSource = read('src/lib/website/gtag.ts');
 const consent = read('src/components/website/CookieConsent.tsx');
@@ -55,7 +56,6 @@ const requiredPublicRoutes = [
   '/',
   '/fraud-readiness',
   '/fraud-readiness/advisory',
-  '/fraud-readiness-score',
   '/services',
   '/insights',
   '/about',
@@ -78,9 +78,17 @@ await check('sitemap contains the approved public route inventory', () => {
 
 await check('sitemap uses the canonical host and excludes private route families', () => {
   assert.match(sitemap, /SITE_URL/);
+  assert.match(sitemap, /absoluteUrl\(["'`]\/fraud-readiness["'`]\)/);
+  assert.doesNotMatch(sitemap, /absoluteUrl\(["'`]\/fraud-readiness-score["'`]\)/);
   assert.doesNotMatch(sitemap, /absoluteUrl\(["'`]\/score/);
   assert.doesNotMatch(sitemap, /absoluteUrl\(["'`]\/admin/);
   assert.doesNotMatch(sitemap, /absoluteUrl\(["'`]\/api/);
+});
+
+await check('legacy Fraud Readiness route is explicitly canonicalised and excluded from indexing', () => {
+  assert.match(legacyFraudReadinessLayout, /path:\s*["'`]\/fraud-readiness["'`]/);
+  assert.match(legacyFraudReadinessLayout, /index:\s*false/);
+  assert.match(legacyFraudReadinessLayout, /follow:\s*true/);
 });
 
 await check('static sitemap entries do not fabricate request-time lastModified dates', () => {

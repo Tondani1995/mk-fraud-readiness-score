@@ -36,7 +36,8 @@ const globalCss = await read('src/app/globals.css');
 const ownerBrief = await read('docs/product/v12-premium-experience-recovery-owner-brief.md');
 const routeMap = await read('docs/product/v12-premium-experience-recovery-route-map.md');
 const visualReviewRoute = await read('src/app/score/visual-review/[[...scenario]]/page.tsx');
-const visualReviewFixtures = await read('src/lib/visual-review/fixtures.ts');\nconst termsGate = await read('src/components/adaptive/FraudReadinessTermsGate.tsx');
+const visualReviewFixtures = await read('src/lib/visual-review/fixtures.ts');
+const termsGate = await read('src/components/adaptive/FraudReadinessTermsGate.tsx');
 
 check('both public Fraud Readiness routes use one shared premium storefront', () => {
   assert.match(scoreLanding, /FraudReadinessStorefront/);
