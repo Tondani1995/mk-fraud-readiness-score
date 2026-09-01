@@ -36,6 +36,12 @@ import { claimsVerification } from '../../src/lib/reports/comprehensive/product-
 import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
 import { comprehensiveAssessmentScopeFromData } from '../../src/lib/reports/comprehensive/assessment-scope.ts';
 import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation, assertComprehensiveInterpretationAccepted, ComprehensiveInterpretationAcceptanceError, COMPREHENSIVE_INTERPRETATION_MODEL } from '../../src/lib/reports/comprehensive/interpretation.ts';
+import {
+  COMPREHENSIVE_MAX_TARGETED_REPAIRS,
+  COMPREHENSIVE_TECHNICAL_MODEL_CHAIN,
+  comprehensiveRecoveryDecision,
+  emptyComprehensiveRecoveryBudget
+} from '../../src/lib/reports/comprehensive/recovery-policy.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -75,16 +81,39 @@ function htmlEsc(value) {
 }
 
 function proveInterpretationAcceptanceBoundary() {
+  const baseRecovery = emptyComprehensiveRecoveryBudget();
+  baseRecovery.initialGenerationCount = 1;
+  baseRecovery.totalCalls = 1;
   const accounting = {
     calls: 1, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0,
-    costMicros: 0, durationMs: 0, model: 'openai/gpt-5.6-luna', repairedSlots: []
+    costMicros: 0, durationMs: 0, model: 'openai/gpt-5.6-luna',
+    modelsUsed: ['openai/gpt-5.6-luna'], repairedSlots: [], recovery: baseRecovery
   };
   const accepted = { interpretation: {}, issues: [], accounting };
   assertComprehensiveInterpretationAccepted(accepted);
 
+  // Multiple calls are legitimate when they are inside the shared bounded
+  // recovery policy. This explicitly prevents the stale one-call rule from
+  // returning through a later refactor.
+  const recoveredBudget = emptyComprehensiveRecoveryBudget();
+  recoveredBudget.initialGenerationCount = 1;
+  recoveredBudget.targetedRepairCount = 2;
+  recoveredBudget.totalCalls = 3;
+  assertComprehensiveInterpretationAccepted({
+    interpretation: {},
+    issues: [],
+    accounting: {
+      ...accounting,
+      calls: 3,
+      repairs: 2,
+      recovery: recoveredBudget,
+      repairedSlots: ['executiveInterpretation']
+    }
+  });
+
   const rejected = {
     interpretation: {},
-    issues: [{ slot: 'executiveInterpretation', kind: 'HARD_TRUTH', code: 'ASSURANCE_CLAIM', detail: 'fixture' }],
+    issues: [{ slot: 'executiveInterpretation', kind: 'HARD_TRUTH', code: 'UNSUPPORTED_NUMBER', detail: 'fixture' }],
     accounting
   };
   let blockedRejected = false;
@@ -92,22 +121,78 @@ function proveInterpretationAcceptanceBoundary() {
     assertComprehensiveInterpretationAccepted(rejected);
   } catch (error) {
     blockedRejected = error instanceof ComprehensiveInterpretationAcceptanceError
-      && error.issueCodes.includes('ASSURANCE_CLAIM');
+      && error.issueCodes.includes('UNSUPPORTED_NUMBER');
   }
-  if (!blockedRejected) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'unresolved interpretation issue was not blocked');
+  if (!blockedRejected) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'unresolved hard-truth issue was not blocked');
 
+  const invalidBudget = emptyComprehensiveRecoveryBudget();
+  invalidBudget.initialGenerationCount = 1;
+  invalidBudget.targetedRepairCount = COMPREHENSIVE_MAX_TARGETED_REPAIRS + 1;
+  invalidBudget.totalCalls = 1 + invalidBudget.targetedRepairCount;
   let blockedBudget = false;
   try {
     assertComprehensiveInterpretationAccepted({
-      interpretation: {}, issues: [], accounting: { ...accounting, calls: 2 }
+      interpretation: {},
+      issues: [],
+      accounting: {
+        ...accounting,
+        calls: invalidBudget.totalCalls,
+        repairs: invalidBudget.targetedRepairCount,
+        recovery: invalidBudget
+      }
     });
   } catch (error) {
     blockedBudget = error instanceof ComprehensiveInterpretationAcceptanceError
-      && error.issueCodes.includes('CALL_BUDGET');
+      && error.issueCodes.includes('RECOVERY_BUDGET');
   }
-  if (!blockedBudget) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'provider call-budget breach was not blocked');
-}
+  if (!blockedBudget) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'shared recovery-budget breach was not blocked');
 
+  const semanticBudget = emptyComprehensiveRecoveryBudget();
+  semanticBudget.initialGenerationCount = 1;
+  semanticBudget.totalCalls = 1;
+  const semanticDecision = comprehensiveRecoveryDecision({
+    budget: semanticBudget,
+    issues: [{ kind: 'SEMANTIC', code: 'ROLE_LABEL_DRIFT' }]
+  });
+  if (semanticDecision?.action !== 'TARGETED_REPAIR') {
+    fail('portfolio', 'RECOVERY_POLICY', `semantic issue resolved to ${semanticDecision?.action ?? 'none'} instead of TARGETED_REPAIR`);
+  }
+
+  const exhaustedRepairs = emptyComprehensiveRecoveryBudget();
+  exhaustedRepairs.initialGenerationCount = 1;
+  exhaustedRepairs.targetedRepairCount = COMPREHENSIVE_MAX_TARGETED_REPAIRS;
+  exhaustedRepairs.totalCalls = 1 + COMPREHENSIVE_MAX_TARGETED_REPAIRS;
+  const regenerationDecision = comprehensiveRecoveryDecision({
+    budget: exhaustedRepairs,
+    issues: [{ kind: 'SEMANTIC', code: 'ROLE_LABEL_DRIFT' }]
+  });
+  if (regenerationDecision?.action !== 'FULL_REGENERATION') {
+    fail('portfolio', 'RECOVERY_POLICY', `exhausted targeted repairs resolved to ${regenerationDecision?.action ?? 'none'} instead of FULL_REGENERATION`);
+  }
+
+  const qualityBudget = emptyComprehensiveRecoveryBudget();
+  qualityBudget.initialGenerationCount = 1;
+  qualityBudget.totalCalls = 1;
+  const qualityDecision = comprehensiveRecoveryDecision({
+    budget: qualityBudget,
+    issues: [{ kind: 'QUALITY', code: 'REGISTER_RECITATION' }]
+  });
+  if (qualityDecision?.action !== 'QUALITY_ESCALATION') {
+    fail('portfolio', 'RECOVERY_POLICY', `quality issue resolved to ${qualityDecision?.action ?? 'none'} instead of QUALITY_ESCALATION`);
+  }
+
+  const hardDecision = comprehensiveRecoveryDecision({
+    budget: semanticBudget,
+    issues: [{ kind: 'HARD_TRUTH', code: 'UNSUPPORTED_NUMBER' }]
+  });
+  if (hardDecision?.action !== 'HUMAN_REVIEW_REQUIRED') {
+    fail('portfolio', 'RECOVERY_POLICY', `hard truth resolved to ${hardDecision?.action ?? 'none'} instead of HUMAN_REVIEW_REQUIRED`);
+  }
+
+  if (COMPREHENSIVE_TECHNICAL_MODEL_CHAIN.join(' -> ') !== 'openai/gpt-5.6-luna -> openai/gpt-5.6-terra -> openai/gpt-5.6-sol') {
+    fail('portfolio', 'RECOVERY_POLICY', `technical fallback chain drifted: ${COMPREHENSIVE_TECHNICAL_MODEL_CHAIN.join(' -> ')}`);
+  }
+}
 proveInterpretationAcceptanceBoundary();
 if (COMPREHENSIVE_INTERPRETATION_MODEL !== 'openai/gpt-5.6-luna') {
   fail('portfolio', 'MODEL_CONTRACT', `Comprehensive writer model drifted to ${COMPREHENSIVE_INTERPRETATION_MODEL}`);
