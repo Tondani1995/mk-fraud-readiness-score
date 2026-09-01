@@ -1,5 +1,6 @@
 import { PROGRAMME_WORK_TYPE_LABEL } from './assembly';
 import type { ComprehensiveManagementModel } from './management-model';
+import { comprehensiveAssessmentScopeStatement, type ComprehensiveAssessmentScope } from './assessment-scope';
 
 /**
  * Comprehensive report composition.
@@ -134,9 +135,11 @@ export function renderComprehensiveManagementReportHtml(input: {
   score: number;
   maturity: string;
   domains: Array<{ title: string; score: number; band: string; emphasis?: 'weak' | 'strong' | 'neutral' }>;
+  assessmentScope?: ComprehensiveAssessmentScope | null;
   commentary?: Record<string, string>;
 }): string {
   const { model, commentary = {} } = input;
+  const assessmentScope = input.assessmentScope ?? null;
   const core = model.core;
   const reg = model.registers;
   const pages: string[] = [];
@@ -160,6 +163,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     <div style="font-size:8pt;color:rgba(255,255,255,.7);margin-top:3mm">Assessment reference · ${esc(input.assessmentReference)}</div>
     ${input.reportReference ? `<div style="font-size:8pt;color:rgba(255,255,255,.7)">Report reference · ${esc(input.reportReference)}</div>` : ''}
     <div style="height:6mm"></div>
+    ${assessmentScope?.resultStatus === 'PROVISIONAL' ? '<div style="font-size:7pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);margin-bottom:2mm">Provisional adaptive result</div>' : ''}
     <div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)">Confidential · Automated analysis · Not independently reviewed</div>
   </section>`);
 
@@ -250,6 +254,7 @@ export function renderComprehensiveManagementReportHtml(input: {
       <p class="note">Sections 1–${activeSections.length} are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections. They contain every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
     </div>
     <div class="panel"><div class="l">Basis of this report</div><p class="note">${esc(BASIS)}</p></div>
+    ${assessmentScope ? `<div class="panel"><div class="l">Assessment scope</div><p class="note">${esc(comprehensiveAssessmentScopeStatement(assessmentScope))}</p></div>` : ''}
     <div class="sp"></div>
   </section>`);
 
@@ -270,6 +275,7 @@ export function renderComprehensiveManagementReportHtml(input: {
       <div class="track"><div class="fill ${domain.emphasis === 'weak' ? 'weak' : domain.emphasis === 'strong' ? 'strong' : ''}" style="width:${Math.max(1, Math.min(100, domain.score))}%"></div></div>
       <div class="val">${domain.score.toFixed(2)}</div><div class="band">${esc(domain.band)}</div></div>`).join('')}</div>
     <div class="cap" style="margin-top:2mm">Ordered as assessed. Positions are self-reported through the assessment and have not been independently verified.</div>
+    ${assessmentScope ? `<div class="panel"><div class="l">Adaptive scope</div><p class="note"><strong>${assessmentScope.resultStatus === 'PROVISIONAL' ? 'Provisional result' : assessmentScope.resultStatus === 'NORMAL' ? 'Normal result' : 'Insufficient visibility'}</strong> · Applicable ${assessmentScope.applicableCount} · Excluded ${assessmentScope.excludedCount} · Oversight-routed ${assessmentScope.redirectedCount} · Unknown ${assessmentScope.unknownCount}</p></div>` : ''}
     ${interpretationSlot('Executive interpretation', commentary['EXECUTIVE-POSITION'])}
     <div class="sp"></div>
   </section>`);
