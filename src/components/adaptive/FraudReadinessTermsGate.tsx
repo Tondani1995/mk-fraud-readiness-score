@@ -121,7 +121,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
             <ul className="space-y-3">
               {TERMS_SUMMARY_POINTS.map((point) => (
                 <li key={point} className="flex gap-3 text-sm leading-6 text-mk-slate">
-                  <span aria-hidden="true" className="mt-[0.7rem] h-px w-3 shrink-0 bg-mk-accent" />
+                  <span aria-hidden="true" className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-mk-accent" />
                   <span>{point}</span>
                 </li>
               ))}
