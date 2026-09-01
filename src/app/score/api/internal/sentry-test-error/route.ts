@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { verifyReadinessRequest } from '@/lib/monitoring/signatures';
 import { scrubSentryEvent, sentryServerEnvironment } from '@/lib/monitoring/sentry';
@@ -20,8 +21,9 @@ export async function GET(request: Request) {
   }
 
   if (!Sentry.getClient()) {
+    const sentryDsn = process.env.SENTRY_DSN?.trim() || process.env.NEXT_PUBLIC_SENTRY_DSN?.trim();
     Sentry.init({
-      dsn: process.env.SENTRY_DSN?.trim() || process.env.NEXT_PUBLIC_SENTRY_DSN?.trim(),
+      dsn: sentryDsn,
       environment: sentryServerEnvironment(),
       sendDefaultPii: false,
       tracesSampleRate: 0,
@@ -31,6 +33,8 @@ export async function GET(request: Request) {
   }
 
   const sentryClientInitialized = Boolean(Sentry.getClient());
+  const configuredDsn = process.env.SENTRY_DSN?.trim() || process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || '';
+  const dsnFingerprint = configuredDsn ? createHash('sha256').update(configuredDsn).digest('hex') : null;
   const eventId = Sentry.captureException(new Error('MK Preview controlled server error'), {
     tags: { mk_controlled_test: 'true', error_category: 'sentry_server_controlled' }
   });
@@ -42,7 +46,9 @@ export async function GET(request: Request) {
       sentry: {
         client_initialized: sentryClientInitialized,
         event_queued: Boolean(eventId),
-        flushed
+        flushed,
+        dsn_present: Boolean(configuredDsn),
+        dsn_fingerprint: dsnFingerprint
       }
     },
     { status: 500, headers: { 'Cache-Control': 'no-store' } }
