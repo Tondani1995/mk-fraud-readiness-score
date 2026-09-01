@@ -35,7 +35,7 @@ import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 import { claimsVerification } from '../../src/lib/reports/comprehensive/product-contract.ts';
 import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
 import { comprehensiveAssessmentScopeFromData } from '../../src/lib/reports/comprehensive/assessment-scope.ts';
-import { buildInterpretationBrief } from '../../src/lib/reports/comprehensive/interpretation.ts';
+import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation } from '../../src/lib/reports/comprehensive/interpretation.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -129,6 +129,30 @@ for (const profileKey of Object.keys(profiles)) {
     assessmentScope,
     domains
   });
+
+  const interpretationPrompt = buildInterpretationPrompt(brief);
+  if (assessmentScope?.resultStatus === 'PROVISIONAL') {
+    if (!interpretationPrompt.includes('"resultStatus":"PROVISIONAL"')) {
+      fail(profileKey, 'INTERPRETATION_SCOPE', 'provider prompt lost provisional result status');
+    }
+    if (!/provisional adaptive result/i.test(interpretationPrompt)) {
+      fail(profileKey, 'INTERPRETATION_SCOPE', 'provider prompt lost customer-safe provisional instruction');
+    }
+    const omitted = validateInterpretation(
+      { executiveInterpretation: 'The assessed position provides management with a view of the current readiness profile and the relationships across the recorded domains.' },
+      brief
+    );
+    if (!omitted.some((issue) => issue.code === 'PROVISIONAL_STATUS_OMITTED')) {
+      fail(profileKey, 'INTERPRETATION_SCOPE', 'validator did not reject omission of provisional posture');
+    }
+    const disclosed = validateInterpretation(
+      { executiveInterpretation: 'This provisional assessed position provides management with a directional view of the current readiness profile and the relationships across the recorded domains.' },
+      brief
+    );
+    if (disclosed.some((issue) => issue.code === 'PROVISIONAL_STATUS_OMITTED')) {
+      fail(profileKey, 'INTERPRETATION_SCOPE', 'validator rejected a valid provisional disclosure');
+    }
+  }
 
   const html = renderComprehensiveManagementReportHtml({
     model,
