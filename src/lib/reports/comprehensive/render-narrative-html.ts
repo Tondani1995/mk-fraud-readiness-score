@@ -184,11 +184,15 @@ function css(): string {
   .cover h1{font-size:35pt;line-height:1.02;letter-spacing:-.035em;max-width:155mm;margin:8mm 0 5mm}
   .cover h2{font-size:15pt;font-weight:400;color:#dfe7ed;margin:0;max-width:150mm}
   .cover-score{display:flex;align-items:flex-end;gap:10mm;border-top:1px solid #ffffff35;padding-top:9mm}
-  .cover-score strong{font-size:38pt;line-height:.9;color:var(--mk-confirmed)}
+  .cover-score strong{font-size:38pt;line-height:.9;color:#fff}
+  .cover-score.positive strong{color:var(--mk-confirmed)}
+  .cover-score.watch strong{color:var(--mk-major)}
+  .cover-score.critical strong{color:var(--mk-critical)}
   .cover-score span{display:block;color:#dfe7ed}
   .cover-meta{font-size:9pt;color:#dfe7ed}
   .chapter{break-before:page;padding-top:2mm}
   .chapter-marker{color:var(--mk-muted);margin-bottom:5mm}
+  .tone-positive .chapter-marker{color:var(--mk-confirmed)}
   .chapter h2{font-size:25pt;line-height:1.08;letter-spacing:-.025em;color:var(--mk-navy-700);margin:0 0 8mm;max-width:165mm}
   .narrative-block{max-width:168mm;margin-bottom:8mm}
   .narrative-block h3{font-size:14.5pt;color:var(--mk-navy-700);margin:7mm 0 3mm}
@@ -198,13 +202,14 @@ function css(): string {
   .management-implication span{font-size:7.5pt;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--mk-muted)}
   .management-implication p{font-size:11.2pt;margin:1.5mm 0 0}
   .management-implication.positive{border-left-color:var(--mk-confirmed);background:var(--mk-confirmed-bg)}
-  .management-implication.watch{border-left-color:var(--mk-major);background:var(--mk-major-bg)}
+  .management-implication.watch{border-left-color:var(--mk-major);background:var(--mk-neutral-bg)}
   .management-implication.critical{border-left-color:var(--mk-critical);background:var(--mk-critical-bg)}
   .exhibit{break-inside:avoid;margin:10mm 0 4mm;padding-top:5mm;border-top:1px solid var(--mk-rule)}
   figcaption{display:flex;justify-content:space-between;gap:8mm;align-items:baseline;margin-bottom:5mm}
   figcaption strong{font-size:12pt;color:var(--mk-navy-700)}
   figcaption span{font-size:8.5pt;color:var(--mk-muted);text-align:right;max-width:78mm}
   .positive-exhibit{border-top:2px solid var(--mk-confirmed)}
+  .positive-exhibit .priority-item,.positive-exhibit .control-item{border-left:2px solid var(--mk-confirmed);padding-left:4mm}
   .watch-exhibit{border-top:2px solid var(--mk-major)}
   .domain-profile{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm 9mm}
   .domain-label{display:flex;justify-content:space-between;gap:4mm;font-size:8.8pt;margin-bottom:1mm}
@@ -224,7 +229,7 @@ function css(): string {
   .priority-item:last-child,.control-item:last-child,.decision-item:last-child,.scenario-stack article:last-child{border-bottom:0}
   .fact-strip{display:flex;flex-wrap:wrap;gap:3mm 7mm;font-size:8.3pt;color:var(--mk-muted);margin-top:3mm}
   .fact-strip b{color:var(--mk-ink)}
-  .watchpoint{color:var(--mk-brass-text);background:var(--mk-major-bg);padding:3mm 4mm;margin-top:4mm!important}
+  .watchpoint{color:var(--mk-ink);background:transparent;border-left:2px solid var(--mk-major);padding:1.5mm 0 1.5mm 3mm;margin-top:3mm!important;font-size:8.7pt}
   .options{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin:4mm 0}
   .options div{background:var(--mk-neutral-bg);padding:3.5mm}
   .options strong,.options span,.options small{display:block}
@@ -251,7 +256,7 @@ export function renderComprehensiveNarrativeReportHtml(model: ComprehensiveNarra
       <h1>${esc(model.title)}</h1>
       <h2>${esc(model.organisationName)}</h2>
     </div>
-    <div class="cover-score">
+    <div class="cover-score ${model.tone}">
       <strong>${Math.round(model.score)}</strong>
       <div><span>Fraud Readiness Score / 100</span><span>${esc(model.maturity)} · ${esc(model.narrativeMode === 'SUSTAINMENT' ? 'Sustainment' : 'Transformation')}</span></div>
     </div>
