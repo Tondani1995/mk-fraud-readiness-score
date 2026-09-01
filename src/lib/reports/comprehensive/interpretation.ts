@@ -754,7 +754,7 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
   const startedAt = Date.now();
 
   const callWithTechnicalFallback = async (prompt: string, requestedModel = activeModel): Promise<Record<string, unknown>> => {
-    let model = requestedModel;
+    let model: string | null = requestedModel;
     let lastError: unknown;
     while (model) {
       const resolved = requireCredential(model);
