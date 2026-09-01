@@ -6,8 +6,16 @@ on:
       - work/comprehensive-report-quality-20260901
     paths:
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - src/lib/reports/design/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/render-pdf.ts
       - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
       - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
       - src/lib/reports/comprehensive/**
@@ -21,8 +29,16 @@ on:
       - main
     paths:
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - src/lib/reports/design/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/render-pdf.ts
       - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
       - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
       - src/lib/reports/comprehensive/**
@@ -74,6 +90,14 @@ jobs:
           --experimental-strip-types
           --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
           scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+
+      - name: Prove Essential-authority MK branding parity
+        run: npm run v11:comprehensive-brand-regression
+
+      - name: Render provider-free current A-F owner-review PDFs
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-current-path
 
       - name: Upload quality evidence
         if: always()

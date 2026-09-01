@@ -3,13 +3,15 @@ import {
   MAX_FULL_REGENERATIONS,
   MAX_QUALITY_ESCALATIONS,
   MAX_TARGETED_REPAIRS,
+  MAX_TRUNCATION_CONTINUATIONS,
   assertRecoveryBudget,
   emptyNarrativeRecoveryBudget,
   recoveryDecision,
   type NarrativeRecoveryBudget
 } from '../narrative/recovery-policy';
+import type { WholeManuscriptProviderCallLedger } from '../narrative/manuscript';
 
-export const COMPREHENSIVE_RECOVERY_POLICY_VERSION = 'mk-comprehensive-v12-essential-aligned-recovery-v1' as const;
+export const COMPREHENSIVE_RECOVERY_POLICY_VERSION = 'mk-comprehensive-v12-whole-manuscript-recovery-v2' as const;
 
 export const COMPREHENSIVE_PRIMARY_MODEL = 'openai/gpt-5.6-luna' as const;
 export const COMPREHENSIVE_TECHNICAL_MODEL_CHAIN = Object.freeze([
@@ -22,6 +24,8 @@ export const COMPREHENSIVE_MAX_TARGETED_REPAIRS = MAX_TARGETED_REPAIRS;
 export const COMPREHENSIVE_MAX_FULL_REGENERATIONS = MAX_FULL_REGENERATIONS;
 export const COMPREHENSIVE_MAX_QUALITY_ESCALATIONS = MAX_QUALITY_ESCALATIONS;
 export const COMPREHENSIVE_MAX_COHERENCE_PASSES = MAX_COHERENCE_PASSES;
+export const COMPREHENSIVE_MAX_TRUNCATION_CONTINUATIONS = MAX_TRUNCATION_CONTINUATIONS;
+export const COMPREHENSIVE_MAX_TOTAL_PROVIDER_CALLS = 10;
 
 export interface ComprehensiveRecoverableIssue {
   kind: 'HARD_TRUTH' | 'SEMANTIC' | 'QUALITY';
@@ -32,12 +36,12 @@ export type ComprehensiveRecoverySeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_S
 
 /**
  * Comprehensive uses the same recovery philosophy and shared ceilings as
- * Essential, adapted to its six bounded prose slots.
+ * Essential, applied to one complete Blueprint-bound manuscript.
  *
  * Hard truth is never automatically rewritten. A small set of validator codes
- * are intentionally classified as local semantic wording defects because the
- * deterministic fact itself remains intact and the repair can be limited to the
- * failing slot.
+ * remain for compatibility with older adapters. The authoritative
+ * whole-manuscript coordinator treats hard-truth validation as fail-closed;
+ * only explicitly repairable semantic issues may enter this policy.
  */
 const LOCAL_SEMANTIC_HARD_CODES = new Set([
   'EMPTY',
@@ -81,7 +85,7 @@ export function comprehensiveRecoveryDecision(input: {
           : input.budget.targetedRepairCount === 2 ? 'subsection'
             : 'section',
     // Quality gets its own one-rung escalation before coherence. Semantic
-    // rejection may receive one complete six-slot regeneration after the
+    // rejection may receive one complete manuscript regeneration after the
     // targeted-repair budget has been used.
     fullGenerationRejected: severity === 'REPAIRABLE_SEMANTIC_FAILURE'
   });
@@ -93,4 +97,34 @@ export function emptyComprehensiveRecoveryBudget(): NarrativeRecoveryBudget {
 
 export function assertComprehensiveRecoveryBudget(budget: NarrativeRecoveryBudget): void {
   assertRecoveryBudget(budget);
+  if (budget.technicalFallbackCount > 1) throw new Error('Comprehensive technical-fallback budget exceeded.');
+  if (budget.totalCalls > COMPREHENSIVE_MAX_TOTAL_PROVIDER_CALLS) throw new Error('Comprehensive total provider-call budget exceeded.');
+}
+
+export interface ComprehensiveProviderCallRecord {
+  sequence: number;
+  kind: string;
+}
+
+/** Shared dispatch accounting across the primary model and every fallback rung. */
+export class ComprehensiveProviderCallLedger implements WholeManuscriptProviderCallLedger {
+  readonly maxCalls = COMPREHENSIVE_MAX_TOTAL_PROVIDER_CALLS;
+  private readonly records: ComprehensiveProviderCallRecord[] = [];
+
+  claim(kind: string): void {
+    if (this.records.length >= this.maxCalls) {
+      const error = new Error(`comprehensive_provider_call_budget_exhausted: ${kind} would exceed the ${this.maxCalls}-call ceiling.`);
+      (error as { code?: string }).code = 'comprehensive_provider_call_budget_exhausted';
+      throw error;
+    }
+    this.records.push({ sequence: this.records.length + 1, kind });
+  }
+
+  snapshot(): ComprehensiveProviderCallRecord[] {
+    return this.records.map((record) => ({ ...record }));
+  }
+
+  get totalCalls(): number {
+    return this.records.length;
+  }
 }

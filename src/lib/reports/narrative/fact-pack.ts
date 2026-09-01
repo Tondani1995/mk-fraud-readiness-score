@@ -644,8 +644,11 @@ function fallbackWarnings(family: FraudPathwayFamily): string[] {
     privileged_access_misuse: ['Emergency or administrator access outside the role pattern', 'Unusual record or entitlement change', 'Access review exception remains overdue'],
     detection_evasion: ['Repeated low-value or threshold-adjacent activity', 'Alert or exception backlog grows without assigned owner', 'Monitoring rule is not updated after a material process change'],
     identity_impersonation: ['Credential reset, device change or profile amendment', 'Identity data differs across trusted records', 'Sensitive transaction follows a new or unusual session'],
-    incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue']
-  } as Record<string, string[]>)[family.toLowerCase()];
+    incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue'],
+    payroll_manipulation: ['Payroll master-file change is not independently reviewed before release', 'Unusual payroll record remains unresolved', 'Employee or bank-detail change is made outside the expected role pattern'],
+    cash_custody_misuse: ['Cash difference remains unreconciled beyond the defined review window', 'Count or banking record is incomplete', 'Cash movement or custody transfer lacks attributable approval'],
+    stock_asset_misuse: ['Stock or asset movement is not reconciled to the authorised record', 'Shrinkage or write-off exception remains unresolved', 'Physical count or custody transfer is overdue']
+  } as Record<string, string[]>)[family.toLowerCase()] ?? [];
 }
 
 function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | undefined, members: MaterialFinding[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, risks: RiskRegisterEntry[], index: number, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact {
@@ -933,7 +936,7 @@ function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]
     factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
     sourceId: priority.factRef,
     primarySemanticFamily: priority.semanticFamily,
-    objective: `Preserve ${priority.currentStrongStandard.toLowerCase()} and detect deterioration when the operating context changes.`,
+    objective: `Preserve the current ${priority.title.toLowerCase()} standard, with deterioration detected when the operating context changes.`,
     currentState: `${priority.recordedPosition} This position supports a sustainment treatment.`,
     targetState: `The current standard remains owned, reviewed and responsive to material change.`,
     accountableExecutive: priority.accountableExecutive,
@@ -965,7 +968,7 @@ function buildSustainmentDecisions(priorities: NarrativeSustainmentPriorityFact[
       { option: 'Include the priority in the next resilience or control-effectiveness review cycle.', cost: 'Uses planned review capacity.', benefit: 'Connects sustainment to the wider control environment and change agenda.', tradeOff: 'Timing follows the established review calendar.' }
     ],
     recommendedRoute: 'Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.',
-    rationale: `The ${priority.recordedPosition.toLowerCase()} position is strongest when ownership, review rhythm and change-triggered attention remain explicit.`,
+    rationale: `The current ${priority.title.toLowerCase()} position is strongest when ownership, review rhythm and change-triggered attention remain explicit.`,
     owner: priority.accountableExecutive,
     targetDate: 'Within the next 90 days',
     consequenceOfDelay: 'Ownership or review discipline may drift after change without an early management signal.',

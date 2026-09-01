@@ -125,7 +125,9 @@ export async function fromAssembledReportData(data: AssembledReportData): Promis
 /** Assert that the automated model contains no evidence-review or reviewer state. */
 export function assertComprehensiveBlueprintContract(model: ComprehensiveDeliveryModel): void {
   if ('reviewerInput' in model || 'validationSummary' in model || 'evidenceReviews' in model) throw new Error('Comprehensive blueprint must not contain reviewer/evidence-review state.');
-  if (!model.analytical.evidenceModel || model.findings.length === 0) throw new Error('Comprehensive blueprint requires the deterministic analytical universe.');
+  const sustainment = model.analytical.evidenceModel?.narrativeMode === 'SUSTAINMENT';
+  if (!model.analytical.evidenceModel || (!sustainment && model.findings.length === 0)) throw new Error('Comprehensive blueprint requires the deterministic analytical universe.');
+  if (sustainment && !(model.analytical.evidenceModel.sustainmentPriorities?.length ?? 0)) throw new Error('Comprehensive sustainment blueprint requires deterministic sustainment priorities.');
   if (model.narrativeBriefs.some((brief) => !brief.mustNotClaim.some((claim) => /validat|reviewer|operating effectiveness|assurance|evidence review/i.test(claim)))) {
     throw new Error('Comprehensive narrative brief must declare its assurance boundary.');
   }

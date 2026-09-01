@@ -1,75 +1,51 @@
 #!/usr/bin/env node
 /**
- * Provider-free Comprehensive recovery-routing gate.
- *
- * Comprehensive must use the same whole-manuscript and semantic-safety
- * architecture as Essential, not a private one-call or six-slot recovery path.
+ * Provider-free static routing gate for the Comprehensive production boundary.
+ * The executable behavioural cases live in comprehensive-recovery-behaviour-tests.mjs.
  */
-import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 
-const manual = fs.readFileSync('src/lib/reports/comprehensive/manual-generation.ts', 'utf8');
-const generation = fs.readFileSync('src/lib/reports/comprehensive/narrative-generation.ts', 'utf8');
-const coordinator = fs.readFileSync('src/lib/reports/narrative/essential-manuscript-coordinator.ts', 'utf8');
-const writer = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
-const sharedRecovery = fs.readFileSync('src/lib/reports/narrative/recovery-policy.ts', 'utf8');
-const comprehensiveRecovery = fs.readFileSync('src/lib/reports/comprehensive/recovery-policy.ts', 'utf8');
-const interpretation = fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8');
+const read = (file) => fs.readFile(file, 'utf8');
+const [generation, manual, coordinator, writer, sharedRecovery, comprehensiveRecovery, service] = await Promise.all([
+  read('src/lib/reports/comprehensive/narrative-generation.ts'),
+  read('src/lib/reports/comprehensive/manual-generation.ts'),
+  read('src/lib/reports/comprehensive/manuscript-coordinator.ts'),
+  read('src/lib/reports/narrative/whole-manuscript-writer.ts'),
+  read('src/lib/reports/narrative/recovery-policy.ts'),
+  read('src/lib/reports/comprehensive/recovery-policy.ts'),
+  read('src/lib/comprehensive/generation-service.ts')
+]);
 
-const failures = [];
-const check = (code, ok, detail) => { if (!ok) failures.push({ code, detail }); };
+assert.match(manual, /generateComprehensiveNarrativeReport/);
+assert.match(generation, /composeComprehensiveManuscript/);
+assert.match(generation, /ComprehensiveProviderCallLedger/);
+assert.match(generation, /providerCallLedger:\s*ledger/);
+assert.doesNotMatch(generation, /composeEssentialManuscript|generateComprehensiveInterpretation|maxRepairsPerSlot/);
+assert.match(coordinator, /strictHardTruth:\s*true/);
+assert.match(coordinator, /recoverWholeManuscript/);
+assert.match(coordinator, /assertComprehensiveRecoveryBudget/);
+assert.match(writer, /providerCallLedger\?\.claim/);
+assert.match(writer, /repairBlock\(/);
+assert.match(writer, /coherencePass\(/);
+assert.match(sharedRecovery, /MAX_TARGETED_REPAIRS\s*=\s*4/);
+assert.match(sharedRecovery, /MAX_FULL_REGENERATIONS\s*=\s*1/);
+assert.match(sharedRecovery, /MAX_QUALITY_ESCALATIONS\s*=\s*1/);
+assert.match(sharedRecovery, /MAX_COHERENCE_PASSES\s*=\s*1/);
+assert.match(comprehensiveRecovery, /COMPREHENSIVE_MAX_TOTAL_PROVIDER_CALLS\s*=\s*10/);
+assert.match(comprehensiveRecovery, /technicalFallbackCount\s*>\s*1/);
+assert.match(service, /renderComprehensiveReportPdf/);
+assert.doesNotMatch(service, /renderComprehensiveReportHtml/);
 
-check(
-  'FULFILMENT_DELEGATES_MANUSCRIPT',
-  /generateComprehensiveNarrativeReport\(input\)/.test(manual),
-  'manual fulfilment must delegate to the manuscript-first Comprehensive generator'
-);
-check(
-  'WHOLE_MANUSCRIPT_ARCHITECTURE',
-  /composeEssentialManuscript as composeReportingManuscript/.test(generation)
-    && /createV11WholeManuscriptWriter\(COMPREHENSIVE_INTERPRETATION_MODEL, \{ providerCallBudget: 1 \}\)/.test(generation),
-  'Comprehensive must use the same whole-manuscript writer architecture as Essential'
-);
-check(
-  'NO_RETIRED_SIX_SLOT_PATH',
-  !/generateComprehensiveInterpretation|buildInterpretationBrief|maxRepairsPerSlot/.test(manual + generation),
-  'customer fulfilment must not route through the retired six-slot interpretation path'
-);
-check(
-  'SEMANTIC_SAFETY_CASCADE',
-  /runSemanticSafetyCascade/.test(coordinator)
-    && /SemanticCallLedger/.test(coordinator)
-    && /semanticSafety: true/.test(coordinator),
-  'whole-manuscript output must pass the shared semantic safety cascade'
-);
-check(
-  'ESSENTIAL_SHARED_LIMITS',
-  /MAX_TARGETED_REPAIRS\s*=\s*4/.test(sharedRecovery)
-    && /MAX_FULL_REGENERATIONS\s*=\s*1/.test(sharedRecovery)
-    && /MAX_QUALITY_ESCALATIONS\s*=\s*1/.test(sharedRecovery)
-    && /MAX_COHERENCE_PASSES\s*=\s*1/.test(sharedRecovery),
-  'Comprehensive recovery authority must remain the shared reporting policy'
-);
-check(
-  'HARD_TRUTH_FAIL_CLOSED',
-  /issueSeverity === 'HARD_TRUTH_FAILURE'[\s\S]*?action: 'HUMAN_REVIEW_REQUIRED'/.test(sharedRecovery),
-  'hard-truth failures must not be auto-rewritten'
-);
-check(
-  'BOUNDED_REPAIR_AND_COHERENCE',
-  /repairBlock\(/.test(writer)
-    && /coherencePass\(/.test(writer)
-    && /targetedRepairCount:\s*1/.test(writer)
-    && /coherenceCount:\s*1/.test(writer),
-  'whole-manuscript writer must expose bounded repair and coherence safety nets'
-);
-check(
-  'PROVEN_WRITER_MODEL',
-  /COMPREHENSIVE_INTERPRETATION_MODEL/.test(generation)
-    && /COMPREHENSIVE_INTERPRETATION_MODEL\s*=\s*COMPREHENSIVE_PRIMARY_MODEL/.test(interpretation)
-    && /COMPREHENSIVE_PRIMARY_MODEL\s*=\s*'openai\/gpt-5\.6-luna'/.test(comprehensiveRecovery),
-  'Comprehensive must explicitly pin the proven Luna writer model'
-);
-
-console.log(JSON.stringify({ gate: 'comprehensive-recovery-routing', checks: 8, failures: failures.length, failureDetail: failures }, null, 2));
-if (failures.length) process.exit(1);
-console.log('PASS: Comprehensive uses Essential-aligned whole-manuscript semantic safety and bounded recovery.');
+console.log(JSON.stringify({
+  status: 'PASS',
+  gate: 'comprehensive-recovery-routing',
+  providerCalls: 0,
+  assertions: [
+    'customer PDF routes through the Comprehensive whole-manuscript coordinator',
+    'shared provider-call ledger spans the primary writer and fallback rungs',
+    'hard-truth validation is strict and fails closed',
+    'targeted repair, regeneration, quality and coherence seams remain bounded',
+    'production generation service does not invoke the retired interpretation renderer'
+  ]
+}, null, 2));

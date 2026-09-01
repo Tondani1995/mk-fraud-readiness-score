@@ -1,6 +1,6 @@
 import type { NarrativeFactPack } from '../narrative/fact-pack';
-import type { BlueprintChapter, NarrativeRole, ReportBlueprint } from '../narrative/report-blueprint';
-import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
+import type { BlueprintChapter, NarrativeRole, ReportBlueprint, ReportBlueprintExhibit } from '../narrative/report-blueprint';
+import type { NarrativeParagraphProvenance, ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
 
 export type ComprehensiveSemanticTone = 'positive' | 'neutral' | 'watch' | 'critical';
 
@@ -10,6 +10,8 @@ export interface ComprehensiveNarrativeBlock {
   narrativeRole: NarrativeRole;
   paragraphs: string[];
   managementTakeaway: string;
+  claimRefs?: string[];
+  provenance?: NarrativeParagraphProvenance[];
 }
 
 export interface ComprehensiveNarrativeChapter {
@@ -22,6 +24,7 @@ export interface ComprehensiveNarrativeChapter {
   blocks: ComprehensiveNarrativeBlock[];
   domainProfile: NarrativeFactPack['domains'];
   strengths: NarrativeFactPack['relativeStrengths'];
+  themes: NarrativeFactPack['systemicThemeInputs'];
   sustainmentPriorities: NarrativeFactPack['sustainmentPriorities'];
   findings: NarrativeFactPack['findings'];
   scenarios: NarrativeFactPack['scenarios'];
@@ -29,6 +32,7 @@ export interface ComprehensiveNarrativeChapter {
   decisions: NarrativeFactPack['decisions'];
   roadmap: NarrativeFactPack['roadmap'];
   maturationSteps: NarrativeFactPack['maturationSteps'];
+  exhibits: ReportBlueprintExhibit[];
 }
 
 export interface ComprehensiveNarrativePresentationModel {
@@ -93,7 +97,9 @@ function blocksForChapter(chapter: BlueprintChapter, narrative: ParsedBlueprintM
         title: section.title,
         narrativeRole: contractSection.narrativeRole,
         paragraphs: section.paragraphs.map((paragraph) => paragraph.text.trim()).filter(Boolean),
-        managementTakeaway: contractSection.requiredManagementTakeaway
+        managementTakeaway: contractSection.requiredManagementTakeaway,
+        claimRefs: [...new Set(section.paragraphs.flatMap((paragraph) => paragraph.permittedClaimRefs))],
+        provenance: section.paragraphs.map((paragraph) => paragraph.provenance).filter((item): item is NarrativeParagraphProvenance => Boolean(item))
       });
     }
     for (const subsection of section.subsections) {
@@ -104,7 +110,9 @@ function blocksForChapter(chapter: BlueprintChapter, narrative: ParsedBlueprintM
         title: subsection.title,
         narrativeRole: contractSubsection.narrativeRole,
         paragraphs: subsection.paragraphs.map((paragraph) => paragraph.text.trim()).filter(Boolean),
-        managementTakeaway: contractSubsection.requiredManagementTakeaway
+        managementTakeaway: contractSubsection.requiredManagementTakeaway,
+        claimRefs: [...new Set(subsection.paragraphs.flatMap((paragraph) => paragraph.permittedClaimRefs))],
+        provenance: subsection.paragraphs.map((paragraph) => paragraph.provenance).filter((item): item is NarrativeParagraphProvenance => Boolean(item))
       });
     }
   }
@@ -143,13 +151,15 @@ export function buildComprehensiveNarrativePresentationModel(input: {
       blocks: blocksForChapter(chapter, narrative),
       domainProfile: isExecutive ? factPack.domains : [],
       strengths: factPack.relativeStrengths.filter((item) => include(item.factRef)),
+      themes: factPack.systemicThemeInputs.filter((item) => include(item.factRef)),
       sustainmentPriorities: factPack.sustainmentPriorities.filter((item) => include(item.factRef)),
       findings: factPack.findings.filter((item) => include(item.factRef)),
       scenarios: factPack.scenarios.filter((item) => include(item.factRef)),
       controls: factPack.controls.filter((item) => include(item.factRef)),
       decisions: factPack.decisions.filter((item) => include(item.factRef)),
       roadmap: factPack.roadmap.filter((item) => include(item.factRef)),
-      maturationSteps: factPack.maturationSteps.filter((item) => include(item.maturationRef))
+      maturationSteps: factPack.maturationSteps.filter((item) => include(item.maturationRef)),
+      exhibits: chapter.exhibits.map((item) => ({ ...item, sourceRefs: [...item.sourceRefs] }))
     } satisfies ComprehensiveNarrativeChapter;
   });
 

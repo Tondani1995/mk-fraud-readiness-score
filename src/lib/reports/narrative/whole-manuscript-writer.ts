@@ -2,7 +2,7 @@ import { generateText } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
-import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
+import { NarrativeWriterUnavailableError, type WholeManuscriptProviderCallLedger, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
 import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
@@ -155,11 +155,14 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   private readonly providerCallBudget: number;
   private providerCallsUsed = 0;
 
-  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}) {
+  private readonly providerCallLedger?: WholeManuscriptProviderCallLedger;
+
+  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; providerCallLedger?: WholeManuscriptProviderCallLedger } = {}) {
     const resolved = requireProvider(model);
     this.provider = resolved.provider;
     this.model = resolved.model;
     this.providerCallBudget = options.providerCallBudget ?? Number.POSITIVE_INFINITY;
+    this.providerCallLedger = options.providerCallLedger;
   }
 
   /** Charged immediately before every provider request. */
@@ -169,6 +172,10 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       (error as { code?: string }).code = 'provider_call_budget_exhausted';
       throw error;
     }
+    // The local ceiling protects legacy callers. The shared ledger is charged
+    // first only after the local ceiling has passed, so a rejected local call
+    // cannot consume a global slot.
+    this.providerCallLedger?.claim(kind);
     this.providerCallsUsed += 1;
   }
 
@@ -405,6 +412,6 @@ function parseCostMicros(response: any): number {
   return Number.isFinite(numericCost) ? Math.round(numericCost * 1_000_000) : 0;
 }
 
-export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}): WholeManuscriptWriter {
+export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; providerCallLedger?: WholeManuscriptProviderCallLedger } = {}): WholeManuscriptWriter {
   return new V11WholeManuscriptWriter(model, options);
 }

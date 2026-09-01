@@ -6,22 +6,40 @@ on:
       - work/comprehensive-report-quality-20260901
     paths:
       - src/lib/reports/comprehensive/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/design/**
+      - src/lib/reports/render-pdf.ts
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
       - scripts/commercial-quality/comprehensive-v12-**
       - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
       - scripts/commercial-quality/comprehensive-recovery-routing-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
       - scripts/commercial-quality/customer-specific-logic-gate.mjs
+      - package.json
       - .github/workflows/comprehensive-v12-engineering-certification.yml
   pull_request:
     branches:
       - main
     paths:
       - src/lib/reports/comprehensive/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/design/**
+      - src/lib/reports/render-pdf.ts
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
       - scripts/commercial-quality/comprehensive-v12-**
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-routing-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
       - scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
       - scripts/commercial-quality/customer-specific-logic-gate.mjs
+      - package.json
       - .github/workflows/comprehensive-v12-engineering-certification.yml
 
 permissions:
@@ -85,6 +103,17 @@ jobs:
           --experimental-strip-types
           --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
           scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+
+      - name: Prove bounded Comprehensive recovery behavior
+        run: npm run v11:comprehensive-recovery-behaviour
+
+      - name: Prove Essential-authority MK branding parity
+        run: npm run v11:comprehensive-brand-regression
+
+      - name: Render provider-free current A-F owner-review PDFs
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engineering-certification/current-path
+        run: npm run v11:comprehensive-current-path
 
       - name: Prove temporary paid-call surfaces are closed
         run: |

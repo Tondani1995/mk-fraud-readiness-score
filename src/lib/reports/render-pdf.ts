@@ -115,6 +115,22 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
     });
     return localOverride;
   }
+  if (process.platform === 'darwin') {
+    for (const localMacPath of [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium'
+    ]) {
+      if (await fileExists(localMacPath)) {
+        console.info('Chromium runtime diagnostics', {
+          executablePath: localMacPath,
+          executableExists: true,
+          nodeVersion: process.version,
+          source: 'local-mac-browser-fallback'
+        });
+        return localMacPath;
+      }
+    }
+  }
   const executablePath = await chromium.executablePath();
   const executableExists = await fileExists(executablePath);
   const al2023LibraryPath = '/tmp/al2023/lib';
@@ -149,8 +165,9 @@ async function launchBrowser() {
   const chromium = normalizeChromiumModule(chromiumModule);
   const executablePath = await resolveChromiumExecutablePath(chromium);
   const localOverride = Boolean(process.env.PUPPETEER_EXECUTABLE_PATH?.trim());
+  const localBrowser = localOverride || (process.platform === 'darwin' && executablePath.includes('.app/Contents/MacOS/'));
   const pdfAccessibilityArgs = ['--export-tagged-pdf', '--generate-pdf-document-outline'];
-  const args = localOverride
+  const args = localBrowser
     ? await puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
     : await puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
 
@@ -164,11 +181,11 @@ async function launchBrowser() {
       args,
       defaultViewport: chromium.defaultViewport,
       executablePath,
-      headless: localOverride ? true : 'shell',
+      headless: localBrowser ? true : 'shell',
       timeout: BROWSER_LAUNCH_TIMEOUT_MS,
       protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS
     });
-    console.info('Chromium launch diagnostics', { stage: 'launch', outcome: 'ok', durationMs: Date.now() - launchStartedAt, headless: localOverride ? true : 'shell' });
+    console.info('Chromium launch diagnostics', { stage: 'launch', outcome: 'ok', durationMs: Date.now() - launchStartedAt, headless: localBrowser ? true : 'shell' });
     return browser;
   } catch (error) {
     console.error('Chromium launch diagnostics', {
@@ -196,6 +213,35 @@ async function closeSafely(closeable: { close: () => Promise<void> } | null | un
   }
 }
 
+function killRendererChild(browser: any): boolean {
+  const browserProcess = typeof browser?.process === 'function' ? browser.process() : null;
+  const browserPid = browserProcess?.pid;
+  if (!browserPid) return false;
+  try { process.kill(browserPid, 'SIGKILL'); } catch { /* already exited */ }
+  try { browserProcess?.unref?.(); } catch { /* best effort */ }
+  return true;
+}
+
+async function disposeRendererBrowser(browser: any): Promise<void> {
+  if (!browser) return;
+  let closed = false;
+  await Promise.race([
+    browser.close().then(() => { closed = true; }).catch(() => { closed = true; }),
+    new Promise<void>((resolve) => setTimeout(resolve, 5_000))
+  ]);
+  if (!closed) {
+    try { browser.disconnect?.(); } catch { /* best effort */ }
+    killRendererChild(browser);
+    console.warn('phase14_pdf_renderer_close_timeout', { timeoutMs: 5_000 });
+  } else {
+    // On macOS, Chrome can acknowledge Browser.close while leaving the headless child
+    // alive after a large multi-page print. Disconnect the CDP transport before terminating
+    // only the process owned by this renderer.
+    try { browser.disconnect?.(); } catch { /* best effort */ }
+    if (killRendererChild(browser)) console.warn('phase14_pdf_renderer_child_survived_close');
+  }
+}
+
 /**
  * Releases the cached browser.
  *
@@ -213,7 +259,7 @@ export async function closeRenderBrowser(): Promise<void> {
   if (!pending) return;
   try {
     const browser = await pending;
-    await browser.close();
+    await disposeRendererBrowser(browser);
   } catch {
     // A browser that never launched, or already died, needs no disposal.
   }
@@ -234,6 +280,14 @@ async function getBrowser() {
       // launchBrowser()'s own .catch clears browserPromise, but guard against a stale reference
       // from a prior tick anyway) -- fall through to relaunch.
     }
+    // A disconnected cached browser can still have a live child process on macOS. Dispose
+    // that exact stale renderer before launching a replacement, otherwise a two-report
+    // one-shot gate leaks the first browser even though the second one closes cleanly.
+    try {
+      const stale = await browserPromise;
+      try { stale.disconnect?.(); } catch { /* best effort */ }
+      killRendererChild(stale);
+    } catch { /* stale launch already failed or exited */ }
     browserPromise = null;
   }
   browserPromise = launchBrowser().catch((error) => {

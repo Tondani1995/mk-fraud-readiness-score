@@ -2,6 +2,27 @@
 
 This lane is presentation and delivery only. It consumes the existing deterministic analytical universe and adds reviewer-supplied evidence, interpretation, management and board fields without recalculating or rewriting the assessment.
 
+## Current bounded A–F path — 2026-09-01
+
+The active remediation path is now the manuscript-first Comprehensive chain:
+
+`Fact Pack → Story Plan → Report Blueprint → whole-manuscript generation/recovery → provenance validation → narrative-led PDF → companion workbook`
+
+The provider-free A–F evidence lane exercises the current path for Motheo (sustainment) and Bokamoso (weak remediation). It includes bounded recovery behavior, current-path PDF rendering, structural brand regression and owner-review screenshots. Phase G provider-backed Luna/Terra generation was intentionally not run, and this evidence is not a commercial acceptance claim.
+
+Comprehensive branding is governed by the accepted Essential production implementation. The current renderer imports the shared MK design tokens and uses the approved vector logo through `renderCoverLogo`; it does not create a separate Comprehensive mark or use renderer/browser assets. The required owner-review evidence is four views per profile: cover, narrative, exhibit and conclusion.
+
+The reproducible local gates are:
+
+```bash
+npm run v11:comprehensive-current-architecture
+npm run v11:comprehensive-recovery-behaviour
+npm run v11:comprehensive-brand-regression
+npm run v11:comprehensive-current-path
+```
+
+See [`COMPREHENSIVE_CURRENT_PATH_A_F_2026-09-01.md`](./COMPREHENSIVE_CURRENT_PATH_A_F_2026-09-01.md) for the execution record and release boundary.
+
 ## Contract
 
 `src/lib/reports/comprehensive/contract.ts` exposes:
