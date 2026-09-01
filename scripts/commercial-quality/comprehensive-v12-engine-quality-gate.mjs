@@ -392,6 +392,24 @@ for (const profileKey of Object.keys(profiles)) {
     if (!interpretationPrompt.includes('What does the strong position depend on, and what could cause it to deteriorate?')) {
       fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'Sustainment-specific why-this-matters contract is absent');
     }
+
+    // Numbers embedded in authoritative methodology prose are part of the
+    // deterministic brief just as numeric properties are. Motheo's D2-Q01
+    // resilience material carries the 24-month assessment threshold.
+    if (JSON.stringify(brief).includes('24 months')) {
+      const authorisedThreshold = validateInterpretation({
+        whyThisMatters: 'Management should confirm the assessment remains within the recorded 24 months threshold and respond to the deterioration condition if that threshold is exceeded. The purpose is to preserve the reported position by keeping the existing review requirement visible, together with its dependencies and management evidence. This is a confirmation and resilience priority rather than a statement that a current control failure exists. Leadership should use the threshold as the deterministic trigger already specified in the assessment methodology and retain evidence that the review remains current.'
+      }, brief);
+      if (authorisedThreshold.some((issue) => issue.code === 'UNSUPPORTED_NUMBER' && issue.detail.includes('"24"'))) {
+        fail(profileKey, 'AUTHORISED_NUMBER', 'validator rejected deterministic 24-month threshold embedded in the brief');
+      }
+      const inventedThreshold = validateInterpretation({
+        whyThisMatters: 'Management should use a 777 months threshold for this capability because that period would provide a stronger basis for resilience monitoring and management confirmation. The organisation should preserve the reported position through review, evidence and escalation, with the threshold treated as an explicit management trigger. This statement intentionally introduces a number that the deterministic analysis did not provide, so the number validator must reject it rather than allowing apparently plausible prose to create a new control standard.'
+      }, brief);
+      if (!inventedThreshold.some((issue) => issue.code === 'UNSUPPORTED_NUMBER' && issue.detail.includes('"777"'))) {
+        fail(profileKey, 'AUTHORISED_NUMBER', 'validator accepted invented 777-month threshold');
+      }
+    }
     if (interpretationPrompt.includes('Why does the material exposure pattern matter operationally?')) {
       fail(profileKey, 'SUSTAINMENT_INTERPRETATION', 'remediation-shaped exposure question leaked into Sustainment prompt');
     }
