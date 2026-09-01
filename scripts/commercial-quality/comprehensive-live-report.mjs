@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Comprehensive live report — ONE structured provider call per report.
+ * Comprehensive live report — bounded Essential-aligned recovery.
  *
  * Renders the same case twice: deterministic (no AI) and interpreted. Both PDFs
  * are kept so the question the mandate asks — does the AI make the report
  * better? — can be answered by reading them side by side rather than asserted.
  *
- * Budget: this script makes exactly one provider call per report, plus at most
- * two targeted repair calls for fields that fail validation. It never
- * regenerates a whole report.
+ * Recovery follows the shared reporting safety-net: one initial structured
+ * generation, bounded targeted semantic repair, one complete regeneration,
+ * one quality escalation, one coherence pass and technical fallback where
+ * justified. Hard-truth failures remain fail-closed.
  *
  * Usage:
  *   ORDER=MKORD-2026-22FF6B69 CASE=CASE-05 npm run v11:comprehensive-live
@@ -58,7 +59,7 @@ const base = {
 };
 
 console.log(`${caseId} ${order} | ${pack.organisation.name} | ${pack.assessment.score} ${pack.assessment.maturity} | ${model.narrativeMode}`);
-console.log(`brief ${(JSON.stringify(brief).length / 1024).toFixed(1)}KB | calling provider once...`);
+console.log(`brief ${(JSON.stringify(brief).length / 1024).toFixed(1)}KB | running bounded recovery policy...`);
 
 const run = await generateComprehensiveInterpretation(brief);
 const { interpretation, issues, accounting } = run;
