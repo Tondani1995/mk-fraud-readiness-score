@@ -12,6 +12,8 @@ const generation = fs.readFileSync('src/lib/reports/comprehensive/narrative-gene
 const coordinator = fs.readFileSync('src/lib/reports/narrative/essential-manuscript-coordinator.ts', 'utf8');
 const writer = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
 const sharedRecovery = fs.readFileSync('src/lib/reports/narrative/recovery-policy.ts', 'utf8');
+const comprehensiveRecovery = fs.readFileSync('src/lib/reports/comprehensive/recovery-policy.ts', 'utf8');
+const interpretation = fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8');
 
 const failures = [];
 const check = (code, ok, detail) => { if (!ok) failures.push({ code, detail }); };
@@ -63,7 +65,8 @@ check(
 check(
   'PROVEN_WRITER_MODEL',
   /COMPREHENSIVE_INTERPRETATION_MODEL/.test(generation)
-    && /openai\/gpt-5\.6-luna/.test(fs.readFileSync('src/lib/reports/comprehensive/interpretation.ts', 'utf8')),
+    && /COMPREHENSIVE_INTERPRETATION_MODEL\s*=\s*COMPREHENSIVE_PRIMARY_MODEL/.test(interpretation)
+    && /COMPREHENSIVE_PRIMARY_MODEL\s*=\s*'openai\/gpt-5\.6-luna'/.test(comprehensiveRecovery),
   'Comprehensive must explicitly pin the proven Luna writer model'
 );
 
