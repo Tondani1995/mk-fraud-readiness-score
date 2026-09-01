@@ -222,6 +222,11 @@
     "v11:comprehensive-current-layout": "node scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs",
     "v11:comprehensive-current-workbooks": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-current-comprehensive-workbooks.mjs",
     "v11:comprehensive-current-workbook-reconciliation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-current-workbook-reconciliation-gate.mjs",
+    "v11:comprehensive-assurance-boundary-regressions": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-assurance-boundary-regressions.mjs",
+    "v11:comprehensive-local-numeric-provenance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-local-numeric-provenance-tests.mjs",
+    "v11:comprehensive-historical-manuscript": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-historical-manuscript-regressions.mjs",
+    "v11:comprehensive-prompt-context": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-prompt-context-regressions.mjs",
+    "v11:comprehensive-phase-g-provider-free": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-phase-g-provider-free-certification.mjs",
     "v11:comprehensive-owner-review-manifest": "node scripts/commercial-quality/build-comprehensive-owner-review-manifest.mjs",
     "v11:portfolio-census": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/portfolio-census.mjs",
     "v11:comprehensive-live": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-live-report.mjs"

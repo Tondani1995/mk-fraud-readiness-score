@@ -8,6 +8,7 @@ import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
+import type { WholeManuscriptWriterContext } from './report-blueprint';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -23,7 +24,17 @@ function requireProvider(model = selectNarrativeModel().requestedModel): { model
   return { model, provider: providerFromModel(model) };
 }
 
-function generationPrompt(input: WholeManuscriptWriterInput): string {
+function writerBoundaryPayload(context: WholeManuscriptWriterContext): Record<string, unknown> {
+  return {
+    assuranceInstruction: 'Never state or imply that MK, the assessment, this report or an external reviewer independently verified, validated, tested, confirmed or assured the operating effectiveness of the organisation controls.',
+    customerBoundaryPlacement: 'Use the single customer-facing assurance limitation supplied in the Blueprint assessment position once in the Executive assessment section. Do not repeat that limitation in later sections.',
+    customerLanguage: context.boundaries?.customerLanguage ?? [],
+    prohibitedClaims: context.boundaries?.prohibitedClaims ?? [],
+    sourceOfTruth: context.boundaries?.sourceOfTruth
+  };
+}
+
+export function buildWholeManuscriptGenerationPrompt(input: WholeManuscriptWriterInput): string {
   const skeleton = buildBlueprintMarkdownSkeleton(input.blueprint);
   return [
     'Write the complete MK Fraud Readiness v1.1 advisory manuscript as Markdown.',
@@ -31,6 +42,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     'The deterministic Blueprint owns every chapter, section, subsection, order, analytical role, required fact, management takeaway and exhibit. Write only narrative beneath the existing headings in the exact skeleton below.',
     'Do not remove, rename, add or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata outside the skeleton. Do not repeat the executive judgement as a new opening in later chapters. Use connected professional prose with natural transitions. Separate diagnosis, evidence, exposure, target state, response, implementation and conclusion by their assigned Blueprint roles.',
     'Use only the deterministic Fact Pack and the permitted claim references assigned to each Blueprint section. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance. Do not claim that MK, the assessment or the report independently verified operating effectiveness. Customer control design may describe what management should independently review or verify.',
+    'ASSURANCE BOUNDARY. The restriction applies to every chapter. Use the Blueprint assessment position for the one customer-facing limitation in the Executive assessment section; do not repeat the limitation as a recurring disclaimer elsewhere.',
     ...(input.blueprint.reportTier === 'comprehensive' ? [
       'COMPREHENSIVE DEPTH. This is the premium automated management report. The reader is paying for interpretation, synthesis and a coherent management view, not for a narrated scorecard or register.',
       'Lead each chapter with the management judgement supported by the authorised facts, then explain the relationships and implications that make that judgement useful. Do not walk through deterministic objects one by one.',
@@ -55,7 +67,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     JSON.stringify(input.context.permittedDeterministicFacts),
     '',
     'BOUNDARIES AND STYLE',
-    JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+    JSON.stringify({ boundaries: writerBoundaryPayload(input.context), style: input.context.style })
   ].join('\n');
 }
 
@@ -89,7 +101,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     JSON.stringify(input.context.permittedDeterministicFacts),
     '',
     'BOUNDARIES AND STYLE',
-    JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+    JSON.stringify({ boundaries: writerBoundaryPayload(input.context), style: input.context.style })
   ].join('\n');
 }
 
@@ -181,11 +193,11 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
 
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
-    const prompt = generationPrompt(input);
+    const prompt = buildWholeManuscriptGenerationPrompt(input);
     this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never imply that MK, the assessment or the report independently verified operating effectiveness. Use the single Blueprint assurance limitation once in the Executive assessment section. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,
