@@ -14,6 +14,7 @@ import {
 import {
   buildInterpretationBrief,
   generateComprehensiveInterpretation,
+  assertComprehensiveInterpretationAccepted,
   interpretationToCommentary,
   type InterpretationRun
 } from './interpretation';
@@ -73,6 +74,7 @@ export async function renderComprehensiveReportPdf(input: {
     })
   );
 
+  const maxRepairs = input.maxRepairsPerSlot ?? 0;
   const interpretationRun = await generateComprehensiveInterpretation(
     buildInterpretationBrief({
       model,
@@ -82,8 +84,15 @@ export async function renderComprehensiveReportPdf(input: {
       assessmentScope,
       domains
     }),
-    { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
+    { maxRepairsPerSlot: maxRepairs }
   );
+  // A structurally valid provider response is not automatically acceptable.
+  // Nothing customer-visible is rendered until every bounded slot passes the
+  // final hard-truth, semantic and quality checks and the authorised call budget.
+  assertComprehensiveInterpretationAccepted(interpretationRun, {
+    maxCalls: 1 + maxRepairs,
+    maxRepairs
+  });
 
   const html = renderComprehensiveManagementReportHtml({
     model,
