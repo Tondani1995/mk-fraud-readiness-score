@@ -160,7 +160,7 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
     <div class="narrative-copy">${block.paragraphs.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')}</div>
     <aside class="management-implication ${chapter.tone}">
       <span>Management implication</span>
-      <p>${esc(block.managementImplication)}</p>
+      <p>${esc(block.managementTakeaway)}</p>
     </aside>
   </div>`).join('');
   return `<section class="chapter tone-${chapter.tone}" data-chapter="${esc(chapter.chapterId)}">
