@@ -113,6 +113,7 @@ await check('analytics is absent before consent and waits for GA readiness after
   assert.match(analytics, /const \[analyticsReady, setAnalyticsReady\] = useState\(false\)/);
   assert.match(analytics, /window\.addEventListener\(GA_READY_EVENT, syncReady\)/);
   assert.match(analytics, /window\.dispatchEvent\(new Event\(\$\{JSON\.stringify\(GA_READY_EVENT\)\}\)\)/);
+  assert.match(analytics, /onLoad=\{handleGtagLoad\}/);
   assert.match(analytics, /if \(!analyticsReady\) return/);
   assert.match(analytics, /send_page_view: false/);
   assert.match(consent, /GA_CONSENT_EVENT/);

@@ -54,6 +54,10 @@ export default function GoogleAnalytics() {
         if (pageview(url)) lastPageviewRef.current = url;
     }, [analyticsEnabled, analyticsReady, pathname, search]);
 
+    const handleGtagLoad = () => {
+        window.dispatchEvent(new Event(GA_READY_EVENT));
+    };
+
     if (!GA_MEASUREMENT_ID || !analyticsEnabled) return null;
 
     return (
@@ -61,6 +65,7 @@ export default function GoogleAnalytics() {
             <Script
                 src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
                 strategy="afterInteractive"
+                onLoad={handleGtagLoad}
             />
             <Script id="google-analytics" strategy="afterInteractive">
                 {`
