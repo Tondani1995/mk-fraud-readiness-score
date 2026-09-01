@@ -108,6 +108,23 @@ export const INTERPRETATION_CONTRACTS: ReadonlyArray<InterpretationSlotContract>
   }
 ];
 
+const SUSTAINMENT_WHY_THIS_MATTERS_CONTRACT: InterpretationSlotContract = {
+  id: 'whyThisMatters',
+  label: 'Why this matters',
+  managementQuestion: 'What does the strong position depend on, and what could cause it to deteriorate?',
+  responsibility: 'Explain why the selected assurance and resilience priorities matter to preserving the reported position. Connect the capabilities to their dependencies and deterioration signals. Treat them as capabilities to confirm and sustain, never as current weaknesses or material exposures.',
+  mayUse: ['assurance priority capabilities and why they matter', 'resilience dependencies and deterioration conditions', 'assurance coverage postures and capabilities to preserve'],
+  mustNotDo: ['describe a current material exposure concentration', 'convert an assurance priority into a finding or weakness', 'imply a control has failed', 'claim evidence has been validated', 'survey every domain in turn'],
+  minWords: 90, maxWords: 170
+};
+
+function interpretationContractsForBrief(brief: InterpretationBrief): ReadonlyArray<InterpretationSlotContract> {
+  if (brief.narrativeMode !== 'SUSTAINMENT') return INTERPRETATION_CONTRACTS;
+  return INTERPRETATION_CONTRACTS.map((contract) =>
+    contract.id === 'whyThisMatters' ? SUSTAINMENT_WHY_THIS_MATTERS_CONTRACT : contract
+  );
+}
+
 export const interpretationSchema = z.object({
   executiveInterpretation: z.string().min(1),
   whyThisMatters: z.string().min(1),
@@ -139,6 +156,18 @@ export interface InterpretationBrief {
   governance: Array<{ role: string; type: string; controls: number; decisions: number }>;
   decisions: Array<{ decision: string; whyNow: string; owner: string; targetPeriod: string }>;
   phases: Array<{ phase: string; actions: number; programmes: string[] }>;
+  assuranceCoverage: Array<{
+    domain: string; score: number; maturity: string; posture: string;
+    capabilityToPreserve: string; deteriorationSignal: string; reviewRhythm: string;
+  }>;
+  assurancePriorities: Array<{
+    capability: string; domain: string; priorityClass: string; whyItMatters: string;
+    deteriorationTrigger: string; earlyWarningSignal: string; accountableExecutive: string;
+  }>;
+  resilienceTests: Array<{
+    capability: string; domain: string; dependencyToTest: string[];
+    deteriorationCondition: string; effectivenessSignal: string; reviewRhythm: string;
+  }>;
   totals: { findings: number; risks: number; controls: number; evidenceItems: number; actions: number };
 }
 
@@ -165,6 +194,32 @@ export function buildInterpretationBrief(input: {
     governance: model.core.governanceRoles.map((role) => ({ role: role.displayRole, type: role.roleType, controls: role.controls.length, decisions: role.decisions.length })),
     decisions: model.core.decisionAgenda.map((decision) => ({ decision: decision.decisionRequired, whyNow: decision.whyNow, owner: decision.ownerRole, targetPeriod: decision.targetPeriod })),
     phases: model.core.implementationPhases.map((phase) => ({ phase: phase.phase, actions: phase.actionIds.length, programmes: phase.programmeIds })),
+    assuranceCoverage: model.registers.assuranceCoverage.map((row) => ({
+      domain: row.domain,
+      score: row.score,
+      maturity: row.maturity,
+      posture: row.posture,
+      capabilityToPreserve: row.capabilityToPreserve,
+      deteriorationSignal: row.deteriorationSignal,
+      reviewRhythm: row.reviewRhythm
+    })),
+    assurancePriorities: model.registers.assurancePriorities.map((row) => ({
+      capability: row.capability,
+      domain: row.domain,
+      priorityClass: row.priorityClass,
+      whyItMatters: row.whyItMatters,
+      deteriorationTrigger: row.deteriorationTrigger,
+      earlyWarningSignal: row.earlyWarningSignal,
+      accountableExecutive: row.accountableExecutive
+    })),
+    resilienceTests: model.registers.resilienceTests.map((row) => ({
+      capability: row.capability,
+      domain: row.domain,
+      dependencyToTest: row.dependencyToTest,
+      deteriorationCondition: row.deteriorationCondition,
+      effectivenessSignal: row.effectivenessSignal,
+      reviewRhythm: row.reviewRhythm
+    })),
     totals: {
       findings: model.registers.findings.length, risks: model.registers.risks.length,
       controls: model.registers.controls.length,
@@ -210,9 +265,11 @@ function authorisedNumbers(brief: InterpretationBrief): Set<string> {
   for (const programme of brief.controlProgrammes) { add(programme.controls); add(programme.evidence); add(programme.measures); }
   for (const phase of brief.phases) add(phase.actions);
   for (const value of Object.values(brief.totals)) add(value);
+  for (const row of brief.assuranceCoverage) add(row.score);
   add(brief.managementThemes.length); add(brief.exposureThemes.length);
   add(brief.controlProgrammes.length); add(brief.decisions.length); add(brief.phases.length);
   add(brief.governance.length); add(brief.domains.length);
+  add(brief.assuranceCoverage.length); add(brief.assurancePriorities.length); add(brief.resilienceTests.length);
   // Ordinals and durations that appear in phase names are part of the brief.
   for (const phase of brief.phases) for (const token of phase.phase.match(/\d+/g) ?? []) out.add(token);
   return out;
@@ -281,7 +338,7 @@ const EXECUTIVE_ABBREVIATIONS: Record<string, string> = {
 export function validateInterpretation(result: Partial<ComprehensiveInterpretation>, brief: InterpretationBrief): InterpretationIssue[] {
   const issues: InterpretationIssue[] = [];
   const allowed = authorisedNumbers(brief);
-  const entries = INTERPRETATION_CONTRACTS.map((contract) => [contract, String(result[contract.id] ?? '')] as const);
+  const entries = interpretationContractsForBrief(brief).map((contract) => [contract, String(result[contract.id] ?? '')] as const);
 
   for (const [contract, text] of entries) {
     const slot = contract.id;
@@ -331,6 +388,22 @@ export function validateInterpretation(result: Partial<ComprehensiveInterpretati
         const lead = text.slice(Math.max(0, (match.index ?? 0) - 40), match.index ?? 0);
         if (NEGATOR.test(lead)) continue;
         issues.push({ slot, kind: 'HARD_TRUTH', code: 'MANUFACTURED_WEAKNESS', detail: match[0] });
+      }
+      // A high-readiness report may discuss conditional resilience exposure, but
+      // it must not recast assurance priorities as a present material exposure.
+      // The live V1.2 proof exposed this gap: "the material exposure is
+      // concentrated in..." passed because it did not literally say "weakness".
+      if (slot === 'whyThisMatters') {
+        const currentExposure = text.match(/\b(?:the\s+)?material\s+exposure\s+(?:is|sits|lies|remains|concentrates?|is\s+concentrated)\b/i)
+          ?? text.match(/\bcurrent\s+(?:material\s+)?exposure\s+(?:is|sits|lies|remains|concentrates?)\b/i);
+        if (currentExposure) {
+          issues.push({
+            slot,
+            kind: 'HARD_TRUTH',
+            code: 'SUSTAINMENT_EXPOSURE_AS_WEAKNESS',
+            detail: currentExposure[0]
+          });
+        }
       }
     }
     // HARD TRUTH — the machinery must not appear on the customer's page.
@@ -428,11 +501,17 @@ const POSTURE: Record<string, string> = {
 };
 
 export function buildInterpretationPrompt(brief: InterpretationBrief, only?: InterpretationSlotId[]): string {
-  const contracts = INTERPRETATION_CONTRACTS.filter((contract) => !only || only.includes(contract.id));
+  const contracts = interpretationContractsForBrief(brief).filter((contract) => !only || only.includes(contract.id));
   // narrativeMode is retained on the brief for validation and withheld here.
   const { narrativeMode, ...visible } = brief;
   const promptBrief = {
     ...visible,
+    // High-readiness management objects are the authority for Sustainment
+    // interpretation. They are management summaries, not the six analytical
+    // registers. Outside Sustainment they are withheld entirely.
+    assuranceCoverage: narrativeMode === 'SUSTAINMENT' ? visible.assuranceCoverage : [],
+    assurancePriorities: narrativeMode === 'SUSTAINMENT' ? visible.assurancePriorities : [],
+    resilienceTests: narrativeMode === 'SUSTAINMENT' ? visible.resilienceTests : [],
     assessmentScope: visible.assessmentScope
       ? {
         ...visible.assessmentScope,
