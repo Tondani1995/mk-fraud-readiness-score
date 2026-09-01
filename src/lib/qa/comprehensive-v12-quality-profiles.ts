@@ -1,4 +1,4 @@
-import graphJson from '../adaptive/candidates/adaptive-graph-v1-2-candidate.json';
+import graphJson from '../adaptive/candidates/adaptive-graph-v1-2-candidate.json' with { type: 'json' };
 import {
   resolveAdaptivePath,
   type AdaptiveControlResponses,
