@@ -74,6 +74,7 @@ export function OrderJourney({
   snapshotPath,
   initialStep = 1,
   initialInvoiceRequested = null,
+  initialInvoiceDetails = null,
   initialOrder = null,
   visualReview = false
 }: {
@@ -88,6 +89,7 @@ export function OrderJourney({
   snapshotPath: string;
   initialStep?: 1 | 2 | 3;
   initialInvoiceRequested?: boolean | null;
+  initialInvoiceDetails?: Partial<InvoiceDetails> | null;
   initialOrder?: OrderConfirmation | null;
   /** Preview-only fixture mode. It never changes the normal customer order path. */
   visualReview?: boolean;
@@ -98,7 +100,8 @@ export function OrderJourney({
     ...EMPTY_INVOICE_DETAILS,
     legalName: organisationName ?? '',
     addressee: respondentName ?? '',
-    billingEmail: respondentEmail ?? ''
+    billingEmail: respondentEmail ?? '',
+    ...initialInvoiceDetails
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');

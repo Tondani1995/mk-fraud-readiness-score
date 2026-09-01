@@ -42,8 +42,8 @@ runtime.
 | --- | --- |
 | Adaptive early, mid, late, ready to submit, submitted | `/score/visual-review/adaptive/{early\|mid\|late\|review\|submitted}` |
 | Snapshot 100, 60, 20, Not issued | `/score/visual-review/snapshot/{score-100\|score-60\|score-20\|insufficient-visibility}` |
-| Essential Confirm, Billing, Payment | `/score/visual-review/order/essential/{confirm\|billing\|payment}` |
-| Comprehensive Confirm, Billing, Payment | `/score/visual-review/order/comprehensive/{confirm\|billing\|payment}` |
+| Essential Confirm, Billing, Billing with invoice requested, Payment | `/score/visual-review/order/essential/{confirm\|billing\|billing-invoice\|payment}` |
+| Comprehensive Confirm, Billing, Billing with invoice requested, Payment | `/score/visual-review/order/comprehensive/{confirm\|billing\|billing-invoice\|payment}` |
 
 The route is intentionally not linked from customer navigation and is not a Production fallback.
 Evidence is valid only when these routes are browser-rendered from the exact READY Preview whose

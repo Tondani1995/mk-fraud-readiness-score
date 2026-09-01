@@ -21,6 +21,7 @@ const snapshotPreview = await read('src/components/website/SnapshotPreview.tsx')
 const startPage = await read('src/app/score/start/page.tsx');
 const adaptivePage = await read('src/app/score/adaptive/[assessmentRef]/page.tsx');
 const adaptiveExperience = await read('src/components/adaptive/AdaptiveAssessmentExperience.tsx');
+const button = await read('src/components/ui/Button.tsx');
 const assessmentEngine = await read('src/components/assessment/AssessmentEngine.tsx');
 const scoreGauge = await read('src/components/assessment/ScoreGauge.tsx');
 const tierCard = await read('src/components/products/ProductTierCard.tsx');
@@ -155,6 +156,25 @@ check('the owner brief preserves enabled Production starts and approval-controll
   assert.match(routeMap, /score\/snapshot/);
   assert.match(routeMap, /score\/order\/new/);
   assert.match(routeMap, /Advisory/);
+});
+
+check('bounded owner corrections preserve accessibility and responsive commercial hierarchy', () => {
+  const programmaticHeadings = adaptiveExperience.match(/<h1[^>]*tabIndex=\{-1\}[^>]*>/g) ?? [];
+  assert.ok(programmaticHeadings.length >= 4, 'adaptive state headings remain programmatically focusable');
+  assert.ok(programmaticHeadings.every((heading) => heading.includes('focus:outline-none')), 'programmatic heading focus has no visual rectangle');
+  assert.match(adaptiveExperience, /text-xl[^\n]*md:text-2xl/, 'active question is smaller on narrow mobile and restored at md');
+  assert.match(adaptiveExperience, /<Button/, 'interactive assessment actions remain real controls');
+  assert.match(adaptiveExperience, /<input type="radio"/, 'interactive assessment answers remain real controls');
+  assert.match(button, /focus:ring-2/, 'shared interactive controls retain visible keyboard focus styling');
+  assert.match(productChoice, /recommendation\.recommendedTier === 'comprehensive'/, 'mobile order follows the deterministic recommendation');
+  assert.match(productChoice, /const paidTiers/, 'paid tiers retain both options while changing mobile order');
+  assert.match(productChoice, /md:order-1/);
+  assert.match(productChoice, /md:order-2/);
+  assert.match(orderJourney, /initialInvoiceDetails/);
+  assert.match(visualReviewRoute, /billing-invoice/);
+  assert.match(visualReviewFixtures, /buildVisualReviewInvoiceDetails/);
+  assert.match(publicAdvisory, /scoped and contracted around the work in front of you/);
+  assert.doesNotMatch(publicAdvisory, /not bought online/);
 });
 
 check('private visual review is Preview/local-only and uses deterministic real-component fixtures', () => {

@@ -44,7 +44,7 @@ function SubmissionProcessingCard({ assessmentReference }: { assessmentReference
       <Card>
         <CardHeader>
           <Badge>Submission received</Badge>
-          <h1 tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink">Preparing your Fraud Readiness Snapshot</h1>
+          <h1 tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink focus:outline-none">Preparing your Fraud Readiness Snapshot</h1>
         </CardHeader>
         <CardContent className="space-y-5 text-sm leading-6 text-mk-muted">
           <p>Your assessment has been submitted. We are calculating your result and preparing your personalised Snapshot.</p>
@@ -343,7 +343,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     <Card>
       <CardHeader>
         <Badge>Assessment submitted</Badge>
-        <h1 ref={completionHeadingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink">Your assessment is complete</h1>
+        <h1 ref={completionHeadingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink focus:outline-none">Your assessment is complete</h1>
       </CardHeader>
       <CardContent className="space-y-4 text-sm leading-6 text-mk-muted">
         <p>Your responses have been securely recorded. Your private result link is shown below when available.</p>
@@ -357,7 +357,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     <Card>
       <CardHeader>
         <Badge>Ready to submit</Badge>
-        <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold text-mk-ink">Your assessment is ready to submit</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold text-mk-ink focus:outline-none">Your assessment is ready to submit</h1>
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-sm leading-6 text-mk-muted">Your responses have been recorded. Review the areas included below, edit an answer if needed, and submit when you are ready.</p>
@@ -416,7 +416,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       <Card>
         <CardHeader>
           <Badge>{areaName}</Badge>
-          <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold leading-tight text-mk-ink">{label(currentNode.prompt)}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="mt-3 text-xl font-semibold leading-tight text-mk-ink focus:outline-none md:text-2xl">{label(currentNode.prompt)}</h1>
           {customerExplanation ? <p className="mt-3 text-sm leading-6 text-mk-muted">{customerExplanation}</p> : null}
         </CardHeader>
         <CardContent className="space-y-5">

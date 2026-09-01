@@ -25,9 +25,11 @@ const requiredRoutes = [
   '/score/visual-review/snapshot/insufficient-visibility',
   '/score/visual-review/order/essential/confirm',
   '/score/visual-review/order/essential/billing',
+  '/score/visual-review/order/essential/billing-invoice',
   '/score/visual-review/order/essential/payment',
   '/score/visual-review/order/comprehensive/confirm',
   '/score/visual-review/order/comprehensive/billing',
+  '/score/visual-review/order/comprehensive/billing-invoice',
   '/score/visual-review/order/comprehensive/payment'
 ];
 
@@ -50,6 +52,8 @@ assert.match(fixtures, /overallScore: 100/);
 assert.match(fixtures, /overallScore: 20/);
 assert.match(fixtures, /resultStatus: 'INSUFFICIENT_VISIBILITY'/);
 assert.match(fixtures, /buildVisualReviewOrder/);
+assert.match(fixtures, /buildVisualReviewInvoiceDetails/);
+assert.match(fixtures, /invoiceRequested/);
 
 // The server route and fixture builders contain no persistence or request path. The real client
 // components are still used, but their normal network actions are disabled only when the route
@@ -74,7 +78,7 @@ console.log(JSON.stringify({
   requiredRoutes: requiredRoutes.length,
   adaptiveStates: 5,
   snapshotStates: 4,
-  orderStates: 6,
+  orderStates: 8,
   mutation: 'isolated visualReview mode has no Supabase query or mutation path',
   production: 'notFound'
 }, null, 2));

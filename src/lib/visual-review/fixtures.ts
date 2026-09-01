@@ -3,6 +3,7 @@ import { deriveAdaptiveIntegritySignals, resolveAdaptivePath } from '@/lib/adapt
 import type { AdaptiveResultMetrics, AdaptiveResultStatus } from '@/lib/scoring/adaptive-scoring';
 import type { FreeSnapshot, FreeSnapshotDomain } from '@/lib/snapshot/free-snapshot';
 import type { SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
+import type { InvoiceDetails } from '@/lib/commercial/invoice-details';
 import v12Graph from '@/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json' with { type: 'json' };
 
 /**
@@ -19,6 +20,19 @@ export type AdaptiveVisualReviewVariant = 'early' | 'mid' | 'late' | 'review' | 
 export type SnapshotVisualReviewVariant = 'score-100' | 'score-60' | 'score-20' | 'insufficient-visibility';
 
 export const VISUAL_REVIEW_ASSESSMENT_REFERENCE = 'VISUAL-2026-OWNER-REVIEW';
+
+export function buildVisualReviewInvoiceDetails(tier: SelfServicePaidTier): InvoiceDetails {
+  const slug = tier.toUpperCase();
+  return {
+    legalName: 'Siyakhula Holdings (Pty) Ltd',
+    billingAddress: '1 Review Avenue, Sandton, 2196',
+    addressee: 'Nomsa Dlamini',
+    billingEmail: 'billing@siyakhula.example',
+    vatNumber: 'ZA9999999999',
+    registrationNumber: '2018/123456/07',
+    purchaseOrderReference: `VISUAL-${slug}-PO`
+  };
+}
 
 const GRAPH = v12Graph as unknown as AdaptiveGraph;
 
@@ -298,7 +312,7 @@ export type VisualReviewOrder = {
   };
 };
 
-export function buildVisualReviewOrder(tier: SelfServicePaidTier): VisualReviewOrder {
+export function buildVisualReviewOrder(tier: SelfServicePaidTier, invoiceRequested = false): VisualReviewOrder {
   const label = tier === 'essential' ? 'Essential' : 'Comprehensive';
   const amount = tier === 'essential' ? 'R7 500 incl. VAT' : 'R35 000 incl. VAT';
   const slug = tier.toUpperCase();
@@ -308,7 +322,7 @@ export function buildVisualReviewOrder(tier: SelfServicePaidTier): VisualReviewO
     productName: label,
     amountDisplay: amount,
     paymentReference: `VISUAL-${slug}-PAYMENT`,
-    invoiceRequested: false,
+    invoiceRequested,
     assessmentReference: VISUAL_REVIEW_ASSESSMENT_REFERENCE,
     eftInstructions: {
       active: true,

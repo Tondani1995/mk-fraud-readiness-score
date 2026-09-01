@@ -9,6 +9,7 @@ import { SectionShell } from '@/components/ui/SectionShell';
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import {
   buildAdaptiveVisualReviewState,
+  buildVisualReviewInvoiceDetails,
   buildSnapshotVisualReviewFixture,
   buildVisualReviewOrder,
   snapshotVisualReviewTitle,
@@ -24,7 +25,7 @@ type VisualReviewScenario =
   | { kind: 'index' }
   | { kind: 'adaptive'; variant: AdaptiveVisualReviewVariant }
   | { kind: 'snapshot'; variant: SnapshotVisualReviewVariant }
-  | { kind: 'order'; tier: 'essential' | 'comprehensive'; step: 1 | 2 | 3 };
+  | { kind: 'order'; tier: 'essential' | 'comprehensive'; step: 1 | 2 | 3; invoiceRequested: boolean | null };
 
 type VisualReviewPageProps = {
   params: Promise<{ scenario?: string[] }>;
@@ -50,9 +51,14 @@ function parseScenario(parts: string[] | undefined): VisualReviewScenario | null
 
   if (parts[0] === 'order' && parts.length === 3
     && ['essential', 'comprehensive'].includes(parts[1])
-    && ['confirm', 'billing', 'payment'].includes(parts[2])) {
-    const step = parts[2] === 'confirm' ? 1 : parts[2] === 'billing' ? 2 : 3;
-    return { kind: 'order', tier: parts[1] as 'essential' | 'comprehensive', step };
+    && ['confirm', 'billing', 'billing-invoice', 'payment'].includes(parts[2])) {
+    const step = parts[2] === 'confirm' ? 1 : parts[2].startsWith('billing') ? 2 : 3;
+    return {
+      kind: 'order',
+      tier: parts[1] as 'essential' | 'comprehensive',
+      step,
+      invoiceRequested: parts[2] === 'billing-invoice' ? true : parts[2] === 'billing' ? false : null
+    };
   }
 
   return null;
@@ -85,9 +91,11 @@ function IndexPage() {
     ['Snapshot · Not issued', '/score/visual-review/snapshot/insufficient-visibility'],
     ['Essential · Confirm', '/score/visual-review/order/essential/confirm'],
     ['Essential · Billing', '/score/visual-review/order/essential/billing'],
+    ['Essential · Billing · invoice requested', '/score/visual-review/order/essential/billing-invoice'],
     ['Essential · Payment', '/score/visual-review/order/essential/payment'],
     ['Comprehensive · Confirm', '/score/visual-review/order/comprehensive/confirm'],
     ['Comprehensive · Billing', '/score/visual-review/order/comprehensive/billing'],
+    ['Comprehensive · Billing · invoice requested', '/score/visual-review/order/comprehensive/billing-invoice'],
     ['Comprehensive · Payment', '/score/visual-review/order/comprehensive/payment']
   ];
 
@@ -153,10 +161,10 @@ function SnapshotReview({ variant }: { variant: SnapshotVisualReviewVariant }) {
   );
 }
 
-function OrderReview({ tier, step }: { tier: 'essential' | 'comprehensive'; step: 1 | 2 | 3 }) {
-  const order = buildVisualReviewOrder(tier);
+function OrderReview({ tier, step, invoiceRequested }: { tier: 'essential' | 'comprehensive'; step: 1 | 2 | 3; invoiceRequested: boolean | null }) {
+  const order = buildVisualReviewOrder(tier, invoiceRequested === true);
   const label = tier === 'essential' ? 'Essential' : 'Comprehensive';
-  const stepLabel = step === 1 ? 'Confirm' : step === 2 ? 'Billing' : 'Payment';
+  const stepLabel = step === 1 ? 'Confirm' : step === 2 ? invoiceRequested ? 'Billing · invoice requested' : 'Billing' : 'Payment';
   return (
     <ReviewFrame kind={`order-${tier}-${stepLabel.toLowerCase()}`} title={`${label} · ${stepLabel}`}>
       <ResultChrome
@@ -174,7 +182,8 @@ function OrderReview({ tier, step }: { tier: 'essential' | 'comprehensive'; step
           snapshotToken="visual-review-token"
           snapshotPath="/score/visual-review/snapshot/score-60"
           initialStep={step}
-          initialInvoiceRequested={step === 2 ? false : null}
+          initialInvoiceRequested={step === 2 ? invoiceRequested : null}
+          initialInvoiceDetails={invoiceRequested ? buildVisualReviewInvoiceDetails(tier) : null}
           initialOrder={step === 3 ? order : null}
           visualReview
         />
@@ -192,5 +201,5 @@ export default async function VisualReviewPage({ params }: VisualReviewPageProps
   if (scenario.kind === 'index') return <IndexPage />;
   if (scenario.kind === 'adaptive') return <AdaptiveReview variant={scenario.variant} />;
   if (scenario.kind === 'snapshot') return <SnapshotReview variant={scenario.variant} />;
-  return <OrderReview tier={scenario.tier} step={scenario.step} />;
+  return <OrderReview tier={scenario.tier} step={scenario.step} invoiceRequested={scenario.invoiceRequested} />;
 }

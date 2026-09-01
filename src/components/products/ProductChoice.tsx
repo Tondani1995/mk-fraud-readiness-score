@@ -75,6 +75,17 @@ export function ProductChoice({
   const navigatingTierRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
   const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
   const [earlierIntent, setEarlierIntent] = useState<ProductIntent | null>(null);
+  // The recommendation is the first mobile card in the DOM and therefore the first card a
+  // stacked layout and keyboard traversal encounter. Desktop keeps the established three-column
+  // composition through explicit responsive order classes.
+  const paidTiers: SelfServicePaidTier[] = recommendation.recommendedTier === 'comprehensive'
+    ? ['comprehensive', 'essential']
+    : ['essential', 'comprehensive'];
+  const desktopOrderClass: Record<SelfServicePaidTier | 'advisory', string> = {
+    essential: 'md:order-1',
+    comprehensive: 'md:order-2',
+    advisory: 'md:order-3'
+  };
 
   /**
    * A tier the customer chose on the storefront before starting the assessment. It is read after
@@ -227,17 +238,20 @@ export function ProductChoice({
           </div>
 
           <div className="mt-4 grid gap-3.5 md:grid-cols-3">
-            {(['essential', 'comprehensive'] as SelfServicePaidTier[]).map((tier) => (
-              <ProductCard
-                key={tier}
-                tier={tier}
-                isBestFit={recommendation.recommendedTier === tier}
-                isEarlierSelection={earlierIntent === tier}
-                isNavigating={Boolean(navigatingOption)}
-                onChoose={() => chooseTier(tier)}
-              />
+            {paidTiers.map((tier) => (
+              <div key={tier} className={`min-w-0 ${desktopOrderClass[tier]}`}>
+                <ProductCard
+                  tier={tier}
+                  isBestFit={recommendation.recommendedTier === tier}
+                  isEarlierSelection={earlierIntent === tier}
+                  isNavigating={Boolean(navigatingOption)}
+                  onChoose={() => chooseTier(tier)}
+                />
+              </div>
             ))}
-            <AdvisoryCard isNavigating={navigatingOption === 'advisory'} onChoose={chooseAdvisory} />
+            <div className={`min-w-0 ${desktopOrderClass.advisory}`}>
+              <AdvisoryCard isNavigating={navigatingOption === 'advisory'} onChoose={chooseAdvisory} />
+            </div>
           </div>
         </div>
       </section>
