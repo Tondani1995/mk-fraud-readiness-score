@@ -65,7 +65,7 @@ function hashObject(value) {
 }
 
 for (const profileKey of Object.keys(profiles)) {
-  const { data, score, path: resolvedPath, profile } = buildV12ProfileAssembled(profileKey);
+  const { data, score, path: resolvedPath, profile, graph } = buildV12ProfileAssembled(profileKey);
 
   if (data.packageName !== 'Comprehensive') fail(profileKey, 'PRODUCT_IDENTITY', `packageName=${data.packageName}`);
   if (data.productCode !== 'mk_validated_assessment') fail(profileKey, 'PRODUCT_IDENTITY', `productCode=${data.productCode}`);
