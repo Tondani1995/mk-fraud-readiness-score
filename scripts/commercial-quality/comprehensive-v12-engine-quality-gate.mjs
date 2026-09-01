@@ -121,6 +121,10 @@ for (const profileKey of Object.keys(profiles)) {
     })
   );
 
+  if ('expectedMode' in profile && model.narrativeMode !== profile.expectedMode) {
+    fail(profileKey, 'MODE_COHERENCE', `expected ${profile.expectedMode}, received ${model.narrativeMode}`);
+  }
+
   const brief = buildInterpretationBrief({
     model,
     organisationName: pack.organisation.name,
@@ -220,7 +224,11 @@ for (const profileKey of Object.keys(profiles)) {
     actions: model.registers.actions.length,
     measures: model.registers.measures.length
   };
-  for (const [name, count] of Object.entries(registerCounts)) {
+  const requiredRegisters = model.narrativeMode === 'SUSTAINMENT'
+    ? ['controls', 'evidence', 'actions', 'measures']
+    : Object.keys(registerCounts);
+  for (const name of requiredRegisters) {
+    const count = registerCounts[name];
     if (count < 1) fail(profileKey, 'EMPTY_REGISTER', `${name}=0`);
   }
 
@@ -232,8 +240,39 @@ for (const profileKey of Object.keys(profiles)) {
     decisionAgenda: model.core.decisionAgenda.length,
     implementationPhases: model.core.implementationPhases.length
   };
-  for (const [name, count] of Object.entries(coreCounts)) {
+  const requiredCoreModules = model.narrativeMode === 'SUSTAINMENT'
+    ? ['managementThemes', 'controlProgrammes', 'governanceRoles', 'decisionAgenda', 'implementationPhases']
+    : Object.keys(coreCounts);
+  for (const name of requiredCoreModules) {
+    const count = coreCounts[name];
     if (count < 1) fail(profileKey, 'EMPTY_CORE_MODULE', `${name}=0`);
+  }
+
+  if (model.narrativeMode === 'SUSTAINMENT') {
+    if (model.core.managementThemes.length > 4) {
+      fail(profileKey, 'SUSTAINMENT_SCOPE', `${model.core.managementThemes.length} management themes exceeds sustainment ceiling`);
+    }
+    if (model.registers.assuranceCoverage.length !== domains.length) {
+      fail(profileKey, 'SUSTAINMENT_COVERAGE', `${model.registers.assuranceCoverage.length} assurance rows for ${domains.length} assessed domains`);
+    }
+    if (model.registers.assurancePriorities.length < 1) {
+      fail(profileKey, 'SUSTAINMENT_COVERAGE', 'no deep-dive assurance priorities');
+    }
+    if (model.registers.resilienceTests.length < 1) {
+      fail(profileKey, 'SUSTAINMENT_COVERAGE', 'no control resilience tests');
+    }
+    if (model.registers.actions.some((row) => row.workType === 'IMPLEMENT')) {
+      fail(profileKey, 'SUSTAINMENT_PROGRAMME', 'sustainment programme contains IMPLEMENT work');
+    }
+    if (!plain.includes('Assurance coverage across the control environment')) {
+      fail(profileKey, 'SUSTAINMENT_RENDER', 'assurance coverage section missing');
+    }
+    if (!plain.includes('Control resilience tests')) {
+      fail(profileKey, 'SUSTAINMENT_RENDER', 'control resilience section missing');
+    }
+    if (/The control environment management should build/i.test(plain)) {
+      fail(profileKey, 'SUSTAINMENT_RENDER', 'remediation build heading leaked into sustainment report');
+    }
   }
 
   // Every deterministic register row must reach its own appendix, not merely
@@ -291,6 +330,7 @@ for (const profileKey of Object.keys(profiles)) {
     score: pack.assessment.score,
     maturity: pack.assessment.maturity,
     resultStatus: score.resultStatus,
+    narrativeMode: model.narrativeMode,
     assessmentScope,
     interpretationScope: brief.assessmentScope,
     activeNodes: resolvedPath.activeNodes.length,
@@ -310,6 +350,7 @@ for (const profileKey of Object.keys(profiles)) {
     score: pack.assessment.score,
     maturity: pack.assessment.maturity,
     resultStatus: score.resultStatus,
+    narrativeMode: model.narrativeMode,
     assessmentScope,
     interpretationScope: brief.assessmentScope,
     activeNodes: resolvedPath.activeNodes.length,
@@ -333,6 +374,10 @@ if (uniqueFingerprints.size !== rows.length) {
 const maturitySet = new Set(rows.map((row) => row.maturity));
 if (maturitySet.size < 2) {
   fail('portfolio', 'PROFILE_SPREAD', 'quality portfolio does not exercise at least two maturity positions');
+}
+const modeSet = new Set(rows.map((row) => row.narrativeMode));
+if (!modeSet.has('SUSTAINMENT') || ![...modeSet].some((mode) => mode !== 'SUSTAINMENT')) {
+  fail('portfolio', 'MODE_SPREAD', `quality portfolio modes: ${[...modeSet].join(', ') || 'none'}`);
 }
 
 const summary = {
