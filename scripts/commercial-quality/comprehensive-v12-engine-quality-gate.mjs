@@ -66,6 +66,14 @@ function hashObject(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function htmlEsc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 for (const profileKey of Object.keys(profiles)) {
   const { data, score, path: resolvedPath, profile, graph } = buildV12ProfileAssembled(profileKey);
 
@@ -202,6 +210,42 @@ for (const profileKey of Object.keys(profiles)) {
   };
   for (const [name, count] of Object.entries(coreCounts)) {
     if (count < 1) fail(profileKey, 'EMPTY_CORE_MODULE', `${name}=0`);
+  }
+
+  // Every deterministic register row must reach its own appendix, not merely
+  // occur somewhere in the document. This catches the historical class of
+  // defect where a model object existed but the renderer omitted its section.
+  const registerSections = html.split('<section class="reg">').slice(1);
+  const sectionFor = (title) => registerSections.find((section) => section.includes(htmlEsc(title))) ?? '';
+  const assertRowsRendered = (sectionTitle, values, identity, label) => {
+    const section = sectionFor(sectionTitle);
+    if (!section) {
+      fail(profileKey, 'UNRENDERED_REGISTER_SECTION', `${label}: appendix section absent`);
+      return;
+    }
+    const missing = values.filter((value) => !section.includes(htmlEsc(identity(value))));
+    if (missing.length) {
+      fail(profileKey, 'UNRENDERED_REGISTER_ROW', `${label}: ${missing.length} of ${values.length} absent (e.g. ${identity(missing[0])})`);
+    }
+  };
+  assertRowsRendered('Finding register', model.registers.findings, (row) => row.findingId, 'finding register');
+  assertRowsRendered('Fraud risk register', model.registers.risks, (row) => row.riskId, 'risk register');
+  assertRowsRendered('Control blueprint register', model.registers.controls, (row) => row.controlId, 'control register');
+  assertRowsRendered('Evidence requirement register', model.registers.evidence.flatMap((group) => group.items), (row) => row.artefact, 'evidence register');
+  assertRowsRendered('12-month action and assurance register', model.registers.actions, (row) => row.deliverable, 'action register');
+  assertRowsRendered('Measurement register', model.registers.measures, (row) => row.measure, 'measure register');
+
+  const coreValues = {
+    managementThemes: model.core.managementThemes.map((row) => row.title),
+    exposureThemes: model.core.exposureThemes.map((row) => row.title),
+    controlProgrammes: model.core.controlProgrammes.map((row) => row.title),
+    governanceRoles: model.core.governanceRoles.map((row) => row.displayRole),
+    decisionAgenda: model.core.decisionAgenda.map((row) => row.decisionRequired),
+    implementationPhases: model.core.implementationPhases.map((row) => row.phase)
+  };
+  for (const [name, values] of Object.entries(coreValues)) {
+    const missing = values.filter((value) => value && !html.includes(htmlEsc(value)));
+    if (missing.length) fail(profileKey, 'UNRENDERED_CORE_MODULE', `${name}: ${missing.length} of ${values.length} absent`);
   }
 
   const fingerprintPayload = {
