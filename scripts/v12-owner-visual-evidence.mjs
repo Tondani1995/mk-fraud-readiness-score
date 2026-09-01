@@ -101,6 +101,17 @@ async function waitForStableRender(page) {
   await delay(450);
 }
 
+async function waitForScoreGauge(page) {
+  await page.waitForFunction(() => {
+    const gauge = document.querySelector('[data-score-gauge]');
+    if (!gauge) return true;
+    const expected = gauge.getAttribute('data-score-gauge-value');
+    if (expected === 'not-issued') return true;
+    return gauge.querySelector('svg text')?.textContent?.trim() === expected;
+  }, { timeout: 5000 });
+  await delay(100);
+}
+
 async function primePreviewAccess(page) {
   if (!PREVIEW_SHARE_URL) return;
   await page.goto(PREVIEW_SHARE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -338,6 +349,7 @@ async function main() {
           await page.evaluate(({ selector, block }) => document.querySelector(selector)?.scrollIntoView({ block, inline: 'nearest' }), { selector: item.scrollSelector, block: item.scrollBlock ?? 'start' });
           await delay(300);
         }
+        if (item.kind === 'snapshot' || item.kind === 'snapshot-next-step') await waitForScoreGauge(page);
         const suffix = `${viewport.width}x${viewport.height}`;
         const filename = `${item.name}-${suffix}.jpg`;
         const fullPath = path.join(FULL_OUT, filename);
