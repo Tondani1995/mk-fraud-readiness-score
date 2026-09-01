@@ -78,7 +78,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-slate-200 bg-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-lg border-2 border-slate-200 bg-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5 text-[#001030]" />
           </button>
         </div>

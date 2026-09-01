@@ -80,13 +80,13 @@ export default function CTASection() {
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                 <Link href="/score/start" className="w-full sm:w-auto">
                   <Button
-                    className="group w-full rounded-xl bg-[#001030] px-8 py-6 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-[#0b1b44]"
+                    className="group w-full whitespace-normal rounded-xl bg-[#001030] px-8 py-6 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-[#0b1b44]"
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                   >
-                    <span className="flex items-center gap-3">
+                    <span className="flex min-w-0 flex-wrap items-center justify-center gap-3 whitespace-normal text-center leading-snug">
                       <BarChart3 className="h-5 w-5" />
-                      Start the Fraud Readiness Assessment
+                      <span className="min-w-0">Start the Fraud Readiness Assessment</span>
                       <ArrowRight
                         className={`h-5 w-5 transition-transform duration-300 ${isHovered ? "translate-x-1" : ""}`}
                       />
