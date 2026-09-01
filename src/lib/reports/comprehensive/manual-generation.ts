@@ -36,11 +36,10 @@ export async function renderComprehensiveReportPdf(input: {
   assembled: AssembledReportData;
   evidenceModel: AdvisoryEvidenceModel;
   /**
-   * Repairs are additional paid provider calls. Manual fulfilment runs on an explicit
-   * single-call budget, so the default is zero: one call produces the report or the
-   * attempt fails visibly rather than quietly spending more.
+   * Recovery follows the shared Essential safety-net policy. Provider calls are
+   * bounded and fully accounted; callers cannot silently disable or expand the
+   * recovery budget from the fulfilment surface.
    */
-  maxRepairsPerSlot?: number;
 }): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
   const { assembled, evidenceModel } = input;
 
@@ -74,7 +73,6 @@ export async function renderComprehensiveReportPdf(input: {
     })
   );
 
-  const maxRepairs = input.maxRepairsPerSlot ?? 0;
   const interpretationRun = await generateComprehensiveInterpretation(
     buildInterpretationBrief({
       model,
@@ -83,16 +81,12 @@ export async function renderComprehensiveReportPdf(input: {
       maturity,
       assessmentScope,
       domains
-    }),
-    { maxRepairsPerSlot: maxRepairs }
+    })
   );
   // A structurally valid provider response is not automatically acceptable.
   // Nothing customer-visible is rendered until every bounded slot passes the
   // final hard-truth, semantic and quality checks and the authorised call budget.
-  assertComprehensiveInterpretationAccepted(interpretationRun, {
-    maxCalls: 1 + maxRepairs,
-    maxRepairs
-  });
+  assertComprehensiveInterpretationAccepted(interpretationRun);
 
   const html = renderComprehensiveManagementReportHtml({
     model,
