@@ -82,7 +82,7 @@ function ContactUsForm() {
    * It previously posted from the browser straight to api.web3forms.com, which meant a customer
    * enquiry existed only in a third party's inbox: MK could not see it in the admin queue, could
    * not answer it from a reference, and had no record if the third party dropped it. There is no
-   * dual delivery — the browser posts to MK and nowhere else.
+   * dual delivery; the browser posts to MK and nowhere else.
    *
    * Success is shown only when the enquiry was actually persisted and the API returned its
    * reference. A failure is reported as a failure.

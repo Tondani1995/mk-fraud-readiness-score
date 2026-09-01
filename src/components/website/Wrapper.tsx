@@ -8,9 +8,9 @@ interface Props {
 
 export default function Wrapper({ children }: Props) {
   return (
-    <div className="">
+    <div className="min-h-screen w-full overflow-x-hidden bg-white">
       <Navbar />
-      <div className="md:h-16 h-10"></div>
+      <div className="w-full pt-20 md:pt-24"></div>
       {children}
       <Footer />
     </div>

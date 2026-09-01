@@ -87,7 +87,7 @@ export function PublicAdvisoryEnquiryForm() {
       <section aria-labelledby="advisory-success" className="border border-slate-200 bg-white p-8 lg:p-10">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#1D3658]">Enquiry received</p>
         <h2 id="advisory-success" className="mt-3 text-2xl font-semibold tracking-tight text-[#001030]">
-          Thank you — we have your enquiry.
+          Thank you, we have your enquiry.
         </h2>
         <p className="mt-4 text-base leading-7 text-slate-700">{success.message}</p>
         <dl className="mt-6 border-t border-slate-200 pt-6">

@@ -22,7 +22,7 @@ import {
  *  2. Acceptance is affirmative and unbundled. Two separate checkboxes, both required, neither
  *     pre-ticked, and the optional research consent stays on the form below where it can be
  *     declined without consequence.
- *  3. The form underneath is genuinely inert until acceptance — `inert` removes it from the tab
+ *  3. The form underneath is genuinely inert until acceptance; `inert` removes it from the tab
  *     order and from the accessibility tree, so a keyboard or screen-reader user cannot reach a
  *     field that a sighted user cannot reach either.
  *
@@ -63,7 +63,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
 
   /**
    * `inert` is applied imperatively rather than as a JSX prop: this React version does not type it,
-   * and the attribute — not a class — is what removes the subtree from the tab order and the
+   * and the attribute, not a class, is what removes the subtree from the tab order and the
    * accessibility tree.
    */
   useEffect(() => {

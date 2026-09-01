@@ -24,20 +24,18 @@ function label(value: string) {
 }
 
 /**
- * Reports authoritative progress without inventing a time estimate. Adaptive applicability can
- * change while profile gateways are unanswered, so the current denominator is labelled as
- * provisional until that scope is resolved.
+ * Reports authoritative progress without exposing a question denominator. The phrase
+ * "applicable assessment questions completed" belongs to the internal test vocabulary only; the
+ * customer sees a percentage and the current area instead.
  */
 export function assessmentProgressLabel(completedApplicableCount: number, activePathCount: number, applicabilityResolved: boolean) {
   const completed = Math.max(0, Math.floor(Number.isFinite(completedApplicableCount) ? completedApplicableCount : 0));
   const applicable = Math.max(0, Math.floor(Number.isFinite(activePathCount) ? activePathCount : 0));
   if (!applicabilityResolved) {
-    return completed > 0
-      ? `${completed} applicable assessment question${completed === 1 ? '' : 's'} completed. The total will update as your assessment scope is determined.`
-      : 'Your assessment scope is being determined.';
+    return 'Your assessment scope is being determined. Tailoring the assessment to your organisation.';
   }
   if (applicable <= 0) return 'Your assessment scope is being determined.';
-  return `${completed} of ${applicable} applicable assessment questions completed.`;
+  return `${Math.min(100, Math.max(0, Math.round((completed / applicable) * 100)))}% complete.`;
 }
 
 function SubmissionProcessingCard({ assessmentReference }: { assessmentReference: string }) {

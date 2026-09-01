@@ -102,7 +102,6 @@ export function AssessmentEngine(props: AssessmentEngineProps) {
   const exposureSelectionMap = useMemo<ExposureSelectionMap>(() => Object.fromEntries(props.exposureFactors.flatMap((factor) => {
     const key = factorRule(factor); return key ? [[key, exposureAnswers[factor.id]?.selectedValue]] : [];
   })), [exposureAnswers, props.exposureFactors]);
-  const domainNumber = activeDomain ? props.domains.findIndex((domain) => domain.id === activeDomain.id) + 1 : 0;
   const isLocked = submitState !== 'idle';
   const interactionBlocked = Boolean(pendingItem) || isLocked || ['saving', 'error', 'offline'].includes(saveState);
 
@@ -261,7 +260,7 @@ export function AssessmentEngine(props: AssessmentEngineProps) {
     <div className="mx-auto max-w-6xl" data-assessment-native="true">
       <div className="mb-5 rounded-2xl border border-mk-line bg-white p-4 shadow-sm" aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div><p className="font-semibold text-mk-ink">{activeDomain ? `Domain ${domainNumber} of ${props.domains.length}` : 'Exposure profile'} · {progress.overallPct}% complete</p><p className="mt-1 text-xs text-mk-muted">{progress.answeredQuestions}/{progress.totalQuestions} questions · {progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure factors</p></div>
+          <div><p className="font-semibold text-mk-ink">{activeDomain ? publicLabel(activeDomain.name) : 'Exposure profile'} · {progress.overallPct}% complete</p><p className="mt-1 text-xs text-mk-muted">Your responses are saved after server confirmation. Use the area tabs to move through the assessment.</p></div>
           <div className="text-right text-xs text-mk-muted"><p>{saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'offline' ? 'Offline · not saved' : saveState === 'error' ? 'Save failed' : 'Ready'}</p>{savedAt ? <p>Last saved {new Date(savedAt).toLocaleTimeString('en-ZA')}</p> : null}</div>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-mk-line" role="progressbar" aria-label="Assessment completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.overallPct}><div className="h-full bg-mk-charcoal transition-[width] motion-reduce:transition-none" style={{ width: `${progress.overallPct}%` }} /></div>
@@ -271,14 +270,14 @@ export function AssessmentEngine(props: AssessmentEngineProps) {
         <span className="mb-2 block text-sm font-semibold text-mk-ink">Jump to a section</span>
         <select value={activeStep} disabled={interactionBlocked} onChange={(event) => setActiveStep(event.target.value)} className="min-h-12 w-full rounded-xl border border-mk-line bg-white px-4 text-sm font-semibold text-mk-ink">
           <option value="exposure">Exposure profile</option>
-          {props.domains.map((domain, index) => <option key={domain.id} value={domain.id}>Domain {index + 1}: {publicLabel(domain.name)}</option>)}
+          {props.domains.map((domain) => <option key={domain.id} value={domain.id}>{publicLabel(domain.name)}</option>)}
         </select>
       </label>
       <nav aria-label="Assessment domains" className="mb-5 hidden flex-wrap gap-2 sm:flex">
         <button type="button" disabled={interactionBlocked} onClick={() => setActiveStep('exposure')} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${activeStep === 'exposure' ? 'border-mk-charcoal bg-mk-charcoal text-white' : 'border-mk-line bg-white text-mk-muted'}`}>Exposure {Math.round((progress.answeredExposureFactors / Math.max(1, progress.totalExposureFactors)) * 100)}%</button>
         {props.domains.map((domain, index) => {
           const complete = domain.questions.every((question) => isAnswered(answers[question.id]));
-          return <button key={domain.id} type="button" disabled={interactionBlocked} onClick={() => { setActiveStep(domain.id); const first = domain.questions.find((question) => !isAnswered(answers[question.id])) ?? domain.questions[0]; if (first) scrollToItem(`question-${first.id}`); }} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${activeStep === domain.id ? 'border-mk-charcoal bg-mk-charcoal text-white' : 'border-mk-line bg-white text-mk-muted'}`}>Domain {index + 1}{complete ? ' ✓' : ''}</button>;
+          return <button key={domain.id} type="button" disabled={interactionBlocked} onClick={() => { setActiveStep(domain.id); const first = domain.questions.find((question) => !isAnswered(answers[question.id])) ?? domain.questions[0]; if (first) scrollToItem(`question-${first.id}`); }} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${activeStep === domain.id ? 'border-mk-charcoal bg-mk-charcoal text-white' : 'border-mk-line bg-white text-mk-muted'}`}>{publicLabel(domain.name)}{complete ? ' ✓' : ''}</button>;
         })}
       </nav>
 

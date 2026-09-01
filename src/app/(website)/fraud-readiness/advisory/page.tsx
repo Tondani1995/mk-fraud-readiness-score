@@ -27,7 +27,7 @@ export default function PublicAdvisoryEnquiryPage() {
                 Discuss an Advisory engagement
               </h1>
               <p className="mt-6 text-lg leading-8 text-white/75">
-                MK Advisory is scoped and contracted for the work in front of you — it is not
+                MK Advisory is scoped and contracted for the work in front of you; it is not
                 bought online. Tell us what you are dealing with and we will come to the scoping
                 conversation prepared, with a view on approach, effort and fees.
               </p>

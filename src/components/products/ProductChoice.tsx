@@ -7,6 +7,7 @@ import type { NextStepRecommendation } from '@/lib/snapshot/next-step-recommenda
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 import { readProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
 import { trackEvent } from '@/lib/website/gtag';
+import { ProductTierCard } from '@/components/products/ProductTierCard';
 
 /** The conversion moment: three equally visible choices with a deterministic recommendation. */
 
@@ -68,13 +69,13 @@ export function ProductChoice({
   const advisorySelectionSent = useRef(false);
   const reportOptionsViewedRef = useRef(false);
   const optionSectionRef = useRef<HTMLElement | null>(null);
-  const navigatingOptionRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
+  const navigatingTierRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
   const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
   const [earlierIntent, setEarlierIntent] = useState<ProductIntent | null>(null);
 
   /**
    * A tier the customer chose on the storefront before starting the assessment. It is read after
-   * mount because it lives in browser storage, and it only ever marks a card — the deterministic
+   * mount because it lives in browser storage, and it only ever marks a card; the deterministic
    * best-fit recommendation is unaffected, and every option stays freely choosable.
    */
   useEffect(() => {
@@ -126,13 +127,13 @@ export function ProductChoice({
   }, [router, snapshot.assessmentReference, snapshotUrl]);
 
   function chooseTier(tier: SelfServicePaidTier) {
-    if (navigatingOptionRef.current) return;
+    if (navigatingTierRef.current) return;
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
     const params = new URLSearchParams({ tier, ref: snapshot.assessmentReference });
     if (snapshotToken) params.set('token', snapshotToken);
     const destination = `${SCORE_BASE_PATH}/order/new?${params.toString()}`;
 
-    navigatingOptionRef.current = tier;
+    navigatingTierRef.current = tier;
     setNavigatingOption(tier);
     trackEvent('product_selected', { tier });
     router.push(destination);
@@ -152,14 +153,14 @@ export function ProductChoice({
   }
 
   function chooseAdvisory() {
-    if (navigatingOptionRef.current) return;
+    if (navigatingTierRef.current) return;
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
     const params = new URLSearchParams();
     if (snapshotToken) params.set('token', snapshotToken);
     const query = params.toString();
     const destination = `${SCORE_BASE_PATH}/advisory/${encodeURIComponent(snapshot.assessmentReference)}${query ? `?${query}` : ''}`;
 
-    navigatingOptionRef.current = 'advisory';
+    navigatingTierRef.current = 'advisory';
     setNavigatingOption('advisory');
     trackEvent('product_selected', { tier: 'advisory' });
     router.push(destination);
@@ -195,7 +196,7 @@ export function ProductChoice({
             </p>
             {/* The certified MK Advisory route, not the generic contact form. This customer has a
                 Snapshot and a private token, so their assessment context travels with the enquiry
-                — sending them to a general "send us a message" form would discard exactly the
+                sending them to a general "send us a message" form would discard exactly the
                 context that makes the conversation useful, and drop them out of the Advisory
                 workflow and its admin queue. */}
             {recommendation.speakToMkFirst ? (
@@ -232,79 +233,65 @@ export function ProductChoice({
 function ProductCard({ tier, isBestFit, isEarlierSelection, isNavigating, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; isEarlierSelection: boolean; isNavigating: boolean; onChoose: () => void }) {
   const product = COMMERCIAL_CATALOGUE[tier];
   const card = CARDS[tier];
-  // Price is read from the catalogue at render time. No price literal exists in this component.
   const price = formatCataloguePrice(product.priceCents);
+  const featuredLabel = isBestFit ? 'Best fit for your result' : isEarlierSelection ? 'You selected this earlier' : undefined;
+  const actionClass = tier === 'comprehensive'
+    ? 'bg-white text-mk-navy hover:bg-white/90'
+    : 'bg-mk-navy text-white hover:bg-mk-slate';
 
   return (
-    <article
-      aria-labelledby={`${tier}-name`}
-      data-earlier-selection={isEarlierSelection ? 'true' : undefined}
-      className={`flex h-full flex-col rounded-2xl bg-mk-paper p-5 ${isBestFit || isEarlierSelection ? 'border-2 border-mk-accent' : 'border border-mk-line'}`}
-    >
-      {isBestFit ? (
-        <p className="mb-2.5 inline-block rounded-[3px] bg-mk-accent px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.13em] text-white">
-          Best fit for your result
-        </p>
-      ) : null}
-      {isEarlierSelection ? (
-        <p className="mb-2.5 inline-block rounded-[3px] border border-mk-accent/40 px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.13em] text-mk-accent">
-          You selected this earlier
-        </p>
-      ) : null}
-      <h3 id={`${tier}-name`} className="text-[19px] font-semibold text-mk-navy md:text-xl">{product.label}</h3>
-      {price ? <p className="mt-1 text-[12.5px] tabular-nums text-mk-slate">{price} incl. VAT</p> : null}
-      <p className="mt-3 border-t border-mk-line pt-3 text-[13px] font-semibold leading-snug text-mk-accent md:text-[13.5px]">{card.answers}</p>
-      <dl className="mt-3.5 flex flex-1 flex-col gap-2.5">
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">For</dt>
-          <dd className="mt-0.5 text-[12.5px] leading-6 text-mk-slate">{card.forWho}</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">You receive</dt>
-          <dd className="mt-0.5 text-[12.5px] leading-6 text-mk-slate">{card.receive.join(' · ')}</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">Leaves you with</dt>
-          <dd className="mt-0.5 text-[12.5px] font-semibold leading-6 text-mk-navy">{card.leavesYouWith}</dd>
-        </div>
-      </dl>
-      <button
-        type="button"
-        onClick={onChoose}
-        disabled={isNavigating}
-        className={`mt-4 flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 ${
-          isBestFit ? 'bg-mk-navy text-white hover:bg-mk-slate disabled:cursor-wait disabled:opacity-70' : 'border-2 border-mk-accent/25 text-mk-navy hover:border-mk-accent/50 disabled:cursor-wait disabled:opacity-70'
-        }`}
-      >
-        {isNavigating ? 'Opening…' : `Choose ${product.label}`}
-      </button>
-    </article>
+    <ProductTierCard
+      tier={tier}
+      label={product.label}
+      phase={tier === 'essential' ? 'Diagnose' : 'Design'}
+      tagline={tier === 'essential' ? 'Clarify the position' : 'Build the response'}
+      priceLabel={price ? `${price} incl. VAT` : undefined}
+      description={card.answers}
+      features={[
+        `For: ${card.forWho}`,
+        `You receive: ${card.receive.join(' · ')}`,
+        `Leaves you with: ${card.leavesYouWith}`
+      ]}
+      featuredLabel={featuredLabel}
+      compact
+      earlierSelected={isEarlierSelection}
+      action={(
+        <button
+          type="button"
+          onClick={onChoose}
+          disabled={isNavigating}
+          className={`flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 ${actionClass} disabled:cursor-wait disabled:opacity-70`}
+        >
+          {isNavigating ? 'Opening…' : `Choose ${product.label}`}
+        </button>
+      )}
+    />
   );
 }
 
 function AdvisoryCard({ isNavigating, onChoose }: { isNavigating: boolean; onChoose: () => void }) {
   return (
-    <article id="advisory" aria-labelledby="advisory-name" className="flex h-full flex-col rounded-2xl bg-mk-navy p-5 text-white">
-      <h3 id="advisory-name" className="text-[19px] font-semibold text-white md:text-xl">MK Advisory</h3>
-      <p className="mt-3 border-t border-white/20 pt-3 text-[13px] font-semibold leading-snug text-mk-accent md:text-[13.5px]">Work with MK directly to investigate, design or implement it with us.</p>
-      <dl className="mt-3.5 flex flex-1 flex-col gap-2.5">
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-white/[.62]">For</dt>
-          <dd className="mt-0.5 text-[12.5px] leading-6 text-white/[.82]">An organisation that needs a partner for a more involved fraud-readiness question.</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] uppercase tracking-[0.14em] text-white/[.62]">You receive</dt>
-          <dd className="mt-0.5 text-[12.5px] leading-6 text-white/[.82]">A conversation to define the work, scope, deliverables and fees with MK.</dd>
-        </div>
-      </dl>
-      <button
-        type="button"
-        onClick={onChoose}
-        disabled={isNavigating}
-        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-mk-navy"
-      >
-        {isNavigating ? 'Opening…' : 'Talk to MK'}
-      </button>
-    </article>
+    <ProductTierCard
+      id="advisory"
+      tier="advisory"
+      label="MK Advisory"
+      phase="Implement"
+      tagline="Move with a partner"
+      description="Work with MK directly to investigate, design or implement it with us."
+      features={[
+        'For: An organisation that needs a partner for a more involved fraud-readiness question.',
+        'You receive: A conversation to define the work, scope, deliverables and fees with MK.'
+      ]}
+      action={(
+        <button
+          type="button"
+          onClick={onChoose}
+          disabled={isNavigating}
+          className="flex min-h-12 w-full items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-navy focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
+        >
+          {isNavigating ? 'Opening…' : 'Talk to MK'}
+        </button>
+      )}
+    />
   );
 }

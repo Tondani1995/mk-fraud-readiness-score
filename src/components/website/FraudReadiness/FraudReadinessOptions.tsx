@@ -6,7 +6,7 @@ import { storefrontCards } from '@/lib/commercial/storefront-presentation';
  *
  * Deliberately not a pricing table: no "most popular" flag, no crossed-out anchor price, no
  * feature-tick matrix. Which tier is right depends on the organisation's result, and the platform
- * makes that recommendation later from the Snapshot — asserting it here, before anything is known,
+ * makes that recommendation later from the Snapshot; asserting it here, before anything is known,
  * would be selling rather than advising.
  *
  * Every price and deliverable is read from the catalogue through storefront-presentation.ts. No
@@ -77,7 +77,7 @@ export function FraudReadinessOptions() {
         >
           Start with the free Snapshot
         </Link>{' '}
-        — complete the assessment, see where your organisation stands, and decide afterwards.
+        Complete the assessment, see where your organisation stands, and decide afterwards.
       </p>
     </section>
   );

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ProductTierCard, type ProductTier } from '@/components/products/ProductTierCard';
 
 export interface TierComparisonProduct {
   id: string;
@@ -17,6 +18,18 @@ export interface TierComparisonProps {
   heading?: string;
   intro?: string;
 }
+
+const TIER_BY_ID: Record<string, ProductTier> = {
+  essential: 'essential',
+  comprehensive: 'comprehensive',
+  advisory: 'advisory'
+};
+
+const PHASE_BY_TIER: Record<ProductTier, string> = {
+  essential: 'Diagnose',
+  comprehensive: 'Design',
+  advisory: 'Implement'
+};
 
 /**
  * Presentation-only comparison. Product codes and prices are intentionally supplied by props so
@@ -39,27 +52,23 @@ export function TierComparison({
   heading = 'How far do you want to take this?',
   intro = 'Essential diagnoses the position. Comprehensive adds the control, governance, evidence and implementation depth to act on it. Advisory is scoped directly with MK. Neither product includes independent validation.'
 }: TierComparisonProps) {
-  const renderProduct = (product: TierComparisonProduct) => (
-    <article
+  const renderProduct = (product: TierComparisonProduct) => {
+    const tier = TIER_BY_ID[product.id] ?? 'essential';
+    return (
+    <ProductTierCard
       key={product.id}
-      aria-labelledby={`${product.id}-title`}
-      className="rounded-2xl border border-mk-line bg-mk-paper p-6 text-mk-navy"
-    >
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-mk-muted">{product.label}</p>
-      <h3 id={`${product.id}-title`} className="mt-2 text-2xl font-semibold tracking-tight">{product.tagline}</h3>
-      {product.priceLabel ? <p className="mt-5 text-sm font-medium tabular-nums text-mk-slate">{product.priceLabel}</p> : null}
-      {product.description ? <p className="mt-4 text-sm leading-6 text-mk-slate">{product.description}</p> : null}
-      <ul className="mt-6 space-y-3" aria-label={`${product.label} includes`}>
-        {product.features.map((feature) => (
-          <li key={feature} className="flex gap-3 text-sm leading-6 text-mk-slate">
-            <span aria-hidden="true" className="mt-3 h-px w-2 shrink-0 bg-mk-accent" />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
-      {product.action ? <div className="mt-7">{product.action}</div> : null}
-    </article>
-  );
+      tier={tier}
+      label={product.label}
+      phase={PHASE_BY_TIER[tier]}
+      tagline={product.tagline}
+      priceLabel={product.priceLabel}
+      description={product.description}
+      features={product.features}
+      compact
+      action={product.action}
+    />
+    );
+  };
 
   return (
     <section aria-labelledby="tier-comparison-heading" className="mx-auto max-w-[1120px]">

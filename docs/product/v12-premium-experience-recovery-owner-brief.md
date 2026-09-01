@@ -8,7 +8,7 @@ Branch: cx/v12-premium-experience-recovery-20260901
 
 The current customer-facing Fraud Readiness experience is not commercially acceptable. This is not a minor styling pass. Rebuild the presentation layer so the product can credibly sit alongside premium consulting assessment products in 2026.
 
-Production customer starts are paused. Do not re-enable them or deploy this branch until owner visual acceptance.
+Production assessment starts are currently enabled and must remain enabled throughout this recovery. This UI work must not disable, pause or gate assessment starts. Do not deploy this branch to Production while it is under review. Any future interruption of customer starts requires explicit owner approval unless there is an immediate safety incident.
 
 ## Preserve
 
@@ -80,7 +80,7 @@ Before owner review, produce real rendered screenshots from the exact candidate 
 
 Use at least 1440 desktop and representative mobile widths. Include a 100-score Snapshot specifically.
 
-No Production deployment or customer-start reactivation until owner explicitly accepts the screenshots.
+No Production deployment or customer-start state change until owner explicitly accepts the screenshots. Production assessment starts remain enabled while this branch is reviewed.
 
 ## Engineering acceptance
 
