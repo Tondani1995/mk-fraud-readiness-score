@@ -7,6 +7,8 @@ on:
     paths:
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
       - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
       - src/lib/reports/comprehensive/**
       - src/lib/reports/evidence-model/**
@@ -20,6 +22,8 @@ on:
     paths:
       - src/lib/qa/comprehensive-v12-quality-profiles.ts
       - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/layout-fit-gate.mjs
       - .github/workflows/comprehensive-v12-engine-quality.yml
       - src/lib/reports/comprehensive/**
       - src/lib/reports/evidence-model/**
@@ -34,7 +38,7 @@ permissions:
 jobs:
   engine-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +51,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install PDF inspection tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
       - name: Prove current V1.2 truth reaches frozen Comprehensive engine
         env:
           CERT_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality
@@ -56,11 +65,23 @@ jobs:
           --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
           scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
 
+      - name: Render and stress-test V1.2 Comprehensive PDFs
+        env:
+          CERT_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality
+          PDF_OUTPUT_DIR: outputs/comprehensive-v12-pdf-quality
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+
       - name: Upload quality evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: comprehensive-v12-engine-quality
-          path: outputs/comprehensive-v12-engine-quality
+          path: |
+            outputs/comprehensive-v12-engine-quality
+            outputs/comprehensive-v12-pdf-quality
           if-no-files-found: warn
           retention-days: 30
