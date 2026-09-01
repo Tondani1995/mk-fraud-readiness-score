@@ -867,6 +867,10 @@ export async function generateComprehensiveInterpretation(brief: InterpretationB
       recovery.coherenceCount += 1;
       current = interpretationSchema.partial().parse(coherent) as Partial<ComprehensiveInterpretation>;
       issues = validateInterpretation(current, brief);
+      // Match Essential: a coherence pass is the final editorial safety net.
+      // If it introduces or fails to clear an issue, do not cascade into fresh
+      // semantic repair or another generation phase.
+      if (issues.length > 0) break;
       continue;
     }
 
