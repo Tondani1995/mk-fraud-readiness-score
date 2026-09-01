@@ -56,16 +56,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y poppler-utils
 
-      - name: Bind QA renderer to runner Chrome
-        run: |
-          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
-          if [ -z "$CHROME_PATH" ]; then
-            echo "No runner Chrome executable found; refusing an unbounded packaged-runtime extraction in CI." >&2
-            exit 1
-          fi
-          echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
-          echo "Using $CHROME_PATH for provider-free PDF quality proof."
-
       - name: Prove current V1.2 truth reaches frozen Comprehensive engine
         env:
           CERT_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality
