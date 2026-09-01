@@ -1,4 +1,5 @@
 import workflowNext from 'workflow/next';
+import { withSentryConfig } from '@sentry/nextjs/config';
 
 const { withWorkflow } = workflowNext;
 
@@ -67,4 +68,10 @@ const nextConfig = {
   }
 };
 
-export default withWorkflow(nextConfig);
+export default withSentryConfig(withWorkflow(nextConfig), {
+  org: 'mk-fraud-insights',
+  project: 'javascript-nextjs',
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: true }
+});
