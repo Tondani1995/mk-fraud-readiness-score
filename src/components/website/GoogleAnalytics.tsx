@@ -11,7 +11,7 @@ export default function GoogleAnalytics() {
     const searchParams = useSearchParams();
     const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
     const [analyticsReady, setAnalyticsReady] = useState(false);
-    const lastPageviewRef = useRef<string | null>(null);
+    const initialPageviewSentRef = useRef(false);
 
     useEffect(() => {
         if (!GA_MEASUREMENT_ID) return;
@@ -19,6 +19,7 @@ export default function GoogleAnalytics() {
         const syncConsent = () => {
             const enabled = hasAnalyticsConsent();
             setAnalyticsEnabled(enabled);
+            if (!enabled) initialPageviewSentRef.current = false;
             if (typeof window.gtag === "function") {
                 window.gtag("consent", "update", {
                     analytics_storage: enabled ? "granted" : "denied",
@@ -44,14 +45,16 @@ export default function GoogleAnalytics() {
 
     useEffect(() => {
         if (!GA_MEASUREMENT_ID || !analyticsEnabled) {
-            if (!analyticsEnabled) lastPageviewRef.current = null;
+            if (!analyticsEnabled) initialPageviewSentRef.current = false;
             return;
         }
+        // Enhanced Measurement owns browser-history pageviews for SPA route changes.
+        // This explicit event covers the initial document because send_page_view is false.
         if (!analyticsReady) return;
+        if (initialPageviewSentRef.current) return;
 
         const url = search ? `${pathname}?${search}` : pathname;
-        if (lastPageviewRef.current === url) return;
-        if (pageview(url)) lastPageviewRef.current = url;
+        if (pageview(url)) initialPageviewSentRef.current = true;
     }, [analyticsEnabled, analyticsReady, pathname, search]);
 
     const handleGtagLoad = () => {

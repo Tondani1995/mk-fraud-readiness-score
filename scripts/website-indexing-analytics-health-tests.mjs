@@ -119,12 +119,15 @@ await check('analytics is absent before consent and waits for GA readiness after
   assert.match(consent, /GA_CONSENT_EVENT/);
 });
 
-await check('initial accepted pageview is sent once and route transitions are deduplicated', () => {
-  assert.match(analytics, /const lastPageviewRef = useRef<string \| null>\(null\)/);
-  assert.match(analytics, /if \(lastPageviewRef\.current === url\) return/);
-  assert.match(analytics, /if \(pageview\(url\)\) lastPageviewRef\.current = url/);
+await check('initial accepted pageview is sent once and route transitions use Enhanced Measurement', () => {
+  assert.match(analytics, /const initialPageviewSentRef = useRef\(false\)/);
+  assert.match(analytics, /Enhanced Measurement owns browser-history pageviews/);
+  assert.match(analytics, /if \(pageview\(url\)\) initialPageviewSentRef\.current = true/);
   assert.doesNotMatch(analytics, /setTimeout|setInterval/);
   assert.match(gtagSource, /export function pageview\(url: string\): boolean/);
+  assert.match(gtagSource, /window\.gtag\("event", "page_view"/);
+  assert.match(gtagSource, /page_title:/);
+  assert.match(gtagSource, /page_location:/);
   assert.match(gtagSource, /return false/);
   assert.match(gtagSource, /return true/);
 });
@@ -136,10 +139,15 @@ await check('the GA helper only emits after a ready gtag function exists', async
     localStorage: {
       getItem: () => 'accepted'
     },
+    location: {
+      href: 'https://www.mkfraud.co.za/'
+    },
     gtag: (...args) => calls.push(args)
   };
   const previousWindow = global.window;
+  const previousDocument = global.document;
   global.window = browserWindow;
+  global.document = { title: 'Health test page' };
   const gtag = await import(pathToFileURL(path.join(root, 'src/lib/website/gtag.ts')).href);
 
   browserWindow.gtag = undefined;
@@ -150,7 +158,10 @@ await check('the GA helper only emits after a ready gtag function exists', async
   assert.equal(gtag.pageview('/'), true, 'ready gtag accepts the first pageview');
   assert.equal(gtag.trackEvent('product_selected', { tier: 'essential' }), true, 'ready gtag accepts an event');
   assert.equal(calls.length, 2);
-  assert.deepEqual(calls[0], ['config', 'G-HEALTH1234', { page_path: '/' }]);
+  assert.deepEqual(calls[0], ['event', 'page_view', {
+    page_title: 'Health test page',
+    page_location: 'https://www.mkfraud.co.za/'
+  }]);
   assert.deepEqual(calls[1], ['event', 'product_selected', { tier: 'essential' }]);
 
   browserWindow.localStorage.getItem = () => 'declined';
@@ -158,6 +169,7 @@ await check('the GA helper only emits after a ready gtag function exists', async
   assert.equal(gtag.trackEvent('product_selected', { tier: 'essential' }), false, 'declined consent must block events');
 
   global.window = previousWindow;
+  global.document = previousDocument;
 });
 
 // --- CONVERSION EVENTS --------------------------------------------------------------------------

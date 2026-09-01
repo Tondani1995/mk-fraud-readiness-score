@@ -26,8 +26,13 @@ export function pageview(url: string): boolean {
         return false;
     }
 
-    window.gtag("config", GA_MEASUREMENT_ID, {
-        page_path: url,
+    const pageLocation = typeof window.location?.href === "string"
+        ? new URL(url, window.location.href).toString()
+        : url;
+
+    window.gtag("event", "page_view", {
+        page_title: typeof document !== "undefined" ? document.title : undefined,
+        page_location: pageLocation,
     });
     return true;
 }
