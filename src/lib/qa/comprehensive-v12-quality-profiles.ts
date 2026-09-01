@@ -76,6 +76,34 @@ export const profiles = {
     },
     oversight: { 'OV-D3-Q03': 2, 'OV-D7-Q01': 3, 'OV-D7-Q04': 3 }
   },
+  motheo: {
+    seed: '000000000004',
+    organisationName: 'Motheo Financial Services (Pty) Ltd',
+    assessmentReference: 'MKFRS-V12-COMP-MOTHEO',
+    reportReference: 'RPT-MKFRS-V12-COMP-MOTHEO-V1',
+    orderReference: 'MKORD-V12-COMP-MOTHEO',
+    expectedMode: 'SUSTAINMENT',
+    gateways: {
+      G01: 'technology_digital_platform', G02: 'employees_250_999', G03: 'yes', G04: 'organisation',
+      G05: 'dedicated_internal', G06: 'yes', G07: 'yes', G08: 'organisation', G09: 'own',
+      G10: 'yes', G11: 'yes', G12: 'yes', G13: 'yes', G14: 'yes', G15: 'yes',
+      G16: 'two_or_more', G17: 'yes'
+    },
+    values: {
+      ...expand('D1', [4,4,4,4,4,4]),
+      ...expand('D2', [4,4,4,4,4,4,4,4]),
+      ...expand('D3', [4,4,4,4,4,4,4]),
+      ...expand('D4', [4,4,4,4,4,4,4]),
+      ...expand('D5', [4,4,4,4,4,4,4]),
+      ...expand('D6', [4,4,4,4,4,4]),
+      ...expand('D7', [4,4,4,4,4,4,4]),
+      ...expand('D8', [4,4,4,4,4,4,4,4]),
+      ...expand('D9', [4,4,4,4,4,4]),
+      ...expand('D10', [4,4,4,4,4,4]),
+      'D3-Q09': 4, 'D3-Q10': 4, 'D3-Q11': 4
+    },
+    oversight: {}
+  },
   vhutshilo: {
     seed: '000000000003',
     organisationName: 'Vhutshilo Foods Manufacturing (Pty) Ltd',
