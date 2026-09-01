@@ -35,7 +35,7 @@ import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 import { claimsVerification } from '../../src/lib/reports/comprehensive/product-contract.ts';
 import { getQuestionPlaybook, listQuestionPlaybooks } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
 import { comprehensiveAssessmentScopeFromData } from '../../src/lib/reports/comprehensive/assessment-scope.ts';
-import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation } from '../../src/lib/reports/comprehensive/interpretation.ts';
+import { buildInterpretationBrief, buildInterpretationPrompt, validateInterpretation, assertComprehensiveInterpretationAccepted, ComprehensiveInterpretationAcceptanceError } from '../../src/lib/reports/comprehensive/interpretation.ts';
 
 const outDir = process.env.CERT_OUTPUT_DIR ?? 'outputs/comprehensive-v12-engine-quality';
 fs.mkdirSync(outDir, { recursive: true });
@@ -73,6 +73,42 @@ function htmlEsc(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+function proveInterpretationAcceptanceBoundary() {
+  const accounting = {
+    calls: 1, repairs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0,
+    costMicros: 0, durationMs: 0, model: 'openai/gpt-5.6-luna', repairedSlots: []
+  };
+  const accepted = { interpretation: {}, issues: [], accounting };
+  assertComprehensiveInterpretationAccepted(accepted);
+
+  const rejected = {
+    interpretation: {},
+    issues: [{ slot: 'executiveInterpretation', kind: 'HARD_TRUTH', code: 'ASSURANCE_CLAIM', detail: 'fixture' }],
+    accounting
+  };
+  let blockedRejected = false;
+  try {
+    assertComprehensiveInterpretationAccepted(rejected);
+  } catch (error) {
+    blockedRejected = error instanceof ComprehensiveInterpretationAcceptanceError
+      && error.issueCodes.includes('ASSURANCE_CLAIM');
+  }
+  if (!blockedRejected) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'unresolved interpretation issue was not blocked');
+
+  let blockedBudget = false;
+  try {
+    assertComprehensiveInterpretationAccepted({
+      interpretation: {}, issues: [], accounting: { ...accounting, calls: 2 }
+    });
+  } catch (error) {
+    blockedBudget = error instanceof ComprehensiveInterpretationAcceptanceError
+      && error.issueCodes.includes('CALL_BUDGET');
+  }
+  if (!blockedBudget) fail('portfolio', 'AI_FINAL_ACCEPTANCE', 'provider call-budget breach was not blocked');
+}
+
+proveInterpretationAcceptanceBoundary();
 
 for (const profileKey of Object.keys(profiles)) {
   const { data, score, path: resolvedPath, profile, graph } = buildV12ProfileAssembled(profileKey);
