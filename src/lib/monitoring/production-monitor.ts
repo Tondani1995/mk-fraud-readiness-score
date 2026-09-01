@@ -179,7 +179,10 @@ function routePriority(route: string | null | undefined, category: string) {
 }
 
 export function candidatesForEvaluation(evaluation: ReadinessEvaluation): MonitorAlertCandidate[] {
-  return evaluation.checks.filter((check) => check.status === 'FAIL' || check.status === 'WARN').map((check) => ({
+  return evaluation.checks.filter((check) =>
+    (check.status === 'FAIL' || check.status === 'WARN')
+    && check.safeCode !== 'preview_deployment_protection_blocks_internal_probe'
+  ).map((check) => ({
     alertKey: `production-readiness:${check.key}`,
     priority: check.status === 'FAIL' ? routePriority(check.key, check.category) : 'P3',
     category: `readiness_${check.key}`,

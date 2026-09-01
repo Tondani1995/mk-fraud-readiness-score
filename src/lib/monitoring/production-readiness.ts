@@ -74,6 +74,7 @@ async function publicRouteCheck(
   path: string,
   key: string,
   category: string,
+  production: boolean,
   predicate?: (body: string, response: Response) => boolean
 ) {
   const controller = new AbortController();
@@ -81,7 +82,15 @@ async function publicRouteCheck(
   try {
     const url = new URL(path, origin).toString();
     const response = await fetchImpl(url, { cache: 'no-store', redirect: 'follow', signal: controller.signal });
-    const body = predicate ? await response.text() : '';
+    const body = await response.text();
+    // Vercel Deployment Protection is intentionally enabled on this Preview. The
+    // server-side probe cannot carry the browser/CLI bypass session, so Vercel's
+    // login shell is an expected Preview-only limitation rather than a public
+    // route failure. External protected-URL checks remain the route proof.
+    if (!production && /Vercel Authentication|Log in to Vercel|Vercel Security Check/i.test(body)) {
+      addCheck(checks, key, category, 'WARN', 'preview_deployment_protection_blocks_internal_probe');
+      return;
+    }
     const passed = response.status === 200 && (!predicate || predicate(body, response));
     addCheck(checks, key, category, passed ? 'PASS' : 'FAIL', passed ? 'public_route_ok' : 'public_route_unavailable_or_invalid');
   } catch {
@@ -99,12 +108,12 @@ async function publicChecks(checks: ReadinessCheck[], context: ReadinessContext,
   }
   const fetchImpl = context.fetchImpl ?? fetch;
   await Promise.all([
-    publicRouteCheck(checks, fetchImpl, origin, '/', 'public_home', 'public_route'),
-    publicRouteCheck(checks, fetchImpl, origin, '/score/start', 'public_score_start', 'public_route'),
-    publicRouteCheck(checks, fetchImpl, origin, '/fraud-readiness', 'public_fraud_readiness', 'public_route'),
-    publicRouteCheck(checks, fetchImpl, origin, '/sitemap.xml', 'sitemap', 'seo', (body) => body.includes('/fraud-readiness') && !body.includes('/fraud-readiness-score')),
-    publicRouteCheck(checks, fetchImpl, origin, '/robots.txt', 'robots', 'seo', (body) => body.includes('/sitemap.xml')),
-    publicRouteCheck(checks, fetchImpl, origin, '/fraud-readiness-score', 'legacy_canonical', 'seo', (body) => /noindex/i.test(body) && /canonical[^>]+\/fraud-readiness(?:["'])/i.test(body))
+    publicRouteCheck(checks, fetchImpl, origin, '/', 'public_home', 'public_route', production),
+    publicRouteCheck(checks, fetchImpl, origin, '/score/start', 'public_score_start', 'public_route', production),
+    publicRouteCheck(checks, fetchImpl, origin, '/fraud-readiness', 'public_fraud_readiness', 'public_route', production),
+    publicRouteCheck(checks, fetchImpl, origin, '/sitemap.xml', 'sitemap', 'seo', production, (body) => body.includes('/fraud-readiness') && !body.includes('/fraud-readiness-score')),
+    publicRouteCheck(checks, fetchImpl, origin, '/robots.txt', 'robots', 'seo', production, (body) => body.includes('/sitemap.xml')),
+    publicRouteCheck(checks, fetchImpl, origin, '/fraud-readiness-score', 'legacy_canonical', 'seo', production, (body) => /noindex/i.test(body) && /canonical[^>]+\/fraud-readiness(?:["'])/i.test(body))
   ]);
 }
 
@@ -229,7 +238,10 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   }
 
   return {
-    status: overallStatusFromChecks(checks),
+    // Preview Deployment Protection is expected on this branch and is proven by
+    // the external protected-URL check. It must not turn an otherwise healthy
+    // staging monitor into a synthetic public-route incident.
+    status: overallStatusFromChecks(checks.filter((check) => check.safeCode !== 'preview_deployment_protection_blocks_internal_probe')),
     checks,
     checkedAt: now.toISOString(),
     currentDeploymentSha: deploymentSha,
