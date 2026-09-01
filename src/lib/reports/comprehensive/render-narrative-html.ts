@@ -207,6 +207,7 @@ function chapterExhibits(model: ComprehensiveNarrativePresentationModel, chapter
 
 function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter): string {
   const takeaways = new Set<string>();
+  const isConclusion = chapter.narrativeRole === 'CONCLUSION';
   const implication = (block: ComprehensiveNarrativeChapter['blocks'][number]): string => takeaways.has(block.managementTakeaway) ? '' : (takeaways.add(block.managementTakeaway), `<aside class="management-implication ${chapter.tone}">
     <span>Management implication</span>
     <p>${esc(block.managementTakeaway)}</p>
@@ -222,11 +223,31 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
       <div class="narrative-copy">${leadingParagraphs}${closingParagraph}</div>
     </div>`;
   };
+  const renderParagraphGroup = (
+    block: ComprehensiveNarrativeChapter['blocks'][number],
+    paragraphGroup: string[],
+    includeTitle: boolean
+  ): string => `<div class="narrative-block">
+      ${includeTitle ? `<h3>${esc(block.title)}</h3>` : ''}
+      <div class="narrative-copy">${paragraphGroup.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')}</div>
+    </div>`;
+  const renderConclusionTail = (
+    block: ComprehensiveNarrativeChapter['blocks'][number],
+    includeTitle: boolean
+  ): string => {
+    if (block.paragraphs.length <= 1) {
+      return `<div class="conclusion-closing">${renderBlock(block, includeTitle)}${companionPanel(model)}</div>`;
+    }
+    const precedingParagraphs = block.paragraphs.slice(0, -1);
+    const finalParagraph = block.paragraphs.at(-1)!;
+    return `${renderParagraphGroup(block, precedingParagraphs, includeTitle)}<div class="conclusion-closing">${renderBlock({ ...block, paragraphs: [finalParagraph] }, false)}${companionPanel(model)}</div>`;
+  };
   const firstBlock = chapter.blocks[0];
   const firstParagraph = firstBlock?.paragraphs[0] ?? '';
   const firstBlockHasRemainder = Boolean(firstBlock && firstBlock.paragraphs.length > 1);
+  const singleConclusionBlock = isConclusion && chapter.blocks.length === 1 && Boolean(firstBlock);
   const openingImplication = firstBlock && !firstBlockHasRemainder ? implication(firstBlock) : '';
-  const opening = firstBlock && firstParagraph
+  const opening = firstBlock && firstParagraph && !singleConclusionBlock
     ? `<div class="narrative-block chapter-opening-block">
         ${chapter.blocks.length > 1 ? `<h3>${esc(firstBlock.title)}</h3>` : ''}
         <div class="narrative-copy"><p>${esc(firstParagraph)}</p></div>
@@ -235,16 +256,25 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
   const firstRemainder = firstBlockHasRemainder
     ? renderBlock({ ...firstBlock, paragraphs: firstBlock.paragraphs.slice(1) }, false)
     : '';
-  const remainingBlocks = chapter.blocks.slice(1).map((block) => renderBlock(block)).join('');
+  const remainingBlockHtml = chapter.blocks.slice(1).map((block) => renderBlock(block));
+  const remainingBlocks = remainingBlockHtml.join('');
+  const closing = isConclusion
+    ? singleConclusionBlock
+      ? renderConclusionTail(firstBlock!, false)
+      : remainingBlockHtml.length
+        ? `${firstRemainder}${remainingBlockHtml.slice(0, -1).join('')}${renderConclusionTail(chapter.blocks.at(-1)!, chapter.blocks.length > 1)}`
+        : firstRemainder
+          ? renderConclusionTail({ ...firstBlock!, paragraphs: firstBlock!.paragraphs.slice(1) }, false)
+          : `<div class="conclusion-closing">${companionPanel(model)}</div>`
+    : `${firstRemainder}${remainingBlocks}`;
   return `<section class="chapter tone-${chapter.tone}" data-chapter="${esc(chapter.chapterId)}">
     <div class="chapter-opening">
       <div class="chapter-marker"><span class="chapter-brand">MK Fraud Insights</span> · Comprehensive · ${String(chapter.order).padStart(2, '0')}</div>
       <h2>${esc(chapter.title)}</h2>
       ${opening}
     </div>
-    ${firstRemainder}${remainingBlocks}
+    ${closing}
     ${chapterExhibits(model, chapter)}
-    ${chapter.narrativeRole === 'CONCLUSION' ? companionPanel(model) : ''}
   </section>`;
 }
 
@@ -346,14 +376,17 @@ function css(): string {
   .stage-grid article{padding:4mm;background:var(--mk-confirmed-bg);border-top:3px solid var(--mk-confirmed);min-height:36mm;break-inside:avoid;page-break-inside:avoid}
   .stage-grid .muted-stage{background:var(--mk-neutral-bg);border-top-color:var(--mk-rule)}
   .stage-name{font-weight:700;font-size:8pt;letter-spacing:.08em;color:var(--mk-confirmed)}
-  .companion-panel{break-before:auto;break-inside:avoid;page-break-inside:avoid;background:var(--mk-neutral-bg);padding:4mm 5mm;margin-top:4mm;border-top:3px solid var(--mk-navy-700)}
+  .conclusion-closing{break-inside:avoid;page-break-inside:avoid}
+  .conclusion-closing .narrative-block{margin-bottom:0}
+  .conclusion-closing .companion-panel{margin-top:2mm}
+  .companion-panel{break-before:auto;break-inside:avoid;page-break-inside:avoid;background:var(--mk-neutral-bg);padding:3mm 5mm;margin-top:4mm;border-top:3px solid var(--mk-navy-700)}
   .companion-kicker{font-size:6.5pt;text-transform:uppercase;letter-spacing:.1em;color:var(--mk-muted);font-weight:700;margin-bottom:1mm}
-  .companion-panel h3{font-size:11pt;color:var(--mk-navy-700);margin:0 0 1mm}
-  .companion-panel p{max-width:none;font-size:7.5pt;line-height:1.2;margin:0 0 2mm}
-  .companion-panel .companion-compact-note{font-size:6.5pt;margin:1mm 0 0}
-  .sheet-list{display:flex;flex-wrap:wrap;gap:1mm;margin-top:2mm}
-  .sheet-list span{padding:1mm 1.5mm;border:1px solid var(--mk-rule);background:var(--mk-white);font-size:6.5pt}
-  .companion-panel .scope-note{break-inside:avoid;margin:2mm 0 0;padding-top:2mm;border-top:1px solid var(--mk-rule);font-size:6.5pt;color:var(--mk-muted)}
+  .companion-panel h3{font-size:10pt;color:var(--mk-navy-700);margin:0 0 .5mm}
+  .companion-panel p{max-width:none;font-size:7pt;line-height:1.15;margin:0 0 1mm}
+  .companion-panel .companion-compact-note{font-size:6pt;margin:.5mm 0 0}
+  .sheet-list{display:flex;flex-wrap:wrap;gap:.7mm;margin-top:1mm}
+  .sheet-list span{padding:.7mm 1.2mm;border:1px solid var(--mk-rule);background:var(--mk-white);font-size:6pt}
+  .companion-panel .scope-note{break-inside:avoid;margin:1mm 0 0;padding-top:1mm;border-top:1px solid var(--mk-rule);font-size:6pt;color:var(--mk-muted)}
   </style>`;
 }
 

@@ -220,6 +220,7 @@
     "v11:comprehensive-current-path": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs",
     "v11:comprehensive-customer-copy-leakage": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs",
     "v11:comprehensive-current-layout": "node scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs",
+    "v11:comprehensive-live-manuscript-compositor": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-live-manuscript-compositor-regression.mjs",
     "v11:comprehensive-current-workbooks": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-current-comprehensive-workbooks.mjs",
     "v11:comprehensive-current-workbook-reconciliation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-current-workbook-reconciliation-gate.mjs",
     "v11:comprehensive-assurance-boundary-regressions": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-assurance-boundary-regressions.mjs",
