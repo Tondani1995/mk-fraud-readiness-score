@@ -12,6 +12,8 @@ import type {
   NarrativeAssurancePriorityFact,
   NarrativeContextApplication,
   NarrativeControlOutcomeLink,
+  NarrativeControlRelianceFact,
+  NarrativeExposurePathwayFact,
   NarrativeResilienceTestFact,
   NarrativeRoadmapDependencyLink
 } from '../narrative/premium-projection';
@@ -32,6 +34,8 @@ export interface AuthoritativeComprehensiveObjects {
   resilienceTests?: readonly NarrativeResilienceTestFact[];
   enterpriseIntegrationMap?: EnterpriseIntegrationMap;
   contextApplications?: readonly NarrativeContextApplication[];
+  exposurePathways?: readonly NarrativeExposurePathwayFact[];
+  criticalReliances?: readonly NarrativeControlRelianceFact[];
   controlOutcomeLinks?: readonly NarrativeControlOutcomeLink[];
   roadmapDependencyLinks?: readonly NarrativeRoadmapDependencyLink[];
   transformationSequence: ReportBlueprint['transformationSequence'];
@@ -141,6 +145,28 @@ export function buildAuthoritativeComprehensiveObjects(
       linkedDecisionRefs: [...item.linkedDecisionRefs],
       linkedRoadmapRefs: [...item.linkedRoadmapRefs],
       linkedResilienceTestRefs: [...item.linkedResilienceTestRefs],
+      provenanceRefs: [...item.provenanceRefs]
+    })),
+    exposurePathways: factPack.exposurePathways?.map((item) => ({
+      ...item,
+      contextRefs: [...item.contextRefs],
+      contextKeys: [...item.contextKeys],
+      supportedExposureIds: [...item.supportedExposureIds],
+      questionSignalRefs: [...item.questionSignalRefs],
+      domainRefs: [...item.domainRefs],
+      dependencyRefs: [...item.dependencyRefs],
+      linkedPriorityRefs: [...item.linkedPriorityRefs],
+      linkedControlRefs: [...item.linkedControlRefs],
+      linkedDecisionRefs: [...item.linkedDecisionRefs],
+      linkedRoadmapRefs: [...item.linkedRoadmapRefs],
+      linkedResilienceTestRefs: [...item.linkedResilienceTestRefs],
+      provenanceRefs: [...item.provenanceRefs]
+    })),
+    criticalReliances: factPack.criticalReliances?.map((item) => ({
+      ...item,
+      dependencyRefs: [...item.dependencyRefs],
+      exposurePathwayRefs: [...item.exposurePathwayRefs],
+      protectedOutcomes: [...item.protectedOutcomes],
       provenanceRefs: [...item.provenanceRefs]
     })),
     controlOutcomeLinks: factPack.controlOutcomeLinks?.map((item) => ({

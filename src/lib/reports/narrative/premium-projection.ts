@@ -1,6 +1,7 @@
 import type { NarrativeFact, NarrativeFactPack, NarrativeControlFact, NarrativeDecisionFact, NarrativeRoadmapFact, NarrativeSustainmentPriorityFact } from './fact-pack';
 import type { NarrativeMaturationStep } from './maturation';
 import type { OperatingContextFact } from './operating-context';
+import { exposuresFromContext, type OperatingExposureId } from './operating-exposures';
 
 /**
  * Deterministic Comprehensive-only projections.
@@ -190,6 +191,52 @@ export interface NarrativeContextApplication {
   supportStatus: 'SUPPORTED';
 }
 
+/**
+ * A supported operating-context pathway is narrower than a fraud scenario. It records how a
+ * material change in the described operating model would alter management attention, without
+ * alleging that the pathway currently exists as a finding or risk.
+ */
+export interface NarrativeExposurePathwayFact {
+  factRef: string;
+  pathwayRef: string;
+  label: string;
+  contextRefs: string[];
+  contextKeys: string[];
+  supportedExposureIds: OperatingExposureId[];
+  questionSignalRefs: string[];
+  domainRefs: string[];
+  dependencyRefs: string[];
+  linkedPriorityRefs: string[];
+  linkedControlRefs: string[];
+  linkedDecisionRefs: string[];
+  linkedRoadmapRefs: string[];
+  linkedResilienceTestRefs: string[];
+  changeCondition: string;
+  analyticalConsequence: string;
+  managementImplication: string;
+  conditionalBoundary: string;
+  provenanceRefs: string[];
+  supportStatus: 'SUPPORTED';
+}
+
+/**
+ * A concentration view makes shared control reliance visible. It is derived from existing
+ * dependency, pathway and control-outcome references; it does not create a new control or risk.
+ */
+export interface NarrativeControlRelianceFact {
+  factRef: string;
+  relianceRef: string;
+  controlRef: string;
+  relianceLevel: 'MULTI-ROUTE' | 'SINGLE-ROUTE';
+  dependencyRefs: string[];
+  exposurePathwayRefs: string[];
+  protectedOutcomes: string[];
+  managementSignal: string;
+  relianceBasis: string;
+  provenanceRefs: string[];
+  supportStatus: 'SUPPORTED';
+}
+
 export interface NarrativeControlOutcomeLink {
   factRef: string;
   linkRef: string;
@@ -230,6 +277,8 @@ export interface ComprehensivePremiumProjection {
   resilienceTests: NarrativeResilienceTestFact[];
   enterpriseIntegrationMap: EnterpriseIntegrationMap;
   contextApplications: NarrativeContextApplication[];
+  exposurePathways: NarrativeExposurePathwayFact[];
+  criticalReliances: NarrativeControlRelianceFact[];
   controlOutcomeLinks: NarrativeControlOutcomeLink[];
   roadmapDependencyLinks: NarrativeRoadmapDependencyLink[];
 }
@@ -527,6 +576,128 @@ function buildContextApplications(
   });
 }
 
+function integrationDependencyFactRef(dependencyRef: string): string {
+  return `INTEGRATION-DEPENDENCY-${dependencyRef.slice(-3)}`;
+}
+
+function buildExposurePathways(
+  pack: NarrativeFactPack,
+  integration: EnterpriseIntegrationMap,
+  applications: NarrativeContextApplication[]
+): NarrativeExposurePathwayFact[] {
+  const supportedExposureIds = new Set(exposuresFromContext(pack.organisation.operatingContext).map((exposure) => exposure.id));
+  const questionSignals = pack.questionSignals ?? [];
+  const specs = [
+    {
+      applicationRef: 'CTX-APP-001',
+      pathwayRef: 'EXP-PATH-001',
+      label: 'Digital and identity change pathway',
+      exposureIds: ['DIGITAL_CUSTOMER_ACTIVITY', 'PERSONAL_DATA_HELD', 'THIRD_PARTY_DIGITAL_DEPENDENCE'] as OperatingExposureId[],
+      domainCodes: ['D2'],
+      changeCondition: 'A material change affects digital channels, digital payments, identity information or remote system access.',
+      analyticalConsequence: 'The recorded digital and identity context makes risk-view currency the relevant management connection; the supported dependency is the route from current risk direction to owned treatment.',
+      managementImplication: 'When digital or identity processes change, refresh the fraud-risk view before ownership or treatment decisions fall behind the operating model.'
+    },
+    {
+      applicationRef: 'CTX-APP-002',
+      pathwayRef: 'EXP-PATH-002',
+      label: 'Third-party and supply-chain change pathway',
+      exposureIds: ['INTERNAL_SUPPLIER_MANAGEMENT'] as OperatingExposureId[],
+      domainCodes: ['D2'],
+      changeCondition: 'A material change affects supplier, procurement or intermediary reliance.',
+      analyticalConsequence: 'The recorded third-party context changes the coverage question for the supported risk-view dependency; the relevant test is whether material processes and treatment owners remain current.',
+      managementImplication: 'When supplier, procurement or intermediary reliance changes, test material-process coverage and treatment ownership through the current risk review.'
+    },
+    {
+      applicationRef: 'CTX-APP-003',
+      pathwayRef: 'EXP-PATH-003',
+      label: 'Physical value and adjustment change pathway',
+      exposureIds: ['CASH_HANDLING', 'PHYSICAL_STOCK_OR_ASSETS', 'REFUNDS_AND_ADJUSTMENTS', 'DISTRIBUTED_OPERATIONS', 'TEMPORARY_OR_SUBCONTRACTED_WORKFORCE'] as OperatingExposureId[],
+      domainCodes: ['D2', 'D10'],
+      changeCondition: 'A material change affects physical cash, physical assets, manual adjustments, distributed operations or temporary and subcontracted work.',
+      analyticalConsequence: 'The recorded physical-value context makes the supported learning dependency material: review information must refresh process coverage and action ownership when the activity changes.',
+      managementImplication: 'When physical-value or adjustment activity changes across sites or workers, use control-learning signals to refresh coverage and action ownership.'
+    }
+  ] as const;
+  const edgeByRef = new Map(integration.dependencies.map((edge) => [edge.dependencyRef, edge]));
+  return specs.flatMap((spec, index) => {
+    const application = applications.find((item) => item.applicationRef === spec.applicationRef);
+    if (!application) return [];
+    const edges = application.dependencyRefs.map((ref) => edgeByRef.get(ref)).filter((edge): edge is EnterpriseIntegrationDependency => Boolean(edge && edge.supportStatus === 'SUPPORTED'));
+    if (edges.length !== application.dependencyRefs.length) return [];
+    const domainRefs = unique(edges.flatMap((edge) => edge.contributingDomainRefs));
+    const questionSignalRefs = questionSignals
+      .filter((signal) => (spec.domainCodes as readonly string[]).includes(signal.domainCode))
+      .map((signal) => signal.factRef);
+    const pathwayExposureIds = spec.exposureIds.filter((id) => supportedExposureIds.has(id));
+    const dependencyRefs = edges.map((edge) => edge.dependencyRef);
+    const provenanceRefs = unique([
+      application.factRef,
+      ...application.provenanceRefs,
+      ...questionSignalRefs,
+      ...domainRefs,
+      ...edges.flatMap((edge) => [integrationDependencyFactRef(edge.dependencyRef), ...edge.provenanceRefs])
+    ]);
+    return [{
+      factRef: `EXPOSURE-PATHWAY-${String(index + 1).padStart(3, '0')}`,
+      pathwayRef: spec.pathwayRef,
+      label: spec.label,
+      contextRefs: [...application.contextRefs],
+      contextKeys: [...application.contextKeys],
+      supportedExposureIds: pathwayExposureIds,
+      questionSignalRefs,
+      domainRefs,
+      dependencyRefs,
+      linkedPriorityRefs: [...application.linkedPriorityRefs],
+      linkedControlRefs: [...application.linkedControlRefs],
+      linkedDecisionRefs: [...application.linkedDecisionRefs],
+      linkedRoadmapRefs: [...application.linkedRoadmapRefs],
+      linkedResilienceTestRefs: [...application.linkedResilienceTestRefs],
+      changeCondition: spec.changeCondition,
+      analyticalConsequence: spec.analyticalConsequence,
+      managementImplication: spec.managementImplication,
+      conditionalBoundary: 'This is a forward-looking change test, not a current finding or risk.',
+      provenanceRefs,
+      supportStatus: 'SUPPORTED' as const
+    }];
+  });
+}
+
+function buildCriticalReliances(
+  pack: NarrativeFactPack,
+  integration: EnterpriseIntegrationMap,
+  pathways: NarrativeExposurePathwayFact[],
+  controlOutcomeLinks: NarrativeControlOutcomeLink[]
+): NarrativeControlRelianceFact[] {
+  return pack.controls.map((control, index) => {
+    const dependencies = integration.dependencies.filter((edge) => edge.supportStatus === 'SUPPORTED' && edge.linkedControlRefs.includes(control.factRef));
+    const linkedPathways = pathways.filter((pathway) => pathway.linkedControlRefs.includes(control.factRef));
+    const outcomes = controlOutcomeLinks.filter((link) => link.controlRef === control.factRef).map((link) => link.protectedOutcome);
+    const dependencyRefs = dependencies.map((edge) => edge.dependencyRef);
+    const exposurePathwayRefs = linkedPathways.map((pathway) => pathway.factRef);
+    const relianceLevel = dependencyRefs.length + exposurePathwayRefs.length > 1 ? 'MULTI-ROUTE' as const : 'SINGLE-ROUTE' as const;
+    const routeCount = dependencyRefs.length + exposurePathwayRefs.length;
+    return {
+      factRef: `CONTROL-RELIANCE-${String(index + 1).padStart(3, '0')}`,
+      relianceRef: `CR-${String(index + 1).padStart(2, '0')}`,
+      controlRef: control.factRef,
+      relianceLevel,
+      dependencyRefs,
+      exposurePathwayRefs,
+      protectedOutcomes: unique(outcomes),
+      managementSignal: control.effectivenessMeasure,
+      relianceBasis: `This control is referenced by ${routeCount} supported management route${routeCount === 1 ? '' : 's'} across the integration view and operating-context pathways.`,
+      provenanceRefs: unique([
+        control.factRef,
+        ...dependencyRefs.map(integrationDependencyFactRef),
+        ...exposurePathwayRefs,
+        ...controlOutcomeLinks.filter((link) => link.controlRef === control.factRef).map((link) => link.factRef)
+      ]),
+      supportStatus: 'SUPPORTED' as const
+    };
+  });
+}
+
 function buildIntegrationMap(
   pack: NarrativeFactPack,
   assuranceCoverage: NarrativeAssuranceCoverageFact[],
@@ -753,9 +924,11 @@ export function buildComprehensivePremiumProjection(pack: NarrativeFactPack): Co
   const enterpriseIntegrationMap = buildIntegrationMap(pack, assuranceCoverage, links);
   const resilienceTests = buildResilienceTests(pack, links);
   const contextApplications = buildContextApplications(pack, enterpriseIntegrationMap, links, resilienceTests);
+  const exposurePathways = buildExposurePathways(pack, enterpriseIntegrationMap, contextApplications);
   const controlOutcomeLinks = buildControlOutcomeLinks(links, resilienceTests);
+  const criticalReliances = buildCriticalReliances(pack, enterpriseIntegrationMap, exposurePathways, controlOutcomeLinks);
   const roadmapDependencyLinks = buildRoadmapDependencyLinks(links);
-  return { assuranceCoverage, assurancePriorities, resilienceTests, enterpriseIntegrationMap, contextApplications, controlOutcomeLinks, roadmapDependencyLinks };
+  return { assuranceCoverage, assurancePriorities, resilienceTests, enterpriseIntegrationMap, contextApplications, exposurePathways, criticalReliances, controlOutcomeLinks, roadmapDependencyLinks };
 }
 
 function fact(value: unknown, kind: string, id: string, sourceRefs: string[]): NarrativeFact {
@@ -771,6 +944,8 @@ export function premiumFactEntries(projection: ComprehensivePremiumProjection): 
     fact(map, 'enterprise_integration_map', map.factRef, map.sourceRefs),
     ...map.dependencies.map((item) => fact(item, 'integration_dependency', `INTEGRATION-DEPENDENCY-${item.dependencyRef.slice(-3)}`, item.provenanceRefs)),
     ...projection.contextApplications.map((item) => fact(item, 'context_application', item.factRef, item.provenanceRefs)),
+    ...projection.exposurePathways.map((item) => fact(item, 'exposure_pathway', item.factRef, item.provenanceRefs)),
+    ...projection.criticalReliances.map((item) => fact(item, 'critical_reliance', item.factRef, item.provenanceRefs)),
     ...projection.controlOutcomeLinks.map((item) => fact(item, 'control_outcome_link', item.factRef, item.provenanceRefs)),
     ...projection.roadmapDependencyLinks.map((item) => fact(item, 'roadmap_dependency_link', item.factRef, item.provenanceRefs))
   ];
@@ -778,7 +953,7 @@ export function premiumFactEntries(projection: ComprehensivePremiumProjection): 
 }
 
 function premiumFactRefs(pack: NarrativeFactPack): Set<string> {
-  return new Set(pack.facts.filter((fact) => ['assurance_coverage', 'assurance_priority', 'resilience_test', 'enterprise_integration_map', 'integration_dependency', 'context_application', 'control_outcome_link', 'roadmap_dependency_link'].includes(fact.kind)).map((fact) => fact.id));
+  return new Set(pack.facts.filter((fact) => ['assurance_coverage', 'assurance_priority', 'resilience_test', 'enterprise_integration_map', 'integration_dependency', 'context_application', 'exposure_pathway', 'critical_reliance', 'control_outcome_link', 'roadmap_dependency_link'].includes(fact.kind)).map((fact) => fact.id));
 }
 
 export function premiumProjectionValidationIssues(pack: NarrativeFactPack): string[] {
@@ -793,6 +968,8 @@ export function premiumProjectionValidationIssues(pack: NarrativeFactPack): stri
   const allPriorityRefs = new Set(pack.sustainmentPriorities.map((priority) => priority.factRef));
   const allDomainRefs = new Set(pack.domains.map((domain) => domain.factRef));
   const allContextRefs = new Set(pack.organisation.operatingContext.map(contextFactRef));
+  const allQuestionSignalRefs = new Set((pack.questionSignals ?? []).map((signal) => signal.factRef));
+  const allExposurePathwayRefs = new Set((pack.exposurePathways ?? []).map((pathway) => pathway.factRef));
   const knownPremiumRefs = premiumFactRefs(pack);
   if (map.domainNodes.length !== pack.domains.length || new Set(map.domainNodes.map((node) => node.domainRef)).size !== pack.domains.length) issues.push('Enterprise Integration Map must contain exactly one node for every scored domain.');
   if (!map.dependencies.length) issues.push('Enterprise Integration Map must contain at least one supported relationship.');
@@ -819,6 +996,18 @@ export function premiumProjectionValidationIssues(pack: NarrativeFactPack): stri
     if (!application.contextRefs.length || application.contextRefs.some((ref) => !allContextRefs.has(ref)) || !application.dependencyRefs.length || !application.analyticalConsequence || !application.managementImplication || !application.provenanceRefs.length) issues.push(`Context application ${application.applicationRef} is not a context → consequence → implication chain.`);
     if (application.contextRefs.length >= pack.organisation.operatingContext.length) issues.push(`Context application ${application.applicationRef} is a context dump rather than a selective implication.`);
   }
+  for (const pathway of pack.exposurePathways ?? []) {
+    if (!pathway.contextRefs.length || pathway.contextRefs.some((ref) => !allContextRefs.has(ref)) || !pathway.questionSignalRefs.length || pathway.questionSignalRefs.some((ref) => !allQuestionSignalRefs.has(ref)) || !pathway.domainRefs.length || pathway.domainRefs.some((ref) => !allDomainRefs.has(ref)) || !pathway.dependencyRefs.length || !pathway.linkedControlRefs.length || !pathway.linkedDecisionRefs.length || !pathway.linkedRoadmapRefs.length || !pathway.changeCondition || !pathway.analyticalConsequence || !pathway.managementImplication || !pathway.conditionalBoundary || !pathway.provenanceRefs.length) {
+      issues.push(`Exposure pathway ${pathway.pathwayRef} is missing a supported context → evidence → consequence → management chain.`);
+    }
+    if (pathway.linkedControlRefs.some((ref) => !allControlRefs.has(ref)) || pathway.linkedDecisionRefs.some((ref) => !allDecisionRefs.has(ref)) || pathway.linkedRoadmapRefs.some((ref) => !allRoadmapRefs.has(ref))) issues.push(`Exposure pathway ${pathway.pathwayRef} points to a missing management object.`);
+    if (pathway.provenanceRefs.some((ref) => !sourceRefs.has(ref))) issues.push(`Exposure pathway ${pathway.pathwayRef} contains unknown provenance.`);
+  }
+  for (const reliance of pack.criticalReliances ?? []) {
+    if (!allControlRefs.has(reliance.controlRef) || !reliance.dependencyRefs.length || !reliance.managementSignal || !reliance.relianceBasis || !reliance.provenanceRefs.length) issues.push(`Control reliance ${reliance.relianceRef} is incomplete.`);
+    if (reliance.exposurePathwayRefs.some((ref) => !allExposurePathwayRefs.has(ref))) issues.push(`Control reliance ${reliance.relianceRef} points to a missing exposure pathway.`);
+    if (reliance.provenanceRefs.some((ref) => !sourceRefs.has(ref))) issues.push(`Control reliance ${reliance.relianceRef} contains unknown provenance.`);
+  }
   for (const link of pack.controlOutcomeLinks ?? []) {
     if (!allControlRefs.has(link.controlRef) || !allDecisionRefs.has(link.decisionRef) || !allPriorityRefs.has(link.priorityRef) || !link.provenanceRefs.length || !link.protectedOutcome || !link.managementQuestion) issues.push(`Control outcome link ${link.linkRef} is incomplete.`);
   }
@@ -830,6 +1019,8 @@ export function premiumProjectionValidationIssues(pack: NarrativeFactPack): stri
     ...(pack.assuranceCoverage ?? []),
     ...(pack.resilienceTests ?? []),
     ...(pack.contextApplications ?? []),
+    ...(pack.exposurePathways ?? []),
+    ...(pack.criticalReliances ?? []),
     ...(pack.controlOutcomeLinks ?? []),
     ...(pack.roadmapDependencyLinks ?? [])
   ];

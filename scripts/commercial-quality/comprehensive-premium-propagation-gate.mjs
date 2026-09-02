@@ -43,6 +43,8 @@ const PREMIUM_FACT_KINDS = [
   'enterprise_integration_map',
   'integration_dependency',
   'context_application',
+  'exposure_pathway',
+  'critical_reliance',
   'control_outcome_link',
   'roadmap_dependency_link'
 ];
@@ -53,6 +55,8 @@ const PREMIUM_ASSIGNMENT_TYPES = new Set([
   'integration_dependency',
   'resilience_test',
   'context_application',
+  'exposure_pathway',
+  'critical_reliance',
   'control_outcome_link',
   'roadmap_dependency_link'
 ]);
@@ -125,6 +129,7 @@ function factPackStructure(pack, legacy = false) {
     factKinds: Object.fromEntries([...new Set(facts.map((fact) => fact.kind))].sort().map((kind) => [kind, facts.filter((fact) => fact.kind === kind).length])),
     domains: pack.domains.length,
     operatingContext: pack.organisation.operatingContext.length,
+    questionSignals: legacy ? 0 : pack.questionSignals?.length ?? 0,
     sustainmentPriorities: pack.sustainmentPriorities.length,
     sustainmentPrioritySourceMetadata: legacy ? { sourceId: false, sourceFindingId: false, sourceQuestionCode: false, sourceDomainCode: false, sourceRefs: false } : {
       sourceId: pack.sustainmentPriorities.every((item) => Boolean(item.sourceId)),
@@ -146,6 +151,8 @@ function factPackStructure(pack, legacy = false) {
     assurancePriorities: legacy ? 0 : pack.assurancePriorities?.length ?? 0,
     resilienceTests: legacy ? 0 : pack.resilienceTests?.length ?? 0,
     contextApplications: legacy ? 0 : pack.contextApplications?.length ?? 0,
+    exposurePathways: legacy ? 0 : pack.exposurePathways?.length ?? 0,
+    criticalReliances: legacy ? 0 : pack.criticalReliances?.length ?? 0,
     controlOutcomeLinks: legacy ? 0 : pack.controlOutcomeLinks?.length ?? 0,
     roadmapDependencyLinks: legacy ? 0 : pack.roadmapDependencyLinks?.length ?? 0
   };
@@ -411,6 +418,9 @@ async function main() {
   assert.equal(factPack.assurancePriorities?.length, 3);
   assert.equal(factPack.resilienceTests?.length, 3);
   assert.equal(factPack.contextApplications?.length, 3);
+  assert.equal(factPack.questionSignals?.length, 68);
+  assert.equal(factPack.exposurePathways?.length, 3);
+  assert.equal(factPack.criticalReliances?.length, 3);
   assert.equal(factPack.controlOutcomeLinks?.length, 3);
   assert.equal(factPack.roadmapDependencyLinks?.length, 3);
   assert.equal(factPack.findings.length, 0);
@@ -441,6 +451,8 @@ async function main() {
     && edge.deterministicBasis.contextRefs.every((ref) => contextRefs.has(ref))));
   assert((factPack.resilienceTests ?? []).every((test) => test.supportStatus === 'CONDITIONAL' && test.doesNotAssertFinding && test.readinessDependency.length > 0 && test.linkedPriorityRef && priorityRefs.has(test.linkedPriorityRef) && test.linkedControlRefs.every((ref) => controlRefs.has(ref)) && test.linkedDecisionRefs.every((ref) => decisionRefs.has(ref)) && test.linkedRoadmapRefs.every((ref) => roadmapRefs.has(ref))));
   assert((factPack.contextApplications ?? []).every((application) => application.contextRefs.every((ref) => contextRefs.has(ref)) && application.dependencyRefs.length > 0 && application.analyticalConsequence && application.managementImplication));
+  assert((factPack.exposurePathways ?? []).every((pathway) => pathway.contextRefs.every((ref) => contextRefs.has(ref)) && pathway.questionSignalRefs.length > 0 && pathway.dependencyRefs.length > 0 && pathway.linkedControlRefs.length > 0 && pathway.linkedDecisionRefs.length > 0 && pathway.linkedRoadmapRefs.length > 0 && pathway.changeCondition && pathway.analyticalConsequence && pathway.managementImplication && pathway.conditionalBoundary));
+  assert((factPack.criticalReliances ?? []).every((reliance) => controlRefs.has(reliance.controlRef) && reliance.dependencyRefs.length > 0 && reliance.managementSignal && reliance.relianceBasis));
   assert((factPack.controlOutcomeLinks ?? []).every((link) => controlRefs.has(link.controlRef) && decisionRefs.has(link.decisionRef) && priorityRefs.has(link.priorityRef) && link.responseRefs.length > 0));
   assert((factPack.roadmapDependencyLinks ?? []).every((link) => roadmapRefs.has(link.roadmapRef) && controlRefs.has(link.controlRef) && priorityRefs.has(link.priorityRef) && link.maturationRefs.length > 0));
   assert.equal(new Set(premiumRefs(factPack)).size, premiumRefs(factPack).length);
@@ -453,7 +465,7 @@ async function main() {
   assertNarrativeStoryPlan(essentialPlan, essentialPack);
   const essentialBlueprint = buildReportBlueprint(essentialPack, essentialPlan);
   assertReportBlueprint(essentialBlueprint, essentialPack);
-  const essentialPremiumProperties = ['assuranceCoverage', 'assurancePriorities', 'resilienceTests', 'enterpriseIntegrationMap', 'contextApplications', 'controlOutcomeLinks', 'roadmapDependencyLinks'].filter((key) => Object.hasOwn(essentialPack, key));
+  const essentialPremiumProperties = ['assuranceCoverage', 'assurancePriorities', 'resilienceTests', 'enterpriseIntegrationMap', 'contextApplications', 'exposurePathways', 'criticalReliances', 'controlOutcomeLinks', 'roadmapDependencyLinks', 'questionSignals'].filter((key) => Object.hasOwn(essentialPack, key));
   const essentialPremiumKinds = essentialPack.facts.filter((fact) => PREMIUM_FACT_KINDS.includes(fact.kind));
   const essentialPremiumAssignments = essentialBlueprint.contentAssignments.filter((item) => PREMIUM_ASSIGNMENT_TYPES.has(item.contentType));
   const essentialPremiumExhibits = essentialBlueprint.chapters.flatMap((chapter) => chapter.exhibits).filter((item) => item.exhibitId === 'EXH-ENTERPRISE-INTEGRATION');
@@ -565,7 +577,7 @@ async function main() {
   ];
 
   const tests = [
-    testResult('premium Fact Pack object counts', true, '10 coverage rows; 3 assurance priorities; 3 resilience tests; 1 map; 4 typed dependencies; 3 context applications; 3 control-outcome links; 3 roadmap-dependency links.'),
+    testResult('premium Fact Pack object counts', true, '68 question signals; 10 coverage rows; 3 assurance priorities; 3 resilience tests; 1 map; 4 typed dependencies; 3 context applications; 3 exposure pathways; 3 critical reliances; 3 control-outcome links; 3 roadmap-dependency links.'),
     testResult('Enterprise Integration exhibit scope', true, `${enterpriseIntegration.loopCount} loops; ${enterpriseIntegration.domainCount} domains; ${enterpriseIntegration.supportedDependencyRefs.length} supported dependency edges; ${enterpriseIntegration.overlayRefs.length} context overlays; unsupported edges excluded.`),
     testResult('unsupported context remains context-only', true, 'Motheo supplier, digital/identity and physical overlays have no linked D7/D8/D3 object and are not promoted to active dependencies.'),
     testResult('context cross-chapter consumption', true, `${contextCrossReferences.reduce((sum, item) => sum + item.chains.length, 0)} deterministic routes from Analytical basis into watchpoints, controls, decisions and sustainment optimisation.`),

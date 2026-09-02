@@ -20,8 +20,19 @@ export interface ComprehensivePremiumStoryRequirements {
   assurancePriorityRefs: string[];
   resilienceTestRefs: string[];
   contextApplicationRefs: string[];
+  exposurePathwayRefs: string[];
+  criticalRelianceRefs: string[];
   controlOutcomeLinkRefs: string[];
   roadmapDependencyLinkRefs: string[];
+  questionSignalRefs: string[];
+  questionSignalUsage: Array<{ sectionId: string; purpose: string; questionSignalRefs: string[] }>;
+  sectionContributionRules: Array<{
+    sectionId: string;
+    managementQuestion: string;
+    primaryContribution: string;
+    prohibitedRestatementOf: string[];
+    questionSignalRefs: string[];
+  }>;
   requiredPattern: 'context → analytical consequence → management implication';
 }
 
@@ -50,6 +61,85 @@ export interface NarrativeStoryPlan {
 function ids<T extends { factRef: string }>(items: T[]): string[] { return items.map((item) => item.factRef); }
 function maturationIds(items: NarrativeFactPack['maturationSteps']): string[] { return items.map((item) => item.maturationRef); }
 
+export const COMPREHENSIVE_SECTION_CONTRIBUTIONS = [
+  {
+    sectionId: 'EXECUTIVE-ASSESSMENT-POSITION',
+    managementQuestion: 'What does the recorded readiness position require management to protect?',
+    primaryContribution: 'State the score, maturity and assurance boundary once, then set the preservation judgement.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'ANALYTICAL-BASIS-SECTION',
+    managementQuestion: 'What question-level evidence pattern and supported relationships explain the position?',
+    primaryContribution: 'Explain the full question-signal coverage, ten-domain shape, four loops, supported dependencies and selective context pathways once.',
+    prohibitedRestatementOf: ['EXECUTIVE-ASSESSMENT-SECTION']
+  },
+  {
+    sectionId: 'READINESS-SUPPORTING-STANDARDS-SECTION',
+    managementQuestion: 'Which recorded strengths should be actively preserved?',
+    primaryContribution: 'Connect the positive recorded standards to the operating rhythms that keep them useful.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'SUSTAINMENT-PRIORITIES-SECTION',
+    managementQuestion: 'Which named management disciplines deserve explicit preservation?',
+    primaryContribution: 'Name the three priorities and their owners, proof, indicators and deterioration signals.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'DETERIORATION-WATCHPOINTS-SECTION']
+  },
+  {
+    sectionId: 'DETERIORATION-WATCHPOINTS-SECTION',
+    managementQuestion: 'What supported operating changes would test the strong position?',
+    primaryContribution: 'Use the three selective exposure pathways and conditional resilience tests to define early attention after change.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION',
+    managementQuestion: 'What control design preserves each priority and its protected outcome?',
+    primaryContribution: 'Describe priority-specific objectives, states, owners, proof, measures and responses.',
+    prohibitedRestatementOf: ['DETERIORATION-WATCHPOINTS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION',
+    managementQuestion: 'Which distinct choices keep authority, learning and risk-view currency current?',
+    primaryContribution: 'Present the three decision-specific options, route, trade-offs, owner, timing and consequence of delay.',
+    prohibitedRestatementOf: ['TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION']
+  },
+  {
+    sectionId: 'SUSTAINMENT-OPTIMISATION-SECTION',
+    managementQuestion: 'In what dependency-led order should management preserve, embed, measure and optimise?',
+    primaryContribution: 'Sequence the existing roadmap and maturation objects through the four supported stages and their gates.',
+    prohibitedRestatementOf: ['LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION']
+  },
+  {
+    sectionId: 'MANAGEMENT-CONCLUSION-SECTION',
+    managementQuestion: 'What durable management commitment follows from the integrated position?',
+    primaryContribution: 'Close with the integrated outcome and next management rhythm without replaying the roadmap.',
+    prohibitedRestatementOf: ['EXECUTIVE-ASSESSMENT-SECTION', 'SUSTAINMENT-OPTIMISATION-SECTION']
+  }
+] as const;
+
+function questionSignalsForDomains(pack: NarrativeFactPack, domainCodes: readonly string[]): string[] {
+  const allowed = new Set(domainCodes);
+  return (pack.questionSignals ?? []).filter((signal) => allowed.has(signal.domainCode)).map((signal) => signal.factRef);
+}
+
+function questionSignalUsageFor(pack: NarrativeFactPack): Array<{ sectionId: string; purpose: string; questionSignalRefs: string[] }> {
+  const all = (pack.questionSignals ?? []).map((signal) => signal.factRef);
+  const priorityQuestionCodes = new Set(pack.sustainmentPriorities.map((priority) => priority.sourceQuestionCode).filter(Boolean));
+  const priorityRefs = (pack.questionSignals ?? []).filter((signal) => priorityQuestionCodes.has(signal.questionCode)).map((signal) => signal.factRef);
+  const pathwayRefs = (pack.exposurePathways ?? []).flatMap((pathway) => pathway.questionSignalRefs);
+  const applicableHighSignals = (pack.questionSignals ?? []).filter((signal) => signal.applicable && (signal.normalisedScore ?? 0) >= 60).map((signal) => signal.factRef);
+  return [
+    { sectionId: 'ANALYTICAL-BASIS-SECTION', purpose: 'Full question-level evidence surface used to explain the score shape and assurance boundary.', questionSignalRefs: all },
+    { sectionId: 'READINESS-SUPPORTING-STANDARDS-SECTION', purpose: 'Applicable positive responses used to support the recorded strengths.', questionSignalRefs: applicableHighSignals },
+    { sectionId: 'SUSTAINMENT-PRIORITIES-SECTION', purpose: 'Source questions for the three selected sustainment priorities.', questionSignalRefs: priorityRefs },
+    { sectionId: 'DETERIORATION-WATCHPOINTS-SECTION', purpose: 'Question signals relevant to the supported operating-context pathways and change tests.', questionSignalRefs: [...new Set(pathwayRefs)] },
+    { sectionId: 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', purpose: 'Source questions for the priority-specific control designs.', questionSignalRefs: priorityRefs },
+    { sectionId: 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', purpose: 'Source questions for the distinct governance, learning and risk-view decisions.', questionSignalRefs: priorityRefs },
+    { sectionId: 'SUSTAINMENT-OPTIMISATION-SECTION', purpose: 'Source questions retained behind the staged management route.', questionSignalRefs: priorityRefs }
+  ];
+}
+
 function premiumStoryRequirements(pack: NarrativeFactPack): ComprehensivePremiumStoryRequirements | undefined {
   if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !pack.enterpriseIntegrationMap) return undefined;
   return {
@@ -59,8 +149,17 @@ function premiumStoryRequirements(pack: NarrativeFactPack): ComprehensivePremium
     assurancePriorityRefs: (pack.assurancePriorities ?? []).map((item) => item.factRef),
     resilienceTestRefs: (pack.resilienceTests ?? []).map((item) => item.factRef),
     contextApplicationRefs: (pack.contextApplications ?? []).map((item) => item.factRef),
+    exposurePathwayRefs: (pack.exposurePathways ?? []).map((item) => item.factRef),
+    criticalRelianceRefs: (pack.criticalReliances ?? []).map((item) => item.factRef),
     controlOutcomeLinkRefs: (pack.controlOutcomeLinks ?? []).map((item) => item.factRef),
     roadmapDependencyLinkRefs: (pack.roadmapDependencyLinks ?? []).map((item) => item.factRef),
+    questionSignalRefs: (pack.questionSignals ?? []).map((item) => item.factRef),
+    questionSignalUsage: questionSignalUsageFor(pack),
+    sectionContributionRules: COMPREHENSIVE_SECTION_CONTRIBUTIONS.map((rule) => ({
+      ...rule,
+      prohibitedRestatementOf: [...rule.prohibitedRestatementOf],
+      questionSignalRefs: questionSignalUsageFor(pack).find((usage) => usage.sectionId === rule.sectionId)?.questionSignalRefs ?? []
+    })),
     requiredPattern: 'context → analytical consequence → management implication'
   };
 }

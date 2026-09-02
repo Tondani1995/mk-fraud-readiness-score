@@ -23,6 +23,8 @@ import {
   type NarrativeAssurancePriorityFact,
   type NarrativeContextApplication,
   type NarrativeControlOutcomeLink,
+  type NarrativeControlRelianceFact,
+  type NarrativeExposurePathwayFact,
   type NarrativeResilienceTestFact,
   type NarrativeRoadmapDependencyLink
 } from './premium-projection';
@@ -217,6 +219,32 @@ export interface NarrativeSustainmentPriorityFact {
   sourceRefs?: string[];
 }
 
+/**
+ * Question-level evidence retained for the Comprehensive writer. The score and maturity remain
+ * unchanged; this additive view prevents a healthy profile from collapsing into only three
+ * score-level priorities. Excluded or not-applicable traces remain represented with their recorded
+ * state so the writer cannot silently turn absence into a positive assertion.
+ */
+export interface NarrativeQuestionSignal {
+  factRef: string;
+  questionCode: string;
+  domainCode: string;
+  domainName: string;
+  prompt: string;
+  responseValue: number | null;
+  responseLabel: string;
+  responseOperationalMeaning: string;
+  normalisedScore: number | null;
+  applicable: boolean;
+  triggeredRules: string[];
+  isCritical: boolean;
+  isHardGate: boolean;
+  isCriticalGap: boolean;
+  isMajorGap: boolean;
+  contextRefs: string[];
+  sourceRefs: string[];
+}
+
 export interface NarrativeBounds {
   themeCount: number;
   findingCount: number;
@@ -251,6 +279,8 @@ export interface NarrativeFactPack {
     /** Canonical operating facts with graph/question/option provenance. */
     operatingContext: OperatingContextFact[];
   };
+  /** Present only on the Comprehensive projection; Essential retains its prior surface. */
+  questionSignals?: NarrativeQuestionSignal[];
   assessment: {
     reference: string;
     generatedAt: string;
@@ -288,6 +318,8 @@ export interface NarrativeFactPack {
   resilienceTests?: NarrativeResilienceTestFact[];
   enterpriseIntegrationMap?: EnterpriseIntegrationMap;
   contextApplications?: NarrativeContextApplication[];
+  exposurePathways?: NarrativeExposurePathwayFact[];
+  criticalReliances?: NarrativeControlRelianceFact[];
   controlOutcomeLinks?: NarrativeControlOutcomeLink[];
   roadmapDependencyLinks?: NarrativeRoadmapDependencyLink[];
 }
@@ -330,6 +362,50 @@ function naturalSustainmentTitle(value: unknown, fallback = 'Fraud-control readi
     .replace(/^sustain\s+/i, '')
     .replace(/^maintain\s+/i, '')
     .trim();
+}
+
+function buildQuestionSignals(
+  data: AssembledReportData | undefined,
+  operatingContext: OperatingContextFact[],
+  domains: NarrativeDomainFact[]
+): NarrativeQuestionSignal[] {
+  if (!data?.questionTraces?.length) return [];
+  const labels = new Map(data.officialResponseLabels.map((label) => [label.responseValue, label]));
+  const domainRefs = new Map(domains.map((domain) => [domain.code, domain.factRef]));
+  const contextRefsByQuestion = new Map<string, string[]>();
+  for (const context of operatingContext) {
+    const refs = contextRefsByQuestion.get(context.sourceQuestionId) ?? [];
+    refs.push(`OPERATING-CONTEXT-${context.key}`);
+    contextRefsByQuestion.set(context.sourceQuestionId, refs);
+  }
+  return data.questionTraces.map((trace) => {
+    const response = trace.responseValue === null ? undefined : labels.get(trace.responseValue);
+    const contextRefs = [...new Set(contextRefsByQuestion.get(trace.questionCode) ?? [])];
+    const sourceRefs = [...new Set([
+      trace.questionCode,
+      domainRefs.get(trace.domainCode) ?? `DOMAIN-${trace.domainCode}`,
+      ...contextRefs
+    ])];
+    return {
+      factRef: `QUESTION-SIGNAL-${trace.questionCode}`,
+      questionCode: trace.questionCode,
+      domainCode: trace.domainCode,
+      domainName: trace.domainName,
+      prompt: cleanFactLanguage(trace.prompt, trace.questionCode),
+      responseValue: trace.responseValue,
+      responseLabel: response?.label ?? (trace.responseValue === null ? 'Not applicable' : 'Recorded response'),
+      responseOperationalMeaning: cleanFactLanguage(response?.operationalMeaning, trace.responseValue === null ? 'The question was excluded by the recorded assessment path.' : 'The response is retained in the locked score trace.'),
+      normalisedScore: trace.normalisedScore,
+      applicable: trace.applicable,
+      triggeredRules: trace.triggeredRules.map((rule) => text(rule)).filter(Boolean),
+      isCritical: trace.isCritical,
+      isHardGate: trace.isHardGate,
+      isCriticalGap: trace.isCriticalGap,
+      isMajorGap: trace.isMajorGap,
+      contextRefs,
+      sourceRefs
+    };
+  });
 }
 
 function phaseFor(action: RoadmapAction): NarrativeRoadmapFact['phase'] {
@@ -973,27 +1049,59 @@ function buildSustainmentPriorityFacts(priorities: SustainmentPriority[], includ
 }
 
 function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]): NarrativeControlFact[] {
-  return priorities.map((priority, index) => ({
-    factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
-    sourceId: priority.factRef,
-    primarySemanticFamily: priority.semanticFamily,
-    objective: `Maintain ${priority.title.toLowerCase()} through clear ownership, regular review and early attention to material change.`,
-    currentState: `${priority.recordedPosition} This position supports a sustainment treatment.`,
-    targetState: `The ${priority.title.toLowerCase()} standard remains owned, reviewed and responsive to material change.`,
-    accountableExecutive: priority.accountableExecutive,
-    processOwner: priority.processOwner,
-    population: 'The complete in-scope population for the control standard.',
-    frequency: priority.operatingFrequency,
-    proofRetained: priority.proofRetained,
-    independentCheck: 'Management control-effectiveness review through the normal governance route.',
-    escalationTrigger: priority.deteriorationTrigger,
-    sla: 'Review within the next scheduled management cycle and after a material change.',
-    effectivenessMeasure: priority.effectivenessIndicator,
-    failureResponse: 'Escalate deterioration through the named owner and oversight route, then record the management response.',
-    dependencies: priority.dependencies,
-    linkedFindingRefs: [],
-    linkedSustainmentPriorityRefs: [priority.factRef]
-  }));
+  const designByFamily: Partial<Record<PrimarySemanticFamily, {
+    objective: string;
+    currentState: string;
+    targetState: string;
+    managementReview: string;
+    failureResponse: string;
+  }>> = {
+    FRAUD_GOVERNANCE: {
+      objective: 'Maintain fraud leadership and governance readiness through visible decision rights, funded ownership and timely escalation.',
+      currentState: 'The recorded standard places senior ownership, budget, unresolved exceptions and governing-body reporting within the fraud-risk programme.',
+      targetState: 'Decision rights, funded owners, unresolved actions and escalation status are visible in each governance cycle.',
+      managementReview: 'Management reviews the mandate, decision rights and overdue-action escalation through the normal governance route.',
+      failureResponse: 'Escalate an unowned or overdue material action through the named owner and governing-body route, then record the management response.'
+    },
+    CONTINUOUS_IMPROVEMENT: {
+      objective: 'Maintain control-effectiveness learning through scheduled review, evidence sampling, exception ownership and timely action closure.',
+      currentState: 'The recorded standard combines scheduled risk reassessment, key-control review and consolidated reporting with owned actions.',
+      targetState: 'Review scope, sampled evidence, deterioration signals and action closure feed the next management review.',
+      managementReview: 'Management reviews the population, evidence sample, exception assignment and closure record through the normal risk route.',
+      failureResponse: 'Route an overdue review or deteriorated key control to the named process owner, assign the response and record closure.'
+    },
+    FRAUD_RISK_IDENTIFICATION: {
+      objective: 'Keep the fraud-risk view current through material-process coverage, treatment ownership and change-triggered refresh.',
+      currentState: 'The recorded standard covers material processes, repeatable ratings, named owners and a tracked treatment plan.',
+      targetState: 'Material processes carry current risk ratings, treatment owners and dates, with an interim refresh after material change.',
+      managementReview: 'Management reviews process coverage, risk and treatment currency through the normal governance decision route.',
+      failureResponse: 'Escalate an outdated assessment or unowned material change through the named risk owner and normal governance route.'
+    }
+  };
+  return priorities.map((priority, index) => {
+    const design = designByFamily[priority.semanticFamily] ?? designByFamily.CONTINUOUS_IMPROVEMENT!;
+    return {
+      factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
+      sourceId: priority.factRef,
+      primarySemanticFamily: priority.semanticFamily,
+      objective: design.objective,
+      currentState: `${priority.recordedPosition} ${design.currentState}`,
+      targetState: design.targetState,
+      accountableExecutive: priority.accountableExecutive,
+      processOwner: priority.processOwner,
+      population: 'The complete in-scope population for the control standard.',
+      frequency: priority.operatingFrequency,
+      proofRetained: priority.proofRetained,
+      independentCheck: design.managementReview,
+      escalationTrigger: priority.deteriorationTrigger,
+      sla: 'Review within the next scheduled management cycle and after a material change.',
+      effectivenessMeasure: priority.effectivenessIndicator,
+      failureResponse: design.failureResponse,
+      dependencies: priority.dependencies,
+      linkedFindingRefs: [],
+      linkedSustainmentPriorityRefs: [priority.factRef]
+    };
+  });
 }
 
 function buildSustainmentDecisions(priorities: NarrativeSustainmentPriorityFact[]): NarrativeDecisionFact[] {
@@ -1259,6 +1367,7 @@ function buildPack(input: {
   const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
   const domains = buildDomains(input.data, findings);
+  const questionSignals = input.tier === 'comprehensive' ? buildQuestionSignals(input.data, operatingContext, domains) : [];
   const themes = buildThemeFacts(input.evidenceModel.contradictions, narrativeFindings, narrativeRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
   const standaloneFindingReasons = Object.fromEntries(findings.filter((finding) => !themedFindingRefs.has(finding.factRef)).map((finding) => [finding.factRef, 'Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.']));
@@ -1280,6 +1389,7 @@ function buildPack(input: {
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),
     ...domains.map((domain) => makeFact(domain.factRef, 'domain', domain, [domain.code])),
     ...operatingContext.map((fact) => makeFact(`OPERATING-CONTEXT-${fact.key}`, 'operating_context', fact, [fact.sourceGatewayCode, fact.sourceQuestionId])),
+    ...questionSignals.map((signal) => makeFact(signal.factRef, 'question_signal', signal, signal.sourceRefs)),
     ...relativeStrengths.map((strength) => makeFact(strength.factRef, 'relative_strength', strength, [strength.domainCode])),
     ...themes.map((theme) => makeFact(theme.factRef, 'systemic_theme', theme, [...theme.findingRefs, ...theme.riskRefs, ...theme.scenarioRefs])),
     ...findings.map((finding) => makeFact(finding.factRef, 'finding', finding, finding.sourceRefs)),
@@ -1304,6 +1414,7 @@ function buildPack(input: {
         .map(describeOperatingContextFact)
         .filter(Boolean)
     },
+    ...(input.tier === 'comprehensive' ? { questionSignals } : {}),
     assessment: {
       ...input.score,
       reference: text(input.assessmentReference, 'Recorded assessment'),
@@ -1449,7 +1560,13 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
     if (pack.productTier === 'essential' && pack.maturationSteps.length !== 0) throw new Error('Essential Sustainment Fact Pack must not contain twelve-month maturation steps.');
     if (pack.productTier === 'comprehensive' && pack.maturationSteps.length !== pack.controls.length * 2) throw new Error('Comprehensive Sustainment Fact Pack must contain two maturation steps per sustainment control.');
     if (pack.productTier === 'comprehensive') {
-      if (!pack.enterpriseIntegrationMap || !pack.assuranceCoverage || !pack.assurancePriorities || !pack.resilienceTests || !pack.contextApplications || !pack.controlOutcomeLinks || !pack.roadmapDependencyLinks) {
+      if (!pack.questionSignals?.length || new Set(pack.questionSignals.map((signal) => signal.factRef)).size !== pack.questionSignals.length) {
+        throw new Error('Comprehensive Sustainment Fact Pack must retain unique question-level evidence signals.');
+      }
+      if (pack.questionSignals.some((signal) => !signal.questionCode || !signal.domainCode || !signal.responseLabel || !signal.responseOperationalMeaning || !signal.sourceRefs.includes(signal.questionCode) || !pack.facts.some((fact) => fact.id === signal.factRef && fact.kind === 'question_signal'))) {
+        throw new Error('Comprehensive Sustainment question-level evidence signal is incomplete or not canonicalised.');
+      }
+      if (!pack.enterpriseIntegrationMap || !pack.assuranceCoverage || !pack.assurancePriorities || !pack.resilienceTests || !pack.contextApplications || !pack.controlOutcomeLinks || !pack.roadmapDependencyLinks || !pack.exposurePathways || !pack.criticalReliances) {
         throw new Error('Comprehensive Sustainment Fact Pack is missing a premium deterministic projection.');
       }
       assertComprehensivePremiumProjection(pack);

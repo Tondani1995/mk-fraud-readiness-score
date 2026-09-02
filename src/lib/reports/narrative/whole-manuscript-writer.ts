@@ -10,7 +10,7 @@ import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeMan
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import type { WholeManuscriptWriterContext } from './report-blueprint';
 
-export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
+export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v2-premium-synthesis';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
@@ -46,6 +46,10 @@ export function buildWholeManuscriptGenerationPrompt(input: WholeManuscriptWrite
     ...(input.blueprint.reportTier === 'comprehensive' ? [
       'COMPREHENSIVE DEPTH. This is the premium automated management report. The reader is paying for interpretation, synthesis and a coherent management view, not for a narrated scorecard or register.',
       'Lead each chapter with the management judgement supported by the authorised facts, then explain the relationships and implications that make that judgement useful. Do not walk through deterministic objects one by one.',
+      'SECTION CONTRIBUTION CONTRACT. For each section, answer its supplied management question and make its supplied primary contribution. Do not restate a contribution that the section marks as prohibited; move the story forward by adding a new consequence, choice, test or implementation gate.',
+      'PREMIUM SYNTHESIS. Establish the operating context and question-level evidence pattern once in Analytical basis. In later sections use only the supported pathway, control, decision or roadmap object that changes that section\'s management answer. Do not replay the context inventory, score shape or a prior implication.',
+      'KEEP OBJECT TYPES DISTINCT. Enterprise findings, exposure pathways, resilience tests, critical reliance, target controls, leadership decisions and implementation actions have different jobs. Do not use a generic control or priority paragraph to stand in for another object type.',
+      'ANTI-REPETITION. Do not repeat identical owner, cadence, indicator, proof or trigger lists. If several question signals support one priority, synthesise them once and state their management meaning; do not manufacture additional weaknesses or priorities.',
       'Use positive assessed capability positively. A strong or Sustainment position must read as a strong position. Do not manufacture a weakness, concern or caution merely to create balance or drama.',
       'Where a deterioration watchpoint is authorised, describe it as a future condition to monitor, not as a current failure. Detailed registers, field mechanics and traceability belong in the companion workbook, not in the prose.'
     ] : []),
@@ -78,6 +82,8 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     '',
     'This is a bounded technical truncation recovery. The existing manuscript is preserved. If the preceding context ends mid-sentence, complete only that interrupted sentence under the current final heading; then emit each missing deterministic heading exactly once, followed by its narrative. Do not rewrite, repeat or summarise any complete existing paragraph.',
     'Do not add, rename or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata. Use only the deterministic Fact Pack and permitted claim references. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance.',
+    'SECTION CONTRIBUTION CONTRACT. Answer each section\'s management question and make its primary contribution once. Do not repeat the prior section\'s contribution, operating-context inventory or management implication.',
+    'KEEP OBJECT TYPES DISTINCT. Use only the supplied object type assigned to each missing section. Do not substitute a generic control, priority or context paragraph for an exposure pathway, resilience test, decision or roadmap action.',
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.

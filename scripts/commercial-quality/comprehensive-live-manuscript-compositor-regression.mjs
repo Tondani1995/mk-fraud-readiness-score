@@ -111,7 +111,20 @@ try {
     const companionPages = companionPageMetrics(metrics);
     assert.equal(companionPages.length, 1, `${entry.model}: companion panel must render once`);
     assert.ok(companionPages[0].words >= 120, `${entry.model}: companion content is materially underfilled`);
-    assert.match(companionPages[0].text, /Management conclusion|Readiness remains durable|appropriate response is to preserve|assessed .* Strategic maturity/i, `${entry.model}: companion panel became isolated from the conclusion`);
+    const conclusionChapterIds = new Set(fixture.blueprint.chapters
+      .filter((chapter) => chapter.narrativeRole === 'CONCLUSION')
+      .map((chapter) => chapter.chapterId));
+    const conclusionParagraphs = narrative.chapters
+      .filter((chapter) => conclusionChapterIds.has(chapter.chapterId))
+      .flatMap((chapter) => chapter.sections.flatMap((section) => [
+        ...section.paragraphs,
+        ...section.subsections.flatMap((subsection) => subsection.paragraphs)
+      ]))
+      .map((paragraph) => paragraph.text)
+      .filter(Boolean);
+    const conclusionTailSignal = conclusionParagraphs.at(-1)?.split(/\s+/).slice(0, 5).join(' ');
+    assert.ok(conclusionTailSignal, `${entry.model}: conclusion tail is missing from the bound manuscript`);
+    assert.match(companionPages[0].text, new RegExp(conclusionTailSignal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `${entry.model}: companion panel became isolated from the conclusion tail`);
     results.push({
       model: entry.model,
       manuscript: { path: entry.path, sha256: manuscriptSha256 },

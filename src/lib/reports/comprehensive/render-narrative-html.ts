@@ -165,7 +165,7 @@ function scenarios(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
 
 function controls(chapter: ComprehensiveNarrativeChapter, positive: boolean, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.controls.length) return '';
-  return `<figure class="exhibit ${positive ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
+  return `<figure class="exhibit control-exhibit ${positive ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>${positive ? 'Control disciplines to preserve and strengthen' : 'Target control environment'}</strong><span>Compact operating specifications only. Full control blueprints remain in the workbook.</span></figcaption>
     <div class="control-stack">
       ${chapter.controls.slice(0, 5).map((item, index) => `<article class="control-item" ${compositionObjectAttrs(exhibit, 'control', index)}>
@@ -197,6 +197,49 @@ function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
   </figure>`;
 }
 
+function customerLabel(value: string): string {
+  return value
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function exposurePathways(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
+  if (!chapter.exposurePathways?.length) return '';
+  return `<figure class="exhibit watch-exhibit" ${exhibitAttrs(exhibit)}>
+    <figcaption><strong>Supported change pathways</strong><span>Selective context tests that change management attention; not current findings or risks.</span></figcaption>
+    <div class="priority-stack pathway-stack">
+      ${chapter.exposurePathways.map((item, index) => `<article class="priority-item pathway-item" ${compositionObjectAttrs(exhibit, 'pathway', index)}>
+        <h4>${esc(item.label)}</h4>
+        <p><b>When attention changes:</b> ${esc(item.changeCondition)}</p>
+        <p><b>Why it matters:</b> ${esc(item.analyticalConsequence)}</p>
+        <p><b>Management response:</b> ${esc(item.managementImplication)}</p>
+        <div class="fact-strip"><span><b>Context</b> ${esc(item.contextKeys.map(customerLabel).join(' · '))}</span><span><b>Exposure basis</b> ${esc(item.supportedExposureIds.map(customerLabel).join(' · '))}</span></div>
+        <p class="watchpoint"><b>Boundary:</b> ${esc(item.conditionalBoundary)}</p>
+      </article>`).join('')}
+    </div>
+  </figure>`;
+}
+
+function criticalReliances(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
+  if (!chapter.criticalReliances?.length) return '';
+  const controlByRef = new Map(model.chapters.flatMap((item) => item.controls).map((item) => [item.factRef, item]));
+  return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
+    <figcaption><strong>Control signals relied on across the management view</strong><span>Shared routes that help management protect outcomes and notice drift.</span></figcaption>
+    <div class="priority-stack reliance-stack">
+      ${chapter.criticalReliances.map((item, index) => {
+        const control = controlByRef.get(item.controlRef);
+        const routeLabel = item.relianceLevel === 'MULTI-ROUTE' ? 'Multiple supported routes' : 'Direct supported route';
+        return `<article class="priority-item reliance-item" ${compositionObjectAttrs(exhibit, 'reliance', index)}>
+          <h4>${esc(control?.objective ?? 'Control signal supporting the readiness position')}</h4>
+          <p>${esc(item.relianceBasis)}</p>
+          <p><b>Protected outcome:</b> ${esc(item.protectedOutcomes.join(' · ') || control?.targetState || 'The recorded readiness standard remains visible to management.')}</p>
+          <div class="fact-strip"><span><b>Route</b> ${esc(routeLabel)}</span><span><b>Management signal</b> ${esc(item.managementSignal)}</span></div>
+        </article>`;
+      }).join('')}
+    </div>
+  </figure>`;
+}
+
 function transformation(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!/SUSTAINMENT-OPTIMISATION|IMPLEMENTATION-BLUEPRINT|TWELVE-MONTH-MATURATION/.test(chapter.chapterId)) return '';
   if (exhibit.type === 'roadmap_30_60_90') {
@@ -212,7 +255,7 @@ function transformation(model: ComprehensiveNarrativePresentationModel, chapter:
   }
   const stages = model.transformationSequence;
   if (!stages.length) return '';
-  return `<figure class="exhibit ${model.narrativeMode === 'SUSTAINMENT' ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
+  return `<figure class="exhibit maturation-exhibit ${model.narrativeMode === 'SUSTAINMENT' ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>${model.narrativeMode === 'SUSTAINMENT' ? 'Twelve-month sustainment path' : 'Twelve-month transformation path'}</strong><span>Progression, outcomes and management checkpoints.</span></figcaption>
     <div class="stage-grid">${stages.map((stage, index) => `<article class="${stage.supported ? 'supported' : 'muted-stage'}" ${compositionObjectAttrs(exhibit, 'maturation-card', index)}>
       <span class="stage-name">${esc(stage.stage)}</span><p>${esc(stage.purpose)}</p>
@@ -234,6 +277,8 @@ function chapterExhibits(model: ComprehensiveNarrativePresentationModel, chapter
       case 'scenario_pathway': return scenarios(chapter, exhibit);
       case 'control_response': return controls(chapter, positive, exhibit);
       case 'decision_options': return decisions(chapter, exhibit);
+      case 'exposure_pathway': return exposurePathways(chapter, exhibit);
+      case 'critical_reliance': return criticalReliances(model, chapter, exhibit);
       case 'roadmap_30_60_90':
       case 'maturation_path': return transformation(model, chapter, exhibit);
       default: return '';
@@ -373,12 +418,22 @@ function css(): string {
   .management-implication.critical{border-left-color:var(--mk-critical);background:var(--mk-critical-bg)}
   .exhibit{break-inside:avoid;margin:8mm 0 4mm;padding-top:4mm;border-top:1px solid var(--mk-rule);font-size:9.4pt}
   .decision-exhibit{break-inside:auto;page-break-inside:auto}
+  .decision-exhibit figcaption{break-after:avoid;page-break-after:avoid}
   figcaption{display:flex;justify-content:space-between;gap:8mm;align-items:baseline;margin-bottom:5mm}
   figcaption strong{font-size:12pt;color:var(--mk-navy-700)}
   figcaption span{font-size:8.5pt;color:var(--mk-muted);text-align:right;max-width:78mm}
   .positive-exhibit{border-top:2px solid var(--mk-confirmed)}
   .positive-exhibit .priority-item,.positive-exhibit .control-item{border-left:2px solid var(--mk-confirmed);padding-left:4mm}
   .watch-exhibit{border-top:2px solid var(--mk-major)}
+  .watch-exhibit{break-inside:auto;page-break-inside:auto}
+  .watch-exhibit figcaption{break-after:avoid;page-break-after:avoid}
+  .pathway-stack{display:block}
+  .pathway-item{break-inside:avoid;page-break-inside:avoid}
+  .control-exhibit{break-inside:auto;page-break-inside:auto}
+  .control-exhibit figcaption{break-after:avoid;page-break-after:avoid}
+  .control-stack{display:block}
+  .maturation-exhibit{break-inside:auto;page-break-inside:auto}
+  .maturation-exhibit figcaption{break-after:avoid;page-break-after:avoid}
   .domain-profile{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm 9mm}
   .score-strip{display:flex;align-items:center;gap:7mm;padding:5mm;background:var(--mk-neutral-bg);border-left:3px solid var(--mk-navy-700)}
   .score-strip>strong{font-size:28pt;line-height:1;color:var(--mk-navy-700)}

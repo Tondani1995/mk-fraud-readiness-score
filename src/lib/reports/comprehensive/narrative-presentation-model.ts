@@ -38,6 +38,8 @@ export interface ComprehensiveNarrativeChapter {
   resilienceTests?: NonNullable<NarrativeFactPack['resilienceTests']>;
   integrationDependencies?: NonNullable<NonNullable<NarrativeFactPack['enterpriseIntegrationMap']>['dependencies']>;
   contextApplications?: NonNullable<NarrativeFactPack['contextApplications']>;
+  exposurePathways?: NonNullable<NarrativeFactPack['exposurePathways']>;
+  criticalReliances?: NonNullable<NarrativeFactPack['criticalReliances']>;
   controlOutcomeLinks?: NonNullable<NarrativeFactPack['controlOutcomeLinks']>;
   roadmapDependencyLinks?: NonNullable<NarrativeFactPack['roadmapDependencyLinks']>;
   exhibits: ReportBlueprintExhibit[];
@@ -178,6 +180,8 @@ export function buildComprehensiveNarrativePresentationModel(input: {
       resilienceTests: authoritative.resilienceTests?.filter((item) => include(item.factRef)),
       integrationDependencies: authoritative.enterpriseIntegrationMap?.dependencies.filter((item) => include(`INTEGRATION-DEPENDENCY-${item.dependencyRef.slice(-3)}`)),
       contextApplications: authoritative.contextApplications?.filter((item) => include(item.factRef)),
+      exposurePathways: authoritative.exposurePathways?.filter((item) => include(item.factRef)),
+      criticalReliances: authoritative.criticalReliances?.filter((item) => include(item.factRef)),
       controlOutcomeLinks: authoritative.controlOutcomeLinks?.filter((item) => include(item.factRef)),
       roadmapDependencyLinks: authoritative.roadmapDependencyLinks?.filter((item) => include(item.factRef)),
       exhibits: chapter.exhibits.map((item) => ({ ...item, sourceRefs: [...item.sourceRefs] }))
