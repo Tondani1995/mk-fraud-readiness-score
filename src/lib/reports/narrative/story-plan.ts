@@ -13,6 +13,18 @@ export interface NarrativeMovement {
   requiredManagementTakeaway: string;
 }
 
+export interface ComprehensivePremiumStoryRequirements {
+  enterpriseIntegrationMapRef: string;
+  integrationDependencyRefs: string[];
+  assuranceCoverageRefs: string[];
+  assurancePriorityRefs: string[];
+  resilienceTestRefs: string[];
+  contextApplicationRefs: string[];
+  controlOutcomeLinkRefs: string[];
+  roadmapDependencyLinkRefs: string[];
+  requiredPattern: 'context → analytical consequence → management implication';
+}
+
 export interface NarrativeStoryPlan {
   schemaVersion: typeof NARRATIVE_STORY_PLAN_SCHEMA_VERSION;
   bibleVersion: '1.1';
@@ -32,10 +44,26 @@ export interface NarrativeStoryPlan {
   narrativeBounds: NarrativeFactPack['narrativeBounds'];
   requiredConclusion: string;
   prohibitedClaims: string[];
+  premiumRequirements?: ComprehensivePremiumStoryRequirements;
 }
 
 function ids<T extends { factRef: string }>(items: T[]): string[] { return items.map((item) => item.factRef); }
 function maturationIds(items: NarrativeFactPack['maturationSteps']): string[] { return items.map((item) => item.maturationRef); }
+
+function premiumStoryRequirements(pack: NarrativeFactPack): ComprehensivePremiumStoryRequirements | undefined {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !pack.enterpriseIntegrationMap) return undefined;
+  return {
+    enterpriseIntegrationMapRef: pack.enterpriseIntegrationMap.factRef,
+    integrationDependencyRefs: pack.facts.filter((fact) => fact.kind === 'integration_dependency').map((fact) => fact.id),
+    assuranceCoverageRefs: (pack.assuranceCoverage ?? []).map((item) => item.factRef),
+    assurancePriorityRefs: (pack.assurancePriorities ?? []).map((item) => item.factRef),
+    resilienceTestRefs: (pack.resilienceTests ?? []).map((item) => item.factRef),
+    contextApplicationRefs: (pack.contextApplications ?? []).map((item) => item.factRef),
+    controlOutcomeLinkRefs: (pack.controlOutcomeLinks ?? []).map((item) => item.factRef),
+    roadmapDependencyLinkRefs: (pack.roadmapDependencyLinks ?? []).map((item) => item.factRef),
+    requiredPattern: 'context → analytical consequence → management implication'
+  };
+}
 
 export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStoryPlan {
   const essential = pack.productTier === 'essential';
@@ -85,7 +113,7 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     narrativeMode: pack.narrativeMode,
     executiveStoryObjective: essential
       ? sustainment ? 'Explain the strong assessed position, the disciplines supporting it and the first 90-day sustainment route.' : 'Diagnose the self-assessed fraud-control environment, explain its most material patterns and set the first 90-day response.'
-      : sustainment ? 'Explain the strong recorded environment, define sustainment and deterioration watchpoints, and set the twelve-month resilience route.' : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
+      : sustainment ? 'Explain the strong recorded environment through one enterprise integration view, define conditional resilience and deterioration watchpoints, connect controls to protected outcomes and set the twelve-month dependency-led route.' : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
     movements,
     themeOrder: ids(pack.systemicThemeInputs),
     findingOrder: ids(pack.findings.slice(0, essential ? 8 : 8)),
@@ -106,8 +134,9 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     },
     requiredConclusion: essential
       ? sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the sustainment priorities, what should remain true within 90 days and how management will detect deterioration.' : 'Explain what the assessment shows, which few changes matter most, what must be true within 90 days and the sensible next step.'
-      : sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the transition from preserve to optimise, success at 90 days and 12 months, and the management rhythm that protects maturity.' : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
-    prohibitedClaims: pack.prohibitedClaims
+      : sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the enterprise relationships that protect the result, the conditional tests after change, the transition from preserve to optimise, success at 90 days and 12 months, and the management rhythm that protects maturity.' : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
+    prohibitedClaims: pack.prohibitedClaims,
+    ...(premiumStoryRequirements(pack) ? { premiumRequirements: premiumStoryRequirements(pack) } : {})
   };
 }
 
@@ -130,6 +159,13 @@ export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: Narrati
   if (JSON.stringify(maturationIds(pack.maturationSteps)) !== JSON.stringify(plan.maturationOrder)) throw new Error('Story Plan maturation order does not match deterministic Fact Pack order.');
   if (!plan.requiredConclusion.trim()) throw new Error('Story Plan must define a required conclusion.');
   if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.findingCount !== 0) throw new Error('Sustainment Story Plan must contain no customer-facing findings.');
+  const premium = premiumStoryRequirements(pack);
+  if (premium) {
+    if (!plan.premiumRequirements) throw new Error('Comprehensive Sustainment Story Plan is missing premium propagation requirements.');
+    if (JSON.stringify(plan.premiumRequirements) !== JSON.stringify(premium)) throw new Error('Comprehensive Sustainment Story Plan premium propagation requirements do not match the Fact Pack.');
+  } else if (plan.premiumRequirements) {
+    throw new Error('Premium propagation requirements may not appear in Essential, Remediation or non-Comprehensive Story Plans.');
+  }
   if (pack.narrativeMode !== 'SUSTAINMENT' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 1 || plan.narrativeBounds.findingCount > 8)))) throw new Error('Story Plan finding narrative core is outside the permitted profile bounds.');
   if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.scenarioCount !== 0) throw new Error('Sustainment Story Plan must contain no automated fraud scenarios.');
   if (pack.narrativeMode !== 'SUSTAINMENT' && plan.productTier === 'essential' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 3)))) throw new Error('Essential Story Plan contains an invalid scenario count for the assessed readiness profile.');

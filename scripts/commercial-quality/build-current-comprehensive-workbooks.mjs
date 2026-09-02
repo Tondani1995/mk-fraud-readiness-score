@@ -28,6 +28,8 @@ const { SpreadsheetFile, Workbook } = requireFromBundle('@oai/artifact-tool');
 const outputDir = path.resolve(process.env.CURRENT_COMPREHENSIVE_OUTPUT_DIR ?? path.join(process.cwd(), 'outputs', 'comprehensive-current-path'));
 const previewRoot = path.join(outputDir, 'workbook-previews');
 const previewScale = Number(process.env.RENDER_SCALE ?? 0.25);
+const profileKeys = (process.env.COMPREHENSIVE_PROFILE_KEYS ?? 'motheo,bokamoso').split(',').map((value) => value.trim().toLowerCase()).filter((value) => ['motheo', 'bokamoso'].includes(value));
+if (!profileKeys.length) throw new Error('COMPREHENSIVE_PROFILE_KEYS must include at least one supported profile.');
 
 const SHEET_NAMES = [
   'Read me',
@@ -100,7 +102,10 @@ function rowsToValues(rows, columns) {
 
 function workbookDate(value) {
   const parsed = value instanceof Date ? value : new Date(String(value ?? ''));
-  return Number.isNaN(parsed.getTime()) ? value : parsed;
+  if (Number.isNaN(parsed.getTime())) return value;
+  // Store a numeric Excel date with an explicit number format below. The
+  // artifact-tool renderer then displays a date/time rather than serial text.
+  return (parsed.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
 }
 
 function readMeRows(factPack) {
@@ -112,8 +117,19 @@ function readMeRows(factPack) {
     ['How to read', 'Start with Summary, then review findings and risks, control blueprints, management decisions and the Implementation Blueprint.', 'Use the detailed records to assign ownership, timing, proof and review.'],
     ['Implementation Blueprint', 'The Implementation Blueprint records sequenced work, maturation steps and the management records that show progress.', 'Use the period, owner, dependency, proof and measure fields together.'],
     ['Sustainment sequence', 'PRESERVE → EMBED → MEASURE → OPTIMISE', 'Positive-state operating language; not a weakness register.'],
+    ['Enterprise integration', 'The report links the recorded domains, management priorities, decision routes and review signals.', 'Use the linked outcomes and dependencies to keep management attention connected.'],
+    ['Resilience checks', 'Conditional checks show when management should revisit the recorded standard after material change.', 'These are forward-looking review prompts, not findings.'],
     ['Traceability', 'Question codes and source references are retained to support review and follow-through.', 'Use the assessment reference when discussing a record.']
   ];
+}
+
+function exposureSummary(score) {
+  const exposureScore = score?.exposureScore;
+  const exposureBand = String(score?.exposureBand ?? '').trim();
+  const hasScore = exposureScore !== null && exposureScore !== undefined && exposureScore !== '';
+  const hasBand = exposureBand && !/not supplied|not applicable|unknown/i.test(exposureBand);
+  if (!hasScore && !hasBand) return null;
+  return [hasScore ? String(exposureScore) : '', hasBand ? exposureBand : ''].filter(Boolean).join(' · ');
 }
 
 function buildWorkbookData(model, factPack, blueprint, registerSheets) {
@@ -131,13 +147,17 @@ function buildWorkbookData(model, factPack, blueprint, registerSheets) {
     ['Implementation rows', null, 'Number of implementation records.'],
     ['Leadership decisions', null, 'Number of management decisions.'],
     ['Question traces', null, 'Number of assessment question traces.'],
+    ['Enterprise integration relationships', factPack.enterpriseIntegrationMap?.dependencies.length ?? 0, 'Recorded relationships connecting domains, decisions, controls and outcomes.'],
+    ['Assurance coverage rows', factPack.assuranceCoverage?.length ?? 0, 'Recorded domain coverage used to keep the full profile in view.'],
+    ['Context applications', factPack.contextApplications?.length ?? 0, 'Selective context links with an analytical consequence and management implication.'],
+    ['Conditional resilience checks', factPack.resilienceTests?.length ?? 0, 'Forward-looking checks linked to recorded change conditions.'],
+    ['Control-to-outcome links', factPack.controlOutcomeLinks?.length ?? 0, 'Links between each sustainment control, its decision route and protected outcome.'],
     ['Total detailed records', null, 'Formula sum across the detailed records.'],
     ['Scoring method reference', model.analytical.score.methodologyVersionId, 'Reference for the recorded result.'],
     ['Generated', workbookDate(model.analytical.generatedAt), 'Workbook generation time.']
   ];
-  if (model.analytical.score.exposureScore !== null || model.analytical.score.exposureBand !== null) {
-    summaryRows.splice(5, 0, ['Exposure position', `${model.analytical.score.exposureScore ?? ''} · ${model.analytical.score.exposureBand ?? ''}`.replace(/^ · | · $/g, ''), '']);
-  }
+  const exposure = exposureSummary(model.analytical.score);
+  if (exposure) summaryRows.splice(5, 0, ['Exposure position', exposure, 'Recorded exposure position where supplied.']);
   return [
     { name: 'Read me', columns: readMeColumns, rows: readMeRows(factPack).map(([field, cellValue, note]) => ({ field, value: cellValue, note })) },
     { name: 'Summary', columns: summaryColumns, rows: summaryRows.map(([field, cellValue, note]) => ({ field, value: cellValue, note })) },
@@ -262,6 +282,19 @@ async function buildForProfile(profileKey) {
 
   const formulaScan = await workbook.inspect({ kind: 'match', searchTerm: '#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A', options: { useRegex: true, maxResults: 300 }, summary: 'Current Comprehensive workbook formula error scan' });
   const summaryInspect = await workbook.inspect({ kind: 'table', range: `Summary!A1:G${Math.max(18, summaryRowCount + 1)}`, include: 'values,formulas', tableMaxRows: 20, tableMaxCols: 8 });
+  const sheetInspects = [];
+  for (const sheetData of workbookData) {
+    const endColumn = excelColumn(sheetData.columns.length - 1);
+    const inspection = await workbook.inspect({
+      kind: 'table',
+      range: `'${sheetData.name}'!A1:${endColumn}${Math.max(1, sheetData.rows.length + 1)}`,
+      include: 'values,formulas',
+      tableMaxRows: Math.max(20, sheetData.rows.length + 1),
+      tableMaxCols: Math.max(8, sheetData.columns.length),
+      summary: `Rendered ${sheetData.name} inspection`
+    });
+    sheetInspects.push({ sheet: sheetData.name, inspection: inspection.ndjson ?? inspection });
+  }
   const previewDir = path.join(previewRoot, profileKey);
   await fs.mkdir(previewDir, { recursive: true });
   const previews = [];
@@ -286,6 +319,7 @@ async function buildForProfile(profileKey) {
     formulaCells,
     formulaErrorScan: formulaScan.ndjson ?? formulaScan,
     summaryInspect: summaryInspect.ndjson ?? summaryInspect,
+    sheetInspects,
     renderedSheets: previews.map((preview) => preview.sheet),
     previewDir,
     deterministic: { narrativeMode: factPack.narrativeMode, score: factPack.assessment.score, blueprintChapters: blueprint.chapters.length }
@@ -297,7 +331,7 @@ async function buildForProfile(profileKey) {
 await fs.mkdir(outputDir, { recursive: true });
 await fs.mkdir(previewRoot, { recursive: true });
 const results = [];
-for (const profileKey of ['motheo', 'bokamoso']) results.push(await buildForProfile(profileKey));
+for (const profileKey of profileKeys) results.push(await buildForProfile(profileKey));
 
 console.log(JSON.stringify({
   status: 'PASS',

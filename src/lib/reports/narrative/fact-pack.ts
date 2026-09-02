@@ -13,6 +13,19 @@ import {
   describeOperatingContextFact,
   type OperatingContextFact
 } from './operating-context';
+import {
+  assertComprehensivePremiumProjection,
+  buildComprehensivePremiumProjection,
+  premiumFactEntries,
+  type ComprehensivePremiumProjection,
+  type EnterpriseIntegrationMap,
+  type NarrativeAssuranceCoverageFact,
+  type NarrativeAssurancePriorityFact,
+  type NarrativeContextApplication,
+  type NarrativeControlOutcomeLink,
+  type NarrativeResilienceTestFact,
+  type NarrativeRoadmapDependencyLink
+} from './premium-projection';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -196,6 +209,12 @@ export interface NarrativeSustainmentPriorityFact {
   deteriorationTrigger: string;
   effectivenessIndicator: string;
   dependencies: string[];
+  /** Comprehensive-only source identity retained for cross-artifact provenance. */
+  sourceId?: string;
+  sourceFindingId?: string;
+  sourceQuestionCode?: string;
+  sourceDomainCode?: string;
+  sourceRefs?: string[];
 }
 
 export interface NarrativeBounds {
@@ -263,6 +282,14 @@ export interface NarrativeFactPack {
   prohibitedClaims: string[];
   narrativeBounds: NarrativeBounds;
   facts: NarrativeFact[];
+  /** Present only for the Comprehensive Sustainment projection. */
+  assuranceCoverage?: NarrativeAssuranceCoverageFact[];
+  assurancePriorities?: NarrativeAssurancePriorityFact[];
+  resilienceTests?: NarrativeResilienceTestFact[];
+  enterpriseIntegrationMap?: EnterpriseIntegrationMap;
+  contextApplications?: NarrativeContextApplication[];
+  controlOutcomeLinks?: NarrativeControlOutcomeLink[];
+  roadmapDependencyLinks?: NarrativeRoadmapDependencyLink[];
 }
 
 const text = (value: unknown, fallback = ''): string => String(value ?? '').trim() || fallback;
@@ -919,7 +946,7 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
   }));
 }
 
-function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): NarrativeSustainmentPriorityFact[] {
+function buildSustainmentPriorityFacts(priorities: SustainmentPriority[], includeSourceMetadata = false): NarrativeSustainmentPriorityFact[] {
   return priorities.map((priority, index) => ({
     factRef: `SUSTAINMENT-${String(index + 1).padStart(3, '0')}`,
     title: naturalSustainmentTitle(priority.title),
@@ -934,7 +961,14 @@ function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): Narra
     proofRetained: priority.proofRetained.map((item) => cleanSustainmentLanguage(item)).filter(Boolean),
     deteriorationTrigger: cleanSustainmentLanguage(priority.deteriorationTrigger, 'Material process, system, product or ownership change.'),
     effectivenessIndicator: cleanSustainmentLanguage(priority.effectivenessIndicator, 'The review rhythm remains current and exceptions are assigned.'),
-    dependencies: priority.dependencies.map((item) => cleanSustainmentLanguage(item)).filter(Boolean)
+    dependencies: priority.dependencies.map((item) => cleanSustainmentLanguage(item)).filter(Boolean),
+    ...(includeSourceMetadata ? {
+      sourceId: text(priority.id),
+      sourceFindingId: text(priority.sourceFindingId),
+      sourceQuestionCode: text(priority.questionCode),
+      sourceDomainCode: text(priority.domainCode),
+      sourceRefs: unique([priority.id, priority.sourceFindingId, priority.questionCode, priority.domainCode])
+    } : {})
   }));
 }
 
@@ -1205,7 +1239,7 @@ function buildPack(input: {
   decisionSemanticFamilyOverrides?: Map<string, string>;
 }): NarrativeFactPack {
   const sustainment = input.narrativeMode === 'SUSTAINMENT';
-  const sustainmentPriorityFacts = sustainment ? buildSustainmentPriorityFacts(input.sustainmentPriorities ?? []) : [];
+  const sustainmentPriorityFacts = sustainment ? buildSustainmentPriorityFacts(input.sustainmentPriorities ?? [], input.tier === 'comprehensive') : [];
   const narrativeFindings = sustainment ? [] : input.selectedFindings;
   const narrativeRisks = sustainment ? [] : input.selectedRisks;
   const narrativeScenarios = sustainment ? [] : input.selectedScenarios;
@@ -1257,7 +1291,7 @@ function buildPack(input: {
     ...maturationSteps.map((item) => makeFact(item.maturationRef, 'maturation', item, [item.linkedFindingRef, item.linkedControlRef])),
     ...(sustainment ? buildSustainmentProofFacts(sustainmentPriorityFacts) : buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride)).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
   ];
-  return {
+  const basePack: NarrativeFactPack = {
     schemaVersion: NARRATIVE_FACT_PACK_SCHEMA_VERSION,
     bibleVersion: REPORTING_BIBLE_VERSION,
     productTier: input.tier,
@@ -1305,8 +1339,15 @@ function buildPack(input: {
     },
     facts: [
       ...facts,
-      ...sustainmentPriorityFacts.map((priority) => makeFact(priority.factRef, 'sustainment_priority', priority, []))
+      ...sustainmentPriorityFacts.map((priority) => makeFact(priority.factRef, 'sustainment_priority', priority, priority.sourceRefs ?? []))
     ]
+  };
+  if (input.tier !== 'comprehensive' || !sustainment) return basePack;
+  const premium: ComprehensivePremiumProjection = buildComprehensivePremiumProjection(basePack);
+  return {
+    ...basePack,
+    ...premium,
+    facts: [...basePack.facts, ...premiumFactEntries(premium)]
   };
 }
 
@@ -1407,6 +1448,12 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
     if (/material (?:control )?(?:weakness|gap)|priority weakness|control failure|remediation required|urgent remediation|foundational failure|close (?:the )?weakness|implement (?:the )?missing control|validate that|independently validate|before relying on self-assessment|self-reported claims remain unverified/i.test(sustainmentText)) throw new Error('Sustainment Fact Pack contains weakness or automated evidence-validation language.');
     if (pack.productTier === 'essential' && pack.maturationSteps.length !== 0) throw new Error('Essential Sustainment Fact Pack must not contain twelve-month maturation steps.');
     if (pack.productTier === 'comprehensive' && pack.maturationSteps.length !== pack.controls.length * 2) throw new Error('Comprehensive Sustainment Fact Pack must contain two maturation steps per sustainment control.');
+    if (pack.productTier === 'comprehensive') {
+      if (!pack.enterpriseIntegrationMap || !pack.assuranceCoverage || !pack.assurancePriorities || !pack.resilienceTests || !pack.contextApplications || !pack.controlOutcomeLinks || !pack.roadmapDependencyLinks) {
+        throw new Error('Comprehensive Sustainment Fact Pack is missing a premium deterministic projection.');
+      }
+      assertComprehensivePremiumProjection(pack);
+    }
     return;
   }
   if (pack.findings.some((finding) => !finding.primarySemanticFamily || !Array.isArray(finding.fraudPathwayFamilies))) throw new Error('Narrative Fact Pack finding is missing explicit semantic family membership.');

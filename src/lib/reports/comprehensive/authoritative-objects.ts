@@ -6,6 +6,15 @@ import type {
 } from '../narrative/fact-pack';
 import type { NarrativeMaturationStep } from '../narrative/maturation';
 import type { ReportBlueprint } from '../narrative/report-blueprint';
+import type {
+  EnterpriseIntegrationMap,
+  NarrativeAssuranceCoverageFact,
+  NarrativeAssurancePriorityFact,
+  NarrativeContextApplication,
+  NarrativeControlOutcomeLink,
+  NarrativeResilienceTestFact,
+  NarrativeRoadmapDependencyLink
+} from '../narrative/premium-projection';
 
 /**
  * Shared deterministic management objects consumed by both the customer PDF
@@ -18,6 +27,13 @@ export interface AuthoritativeComprehensiveObjects {
   decisions: readonly NarrativeDecisionFact[];
   roadmap: readonly NarrativeRoadmapFact[];
   maturationSteps: readonly NarrativeMaturationStep[];
+  assuranceCoverage?: readonly NarrativeAssuranceCoverageFact[];
+  assurancePriorities?: readonly NarrativeAssurancePriorityFact[];
+  resilienceTests?: readonly NarrativeResilienceTestFact[];
+  enterpriseIntegrationMap?: EnterpriseIntegrationMap;
+  contextApplications?: readonly NarrativeContextApplication[];
+  controlOutcomeLinks?: readonly NarrativeControlOutcomeLink[];
+  roadmapDependencyLinks?: readonly NarrativeRoadmapDependencyLink[];
   transformationSequence: ReportBlueprint['transformationSequence'];
 }
 
@@ -48,6 +64,37 @@ function cloneMaturation(item: NarrativeMaturationStep): NarrativeMaturationStep
   return { ...item };
 }
 
+function cloneIntegrationMap(map: EnterpriseIntegrationMap): EnterpriseIntegrationMap {
+  return {
+    ...map,
+    domainNodes: map.domainNodes.map((node) => ({ ...node, sourceRefs: [...node.sourceRefs] })),
+    loopNodes: map.loopNodes.map((node) => ({ ...node, memberDomainRefs: [...node.memberDomainRefs], sourceRefs: [...node.sourceRefs] })),
+    overlayNodes: map.overlayNodes.map((node) => ({ ...node, contextRefs: [...node.contextRefs], supportedDomainRefs: [...node.supportedDomainRefs], sourceRefs: [...node.sourceRefs] })),
+    dependencies: map.dependencies.map((dependency) => ({
+      ...dependency,
+      contributingDomainRefs: [...dependency.contributingDomainRefs],
+      overlayRefs: [...dependency.overlayRefs],
+      deterministicBasis: {
+        domainRefs: [...dependency.deterministicBasis.domainRefs],
+        semanticFamilyRefs: [...dependency.deterministicBasis.semanticFamilyRefs],
+        contextRefs: [...dependency.deterministicBasis.contextRefs],
+        assurancePriorityRefs: [...dependency.deterministicBasis.assurancePriorityRefs],
+        controlRefs: [...dependency.deterministicBasis.controlRefs],
+        decisionRefs: [...dependency.deterministicBasis.decisionRefs],
+        evidenceRefs: [...dependency.deterministicBasis.evidenceRefs],
+        roadmapRefs: [...dependency.deterministicBasis.roadmapRefs],
+        maturationRefs: [...dependency.deterministicBasis.maturationRefs]
+      },
+      linkedDecisionRefs: [...dependency.linkedDecisionRefs],
+      linkedControlRefs: [...dependency.linkedControlRefs],
+      linkedAssurancePriorityRefs: [...dependency.linkedAssurancePriorityRefs],
+      provenanceRefs: [...dependency.provenanceRefs]
+    })),
+    generationRules: [...map.generationRules],
+    sourceRefs: [...map.sourceRefs]
+  };
+}
+
 export function buildAuthoritativeComprehensiveObjects(
   factPack: NarrativeFactPack,
   blueprint?: Pick<ReportBlueprint, 'transformationSequence'>
@@ -65,11 +112,60 @@ export function buildAuthoritativeComprehensiveObjects(
     throw new Error('Authoritative Comprehensive controls must have unique fact references.');
   }
 
+  const premium = factPack.enterpriseIntegrationMap ? {
+    assuranceCoverage: factPack.assuranceCoverage?.map((item) => ({ ...item, traceability: [...item.traceability], sourceRefs: [...item.sourceRefs] })),
+    assurancePriorities: factPack.assurancePriorities?.map((item) => ({ ...item, evidenceManagementShouldHold: [...item.evidenceManagementShouldHold], dependencies: [...item.dependencies], sourceRefs: [...item.sourceRefs] })),
+    resilienceTests: factPack.resilienceTests?.map((item) => ({
+      ...item,
+      readinessDependency: [...item.readinessDependency],
+      evidence: [...item.evidence],
+      response: {
+        ...item.response,
+        linkedDecisionRefs: [...item.response.linkedDecisionRefs],
+        linkedControlRefs: [...item.response.linkedControlRefs],
+        linkedRoadmapRefs: [...item.response.linkedRoadmapRefs]
+      },
+      linkedDecisionRefs: [...item.linkedDecisionRefs],
+      linkedControlRefs: [...item.linkedControlRefs],
+      linkedRoadmapRefs: [...item.linkedRoadmapRefs],
+      sourceRefs: [...item.sourceRefs]
+    })),
+    enterpriseIntegrationMap: cloneIntegrationMap(factPack.enterpriseIntegrationMap),
+    contextApplications: factPack.contextApplications?.map((item) => ({
+      ...item,
+      contextRefs: [...item.contextRefs],
+      contextKeys: [...item.contextKeys],
+      dependencyRefs: [...item.dependencyRefs],
+      linkedPriorityRefs: [...item.linkedPriorityRefs],
+      linkedControlRefs: [...item.linkedControlRefs],
+      linkedDecisionRefs: [...item.linkedDecisionRefs],
+      linkedRoadmapRefs: [...item.linkedRoadmapRefs],
+      linkedResilienceTestRefs: [...item.linkedResilienceTestRefs],
+      provenanceRefs: [...item.provenanceRefs]
+    })),
+    controlOutcomeLinks: factPack.controlOutcomeLinks?.map((item) => ({
+      ...item,
+      evidenceRefs: [...item.evidenceRefs],
+      responseRefs: [...item.responseRefs],
+      roadmapRefs: [...item.roadmapRefs],
+      resilienceTestRefs: [...item.resilienceTestRefs],
+      provenanceRefs: [...item.provenanceRefs]
+    })),
+    roadmapDependencyLinks: factPack.roadmapDependencyLinks?.map((item) => ({
+      ...item,
+      decisionRefs: [...item.decisionRefs],
+      maturationRefs: [...item.maturationRefs],
+      dependencyRefs: [...item.dependencyRefs],
+      provenanceRefs: [...item.provenanceRefs]
+    }))
+  } : {};
+
   return {
     controls,
     decisions,
     roadmap: factPack.roadmap.map(cloneRoadmap),
     maturationSteps: factPack.maturationSteps.map(cloneMaturation),
+    ...premium,
     transformationSequence: blueprint?.transformationSequence.map((stage) => ({ ...stage, sourceRefs: [...stage.sourceRefs] })) ?? []
   };
 }

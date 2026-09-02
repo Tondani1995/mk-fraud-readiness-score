@@ -33,6 +33,13 @@ export interface ComprehensiveNarrativeChapter {
   decisions: NarrativeFactPack['decisions'];
   roadmap: NarrativeFactPack['roadmap'];
   maturationSteps: NarrativeFactPack['maturationSteps'];
+  assuranceCoverage?: NonNullable<NarrativeFactPack['assuranceCoverage']>;
+  assurancePriorities?: NonNullable<NarrativeFactPack['assurancePriorities']>;
+  resilienceTests?: NonNullable<NarrativeFactPack['resilienceTests']>;
+  integrationDependencies?: NonNullable<NonNullable<NarrativeFactPack['enterpriseIntegrationMap']>['dependencies']>;
+  contextApplications?: NonNullable<NarrativeFactPack['contextApplications']>;
+  controlOutcomeLinks?: NonNullable<NarrativeFactPack['controlOutcomeLinks']>;
+  roadmapDependencyLinks?: NonNullable<NarrativeFactPack['roadmapDependencyLinks']>;
   exhibits: ReportBlueprintExhibit[];
 }
 
@@ -46,6 +53,7 @@ export interface ComprehensiveNarrativePresentationModel {
   narrativeMode: NarrativeFactPack['narrativeMode'];
   tone: ComprehensiveSemanticTone;
   assuranceBoundary: string;
+  enterpriseIntegrationMap?: NonNullable<NarrativeFactPack['enterpriseIntegrationMap']>;
   chapters: ComprehensiveNarrativeChapter[];
   transformationSequence: ReportBlueprint['transformationSequence'];
   companionWorkbook: {
@@ -165,6 +173,13 @@ export function buildComprehensiveNarrativePresentationModel(input: {
       decisions: authoritative.decisions.filter((item) => include(item.factRef)),
       roadmap: authoritative.roadmap.filter((item) => include(item.factRef)),
       maturationSteps: authoritative.maturationSteps.filter((item) => include(item.maturationRef)),
+      assuranceCoverage: authoritative.assuranceCoverage?.filter((item) => include(item.factRef)),
+      assurancePriorities: authoritative.assurancePriorities?.filter((item) => include(item.factRef)),
+      resilienceTests: authoritative.resilienceTests?.filter((item) => include(item.factRef)),
+      integrationDependencies: authoritative.enterpriseIntegrationMap?.dependencies.filter((item) => include(`INTEGRATION-DEPENDENCY-${item.dependencyRef.slice(-3)}`)),
+      contextApplications: authoritative.contextApplications?.filter((item) => include(item.factRef)),
+      controlOutcomeLinks: authoritative.controlOutcomeLinks?.filter((item) => include(item.factRef)),
+      roadmapDependencyLinks: authoritative.roadmapDependencyLinks?.filter((item) => include(item.factRef)),
       exhibits: chapter.exhibits.map((item) => ({ ...item, sourceRefs: [...item.sourceRefs] }))
     } satisfies ComprehensiveNarrativeChapter;
   });
@@ -179,6 +194,7 @@ export function buildComprehensiveNarrativePresentationModel(input: {
     narrativeMode: factPack.narrativeMode,
     tone: overallTone(factPack.narrativeMode, factPack.assessment.score),
     assuranceBoundary: blueprint.assessmentPosition.assuranceBoundary,
+    enterpriseIntegrationMap: authoritative.enterpriseIntegrationMap,
     chapters,
     transformationSequence: blueprint.transformationSequence,
     companionWorkbook: {
