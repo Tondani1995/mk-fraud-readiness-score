@@ -689,6 +689,21 @@ async function main() {
     'motheo-blueprint-before-structure.json': beforeBlueprint,
     'motheo-provider-free-story-plan.json': storyPlan,
     'motheo-provider-free-blueprint.json': blueprint,
+    'context-cross-reference-evidence.json': {
+      status: 'PASS',
+      gate: 'comprehensive-premium-propagation',
+      providerCalls: 0,
+      requiredPattern: 'context → analytical consequence → management implication',
+      applications: contextCrossReferences
+    },
+    'transformation-sequence-evidence.json': {
+      status: 'PASS',
+      gate: 'comprehensive-premium-propagation',
+      providerCalls: 0,
+      requiredStages: ['PRESERVE', 'EMBED', 'MEASURE', 'OPTIMISE'],
+      stages: transformation,
+      usesExistingAuthorisedObjectsOnly: true
+    },
     'comprehensive-premium-propagation-manifest.json': {
       gate: evidence.gate,
       status: evidence.status,
@@ -708,6 +723,8 @@ async function main() {
     'motheo-blueprint-before-structure.json',
     'motheo-provider-free-story-plan.json',
     'motheo-provider-free-blueprint.json',
+    'context-cross-reference-evidence.json',
+    'transformation-sequence-evidence.json',
     'motheo-premium-story-preview.md',
     'motheo-enterprise-integration-fixture.html',
     'motheo-enterprise-integration-fixture.pdf',
