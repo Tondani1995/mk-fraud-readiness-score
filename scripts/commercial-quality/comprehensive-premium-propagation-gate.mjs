@@ -94,6 +94,15 @@ async function optionalArtifact(pathValue, qaPathValue) {
   }
 }
 
+async function optionalJsonArtifact(pathValue) {
+  try {
+    const bytes = await fs.readFile(pathValue);
+    return { status: 'PRESENT', path: path.basename(pathValue), sha256: sha256(bytes), bytes: bytes.length, value: JSON.parse(bytes.toString('utf8')) };
+  } catch {
+    return { status: 'NOT_PROVIDED', path: path.basename(pathValue) };
+  }
+}
+
 function gitValue(args) {
   return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
 }
@@ -477,6 +486,8 @@ async function main() {
       exhibitEvidence = { status: 'NOT_PROVIDED', path: path.resolve(process.env.COMPREHENSIVE_ENTERPRISE_EXHIBIT_EVIDENCE_PATH) };
     }
   }
+  const currentPathAcceptance = await optionalJsonArtifact(path.join(outputDir, 'comprehensive-current-path-acceptance.json'));
+  const currentLayoutComposition = await optionalJsonArtifact(path.join(outputDir, 'comprehensive-current-layout-composition.json'));
 
   const propagationMap = [
     {
@@ -607,6 +618,12 @@ async function main() {
     transformationSequence: transformation,
     preview: { path: 'motheo-premium-story-preview.md', sha256: previewSha256 },
     exhibitRender: exhibitEvidence,
+    currentPathAcceptance: currentPathAcceptance.status === 'PRESENT'
+      ? { status: currentPathAcceptance.status, path: currentPathAcceptance.path, sha256: currentPathAcceptance.sha256, bytes: currentPathAcceptance.bytes, summary: { status: currentPathAcceptance.value.status, providerCalls: currentPathAcceptance.value.providerCalls, databaseWrites: currentPathAcceptance.value.databaseWrites, profiles: currentPathAcceptance.value.outputs?.map((item) => ({ profile: item.profile, pdf: item.pdf, evidenceClass: item.acceptance?.evidenceClass })) } }
+      : currentPathAcceptance,
+    currentLayoutComposition: currentLayoutComposition.status === 'PRESENT'
+      ? { status: currentLayoutComposition.status, path: currentLayoutComposition.path, sha256: currentLayoutComposition.sha256, bytes: currentLayoutComposition.bytes, summary: { status: currentLayoutComposition.value.status, providerCalls: currentLayoutComposition.value.providerCalls, profiles: currentLayoutComposition.value.profiles?.map((item) => ({ profile: item.profile, pages: item.pages, cardSpans: item.checks?.cardSpans?.length ?? 0, orphanHeadings: item.checks?.orphanHeadings?.length ?? 0, underfilledPages: item.checks?.materiallyUnderfilledPages?.length ?? 0 })) } }
+      : currentLayoutComposition,
     fixture: {
       profile: 'motheo',
       organisation: factPack.organisation.name,
@@ -697,6 +714,12 @@ async function main() {
     'motheo-enterprise-integration-exhibit-page.png',
     'enterprise-integration-exhibit-evidence.json',
     'enterprise-integration-exhibit-evidence.md',
+    'MK-Comprehensive-V12-Motheo-Terra-Owner-Review.html',
+    'MK-Comprehensive-V12-Motheo-Terra-Owner-Review.pdf',
+    'MK-Comprehensive-Bokamoso-Provider-Free-Structural-Composition-Fixture.html',
+    'MK-Comprehensive-Bokamoso-Provider-Free-Structural-Composition-Fixture.pdf',
+    'comprehensive-current-path-acceptance.json',
+    'comprehensive-current-layout-composition.json',
     'comprehensive-premium-propagation-manifest.json'
   ];
   for (const [filename, value] of Object.entries(jsonFiles)) await fs.writeFile(path.join(outputDir, filename), `${JSON.stringify(value, null, 2)}\n`);
@@ -740,6 +763,13 @@ Each route carries the required pattern **context → analytical consequence →
 ${transformation.map((stage) => `- **${stage.stage}** — supported: **${stage.supported}**; source objects: ${stage.sourceRefs.join(', ')}.`).join('\n')}
 
 The regression fails when an authorised deterministic stage has no support or when its source references diverge from the existing roadmap, control-outcome, resilience and maturation objects.
+
+## Renderer and composition gates
+
+- Current-path acceptance: **${currentPathAcceptance.status}**${currentPathAcceptance.status === 'PRESENT' ? ` (${currentPathAcceptance.sha256})` : ''}
+- Layout/composition inspection: **${currentLayoutComposition.status}**${currentLayoutComposition.status === 'PRESENT' ? ` (${currentLayoutComposition.sha256})` : ''}
+- Provider calls: **0**
+- Page count is measured only; no target-page optimisation is used.
 
 ## Premium deterministic objects
 
