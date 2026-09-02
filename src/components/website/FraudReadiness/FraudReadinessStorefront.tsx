@@ -26,17 +26,20 @@ export function FraudReadinessStorefront() {
           <div className="min-w-0 max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/78">
               <Sparkles className="h-3.5 w-3.5 text-[#a9d4ce]" />
-              The first decision layer
+              Free organisational self-assessment
             </p>
             <h1 className="mt-6 max-w-[11ch] text-4xl font-semibold leading-[1.04] tracking-tight sm:text-5xl lg:text-[4.25rem]">
-              Know where readiness stands before you decide what to do next.
+              How fraud-ready is your organisation?
             </h1>
             <p className="mt-6 max-w-xl text-base leading-8 text-white/72 sm:text-lg">
-              The Fraud Readiness Score gives your organisation a structured, private view of control maturity, visibility and priority areas. Start with the result, then choose the depth of support that fits.
+              Complete the free MK Fraud Readiness Assessment and receive a private, self-reported Snapshot of your organisation&apos;s readiness and exposure.
+            </p>
+            <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-[#a9d4ce]">
+              No evidence uploads, customer records or transaction-level data are required to take part.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Button asChild size="lg" className="h-12 rounded-xl bg-white px-7 text-[#001030] shadow-xl hover:bg-white/90" data-storefront-cta="start-assessment">
-                <Link href="/score/start">Start the assessment <ArrowRight className="h-4 w-4" /></Link>
+                <Link href="/score/start">Start the free assessment <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="h-12 rounded-xl border-white/20 bg-transparent px-7 text-white hover:bg-white/8 hover:text-white">
                 <Link href="#products">Compare support options</Link>
