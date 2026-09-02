@@ -43,6 +43,7 @@
     "v11:six-archetype-pre-ai": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-six-archetype-existing-pre-ai.mjs",
     "v11:high-readiness-sustainment": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-high-readiness-sustainment.mjs",
     "consolidation:test-routes": "node scripts/consolidation-route-tests.mjs",
+    "score:test-analytics": "node scripts/score-analytics-regression-tests.mjs",
     "v12:test-premium-experience-recovery": "node scripts/v12-premium-experience-recovery-tests.mjs",
     "v12:test-visual-review-harness": "node scripts/v12-visual-review-harness-tests.mjs",
     "v12:test-owner-keyboard-a11y": "node scripts/v12-owner-keyboard-a11y.mjs",

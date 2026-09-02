@@ -1,4 +1,5 @@
 import { AppChrome } from '@/components/layout/AppChrome';
+import ScoreAnalyticsRuntime from './ScoreAnalyticsRuntime';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -10,5 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default function ScoreLayout({ children }: { children: React.ReactNode }) {
-  return <AppChrome>{children}</AppChrome>;
+  return (
+    <>
+      <ScoreAnalyticsRuntime />
+      <AppChrome>{children}</AppChrome>
+    </>
+  );
 }
