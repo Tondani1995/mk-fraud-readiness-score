@@ -12,7 +12,9 @@ const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23
 const syntheticMarker = process.env.PHASE23_SYNTHETIC_MARKER ?? '';
 const executablePath = process.env.CHROME_EXECUTABLE
   ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
-const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
+// Keep the automation secret out of source while accepting Vercel's documented
+// environment-variable name; the legacy alias remains available for local callers.
+const protectionBypass = (process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? process.env.VERCEL_PROTECTION_BYPASS)?.trim();
 await mkdir(outputDirectory, { recursive: true });
 
 let localServer = null;
