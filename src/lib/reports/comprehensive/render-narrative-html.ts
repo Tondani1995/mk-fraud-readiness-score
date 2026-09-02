@@ -11,6 +11,28 @@ const esc = (value: unknown): string => String(value ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 
+const CUSTOMER_PROVENANCE_ID = /\b(?:DOMAIN-D\d+|CONTROL-\d+|DECISION-\d+|ROADMAP-\d+|EIM-DEP-\d+|INTEGRATION-(?:DEPENDENCY|LOOP|OVERLAY)-\d+|D\d+-Q\d+|(?:MF|RISK|FINDING|SC|CI|RA|DEC|THEME|PROOF)-\d+)\b/gi;
+
+const CUSTOMER_RELATIONSHIP_LABELS: Record<string, string> = {
+  AUTHORITY_ENABLES: 'Authority enables governance',
+  RISK_VIEW_DIRECTS: 'Risk view directs treatment and escalation',
+  LEARNING_UPDATES: 'Learning updates the risk view',
+  CONTROL_SIGNAL_FEEDS: 'Control signals reach governance'
+};
+
+function customerCopy(value: unknown): string {
+  return String(value ?? '')
+    .replace(/(question-level signals(?:\s+included in the assessment)?)\s+are consistently operating\b/gi, '$1 are recorded as consistently operating')
+    .replace(/This is not a claim about price, assurance or permanence\./gi, 'This does not establish operating effectiveness or permanence.')
+    .replace(CUSTOMER_PROVENANCE_ID, '')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/\(\s*\)|\[\s*\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const escCustomer = (value: unknown): string => esc(customerCopy(value));
+
 const fieldSentence = (value: unknown, fallback: string): string => {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
   return `${text || fallback}.`;
@@ -20,7 +42,7 @@ const paragraphs = (value: string): string => value
   .split(/\n\s*\n/)
   .map((part) => part.trim())
   .filter(Boolean)
-  .map((part) => `<p>${esc(part)}</p>`)
+  .map((part) => `<p>${escCustomer(part)}</p>`)
   .join('');
 
 function scoreTone(score: number): ComprehensiveSemanticTone {
@@ -47,7 +69,7 @@ function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBl
         const score = typeof domain.score === 'number' ? Math.max(0, Math.min(100, domain.score)) : 0;
         const tone = typeof domain.score === 'number' ? scoreTone(domain.score) : 'neutral';
         return `<div class="domain-row">
-          <div class="domain-label"><span>${esc(domain.name)}</span><strong>${domain.score === null ? 'Not scored' : Math.round(domain.score)}</strong></div>
+          <div class="domain-label"><span>${escCustomer(domain.name)}</span><strong>${domain.score === null ? 'Not scored' : Math.round(domain.score)}</strong></div>
           <div class="bar"><i class="${tone}" style="width:${score}%"></i></div>
         </div>`;
       }).join('')}
@@ -62,18 +84,19 @@ function enterpriseIntegration(model: ComprehensiveNarrativePresentationModel, e
   const supportedDependencies = integration.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED');
   const postureLabel = (posture: string): string => posture === 'DEEP_DIVE_PRIORITY' ? 'Deep-dive priority' : posture === 'MAINTAIN' ? 'Maintain' : 'Confirm';
   const domainName = (domainRef: string): string => domainByRef.get(domainRef)?.domainName ?? domainRef;
+  const relationshipLabel = (relationshipType: string): string => CUSTOMER_RELATIONSHIP_LABELS[relationshipType] ?? customerLabel(relationshipType);
   return `<figure class="exhibit integration-exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Enterprise fraud readiness integration</strong><span>Recorded loops, domain coverage and supported management relationships.</span></figcaption>
     <div class="integration-loop-grid">
       ${integration.loopNodes.map((loop, loopIndex) => `<div class="integration-loop" data-integration-loop="${esc(loop.loopRef)}">
-        <div class="integration-loop-head"><strong>${esc(loop.label)}</strong><span>${esc(loop.methodologyRole)}</span></div>
+        <div class="integration-loop-head"><strong>${escCustomer(loop.label)}</strong><span>${escCustomer(loop.methodologyRole)}</span></div>
         <div class="integration-domains">
           ${loop.memberDomainRefs.map((domainRef, domainIndex) => {
             const domain = domainByRef.get(domainRef);
             if (!domain) return '';
             const posture = domain.posture === 'DEEP_DIVE_PRIORITY' ? 'focus' : 'maintain';
             return `<article class="integration-domain ${posture}" ${compositionObjectAttrs(exhibit, `domain-${loopIndex + 1}`, domainIndex)}>
-              <span>${esc(domain.domainRef)}</span><strong>${esc(domain.domainName)}</strong><em>${esc(postureLabel(domain.posture))}</em>
+              <span>${escCustomer(`Domain ${domainIndex + 1}`)}</span><strong>${escCustomer(domain.domainName)}</strong><em>${escCustomer(postureLabel(domain.posture))}</em>
             </article>`;
           }).join('')}
         </div>
@@ -82,11 +105,11 @@ function enterpriseIntegration(model: ComprehensiveNarrativePresentationModel, e
     <div class="integration-edges">
       <div class="integration-subheading">Supported management relationships</div>
       ${supportedDependencies.map((dependency, index) => `<article class="integration-edge" ${compositionObjectAttrs(exhibit, 'relationship', index)}>
-        <div><span class="integration-edge-type">${esc(dependency.relationshipType.replaceAll('_', ' '))}</span><span class="integration-edge-route">${esc(dependency.contributingDomainRefs.map(domainName).join(' + '))} · ${esc(integration.loopNodes.find((loop) => loop.loopRef === dependency.loopRef)?.label ?? dependency.loopRef)}</span></div>
-        <div><p>${esc(dependency.protectedManagementOutcome)}</p><span class="integration-edge-links">Control ${esc(dependency.linkedControlRefs.join(' / '))} · Decision ${esc(dependency.linkedDecisionRefs.join(' / '))}</span></div>
+        <div><span class="integration-edge-type">${escCustomer(relationshipLabel(dependency.relationshipType))}</span><span class="integration-edge-route">${escCustomer(dependency.contributingDomainRefs.map(domainName).join(' + '))} · ${escCustomer(integration.loopNodes.find((loop) => loop.loopRef === dependency.loopRef)?.label ?? dependency.loopRef)}</span></div>
+        <div><p>${escCustomer(dependency.protectedManagementOutcome)}</p></div>
       </article>`).join('')}
     </div>
-    <div class="integration-overlays"><strong>Context overlays</strong>${integration.overlayNodes.map((overlay) => `<span class="integration-overlay" data-integration-overlay="${esc(overlay.overlayRef)}"><b>${esc(overlay.label)}</b><small>${esc(overlay.status === 'ACTIVE_SUPPORTED' ? 'Active context' : overlay.status === 'CONTEXT_ONLY' ? 'Context only' : 'Not established')} · ${esc(overlay.activationCondition)}</small></span>`).join('')}</div>
+    <div class="integration-overlays"><strong>Context overlays</strong>${integration.overlayNodes.map((overlay) => `<span class="integration-overlay" data-integration-overlay="${esc(overlay.overlayRef)}"><b>${escCustomer(overlay.label)}</b><small>${escCustomer(overlay.status === 'ACTIVE_SUPPORTED' ? 'Active context' : overlay.status === 'CONTEXT_ONLY' ? 'Context only' : 'Not established')} · ${escCustomer(overlay.activationCondition)}</small></span>`).join('')}</div>
   </figure>`;
 }
 
@@ -96,7 +119,7 @@ function scoreDisplay(model: ComprehensiveNarrativePresentationModel, exhibit: R
     : 'The score is the starting point for the management response.';
   return `<figure class="exhibit score-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Recorded readiness position</strong><span>Recorded assessment position; not an assurance conclusion.</span></figcaption>
-    <div class="score-strip"><strong>${Math.round(model.score)}</strong><div><b>${esc(model.maturity)}</b><span>Fraud Readiness Score / 100</span><span>${esc(boundary)}</span></div></div>
+    <div class="score-strip"><strong>${Math.round(model.score)}</strong><div><b>${escCustomer(model.maturity)}</b><span>Fraud Readiness Score / 100</span><span>${escCustomer(boundary)}</span></div></div>
   </figure>`;
 }
 
@@ -104,7 +127,7 @@ function themeMap(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepri
   if (!chapter.themes.length) return '';
   return `<figure class="exhibit theme-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Connected management patterns</strong><span>Patterns that management should address together.</span></figcaption>
-    <div class="theme-stack">${chapter.themes.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'theme', index)}><h4>${esc(item.title)}</h4><p>${esc(item.managementImplicationBasis)}</p><span>${esc(item.fraudRiskRelationship)}</span></article>`).join('')}</div>
+    <div class="theme-stack">${chapter.themes.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'theme', index)}><h4>${escCustomer(item.title)}</h4><p>${escCustomer(item.managementImplicationBasis)}</p><span>${escCustomer(item.fraudRiskRelationship)}</span></article>`).join('')}</div>
   </figure>`;
 }
 
@@ -113,7 +136,7 @@ function strengths(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
   return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>What is supporting readiness</strong><span>Recorded strengths that management should preserve.</span></figcaption>
     <div class="strength-grid">
-      ${chapter.strengths.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'strength', index)}><h4>${esc(item.title)}</h4><p>${esc(item.basis)}</p></article>`).join('')}
+      ${chapter.strengths.slice(0, 5).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'strength', index)}><h4>${escCustomer(item.title)}</h4><p>${escCustomer(item.basis)}</p></article>`).join('')}
     </div>
   </figure>`;
 }
@@ -124,12 +147,12 @@ function sustainmentPriorities(chapter: ComprehensiveNarrativeChapter, exhibit: 
     <figcaption><strong>Resilience priorities</strong><span>These are disciplines to preserve, not findings or weaknesses.</span></figcaption>
     <div class="priority-stack">
       ${chapter.sustainmentPriorities.slice(0, 5).map((item, index) => `<article class="priority-item" ${compositionObjectAttrs(exhibit, 'priority', index)}>
-        <div><h4>${esc(item.title)}</h4><p>${esc(item.managementFocus)}</p></div>
+        <div><h4>${escCustomer(item.title)}</h4><p>${escCustomer(item.managementFocus)}</p></div>
         <div class="fact-strip">
-          <span><b>Owner</b> ${esc(item.accountableExecutive)}</span>
-          <span><b>Indicator</b> ${esc(item.effectivenessIndicator)}</span>
+          <span><b>Owner</b> ${escCustomer(item.accountableExecutive)}</span>
+          <span><b>Indicator</b> ${escCustomer(item.effectivenessIndicator)}</span>
         </div>
-        <p class="watchpoint"><b>Deterioration signal:</b> ${esc(item.deteriorationTrigger)}</p>
+        <p class="watchpoint"><b>Deterioration signal:</b> ${escCustomer(item.deteriorationTrigger)}</p>
       </article>`).join('')}
     </div>
   </figure>`;
@@ -141,9 +164,9 @@ function findings(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepri
     <figcaption><strong>Material observations supporting this chapter</strong><span>Detailed analytical records remain in the companion workbook.</span></figcaption>
     <div class="priority-stack">
       ${chapter.findings.slice(0, 5).map((item, index) => `<article class="priority-item" ${compositionObjectAttrs(exhibit, 'finding', index)}>
-        <h4>${esc(item.title)}</h4>
-        <p>${esc(item.advisoryMeaningBasis || item.interpretation)}</p>
-        <div class="fact-strip"><span><b>Owner</b> ${esc(item.owner)}</span><span><b>Target</b> ${esc(item.targetPeriod)}</span></div>
+        <h4>${escCustomer(item.title)}</h4>
+        <p>${escCustomer(item.advisoryMeaningBasis || item.interpretation)}</p>
+        <div class="fact-strip"><span><b>Owner</b> ${escCustomer(item.owner)}</span><span><b>Target</b> ${escCustomer(item.targetPeriod)}</span></div>
       </article>`).join('')}
     </div>
   </figure>`;
@@ -155,9 +178,9 @@ function scenarios(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
     <figcaption><strong>Conditional fraud pathways</strong><span>Management tests, not allegations.</span></figcaption>
     <div class="scenario-stack">
       ${chapter.scenarios.slice(0, 4).map((item, index) => `<article ${compositionObjectAttrs(exhibit, 'scenario', index)}>
-        <h4>${esc(item.title)}</h4>
-        <p><b>Actor:</b> ${esc(fieldSentence(item.actorClass, 'An actor may act through the recorded pathway'))} <b>Entry point:</b> ${esc(fieldSentence(item.entryPoint, 'A sensitive process entry point is involved'))} <b>Mechanism:</b> ${esc(fieldSentence(item.mechanism, 'The pathway may proceed before timely challenge'))}</p>
-        <p class="small"><b>Warning indicators:</b> ${esc(item.warningIndicators.slice(0, 3).join('; '))}</p>
+        <h4>${escCustomer(item.title)}</h4>
+        <p><b>Actor:</b> ${escCustomer(fieldSentence(item.actorClass, 'An actor may act through the recorded pathway'))} <b>Entry point:</b> ${escCustomer(fieldSentence(item.entryPoint, 'A sensitive process entry point is involved'))} <b>Mechanism:</b> ${escCustomer(fieldSentence(item.mechanism, 'The pathway may proceed before timely challenge'))}</p>
+        <p class="small"><b>Warning indicators:</b> ${escCustomer(item.warningIndicators.slice(0, 3).join('; '))}</p>
       </article>`).join('')}
     </div>
   </figure>`;
@@ -169,12 +192,12 @@ function controls(chapter: ComprehensiveNarrativeChapter, positive: boolean, exh
     <figcaption><strong>${positive ? 'Control disciplines to preserve and strengthen' : 'Target control environment'}</strong><span>Compact operating specifications only. Full control blueprints remain in the workbook.</span></figcaption>
     <div class="control-stack">
       ${chapter.controls.slice(0, 5).map((item, index) => `<article class="control-item" ${compositionObjectAttrs(exhibit, 'control', index)}>
-        <h4>${esc(item.objective)}</h4>
-        <p>${esc(item.targetState)}</p>
+        <h4>${escCustomer(item.objective)}</h4>
+        <p>${escCustomer(item.targetState)}</p>
         <div class="fact-strip">
-          <span><b>Accountable</b> ${esc(item.accountableExecutive)}</span>
-          <span><b>Operate</b> ${esc(item.frequency)}</span>
-          <span><b>Measure</b> ${esc(item.effectivenessMeasure)}</span>
+          <span><b>Accountable</b> ${escCustomer(item.accountableExecutive)}</span>
+          <span><b>Operate</b> ${escCustomer(item.frequency)}</span>
+          <span><b>Measure</b> ${escCustomer(item.effectivenessMeasure)}</span>
         </div>
       </article>`).join('')}
     </div>
@@ -187,11 +210,11 @@ function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
     <figcaption><strong>Leadership choices</strong><span>Options, trade-offs and the recommended route.</span></figcaption>
     <div class="decision-stack">
       ${chapter.decisions.slice(0, 4).map((item, index) => `<article class="decision-item" ${compositionObjectAttrs(exhibit, 'decision', index)}>
-        <h4>${esc(item.question)}</h4>
-        <p class="recommended"><b>Recommended route:</b> ${esc(item.recommendedRoute)}</p>
-        <p class="small"><b>Why now:</b> ${esc(item.rationale)}</p>
-        <div class="options">${item.options.slice(0, 3).map((option) => `<div><strong>${esc(option.option)}</strong><span>${esc(option.benefit)}</span><small>${esc(option.tradeOff)}</small></div>`).join('')}</div>
-        <p class="small"><b>Owner:</b> ${esc(item.owner)} · <b>Target:</b> ${esc(item.targetDate)} · <b>If delayed:</b> ${esc(item.consequenceOfDelay)}</p>
+        <h4>${escCustomer(item.question)}</h4>
+        <p class="recommended"><b>Recommended route:</b> ${escCustomer(item.recommendedRoute)}</p>
+        <p class="small"><b>Why now:</b> ${escCustomer(item.rationale)}</p>
+        <div class="options">${item.options.slice(0, 3).map((option) => `<div><strong>${escCustomer(option.option)}</strong><span>${escCustomer(option.benefit)}</span><small>${escCustomer(option.tradeOff)}</small></div>`).join('')}</div>
+        <p class="small"><b>Owner:</b> ${escCustomer(item.owner)} · <b>Target:</b> ${escCustomer(item.targetDate)} · <b>If delayed:</b> ${escCustomer(item.consequenceOfDelay)}</p>
       </article>`).join('')}
     </div>
   </figure>`;
@@ -199,8 +222,15 @@ function decisions(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBluepr
 
 function customerLabel(value: string): string {
   return value
-    .replaceAll('_', ' ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function customerRelationshipLabel(value: string): string {
+  return CUSTOMER_RELATIONSHIP_LABELS[value] ?? customerLabel(value);
 }
 
 function exposurePathways(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
@@ -209,12 +239,12 @@ function exposurePathways(chapter: ComprehensiveNarrativeChapter, exhibit: Repor
     <figcaption><strong>Supported change pathways</strong><span>Selective context tests that change management attention; not current findings or risks.</span></figcaption>
     <div class="priority-stack pathway-stack">
       ${chapter.exposurePathways.map((item, index) => `<article class="priority-item pathway-item" ${compositionObjectAttrs(exhibit, 'pathway', index)}>
-        <h4>${esc(item.label)}</h4>
-        <p><b>When attention changes:</b> ${esc(item.changeCondition)}</p>
-        <p><b>Why it matters:</b> ${esc(item.analyticalConsequence)}</p>
-        <p><b>Management response:</b> ${esc(item.managementImplication)}</p>
-        <div class="fact-strip"><span><b>Context</b> ${esc(item.contextKeys.map(customerLabel).join(' · '))}</span><span><b>Exposure basis</b> ${esc(item.supportedExposureIds.map(customerLabel).join(' · '))}</span></div>
-        <p class="watchpoint"><b>Boundary:</b> ${esc(item.conditionalBoundary)}</p>
+        <h4>${escCustomer(item.label)}</h4>
+        <p><b>When attention changes:</b> ${escCustomer(item.changeCondition)}</p>
+        <p><b>Why it matters:</b> ${escCustomer(item.analyticalConsequence)}</p>
+        <p><b>Management response:</b> ${escCustomer(item.managementImplication)}</p>
+        <div class="fact-strip"><span><b>Context</b> ${escCustomer(item.contextKeys.map(customerLabel).join(' · '))}</span><span><b>Exposure basis</b> ${escCustomer(item.supportedExposureIds.map(customerLabel).join(' · '))}</span></div>
+        <p class="watchpoint"><b>Boundary:</b> ${escCustomer(item.conditionalBoundary)}</p>
       </article>`).join('')}
     </div>
   </figure>`;
@@ -223,17 +253,25 @@ function exposurePathways(chapter: ComprehensiveNarrativeChapter, exhibit: Repor
 function criticalReliances(model: ComprehensiveNarrativePresentationModel, chapter: ComprehensiveNarrativeChapter, exhibit: ReportBlueprintExhibit): string {
   if (!chapter.criticalReliances?.length) return '';
   const controlByRef = new Map(model.chapters.flatMap((item) => item.controls).map((item) => [item.factRef, item]));
+  const dependencyByRef = new Map((model.enterpriseIntegrationMap?.dependencies ?? []).flatMap((dependency) => [
+    [dependency.dependencyRef, dependency] as const,
+    [`INTEGRATION-DEPENDENCY-${dependency.dependencyRef.slice(-3)}`, dependency] as const
+  ]));
   return `<figure class="exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>Control signals relied on across the management view</strong><span>Shared routes that help management protect outcomes and notice drift.</span></figcaption>
     <div class="priority-stack reliance-stack">
       ${chapter.criticalReliances.map((item, index) => {
         const control = controlByRef.get(item.controlRef);
-        const routeLabel = item.relianceLevel === 'MULTI-ROUTE' ? 'Multiple supported routes' : 'Direct supported route';
+        const routeLabel = [...new Set((item.dependencyRefs ?? [])
+          .map((dependencyRef) => dependencyByRef.get(dependencyRef))
+          .filter(Boolean)
+          .map((dependency) => customerRelationshipLabel(dependency!.relationshipType)))]
+          .join(' · ') || (item.relianceLevel === 'MULTI-ROUTE' ? 'Supported management relationships' : 'Supported management relationship');
         return `<article class="priority-item reliance-item" ${compositionObjectAttrs(exhibit, 'reliance', index)}>
-          <h4>${esc(control?.objective ?? 'Control signal supporting the readiness position')}</h4>
-          <p>${esc(item.relianceBasis)}</p>
-          <p><b>Protected outcome:</b> ${esc(item.protectedOutcomes.join(' · ') || control?.targetState || 'The recorded readiness standard remains visible to management.')}</p>
-          <div class="fact-strip"><span><b>Route</b> ${esc(routeLabel)}</span><span><b>Management signal</b> ${esc(item.managementSignal)}</span></div>
+          <h4>${escCustomer(control?.objective ?? 'Control signal supporting the readiness position')}</h4>
+          <p>${escCustomer(item.relianceBasis)}</p>
+          <p><b>Protected outcome:</b> ${escCustomer(item.protectedOutcomes.join(' · ') || control?.targetState || 'The recorded readiness standard remains visible to management.')}</p>
+          <div class="fact-strip"><span><b>Relationship</b> ${escCustomer(routeLabel)}</span><span><b>Management signal</b> ${escCustomer(item.managementSignal)}</span></div>
         </article>`;
       }).join('')}
     </div>
@@ -247,9 +285,9 @@ function transformation(model: ComprehensiveNarrativePresentationModel, chapter:
     return `<figure class="exhibit" ${exhibitAttrs(exhibit)}>
       <figcaption><strong>First 90-day management route</strong><span>Owners, outcomes and completion records for the opening cycle.</span></figcaption>
       <div class="stage-grid roadmap-grid">${chapter.roadmap.slice(0, 6).map((item, index) => `<article class="supported" ${compositionObjectAttrs(exhibit, 'roadmap-card', index)}>
-        <span class="stage-name">${esc(item.phaseWindow)}</span><p>${esc(item.managementOutcome)}</p>
-        <p class="small"><b>Priority work:</b> ${esc(item.priorityWork)}</p>
-        <div class="fact-strip"><span><b>Owner</b> ${esc(item.accountableExecutive)}</span><span><b>Proof</b> ${esc(item.proofOfCompletion)}</span></div>
+        <span class="stage-name">${escCustomer(item.phaseWindow)}</span><p>${escCustomer(item.managementOutcome)}</p>
+        <p class="small"><b>Priority work:</b> ${escCustomer(item.priorityWork)}</p>
+        <div class="fact-strip"><span><b>Owner</b> ${escCustomer(item.accountableExecutive)}</span><span><b>Proof</b> ${escCustomer(item.proofOfCompletion)}</span></div>
       </article>`).join('')}</div>
     </figure>`;
   }
@@ -258,7 +296,7 @@ function transformation(model: ComprehensiveNarrativePresentationModel, chapter:
   return `<figure class="exhibit maturation-exhibit ${model.narrativeMode === 'SUSTAINMENT' ? 'positive-exhibit' : ''}" ${exhibitAttrs(exhibit)}>
     <figcaption><strong>${model.narrativeMode === 'SUSTAINMENT' ? 'Twelve-month sustainment path' : 'Twelve-month transformation path'}</strong><span>Progression, outcomes and management checkpoints.</span></figcaption>
     <div class="stage-grid">${stages.map((stage, index) => `<article class="${stage.supported ? 'supported' : 'muted-stage'}" ${compositionObjectAttrs(exhibit, 'maturation-card', index)}>
-      <span class="stage-name">${esc(stage.stage)}</span><p>${esc(stage.purpose)}</p>
+      <span class="stage-name">${escCustomer(stage.stage)}</span><p>${escCustomer(stage.purpose)}</p>
     </article>`).join('')}</div>
   </figure>`;
 }
@@ -291,16 +329,16 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
   const isConclusion = chapter.narrativeRole === 'CONCLUSION';
   const implication = (block: ComprehensiveNarrativeChapter['blocks'][number]): string => takeaways.has(block.managementTakeaway) ? '' : (takeaways.add(block.managementTakeaway), `<aside class="management-implication ${chapter.tone}">
     <span>Management implication</span>
-    <p>${esc(block.managementTakeaway)}</p>
+    <p>${escCustomer(block.managementTakeaway)}</p>
   </aside>`);
   const renderBlock = (block: ComprehensiveNarrativeChapter['blocks'][number], includeTitle = chapter.blocks.length > 1): string => {
     const paragraphs = block.paragraphs;
-    const leadingParagraphs = paragraphs.slice(0, -1).map((paragraph) => `<p>${esc(paragraph)}</p>`).join('');
+    const leadingParagraphs = paragraphs.slice(0, -1).map((paragraph) => `<p>${escCustomer(paragraph)}</p>`).join('');
     const closingParagraph = paragraphs.length
-      ? `<div class="block-close"><p>${esc(paragraphs.at(-1))}</p>${implication(block)}</div>`
+      ? `<div class="block-close"><p>${escCustomer(paragraphs.at(-1))}</p>${implication(block)}</div>`
       : implication(block);
     return `<div class="narrative-block">
-      ${includeTitle ? `<h3>${esc(block.title)}</h3>` : ''}
+      ${includeTitle ? `<h3>${escCustomer(block.title)}</h3>` : ''}
       <div class="narrative-copy">${leadingParagraphs}${closingParagraph}</div>
     </div>`;
   };
@@ -309,8 +347,8 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
     paragraphGroup: string[],
     includeTitle: boolean
   ): string => `<div class="narrative-block">
-      ${includeTitle ? `<h3>${esc(block.title)}</h3>` : ''}
-      <div class="narrative-copy">${paragraphGroup.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')}</div>
+      ${includeTitle ? `<h3>${escCustomer(block.title)}</h3>` : ''}
+      <div class="narrative-copy">${paragraphGroup.map((paragraph) => `<p>${escCustomer(paragraph)}</p>`).join('')}</div>
     </div>`;
   const renderConclusionTail = (
     block: ComprehensiveNarrativeChapter['blocks'][number],
@@ -329,9 +367,9 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
   const singleConclusionBlock = isConclusion && chapter.blocks.length === 1 && Boolean(firstBlock);
   const openingImplication = firstBlock && !firstBlockHasRemainder ? implication(firstBlock) : '';
   const opening = firstBlock && firstParagraph && !singleConclusionBlock
-    ? `<div class="narrative-block chapter-opening-block">
-        ${chapter.blocks.length > 1 ? `<h3>${esc(firstBlock.title)}</h3>` : ''}
-        <div class="narrative-copy"><p>${esc(firstParagraph)}</p></div>
+      ? `<div class="narrative-block chapter-opening-block">
+        ${chapter.blocks.length > 1 ? `<h3>${escCustomer(firstBlock.title)}</h3>` : ''}
+        <div class="narrative-copy"><p>${escCustomer(firstParagraph)}</p></div>
       </div>${openingImplication}`
     : '';
   const firstRemainder = firstBlockHasRemainder
@@ -351,7 +389,7 @@ function chapterHtml(model: ComprehensiveNarrativePresentationModel, chapter: Co
   return `<section class="chapter tone-${chapter.tone}" data-chapter="${esc(chapter.chapterId)}">
     <div class="chapter-opening">
       <div class="chapter-marker"><span class="chapter-brand">MK Fraud Insights</span> · Comprehensive · ${String(chapter.order).padStart(2, '0')}</div>
-      <h2>${esc(chapter.title)}</h2>
+      <h2>${escCustomer(chapter.title)}</h2>
       ${opening}
     </div>
     ${closing}
@@ -363,12 +401,12 @@ function companionPanel(model: ComprehensiveNarrativePresentationModel): string 
   const fixturePanel = Boolean(model.qaLabel);
   return `<aside class="companion-panel" data-companion-workbook="true">
     <div class="companion-kicker">Companion analytical record</div>
-    <h3>${esc(model.companionWorkbook.title)}</h3>
-    <p>${esc(model.companionWorkbook.purpose)}</p>
+    <h3>${escCustomer(model.companionWorkbook.title)}</h3>
+    <p>${escCustomer(model.companionWorkbook.purpose)}</p>
     ${fixturePanel
-      ? `<p class="companion-compact-note"><b>Sheets supplied:</b> ${model.companionWorkbook.sheets.map((sheet) => esc(sheet)).join(' · ')}</p>`
-      : `<div class="sheet-list">${model.companionWorkbook.sheets.map((sheet) => `<span>${esc(sheet)}</span>`).join('')}</div>
-         <p class="scope-note">${esc(model.assuranceBoundary)}</p>`}
+      ? `<p class="companion-compact-note"><b>Sheets supplied:</b> ${model.companionWorkbook.sheets.map((sheet) => escCustomer(sheet)).join(' · ')}</p>`
+      : `<div class="sheet-list">${model.companionWorkbook.sheets.map((sheet) => `<span>${escCustomer(sheet)}</span>`).join('')}</div>
+         <p class="scope-note">${escCustomer(model.assuranceBoundary)}</p>`}
   </aside>`;
 }
 
@@ -513,18 +551,18 @@ export function renderComprehensiveNarrativeReportHtml(model: ComprehensiveNarra
       <div class="cover-brand" data-brand-asset="approved-mk-fraud-insights-mark">${renderCoverLogo()}</div>
       <div class="cover-rule"></div>
       <div class="cover-eyebrow">Fraud readiness advisory</div>
-      ${model.qaLabel ? `<div class="cover-qa-label">${esc(model.qaLabel)}</div>` : ''}
-      <h1>${esc(model.title)}</h1>
-      <h2>${esc(model.organisationName)}</h2>
+      ${model.qaLabel ? `<div class="cover-qa-label">${escCustomer(model.qaLabel)}</div>` : ''}
+      <h1>${escCustomer(model.title)}</h1>
+      <h2>${escCustomer(model.organisationName)}</h2>
     </div>
     <div class="cover-score ${model.tone}">
       <strong>${Math.round(model.score)}</strong>
-      <div><span>Fraud Readiness Score / 100</span><span>${esc(model.maturity)} · ${esc(model.narrativeMode === 'SUSTAINMENT' ? 'Sustainment' : 'Transformation')}</span></div>
+      <div><span>Fraud Readiness Score / 100</span><span>${escCustomer(model.maturity)} · ${escCustomer(model.narrativeMode === 'SUSTAINMENT' ? 'Sustainment' : 'Transformation')}</span></div>
     </div>
-    <div class="cover-meta">Report reference ${esc(model.assessmentReference)}<br/>Comprehensive package</div>
+    <div class="cover-meta">Report reference ${escCustomer(model.assessmentReference)}<br/>Comprehensive package</div>
     <div class="cover-confidential">Confidential · Internal leadership use</div>
   </section>`;
 
   const chapters = model.chapters.map((chapter) => chapterHtml(model, chapter)).join('');
-  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(model.title)} · ${esc(model.organisationName)}</title>${css()}</head><body>${cover}${chapters}</body></html>`;
+  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${escCustomer(model.title)} · ${escCustomer(model.organisationName)}</title>${css()}</head><body>${cover}${chapters}</body></html>`;
 }
