@@ -55,6 +55,41 @@ function domainProfile(chapter: ComprehensiveNarrativeChapter, exhibit: ReportBl
   </figure>`;
 }
 
+function enterpriseIntegration(model: ComprehensiveNarrativePresentationModel, exhibit: ReportBlueprintExhibit): string {
+  const integration = model.enterpriseIntegrationMap;
+  if (!integration) return '';
+  const domainByRef = new Map(integration.domainNodes.map((domain) => [domain.domainRef, domain]));
+  const supportedDependencies = integration.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED');
+  const postureLabel = (posture: string): string => posture === 'DEEP_DIVE_PRIORITY' ? 'Deep-dive priority' : posture === 'MAINTAIN' ? 'Maintain' : 'Confirm';
+  const domainName = (domainRef: string): string => domainByRef.get(domainRef)?.domainName ?? domainRef;
+  return `<figure class="exhibit integration-exhibit positive-exhibit" ${exhibitAttrs(exhibit)}>
+    <figcaption><strong>Enterprise fraud readiness integration</strong><span>Recorded loops, domain coverage and supported management relationships.</span></figcaption>
+    <div class="integration-loop-grid">
+      ${integration.loopNodes.map((loop, loopIndex) => `<div class="integration-loop" data-integration-loop="${esc(loop.loopRef)}">
+        <div class="integration-loop-head"><strong>${esc(loop.label)}</strong><span>${esc(loop.methodologyRole)}</span></div>
+        <div class="integration-domains">
+          ${loop.memberDomainRefs.map((domainRef, domainIndex) => {
+            const domain = domainByRef.get(domainRef);
+            if (!domain) return '';
+            const posture = domain.posture === 'DEEP_DIVE_PRIORITY' ? 'focus' : 'maintain';
+            return `<article class="integration-domain ${posture}" ${compositionObjectAttrs(exhibit, `domain-${loopIndex + 1}`, domainIndex)}>
+              <span>${esc(domain.domainRef)}</span><strong>${esc(domain.domainName)}</strong><em>${esc(postureLabel(domain.posture))}</em>
+            </article>`;
+          }).join('')}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="integration-edges">
+      <div class="integration-subheading">Supported management relationships</div>
+      ${supportedDependencies.map((dependency, index) => `<article class="integration-edge" ${compositionObjectAttrs(exhibit, 'relationship', index)}>
+        <div><span class="integration-edge-type">${esc(dependency.relationshipType.replaceAll('_', ' '))}</span><span class="integration-edge-route">${esc(dependency.contributingDomainRefs.map(domainName).join(' + '))} · ${esc(integration.loopNodes.find((loop) => loop.loopRef === dependency.loopRef)?.label ?? dependency.loopRef)}</span></div>
+        <div><p>${esc(dependency.protectedManagementOutcome)}</p><span class="integration-edge-links">Control ${esc(dependency.linkedControlRefs.join(' / '))} · Decision ${esc(dependency.linkedDecisionRefs.join(' / '))}</span></div>
+      </article>`).join('')}
+    </div>
+    <div class="integration-overlays"><strong>Context overlays</strong>${integration.overlayNodes.map((overlay) => `<span class="integration-overlay" data-integration-overlay="${esc(overlay.overlayRef)}"><b>${esc(overlay.label)}</b><small>${esc(overlay.status === 'ACTIVE_SUPPORTED' ? 'Active context' : overlay.status === 'CONTEXT_ONLY' ? 'Context only' : 'Not established')} · ${esc(overlay.activationCondition)}</small></span>`).join('')}</div>
+  </figure>`;
+}
+
 function scoreDisplay(model: ComprehensiveNarrativePresentationModel, exhibit: ReportBlueprintExhibit): string {
   const boundary = model.narrativeMode === 'SUSTAINMENT'
     ? 'The assessment responses did not identify material weaknesses.'
@@ -191,6 +226,7 @@ function chapterExhibits(model: ComprehensiveNarrativePresentationModel, chapter
     switch (exhibit.type) {
       case 'score_display': return scoreDisplay(model, exhibit);
       case 'domain_profile': return domainProfile(chapter, exhibit);
+      case 'enterprise_integration': return enterpriseIntegration(model, exhibit);
       case 'strengths': return strengths(chapter, exhibit);
       case 'theme_map': return themeMap(chapter, exhibit);
       case 'sustainment_scorecard': return sustainmentPriorities(chapter, exhibit);
@@ -376,6 +412,32 @@ function css(): string {
   .stage-grid article{padding:4mm;background:var(--mk-confirmed-bg);border-top:3px solid var(--mk-confirmed);min-height:36mm;break-inside:avoid;page-break-inside:avoid}
   .stage-grid .muted-stage{background:var(--mk-neutral-bg);border-top-color:var(--mk-rule)}
   .stage-name{font-weight:700;font-size:8pt;letter-spacing:.08em;color:var(--mk-confirmed)}
+  .integration-exhibit{break-inside:avoid;page-break-inside:avoid}
+  .integration-loop-grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm}
+  .integration-loop{padding:3mm;background:var(--mk-neutral-bg);border-top:3px solid var(--mk-navy-700);break-inside:avoid;page-break-inside:avoid}
+  .integration-loop:nth-child(4){border-top-color:var(--mk-confirmed)}
+  .integration-loop-head{display:flex;justify-content:space-between;gap:3mm;align-items:baseline;margin-bottom:2.5mm}
+  .integration-loop-head strong{font-size:9pt;color:var(--mk-navy-700)}
+  .integration-loop-head span{font-size:7.2pt;color:var(--mk-muted);text-align:right;line-height:1.25}
+  .integration-domains{display:grid;grid-template-columns:1fr 1fr;gap:1.8mm}
+  .integration-domain{padding:2mm;background:var(--mk-white);border-left:2px solid var(--mk-confirmed);break-inside:avoid;page-break-inside:avoid;min-height:16mm}
+  .integration-domain.focus{border-left-color:var(--mk-brass)}
+  .integration-domain span,.integration-domain em{display:block;font-size:6.7pt;color:var(--mk-muted);font-style:normal;letter-spacing:.04em}
+  .integration-domain strong{display:block;color:var(--mk-navy-700);font-size:8.2pt;line-height:1.2;margin:.8mm 0}
+  .integration-domain em{text-transform:uppercase;font-size:6.3pt;font-weight:700;color:var(--mk-confirmed)}
+  .integration-domain.focus em{color:var(--mk-brass-text)}
+  .integration-edges{display:grid;gap:1.5mm;margin-top:4mm}
+  .integration-subheading{font-size:8pt;font-weight:700;color:var(--mk-navy-700);margin-bottom:.5mm}
+  .integration-edge{display:grid;grid-template-columns:47mm 1fr;gap:4mm;padding:2.2mm 0;border-bottom:1px solid var(--mk-rule);break-inside:avoid;page-break-inside:avoid}
+  .integration-edge-type{display:block;font-size:7pt;font-weight:700;letter-spacing:.06em;color:var(--mk-navy-700)}
+  .integration-edge-route{display:block;font-size:7pt;color:var(--mk-muted);margin-top:.7mm}
+  .integration-edge p{margin:0 0 1mm;font-size:8.1pt;line-height:1.28}
+  .integration-edge-links{font-size:6.9pt;color:var(--mk-muted)}
+  .integration-overlays{display:grid;grid-template-columns:35mm 1fr 1fr 1fr;gap:2mm;align-items:start;margin-top:3mm;padding-top:2.5mm;border-top:1px solid var(--mk-rule);font-size:7.4pt;break-inside:avoid;page-break-inside:avoid}
+  .integration-overlays>strong{font-size:7.8pt;color:var(--mk-navy-700)}
+  .integration-overlay b,.integration-overlay small{display:block}
+  .integration-overlay b{font-size:7.1pt;color:var(--mk-navy-700)}
+  .integration-overlay small{font-size:6.5pt;line-height:1.25;color:var(--mk-muted);margin-top:.7mm}
   .conclusion-closing{break-inside:avoid;page-break-inside:avoid}
   .conclusion-closing .narrative-block{margin-bottom:0}
   .conclusion-closing .companion-panel{margin-top:2mm}

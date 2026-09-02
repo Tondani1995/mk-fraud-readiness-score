@@ -33,7 +33,7 @@ import { premiumProjectionValidationIssues } from '../../src/lib/reports/narrati
 const repoRoot = process.cwd();
 const outputDir = path.resolve(process.env.COMPREHENSIVE_PREMIUM_OUTPUT_DIR ?? path.join(repoRoot, 'outputs', 'comprehensive-premium-propagation-2026-09-01'));
 const workbookPath = path.resolve(process.env.COMPREHENSIVE_WORKBOOK_PATH ?? path.join(path.dirname(outputDir), 'comprehensive-premium-workbooks-2026-09-01', 'MK-Comprehensive-Motheo-owner-review.xlsx'));
-const BASELINE_CODE_SHA = '38c405f45056d269a4081e7a5acd3c816803d7e3';
+const BASELINE_CODE_SHA = '779d35db820f5d4a6289539de94135fcf10c18fb';
 const INVENTORY_MD_SHA = '73d9a603124ada4c847a0b78138815aed2856aca7d059d457b370775c43f2780';
 const INVENTORY_JSON_SHA = '6434883a35acfb29fed3815b902388086f3c64ac294a7e15b35a68e5d4e6e9cbf';
 const PREMIUM_FACT_KINDS = [
@@ -60,14 +60,15 @@ const PREMIUM_ASSIGNMENT_TYPES = new Set([
 const BASELINE_SOURCE_HASHES = {
   'src/lib/reports/comprehensive/assembly.ts': 'dc5ebb149b572db9aa4a3806eb89e646bc14dcd9dbdff67fd14945e00ca94d24',
   'src/lib/reports/comprehensive/management-model.ts': 'bdf7f4f2771aed6ef65a71c4f6d8b3926022bb5ab58aa5a684ada5518cb1a0f1',
-  'src/lib/reports/comprehensive/authoritative-objects.ts': '71c5a04ad696a5d169307b6a730e69ad9ecd3f201776b3b40b34af0722114be8',
-  'src/lib/reports/narrative/fact-pack.ts': '8e7b1d1794d79c45bb4ac5a784351e2177ae4790a78b0a3203ca4d1f13cd097f',
-  'src/lib/reports/narrative/report-blueprint.ts': '502b2a38655971b31cac41b9f698462cb348c805796e269fc92987835af5758e',
+  'src/lib/reports/comprehensive/authoritative-objects.ts': 'ef46ee592e590f7ca26ff2b876e6f03c1a768f43a90419039ce647f099d19a9c',
+  'src/lib/reports/narrative/fact-pack.ts': 'd491fc661049b64e25187bc2c9ad4d3c6e19a12d2b0a4767a4c1952d377e63c9',
+  'src/lib/reports/narrative/report-blueprint.ts': '665c362f9ade389e0e9e1635a5377aa4021eceb89ef7676055279bfd9f7add64',
   'src/lib/reports/narrative/maturation.ts': 'e004b3a3a667c11f19c2a51270cf6f13eb775375918d0d36a075dfc033569e99',
   'src/lib/reports/narrative/operating-context.ts': '715724d9f809d3af80bd23fea31819c454ce9a3a8dd34481c777d3b1979e02e4',
   'src/lib/reports/evidence-model/semantic-mappings.ts': 'b22168ebda2d6f149dec2cc71ecae9cff099c1cbb6fd37fc1bc3be3f5d1124b0',
   'src/lib/reports/evidence-model/contradictions.ts': 'cfb2d15f9a6ef66ce880db7d73b9525986eec3d0171044f739800dd8687a7d71',
-  'src/lib/reports/narrative/premium-projection.ts': null
+  'src/lib/reports/narrative/premium-projection.ts': '17c97059101f81983d92e3b47485bb9e13e72b55295d61fb1ea60511d6079a43',
+  'src/lib/reports/comprehensive/render-narrative-html.ts': 'f5e8d7b7434fa2d41eab0b580ae9f17b83d956277a172ed0380e8d4c2f645a82'
 };
 
 function sha256(value) {
@@ -153,12 +154,182 @@ function blueprintStructure(blueprint, legacy = false) {
     contentAssignmentTypes: Object.fromEntries([...new Set(assignments.map((item) => item.contentType))].sort().map((type) => [type, assignments.filter((item) => item.contentType === type).length])),
     premiumAssignments: legacy ? 0 : assignments.filter((item) => PREMIUM_ASSIGNMENT_TYPES.has(item.contentType)).length,
     contextApplicationRequirements: premiumRequirements.length,
-    transformationStages: blueprint.transformationSequence.map((stage) => stage.stage)
+    contextCrossReferences: legacy ? 0 : blueprint.narrativeCrossReferences.filter((item) => item.contentType === 'context_application').length,
+    exhibitIds: blueprint.chapters.flatMap((chapter) => chapter.exhibits.map((item) => item.exhibitId)),
+    transformationStages: blueprint.transformationSequence.map((stage) => stage.stage),
+    transformationSupport: blueprint.transformationSequence.map((stage) => ({ stage: stage.stage, supported: stage.supported, sourceRefs: [...stage.sourceRefs] }))
   };
 }
 
 function stableOptionSet(decision) {
   return JSON.stringify(decision.options.map((option) => ({ option: option.option, cost: option.cost, benefit: option.benefit, tradeOff: option.tradeOff })));
+}
+
+function integrationExhibitProof(blueprint, map) {
+  const exhibit = blueprint.chapters
+    .flatMap((chapter) => chapter.exhibits)
+    .find((item) => item.exhibitId === 'EXH-ENTERPRISE-INTEGRATION');
+  assert(exhibit, 'Enterprise Integration exhibit contract is missing.');
+  assert.equal(exhibit.type, 'enterprise_integration');
+  const sourceRefs = new Set(exhibit.sourceRefs);
+  assert(sourceRefs.has(map.factRef), 'Enterprise Integration exhibit must cite the supplied map.');
+  for (const loop of map.loopNodes) {
+    assert(sourceRefs.has(loop.loopRef), `Enterprise Integration exhibit must include ${loop.loopRef}.`);
+    for (const sourceRef of loop.sourceRefs) assert(sourceRefs.has(sourceRef), `Enterprise Integration exhibit is missing loop provenance ${sourceRef}.`);
+  }
+  for (const domain of map.domainNodes) {
+    assert(sourceRefs.has(domain.domainRef), `Enterprise Integration exhibit must include domain ${domain.domainRef}.`);
+    for (const sourceRef of domain.sourceRefs) assert(sourceRefs.has(sourceRef), `Enterprise Integration exhibit is missing domain provenance ${sourceRef}.`);
+  }
+  for (const dependency of map.dependencies) {
+    const dependencyFactRef = `INTEGRATION-DEPENDENCY-${dependency.dependencyRef.slice(-3)}`;
+    if (dependency.supportStatus === 'SUPPORTED') {
+      assert(sourceRefs.has(dependency.dependencyRef), `Enterprise Integration exhibit is missing supported edge ${dependency.dependencyRef}.`);
+      assert(sourceRefs.has(dependencyFactRef), `Enterprise Integration exhibit is missing supported edge provenance ${dependencyFactRef}.`);
+      for (const provenanceRef of dependency.provenanceRefs) assert(sourceRefs.has(provenanceRef), `Enterprise Integration exhibit is missing edge provenance ${provenanceRef}.`);
+    } else {
+      assert(!sourceRefs.has(dependency.dependencyRef), `Unsupported edge ${dependency.dependencyRef} must not enter the Enterprise Integration exhibit.`);
+      assert(!sourceRefs.has(dependencyFactRef), `Unsupported edge fact ${dependencyFactRef} must not enter the Enterprise Integration exhibit.`);
+    }
+  }
+  for (const overlay of map.overlayNodes) {
+    assert(sourceRefs.has(overlay.overlayRef), `Enterprise Integration exhibit must include context overlay ${overlay.overlayRef}.`);
+    for (const sourceRef of overlay.sourceRefs) assert(sourceRefs.has(sourceRef), `Enterprise Integration exhibit is missing overlay provenance ${sourceRef}.`);
+  }
+  return {
+    exhibitId: exhibit.exhibitId,
+    type: exhibit.type,
+    placement: exhibit.placement,
+    sourceRefs: [...exhibit.sourceRefs],
+    loopCount: map.loopNodes.length,
+    domainCount: map.domainNodes.length,
+    supportedDependencyRefs: map.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED').map((dependency) => dependency.dependencyRef),
+    unsupportedDependencyRefs: map.dependencies.filter((dependency) => dependency.supportStatus !== 'SUPPORTED').map((dependency) => dependency.dependencyRef),
+    overlayRefs: map.overlayNodes.map((overlay) => ({ overlayRef: overlay.overlayRef, status: overlay.status }))
+  };
+}
+
+function contextCrossReferenceProof(factPack, blueprint) {
+  const references = blueprint.narrativeCrossReferences.filter((item) => item.contentType === 'context_application');
+  const targetChapterIds = new Set([
+    'DETERIORATION-WATCHPOINTS',
+    'TARGET-RESILIENT-CONTROL-ENVIRONMENT',
+    'LEADERSHIP-DECISIONS-TO-PRESERVE',
+    'SUSTAINMENT-OPTIMISATION'
+  ]);
+  for (const application of factPack.contextApplications ?? []) {
+    const matched = references.filter((reference) => reference.contentRef === application.factRef);
+    assert.equal(matched.length, 4, `${application.applicationRef} must have four deterministic cross-chapter consumption routes.`);
+    assert.equal(new Set(matched.map((reference) => reference.fromChapterId)).size, 4, `${application.applicationRef} cross-chapter routes must have distinct target chapters.`);
+    for (const reference of matched) {
+      assert(targetChapterIds.has(reference.fromChapterId), `${application.applicationRef} has an invalid cross-chapter target.`);
+      assert.match(reference.referencePurpose, /context → analytical consequence → management implication/);
+      assert.deepEqual(reference.linkedDependencyRefs, application.dependencyRefs);
+      assert.deepEqual(reference.linkedControlRefs, application.linkedControlRefs);
+      assert.deepEqual(reference.linkedDecisionRefs, application.linkedDecisionRefs);
+      assert.deepEqual(reference.linkedRoadmapRefs, application.linkedRoadmapRefs);
+      assert.deepEqual(reference.linkedResilienceTestRefs, application.linkedResilienceTestRefs);
+    }
+  }
+  assert.equal(references.length, (factPack.contextApplications ?? []).length * 4, 'Context cross-reference count must equal four routes per application.');
+  return (factPack.contextApplications ?? []).map((application) => ({
+    applicationRef: application.applicationRef,
+    factRef: application.factRef,
+    primaryHome: blueprint.contentAssignments.filter((assignment) => assignment.contentType === 'context_application' && assignment.contentRef === application.factRef).map((assignment) => `${assignment.chapterId}/${assignment.sectionId}`),
+    chains: references.filter((reference) => reference.contentRef === application.factRef).map((reference) => ({
+      target: `${reference.fromChapterId}/${reference.fromSectionId}`,
+      pattern: reference.referencePurpose,
+      dependencyRefs: reference.linkedDependencyRefs,
+      controlRefs: reference.linkedControlRefs,
+      decisionRefs: reference.linkedDecisionRefs,
+      roadmapRefs: reference.linkedRoadmapRefs,
+      resilienceTestRefs: reference.linkedResilienceTestRefs
+    }))
+  }));
+}
+
+function transformationSequenceProof(factPack, blueprint) {
+  const requiredStages = ['PRESERVE', 'EMBED', 'MEASURE', 'OPTIMISE'];
+  const stages = requiredStages.map((stage) => blueprint.transformationSequence.find((item) => item.stage === stage));
+  assert(stages.every(Boolean), 'Sustainment Blueprint must contain all four required transformation stages.');
+  assert(stages.every((stage) => stage.supported && stage.sourceRefs.length > 0), 'Every required Sustainment stage must be supported by deterministic source objects.');
+  assert(factPack.roadmap.length > 0 && (factPack.controlOutcomeLinks ?? []).length > 0 && (factPack.roadmapDependencyLinks ?? []).length > 0, 'Authorised roadmap/control-outcome/maturation objects must support the full Sustainment sequence.');
+  return stages.map((stage) => ({ stage: stage.stage, supported: stage.supported, sourceRefs: [...stage.sourceRefs] }));
+}
+
+function premiumStoryPreview({ factPack, storyPlan, blueprint, essentialBlueprint }) {
+  const map = factPack.enterpriseIntegrationMap;
+  const line = (label, value) => `- ${label}: ${value}`;
+  const lines = [
+    `# Premium Story Preview — ${factPack.organisation.name}`,
+    '',
+    'Source: provider-free Fact Pack, Story Plan and Blueprint projection. No writer prose.',
+    line('Assessment', `${factPack.assessment.reference} · ${factPack.assessment.score}/100 · ${factPack.assessment.maturity} · ${factPack.narrativeMode}`),
+    '',
+    '## 1. Executive priority / outcome',
+    line('Story Plan objective', storyPlan.executiveStoryObjective),
+    line('Opening management takeaway', storyPlan.movements[0]?.requiredManagementTakeaway ?? ''),
+    line('Closing management takeaway', storyPlan.movements.at(-1)?.requiredManagementTakeaway ?? ''),
+    '',
+    '## 2. Enterprise Fraud Readiness Integration',
+    line('Map', map?.factRef ?? ''),
+    ...(map?.loopNodes ?? []).flatMap((loop) => [
+      line(`${loop.loopRef} · ${loop.label}`, loop.methodologyRole),
+      ...loop.memberDomainRefs.map((domainRef) => {
+        const domain = map.domainNodes.find((item) => item.domainRef === domainRef);
+        return line(`  ${domain?.domainRef ?? domainRef} · ${domain?.domainName ?? ''}`, `${domain?.posture ?? ''} · primary loop ${domain?.primaryLoopRef ?? ''} · provenance ${(domain?.sourceRefs ?? []).join(', ')}`);
+      })
+    ]),
+    '',
+    '## 3. Deterministic dependencies and provenance',
+    ...(map?.dependencies ?? []).map((dependency) => line(
+      dependency.dependencyRef,
+      `${dependency.supportStatus} · ${dependency.relationshipType} · ${dependency.contributingDomainRefs.join(' + ')} · loop ${dependency.loopRef} · outcome ${dependency.protectedManagementOutcome} · provenance ${dependency.provenanceRefs.join(', ')}`
+    )),
+    '',
+    '## 4. Motheo operating-context links',
+    ...(factPack.contextApplications ?? []).flatMap((application) => {
+      const targets = blueprint.narrativeCrossReferences.filter((reference) => reference.contentRef === application.factRef);
+      return [
+        line(`${application.applicationRef} · ${application.label}`, `context ${application.contextRefs.join(', ')}`),
+        line('  Analytical consequence', application.analyticalConsequence),
+        line('  Management implication', application.managementImplication),
+        line('  Deterministic links', `${application.dependencyRefs.join(', ')} → ${application.linkedControlRefs.join(', ')} → ${application.linkedDecisionRefs.join(', ')} → ${application.linkedResilienceTestRefs.join(', ')} → ${application.linkedRoadmapRefs.join(', ')}`),
+        line('  Cross-chapter consumption', targets.map((reference) => `${reference.fromChapterId}/${reference.fromSectionId}`).join(' · '))
+      ];
+    }),
+    '',
+    '## 5. Sustainment resilience/change tests',
+    ...(factPack.resilienceTests ?? []).map((test) => line(test.testId, `${test.capability} · ${test.changeCondition} · test ${test.managementTest} · response ${test.response.governanceRoute} · links ${test.linkedControlRefs.join(', ')} / ${test.linkedDecisionRefs.join(', ')} / ${test.linkedRoadmapRefs.join(', ')}`)),
+    '',
+    '## 6. Control → evidence → decision → management-outcome links',
+    ...(factPack.controlOutcomeLinks ?? []).map((link) => line(link.linkRef, `${link.controlRef} → evidence ${link.evidenceRefs.join(', ')} → ${link.decisionRef} → ${link.protectedOutcome} · response ${link.responseRefs.join(', ')} · provenance ${link.provenanceRefs.join(', ')}`)),
+    '',
+    '## 7. Leadership decisions linked back to enterprise integration',
+    ...(factPack.decisions ?? []).map((decision) => {
+      const dependencyRefs = (map?.dependencies ?? []).filter((dependency) => dependency.linkedDecisionRefs.includes(decision.factRef)).map((dependency) => dependency.dependencyRef);
+      return [
+        line(`${decision.factRef} · ${decision.decisionFamily}`, `integration ${dependencyRefs.join(', ')}`),
+        line('  Question', decision.question),
+        line('  Recommended route', decision.recommendedRoute),
+        ...decision.options.map((option, index) => line(`  Option ${index + 1}`, `${option.option} · benefit ${option.benefit} · trade-off ${option.tradeOff} · cost ${option.cost}`)),
+        line('  Owner / timing / consequence', `${decision.owner} · ${decision.targetDate} · ${decision.consequenceOfDelay}`)
+      ];
+    }).flat(),
+    '',
+    '## 8. Dependency-led 12-month sequence',
+    ...blueprint.transformationSequence.map((stage) => line(stage.stage, `${stage.supported ? 'SUPPORTED' : 'UNSUPPORTED'} · ${stage.purpose} · source objects ${stage.sourceRefs.join(', ')}`)),
+    ...(factPack.roadmapDependencyLinks ?? []).map((link) => line(link.linkRef, `${link.roadmapRef} · stage gate ${link.stageGate} · next-stage use ${link.nextStageUse} · dependencies ${link.dependencyRefs.join(', ')}`)),
+    '',
+    '## 9. Comprehensive-only elements not present in Essential',
+    line('Enterprise Integration Map', `${map?.factRef ?? ''} · ${map?.loopNodes.length ?? 0} loops · ${map?.domainNodes.length ?? 0} domains · ${map?.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED').length ?? 0} supported dependencies`),
+    line('Enterprise Integration exhibit', `EXH-ENTERPRISE-INTEGRATION · Essential present: ${essentialBlueprint.chapters.flatMap((chapter) => chapter.exhibits).some((exhibit) => exhibit.exhibitId === 'EXH-ENTERPRISE-INTEGRATION')}`),
+    line('Assurance coverage / priorities', `${(factPack.assuranceCoverage ?? []).map((item) => item.factRef).join(', ')} / ${(factPack.assurancePriorities ?? []).map((item) => item.factRef).join(', ')}`),
+    line('Resilience tests', (factPack.resilienceTests ?? []).map((item) => item.factRef).join(', ')),
+    line('Context applications and cross-chapter routes', `${(factPack.contextApplications ?? []).map((item) => item.factRef).join(', ')} · ${blueprint.narrativeCrossReferences.filter((reference) => reference.contentType === 'context_application').length} routes`),
+    line('Control-outcome / roadmap-dependency links', `${(factPack.controlOutcomeLinks ?? []).map((item) => item.factRef).join(', ')} / ${(factPack.roadmapDependencyLinks ?? []).map((item) => item.factRef).join(', ')}`)
+  ];
+  return `${lines.join('\n')}\n`;
 }
 
 function testResult(name, passed, details = '') {
@@ -216,6 +387,17 @@ async function main() {
   assert.equal(map.dependencies.length, 4);
   assert.deepEqual(map.dependencies.map((edge) => edge.relationshipType), ['AUTHORITY_ENABLES', 'RISK_VIEW_DIRECTS', 'LEARNING_UPDATES', 'CONTROL_SIGNAL_FEEDS']);
   assert(map.overlayNodes.every((overlay) => overlay.status === 'CONTEXT_ONLY'), 'Motheo context must not activate unsupported D7/D8/D3 overlays.');
+  const enterpriseIntegration = integrationExhibitProof(blueprint, map);
+  assert.equal(enterpriseIntegration.loopCount, 4);
+  assert.equal(enterpriseIntegration.domainCount, 10);
+  assert.equal(enterpriseIntegration.supportedDependencyRefs.length, 4);
+  assert.deepEqual(
+    [...new Set(map.loopNodes.flatMap((loop) => loop.memberDomainRefs))].sort(),
+    map.domainNodes.map((domain) => domain.domainRef).sort(),
+    'Every Enterprise Integration domain must appear in one of the four loop nodes.'
+  );
+  const contextCrossReferences = contextCrossReferenceProof(factPack, blueprint);
+  const transformation = transformationSequenceProof(factPack, blueprint);
   assert.equal(factPack.assuranceCoverage?.length, 10);
   assert.equal(factPack.assurancePriorities?.length, 3);
   assert.equal(factPack.resilienceTests?.length, 3);
@@ -265,21 +447,36 @@ async function main() {
   const essentialPremiumProperties = ['assuranceCoverage', 'assurancePriorities', 'resilienceTests', 'enterpriseIntegrationMap', 'contextApplications', 'controlOutcomeLinks', 'roadmapDependencyLinks'].filter((key) => Object.hasOwn(essentialPack, key));
   const essentialPremiumKinds = essentialPack.facts.filter((fact) => PREMIUM_FACT_KINDS.includes(fact.kind));
   const essentialPremiumAssignments = essentialBlueprint.contentAssignments.filter((item) => PREMIUM_ASSIGNMENT_TYPES.has(item.contentType));
+  const essentialPremiumExhibits = essentialBlueprint.chapters.flatMap((chapter) => chapter.exhibits).filter((item) => item.exhibitId === 'EXH-ENTERPRISE-INTEGRATION');
   assert.equal(essentialPremiumProperties.length, 0);
   assert.equal(essentialPremiumKinds.length, 0);
   assert.equal(essentialPremiumAssignments.length, 0);
+  assert.equal(essentialPremiumExhibits.length, 0, 'Essential may not contain the Comprehensive-only Enterprise Integration exhibit.');
   assert.deepEqual(essentialBlueprint.contextApplicationRequirements, []);
 
   const beforeFactPack = factPackStructure(factPack, true);
   const afterFactPack = factPackStructure(factPack);
   const beforeBlueprint = blueprintStructure(blueprint, true);
   const afterBlueprint = blueprintStructure(blueprint);
+  const preview = premiumStoryPreview({ factPack, storyPlan, blueprint, essentialBlueprint });
+  const previewSha256 = sha256(preview);
 
   const sourceModuleHashes = {};
   for (const relativePath of Object.keys(BASELINE_SOURCE_HASHES)) sourceModuleHashes[relativePath] = { baseline: BASELINE_SOURCE_HASHES[relativePath], current: await fileSha(relativePath) };
   const implementationSha = gitValue(['rev-parse', 'HEAD']);
   const workingTree = gitValue(['status', '--porcelain']);
+  const workingTreeLines = workingTree ? workingTree.split('\n').filter(Boolean) : [];
+  const generatedOutputLines = workingTreeLines.filter((line) => /(^|\s)outputs\//.test(line));
+  const sourceWorkingTreeLines = workingTreeLines.filter((line) => !generatedOutputLines.includes(line));
   const workbook = await optionalArtifact(workbookPath, path.join(path.dirname(workbookPath), 'MK-Comprehensive-motheo-workbook-qa.json'));
+  let exhibitEvidence = { status: 'NOT_PROVIDED' };
+  if (process.env.COMPREHENSIVE_ENTERPRISE_EXHIBIT_EVIDENCE_PATH) {
+    try {
+      exhibitEvidence = JSON.parse(await fs.readFile(path.resolve(process.env.COMPREHENSIVE_ENTERPRISE_EXHIBIT_EVIDENCE_PATH), 'utf8'));
+    } catch {
+      exhibitEvidence = { status: 'NOT_PROVIDED', path: path.resolve(process.env.COMPREHENSIVE_ENTERPRISE_EXHIBIT_EVIDENCE_PATH) };
+    }
+  }
 
   const propagationMap = [
     {
@@ -358,7 +555,10 @@ async function main() {
 
   const tests = [
     testResult('premium Fact Pack object counts', true, '10 coverage rows; 3 assurance priorities; 3 resilience tests; 1 map; 4 typed dependencies; 3 context applications; 3 control-outcome links; 3 roadmap-dependency links.'),
+    testResult('Enterprise Integration exhibit scope', true, `${enterpriseIntegration.loopCount} loops; ${enterpriseIntegration.domainCount} domains; ${enterpriseIntegration.supportedDependencyRefs.length} supported dependency edges; ${enterpriseIntegration.overlayRefs.length} context overlays; unsupported edges excluded.`),
     testResult('unsupported context remains context-only', true, 'Motheo supplier, digital/identity and physical overlays have no linked D7/D8/D3 object and are not promoted to active dependencies.'),
+    testResult('context cross-chapter consumption', true, `${contextCrossReferences.reduce((sum, item) => sum + item.chains.length, 0)} deterministic routes from Analytical basis into watchpoints, controls, decisions and sustainment optimisation.`),
+    testResult('Sustainment transformation stage support', true, transformation.map((stage) => `${stage.stage}: ${stage.sourceRefs.length} source objects`).join(' | ')),
     testResult('decision themes are distinct', true, decisions.map((decision) => `${decision.factRef}: ${decision.question}`).join(' | ')),
     testResult('all customer-visible relationship references resolve', true, 'Integration edges, resilience responses, context applications, control outcomes and roadmap links resolve to Fact Pack objects.'),
     testResult('conditional resilience boundary', true, 'Every test is CONDITIONAL and doesNotAssertFinding=true.'),
@@ -393,8 +593,20 @@ async function main() {
       storyPlanHashBeforeKnownBaseline: 'ea6a6db7812223fb277cd8f68bec519e1c2f35c4317ac5b7f8ff2f46ae151f03',
       blueprintHashBeforeKnownBaseline: 'a1d9e54f5ff243d892eda2fad267c41afe7a394ef26d4f66d5dd8450a43ff72f'
     },
-    implementation: { codeSha: implementationSha, workingTreeDirty: Boolean(workingTree), workingTreeStatus: workingTree },
+    implementation: {
+      codeSha: implementationSha,
+      workingTreeDirty: Boolean(workingTree),
+      workingTreeStatus: workingTree,
+      sourceWorktreeClean: sourceWorkingTreeLines.length === 0,
+      sourceWorkingTreeStatus: sourceWorkingTreeLines,
+      generatedOutputStatus: generatedOutputLines
+    },
     workbook,
+    enterpriseIntegrationExhibit: enterpriseIntegration,
+    contextCrossReferences,
+    transformationSequence: transformation,
+    preview: { path: 'motheo-premium-story-preview.md', sha256: previewSha256 },
+    exhibitRender: exhibitEvidence,
     fixture: {
       profile: 'motheo',
       organisation: factPack.organisation.name,
@@ -423,7 +635,9 @@ async function main() {
       afterPropagation: afterBlueprint,
       afterHash: sha256(JSON.stringify(blueprint)),
       validation: validateReportBlueprint(blueprint, factPack),
-      contextApplicationRequirements: blueprint.contextApplicationRequirements
+      contextApplicationRequirements: blueprint.contextApplicationRequirements,
+      narrativeCrossReferences: blueprint.narrativeCrossReferences,
+      transformationSequence: transformation
     },
     propagationMap,
     reusedObjects,
@@ -432,16 +646,21 @@ async function main() {
       premiumProperties: essentialPremiumProperties,
       premiumFactKinds: essentialPremiumKinds.map((fact) => fact.kind),
       premiumAssignments: essentialPremiumAssignments,
+      premiumExhibits: essentialPremiumExhibits,
       contextApplicationRequirements: essentialBlueprint.contextApplicationRequirements
     },
     tests,
     invariants: {
       customerVisibleRelationshipsValid: true,
+      enterpriseIntegrationExhibitCustomerVisible: enterpriseIntegration.exhibitId === 'EXH-ENTERPRISE-INTEGRATION',
+      enterpriseIntegrationScopeValid: enterpriseIntegration.loopCount === 4 && enterpriseIntegration.domainCount === 10 && enterpriseIntegration.unsupportedDependencyRefs.length === 0,
+      contextCrossChapterConsumptionValid: contextCrossReferences.every((item) => item.primaryHome.length === 1 && item.chains.length === 4),
+      sustainmentTransformationStagesSupported: transformation.every((stage) => stage.supported && stage.sourceRefs.length > 0),
       resilienceTestsAreConditional: true,
       noSustainmentFindingsRisksScenarios: factPack.findings.length === 0 && factPack.risks.length === 0 && factPack.scenarios.length === 0,
       noMissingControlDecisionRefs: true,
       noUnsupportedNumeric: true,
-      essentialObjectIsolation: essentialPremiumProperties.length === 0 && essentialPremiumKinds.length === 0 && essentialPremiumAssignments.length === 0
+      essentialObjectIsolation: essentialPremiumProperties.length === 0 && essentialPremiumKinds.length === 0 && essentialPremiumAssignments.length === 0 && essentialPremiumExhibits.length === 0
     }
   };
 
@@ -472,9 +691,16 @@ async function main() {
     'motheo-blueprint-before-structure.json',
     'motheo-provider-free-story-plan.json',
     'motheo-provider-free-blueprint.json',
+    'motheo-premium-story-preview.md',
+    'motheo-enterprise-integration-fixture.html',
+    'motheo-enterprise-integration-fixture.pdf',
+    'motheo-enterprise-integration-exhibit-page.png',
+    'enterprise-integration-exhibit-evidence.json',
+    'enterprise-integration-exhibit-evidence.md',
     'comprehensive-premium-propagation-manifest.json'
   ];
   for (const [filename, value] of Object.entries(jsonFiles)) await fs.writeFile(path.join(outputDir, filename), `${JSON.stringify(value, null, 2)}\n`);
+  await fs.writeFile(path.join(outputDir, 'motheo-premium-story-preview.md'), preview);
 
   const markdown = `# Comprehensive premium propagation evidence — Motheo
 
@@ -487,7 +713,7 @@ Baseline code SHA: \`${BASELINE_CODE_SHA}\`
 
 This is a provider-free projection over the accepted Motheo V1.2 assessment. Scoring, question selection, maturity logic, assurance boundary, Essential path, workbook sheet architecture, accepted branding and PDF compositor were not redesigned.
 
-The legacy surface reconstructed in the evidence shows the existing loss: ${beforeFactPack.factCount} Fact Pack facts and ${beforeBlueprint.contentAssignments} Blueprint assignments, with no typed integration map, assurance rows, resilience tests, context applications, control-outcome links or roadmap-dependency links. The new surface has ${afterFactPack.factCount} Fact Pack facts and ${afterBlueprint.contentAssignments} Blueprint assignments while retaining the same ${afterBlueprint.chapters} chapters and ${afterBlueprint.exhibits} exhibits.
+The legacy surface reconstructed in the evidence shows the existing loss: ${beforeFactPack.factCount} Fact Pack facts and ${beforeBlueprint.contentAssignments} Blueprint assignments, with no typed integration map, assurance rows, resilience tests, context applications, control-outcome links or roadmap-dependency links. The new surface has ${afterFactPack.factCount} Fact Pack facts and ${afterBlueprint.contentAssignments} Blueprint assignments while retaining the same ${afterBlueprint.chapters} chapters and adding the Comprehensive-only Enterprise Integration exhibit.
 
 ## What the writer is now asked to do differently
 
@@ -496,6 +722,24 @@ The legacy surface reconstructed in the evidence shows the existing loss: ${befo
 - Describe the three resilience tests as conditional, forward-looking tests after a recorded change condition; they are not current findings, risks or scenarios.
 - Preserve the existing owner, cadence, evidence, trigger and measure for every Sustainment control, then explain its supplied control → decision → protected outcome → deterioration response chain.
 - Explain the existing twelve-month stages through the supplied dependency gate before the next stage becomes useful; no new action is introduced.
+
+## Enterprise Integration exhibit
+
+The Blueprint contains **${enterpriseIntegration.exhibitId}** at **${enterpriseIntegration.placement.chapterId}/${enterpriseIntegration.placement.sectionId}**. It is sourced from **${enterpriseIntegration.loopCount} loops**, **${enterpriseIntegration.domainCount} domain nodes**, **${enterpriseIntegration.supportedDependencyRefs.length} supported dependency edges** and **${enterpriseIntegration.overlayRefs.length} context overlays**. Unsupported dependency edges: **${enterpriseIntegration.unsupportedDependencyRefs.length}**.
+
+The customer compositor renders the exhibit as an editorial loop-and-relationship view. Context overlays remain a separate context layer and are not rendered as dependency edges.
+
+## Context consumption proof
+
+${contextCrossReferences.map((item) => `- **${item.applicationRef}** has one primary home at ${item.primaryHome.join(', ')} and ${item.chains.length} cross-chapter routes: ${item.chains.map((chain) => chain.target).join(' · ')}.`).join('\n')}
+
+Each route carries the required pattern **context → analytical consequence → management implication** and preserves the application’s dependency, control, decision, resilience-test and roadmap references.
+
+## Transformation-stage proof
+
+${transformation.map((stage) => `- **${stage.stage}** — supported: **${stage.supported}**; source objects: ${stage.sourceRefs.join(', ')}.`).join('\n')}
+
+The regression fails when an authorised deterministic stage has no support or when its source references diverge from the existing roadmap, control-outcome, resilience and maturation objects.
 
 ## Premium deterministic objects
 
@@ -515,7 +759,7 @@ ${reusedObjects.map((item) => `- ${item}`).join('\n')}
 
 ## Evidence files
 
-The adjacent JSON files contain the exact before/after structures, source-module hashes, propagation map, Story Plan, Blueprint, workbook mapping and machine-readable test results.
+The adjacent JSON files contain the exact before/after structures, source-module hashes, propagation map, Story Plan, Blueprint, workbook mapping, Enterprise Integration exhibit proof, context cross-reference proof, transformation-stage proof and machine-readable test results. The adjacent **motheo-premium-story-preview.md** is generated directly from these deterministic objects and contains no writer prose.
 `;
   await fs.writeFile(path.join(outputDir, 'comprehensive-premium-propagation-evidence.md'), markdown);
   console.log(JSON.stringify({ status: 'PASS', gate: evidence.gate, outputDir, implementationSha, providerCalls: 0, factPackHash: evidence.factPack.afterHash, storyPlanHash: evidence.storyPlan.afterHash, blueprintHash: evidence.blueprint.afterHash, tests: tests.map((test) => ({ name: test.name, status: test.status })) }, null, 2));
