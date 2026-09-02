@@ -2,6 +2,8 @@ export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""
 export const GA_READY_EVENT = "mk-ga-ready";
 export const GA_CONSENT_EVENT = "mk-fraud-consent-updated";
 export const ANALYTICS_CONSENT_STORAGE_KEY = "mk_fraud_cookie_consent";
+// One second gives gtag a delivery-acknowledgement window without materially delaying navigation.
+export const NAVIGATION_EVENT_TIMEOUT_MS = 1000;
 
 type GtagValue = string | number | boolean | undefined;
 
@@ -44,4 +46,59 @@ export function trackEvent(action: string, params: Record<string, GtagValue> = {
 
     window.gtag("event", action, params);
     return true;
+}
+
+/**
+ * Sends a consented GA event before a navigation, using GA's acknowledgement callback and a
+ * short bounded fallback. Analytics must never prevent the customer from continuing.
+ */
+export function trackEventBeforeNavigation(
+    action: string,
+    params: Record<string, GtagValue> = {},
+    navigate: () => void
+): boolean {
+    let navigationStarted = false;
+    const navigateOnce = () => {
+        if (navigationStarted) return;
+        navigationStarted = true;
+        try {
+            navigate();
+        } catch {
+            // Navigation errors belong to the caller's navigation target; analytics must not
+            // turn a successful assessment/start response into an uncaught client error.
+        }
+    };
+
+    if (!GA_MEASUREMENT_ID || !hasAnalyticsConsent() || typeof window.gtag !== "function") {
+        navigateOnce();
+        return false;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const acknowledge = () => {
+        if (timeoutId !== undefined) {
+            clearTimeout(timeoutId);
+            timeoutId = undefined;
+        }
+        navigateOnce();
+    };
+
+    timeoutId = setTimeout(() => {
+        timeoutId = undefined;
+        navigateOnce();
+    }, NAVIGATION_EVENT_TIMEOUT_MS);
+
+    try {
+        window.gtag("event", action, {
+            ...params,
+            event_callback: acknowledge,
+            event_timeout: NAVIGATION_EVENT_TIMEOUT_MS,
+        });
+        return true;
+    } catch {
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
+        timeoutId = undefined;
+        navigateOnce();
+        return false;
+    }
 }

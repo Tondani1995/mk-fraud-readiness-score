@@ -176,12 +176,14 @@ await check('the GA helper only emits after a ready gtag function exists', async
 
 await check('assessment start and completion events follow successful server responses', () => {
   assert.match(adaptiveStart, /if \(!response\.ok \|\| !body\.ok\)/);
-  assert.ok(adaptiveStart.indexOf("trackEvent('fraud_readiness_start'") > adaptiveStart.indexOf('if (!response.ok || !body.ok)'));
-  assert.match(adaptiveStart, /trackEvent\('fraud_readiness_start', \{ flow: 'adaptive' \}\)/);
+  assert.ok(adaptiveStart.indexOf("trackEventBeforeNavigation(") > adaptiveStart.indexOf('if (!response.ok || !body.ok)'));
+  assert.match(adaptiveStart, /trackEventBeforeNavigation\(\s*'fraud_readiness_start',\s*\{ flow: 'adaptive' \},/);
+  assert.match(adaptiveStart, /\(\) => window\.location\.assign\(body\.data\.resumeUrl\)/);
 
   assert.match(adaptiveExperience, /if \(!response\.ok \|\| !body\.ok\)/);
-  assert.ok(adaptiveExperience.indexOf("trackEvent('fraud_readiness_completed'") > adaptiveExperience.indexOf('if (!response.ok || !body.ok)'));
-  assert.match(adaptiveExperience, /trackEvent\('fraud_readiness_completed', \{ flow: 'adaptive' \}\)/);
+  assert.ok(adaptiveExperience.indexOf("trackEventBeforeNavigation(") > adaptiveExperience.indexOf('if (!response.ok || !body.ok)'));
+  assert.match(adaptiveExperience, /trackEventBeforeNavigation\(\s*'fraud_readiness_completed',\s*\{ flow: 'adaptive' \},/);
+  assert.match(adaptiveExperience, /\(\) => window\.location\.replace\(body\.snapshotUrl\)/);
 });
 
 await check('commercial event hooks use non-identifying parameters only', () => {

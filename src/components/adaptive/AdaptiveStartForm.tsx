@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { REQUIRED_LEGAL_ACCEPTANCE } from '@/lib/legal/fraud-readiness-terms';
 import { rememberProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
-import { trackEvent } from '@/lib/website/gtag';
+import { trackEventBeforeNavigation } from '@/lib/website/gtag';
 
 export function AdaptiveStartForm({ productIntent = null }: { productIntent?: ProductIntent | null }) {
   const [form, setForm] = useState({ fullName: '', email: '', organisationName: '', roleTitle: '', consentResearch: false });
@@ -27,11 +27,14 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) { setErrors(body.errors ?? ['We could not start your assessment right now. Please try again. If the problem continues, contact hello@mkfraud.co.za.']); setBusy(false); return; }
-    trackEvent('fraud_readiness_start', { flow: 'adaptive' });
     // Intent is remembered only once the assessment exists, and only as a browser-local preference
     // so the Snapshot selector can open on the tier the customer arrived with.
     rememberProductIntent(body.data?.assessmentReference ?? '', productIntent);
-    window.location.assign(body.data.resumeUrl);
+    trackEventBeforeNavigation(
+      'fraud_readiness_start',
+      { flow: 'adaptive' },
+      () => window.location.assign(body.data.resumeUrl)
+    );
   }
 
   return <form data-adaptive-assessment-start="true" onSubmit={submit} className="space-y-5">

@@ -42,24 +42,28 @@ check('private admin and visual-review score routes stay outside public analytic
 
 check('start event follows a successful start response', () => {
   const responseGuard = startForm.indexOf('if (!response.ok || !body.ok)');
-  const startEvent = startForm.indexOf("trackEvent('fraud_readiness_start'");
+  const startEvent = startForm.indexOf("trackEventBeforeNavigation(");
   assert.ok(responseGuard >= 0, 'start response guard is present');
   assert.ok(startEvent > responseGuard, 'start event must follow the response guard');
-  assert.match(startForm, /trackEvent\('fraud_readiness_start', \{ flow: 'adaptive' \}\)/);
+  assert.match(startForm, /trackEventBeforeNavigation\(\s*'fraud_readiness_start',\s*\{ flow: 'adaptive' \},/);
+  assert.match(startForm, /\(\) => window\.location\.assign\(body\.data\.resumeUrl\)/);
+  assert.doesNotMatch(startForm, /window\.location\.assign\(body\.data\.resumeUrl\);/);
 });
 
 check('completion event follows a successful response with a valid Snapshot URL', () => {
   const responseGuard = assessmentExperience.indexOf('if (!response.ok || !body.ok)');
   const snapshotGuard = assessmentExperience.indexOf("if (typeof body.snapshotUrl !== 'string' || !body.snapshotUrl)");
-  const completionEvent = assessmentExperience.indexOf("trackEvent('fraud_readiness_completed'");
+  const completionEvent = assessmentExperience.indexOf("trackEventBeforeNavigation(");
   assert.ok(responseGuard >= 0, 'completion response guard is present');
   assert.ok(snapshotGuard > responseGuard, 'Snapshot URL guard follows the response guard');
   assert.ok(completionEvent > snapshotGuard, 'completion event must follow the valid Snapshot URL guard');
-  assert.match(assessmentExperience, /trackEvent\('fraud_readiness_completed', \{ flow: 'adaptive' \}\)/);
+  assert.match(assessmentExperience, /trackEventBeforeNavigation\(\s*'fraud_readiness_completed',\s*\{ flow: 'adaptive' \},/);
+  assert.match(assessmentExperience, /\(\) => window\.location\.replace\(body\.snapshotUrl\)/);
+  assert.doesNotMatch(assessmentExperience, /window\.location\.replace\(body\.snapshotUrl\);/);
 });
 
 check('failed completion paths cannot emit the completion event', () => {
-  const completionEvent = assessmentExperience.indexOf("trackEvent('fraud_readiness_completed'");
+  const completionEvent = assessmentExperience.indexOf("trackEventBeforeNavigation(");
   const failedResponse = assessmentExperience.indexOf('if (!response.ok || !body.ok)');
   const missingSnapshot = assessmentExperience.indexOf("if (typeof body.snapshotUrl !== 'string' || !body.snapshotUrl)");
   assert.ok(failedResponse < completionEvent && missingSnapshot < completionEvent);
@@ -71,7 +75,17 @@ check('duplicate or locked submissions do not create a second completion event',
   assert.match(assessmentExperience, /savingRef\.current \|\| submissionState === 'processing'/);
   assert.match(adaptiveServer, /status: 409/);
   assert.match(adaptiveServer, /adaptive_assessment_locked/);
-  assert.equal((assessmentExperience.match(/trackEvent\('fraud_readiness_completed'/g) ?? []).length, 1);
+  assert.equal((assessmentExperience.match(/trackEventBeforeNavigation\(/g) ?? []).length, 1);
+});
+
+check('navigation-safe helper is shared and bounded', () => {
+  assert.match(gtag, /export function trackEventBeforeNavigation\(/);
+  assert.match(gtag, /event_callback:/);
+  assert.match(gtag, /event_timeout:/);
+  assert.match(gtag, /NAVIGATION_EVENT_TIMEOUT_MS = 1000/);
+  assert.match(gtag, /if \(!GA_MEASUREMENT_ID \|\| !hasAnalyticsConsent\(\) \|\| typeof window\.gtag !== ["']function["']\)/);
+  assert.match(gtag, /if \(navigationStarted\) return/);
+  assert.doesNotMatch(gtag, /await new Promise/);
 });
 
 check('score routes use no score-specific measurement ID or second GA implementation', () => {
