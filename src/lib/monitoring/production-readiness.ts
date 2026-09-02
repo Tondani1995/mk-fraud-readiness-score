@@ -100,6 +100,43 @@ export function adaptiveActivationBindingMatches(policy: any, contract: Readines
   );
 }
 
+export function monitorHeartbeatReadiness(input: {
+  heartbeat: {
+    status?: string | null;
+    last_started_at?: string | null;
+    last_completed_at?: string | null;
+  } | null | undefined;
+  now: Date;
+  staleMinutes: number;
+  production: boolean;
+}): { status: MonitoringStatus; safeCode: string } {
+  const heartbeatAge = input.heartbeat?.last_completed_at
+    ? input.now.getTime() - new Date(input.heartbeat.last_completed_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  const runningAge = input.heartbeat?.last_started_at
+    ? input.now.getTime() - new Date(input.heartbeat.last_started_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  const staleMs = input.staleMinutes * 60_000;
+
+  if (input.heartbeat?.status === 'healthy' && heartbeatAge <= staleMs) {
+    return { status: 'PASS', safeCode: 'monitor_heartbeat_fresh' };
+  }
+  if (input.heartbeat?.status === 'running' && runningAge <= staleMs) {
+    return { status: 'PASS', safeCode: 'monitor_heartbeat_fresh' };
+  }
+  // A fresh degraded heartbeat means the monitor is alive and has surfaced a lower-priority
+  // operational signal. Preserve that signal as DEGRADED/WARN instead of recursively converting
+  // it into a readiness INCIDENT/503.
+  if (input.heartbeat?.status === 'degraded' && heartbeatAge <= staleMs) {
+    return { status: 'WARN', safeCode: 'monitor_heartbeat_degraded' };
+  }
+
+  return {
+    status: input.production ? 'FAIL' : 'WARN',
+    safeCode: 'monitor_heartbeat_stale_or_missing'
+  };
+}
+
 async function publicRouteCheck(
   checks: ReadinessCheck[],
   fetchImpl: typeof fetch,
@@ -240,14 +277,13 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
 
   const heartbeatRow = heartbeat.data;
   const staleMinutes = context.heartbeatStaleMinutes ?? 30;
-  const heartbeatAge = heartbeatRow?.last_completed_at ? now.getTime() - new Date(heartbeatRow.last_completed_at).getTime() : Number.POSITIVE_INFINITY;
-  const runningAge = heartbeatRow?.last_started_at ? now.getTime() - new Date(heartbeatRow.last_started_at).getTime() : Number.POSITIVE_INFINITY;
-  const heartbeatPass = Boolean(
-    heartbeatRow
-      && ((heartbeatRow.status === 'healthy' && heartbeatAge <= staleMinutes * 60_000)
-        || (heartbeatRow.status === 'running' && runningAge <= staleMinutes * 60_000))
-  );
-  addCheck(checks, 'internal_monitor_heartbeat', 'dependency', heartbeatPass ? 'PASS' : production ? 'FAIL' : 'WARN', heartbeatPass ? 'monitor_heartbeat_fresh' : 'monitor_heartbeat_stale_or_missing');
+  const heartbeatReadiness = monitorHeartbeatReadiness({
+    heartbeat: heartbeatRow,
+    now,
+    staleMinutes,
+    production
+  });
+  addCheck(checks, 'internal_monitor_heartbeat', 'dependency', heartbeatReadiness.status, heartbeatReadiness.safeCode);
 
   await publicChecks(checks, context, production);
 

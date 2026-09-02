@@ -11,6 +11,7 @@ import {
 import {
   adaptiveActivationBindingMatches,
   expectedContract,
+  monitorHeartbeatReadiness,
   publicReadinessPayload,
   validatedDeploymentSha
 } from '../src/lib/monitoring/production-readiness.ts';
@@ -103,6 +104,46 @@ assert.equal(adaptiveActivationBindingMatches({ ...productionPolicy, environment
 }), true);
 assert.equal(expectedContract({ VERCEL_ENV: 'preview' }, RELEASE_SHA_A).adaptiveActivationSha, null);
 pass('Preview keeps its bounded pinned-SHA semantics without weakening Production checks');
+
+
+const heartbeatNow = new Date('2026-09-03T00:00:00.000Z');
+assert.deepEqual(
+  monitorHeartbeatReadiness({
+    heartbeat: { status: 'healthy', last_completed_at: '2026-09-02T23:55:00.000Z' },
+    now: heartbeatNow,
+    staleMinutes: 30,
+    production: true
+  }),
+  { status: 'PASS', safeCode: 'monitor_heartbeat_fresh' }
+);
+assert.deepEqual(
+  monitorHeartbeatReadiness({
+    heartbeat: { status: 'degraded', last_completed_at: '2026-09-02T23:55:00.000Z' },
+    now: heartbeatNow,
+    staleMinutes: 30,
+    production: true
+  }),
+  { status: 'WARN', safeCode: 'monitor_heartbeat_degraded' }
+);
+assert.deepEqual(
+  monitorHeartbeatReadiness({
+    heartbeat: { status: 'degraded', last_completed_at: '2026-09-02T22:00:00.000Z' },
+    now: heartbeatNow,
+    staleMinutes: 30,
+    production: true
+  }),
+  { status: 'FAIL', safeCode: 'monitor_heartbeat_stale_or_missing' }
+);
+assert.deepEqual(
+  monitorHeartbeatReadiness({
+    heartbeat: { status: 'failed', last_completed_at: '2026-09-02T23:55:00.000Z' },
+    now: heartbeatNow,
+    staleMinutes: 30,
+    production: true
+  }),
+  { status: 'FAIL', safeCode: 'monitor_heartbeat_stale_or_missing' }
+);
+pass('fresh degraded monitor heartbeat stays DEGRADED while stale or failed heartbeats remain incidents');
 
 const safeDetails = sanitiseMonitoringDetails({
   stage: 'snapshot_generation',
