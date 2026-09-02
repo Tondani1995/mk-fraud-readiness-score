@@ -8,7 +8,12 @@ import {
   MONITORING_FORECAST,
   overallStatusFromChecks
 } from '../src/lib/monitoring/contracts.ts';
-import { publicReadinessPayload } from '../src/lib/monitoring/production-readiness.ts';
+import {
+  adaptiveActivationBindingMatches,
+  expectedContract,
+  publicReadinessPayload,
+  validatedDeploymentSha
+} from '../src/lib/monitoring/production-readiness.ts';
 import {
   alertNotificationDecision,
   candidatesForEvaluation,
@@ -43,6 +48,61 @@ assert.ok(MONITORING_FORECAST.checkly.apiRunsPer31DayMonth <= MONITORING_FORECAS
 assert.equal(EXPECTED_PRODUCTION.gaMeasurementId, 'G-LRTK98KGB8');
 assert.equal(EXPECTED_PRODUCTION.gaPropertyId, '552214282');
 pass('free-tier and existing GA4 ownership guards are bounded');
+
+const RELEASE_SHA_A = 'a'.repeat(40);
+const RELEASE_SHA_B = 'b'.repeat(40);
+const productionEnvironment = {
+  VERCEL_ENV: 'production',
+  VERCEL_GIT_COMMIT_SHA: RELEASE_SHA_A
+};
+const productionPolicy = {
+  policy_key: 'customer_start',
+  environment: 'production',
+  supabase_project: EXPECTED_PRODUCTION.supabaseProjectRef,
+  enabled: true,
+  activation_sha: RELEASE_SHA_A
+};
+const productionContract = expectedContract(productionEnvironment, validatedDeploymentSha(productionEnvironment));
+assert.equal(productionContract.adaptiveActivationSha, RELEASE_SHA_A);
+assert.equal(adaptiveActivationBindingMatches(productionPolicy, productionContract), true);
+pass('running SHA A plus activation SHA A passes');
+
+assert.equal(
+  adaptiveActivationBindingMatches({ ...productionPolicy, activation_sha: RELEASE_SHA_B }, productionContract),
+  false
+);
+pass('running SHA A plus activation SHA B fails');
+
+const contractsSource = read('src/lib/monitoring/contracts.ts');
+const readinessSource = read('src/lib/monitoring/production-readiness.ts');
+assert.equal(expectedContract({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_SHA: RELEASE_SHA_B }, RELEASE_SHA_B).adaptiveActivationSha, RELEASE_SHA_B);
+assert.doesNotMatch(contractsSource, /deploymentSha\s*:\s*['"][0-9a-f]{40}['"]/i);
+assert.doesNotMatch(contractsSource, /17a276bd8adb0e2d17befa6bcc6507dc547f39be/);
+assert.doesNotMatch(readinessSource, /17a276bd8adb0e2d17befa6bcc6507dc547f39be/);
+assert.doesNotMatch(readinessSource, /MK_EXPECTED_PRODUCTION_SHA/);
+pass('changing the deployment SHA requires no source-code or manual Production contract edit');
+
+assert.equal(validatedDeploymentSha({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_SHA: undefined }), null);
+assert.equal(validatedDeploymentSha({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_SHA: 'not-a-sha' }), null);
+assert.equal(expectedContract({ VERCEL_ENV: 'production' }, null).adaptiveActivationSha, null);
+assert.equal(adaptiveActivationBindingMatches(productionPolicy, expectedContract({ VERCEL_ENV: 'production' }, null)), false);
+pass('missing and malformed Production release metadata fail closed');
+
+const previewEnvironment = {
+  VERCEL_ENV: 'preview',
+  MK_READINESS_EXPECTED_ENVIRONMENT: 'preview',
+  NEXT_PUBLIC_SUPABASE_URL: `https://${EXPECTED_PRODUCTION.supabaseProjectRef}.supabase.co`,
+  VERCEL_GIT_COMMIT_SHA: RELEASE_SHA_A,
+  MK_EXPECTED_ADAPTIVE_ACTIVATION_SHA: RELEASE_SHA_A
+};
+const previewContract = expectedContract(previewEnvironment, validatedDeploymentSha(previewEnvironment));
+assert.equal(previewContract.adaptiveActivationSha, RELEASE_SHA_A);
+assert.equal(adaptiveActivationBindingMatches({ ...productionPolicy, environment: 'preview' }, {
+  ...previewContract,
+  environment: 'preview'
+}), true);
+assert.equal(expectedContract({ VERCEL_ENV: 'preview' }, RELEASE_SHA_A).adaptiveActivationSha, null);
+pass('Preview keeps its bounded pinned-SHA semantics without weakening Production checks');
 
 const safeDetails = sanitiseMonitoringDetails({
   stage: 'snapshot_generation',
@@ -117,14 +177,14 @@ const baseMetrics = {
   submittedWithoutSnapshot: 0,
   notificationFailures: 0
 };
-assert.deepEqual(candidatesForFunnel(baseMetrics, EXPECTED_PRODUCTION.deploymentSha), []);
-assert.equal(candidatesForFunnel({ ...baseMetrics, submittedWithoutSnapshot: 1 }, EXPECTED_PRODUCTION.deploymentSha)[0].priority, 'P1');
-assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 5, firstAnswers: 1 }, EXPECTED_PRODUCTION.deploymentSha)[0].priority, 'P3');
-assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 1, firstAnswers: 0 }, EXPECTED_PRODUCTION.deploymentSha).length, 0);
+assert.deepEqual(candidatesForFunnel(baseMetrics, RELEASE_SHA_A), []);
+assert.equal(candidatesForFunnel({ ...baseMetrics, submittedWithoutSnapshot: 1 }, RELEASE_SHA_A)[0].priority, 'P1');
+assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 5, firstAnswers: 1 }, RELEASE_SHA_A)[0].priority, 'P3');
+assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 1, firstAnswers: 0 }, RELEASE_SHA_A).length, 0);
 const warningCandidates = candidatesForEvaluation({
   status: 'DEGRADED',
   checkedAt: now.toISOString(),
-  currentDeploymentSha: EXPECTED_PRODUCTION.deploymentSha,
+  currentDeploymentSha: RELEASE_SHA_A,
   configuredSupabaseProjectRef: EXPECTED_PRODUCTION.supabaseProjectRef,
   checks: [{ key: 'monitoring_configuration', category: 'dependency', status: 'WARN', safeCode: 'monitoring_external_activation_pending' }]
 });

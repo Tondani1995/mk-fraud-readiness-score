@@ -98,7 +98,6 @@ export type ProductionMonitoringSnapshot = {
     supabaseMonthlyCostZar: number;
   };
   contract: {
-    expectedProductionSha: string;
     expectedSupabaseProjectRef: string;
     gaMeasurementId: string;
     gaPropertyId: string;
@@ -215,7 +214,6 @@ export async function getProductionMonitoringSnapshot(): Promise<ProductionMonit
       supabaseMonthlyCostZar: MONITORING_FORECAST.supabase.monthlyIncrementalCostZar
     },
     contract: {
-      expectedProductionSha: process.env.MK_EXPECTED_PRODUCTION_SHA?.trim() || EXPECTED_PRODUCTION.deploymentSha,
       expectedSupabaseProjectRef: EXPECTED_PRODUCTION.supabaseProjectRef,
       gaMeasurementId: EXPECTED_PRODUCTION.gaMeasurementId,
       gaPropertyId: EXPECTED_PRODUCTION.gaPropertyId,

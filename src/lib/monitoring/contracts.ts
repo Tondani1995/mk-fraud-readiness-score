@@ -15,7 +15,6 @@ export const CLIENT_ERROR_PATH = '/score/api/internal/client-error';
 
 export const EXPECTED_PRODUCTION = Object.freeze({
   environment: 'production',
-  deploymentSha: '17a276bd8adb0e2d17befa6bcc6507dc547f39be',
   supabaseProjectRef: 'iszihmmbgsfefawqmnwo',
   adaptiveGraphVersion: 'MFRS-V1.2-ADAPTIVE-CANDIDATE-20260821',
   adaptiveGraphFingerprint: '6f1f098a713b1a2f2bf6fc52a1733bf4ffafea8adccedaccc0b721e55bbe45c7',
@@ -90,6 +89,8 @@ export type ReadinessEvaluation = {
   checks: ReadinessCheck[];
   checkedAt: string;
   currentDeploymentSha: string | null;
+  adaptiveActivationSha?: string | null;
+  adaptiveActivationAligned?: boolean;
   configuredSupabaseProjectRef: string | null;
 };
 

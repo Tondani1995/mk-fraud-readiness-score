@@ -22,6 +22,15 @@ export type ReadinessFailureInjection =
   | 'public_route_failure'
   | 'stale_heartbeat';
 
+export type ReadinessContract = {
+  environment: string;
+  supabaseProjectRef: string;
+  adaptiveActivationSha: string | null;
+  adaptiveGraphVersion: string;
+  adaptiveGraphFingerprint: string;
+  activeMethodologyVersion: string;
+};
+
 function configuredSupabaseProjectRef(env: NodeJS.ProcessEnv) {
   const raw = env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   try {
@@ -47,6 +56,11 @@ function isProductionEnvironment(env: NodeJS.ProcessEnv) {
     || env.VERCEL_ENV?.trim().toLowerCase() === 'production';
 }
 
+export function validatedDeploymentSha(env: NodeJS.ProcessEnv): string | null {
+  const rawDeploymentSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() || null;
+  return isValidDeploymentSha(rawDeploymentSha) ? rawDeploymentSha : null;
+}
+
 async function querySafely(factory: () => PromiseLike<QueryResult>): Promise<QueryResult> {
   try {
     return await factory();
@@ -55,16 +69,35 @@ async function querySafely(factory: () => PromiseLike<QueryResult>): Promise<Que
   }
 }
 
-function expectedContract(env: NodeJS.ProcessEnv) {
+export function expectedContract(env: NodeJS.ProcessEnv, currentDeploymentSha: string | null): ReadinessContract {
   const production = isProductionEnvironment(env);
+  const configuredPreviewSha = env.MK_EXPECTED_ADAPTIVE_ACTIVATION_SHA?.trim().toLowerCase() || null;
   return {
     environment: production ? EXPECTED_PRODUCTION.environment : (env.MK_READINESS_EXPECTED_ENVIRONMENT?.trim().toLowerCase() || env.VERCEL_ENV?.trim().toLowerCase() || 'local'),
     supabaseProjectRef: production ? EXPECTED_PRODUCTION.supabaseProjectRef : (env.MK_EXPECTED_SUPABASE_PROJECT_REF?.trim() || configuredSupabaseProjectRef(env) || ''),
-    adaptiveActivationSha: production ? EXPECTED_PRODUCTION.deploymentSha : (env.MK_EXPECTED_ADAPTIVE_ACTIVATION_SHA?.trim().toLowerCase() || null),
+    // Production release identity is deliberately derived from the running deployment. The
+    // Preview contract may still pin its expected branch SHA because Preview is a bounded test
+    // environment, but it must never provide a second Production release truth.
+    adaptiveActivationSha: production
+      ? (isValidDeploymentSha(currentDeploymentSha) ? currentDeploymentSha.toLowerCase() : null)
+      : (isValidDeploymentSha(configuredPreviewSha) ? configuredPreviewSha : null),
     adaptiveGraphVersion: env.MK_EXPECTED_ADAPTIVE_GRAPH_VERSION?.trim() || EXPECTED_PRODUCTION.adaptiveGraphVersion,
     adaptiveGraphFingerprint: env.MK_EXPECTED_ADAPTIVE_GRAPH_FINGERPRINT?.trim() || EXPECTED_PRODUCTION.adaptiveGraphFingerprint,
     activeMethodologyVersion: env.MK_EXPECTED_ACTIVE_METHODOLOGY_VERSION?.trim() || EXPECTED_PRODUCTION.activeMethodologyVersion
   };
+}
+
+export function adaptiveActivationBindingMatches(policy: any, contract: ReadinessContract): boolean {
+  return Boolean(
+    policy
+      && policy.policy_key === 'customer_start'
+      && policy.environment === contract.environment
+      && policy.supabase_project === contract.supabaseProjectRef
+      && policy.enabled === true
+      && isValidDeploymentSha(policy.activation_sha)
+      && contract.adaptiveActivationSha
+      && policy.activation_sha.toLowerCase() === contract.adaptiveActivationSha
+  );
 }
 
 async function publicRouteCheck(
@@ -131,9 +164,9 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   const env = context.env ?? process.env;
   const now = context.now ?? new Date();
   const production = isProductionEnvironment(env);
-  const contract = expectedContract(env);
   const checks: ReadinessCheck[] = [];
-  const deploymentSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() || null;
+  const deploymentSha = validatedDeploymentSha(env);
+  const contract = expectedContract(env, deploymentSha);
   const supabaseProjectRef = configuredSupabaseProjectRef(env);
 
   const environmentBound = env.VERCEL_ENV?.trim().toLowerCase() === contract.environment && isValidDeploymentSha(deploymentSha);
@@ -150,7 +183,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     addCheck(checks, 'methodology', 'methodology', 'FAIL', 'database_client_unavailable');
     addCheck(checks, 'products', 'commercial', 'FAIL', 'database_client_unavailable');
     await publicChecks(checks, context, production);
-    return { status: overallStatusFromChecks(checks), checks, checkedAt: now.toISOString(), currentDeploymentSha: deploymentSha, configuredSupabaseProjectRef: supabaseProjectRef };
+    return { status: overallStatusFromChecks(checks), checks, checkedAt: now.toISOString(), currentDeploymentSha: deploymentSha, adaptiveActivationSha: null, adaptiveActivationAligned: false, configuredSupabaseProjectRef: supabaseProjectRef };
   }
 
   const [activation, graphs, methodologies, products, settings, heartbeat] = await Promise.all([
@@ -167,14 +200,9 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
 
   const policy = activation.data;
   addCheck(checks, 'adaptive_activation_exists', 'adaptive', policy && !activation.error ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_present' : 'adaptive_policy_missing');
-  addCheck(checks, 'adaptive_activation_binding', 'adaptive', policy
-    && policy.policy_key === 'customer_start'
-    && policy.environment === contract.environment
-    && policy.supabase_project === contract.supabaseProjectRef
-    && policy.enabled === true
-    && isValidDeploymentSha(policy.activation_sha)
-    && policy.activation_sha.toLowerCase() === contract.adaptiveActivationSha
-    ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_binding_checked' : 'adaptive_policy_unavailable');
+  const adaptiveActivationSha = isValidDeploymentSha(policy?.activation_sha) ? policy.activation_sha.toLowerCase() : null;
+  const adaptiveActivationAligned = Boolean(deploymentSha && adaptiveActivationSha && deploymentSha === adaptiveActivationSha);
+  addCheck(checks, 'adaptive_activation_binding', 'adaptive', adaptiveActivationBindingMatches(policy, contract) ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_binding_checked' : 'adaptive_policy_unavailable');
 
   const graph = graphs.data;
   addCheck(checks, 'adaptive_graph_identity', 'adaptive', graph
@@ -245,6 +273,8 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     checks,
     checkedAt: now.toISOString(),
     currentDeploymentSha: deploymentSha,
+    adaptiveActivationSha,
+    adaptiveActivationAligned,
     configuredSupabaseProjectRef: supabaseProjectRef
   };
 }

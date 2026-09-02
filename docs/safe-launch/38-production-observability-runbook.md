@@ -13,6 +13,11 @@ respect to customer business data except for the signed monitoring journey descr
 - The signed monitor runner is
   `/score/api/internal/production-monitor`. It records the internal heartbeat, first-party
   incident events, the existing operational-alert ledger, and daily drift checks.
+- Release binding is relative to the running deployment: in Production, validate
+  `VERCEL_GIT_COMMIT_SHA` and compare it directly with the `customer_start` policy's
+  `activation_sha`. Do not maintain a static `MK_EXPECTED_PRODUCTION_SHA`; the running release SHA
+  is the only Production release truth. Preview may pin `MK_EXPECTED_ADAPTIVE_ACTIVATION_SHA` for a
+  bounded branch contract.
 - Monitoring assessments must use a run ID beginning with `core-`, `full-desktop-`, or
   `full-mobile-`, carry the signed synthetic header, and set `monitoring_synthetic=true`. These
   records are excluded from customer funnel metrics. Free Snapshot is the only AI-bearing step;

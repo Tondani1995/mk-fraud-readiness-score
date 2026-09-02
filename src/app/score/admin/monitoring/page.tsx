@@ -71,8 +71,9 @@ export default async function MonitoringAdminPage() {
             <CardHeader><CardTitle>Release and dependencies</CardTitle></CardHeader>
             <CardContent className="grid gap-3 text-sm">
               {[
-                ['Expected Production SHA', snapshot.contract.expectedProductionSha],
-                ['Observed deployment SHA', snapshot.readiness.currentDeploymentSha],
+                ['Running Production SHA', snapshot.readiness.currentDeploymentSha],
+                ['Adaptive activation SHA', snapshot.readiness.adaptiveActivationSha],
+                ['Alignment', snapshot.readiness.adaptiveActivationAligned ? 'PASS' : 'FAIL'],
                 ['Expected Supabase project', snapshot.contract.expectedSupabaseProjectRef],
                 ['Observed Supabase project', snapshot.readiness.configuredSupabaseProjectRef],
                 ['GA4 measurement', snapshot.contract.gaMeasurementId],
