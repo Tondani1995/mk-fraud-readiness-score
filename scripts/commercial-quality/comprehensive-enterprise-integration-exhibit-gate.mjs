@@ -35,16 +35,6 @@ async function sha256File(filePath) {
   return { sha256: sha256(bytes), bytes: bytes.length };
 }
 
-function visibleText(value) {
-  return String(value ?? '')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ').trim();
-}
-
 const fixture = buildMotheoDeterministicFixture();
 const manuscript = await fs.readFile(manuscriptPath, 'utf8');
 const bound = bindComprehensiveFixtureManuscript({
@@ -73,7 +63,7 @@ const map = fixture.factPack.enterpriseIntegrationMap;
 assert(map, 'Motheo Enterprise Integration Map is absent.');
 assert.equal((exhibitHtml.match(/data-integration-loop=/g) ?? []).length, map.loopNodes.length, 'Rendered loop count does not match the supplied map.');
 assert.equal((exhibitHtml.match(/data-composition-object="EXH-ENTERPRISE-INTEGRATION:domain-/g) ?? []).length, map.domainNodes.length, 'Rendered domain count does not match the supplied map.');
-assert.equal((exhibitHtml.match(/data-composition-object="EXH-ENTERPRISE-INTEGRATION:relationship-/g) ?? []).length, map.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED').length, 'Rendered relationship count does not match supported edges.');
+assert.equal((exhibitHtml.match(/data-composition-object="EXH-ENTERPRISE-INTEGRATION:relationship:/g) ?? []).length, map.dependencies.filter((dependency) => dependency.supportStatus === 'SUPPORTED').length, 'Rendered relationship count does not match supported edges.');
 assert.doesNotMatch(exhibitHtml, /<table\b/i, 'Enterprise Integration exhibit must not render as a register/table.');
 assert.doesNotMatch(exhibitHtml, /EIM-DEP-00[5-9]|INTEGRATION-DEPENDENCY-00[5-9]/, 'Unsupported dependency identity leaked into the exhibit.');
 assert.match(exhibitHtml, /Context overlays/);
