@@ -544,7 +544,11 @@ export async function generateManualPhase1Report(
     // bare assessment reference assembleReportData() defaults to.
     const reportAssessmentReference = reportType === 'essential_self_assessment'
       ? assembled.assessmentReference.replaceAll('-COMP-', '-ESS-')
-      : assembled.assessmentReference;
+      : reportType === COMPREHENSIVE_REPORT_TYPE
+        ? (assembled.assessmentReference.includes('-COMP-')
+          ? assembled.assessmentReference
+          : `${assembled.assessmentReference}-COMP`)
+        : assembled.assessmentReference;
     assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;
 
     const { data: template, error: templateError } = await db
