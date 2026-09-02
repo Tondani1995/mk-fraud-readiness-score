@@ -257,7 +257,8 @@ function assertPresentationQuality({ key, data, factPack, blueprint, html }) {
   assert.deepEqual([...new Set(actualExhibitIds)], expectedExhibitIds, `${key}: every Blueprint exhibit must render exactly once`);
   assert.equal(actualExhibitIds.length, new Set(actualExhibitIds).size, `${key}: duplicate exhibit IDs`);
   const homes = [...html.matchAll(/data-primary-home="([^"]+)"/g)].map((match) => match[1]);
-  assert.equal(homes.length, new Set(homes).size, `${key}: duplicate exhibit primary homes`);
+  const expectedHomes = blueprint.chapters.flatMap((chapter) => chapter.exhibits.map((exhibit) => `${exhibit.placement.chapterId}/${exhibit.placement.sectionId}`));
+  assert.deepEqual(homes, expectedHomes, `${key}: exhibit primary homes must match the Blueprint order`);
   assert.doesNotMatch(html, /<table\b/i, `${key}: narrative must not be table-led`);
   assert.doesNotMatch(html, /<h[1-6][^>]*>[^<]*(?:appendix|finding register|risk register|evidence requirement register)|class="[^"]*card register/i, `${key}: register/card presentation leaked into customer PDF`);
   assert.doesNotMatch(html, /Preserve a named senior executive owns/i, `${key}: malformed control wording remains`);

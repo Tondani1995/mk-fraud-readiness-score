@@ -138,7 +138,8 @@ function repeatedExhibits(html, expectedIds) {
   const actualIds = [...html.matchAll(/data-exhibit-id="([^"]+)"/g)].map((match) => match[1]);
   const duplicateIds = actualIds.filter((id, index) => actualIds.indexOf(id) !== index);
   const homes = [...html.matchAll(/data-primary-home="([^"]+)"/g)].map((match) => match[1]);
-  const duplicateHomes = homes.filter((home, index) => homes.indexOf(home) !== index);
+  const homePairs = actualIds.map((id, index) => `${id}|${homes[index] ?? ''}`);
+  const duplicateHomePairs = homePairs.filter((pair, index) => homePairs.indexOf(pair) !== index);
   const contentGroups = new Map();
   for (const match of html.matchAll(/<figure\b[^>]*data-exhibit-id="([^"]+)"[^>]*>([\s\S]*?)<\/figure>/gi)) {
     const content = compact(visibleHtml(match[2])).toLowerCase();
@@ -152,7 +153,8 @@ function repeatedExhibits(html, expectedIds) {
     expectedIds,
     actualIds,
     duplicateIds: [...new Set(duplicateIds)],
-    duplicateHomes: [...new Set(duplicateHomes)],
+    duplicateHomePairs: [...new Set(duplicateHomePairs)],
+    sharedPrimaryHomes: [...new Set(homes.filter((home, index) => homes.indexOf(home) !== index))],
     duplicateContentGroups,
     expectedOrderMatches: JSON.stringify(actualIds) === JSON.stringify(expectedIds)
   };
@@ -181,7 +183,7 @@ function inspectProfile(key, fileStem, acceptanceEvidence) {
     .map((page) => ({ page: page.page, text: page.text }));
   assert.equal(exhibitProof.expectedOrderMatches, true, `${key}: PDF HTML exhibit IDs do not match the Blueprint order`);
   assert.equal(exhibitProof.duplicateIds.length, 0, `${key}: repeated exhibit IDs detected`);
-  assert.equal(exhibitProof.duplicateHomes.length, 0, `${key}: repeated exhibit primary homes detected`);
+  assert.equal(exhibitProof.duplicateHomePairs.length, 0, `${key}: repeated exhibit ID/home pairs detected`);
   assert.equal(exhibitProof.duplicateContentGroups.length, 0, `${key}: materially repeated exhibit content detected: ${JSON.stringify(exhibitProof.duplicateContentGroups)}`);
   assert.equal(markerOnlyPages.length, 0, `${key}: chapter-marker-only pages detected: ${JSON.stringify(markerOnlyPages)}`);
   assert.equal(orphanHeadings.length, 0, `${key}: orphan headings detected: ${JSON.stringify(orphanHeadings)}`);
