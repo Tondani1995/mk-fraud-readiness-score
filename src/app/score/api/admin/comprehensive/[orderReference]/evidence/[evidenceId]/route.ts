@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { getEngagementByOrderReference } from '@/lib/comprehensive/engagement-service';
 import { recordEvidenceValidation } from '@/lib/comprehensive/evidence-service';
@@ -21,9 +20,6 @@ export async function POST(
   props: { params: Promise<{ orderReference: string; evidenceId: string }> }
 ) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('quality_review');
-  if (frozen) return frozen;
-
   const admin = await getAdminSession();
   if (!admin) {
     return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { getEngagementByOrderReference } from '@/lib/comprehensive/engagement-service';
 import { finaliseComprehensiveArtifactSet } from '@/lib/comprehensive/artifact-service';
@@ -9,8 +8,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('quality_review');
-  if (frozen) return frozen;
   const admin = await getAdminSession();
   if (!admin || !['platform_admin', 'approver'].includes(admin.role)) return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
   const engagement = await getEngagementByOrderReference(params.orderReference);

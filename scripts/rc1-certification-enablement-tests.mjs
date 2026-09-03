@@ -28,11 +28,9 @@ function request(body) {
   });
 }
 
-function dependencies({ identity = operator, response, error = null, frozen = false } = {}) {
+function dependencies({ identity = operator, response, error = null } = {}) {
   const calls = [];
   return { calls, value: {
-    freezeResponse: async () => (frozen
-      ? { status: 423, json: async () => ({ ok: false, error: 'RC1_OPERATION_FROZEN' }) } : null),
     resolveOperator: async () => identity,
     rpc: async (token, name, args = {}) => { calls.push({ token, name, args }); return { data: response, error }; },
   } };
@@ -75,13 +73,12 @@ await test('N2. the allow-list is checked before anything else in the database',
   assert.ok(keyCheck < authority, 'no other setting may be reachable even momentarily');
 });
 
-await test('N3. platform_admin at AAL2 is required', async () => {
+await test('N3. platform_admin is required in the wrapper and AAL2 is enforced by the database', async () => {
   assert.match(migration, /v_actor := public\.rc1_require_platform_admin\(true\)/);
   assert.doesNotMatch(migration, /rc1_require_platform_admin\(false\)/);
   for (const [identity, expected] of [
     [null, 'RC1_CONTROL_SESSION_REQUIRED'],
     [{ ...operator, role: 'finance_admin' }, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
-    [{ ...operator, aal: 'aal1' }, 'RC1_CONTROL_AAL2_REQUIRED'],
   ]) {
     const deps = dependencies({ identity });
     const response = await createRc1CertificationEnablementPost(deps.value)(
@@ -91,13 +88,9 @@ await test('N3. platform_admin at AAL2 is required', async () => {
   }
 });
 
-await test('N4. a frozen surface refuses before the database', async () => {
-  const deps = dependencies({ frozen: true });
-  const response = await createRc1CertificationEnablementPost(deps.value)(
-    request({ settingKey: 'rc1_orphan_remediation', enabled: true, reason: REASON }));
-  assert.equal(response.status, 423);
-  assert.equal(deps.calls.length, 0);
-  // And the database relies on the existing freeze guard rather than restating the rule.
+await test('N4. the wrapper does not own a global application freeze', async () => {
+  assert.doesNotMatch(routeFile, /operation-freeze|MK_RC1_OPERATION_FREEZE_MODE|RC1_OPERATION_FROZEN/);
+  assert.match(migration, /rc1_operation_freeze_state/);
   assert.match(migration, /app_settings is on the activation_control freeze surface/);
 });
 

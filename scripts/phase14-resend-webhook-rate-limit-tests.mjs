@@ -59,12 +59,6 @@ function loadRoute({ rateLimitAllowed, readBodyCalled }) {
         isSupportedResendEventType: () => true
       };
     }
-    // The route has gated every RC1 operation surface behind the operational freeze since
-    // 20260722120000; this stub keeps the rate-limit assertion (which must be evaluated before any
-    // body work) reachable without pulling in the freeze machinery or a database.
-    if (specifier === '@/lib/rc1/operation-freeze') {
-      return { getRc1OperationFreezeResponse: async () => null };
-    }
     if (specifier === '@/lib/reports/email/premium-report-development-mode') {
       return { isPremiumReportDevelopmentMode: () => false };
     }

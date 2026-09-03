@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   createSupabaseAnonServerClient,
   createSupabaseAuthenticatedServerClient,
@@ -29,7 +28,6 @@ type RpcResult = {
 };
 
 export type Rc1ControlPlaneDependencies = {
-  mode?: string;
   resolveOperator?: () => Promise<Rc1Operator | null>;
   rpc?: (
     accessToken: string,
@@ -53,10 +51,6 @@ function json(payload: Record<string, unknown>, status = 200) {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
-}
-
-function exactMode(dependencies: Rc1ControlPlaneDependencies): string | undefined {
-  return dependencies.mode ?? process.env.MK_RC1_OPERATION_FREEZE_MODE;
 }
 
 async function defaultResolveOperator(): Promise<Rc1Operator | null> {
@@ -191,9 +185,6 @@ export function createRc1CertificationSecretPost(
   dependencies: Rc1ControlPlaneDependencies = {},
 ) {
   return async function POST(request: Request) {
-    if (exactMode(dependencies) !== 'frozen') {
-      return json({ ok: false, error: 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED' }, 423);
-    }
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
 
@@ -259,10 +250,6 @@ export function createRc1FreezeStatusGet(
   dependencies: Rc1ControlPlaneDependencies = {},
 ) {
   return async function GET() {
-    const mode = exactMode(dependencies);
-    if (mode !== 'frozen' && mode !== 'released') {
-      return json({ ok: false, error: 'RC1_CONTROL_EXPLICIT_MODE_REQUIRED' }, 423);
-    }
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
     const { data, error } = await callRpc(dependencies, operator, 'rc1_freeze_status');
@@ -277,9 +264,6 @@ export function createRc1FreezeActivatePost(
   dependencies: Rc1ControlPlaneDependencies = {},
 ) {
   return async function POST(request: Request) {
-    if (exactMode(dependencies) !== 'frozen') {
-      return json({ ok: false, error: 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED' }, 423);
-    }
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
     const body = await readJsonBody(request);
@@ -302,11 +286,6 @@ export function createRc1FreezeReleasePost(
   dependencies: Rc1ControlPlaneDependencies = {},
 ) {
   return async function POST(request: Request) {
-    // This exact mode is the controller-approved same-SHA release sequence: the app
-    // changes first but remains closed until the database RPC completes.
-    if (exactMode(dependencies) !== 'released') {
-      return json({ ok: false, error: 'RC1_CONTROL_EXPLICIT_RELEASED_MODE_REQUIRED' }, 423);
-    }
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
     const body = await readJsonBody(request);
@@ -483,7 +462,6 @@ function normalizeStorageResolution(value: unknown, reference: string): Rc1Stora
 export type Rc1StorageRemovalOutcome = 'removed' | 'removal_failed' | 'still_present';
 
 export type Rc1SyntheticCleanupDependencies = Rc1ControlPlaneDependencies & {
-  freezeResponse?: () => Promise<NextResponse | null>;
   removeStorageTargets?: (targets: Rc1StorageTarget[]) => Promise<Rc1StorageRemovalOutcome>;
 };
 
@@ -619,12 +597,6 @@ export function createRc1CertificationEnablementPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
   return async function POST(request: Request) {
-    const frozen = await (
-      dependencies.freezeResponse
-        ?? (() => getRc1OperationFreezeResponse('activation_control'))
-    )();
-    if (frozen) return frozen;
-
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
 
@@ -696,12 +668,6 @@ export function createRc1SyntheticMarkingPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
   return async function POST(request: Request) {
-    const frozen = await (
-      dependencies.freezeResponse
-        ?? (() => getRc1OperationFreezeResponse('activation_control'))
-    )();
-    if (frozen) return frozen;
-
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
 
@@ -748,12 +714,6 @@ export function createRc1OrphanRemediationPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
   return async function POST(request: Request) {
-    const frozen = await (
-      dependencies.freezeResponse
-        ?? (() => getRc1OperationFreezeResponse('activation_control'))
-    )();
-    if (frozen) return frozen;
-
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
 
@@ -896,14 +856,6 @@ export function createRc1SyntheticCleanupPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
   return async function POST(request: Request) {
-    // Cleanup mutates authoritative business tables, so it is only available inside a deliberate
-    // RELEASED window. This is the same freeze check every other mutating surface uses.
-    const frozen = await (
-      dependencies.freezeResponse
-        ?? (() => getRc1OperationFreezeResponse('activation_control'))
-    )();
-    if (frozen) return frozen;
-
     const operator = await requireOperator(dependencies);
     if (!isOperator(operator)) return operator;
 

@@ -6,7 +6,6 @@ const {
   createRc1FreezeActivatePost,
   createRc1FreezeReleasePost,
 } = await import('../src/lib/rc1/control-plane.ts');
-const { isRc1OperationFrozen } = await import('../src/lib/rc1/operation-freeze.ts');
 
 const secret = 'rc1-synthetic-certification-secret-value-a';
 const otherSecret = 'rc1-synthetic-certification-secret-value-b';
@@ -41,7 +40,6 @@ function request(body) {
 }
 
 function dependencies({
-  mode = 'frozen',
   identity = operator,
   response,
   error = null,
@@ -50,7 +48,6 @@ function dependencies({
   return {
     calls,
     value: {
-      mode,
       resolveOperator: async () => identity,
       rpc: async (_token, name, args = {}) => {
         calls.push({ name, args });
@@ -98,15 +95,12 @@ async function certificationRouteTests() {
   assert.equal((await payload(response)).secret.fingerprint, fingerprint);
 
   for (const [label, changes, expected, expectedError] of [
-    ['missing explicit frozen mode', { mode: undefined }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
-    ['released app mode', { mode: 'released' }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
     ['unauthenticated', { identity: null }, 401, 'RC1_CONTROL_SESSION_REQUIRED'],
     ['reviewer', { identity: { ...operator, role: 'reviewer' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
     ['finance_admin', { identity: { ...operator, role: 'finance_admin' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
     ['service_role', { identity: { ...operator, role: 'service_role' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
   ]) {
     const deps = dependencies(changes);
-    if (label === 'missing explicit frozen mode') deps.value.mode = '';
     const stopped = await createRc1CertificationSecretPost(deps.value)(request({
       secretKey: 'provider_webhook_db_hmac',
       secretValue: secret,
@@ -186,7 +180,7 @@ async function freezeControlRouteTests() {
   assert.equal(activationResponse.status, 200);
   assert.equal(activationDeps.calls[0].name, 'rc1_activate_freeze');
 
-  const releaseDeps = dependencies({ mode: 'released', response: releasedStatus });
+  const releaseDeps = dependencies({ response: releasedStatus });
   const releaseResponse = await createRc1FreezeReleasePost(releaseDeps.value)(request({
     reason: 'RC1 synthetic final release approval',
     evidenceFingerprint: evidence,
@@ -195,23 +189,12 @@ async function freezeControlRouteTests() {
   assert.equal(releaseResponse.status, 200);
   assert.equal(releaseDeps.calls[0].name, 'rc1_release_freeze');
 
-  const frozenRelease = dependencies({ mode: 'frozen', response: releasedStatus });
-  assert.equal(
-    (await createRc1FreezeReleasePost(frozenRelease.value)(request({
-      reason: 'RC1 synthetic final release approval',
-      evidenceFingerprint: evidence,
-      expectedFreezeEpoch: 1,
-    }))).status,
-    423,
-  );
-  assert.equal(frozenRelease.calls.length, 0);
-
   for (const body of [
     { reason: '', evidenceFingerprint: evidence, expectedFreezeEpoch: 1 },
     { reason: 'RC1 synthetic final release approval', evidenceFingerprint: '0'.repeat(64), expectedFreezeEpoch: 1 },
     { reason: 'RC1 synthetic final release approval', evidenceFingerprint: evidence, expectedFreezeEpoch: 0 },
   ]) {
-    const deps = dependencies({ mode: 'released', response: releasedStatus });
+    const deps = dependencies({ response: releasedStatus });
     assert.equal(
       (await createRc1FreezeReleasePost(deps.value)(request(body))).status,
       400,
@@ -225,41 +208,6 @@ async function freezeControlRouteTests() {
   assert.equal((await createRc1FreezeStatusGet(canaryResponse.value)()).status, 503);
 }
 
-async function twoLayerSequenceTests() {
-  assert.equal(await isRc1OperationFrozen({
-    mode: 'frozen',
-    statusResolver: async () => releasedStatus,
-  }), true, 'application frozen plus database RELEASED must remain frozen');
-  assert.equal(await isRc1OperationFrozen({
-    mode: 'released',
-    statusResolver: async () => frozenStatus,
-  }), true, 'application released plus database FROZEN must remain frozen');
-  assert.equal(await isRc1OperationFrozen({
-    mode: 'released',
-    statusResolver: async () => releasedStatus,
-  }), false, 'only two-layer RELEASED agreement permits a controlled mutation');
-  assert.equal(await isRc1OperationFrozen({
-    mode: 'released',
-    statusResolver: async () => ({ ...releasedStatus, release_evidence_fingerprint: '0'.repeat(64) }),
-  }), true, 'all-zero release evidence must remain frozen');
-}
-
-async function genericRouteRemainsFrozen() {
-  const original = process.env.MK_RC1_OPERATION_FREEZE_MODE;
-  process.env.MK_RC1_OPERATION_FREEZE_MODE = 'frozen';
-  try {
-    const route = await import('../src/app/score/api/admin/phase14-activation/runtime-secret/route.ts');
-    const response = await route.POST(request({}));
-    assert.equal(response.status, 423);
-    assert.equal((await response.json()).error, 'RC1_OPERATION_FROZEN');
-  } finally {
-    if (original === undefined) delete process.env.MK_RC1_OPERATION_FREEZE_MODE;
-    else process.env.MK_RC1_OPERATION_FREEZE_MODE = original;
-  }
-}
-
 await certificationRouteTests();
 await freezeControlRouteTests();
-await twoLayerSequenceTests();
-await genericRouteRemainsFrozen();
-console.log('PASS RC1 control-plane routes: authenticated platform-admin controls and two-layer release sequence');
+console.log('PASS RC1 control-plane routes: authenticated platform-admin controls and database-authorized release sequence');

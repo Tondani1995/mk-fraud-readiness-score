@@ -46,14 +46,11 @@ const SYNTHETIC_REF = 'MKTEST-RC1-20260801-01';
 
 const OPERATOR = { id: 'admin-1', role: 'platform_admin', aal: 'aal2' };
 
-function dependencies({ identity = OPERATOR, response, error = null, frozen = false } = {}) {
+function dependencies({ identity = OPERATOR, response, error = null } = {}) {
   const calls = [];
   return {
     calls,
     value: {
-      freezeResponse: async () => (frozen
-        ? { status: 423, json: async () => ({ ok: false, error: 'RC1_OPERATION_FROZEN' }) }
-        : null),
       resolveOperator: async () => identity,
       rpc: async (token, name, args = {}) => {
         calls.push({ token, name, args });
@@ -212,18 +209,8 @@ await test('M13. a malformed assessment or synthetic reference is refused before
   }
 });
 
-await test('M14. the route refuses while the application is frozen, before authority', async () => {
-  const deps = dependencies({ frozen: true });
-  const response = await createRc1SyntheticMarkingPost(deps.value)(request({
-    assessmentReference: ASSESSMENT_REF, syntheticReference: SYNTHETIC_REF, reason: REASON,
-  }));
-  assert.equal(response.status, 423);
-  assert.equal(deps.calls.length, 0);
-});
-
-await test('M15. an AAL1 or non-admin operator is refused', async () => {
+await test('M14. a non-platform-admin operator is refused by the wrapper', async () => {
   for (const identity of [
-    { id: 'a', role: 'platform_admin', aal: 'aal1' },
     { id: 'b', role: 'analyst', aal: 'aal2' },
     null,
   ]) {

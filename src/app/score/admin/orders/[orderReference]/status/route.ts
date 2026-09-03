@@ -1,6 +1,5 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { canManageFinance, getAdminSession } from '@/lib/auth/admin-route';
 import { updateAdminOrderStatus, type ManualOrderStatus } from '@/lib/orders/manual-eft-orders';
 import { getPaymentAutomationCapability } from '@/lib/payments/payment-capability';
@@ -12,9 +11,6 @@ const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cance
 
 export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('payment_status');
-  if (frozen) return frozen;
-
   const admin = await getAdminSession();
   const detailUrl = new URL(`/score/admin/orders/${params.orderReference}`, request.url);
 

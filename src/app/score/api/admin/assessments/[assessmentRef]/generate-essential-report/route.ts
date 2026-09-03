@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin-route';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   generateManualPhase1Report,
   Phase1GenerationError,
@@ -34,9 +33,6 @@ export async function POST(request: Request, context: RouteContext) {
   const routeStartedAt = Date.now();
   const technicalReference = crypto.randomUUID();
   const { assessmentRef } = await context.params;
-  const frozen = await getRc1OperationFreezeResponse('generation');
-  if (frozen) return frozen;
-
   // The controlled Staging/Preview console is intentionally deployment-link accessible per the
   // current owner decision. Keep the existing persisted runtime actor and role boundary so
   // generated evidence remains attributable without introducing a browser login requirement.

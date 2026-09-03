@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { createPaidOrderForAssessment } from '@/lib/commercial/order-service';
 import { isSelfServicePaidTier } from '@/lib/commercial/product-catalogue';
@@ -25,9 +24,6 @@ function deny(errors: string[], status: number) {
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('order_create');
-  if (frozen) return frozen;
-
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
 
   if (!body?.snapshotToken) return deny(['Private snapshot link required.'], 403);

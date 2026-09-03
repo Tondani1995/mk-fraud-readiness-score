@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import {
   claimPhase14WorkerCapability,
@@ -13,9 +12,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('storage_cleanup', 'worker');
-  if (frozen) return frozen;
-
   const cronSecret = process.env.CRON_SECRET?.trim();
   if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });

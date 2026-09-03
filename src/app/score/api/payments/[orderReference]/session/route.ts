@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getPaymentAutomationCapability } from '@/lib/payments/payment-capability';
 import { getStitchPaymentProvider } from '@/lib/payments/stitch-adapter';
 import { validateResumeToken } from '@/lib/respondent/tokens';
@@ -10,9 +9,6 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('order_create');
-  if (frozen) return frozen;
-
   const body = await request.json().catch(() => ({}));
   const token = String(body.token ?? '');
   const capability = await getPaymentAutomationCapability();

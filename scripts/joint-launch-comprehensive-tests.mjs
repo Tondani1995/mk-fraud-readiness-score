@@ -442,16 +442,17 @@ check('every admin Comprehensive route authenticates and authorises before actin
     assert.match(source, /status: 403/, `${file} must deny unauthenticated callers`);
     assert.match(source, /'Cache-Control': 'no-store'/, `${file} must not cache engagement state`);
   }
-  // Every mutating route respects the RC1 operation freeze.
-  for (const file of [
-    'src/app/score/api/admin/comprehensive/[orderReference]/reviewer/route.ts',
-    'src/app/score/api/admin/comprehensive/[orderReference]/transition/route.ts',
-    'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts',
-    'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
-    'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts'
-  ]) {
-    assert.match(read(file), /getRc1OperationFreezeResponse/, `${file} must honour the RC1 freeze`);
-  }
+  const paidOrder = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
+  assert.doesNotMatch(paidOrder, /getRc1OperationFreezeResponse|MK_RC1_OPERATION_FREEZE_MODE|RC1_OPERATION_FROZEN/);
+  for (const required of [
+    'validateSnapshotToken', 'isSelfServicePaidTier', 'parseInvoiceRequest',
+    'createPaidOrderForAssessment'
+  ]) assert.match(paidOrder, new RegExp(required), `paid-order must retain ${required}`);
+  const evidence = read('src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts');
+  assert.doesNotMatch(evidence, /getRc1OperationFreezeResponse|MK_RC1_OPERATION_FREEZE_MODE|RC1_OPERATION_FROZEN/);
+  assert.match(evidence, /validateSnapshotToken/);
+  assert.match(evidence, /EVIDENCE_MAX_BYTES/);
+  assert.match(evidence, /submitComprehensiveEvidence/);
 });
 
 check('payment state changes stay a finance concern and delivery stays an approver concern', () => {

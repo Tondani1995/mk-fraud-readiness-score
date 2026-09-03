@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
@@ -149,9 +148,6 @@ async function createOrUpdateAdvisoryRequest(input: {
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('order_create');
-  if (frozen) return frozen;
-
   let body: any = {};
   try {
     body = await request.json();

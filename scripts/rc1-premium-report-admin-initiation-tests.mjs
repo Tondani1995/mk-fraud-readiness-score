@@ -18,7 +18,7 @@ const uniqueness = read('supabase/migrations/20260803220000_rc1_premium_delivery
 
 for (const forbidden of [
   'getAdminSession', 'platform_admin', 'requirePhase14Action', 'AAL2',
-  'manual_delivery', 'recipient_override', 'getRc1OperationFreezeResponse', 'RC1_OPERATION_FROZEN'
+  'manual_delivery', 'recipient_override'
 ]) assert.doesNotMatch(route, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `Preview route still depends on ${forbidden}`);
 for (const required of [
   'isPremiumReportDevelopmentMode', 'premiumReportAdminInitiationInputSchema',
