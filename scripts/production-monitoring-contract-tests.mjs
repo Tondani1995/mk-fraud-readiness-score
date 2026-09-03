@@ -13,6 +13,7 @@ import {
   expectedContract,
   monitorHeartbeatReadiness,
   publicReadinessPayload,
+  querySafely,
   validatedDeploymentSha
 } from '../src/lib/monitoring/production-readiness.ts';
 import {
@@ -146,6 +147,25 @@ assert.deepEqual(
 );
 pass('fresh degraded monitor heartbeat stays DEGRADED while stale or failed heartbeats remain incidents');
 
+let transientQueryAttempts = 0;
+const transientQueryResult = await querySafely(async () => {
+  transientQueryAttempts += 1;
+  return transientQueryAttempts === 1
+    ? { data: null, error: new Error('transient') }
+    : { data: { ok: true }, error: null };
+});
+assert.equal(transientQueryAttempts, 2);
+assert.deepEqual(transientQueryResult, { data: { ok: true }, error: null });
+
+let persistentQueryAttempts = 0;
+const persistentQueryResult = await querySafely(async () => {
+  persistentQueryAttempts += 1;
+  return { data: null, error: new Error('persistent') };
+});
+assert.equal(persistentQueryAttempts, 2);
+assert.equal(Boolean(persistentQueryResult.error), true);
+pass('readiness database queries retry once on transient failure and remain bounded on persistent failure');
+
 const safeDetails = sanitiseMonitoringDetails({
   stage: 'snapshot_generation',
   status_code: 500,
@@ -271,6 +291,8 @@ assert.match(sentryTestRoute, /sendDefaultPii:\s*false/);
 assert.match(sentryTestRoute, /Sentry\.flush\(2000\)/);
 assert.match(read('src/lib/monitoring/production-monitor.ts'), /production_monitor_events'.*eq\('synthetic', false\)/);
 assert.match(read('src/lib/monitoring/production-monitor.ts'), /environment: monitorEnvironment/);
+assert.match(readinessSource, /adaptive_policy_query_unavailable/);
+assert.doesNotMatch(readinessSource, /adaptive_policy_unavailable/);
 assert.doesNotMatch(read('src/lib/monitoring/production-monitor.ts'), /Failure count:/);
 assert.match(read('src/app/score/api/adaptive/[assessmentRef]/state/route.ts'), /httpStatus: status/);
 assert.match(read('src/app/score/api/internal/client-error/route.ts'), /httpStatus: null/);

@@ -61,12 +61,25 @@ export function validatedDeploymentSha(env: NodeJS.ProcessEnv): string | null {
   return isValidDeploymentSha(rawDeploymentSha) ? rawDeploymentSha : null;
 }
 
-async function querySafely(factory: () => PromiseLike<QueryResult>): Promise<QueryResult> {
-  try {
-    return await factory();
-  } catch {
-    return { data: null, error: new Error('query_failed') };
+export async function querySafely(factory: () => PromiseLike<QueryResult>, retries = 1): Promise<QueryResult> {
+  let lastResult: QueryResult = { data: null, error: new Error('query_failed') };
+  const boundedRetries = Math.max(0, Math.min(1, Math.floor(retries)));
+
+  for (let attempt = 0; attempt <= boundedRetries; attempt += 1) {
+    try {
+      const result = await factory();
+      if (result && !result.error) return result;
+      lastResult = result ?? { data: null, error: new Error('query_failed') };
+    } catch {
+      lastResult = { data: null, error: new Error('query_failed') };
+    }
+
+    if (attempt < boundedRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
+
+  return lastResult;
 }
 
 export function expectedContract(env: NodeJS.ProcessEnv, currentDeploymentSha: string | null): ReadinessContract {
@@ -236,10 +249,18 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   addCheck(checks, 'database_reachable', 'dependency', dbReachable ? 'PASS' : 'FAIL', dbReachable ? 'database_query_completed' : 'database_query_failed');
 
   const policy = activation.data;
-  addCheck(checks, 'adaptive_activation_exists', 'adaptive', policy && !activation.error ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_present' : 'adaptive_policy_missing');
+  if (activation.error) {
+    addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'FAIL', 'adaptive_policy_query_unavailable');
+  } else if (!policy) {
+    addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'FAIL', 'adaptive_policy_missing');
+  } else {
+    addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'PASS', 'adaptive_policy_present');
+  }
   const adaptiveActivationSha = isValidDeploymentSha(policy?.activation_sha) ? policy.activation_sha.toLowerCase() : null;
   const adaptiveActivationAligned = Boolean(deploymentSha && adaptiveActivationSha && deploymentSha === adaptiveActivationSha);
-  addCheck(checks, 'adaptive_activation_binding', 'adaptive', adaptiveActivationBindingMatches(policy, contract) ? 'PASS' : 'FAIL', policy ? 'adaptive_policy_binding_checked' : 'adaptive_policy_unavailable');
+  if (!activation.error && policy) {
+    addCheck(checks, 'adaptive_activation_binding', 'adaptive', adaptiveActivationBindingMatches(policy, contract) ? 'PASS' : 'FAIL', 'adaptive_policy_binding_checked');
+  }
 
   const graph = graphs.data;
   addCheck(checks, 'adaptive_graph_identity', 'adaptive', graph
