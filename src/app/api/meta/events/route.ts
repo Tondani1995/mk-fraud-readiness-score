@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { isMetaServerEvent } from "@/lib/website/meta/events";
 import { isOpaqueEventId } from "@/lib/website/meta/event-id";
 import { safeEventSourceUrl, META_LANDING_PATH } from "@/lib/website/meta/routes";
-import { sendMetaServerEvent, isMetaCapiConfigured } from "@/lib/server/meta/capi";
+import { sendMetaServerEvent } from "@/lib/server/meta/capi";
 import { SITE_URL } from "@/lib/website/site";
 
 export const runtime = "nodejs";
@@ -33,7 +33,8 @@ export async function POST(request: Request) {
         // opaque shape this application mints.
         if (!isMetaServerEvent(eventName)) return noContent;
         if (!isOpaqueEventId(eventId)) return noContent;
-        if (!isMetaCapiConfigured()) return noContent;
+        // Configuration is checked once, inside sendMetaServerEvent, so the skip is logged
+        // rather than silently short-circuited here.
 
         // Re-normalised server-side even though the browser already filtered it: a path that
         // is not on the public allowlist collapses to the landing page and never travels.

@@ -262,15 +262,27 @@ check('blocked localStorage yields no consent and no send', () => {
   assert.equal(pixel.isMetaEnabled(), false);
 });
 
-await checkAsync('unconfigured CAPI credentials skip the send without throwing', async () => {
+await checkAsync('unconfigured CAPI credentials skip the send, observably and safely', async () => {
   delete process.env.META_DATASET_ID;
   delete process.env.META_CAPI_ACCESS_TOKEN;
   assert.equal(capi.isMetaCapiConfigured(), false);
+
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
   const result = await capi.sendMetaServerEvent({
     eventName: 'Lead', eventId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
     eventSourceUrl: 'https://www.mkfraud.co.za/fraud-readiness',
   });
+  console.warn = realWarn;
+
   assert.deepEqual(result, { ok: false, status: 'skipped_not_configured' });
+  // A silent skip is indistinguishable from a successful send.
+  assert.equal(warnings.length, 1, 'an unconfigured skip must be observable');
+  const serialised = JSON.stringify(warnings);
+  assert.match(serialised, /meta_capi_skipped_not_configured/);
+  assert.match(serialised, /"hasDataset":false/);
+  assert.match(serialised, /"hasCredential":false/);
 });
 
 await checkAsync('a failing Meta endpoint returns a result instead of throwing', async () => {

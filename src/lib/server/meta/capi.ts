@@ -130,7 +130,16 @@ function failure(reason: string): MetaCapiResult {
 export async function sendMetaServerEvent(input: MetaServerEventInput): Promise<MetaCapiResult> {
     const dataset = datasetId();
     const token = accessToken();
-    if (!dataset || !token) return { ok: false, status: "skipped_not_configured" };
+    if (!dataset || !token) {
+        // Booleans only -- enough to say WHICH half of the configuration is absent without
+        // ever revealing either value. A silent skip is indistinguishable from a successful
+        // send, which made a misconfigured Preview impossible to diagnose.
+        console.warn("meta_capi_skipped_not_configured", {
+            hasDataset: Boolean(dataset),
+            hasCredential: Boolean(token),
+        });
+        return { ok: false, status: "skipped_not_configured" };
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
