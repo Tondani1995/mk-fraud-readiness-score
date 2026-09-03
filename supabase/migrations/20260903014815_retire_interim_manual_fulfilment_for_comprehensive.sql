@@ -342,7 +342,9 @@ declare
   v_payment public.payment_automation_records%rowtype;
   v_product public.products%rowtype;
   v_report public.reports%rowtype;
+  v_register public.report_artifacts%rowtype;
   v_verified_register_count integer;
+  v_generation_event_count integer;
 begin
   perform public.rc1_require_operation_open('worker');
   if p_attempt_id is null
@@ -419,6 +421,24 @@ begin
       and storage_status = 'VERIFIED'
       and release_state in ('verified', 'released');
 
+    select count(*) into v_generation_event_count
+    from public.report_events
+    where report_id = v_job.output_report_id
+      and event_type in ('generated', 'regenerated')
+      and metadata_json->>'attempt_id' = v_job.id::text
+      and metadata_json->>'storage_status' = 'VERIFIED';
+
+    if v_verified_register_count = 1 then
+      select * into v_register
+      from public.report_artifacts
+      where report_id = v_job.output_report_id
+        and engagement_id is null
+        and artefact_type = 'supporting_register'
+        and artifact_version = v_job.report_version
+        and storage_status = 'VERIFIED'
+        and release_state in ('verified', 'released');
+    end if;
+
     if v_product.product_code is distinct from 'mk_validated_assessment'
        or v_report.id is null
        or v_report.order_id is distinct from v_job.order_id
@@ -433,9 +453,44 @@ begin
        or coalesce(pg_catalog.btrim(v_report.storage_path), '') = ''
        or coalesce(v_report.checksum, '') !~ '^[0-9a-f]{64}$'
        or v_verified_register_count <> 1
-       or coalesce(v_job.evidence_checksum, '') !~ '^[0-9a-f]{64}$'
+       or v_generation_event_count < 1
+       or coalesce(v_register.checksum_sha256, '') !~ '^[0-9a-f]{64}$'
+       or coalesce(pg_catalog.btrim(v_register.storage_bucket), '') = ''
+       or coalesce(pg_catalog.btrim(v_register.storage_path), '') = ''
+       or coalesce(v_register.file_size_bytes, 0) <= 0
+       or v_register.mime_type is distinct from 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' then
+      return null;
+    end if;
+
+    -- The first real Preview package was generated before the automated release evidence fields
+    -- were persisted. Recover only that narrow, otherwise fully verified state. The values below
+    -- describe package/storage integrity and retain the existing assurance boundary; they are not
+    -- a new commercial-quality or operating-effectiveness claim.
+    if v_job.evidence_checksum is null and v_job.final_validation_json is null then
+      update public.manual_report_generation_attempts
+      set evidence_checksum = v_report.checksum,
+          final_validation_json = pg_catalog.jsonb_build_object(
+            'validation_mode', 'verified_comprehensive_package_recovery',
+            'contract_version', 'comprehensive-product-v1.1',
+            'report_checksum', v_report.checksum,
+            'supporting_register_checksum', v_register.checksum_sha256,
+            'artifact_version', v_job.report_version,
+            'review_required', false,
+            'independent_validation_performed', false,
+            'operating_effectiveness_tested', false,
+            'assurance_opinion_provided', false,
+            'provider_generation_reused', true
+          ),
+          updated_at = pg_catalog.now()
+      where id = v_job.id
+      returning * into v_job;
+    elsif coalesce(v_job.evidence_checksum, '') !~ '^[0-9a-f]{64}$'
+       or v_job.evidence_checksum is distinct from v_report.checksum
        or v_job.final_validation_json is null
-       or pg_catalog.jsonb_typeof(v_job.final_validation_json) <> 'object' then
+       or pg_catalog.jsonb_typeof(v_job.final_validation_json) <> 'object'
+       or v_job.final_validation_json->>'report_checksum' is distinct from v_report.checksum
+       or v_job.final_validation_json->>'supporting_register_checksum' is distinct from v_register.checksum_sha256
+       or v_job.final_validation_json->>'artifact_version' is distinct from v_job.report_version::text then
       return null;
     end if;
 
@@ -461,7 +516,8 @@ begin
         'report_id', v_job.output_report_id,
         'lease_owner', p_lease_owner,
         'lease_expires_at', v_job.lease_expires_at,
-        'provider_generation_reused', true
+        'provider_generation_reused', true,
+        'recovered_validation_evidence', true
       )
     );
 

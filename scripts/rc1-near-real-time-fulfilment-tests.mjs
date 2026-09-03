@@ -710,6 +710,8 @@ await test('current V1.2 migration source is certified by the exact disposable r
   includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
   includes(currentFulfilmentMigration, "'mk_validated_assessment'", 'current correction scopes automatic payment fulfilment to Comprehensive');
   includes(currentFulfilmentMigration, 'already_generated', 'current correction supports safe REPORT_READY package recovery');
+  includes(currentFulfilmentMigration, "'verified_comprehensive_package_recovery'", 'REPORT_READY recovery records package-integrity evidence without regeneration');
+  includes(currentFulfilmentMigration, "metadata_json->>'attempt_id'", 'REPORT_READY recovery binds evidence to the original generation event');
   assert.doesNotMatch(currentFulfilmentMigration, /manual_fulfilment_pending/, 'current correction does not reintroduce the interim manual event');
   assert.doesNotMatch(worker, /comprehensive_engagements/, 'active worker does not depend on the reviewed engagement tables');
 });
