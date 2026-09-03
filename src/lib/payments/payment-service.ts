@@ -1,23 +1,17 @@
 import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
+import { dispatchImmediateFulfilment } from '@/lib/fulfilment/immediate-dispatch';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { notifyInternalPaymentReceived } from '@/lib/notifications/internal-order-notifications';
 import { getPaymentAutomationCapability } from './payment-capability';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
 
-// Release B: record_payment_transition() (extended in
-// supabase/migrations/20260724160000_release_b_durable_fulfilment.sql) now queues the
-// deterministic Phase 1 fulfilment job itself, inside the same transaction as the payment
-// state transition (closes the Q6 atomicity gap -- see
-// docs/safe-launch/11-release-b-existing-infrastructure-audit.md and
-// docs/safe-launch/12-durable-fulfilment-design.md, "Payment transaction boundary").
-// processVerifiedPayment() therefore no longer calls the synchronous fulfilment trigger
-// (src/lib/payments/fulfilment.ts, which still exists for reference/tests but is no longer
-// imported here) to run generateManualPhase1Report() synchronously inside this request --
-// generation now runs later, out of band, when the internal worker route
-// (src/app/score/api/internal/fulfilment-worker/route.ts) claims the queued row. This is
-// what makes the payment-confirmation HTTP response return without waiting for PDF
-// generation, per the design doc's "Durable workflow boundary".
+// Payment confirmation remains one atomic database transition. For Comprehensive, the same
+// transaction returns the exact durable attempt ID and this service then invokes the existing
+// exact-deployment worker dispatcher after commit. A dispatch failure is operational evidence,
+// not a payment failure: the committed attempt remains recoverable by the worker/recovery path.
+// Essential remains outside this branch because its payment transition does not queue a
+// Comprehensive fulfilment attempt.
 function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
   const queued = String(result?.fulfilment ?? '');
   if (queued === 'QUEUED') return 'queued';
@@ -87,11 +81,40 @@ export async function processVerifiedPayment(input: {
     return { ok: false, duplicate: false, state: 'PAYMENT_REVIEW_REQUIRED', fulfilment: 'not_requested', message: 'Payment could not be recorded safely. The order requires review.', technicalReference };
   }
   let fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
+  let fulfilmentAttemptId: string | undefined;
   let message = target.reason;
   if (target.state === 'PAID' && !data.duplicate) {
     fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
-    if (fulfilment === 'queued') message = 'Payment confirmed. MK will review the order and prepare the selected product through the manual fulfilment workflow.';
-    else if (fulfilment === 'already_active') message = 'Payment confirmed. MK will review the selected product through the manual fulfilment workflow.';
+    if (fulfilment === 'queued') message = 'Payment confirmed. MK will now prepare the selected Comprehensive package.';
+    else if (fulfilment === 'already_active') message = 'Payment confirmed. Preparation of the selected Comprehensive package is already in progress.';
+    fulfilmentAttemptId = fulfilment === 'queued'
+      && typeof data.fulfilment_attempt_id === 'string'
+      ? data.fulfilment_attempt_id
+      : undefined;
+    if (fulfilmentAttemptId) {
+      try {
+        const dispatch = await dispatchImmediateFulfilment({
+          attemptId: fulfilmentAttemptId,
+          correlationReference: technicalReference
+        });
+        if (!dispatch.ok) {
+          console.error('comprehensive_fulfilment_dispatch_failed_after_payment', {
+            technicalReference,
+            orderReference: order.order_reference,
+            attemptId: fulfilmentAttemptId,
+            errorCategory: dispatch.errorCategory
+          });
+        }
+      } catch (dispatchError) {
+        console.error('comprehensive_fulfilment_dispatch_exception_after_payment', {
+          technicalReference,
+          orderReference: order.order_reference,
+          attemptId: fulfilmentAttemptId,
+          errorCategory: 'dispatch_exception',
+          message: dispatchError instanceof Error ? dispatchError.message : String(dispatchError)
+        });
+      }
+    }
     await db.from('payment_automation_records').update({
       fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
         : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
@@ -116,10 +139,6 @@ export async function processVerifiedPayment(input: {
     metadata: { source: input.source, payment_state: target.state, duplicate: data.duplicate === true, fulfilment }
   });
   console.info('payment_transition', { orderReference: order.order_reference, state: target.state, source: input.source, duplicate: data.duplicate === true, fulfilment, technicalReference });
-  const fulfilmentAttemptId = fulfilment === 'queued'
-    && typeof data.fulfilment_attempt_id === 'string'
-    ? data.fulfilment_attempt_id
-    : undefined;
   return {
     ok: true,
     duplicate: data.duplicate === true,

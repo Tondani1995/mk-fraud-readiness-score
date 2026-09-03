@@ -58,6 +58,7 @@ function cleanStatus(status: string | null | undefined) {
 export function DeliveryAccessPanel(props: Props) {
   const [running, setRunning] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [notice, setNotice] = useState<Notice>(null);
 
   async function post(path: string, actionKey: string, body: Record<string, unknown>): Promise<{ ok: boolean; reason?: string; message?: string; data?: any }> {
@@ -93,15 +94,53 @@ export function DeliveryAccessPanel(props: Props) {
     post('revoke-token', `revoke:${tokenId}`, { tokenId, reason });
   }
 
+  function correctRecipient() {
+    if (!recipientEmail.trim()) {
+      setNotice({ tone: 'error', text: 'A corrected email address is required.' });
+      return;
+    }
+    if (reason.trim().length < 5) {
+      setNotice({ tone: 'error', text: 'A reason of at least 5 characters is required.' });
+      return;
+    }
+    post('correct-recipient', 'correct-recipient', {
+      newRecipientEmail: recipientEmail.trim(),
+      reason: reason.trim()
+    });
+  }
+
   return (
     <div className="space-y-5">
       {props.recipientException ? (
         <div className="space-y-3 rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4">
-          <p className="text-sm font-semibold text-mk-danger">Customer delivery requires manual handling</p>
+          <p className="text-sm font-semibold text-mk-danger">Customer delivery requires attention</p>
           <p className="text-sm text-mk-ink">
-            Report {props.recipientException.pendingReportReference} is ready for an operator to review. Customer
-            delivery is handled directly by MK outside the automated email service.
+            Report {props.recipientException.pendingReportReference} is ready, but an operator must correct the
+            delivery recipient before automated delivery can proceed.
           </p>
+          {props.canManageAccessTokens ? (
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={(event) => setRecipientEmail(event.target.value)}
+                placeholder="Corrected delivery email"
+                aria-label="Corrected delivery email"
+                className="rounded-xl border border-mk-line bg-white px-3 py-2 text-sm text-mk-ink"
+              />
+              <input
+                type="text"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Reason for correction"
+                aria-label="Reason for correction"
+                className="rounded-xl border border-mk-line bg-white px-3 py-2 text-sm text-mk-ink"
+              />
+              <Button type="button" disabled={Boolean(running)} onClick={correctRecipient}>
+                {running === 'correct-recipient' ? 'Correcting…' : 'Correct recipient'}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -150,7 +189,7 @@ export function DeliveryAccessPanel(props: Props) {
 
       {props.canManageAccessTokens ? (
         <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
-          Customer report delivery and access issuance are handled manually by MK. This panel retains historical access records for audit and revocation only.
+          Customer report delivery and access issuance are handled by the protected fulfilment worker. This panel retains historical access records for audit and revocation only.
         </div>
       ) : null}
 

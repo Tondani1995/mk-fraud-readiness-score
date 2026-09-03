@@ -23,6 +23,8 @@ const CUSTOMER_RELATIONSHIP_LABELS: Record<string, string> = {
 function customerCopy(value: unknown): string {
   return String(value ?? '')
     .replace(/(question-level signals(?:\s+included in the assessment)?)\s+are consistently operating\b/gi, '$1 are recorded as consistently operating')
+    .replace(/\bnot\s+a\s+price-based\s+assurance\s+claim\b/gi, 'not an assurance conclusion')
+    .replace(/\bprice-based\s+assurance\s+claim\b/gi, 'assurance conclusion')
     .replace(/This is not a claim about price, assurance or permanence\./gi, 'This does not establish operating effectiveness or permanence.')
     .replace(CUSTOMER_PROVENANCE_ID, '')
     .replace(/\s+([,.;:!?])/g, '$1')

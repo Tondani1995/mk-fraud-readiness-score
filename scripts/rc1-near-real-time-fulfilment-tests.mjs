@@ -13,6 +13,7 @@ import {
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const migration = read('supabase/migrations/20260728120000_rc1_near_real_time_automatic_fulfilment.sql');
+const currentFulfilmentMigration = read('supabase/migrations/20260903014815_retire_interim_manual_fulfilment_for_comprehensive.sql');
 const payment = read('src/lib/payments/payment-service.ts');
 const paymentRoute = read('src/app/score/admin/orders/[orderReference]/status/route.ts');
 const dispatch = read('src/lib/fulfilment/immediate-dispatch.ts');
@@ -317,9 +318,13 @@ await test('duplicate payment creates no second attempt', async () => {
   includes(migration, "'fulfilment_attempt_id', null", 'duplicates are not dispatchable');
   includes(replay, 'duplicate payment confirmation creates no second attempt', 'DB proof is present');
 });
-await test('successful payment queues durable fulfilment without awaiting PDF generation', async () => {
+await test('successful payment queues and dispatches the exact durable fulfilment attempt without awaiting PDF generation', async () => {
   includes(paymentRoute, 'confirmManualPayment', 'admin payment route uses the payment service');
   includes(payment, 'record_payment_transition', 'payment service records the atomic payment transition');
+  includes(payment, 'dispatchImmediateFulfilment', 'payment service dispatches the exact attempt after the committed payment transition');
+  includes(payment, 'fulfilmentAttemptId', 'payment service reads the exact durable attempt ID');
+  includes(payment, 'correlationReference', 'payment service preserves the exact correlation reference');
+  includes(payment, 'try {', 'dispatch failure is isolated after the payment transaction');
   assert.doesNotMatch(paymentRoute, /waitUntil\(|dispatchImmediateFulfilment/);
 });
 await test('payment response does not await PDF generation', async () => {
@@ -615,7 +620,10 @@ await test('release creates exactly one authorization and email event', async ()
 });
 await test('same invocation passes the exact released authorization to the current delivery boundary', async () => {
   includes(worker, 'authorizationId: release.delivery_authorization_id', 'release ID is continued');
-  includes(delivery, "return { claimed: false, outcome: 'not_claimed' }", 'current launch keeps customer delivery manual');
+  includes(delivery, "'issue_customer_report_access_token'", 'active delivery issues the exact secure token');
+  includes(delivery, "'finalize_delivery'", 'active delivery finalises the exact authorization');
+  includes(delivery, "'fail_delivery'", 'active delivery preserves retry and terminal-failure handling');
+  assert.doesNotMatch(delivery, /void db;\s*void options;/, 'active delivery is not the retired no-op boundary');
 });
 await test('exactly one secure token is issued in successful flow', async () => {
   includes(delivery, "'issue_customer_report_access_token'", 'shared delivery issues token once');
@@ -696,10 +704,14 @@ await test('historical RC1 postflight remains frozen at its certified ledger bou
 });
 await test('current V1.2 migration source is certified by the exact disposable replay contract', async () => {
   includes(v12Replay, 'canonical_reconstructed_migration_count=121', 'replay preserves 121 reconstructed migrations');
-  includes(v12Replay, 'forward_migration_count=9', 'replay has nine current forward migrations');
+  includes(v12Replay, 'forward_migration_count=12', 'replay includes the current forward migration set');
   includes(v12Replay, 'expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"', 'replay derives exact expected total');
-  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints exact 130/130 evidence');
+  includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints the exact reconstructed-plus-forward evidence');
   includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
+  includes(currentFulfilmentMigration, "'mk_validated_assessment'", 'current correction scopes automatic payment fulfilment to Comprehensive');
+  includes(currentFulfilmentMigration, 'already_generated', 'current correction supports safe REPORT_READY package recovery');
+  assert.doesNotMatch(currentFulfilmentMigration, /manual_fulfilment_pending/, 'current correction does not reintroduce the interim manual event');
+  assert.doesNotMatch(worker, /comprehensive_engagements/, 'active worker does not depend on the reviewed engagement tables');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');
@@ -716,10 +728,9 @@ assert.equal(calls[0].args.p_outcome, 'started');
 assert.equal(calls[1].args.p_outcome, 'succeeded');
 assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/score/api/internal/fulfilment-worker');
 
-// A row recorded while the provider was off must WAIT for the provider, not be re-claimed against
-// it. Each re-claim re-runs a no-op that can never produce a provider message id, yet spends one
-// of the five recovery attempts, so a few duplicate records would park a healthy row as
-// reconciliation_required and strand the notification permanently.
+// A row recorded while the provider was off must WAIT for the provider, not consume the recovery
+// budget through a no-op. The active delivery worker preserves the exact retry/reconciliation
+// contract while the provider boundary remains disabled/test/live-mode controlled.
 await test('disabled provider does not consume the recovery budget', async () => {
   const { store, db } = createNotificationStore();
   const sends = [];

@@ -304,32 +304,23 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     servedFileName = artefact.file_name || `${report.report_reference}-supporting-register.xlsx`;
   }
   if (input.artefact !== 'pdf' && report.report_type === 'mk_validated') {
-    if (report.report_type !== 'mk_validated') {
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_status_ineligible', technicalReference, artefact: requestedArtefact });
-      throw new CustomerReportAccessError('report_status_ineligible', 'This artefact is not available for this order.', 409, technicalReference);
-    }
-    const { data: engagement, error: engagementError } = await db
-      .from('comprehensive_engagements')
-      .select('id,state,signed_off_artifact_version')
-      .eq('order_id', report.order_id)
-      .maybeSingle();
+    // The active automated Comprehensive package has no reviewed engagement. Its supporting
+    // register is released by automatic_release_completed_fulfilment() against the exact report
+    // version with a deliberate null engagement_id. Keep the customer access path bound to that
+    // deterministic package instead of resurrecting the retired reviewer/sign-off dependency.
     const required = secondary[input.artefact as keyof typeof secondary];
-    if (engagementError || !engagement || engagement.state !== 'delivered' || !engagement.signed_off_artifact_version) {
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_status_ineligible', technicalReference, artefact: requestedArtefact });
-      throw new CustomerReportAccessError('report_status_ineligible', 'This artefact is not yet available.', 409, technicalReference);
-    }
     const { data: artefact, error: artefactError } = await db
       .from('report_artifacts')
       .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,release_state,artefact_type,file_name,mime_type,artifact_version,engagement_id,report_id')
       .eq('report_id', report.id)
-      .eq('engagement_id', engagement.id)
-      .eq('artifact_version', engagement.signed_off_artifact_version)
+      .is('engagement_id', null)
+      .eq('artifact_version', report.version_number)
       .eq('artefact_type', required.type)
       .eq('release_state', 'released')
       .eq('storage_status', 'VERIFIED')
       .maybeSingle();
-    if (artefactError || !artefact || artefact.report_id !== report.id || artefact.engagement_id !== engagement.id
-      || Number(artefact.artifact_version) !== Number(engagement.signed_off_artifact_version)
+    if (artefactError || !artefact || artefact.report_id !== report.id || artefact.engagement_id !== null
+      || Number(artefact.artifact_version) !== Number(report.version_number)
       || artefact.mime_type !== required.mimeType || !artefact.storage_bucket || !artefact.storage_path
       || !artefact.checksum_sha256 || !/^[0-9a-f]{64}$/.test(artefact.checksum_sha256) || Number(artefact.file_size_bytes) <= 0) {
       await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'storage_path_mismatch', technicalReference, artefact: requestedArtefact });

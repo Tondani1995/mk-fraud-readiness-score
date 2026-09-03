@@ -12,12 +12,12 @@ export function getPostPurchaseCopy(tier: SelfServicePaidTier): PostPurchaseCopy
   if (tier === 'comprehensive') {
     return {
       productLabel: 'Comprehensive Fraud Readiness',
-      paymentSummary: 'Once your EFT payment is confirmed, MK prepares the full Comprehensive Fraud Readiness package.',
+      paymentSummary: 'Once your EFT payment is confirmed, the full Comprehensive Fraud Readiness package is prepared automatically.',
       nextSteps: [
         'Use the EFT instructions and payment reference shown below.',
-        'After MK confirms payment, MK prepares the full Comprehensive Fraud Readiness package.',
+        'After payment is confirmed, the full Comprehensive Fraud Readiness package enters preparation.',
         'The package includes a detailed report, supporting registers, target-state control design and implementation material.',
-        'MK will contact you directly if clarification is needed, then send the completed package directly.'
+        'The completed package is delivered securely to the address held for the order.'
       ],
       deliverableSummary: 'A detailed report with supporting registers, target-state control design and implementation material.'
     };

@@ -20,7 +20,7 @@ const comprehensive = getPostPurchaseCopy('comprehensive');
 assert.equal(essential.productLabel, 'Essential Fraud Readiness');
 assert.equal(comprehensive.productLabel, 'Comprehensive Fraud Readiness');
 assert.equal(essential.paymentSummary, 'Once your EFT payment is confirmed, MK prepares your Essential Fraud Readiness report.');
-assert.equal(comprehensive.paymentSummary, 'Once your EFT payment is confirmed, MK prepares the full Comprehensive Fraud Readiness package.');
+assert.equal(comprehensive.paymentSummary, 'Once your EFT payment is confirmed, the full Comprehensive Fraud Readiness package is prepared automatically.');
 assert.equal(comprehensive.deliverableSummary, 'A detailed report with supporting registers, target-state control design and implementation material.');
 assert.notDeepEqual(essential.nextSteps, comprehensive.nextSteps, 'Essential and Comprehensive must have distinct post-purchase next steps');
 assert.match(essential.nextSteps.join(' '), /EFT|payment reference/i);
@@ -28,8 +28,8 @@ assert.match(essential.nextSteps.join(' '), /Essential.*report/i);
 assert.match(essential.nextSteps.join(' '), /send.*directly/i);
 assert.match(comprehensive.nextSteps.join(' '), /full Comprehensive.*package/i);
 assert.match(comprehensive.nextSteps.join(' '), /registers.*implementation material/i);
-assert.match(comprehensive.nextSteps.join(' '), /contact.*directly if clarification/i);
-assert.match(comprehensive.nextSteps.join(' '), /send.*directly/i);
+assert.match(comprehensive.nextSteps.join(' '), /package enters preparation/i);
+assert.match(comprehensive.nextSteps.join(' '), /delivered securely/i);
 for (const copy of [essential, comprehensive]) {
   const customerCopy = [copy.paymentSummary, copy.deliverableSummary, ...copy.nextSteps].join(' ');
   assert.doesNotMatch(customerCopy, /named reviewer|independent(?:ly)? validat|assurance opinion|automated (?:delivery|email)|customer portal|access link|customer access token|price floor/i);
@@ -90,8 +90,7 @@ const internalPayment = buildInternalPaymentReceivedMessage({
   verifiedAtIso: '2026-08-31T10:00:00.000Z',
   adminUrl: 'https://mkfraud.co.za/score/admin/orders/MKORD-TEST-001'
 });
-assert.match(internalPayment.text, /manual fulfilment/i);
-assert.match(internalPayment.text, /outside the automated email service/i);
+assert.match(internalPayment.text, /payment was recorded/i);
 assert.doesNotMatch(internalPayment.text, /we will email you|secure link/i);
 
 const previousProviderMode = process.env.MK_EMAIL_PROVIDER_MODE;
@@ -108,6 +107,8 @@ const transportInput = {
 const customerAttempt = await sendEmail({ ...transportInput, audience: 'customer' });
 assert.equal(customerAttempt.ok, false, 'The provider boundary rejects customer transactional audience');
 assert.equal(customerAttempt.error, 'Customer transactional email is disabled for V1.2.');
+const customerDisabled = await sendEmail({ ...transportInput, audience: 'customer_report_ready' });
+assert.deepEqual(customerDisabled, { ok: true, mode: 'disabled', providerMessageId: null }, 'Report-ready delivery remains available through the shared disabled/test/live mode boundary');
 const internalDisabled = await sendEmail({ ...transportInput, audience: 'internal' });
 assert.deepEqual(internalDisabled, { ok: true, mode: 'disabled', providerMessageId: null }, 'Internal notifications still use the shared provider mode boundary');
 if (previousProviderMode === undefined) delete process.env.MK_EMAIL_PROVIDER_MODE;
@@ -116,6 +117,7 @@ else process.env.MK_EMAIL_PROVIDER_MODE = previousProviderMode;
 const orderService = 'src/lib/commercial/order-service.ts';
 const legacyEssentialOrder = 'src/lib/orders/manual-eft-orders.ts';
 const paymentService = 'src/lib/payments/payment-service.ts';
+const phase1Generation = 'src/lib/reports/phase1-manual-fulfilment.ts';
 const statusRoute = 'src/app/score/admin/orders/[orderReference]/status/route.ts';
 const internalNotification = 'src/lib/notifications/internal-assessment-notifications.ts';
 const internalOrderNotification = 'src/lib/notifications/internal-order-notifications.ts';
@@ -134,12 +136,27 @@ assertNotIncludes(orderService, 'queueInternalNotification', 'Catalogue paid ord
 assertIncludes(legacyEssentialOrder, 'notifyInternalOrderCreated', 'Essential EFT orders use the internal order notification boundary');
 assertIncludes(legacyEssentialOrder, 'invoice_details', 'Essential EFT orders preserve invoice details');
 assertIncludes(paymentService, 'notifyInternalPaymentReceived', 'Payment confirmation queues an internal notification');
-assertNotIncludes(paymentService, 'recordPaymentConfirmedNotification', 'Payment confirmation does not dispatch the customer template');
+assertNotIncludes(paymentService, 'recordPaymentConfirmedNotification', 'Payment confirmation does not dispatch the customer template directly');
+assertIncludes(paymentService, 'dispatchImmediateFulfilment', 'Verified Comprehensive payment dispatches the exact durable attempt after commit');
+const phase1Source = read(phase1Generation);
+const comprehensiveBranchStart = phase1Source.indexOf('if (isComprehensive) {');
+const essentialBranchStart = phase1Source.indexOf('} else {', comprehensiveBranchStart);
+assert.ok(comprehensiveBranchStart >= 0 && essentialBranchStart > comprehensiveBranchStart, 'Comprehensive generation branch remains explicit');
+assert.doesNotMatch(
+  phase1Source.slice(comprehensiveBranchStart, essentialBranchStart),
+  /doGetAutomationFlags\(db\)/,
+  'Comprehensive generation does not read the retired Phase 14 automation authority'
+);
+assert.match(
+  phase1Source.slice(essentialBranchStart),
+  /const flags = await doGetAutomationFlags\(db\)/,
+  'Essential generation retains its existing automation-flag behaviour'
+);
 assertNotIncludes(statusRoute, 'dispatchImmediateFulfilment', 'Payment status changes cannot start report generation');
 assertNotIncludes(statusRoute, 'waitUntil', 'Payment status changes do not launch a background fulfilment worker');
 assertIncludes(statusRoute, 'confirmManualPayment', 'Manual payment confirmation remains operator-controlled');
 assertIncludes(internalNotification, "audience: 'internal'", 'Current notification dispatch labels the provider audience');
-assertIncludes(provider, "input.audience !== 'internal'", 'The low-level email boundary rejects customer transactional sends');
+assertIncludes(provider, "audience !== 'internal' && audience !== 'customer_report_ready'", 'The low-level email boundary admits only internal and report-ready audiences');
 assertIncludes(internalOrderNotification, 'invoice_details: invoiceDetails', 'Internal order notification includes the closed invoice details when requested');
 assertNotIncludes(internalOrderNotification, 'buildOrderConfirmationMessage', 'Internal order notification does not use the customer confirmation template');
 assertNotIncludes(internalOrderNotification, 'buildPaymentConfirmedMessage', 'Internal payment notification does not use the customer payment template');
@@ -154,14 +171,16 @@ assertNotIncludes(orderJourney, 'supporting management, register and implementat
 const reportDeliverySource = read(reportDelivery);
 const deliveryFunction = reportDeliverySource.slice(reportDeliverySource.indexOf('export async function deliverPremiumReportEmail'));
 assert.match(deliveryFunction, /void input;\s*throw new Error\(`\$\{MANUAL_CUSTOMER_DELIVERY_REASON\}/, 'Automated report email fails closed before claims or provider work');
-assertIncludes(deliveryWorker, "outcome: 'not_claimed'", 'The legacy delivery worker cannot perform automatic customer delivery');
-assertIncludes(orderStatus, 'customerAccessToken: null', 'Customer order status does not issue a new access token');
-assertNotIncludes(orderStatus, "from('report_artifacts')", 'Customer order status does not expose released report artifacts');
+assertIncludes(deliveryWorker, "'issue_customer_report_access_token'", 'The active delivery worker issues the secure customer token');
+assertIncludes(deliveryWorker, "'finalize_delivery'", 'The active delivery worker finalises the exact delivery authorization');
+assertIncludes(deliveryWorker, "'fail_delivery'", 'The active delivery worker preserves retry/terminal failure handling');
+assertIncludes(orderStatus, 'const engagement: CustomerPaidOrderStatus[\'engagement\'] = null', 'Customer order status does not expose reviewed-engagement or access-token state');
+assertNotIncludes(orderStatus, "from('comprehensive_engagements')", 'Customer order status does not depend on a reviewed Comprehensive engagement');
 assertIncludes(adminSendRoute, 'MANUAL_CUSTOMER_DELIVERY_REASON', 'Admin customer-send route reports the manual delivery boundary');
-assertIncludes(fulfilmentActions, 'Customer delivery is handled directly by MK', 'Admin fulfilment actions explain manual customer delivery');
+assertIncludes(fulfilmentActions, 'protected fulfilment worker', 'Admin fulfilment actions explain the current protected customer-delivery path');
 assertIncludes(orderJourney, 'getPostPurchaseCopy', 'Order journey uses product-specific post-purchase copy');
 assertNotIncludes(orderJourney, 'Sent to the delivery email held for this order', 'Order journey does not promise automated customer delivery');
 assertIncludes(comprehensiveWorkspace, 'getPostPurchaseCopy', 'Comprehensive status uses product-specific post-purchase copy');
 assertNotIncludes(comprehensiveWorkspace, 'customerAccessToken', 'Comprehensive status does not render a customer access token');
 
-console.log('V1.2 manual commercial fulfilment contract tests passed: internal-only email, manual EFT/invoice handling, operator-controlled generation and differentiated Essential/Comprehensive customer experience are covered.');
+console.log('V1.2 commercial fulfilment contract tests passed: atomic payment, exact Comprehensive dispatch, protected generation/release/delivery, secure access, internal notifications, manual invoice handling and Essential isolation are covered.');

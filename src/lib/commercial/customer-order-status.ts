@@ -51,12 +51,6 @@ export type CustomerPaidOrderStatus = {
   } | null;
 };
 
-const EVIDENCE_ACCEPTING_STATES = new Set(['payment_received', 'evidence_requested', 'evidence_received', 'in_review']);
-
-const EVIDENCE_GUIDANCE = [
-  'MK may contact you directly if clarification is needed before preparing the selected Comprehensive package.'
-];
-
 export async function getCustomerPaidOrderStatus(input: { assessmentId: string; orderReference: string }): Promise<CustomerPaidOrderStatus | null> {
   const db = createSupabaseServiceClient() as any;
   const { data: order, error } = await db
@@ -68,46 +62,10 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
   if (error || !order) return null;
   const product = Array.isArray(order.products) ? order.products[0] : order.products;
   const tier = tierForProductCode(product?.product_code ?? null);
-  let engagement: CustomerPaidOrderStatus['engagement'] = null;
-  if (tier === 'comprehensive') {
-    const { data: row } = await db
-      .from('comprehensive_engagements')
-      .select('id,state,state_version,reviewer_admin_user_id,signed_off_by,signed_off_artifact_version')
-      .eq('order_id', order.id)
-      .maybeSingle();
-    if (row) {
-      const { data: evidence } = await db.from('comprehensive_evidence_items')
-        .select('id,original_filename,evidence_label,content_type,size_bytes,uploaded_at,validation_status,reviewer_observation')
-        .eq('engagement_id', row.id)
-        .order('uploaded_at', { ascending: false });
-      const evidenceRows = evidence ?? [];
-      const evidenceAccepting = EVIDENCE_ACCEPTING_STATES.has(row.state);
-      engagement = {
-        state: row.state,
-        stateVersion: Number(row.state_version),
-        evidenceCount: evidenceRows.length,
-        reviewedEvidenceCount: evidenceRows.filter((item: any) => ['reviewed', 'supported', 'not_supported', 'insufficient', 'not_applicable'].includes(item.validation_status)).length,
-        reviewerAssigned: Boolean(row.reviewer_admin_user_id),
-        signedOff: Boolean(row.signed_off_by),
-        signedOffArtifactVersion: row.signed_off_artifact_version ? Number(row.signed_off_artifact_version) : null,
-        evidenceAccepting,
-        evidenceGuidance: EVIDENCE_GUIDANCE,
-        evidence: evidenceRows.map((item: any) => ({
-          id: item.id,
-          originalFilename: item.original_filename,
-          evidenceLabel: item.evidence_label ?? null,
-          contentType: item.content_type,
-          sizeBytes: Number(item.size_bytes),
-          uploadedAt: item.uploaded_at,
-          validationStatus: item.validation_status,
-          reviewerObservation: item.reviewer_observation ?? null
-        })),
-        releasedArtifacts: [],
-        customerAccessToken: null,
-        customerAccessTokenExpiresAt: null
-      };
-    }
-  }
+  // The active customer status surface is deliberately independent of the retired reviewed-
+  // engagement lifecycle. The released PDF and supporting register are reached through the
+  // separate, token-bound delivery route after automated release.
+  const engagement: CustomerPaidOrderStatus['engagement'] = null;
   const amountCents = Number(order.amount_cents);
   return {
     orderReference: order.order_reference,

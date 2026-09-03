@@ -132,7 +132,7 @@ export function FulfilmentActions(props: Props) {
       ) : null}
       {generationPending ? (
         <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
-          Payment is confirmed and this report is queued for generation. Nothing is running yet — select Generate Report to produce it.
+          Payment is confirmed and this report is queued for generation. The protected fulfilment worker will process it; use Generate Report only as an authorised recovery action.
         </p>
       ) : null}
       {props.generationStuck ? (
@@ -147,7 +147,7 @@ export function FulfilmentActions(props: Props) {
       ) : null}
       {props.capabilityAvailable && props.canDeliver && props.storageReady ? (
         <p className="rounded-xl border border-mk-line bg-mk-cream p-3 text-sm text-mk-ink">
-          Customer delivery is handled directly by MK after manual preparation. No automated customer delivery action is available here.
+          The protected fulfilment worker handles customer delivery after verified release. Delivery state and secure customer access are shown in the Release C panel below.
         </p>
       ) : null}
       {notice ? (

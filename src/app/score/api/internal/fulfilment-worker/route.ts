@@ -30,6 +30,8 @@ type ClaimedJob = {
   trigger_source?: string;
   retry_count?: number;
   already_complete?: boolean;
+  already_generated?: boolean;
+  output_report_id?: string;
   automatic_delivery_authorization_id?: string;
 };
 
@@ -174,6 +176,78 @@ async function processWorkerInvocation(exactAttemptId?: string) {
       claimed: false,
       attemptId: job.id,
       idempotentReplay: true,
+      delivery: deliveryResult
+    }, {
+      status: deliveryResult.outcome === 'claim_failed' ? 500 : 200
+    });
+  }
+
+  // A payment can commit the package before the worker dispatch is interrupted. The exact claim
+  // RPC may therefore lease an already-verified Comprehensive REPORT_READY attempt. Reuse that
+  // package through the normal release and delivery chain without entering the generation route
+  // again (and therefore without a second provider call).
+  if (job.already_generated && job.output_report_id) {
+    const { data: release, error: releaseError } = await db.rpc(
+      'automatic_release_completed_fulfilment',
+      {
+        p_attempt_id: job.id,
+        p_report_id: job.output_report_id,
+        p_lease_owner: leaseOwner
+      }
+    );
+    if (releaseError) {
+      const technicalReference = crypto.randomUUID();
+      await recordGenerationException(db, {
+        attemptId: job.id,
+        category: 'automatic_release_failed',
+        stage: 'automatic_quality_release',
+        technicalReference,
+        requiredAction:
+          'Review release-gate evidence and use the existing human approve or reject control.'
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          claimed: true,
+          attemptId: job.id,
+          reusedExistingPackage: true,
+          outcome: 'automatic_release_failed'
+        },
+        { status: 500 }
+      );
+    }
+    if (!release?.released) {
+      await notifyException(release);
+      return NextResponse.json({
+        ok: true,
+        claimed: true,
+        attemptId: job.id,
+        reusedExistingPackage: true,
+        outcome: 'manual_review_required',
+        errorCategory: release?.category ?? 'release_gate_failed'
+      });
+    }
+
+    const deliveryResult = await processOneDelivery(db, {
+      authorizationId: release.delivery_authorization_id,
+      expectedOrderId: release.order_id
+    });
+    console.info('fulfilment_worker', {
+      outcome: 'automatic_release_complete',
+      attemptId: job.id,
+      reportId: job.output_report_id,
+      authorizationId: release.delivery_authorization_id,
+      deliveryOutcome: deliveryResult.outcome ?? 'not_claimed',
+      reusedExistingPackage: true
+    });
+    return NextResponse.json({
+      ok: deliveryResult.outcome !== 'claim_failed',
+      claimed: true,
+      attemptId: job.id,
+      reportId: job.output_report_id,
+      authorizationId: release.delivery_authorization_id,
+      reusedExistingPackage: true,
+      outcome: 'automatic_release_complete',
       delivery: deliveryResult
     }, {
       status: deliveryResult.outcome === 'claim_failed' ? 500 : 200

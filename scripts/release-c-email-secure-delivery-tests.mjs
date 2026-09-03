@@ -108,10 +108,11 @@ assertIncludes(emailProvider, "getEmailProviderMode() === 'live'", 'isCertifiedF
 console.log('--- 4. Real-send wiring: all 4 message types actually call sendEmail(), not a hardcoded disabled status ---');
 assertIncludes(phase1Notifications, 'await sendEmail(', 'phase1-order-notifications.ts calls sendEmail()');
 assertIncludes(phase1Notifications, 'recordPaymentConfirmedNotification', 'payment-confirmed notification function is exported');
-assertIncludes(paymentService, 'recordPaymentConfirmedNotification', 'payment-service.ts calls the payment-confirmed notification');
+assertIncludes(paymentService, 'notifyInternalPaymentReceived', 'payment-service.ts calls the internal payment-confirmed notification');
 assertIncludes(paymentService, '.catch(', 'Payment confirmation notification failure cannot fail payment recording (wrapped in .catch)');
 assertIncludes(workerRoute, 'processOneDelivery', 'Worker route delegates report-ready delivery to the shared delivery worker');
 assertIncludes('src/lib/fulfilment/delivery-worker.ts', 'await sendEmail(', 'Shared delivery worker calls sendEmail() for report-ready delivery');
+assertIncludes('src/lib/fulfilment/delivery-worker.ts', "audience: 'customer_report_ready'", 'Shared delivery worker labels the report-ready message as customer delivery');
 assertNotIncludes(phase1Notifications, "status: 'recorded_disabled',\n    request_id: requestId,\n    provider_mode: 'disabled',", 'Notification status/provider_mode are no longer hardcoded to disabled at insert time');
 
 console.log('--- 5. Message templates: no assessment content, no storage paths, no permanent URLs ---');

@@ -148,7 +148,7 @@ export default async function AdminOrderDetailPage(
         <PageHeader
           eyebrow="Paid report fulfilment"
           title={order.order_reference}
-          description="Manual, recoverable report generation and delivery control. Phase 14 automation remains disabled."
+          description={isComprehensive ? 'Automated Comprehensive report generation and secure delivery control.' : 'Manual, recoverable Essential report generation and delivery control.'}
         />
 
         {(searchParams?.message || searchParams?.report_error || searchParams?.error) ? (
@@ -205,7 +205,7 @@ export default async function AdminOrderDetailPage(
               canDeliver={canDeliver}
               capabilityAvailable={operationalAvailable}
             />
-            {canDeliver && storageReady ? (
+            {canDeliver && storageReady && !isComprehensive ? (
               <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
                 <span className="font-semibold text-mk-ink">Legacy/manual delivery.</span> The button above (and the retry
                 state it reacts to, currently <span className="font-semibold">{cleanStatus(legacyDeliveryState)}</span>)
@@ -260,7 +260,7 @@ export default async function AdminOrderDetailPage(
           </CardContent>
         </Card></div>
 
-        <ManualDeliveryPanel
+        {!isComprehensive ? <ManualDeliveryPanel
           orderReference={order.order_reference}
           organisationName={order.organisation_name ?? assessment?.organisations?.legal_name ?? assessment?.organisations?.trading_name ?? 'your organisation'}
           reportReference={latestReport?.report_reference ?? null}
@@ -271,7 +271,7 @@ export default async function AdminOrderDetailPage(
           paymentConfirmed={order.status === 'payment_received'}
           deliveredAt={manualDelivery?.completed_at ?? null}
           deliveredBy={manualDeliveryActor?.full_name ?? manualDeliveryActor?.email ?? null}
-        />
+        /> : null}
 
         <Card>
           <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
@@ -303,7 +303,6 @@ export default async function AdminOrderDetailPage(
             <SnapshotValue label="Product" value={order.product_name} />
             <SnapshotValue label="Amount" value={formatOrderAmount(order.amount_cents, order.currency)} />
             <SnapshotValue label="Created" value={dateTime(order.created_at)} />
-            {isComprehensive ? <div className="md:col-span-3"><Button asChild><Link href={`/score/admin/comprehensive/${encodeURIComponent(order.order_reference)}`}>Open Comprehensive reviewer workspace</Link></Button></div> : null}
           </CardContent>
         </Card>
 
@@ -336,7 +335,7 @@ export default async function AdminOrderDetailPage(
               </div>
             ))}
             {!operations.notifications.length ? <p className="text-sm text-mk-muted">No notification records found.</p> : null}
-            <p className="text-xs text-mk-muted">Internal MK notifications are sent only when the configured provider mode permits it. Customer report delivery remains a manual MK process after payment confirmation and preparation.</p>
+            <p className="text-xs text-mk-muted">Internal MK notifications are sent only when the configured provider mode permits it. Customer report delivery is tracked through the protected fulfilment worker and secure access record.</p>
           </CardContent>
         </Card>
 
@@ -344,7 +343,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Payment status update</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
-              Manual and verified-provider confirmation share one payment state machine. A valid final payment requests deterministic Phase 1 fulfilment only when its schema capability is available. Phase 14 remains disabled.
+              Manual and verified-provider confirmation share one payment state machine. A valid final payment creates the exact Comprehensive fulfilment attempt when the selected product is Comprehensive; Essential retains its existing payment boundary.
             </div>
             <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_160px_100px_1fr_auto]">
               <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
