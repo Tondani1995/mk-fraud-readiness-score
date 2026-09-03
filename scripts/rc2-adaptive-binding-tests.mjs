@@ -12,6 +12,7 @@ import {
 
 const migrationPath = 'supabase/migrations/20260827090000_rc2_adaptive_environment_binding.sql';
 const migration = await fs.readFile(migrationPath, 'utf8');
+const isolationMigration = await fs.readFile('supabase/migrations/20260903002500_adaptive_activation_environment_isolation.sql', 'utf8');
 const server = await fs.readFile('src/lib/adaptive/server.ts', 'utf8');
 const v11Graph = JSON.parse(await fs.readFile('docs/adaptive-assessment/adaptive-graph-v1-draft.json', 'utf8'));
 const v12Graph = JSON.parse(await fs.readFile('docs/adaptive-assessment/adaptive-graph-v1-2-candidate.json', 'utf8'));
@@ -106,6 +107,10 @@ assert.match(migration, /revoke all on function public\.set_adaptive_activation\
 assert.match(migration, /grant execute on function public\.set_adaptive_activation\(text, text, boolean, text, text\)\s+to service_role/);
 assert.doesNotMatch(migration, /adaptive_production_project_staging_forbidden|adaptive_preview_project_required/);
 assert.doesNotMatch(migration, /adaptive_activation_policy_binding_mismatch/);
+assert.match(isolationMigration, /primary key \(policy_key, environment\)/i);
+assert.match(isolationMigration, /where policy_key = 'customer_start'\s+and environment = v_environment/i);
+assert.match(server, /\.eq\('environment', runtime\.environment\)/);
+
 
 assert.equal(configuredSupabaseProjectRef(env()), PROMOTION_TARGET_PROJECT);
 assert.equal(configuredAdaptiveDeploymentSha(env()), SHA);

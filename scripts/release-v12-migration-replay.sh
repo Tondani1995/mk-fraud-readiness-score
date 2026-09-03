@@ -164,7 +164,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=11
+forward_migration_count=12
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
@@ -294,11 +294,15 @@ declare
 begin
   select * into v_policy
   from public.adaptive_activation_policies
-  where policy_key = 'customer_start';
-  if v_policy.environment <> 'preview'
-     or v_policy.supabase_project <> 'iszihmmbgsfefawqmnwo'
+  where policy_key = 'customer_start'
+    and environment = 'preview';
+  if v_policy.supabase_project <> 'iszihmmbgsfefawqmnwo'
      or v_policy.enabled is not false then
     raise exception 'rc2_replay_preview_policy_not_disabled_or_canonical';
+  end if;
+
+  if (select count(*) from public.adaptive_activation_policies where policy_key = 'customer_start') <> 2 then
+    raise exception 'rc2_replay_environment_policy_count_invalid';
   end if;
 
   select public.set_adaptive_activation(
@@ -310,9 +314,14 @@ begin
      or v_result->>'activation_sha' <> repeat('a', 40) then
     raise exception 'rc2_replay_preview_activation_result_invalid';
   end if;
-  select public.set_adaptive_activation(
-    'preview', 'iszihmmbgsfefawqmnwo', false, repeat('a', 40), 'RC2 replay Preview disable test'
-  ) into v_result;
+
+  select * into v_policy
+  from public.adaptive_activation_policies
+  where policy_key = 'customer_start'
+    and environment = 'production';
+  if v_policy.enabled is not false or v_policy.activation_sha is not null then
+    raise exception 'rc2_replay_preview_activation_mutated_production';
+  end if;
 
   select public.set_adaptive_activation(
     'production', 'iszihmmbgsfefawqmnwo', true, repeat('b', 40), 'RC2 replay Production promotion test'
@@ -323,20 +332,26 @@ begin
      or v_result->>'activation_sha' <> repeat('b', 40) then
     raise exception 'rc2_replay_production_activation_result_invalid';
   end if;
+
+  select * into v_policy
+  from public.adaptive_activation_policies
+  where policy_key = 'customer_start'
+    and environment = 'preview';
+  if v_policy.enabled is not true or v_policy.activation_sha <> repeat('a', 40) then
+    raise exception 'rc2_replay_production_activation_mutated_preview';
+  end if;
+
+  select public.set_adaptive_activation(
+    'preview', 'iszihmmbgsfefawqmnwo', false, repeat('a', 40), 'RC2 replay Preview disable test'
+  ) into v_result;
   select public.set_adaptive_activation(
     'production', 'iszihmmbgsfefawqmnwo', false, repeat('b', 40), 'RC2 replay Production disable test'
   ) into v_result;
-
-  perform set_config('phase14.authoritative_transition', 'policy_approval', true);
-  update public.adaptive_activation_policies
-  set environment = 'preview', supabase_project = 'iszihmmbgsfefawqmnwo', enabled = false,
-      activation_sha = null, activated_at = null, activated_by = null
-  where policy_key = 'customer_start';
 end;
 $$;
 SQL
-printf 'PASS: Preview activation and deliberate Production promotion RPC bindings passed.\n'
-printf 'PASS: replay policy was restored to disabled Preview identity.\n'
+printf 'PASS: Preview and Production activation rows are isolated and independently mutable.\n'
+printf 'PASS: replay Preview and Production policies were restored to disabled identities.\n'
 printf 'ADAPTIVE_BINDING_DB_TESTS_END\n'
 
 printf '\nSCHEMA_INVENTORY_BEGIN\n'

@@ -224,7 +224,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   }
 
   const [activation, graphs, methodologies, products, settings, heartbeat] = await Promise.all([
-    querySafely(() => db.from('adaptive_activation_policies').select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha').eq('policy_key', 'customer_start').maybeSingle()),
+    querySafely(() => db.from('adaptive_activation_policies').select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha').eq('policy_key', 'customer_start').eq('environment', contract.environment).maybeSingle()),
     querySafely(() => db.from('adaptive_graph_versions').select('graph_version,graph_fingerprint,methodology_version,status').eq('graph_version', contract.adaptiveGraphVersion).maybeSingle()),
     querySafely(() => db.from('methodology_versions').select('version_code,status').eq('status', 'active')),
     querySafely(() => db.from('products').select('product_code,price_cents,currency,active,requires_payment_verification,delivery_mode').in('product_code', EXPECTED_PUBLIC_PRODUCTS.map((product) => product.productCode))),
