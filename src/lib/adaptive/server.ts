@@ -137,7 +137,10 @@ async function loadAdaptiveActivationPolicy(db: any, env: NodeJS.ProcessEnv = pr
   const runtime = assertAdaptiveRuntimeEnvironment(env);
   const { data, error } = await db.from('adaptive_activation_policies')
     .select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha')
-    .eq('policy_key', 'customer_start').maybeSingle();
+    .eq('policy_key', 'customer_start')
+    .eq('environment', runtime.environment)
+    .eq('supabase_project', runtime.projectRef)
+    .maybeSingle();
   if (error) throw error;
   if (!data || data.enabled !== true) throw new Error('adaptive_activation_disabled');
   if (data.environment !== runtime.environment) throw new Error('adaptive_activation_environment_mismatch');

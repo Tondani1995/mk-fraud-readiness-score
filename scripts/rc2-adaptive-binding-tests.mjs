@@ -79,6 +79,26 @@ function fakeDb(policyRow, graph = null) {
   };
 }
 
+function filteringPolicyDb(rows) {
+  return {
+    from(table) {
+      if (table !== 'adaptive_activation_policies') return fakeDb(null).from(table);
+      const filters = [];
+      const query = {
+        select() { return query; },
+        eq(column, value) { filters.push([column, value]); return query; },
+        async maybeSingle() {
+          const matches = rows.filter((row) => filters.every(([column, value]) => row[column] === value));
+          if (matches.length === 1) return { data: matches[0], error: null };
+          if (matches.length === 0) return { data: null, error: null };
+          return { data: null, error: { code: 'PGRST116', message: 'multiple rows' } };
+        }
+      };
+      return query;
+    }
+  };
+}
+
 async function pass(label, fn) {
   await fn();
   console.log(`ok - ${label}`);
@@ -115,6 +135,12 @@ assert.deepEqual(assertAdaptiveRuntimeEnvironment(env()), {
 
 await pass('Preview + promotion-target project + exact SHA', async () => {
   await assertAdaptiveActivationForDb(fakeDb(policy()), env());
+});
+await pass('Preview selects its policy row when Production shares the policy key', async () => {
+  await assertAdaptiveActivationForDb(
+    filteringPolicyDb([policy(), policy({ environment: 'production', activation_sha: OTHER_SHA })]),
+    env()
+  );
 });
 await fail('Production + promotion-target project while policy remains Preview', () => assertAdaptiveActivationForDb(
   fakeDb(policy()), env({ VERCEL_ENV: 'production' })
