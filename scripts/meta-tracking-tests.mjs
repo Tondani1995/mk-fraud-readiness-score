@@ -485,4 +485,106 @@ await checkAsync('a protected-route conversion is never suppressed by an early r
   assert.doesNotMatch(body.slice(browserAt, serverAt), /return/);
 });
 
+
+// --- Preview Test Events isolation -------------------------------------------
+// Without a test_event_code, Preview CAPI events would join the live dataset stream
+// instead of being isolated in Meta's Test Events view.
+
+const FIXED_NOW = 1788458826607;
+const capiInput = {
+  eventName: 'Lead',
+  eventId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+  eventSourceUrl: 'https://www.mkfraud.co.za/fraud-readiness',
+  fbp: 'fb.1.123.456', fbc: 'fb.1.123.abc',
+  clientUserAgent: 'UA', clientIpAddress: '10.0.0.1',
+};
+
+await checkAsync('PREVIEW: a configured test code produces a top-level test_event_code', async () => {
+  delete process.env.META_TEST_EVENT_CODE;
+  const production = capi.buildMetaEventPayload(capiInput, FIXED_NOW);
+
+  process.env.META_TEST_EVENT_CODE = 'TEST12345';
+  assert.equal(capi.isMetaTestEventMode(), true);
+  const preview = capi.buildMetaEventPayload(capiInput, FIXED_NOW);
+
+  assert.equal(preview.test_event_code, 'TEST12345');
+  // The event itself is untouched: only the envelope differs.
+  assert.deepEqual(preview.data, production.data, 'event payload must be otherwise identical');
+  assert.deepEqual(Object.keys(preview).sort(), ['data', 'test_event_code']);
+
+  // No PII or identifier is introduced by test mode.
+  const serialised = JSON.stringify(preview);
+  // 'fraud_readiness_assessment' is a legitimate allowlisted content_name, so match on
+  // actual leak markers rather than the bare word.
+  assert.doesNotMatch(serialised, /MKFRS|@|\/score|snapshot|assessment_id|assessmentRef|organisation_name/i);
+  assert.deepEqual(Object.keys(preview.data[0].user_data).sort(), ['client_ip_address', 'client_user_agent', 'fbc', 'fbp']);
+  delete process.env.META_TEST_EVENT_CODE;
+});
+
+await checkAsync('PRODUCTION: no test code means the property is absent, not empty', async () => {
+  delete process.env.META_TEST_EVENT_CODE;
+  assert.equal(capi.isMetaTestEventMode(), false);
+  const payload = capi.buildMetaEventPayload(capiInput, FIXED_NOW);
+
+  assert.equal('test_event_code' in payload, false, 'property must not exist at all');
+  assert.deepEqual(Object.keys(payload), ['data']);
+  assert.doesNotMatch(JSON.stringify(payload), /test_event_code/);
+});
+
+await checkAsync('an empty or whitespace test code is treated as unset', async () => {
+  for (const blank of ['', '   ']) {
+    process.env.META_TEST_EVENT_CODE = blank;
+    assert.equal(capi.isMetaTestEventMode(), false, `"${blank}" must not enable test mode`);
+    assert.equal('test_event_code' in capi.buildMetaEventPayload(capiInput, FIXED_NOW), false);
+  }
+  delete process.env.META_TEST_EVENT_CODE;
+});
+
+await checkAsync('the test code and token never reach a log, response, URL or client bundle', async () => {
+  const capiSrc = await readSource('src/lib/server/meta/capi.ts');
+  const routeSrc = await readSource('src/app/api/meta/events/route.ts');
+
+  // Server-only: an NEXT_PUBLIC_ prefix would inline the value into the client bundle.
+  assert.doesNotMatch(capiSrc, /NEXT_PUBLIC_META_(TEST_EVENT_CODE|CAPI_ACCESS_TOKEN)/);
+  assert.match(capiSrc, /process\.env\.META_TEST_EVENT_CODE/);
+  assert.match(capiSrc, /process\.env\.META_CAPI_ACCESS_TOKEN/);
+
+  // The token travels in a header, never in the request URL.
+  assert.match(capiSrc, /Authorization: `Bearer \$\{token\}`/);
+  assert.doesNotMatch(capiSrc, /access_token=/);
+
+  // Neither secret may be interpolated into any console call or returned error string.
+  for (const m of capiSrc.match(/console\.[a-z]+\([^)]*\)/g) ?? []) {
+    assert.doesNotMatch(m, /token|testEventCode|META_TEST_EVENT_CODE/i, `secret in log: ${m}`);
+  }
+  for (const m of capiSrc.match(/error: `[^`]*`/g) ?? []) {
+    assert.doesNotMatch(m, /token|code\b/i, `secret in error string: ${m}`);
+  }
+
+  // The relay answers with no body at all, so nothing can be echoed to the browser.
+  assert.match(routeSrc, /new NextResponse\(null, \{ status: 204 \}\)/);
+  assert.doesNotMatch(routeSrc, /META_TEST_EVENT_CODE|META_CAPI_ACCESS_TOKEN/);
+});
+
+await checkAsync('the built client bundle contains neither server secret name', async () => {
+  const fs = await import('node:fs/promises');
+  const staticDir = path.join(process.cwd(), '.next/static');
+  let entries;
+  try {
+    entries = await fs.readdir(staticDir, { recursive: true });
+  } catch {
+    assert.fail('.next/static missing - run `npm run build` before this suite so the bundle check is real');
+  }
+  const jsFiles = entries.filter((f) => typeof f === 'string' && f.endsWith('.js'));
+  assert.ok(jsFiles.length > 0, 'expected client JS chunks to scan');
+
+  for (const file of jsFiles) {
+    const contents = await fs.readFile(path.join(staticDir, file), 'utf8');
+    for (const secret of ['META_TEST_EVENT_CODE', 'META_CAPI_ACCESS_TOKEN']) {
+      assert.equal(contents.includes(secret), false, `${secret} leaked into client chunk ${file}`);
+    }
+  }
+  console.log(`     (scanned ${jsFiles.length} client chunks)`);
+});
+
 console.log(`Meta tracking checks: ${checks} checks passed`);

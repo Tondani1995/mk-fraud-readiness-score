@@ -9,6 +9,10 @@
  * minimum technical attribution fields (fbp, fbc, user agent, IP) are ever sent. There is no
  * code path that attaches an email, phone, name, address, external_id, score, Snapshot ID,
  * assessment ID, order ID or answer.
+ *
+ * META_TEST_EVENT_CODE, when set, routes events to Meta's Test Events view for Preview
+ * certification. It is never logged, never returned to the browser, and never placed in a
+ * URL; being unprefixed it cannot reach the client bundle.
  */
 
 import { serverEventParams, type MetaServerEvent } from "@/lib/website/meta/events";
@@ -19,6 +23,20 @@ const REQUEST_TIMEOUT_MS = 2500;
 export type MetaCapiResult =
     | { ok: true; status: "sent" }
     | { ok: false; status: "skipped_not_configured" | "failed"; error?: string };
+
+export type MetaEventPayload = {
+    data: Array<{
+        event_name: string;
+        event_time: number;
+        event_id: string;
+        event_source_url: string;
+        action_source: string;
+        user_data: Record<string, string>;
+        custom_data: Record<string, string>;
+    }>;
+    /** Present only in Preview/Test Events mode. Absent entirely in Production. */
+    test_event_code?: string;
+};
 
 export type MetaServerEventInput = {
     eventName: MetaServerEvent;
@@ -39,8 +57,22 @@ function accessToken(): string {
     return process.env.META_CAPI_ACCESS_TOKEN?.trim() || "";
 }
 
+/**
+ * Optional Preview-only test event code. Server-side and unprefixed, so Next.js never
+ * inlines it into the client bundle. Production must not define this variable: when it is
+ * set, Meta routes every event to the Test Events view instead of the live dataset stream.
+ */
+function testEventCode(): string {
+    return process.env.META_TEST_EVENT_CODE?.trim() || "";
+}
+
 export function isMetaCapiConfigured(): boolean {
     return Boolean(datasetId() && accessToken());
+}
+
+/** True only while a Preview/Test Events code is configured. Never returns the code. */
+export function isMetaTestEventMode(): boolean {
+    return Boolean(testEventCode());
 }
 
 /**
@@ -55,7 +87,7 @@ export function buildMetaEventPayload(input: MetaServerEventInput, now: number =
     if (input.clientUserAgent) userData.client_user_agent = input.clientUserAgent;
     if (input.clientIpAddress) userData.client_ip_address = input.clientIpAddress;
 
-    return {
+    const payload: MetaEventPayload = {
         data: [
             {
                 event_name: input.eventName,
@@ -68,6 +100,13 @@ export function buildMetaEventPayload(input: MetaServerEventInput, now: number =
             },
         ],
     };
+
+    // Attached only when a code is configured, and assigned conditionally so the property
+    // is genuinely absent in Production rather than present-and-empty.
+    const code = testEventCode();
+    if (code) payload.test_event_code = code;
+
+    return payload;
 }
 
 /**
