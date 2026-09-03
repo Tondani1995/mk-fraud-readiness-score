@@ -75,10 +75,11 @@ export default function MetaPixel() {
         if (lastTrackedPath.current === path) return;
         lastTrackedPath.current = path;
 
-        trackMetaEvent("PageView", {}, createOpaqueEventId());
+        // The resolved path is passed explicitly so the gate cannot race window.location.
+        trackMetaEvent("PageView", {}, createOpaqueEventId(), "track", path);
 
         if (path === META_LANDING_PATH) {
-            trackMetaEvent(META_EVENT_VIEW_CONTENT, VIEW_CONTENT_PARAMS, createOpaqueEventId());
+            trackMetaEvent(META_EVENT_VIEW_CONTENT, VIEW_CONTENT_PARAMS, createOpaqueEventId(), "track", path);
         }
     }, [active, pixelReady, pathname]);
 

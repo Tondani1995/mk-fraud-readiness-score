@@ -55,16 +55,16 @@ console.log('Meta tracking checks');
 check('no Meta send before marketing consent is given', () => {
   const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'unset' });
   assert.equal(consent.hasMarketingConsent(), false);
-  assert.equal(pixel.isMetaPixelEnabled(), false);
-  assert.equal(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A1' }), false);
+  assert.equal(pixel.isMetaEnabled(), false);
+  assert.deepEqual(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A1' }), { browser: false, server: false });
   assert.equal(fbqCalls.length, 0);
   assert.equal(fetchCalls.length, 0);
 });
 
 check('rejected marketing consent sends nothing to Meta', () => {
   const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'declined' });
-  assert.equal(pixel.isMetaPixelEnabled(), false);
-  assert.equal(pixel.trackMetaConversion(events.META_EVENT_ASSESSMENT_START, events.ASSESSMENT_START_PARAMS, { scope: 'A2' }), false);
+  assert.equal(pixel.isMetaEnabled(), false);
+  assert.deepEqual(pixel.trackMetaConversion(events.META_EVENT_ASSESSMENT_START, events.ASSESSMENT_START_PARAMS, { scope: 'A2' }), { browser: false, server: false });
   assert.equal(fbqCalls.length + fetchCalls.length, 0);
 });
 
@@ -76,16 +76,16 @@ check('analytics consent alone is not advertising consent', () => {
 
 check('Meta sends after marketing consent is granted', () => {
   const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'accepted' });
-  assert.equal(pixel.isMetaPixelEnabled(), true);
-  assert.equal(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A3' }), true);
+  assert.equal(pixel.isMetaEnabled(), true);
+  assert.deepEqual(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A3' }), { browser: true, server: true });
   assert.equal(fbqCalls.length, 1);
   assert.equal(fetchCalls.length, 1);
 });
 
 check('missing pixel ID disables Meta entirely even with consent', () => {
   const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'accepted' });
-  assert.equal(pixelUnconfigured.isMetaPixelEnabled(), false);
-  assert.equal(pixelUnconfigured.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A4' }), false);
+  assert.equal(pixelUnconfigured.isMetaEnabled(), false);
+  assert.deepEqual(pixelUnconfigured.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'A4' }), { browser: false, server: false });
   assert.equal(fbqCalls.length + fetchCalls.length, 0);
 });
 
@@ -128,8 +128,9 @@ check('a non-allowlisted source URL collapses to the public landing page', () =>
 
 // --- no identifier leakage ------------------------------------------------
 check('conversion on an assessment route sends no path to the relay', () => {
-  const { fetchCalls } = setBrowser({ marketing: 'accepted', pathname: '/score/adaptive/MKFRS-2026-000123' });
+  const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'accepted', pathname: '/score/adaptive/MKFRS-2026-000123' });
   pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'MKFRS-2026-000123' });
+  assert.equal(fbqCalls.length, 0, 'browser Pixel must stay silent on a protected route');
   assert.equal(fetchCalls.length, 1);
   const payload = JSON.stringify(fetchCalls[0].body);
   assert.equal(fetchCalls[0].body.sourcePath, undefined);
@@ -209,10 +210,10 @@ check('browser and server copies of one Lead share event name and event ID', () 
 
 check('a replayed completion reuses the same event ID and does not re-fire', () => {
   const { fbqCalls, fetchCalls } = setBrowser({ marketing: 'accepted' });
-  assert.equal(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'C2' }), true);
+  assert.deepEqual(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'C2' }), { browser: true, server: true });
   const firstId = fbqCalls[0][3].eventID;
   // Second attempt for the same completion: suppressed locally.
-  assert.equal(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'C2' }), false);
+  assert.deepEqual(pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'C2' }), { browser: false, server: false });
   assert.equal(fbqCalls.length, 1);
   assert.equal(fetchCalls.length, 1);
   // And the ID minted for that completion is stable, so any later resend deduplicates.
@@ -258,7 +259,7 @@ check('blocked localStorage yields no consent and no send', () => {
     location: { pathname: '/fraud-readiness' },
   };
   assert.equal(consent.readMarketingConsent(), 'unset');
-  assert.equal(pixel.isMetaPixelEnabled(), false);
+  assert.equal(pixel.isMetaEnabled(), false);
 });
 
 await checkAsync('unconfigured CAPI credentials skip the send without throwing', async () => {
@@ -373,6 +374,115 @@ await checkAsync('conversions fire only after a successful server response', asy
   assert.ok(snapshotGuard > -1 && leadIndex > snapshotGuard, 'Lead must sit after the completion guard');
   // Purchase and CompleteRegistration are deliberately not used for a free assessment.
   assert.doesNotMatch(experience, /Purchase|CompleteRegistration/);
+});
+
+
+// --- SPA route privacy: fbq outlives the component that inserted it ----------
+// Regression for the defect where a client-side navigation from a public page into an
+// identifier-bearing /score/* route left window.fbq defined and able to transmit. Meta's
+// fbevents.js attaches the current document URL to every event, so a browser Lead fired
+// from /score/snapshot/<ref> would have leaked that URL.
+
+await checkAsync('SPA: Pixel loaded on the landing page must not fire from /score/*', async () => {
+  const routes2 = routes;
+  // 1-3. Consent granted and the Pixel initialised while on the public landing page.
+  const ctx = setBrowser({ marketing: 'accepted', pathname: '/fraud-readiness' });
+  assert.equal(pixel.isBrowserPixelEventAllowed(), true);
+  assert.equal(typeof global.window.fbq, 'function', 'fbq must still be defined');
+
+  // 4. Client-side navigation into an identifier-bearing assessment route. The component
+  //    unmounts but the fbq global persists in page context.
+  global.window.location.pathname = '/score/snapshot/MKFRS-2026-000123';
+  assert.equal(typeof global.window.fbq, 'function', 'fbq survives the navigation');
+  assert.equal(pixel.isBrowserPixelEventAllowed(), false, 'browser gate must now be closed');
+
+  // 5. Lead fires on the completion path.
+  const result = pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'SPA-1' });
+
+  // Browser suppressed, server copy still sent.
+  assert.deepEqual(result, { browser: false, server: true });
+  assert.equal(ctx.fbqCalls.length, 0, 'fbq Lead calls must be ZERO');
+  assert.equal(ctx.fetchCalls.length, 1, 'CAPI relay calls must be ONE');
+
+  const body = ctx.fetchCalls[0].body;
+  assert.equal(body.eventName, 'Lead');
+  assert.match(body.eventId, eventId.OPAQUE_EVENT_ID_RE);
+
+  const payload = JSON.stringify(body);
+  assert.doesNotMatch(payload, /MKFRS/i, 'no assessment/Snapshot reference may travel');
+  assert.doesNotMatch(payload, /\/score|snapshot/i, 'no protected path may travel');
+  assert.equal(body.sourcePath, undefined, 'a protected path is omitted entirely');
+
+  // The event source Meta finally receives resolves to the safe public landing page.
+  const resolved = routes2.safeEventSourceUrl(body.sourcePath ?? routes2.META_LANDING_PATH, 'https://www.mkfraud.co.za');
+  assert.equal(resolved, 'https://www.mkfraud.co.za/fraud-readiness');
+  const built = capi.buildMetaEventPayload({
+    eventName: 'Lead', eventId: body.eventId, eventSourceUrl: resolved,
+  }, 1788458826607);
+  assert.equal(built.data[0].event_source_url, 'https://www.mkfraud.co.za/fraud-readiness');
+  assert.doesNotMatch(JSON.stringify(built), /MKFRS|\/score|snapshot/i);
+});
+
+await checkAsync('SAFE START: browser and server both fire with a matching event ID', async () => {
+  const ctx = setBrowser({ marketing: 'accepted', pathname: '/fraud-readiness' });
+  const result = pixel.trackMetaConversion(events.META_EVENT_ASSESSMENT_START, events.ASSESSMENT_START_PARAMS, { scope: 'SAFE-START' });
+
+  assert.deepEqual(result, { browser: true, server: true });
+  assert.equal(ctx.fbqCalls.length, 1, 'browser fraud_readiness_start = 1');
+  assert.equal(ctx.fetchCalls.length, 1, 'CAPI fraud_readiness_start = 1');
+
+  const [kind, name, params, opts] = ctx.fbqCalls[0];
+  assert.equal(kind, 'trackCustom');
+  assert.equal(name, 'fraud_readiness_start');
+  assert.deepEqual(Object.keys(params).sort(), ['content_category', 'content_name']);
+
+  assert.equal(ctx.fetchCalls[0].body.eventName, 'fraud_readiness_start');
+  assert.equal(ctx.fetchCalls[0].body.eventId, opts.eventID, 'event IDs must match for dedup');
+  assert.equal(ctx.fetchCalls[0].body.sourcePath, '/fraud-readiness');
+});
+
+await checkAsync('PROTECTED START: CAPI only, no browser call', async () => {
+  const ctx = setBrowser({ marketing: 'accepted', pathname: '/score/start' });
+  const result = pixel.trackMetaConversion(events.META_EVENT_ASSESSMENT_START, events.ASSESSMENT_START_PARAMS, { scope: 'PROT-START' });
+
+  assert.deepEqual(result, { browser: false, server: true });
+  assert.equal(ctx.fbqCalls.length, 0, 'browser calls = 0');
+  assert.equal(ctx.fetchCalls.length, 1, 'CAPI = 1');
+  assert.equal(ctx.fetchCalls[0].body.sourcePath, undefined);
+  assert.doesNotMatch(JSON.stringify(ctx.fetchCalls[0].body), /\/score/i);
+});
+
+await checkAsync('NO CONSENT on a protected route: neither browser nor CAPI fires', async () => {
+  const ctx = setBrowser({ marketing: 'unset', pathname: '/score/snapshot/MKFRS-2026-000123' });
+  const result = pixel.trackMetaConversion(events.META_EVENT_LEAD, events.LEAD_PARAMS, { scope: 'NOCONSENT' });
+
+  assert.deepEqual(result, { browser: false, server: false });
+  assert.equal(ctx.fbqCalls.length, 0, 'browser = 0');
+  assert.equal(ctx.fetchCalls.length, 0, 'CAPI = 0');
+});
+
+await checkAsync('the browser and server gates are genuinely independent', async () => {
+  // A protected route closes only the browser gate.
+  setBrowser({ marketing: 'accepted', pathname: '/score/adaptive/MKFRS-2026-000999' });
+  assert.equal(pixel.isBrowserPixelEventAllowed(), false);
+  assert.equal(pixel.isMetaEnabled(), true, 'enablement must not depend on the route');
+  assert.equal(pixel.sendMetaServerCopy('Lead', '3f2504e0-4f89-11d3-9a0c-0305e82c3301'), true);
+
+  // Withdrawn consent closes both.
+  setBrowser({ marketing: 'declined', pathname: '/fraud-readiness' });
+  assert.equal(pixel.isMetaEnabled(), false);
+  assert.equal(pixel.isBrowserPixelEventAllowed(), false);
+  assert.equal(pixel.sendMetaServerCopy('Lead', '3f2504e0-4f89-11d3-9a0c-0305e82c3301'), false);
+});
+
+await checkAsync('a protected-route conversion is never suppressed by an early return', async () => {
+  const src = await readSource('src/lib/website/meta/pixel.ts');
+  const body = src.slice(src.indexOf('export function trackMetaConversion'));
+  const browserAt = body.indexOf('const browser = trackMetaEvent');
+  const serverAt = body.indexOf('const server = sendMetaServerCopy');
+  assert.ok(browserAt > -1 && serverAt > browserAt, 'server copy must follow the browser copy');
+  // No return may sit between the two gates.
+  assert.doesNotMatch(body.slice(browserAt, serverAt), /return/);
 });
 
 console.log(`Meta tracking checks: ${checks} checks passed`);
