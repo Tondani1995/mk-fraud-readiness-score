@@ -18,7 +18,11 @@
 import { serverEventParams, type MetaServerEvent } from "@/lib/website/meta/events";
 
 const GRAPH_API_VERSION = "v21.0";
-const REQUEST_TIMEOUT_MS = 2500;
+// A cold serverless invocation pays TLS setup to graph.facebook.com before Meta even
+// starts work, and 2.5s was tight enough to abort legitimate deliveries. The relay is
+// fire-and-forget from the browser's point of view (keepalive), so a longer bound costs
+// the customer nothing while still guaranteeing the function cannot hang.
+const REQUEST_TIMEOUT_MS = 8000;
 
 export type MetaCapiResult =
     | { ok: true; status: "sent" }
@@ -113,6 +117,16 @@ export function buildMetaEventPayload(input: MetaServerEventInput, now: number =
  * Sends one server event. Never throws and never rejects: all failures are returned as a
  * result so the calling route can respond successfully regardless of Meta's availability.
  */
+/**
+ * Records a delivery failure. Only the short reason code is emitted -- never the payload,
+ * never Meta's response body, and never any credential -- so a silent total outage cannot
+ * masquerade as success while still keeping secrets out of the logs.
+ */
+function failure(reason: string): MetaCapiResult {
+    console.warn("meta_capi_delivery_failed", { reason });
+    return { ok: false, status: "failed", error: reason };
+}
+
 export async function sendMetaServerEvent(input: MetaServerEventInput): Promise<MetaCapiResult> {
     const dataset = datasetId();
     const token = accessToken();
@@ -139,12 +153,12 @@ export async function sendMetaServerEvent(input: MetaServerEventInput): Promise<
 
         if (!response.ok) {
             // Status only. Meta error bodies can echo request content, so they are not logged.
-            return { ok: false, status: "failed", error: `meta_capi_http_${response.status}` };
+            return failure(`meta_capi_http_${response.status}`);
         }
         return { ok: true, status: "sent" };
     } catch (error) {
-        const reason = error instanceof Error && error.name === "AbortError" ? "timeout" : "network";
-        return { ok: false, status: "failed", error: `meta_capi_${reason}` };
+        const cause = error instanceof Error && error.name === "AbortError" ? "timeout" : "network";
+        return failure(`meta_capi_${cause}`);
     } finally {
         clearTimeout(timeout);
     }

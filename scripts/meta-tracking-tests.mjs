@@ -587,4 +587,35 @@ await checkAsync('the built client bundle contains neither server secret name', 
   console.log(`     (scanned ${jsFiles.length} client chunks)`);
 });
 
+
+await checkAsync('a CAPI delivery failure is logged as a reason code, never silently', async () => {
+  process.env.META_DATASET_ID = 'test-dataset';
+  process.env.META_CAPI_ACCESS_TOKEN = 'super-secret-token-value';
+  process.env.META_TEST_EVENT_CODE = 'TEST99999';
+
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  global.fetch = () => Promise.reject(new Error('synthetic outage'));
+
+  const result = await capi.sendMetaServerEvent({
+    eventName: 'Lead', eventId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+    eventSourceUrl: 'https://www.mkfraud.co.za/fraud-readiness',
+  });
+  console.warn = realWarn;
+
+  assert.equal(result.ok, false);
+  assert.equal(warnings.length, 1, 'a delivery failure must be observable');
+  const serialised = JSON.stringify(warnings);
+  assert.match(serialised, /meta_capi_delivery_failed/);
+  assert.match(serialised, /meta_capi_network/);
+  // The log must never carry the credential or the test code.
+  assert.doesNotMatch(serialised, /super-secret-token-value/);
+  assert.doesNotMatch(serialised, /TEST99999/);
+
+  delete process.env.META_DATASET_ID;
+  delete process.env.META_CAPI_ACCESS_TOKEN;
+  delete process.env.META_TEST_EVENT_CODE;
+});
+
 console.log(`Meta tracking checks: ${checks} checks passed`);
