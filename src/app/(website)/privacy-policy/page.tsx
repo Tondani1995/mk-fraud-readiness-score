@@ -135,8 +135,12 @@ export default function PrivacyPolicy() {
                     text: "Our website uses cookies and similar tracking technologies to enhance your browsing experience, analyse website traffic, and understand usage patterns. Cookies are small text files stored on your device that help us remember your preferences and improve website functionality.",
                 },
                 {
+                    subtitle: "Advertising Measurement",
+                    text: "If you separately opt in to advertising measurement cookies, we use the Meta Pixel and Meta Conversions API to measure which campaigns bring organisations to our Fraud Readiness assessment. These run only after you opt in, and never on assessment, result, report, order or administrative pages. We send Meta only that a page was viewed, that an assessment was started, and that an assessment was completed. We never send Meta your name, email address, telephone number, your organisation's details, your assessment answers, your score, or any assessment, result or order reference.",
+                },
+                {
                     subtitle: "Cookie Control",
-                    text: "You can control cookie settings through your browser preferences. Note that disabling certain cookies may limit your ability to use some features of our website.",
+                    text: "You can control cookie settings through your browser preferences, and you can decline analytics or advertising cookies independently when we ask. If you withdraw advertising consent, advertising measurement stops for your subsequent activity and the associated cookies are cleared. Note that disabling certain cookies may limit your ability to use some features of our website.",
                 },
             ],
         },

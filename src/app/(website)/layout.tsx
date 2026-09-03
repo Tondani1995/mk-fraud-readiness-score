@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import GoogleAnalytics from '@/components/website/GoogleAnalytics';
 import CookieConsent from '@/components/website/CookieConsent';
+import MetaPixel from '@/components/website/MetaPixel';
 import JsonLd from '@/components/website/JsonLd';
 import {
   DEFAULT_DESCRIPTION,
@@ -48,6 +49,9 @@ export default function WebsiteLayout({ children }: { children: React.ReactNode 
       <JsonLd data={organizationJsonLd} />
       <Suspense fallback={null}>
         <GoogleAnalytics />
+      </Suspense>
+      <Suspense fallback={null}>
+        <MetaPixel />
       </Suspense>
       <a href="#website-main-content" className="sr-only z-50 rounded-md bg-white px-4 py-3 font-semibold text-mk-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-mk-brass focus:ring-offset-2">Skip to content</a>
       <div id="website-main-content" tabIndex={-1}>{children}</div>

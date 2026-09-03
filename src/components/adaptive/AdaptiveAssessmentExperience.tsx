@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { customerExplanationForNode } from '@/lib/adaptive/customer-explanations';
 import { trackEventBeforeNavigation } from '@/lib/website/gtag';
+import { trackMetaConversion } from '@/lib/website/meta/pixel';
+import { META_EVENT_LEAD, LEAD_PARAMS } from '@/lib/website/meta/events';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
@@ -326,6 +328,10 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       setSubmitted(true);
       setSaveState('saved');
       setSubmissionState('idle');
+      // A completed assessment is the primary Meta conversion. It fires only after the
+      // server persisted the completion and returned the private result link. No score,
+      // Snapshot ID, assessment ID or answer is included.
+      trackMetaConversion(META_EVENT_LEAD, LEAD_PARAMS, { scope: assessmentReference });
       trackEventBeforeNavigation(
         'fraud_readiness_completed',
         { flow: 'adaptive' },

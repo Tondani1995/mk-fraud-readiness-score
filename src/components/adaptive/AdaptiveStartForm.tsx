@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button';
 import { REQUIRED_LEGAL_ACCEPTANCE } from '@/lib/legal/fraud-readiness-terms';
 import { rememberProductIntent, type ProductIntent } from '@/lib/commercial/product-intent';
 import { trackEventBeforeNavigation } from '@/lib/website/gtag';
+import { trackMetaConversion } from '@/lib/website/meta/pixel';
+import { META_EVENT_ASSESSMENT_START, ASSESSMENT_START_PARAMS } from '@/lib/website/meta/events';
 
 export function AdaptiveStartForm({ productIntent = null }: { productIntent?: ProductIntent | null }) {
   const [form, setForm] = useState({ fullName: '', email: '', organisationName: '', roleTitle: '', consentResearch: false });
@@ -30,6 +32,12 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
     // Intent is remembered only once the assessment exists, and only as a browser-local preference
     // so the Snapshot selector can open on the tier the customer arrived with.
     rememberProductIntent(body.data?.assessmentReference ?? '', productIntent);
+    // Meta is told only that an assessment session was created, and only once the server
+    // confirmed it. The reference is used locally to keep the event ID stable across
+    // retries; it is never transmitted. Fire-and-forget, so GA4 still owns navigation.
+    trackMetaConversion(META_EVENT_ASSESSMENT_START, ASSESSMENT_START_PARAMS, {
+      scope: body.data?.assessmentReference ?? ''
+    });
     trackEventBeforeNavigation(
       'fraud_readiness_start',
       { flow: 'adaptive' },
