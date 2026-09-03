@@ -28,6 +28,7 @@ export type DeliveryAuthorization = {
   maxAttempts: number;
   nextAttemptAt: string | null;
   providerMessageId: string | null;
+  providerMode: string | null;
   revokedReason: string | null;
   authorisedAt: string;
   finalizedAt: string | null;
@@ -63,6 +64,7 @@ function mapAuthorization(row: Record<string, unknown>): DeliveryAuthorization {
   // shows the order needs attention. Kept in lockstep with that function deliberately: list and
   // detail-page delivery truth must agree.
   const emailOutcome = (row.email_events as { status?: string } | null)?.status;
+  const providerMode = (row.email_events as { provider_mode?: string | null } | null)?.provider_mode ?? null;
   const status = emailOutcome === 'bounced' || emailOutcome === 'complained' ? emailOutcome : String(row.status ?? '');
   return {
     id: String(row.id),
@@ -73,6 +75,7 @@ function mapAuthorization(row: Record<string, unknown>): DeliveryAuthorization {
     maxAttempts: Number(row.max_attempts ?? 5),
     nextAttemptAt: (row.next_attempt_at as string | null) ?? null,
     providerMessageId: (row.provider_message_id as string | null) ?? null,
+    providerMode,
     revokedReason: (row.revoked_reason as string | null) ?? null,
     authorisedAt: String(row.authorised_at ?? ''),
     finalizedAt: (row.finalized_at as string | null) ?? null
@@ -161,7 +164,7 @@ export async function getOrderDeliveryState(orderId: string): Promise<{
   const db = createSupabaseServiceClient() as any;
   const [authorizationsResult, tokensResult, latestExceptionEventResult] = await Promise.all([
     db.from('report_delivery_authorizations')
-      .select('id,report_id,recipient_email,status,retry_count,max_attempts,next_attempt_at,provider_message_id,revoked_reason,authorised_at,finalized_at,email_events(status)')
+      .select('id,report_id,recipient_email,status,retry_count,max_attempts,next_attempt_at,provider_message_id,revoked_reason,authorised_at,finalized_at,email_events(status,provider_mode)')
       .eq('order_id', orderId).order('authorised_at', { ascending: false }),
     db.from('customer_report_access_tokens')
       .select('id,report_id,recipient_email,issued_at,expires_at,revoked_at,revoked_reason,last_accessed_at,access_count')

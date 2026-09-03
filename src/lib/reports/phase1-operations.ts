@@ -138,7 +138,7 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     // only ever sets the authorization itself to 'finalized' at send time; a later bounce or
     // complaint webhook (apply_email_provider_event_atomic()) only ever updates email_events.
     // Without this join, a bounced/complained order would keep showing as 'delivered' forever.
-    db.from('report_delivery_authorizations').select('order_id,status,authorised_at,email_events(status)')
+    db.from('report_delivery_authorizations').select('order_id,status,authorised_at,email_events(status,provider_mode)')
       .in('order_id', ids).order('authorised_at', { ascending: false })
   ])));
   const queryError = results.flatMap((result) => result).find((result) => result.error)?.error;

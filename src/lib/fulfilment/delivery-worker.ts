@@ -214,7 +214,9 @@ export async function processOneDelivery(db: any, options: {
     const { error: finalizeError } = await db.rpc('finalize_delivery', {
       p_authorization_id: authorization.id,
       p_lease_token: authorization.lease_token,
-      p_provider_message_id: providerMessageId
+      p_provider_message_id: providerMessageId,
+      p_provider_mode: sendResult.mode,
+      p_test_delivery: sendResult.mode === 'test'
     });
     if (finalizeError) {
       const { error: reconcileError } = await db.rpc(

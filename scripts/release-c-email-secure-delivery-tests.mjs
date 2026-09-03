@@ -73,6 +73,11 @@ const retryRoute = 'src/app/score/api/admin/orders/[orderReference]/delivery/ret
 const revokeRoute = 'src/app/score/api/admin/orders/[orderReference]/delivery/revoke-token/route.ts';
 const reissueRoute = 'src/app/score/api/admin/orders/[orderReference]/delivery/reissue-token/route.ts';
 const orderDetailPage = 'src/app/score/admin/orders/[orderReference]/page.tsx';
+const currentPathModeMigrationCandidates = fs.existsSync(path.join(root, 'supabase/migrations'))
+  ? fs.readdirSync(path.join(root, 'supabase/migrations')).filter((name) => name === '20260903055350_comprehensive_v2_revision_and_delivery_mode_persistence.sql')
+  : [];
+assert(currentPathModeMigrationCandidates.length === 1, 'Exactly one current-path delivery-mode migration file exists');
+const currentPathModeMigration = `supabase/migrations/${currentPathModeMigrationCandidates[0]}`;
 
 console.log('--- 1. Files exist ---');
 for (const file of [
@@ -152,6 +157,14 @@ assertIncludes(deliveryRecoveryService, ".update({", 'reissueAccessToken() persi
 console.log('--- 10. Admin UI surfaces the delivery/token state it now manages ---');
 assertIncludes(orderDetailPage, 'DeliveryAccessPanel', 'Order-detail page renders the new delivery/access panel');
 assertIncludes(orderDetailPage, 'getOrderDeliveryState', 'Order-detail page fetches report_delivery_authorizations/customer_report_access_tokens state');
+assertIncludes(currentPathModeMigration, 'p_provider_mode text', 'Current-path finalization accepts the actual provider mode');
+assertIncludes(currentPathModeMigration, 'p_test_delivery boolean', 'Current-path finalization accepts the explicit test-delivery flag');
+assertIncludes(currentPathModeMigration, "v_mode not in ('disabled', 'test', 'live')", 'Current-path finalization constrains provider mode to the supported vocabulary');
+assertIncludes(currentPathModeMigration, 'p_test_delivery is distinct from (v_mode = \'test\')', 'Current-path finalization rejects a mode/test flag mismatch');
+assertIncludes('src/lib/fulfilment/delivery-worker.ts', 'p_provider_mode: sendResult.mode', 'The worker persists the actual sendEmail() mode');
+assertIncludes('src/lib/fulfilment/delivery-worker.ts', "p_test_delivery: sendResult.mode === 'test'", 'The worker persists test mode as an explicit boolean');
+assertIncludes(deliveryRecoveryService, 'email_events(status,provider_mode)', 'The admin delivery read model loads the persisted provider mode');
+assertIncludes(deliveryAccessPanel, 'auth.providerMode', 'The admin delivery panel displays the persisted provider mode');
 
 console.log('--- 11. No fabricated customer data anywhere in the new code ---');
 const allNewSources = [

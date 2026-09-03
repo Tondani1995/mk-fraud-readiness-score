@@ -15,6 +15,7 @@ export type DeliveryAuthorizationProps = {
   maxAttempts: number;
   nextAttemptAt: string | null;
   providerMessageId: string | null;
+  providerMode: string | null;
   revokedReason: string | null;
   authorisedAt: string;
 };
@@ -153,7 +154,7 @@ export function DeliveryAccessPanel(props: Props) {
                 <Badge>{cleanStatus(auth.status)}</Badge>
                 <span className="text-mk-muted">{dateTime(auth.authorisedAt)}</span>
               </div>
-              <p className="mt-2 text-mk-muted">Retry {auth.retryCount}/{auth.maxAttempts}{auth.providerMessageId ? ` · Provider message ${auth.providerMessageId}` : ''}</p>
+              <p className="mt-2 text-mk-muted">Mode {auth.providerMode ?? 'not recorded'} · Retry {auth.retryCount}/{auth.maxAttempts}{auth.providerMessageId ? ` · Provider message ${auth.providerMessageId}` : ''}</p>
               {auth.nextAttemptAt ? <p className="mt-1 text-xs text-mk-muted">Next attempt: {dateTime(auth.nextAttemptAt)}</p> : null}
               {auth.revokedReason ? <p className="mt-2 text-mk-danger">{auth.revokedReason}</p> : null}
             </div>
