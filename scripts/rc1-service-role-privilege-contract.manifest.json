@@ -1230,14 +1230,6 @@
       ]
     },
     {
-      "signature": "public.rc1_freeze_status()",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/rc1/operation-freeze.ts:58"
-      ]
-    },
-    {
       "signature": "public.record_automatic_fulfilment_exception(uuid,uuid,text,text,text,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1573,7 +1565,7 @@
     ]
   },
   "storageApiOnly": [
-    "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+        "src/app/score/api/internal/phase14-storage-cleanup/route.ts:47",
     "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:466",
     "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:490",
     "src/app/score/api/qa/recovery-v10-v12-vhutshilo/route.ts:503",
@@ -1585,8 +1577,8 @@
     "src/lib/comprehensive/package-registration.ts:54",
     "src/lib/comprehensive/package-registration.ts:91",
     "src/lib/comprehensive/package-registration.ts:95",
-    "src/lib/rc1/control-plane.ts:503",
-    "src/lib/rc1/control-plane.ts:509",
+        "src/lib/rc1/control-plane.ts:481",
+        "src/lib/rc1/control-plane.ts:487",
     "src/lib/reports/customer-report-access.ts:236",
     "src/lib/reports/customer-report-access.ts:290",
     "src/lib/reports/customer-report-access.ts:338",
@@ -1594,8 +1586,8 @@
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
     "src/lib/reports/phase1-manual-fulfilment.ts:343",
-    "src/lib/reports/phase1-manual-fulfilment.ts:766",
-    "src/lib/reports/phase1-manual-fulfilment.ts:944",
+        "src/lib/reports/phase1-manual-fulfilment.ts:784",
+        "src/lib/reports/phase1-manual-fulfilment.ts:962",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/premium-report-service-core.ts:731",
     "src/lib/reports/private-report-access.ts:56",
@@ -1632,7 +1624,7 @@
       ,"src/lib/commercial/customer-order-status.ts"
     ],
     "nonServiceCallSites": [
-      "src/lib/rc1/control-plane.ts:96:rpc",
+      "src/lib/rc1/control-plane.ts:90:rpc",
       "src/lib/reports/automation/fulfilment.ts:109:from",
       "src/lib/reports/automation/fulfilment.ts:130:rpc",
       "src/lib/reports/automation/fulfilment.ts:58:rpc",
@@ -1661,7 +1653,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "518263f2916c194965415d966271050a24371fd5c5614958a6b1ee0d9d123648"
+    "fullAstInventorySha256": "85796e3918e3b7653610dedbd46b12b71cc8126b0ba2de4675cd383c684aef25"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",

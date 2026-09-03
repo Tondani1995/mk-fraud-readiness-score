@@ -1,0 +1,125 @@
+name: Comprehensive V1.2 Engine Quality
+
+on:
+  push:
+    branches:
+      - work/comprehensive-report-quality-20260901
+    paths:
+      - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - src/lib/reports/design/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/render-pdf.ts
+      - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs
+      - scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
+      - scripts/commercial-quality/layout-fit-gate.mjs
+      - .github/workflows/comprehensive-v12-engine-quality.yml
+      - src/lib/reports/comprehensive/**
+      - src/lib/reports/evidence-model/**
+      - src/lib/reports/essential-projection.ts
+      - src/lib/reports/narrative/fact-pack.ts
+      - src/lib/scoring/**
+      - src/lib/adaptive/**
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/lib/qa/comprehensive-v12-quality-profiles.ts
+      - src/lib/reports/design/**
+      - src/lib/reports/narrative/**
+      - src/lib/reports/render-pdf.ts
+      - scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+      - scripts/commercial-quality/comprehensive-v12-narrative-architecture-gate.mjs
+      - scripts/commercial-quality/comprehensive-recovery-behaviour-tests.mjs
+      - scripts/commercial-quality/comprehensive-brand-regression.mjs
+      - scripts/commercial-quality/comprehensive-current-path-acceptance-gate.mjs
+      - scripts/commercial-quality/comprehensive-current-layout-composition-gate.mjs
+      - scripts/commercial-quality/comprehensive-customer-copy-leakage-gate.mjs
+      - scripts/commercial-quality/comprehensive-motheo-terra-fixture.md
+      - scripts/commercial-quality/layout-fit-gate.mjs
+      - .github/workflows/comprehensive-v12-engine-quality.yml
+      - src/lib/reports/comprehensive/**
+      - src/lib/reports/evidence-model/**
+      - src/lib/reports/essential-projection.ts
+      - src/lib/reports/narrative/fact-pack.ts
+      - src/lib/scoring/**
+      - src/lib/adaptive/**
+
+permissions:
+  contents: read
+
+jobs:
+  engine-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PDF inspection tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Prove current V1.2 truth reaches frozen Comprehensive engine
+        env:
+          CERT_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/comprehensive-v12-engine-quality-gate.mjs
+
+      - name: Render and stress-test V1.2 Comprehensive PDFs
+        env:
+          CERT_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality
+          PDF_OUTPUT_DIR: outputs/comprehensive-v12-pdf-quality
+        run: >
+          node
+          --experimental-strip-types
+          --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs
+          scripts/commercial-quality/comprehensive-v12-pdf-quality-gate.mjs
+
+      - name: Prove Essential-authority MK branding parity
+        run: npm run v11:comprehensive-brand-regression
+
+      - name: Render provider-free current A-F owner-review PDFs
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-current-path
+
+      - name: Reject customer-copy report-engine leakage
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-customer-copy-leakage
+
+      - name: Reject orphaned and underfilled PDF composition
+        env:
+          CURRENT_COMPREHENSIVE_OUTPUT_DIR: outputs/comprehensive-v12-engine-quality/current-path
+        run: npm run v11:comprehensive-current-layout
+
+      - name: Upload quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-v12-engine-quality
+          path: |
+            outputs/comprehensive-v12-engine-quality
+            outputs/comprehensive-v12-pdf-quality
+          if-no-files-found: warn
+          retention-days: 30

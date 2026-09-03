@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { submitComprehensiveEvidence } from '@/lib/comprehensive/evidence-service';
 import { EVIDENCE_MAX_BYTES } from '@/lib/commercial/evidence-policy';
@@ -22,9 +21,6 @@ function deny(errors: string[], status: number) {
 
 export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
   const params = await props.params;
-  const frozen = await getRc1OperationFreezeResponse('assessment_write');
-  if (frozen) return frozen;
-
   const contentType = request.headers.get('content-type') ?? '';
   if (!contentType.includes('multipart/form-data')) {
     return deny(['Evidence must be submitted as a multipart form upload.'], 415);

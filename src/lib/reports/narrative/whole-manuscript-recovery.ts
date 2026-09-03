@@ -25,6 +25,9 @@ export interface WholeManuscriptRecoveryInput {
   regenerate?: () => Promise<WholeManuscriptTextResult>;
   escalateQuality?: () => Promise<WholeManuscriptTextResult>;
   runCoherence?: boolean;
+  /** Comprehensive keeps hard-truth validation fail-closed; Essential retains its legacy
+   * bounded local assurance repair when this flag is omitted. */
+  strictHardTruth?: boolean;
 }
 
 export interface WholeManuscriptRecoveryResult {
@@ -215,15 +218,25 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
       return { markdown: candidate.markdown, parsed: checked.parsed, validation: checked.validation, writerMetadata: candidate.writerMetadata, recovery, repairRecords, rejectedCandidateDirectories, coherenceUsed: Boolean(input.runCoherence) };
     }
 
-    const targetIssue = hardIssues[0];
+    const semanticIssues = checked.validation.repairableSemantic.issues;
+    const targetIssue = hardIssues[0] ?? semanticIssues[0];
     const target = targetIssue ? sectionForPath(checked.parsed, input.blueprint, targetIssue.path) : null;
-    const localEligible = Boolean(target && targetIssue && localAssuranceEligible(checked.validation, checked.parsed));
+    const localEligible = Boolean(target && targetIssue && (semanticIssues.includes(targetIssue) || localAssuranceEligible(checked.validation, checked.parsed)));
     const issueCode = targetIssue?.code ?? (qualityFailure ? 'repetition' : 'malformed_manuscript');
     const classified = classifyNarrativeRecoveryIssue({ code: issueCode, localSemanticEligible: localEligible });
     sequence += 1;
-    rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: hardIssues.map((issue) => issue.path), matchedPhrases: target && targetIssue ? [matchedPhraseFor(target.targetText, targetIssue.code)].filter((value): value is string => Boolean(value)) : [], recovery, sequence }));
+    rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: [...hardIssues, ...semanticIssues].map((issue) => issue.path), matchedPhrases: target && targetIssue ? [matchedPhraseFor(target.targetText, targetIssue.code)].filter((value): value is string => Boolean(value)) : [], recovery, sequence }));
 
-    const decision = recoveryDecision({ budget: recovery, issueSeverity: classified.severity === 'HARD_TRUTH_FAILURE' ? 'HARD_TRUTH_FAILURE' : classified.severity === 'QUALITY_FAILURE' ? 'QUALITY_FAILURE' : 'REPAIRABLE_SEMANTIC_FAILURE', issueScope: recovery.targetedRepairCount === 0 ? 'block' : recovery.targetedRepairCount === 1 ? 'adjacent' : recovery.targetedRepairCount === 2 ? 'subsection' : 'section', fullGenerationRejected: classified.severity !== 'QUALITY_FAILURE' });
+    if (input.strictHardTruth && hardIssues.length > 0) {
+      throw new WholeManuscriptRecoveryError('human_review_required', 'A hard-truth validation failure cannot be auto-repaired on the Comprehensive path.', { validation: checked.validation, recovery, rejectedCandidateDirectories });
+    }
+
+    const decisionSeverity = (input.strictHardTruth && hardIssues.length > 0) || classified.severity === 'HARD_TRUTH_FAILURE'
+      ? 'HARD_TRUTH_FAILURE'
+      : classified.severity === 'QUALITY_FAILURE'
+        ? 'QUALITY_FAILURE'
+        : 'REPAIRABLE_SEMANTIC_FAILURE';
+    const decision = recoveryDecision({ budget: recovery, issueSeverity: decisionSeverity, issueScope: recovery.targetedRepairCount === 0 ? 'block' : recovery.targetedRepairCount === 1 ? 'adjacent' : recovery.targetedRepairCount === 2 ? 'subsection' : 'section', fullGenerationRejected: classified.severity !== 'QUALITY_FAILURE' });
     if (decision.action === 'TARGETED_REPAIR') {
       if (!target || !targetIssue) throw new WholeManuscriptRecoveryError('repair_target_unavailable', 'A repairable validation issue did not resolve to a deterministic Blueprint prose block.');
       const scope = decision.scope as WholeManuscriptRepairInput['scope'];

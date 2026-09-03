@@ -110,10 +110,14 @@ record('T7', 'Comprehensive manual path reuses the certified pipeline without du
   missing.length === 0 && !duplicates,
   missing.length ? `missing ${missing.join(',')}` : duplicates ? 'contains its own markup' : 'composition only');
 
-// T8 — repairs are additional paid calls and are not authorised by default.
-record('T8', 'Comprehensive manual path defaults to a single provider call',
-  /maxRepairsPerSlot: input\.maxRepairsPerSlot \?\? 0/.test(manual),
-  'maxRepairsPerSlot defaults to 0');
+// T8 — Comprehensive uses the same bounded recovery safety-net philosophy as
+// Essential. Fulfilment must not override the recovery budget down to one call
+// or expose a caller-controlled expansion knob.
+record('T8', 'Comprehensive manual path delegates to bounded shared recovery',
+  /generateComprehensiveInterpretation\([\s\S]*buildInterpretationBrief\(/.test(manual)
+    && !/maxRepairsPerSlot/.test(manual)
+    && /assertComprehensiveInterpretationAccepted\(interpretationRun\)/.test(manual),
+  'shared bounded recovery is used and the stale zero-repair override is absent');
 
 const failures = results.filter((entry) => entry.result === 'FAIL');
 const summary = {

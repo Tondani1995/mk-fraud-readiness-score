@@ -2,7 +2,8 @@ import crypto, { randomUUID } from 'node:crypto';
 import { assembleReportData } from '@/lib/reports/assemble-report-data';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardReadoutHtml, renderComprehensiveReportHtml, renderWorkshopMaterialHtml } from '@/lib/reports/comprehensive';
+import { fromAssembledReportData, renderBoardReadoutHtml, renderWorkshopMaterialHtml } from '@/lib/reports/comprehensive';
+import { renderComprehensiveReportPdf } from '@/lib/reports/comprehensive/manual-generation';
 import { buildComprehensiveRegisterWorkbookBytes } from '@/lib/reports/comprehensive/workbook-builder';
 import { registerComprehensivePackageAtomically, type AtomicPackageUpload } from './package-registration';
 import { getEngagementByOrderReference, canReadComprehensiveEngagement } from './engagement-service';
@@ -59,10 +60,14 @@ export async function generateComprehensivePackage(input: {
   try {
     const assembled = await assembleReportData(input.orderReference);
     const model = await fromAssembledReportData(assembled);
-    // Explicitly build the bounded projection before rendering so the production path cannot
-    // accidentally render an unbounded analytical universe.
-    buildComprehensiveDeliveryModel(model.analytical);
-    const reportPdf = await renderHtmlToPdfBuffer(renderComprehensiveReportHtml(model));
+    // The primary customer report is composed only through the current
+    // Fact Pack -> Story Plan -> Blueprint -> whole-manuscript path. The
+    // retired six-slot HTML renderer remains exported for historical fixture
+    // compatibility, but is not an active fulfilment route.
+    const reportPdf = (await renderComprehensiveReportPdf({
+      assembled,
+      evidenceModel: model.analytical.evidenceModel
+    })).pdf;
     const boardPdf = await renderHtmlToPdfBuffer(renderBoardReadoutHtml(model));
     const workshopPdf = await renderHtmlToPdfBuffer(renderWorkshopMaterialHtml(model));
     const registerXlsx = await buildComprehensiveRegisterWorkbookBytes(model);

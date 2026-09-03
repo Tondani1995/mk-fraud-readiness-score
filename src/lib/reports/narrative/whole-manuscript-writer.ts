@@ -2,14 +2,15 @@ import { generateText } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
-import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
+import { NarrativeWriterUnavailableError, type WholeManuscriptProviderCallLedger, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
 import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
+import type { WholeManuscriptWriterContext } from './report-blueprint';
 
-export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
+export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v2-premium-synthesis';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
@@ -23,7 +24,17 @@ function requireProvider(model = selectNarrativeModel().requestedModel): { model
   return { model, provider: providerFromModel(model) };
 }
 
-function generationPrompt(input: WholeManuscriptWriterInput): string {
+function writerBoundaryPayload(context: WholeManuscriptWriterContext): Record<string, unknown> {
+  return {
+    assuranceInstruction: 'Never state or imply that MK, the assessment, this report or an external reviewer independently verified, validated, tested, confirmed or assured the operating effectiveness of the organisation controls.',
+    customerBoundaryPlacement: 'Use the single customer-facing assurance limitation supplied in the Blueprint assessment position once in the Executive assessment section. Do not repeat that limitation in later sections.',
+    customerLanguage: context.boundaries?.customerLanguage ?? [],
+    prohibitedClaims: context.boundaries?.prohibitedClaims ?? [],
+    sourceOfTruth: context.boundaries?.sourceOfTruth
+  };
+}
+
+export function buildWholeManuscriptGenerationPrompt(input: WholeManuscriptWriterInput): string {
   const skeleton = buildBlueprintMarkdownSkeleton(input.blueprint);
   return [
     'Write the complete MK Fraud Readiness v1.1 advisory manuscript as Markdown.',
@@ -31,6 +42,17 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     'The deterministic Blueprint owns every chapter, section, subsection, order, analytical role, required fact, management takeaway and exhibit. Write only narrative beneath the existing headings in the exact skeleton below.',
     'Do not remove, rename, add or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata outside the skeleton. Do not repeat the executive judgement as a new opening in later chapters. Use connected professional prose with natural transitions. Separate diagnosis, evidence, exposure, target state, response, implementation and conclusion by their assigned Blueprint roles.',
     'Use only the deterministic Fact Pack and the permitted claim references assigned to each Blueprint section. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance. Do not claim that MK, the assessment or the report independently verified operating effectiveness. Customer control design may describe what management should independently review or verify.',
+    'ASSURANCE BOUNDARY. The restriction applies to every chapter. Use the Blueprint assessment position for the one customer-facing limitation in the Executive assessment section; do not repeat the limitation as a recurring disclaimer elsewhere.',
+    ...(input.blueprint.reportTier === 'comprehensive' ? [
+      'COMPREHENSIVE DEPTH. This is the premium automated management report. The reader is paying for interpretation, synthesis and a coherent management view, not for a narrated scorecard or register.',
+      'Lead each chapter with the management judgement supported by the authorised facts, then explain the relationships and implications that make that judgement useful. Do not walk through deterministic objects one by one.',
+      'SECTION CONTRIBUTION CONTRACT. For each section, answer its supplied management question and make its supplied primary contribution. Do not restate a contribution that the section marks as prohibited; move the story forward by adding a new consequence, choice, test or implementation gate.',
+      'PREMIUM SYNTHESIS. Establish the operating context and question-level evidence pattern once in Analytical basis. In later sections use only the supported pathway, control, decision or roadmap object that changes that section\'s management answer. Do not replay the context inventory, score shape or a prior implication.',
+      'KEEP OBJECT TYPES DISTINCT. Enterprise findings, exposure pathways, resilience tests, critical reliance, target controls, leadership decisions and implementation actions have different jobs. Do not use a generic control or priority paragraph to stand in for another object type.',
+      'ANTI-REPETITION. Do not repeat identical owner, cadence, indicator, proof or trigger lists. If several question signals support one priority, synthesise them once and state their management meaning; do not manufacture additional weaknesses or priorities.',
+      'Use positive assessed capability positively. A strong or Sustainment position must read as a strong position. Do not manufacture a weakness, concern or caution merely to create balance or drama.',
+      'Where a deterioration watchpoint is authorised, describe it as a future condition to monitor, not as a current failure. Detailed registers, field mechanics and traceability belong in the companion workbook, not in the prose.'
+    ] : []),
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
@@ -49,7 +71,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     JSON.stringify(input.context.permittedDeterministicFacts),
     '',
     'BOUNDARIES AND STYLE',
-    JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+    JSON.stringify({ boundaries: writerBoundaryPayload(input.context), style: input.context.style })
   ].join('\n');
 }
 
@@ -60,6 +82,8 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     '',
     'This is a bounded technical truncation recovery. The existing manuscript is preserved. If the preceding context ends mid-sentence, complete only that interrupted sentence under the current final heading; then emit each missing deterministic heading exactly once, followed by its narrative. Do not rewrite, repeat or summarise any complete existing paragraph.',
     'Do not add, rename or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata. Use only the deterministic Fact Pack and permitted claim references. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance.',
+    'SECTION CONTRIBUTION CONTRACT. Answer each section\'s management question and make its primary contribution once. Do not repeat the prior section\'s contribution, operating-context inventory or management implication.',
+    'KEEP OBJECT TYPES DISTINCT. Use only the supplied object type assigned to each missing section. Do not substitute a generic control, priority or context paragraph for an exposure pathway, resilience test, decision or roadmap action.',
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
@@ -83,7 +107,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     JSON.stringify(input.context.permittedDeterministicFacts),
     '',
     'BOUNDARIES AND STYLE',
-    JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+    JSON.stringify({ boundaries: writerBoundaryPayload(input.context), style: input.context.style })
   ].join('\n');
 }
 
@@ -149,11 +173,14 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   private readonly providerCallBudget: number;
   private providerCallsUsed = 0;
 
-  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}) {
+  private readonly providerCallLedger?: WholeManuscriptProviderCallLedger;
+
+  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; providerCallLedger?: WholeManuscriptProviderCallLedger } = {}) {
     const resolved = requireProvider(model);
     this.provider = resolved.provider;
     this.model = resolved.model;
     this.providerCallBudget = options.providerCallBudget ?? Number.POSITIVE_INFINITY;
+    this.providerCallLedger = options.providerCallLedger;
   }
 
   /** Charged immediately before every provider request. */
@@ -163,16 +190,20 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       (error as { code?: string }).code = 'provider_call_budget_exhausted';
       throw error;
     }
+    // The local ceiling protects legacy callers. The shared ledger is charged
+    // first only after the local ceiling has passed, so a rejected local call
+    // cannot consume a global slot.
+    this.providerCallLedger?.claim(kind);
     this.providerCallsUsed += 1;
   }
 
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
-    const prompt = generationPrompt(input);
+    const prompt = buildWholeManuscriptGenerationPrompt(input);
     this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never imply that MK, the assessment or the report independently verified operating effectiveness. Use the single Blueprint assurance limitation once in the Executive assessment section. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,
@@ -399,6 +430,6 @@ function parseCostMicros(response: any): number {
   return Number.isFinite(numericCost) ? Math.round(numericCost * 1_000_000) : 0;
 }
 
-export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}): WholeManuscriptWriter {
+export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; providerCallLedger?: WholeManuscriptProviderCallLedger } = {}): WholeManuscriptWriter {
   return new V11WholeManuscriptWriter(model, options);
 }

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { NarrativeFactPack } from './fact-pack';
 import type { ReportBlueprint } from './report-blueprint';
 import { classifyAssuranceLanguage } from './validation';
@@ -53,12 +54,38 @@ export function classifyWholeManuscriptGeneration(input: {
 export interface BlueprintTextBlock {
   text: string;
   permittedClaimRefs: string[];
+  provenance?: NarrativeParagraphProvenance;
+}
+
+/** Internal-only binding record. It is never rendered as customer-facing prose. */
+export interface NarrativeParagraphProvenance {
+  chapterId: string;
+  sectionId: string;
+  subsectionId?: string;
+  paragraphIndex: number;
+  authorisedClaimRefs: string[];
+  blueprintSectionId: string;
+  factPackSha256?: string;
+  blueprintSha256?: string;
+  generationId?: string;
+}
+
+export interface NarrativeHeadingProvenance {
+  chapterId: string;
+  sectionId?: string;
+  subsectionId?: string;
+  blueprintSectionId?: string;
+  authorisedClaimRefs: string[];
+  factPackSha256?: string;
+  blueprintSha256?: string;
+  generationId?: string;
 }
 
 export interface BlueprintTextSubsection {
   subsectionId: string;
   title: string;
   paragraphs: BlueprintTextBlock[];
+  headingProvenance?: NarrativeHeadingProvenance;
 }
 
 export interface BlueprintTextSection {
@@ -68,12 +95,14 @@ export interface BlueprintTextSection {
   paragraphs: BlueprintTextBlock[];
   subsections: BlueprintTextSubsection[];
   permittedClaimRefs: string[];
+  headingProvenance?: NarrativeHeadingProvenance;
 }
 
 export interface BlueprintTextChapter {
   chapterId: string;
   title: string;
   sections: BlueprintTextSection[];
+  headingProvenance?: NarrativeHeadingProvenance;
 }
 
 export interface ParsedBlueprintMarkdown {
@@ -100,6 +129,46 @@ export interface TextFirstValidationReport {
   sectionCount: number;
   subsectionCount: number;
   paragraphCount: number;
+}
+
+/**
+ * Customer-copy boundary for the manuscript surface. These expressions are
+ * intentionally structural rather than pixel or wording snapshots: the
+ * report may use different fluent language, but it must not expose the
+ * machinery used to compose it.
+ */
+export const CUSTOMER_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: RegExp; description: string }> = [
+  { id: 'connected-management-story', pattern: /connected management story/i, description: 'connected management story' },
+  { id: 'profile-supports-narrative', pattern: /the profile supports the narrative|not the narrative itself/i, description: 'narrative self-reference in a profile caption' },
+  { id: 'register-dump', pattern: /progression and outcomes,?\s*not a register dump|register dump/i, description: 'register-dump construction language' },
+  { id: 'narrative-led-report', pattern: /management report can remain narrative[- ]led/i, description: 'narrative-led report construction language' },
+  { id: 'fixture-section-template', pattern: /translates the authorised evidence into a specific management account/i, description: 'fixture section template language' },
+  { id: 'viewed-through-lens', pattern: /viewed through the .* lens/i, description: 'deterministic lens-template language' },
+  { id: 'explicit-in-this-section', pattern: /management consequence .* explicit in this section/i, description: 'section-construction language' },
+  { id: 'engine-vocabulary', pattern: /\b(?:narrative|renderer|rendered|deterministic|provider[- ]?(?:free|backed|call)|fact[ -]?pack|story[ -]?plan|whole[- ]manuscript|report (?:construction|architecture))\b/i, description: 'report-engine vocabulary' }
+];
+
+/** Customer workbooks have the same boundary as the PDF, plus workbook-only
+ * QA and certification language that must remain in evidence files. */
+export const CUSTOMER_WORKBOOK_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: RegExp; description: string }> = [
+  { id: 'owner-review-workbook', pattern: /owner[- ]review workbook/i, description: 'owner-review workbook label' },
+  { id: 'provider-free-qa-wording', pattern: /provider[- ]free|phase\s*A[-–]F|owner[- ]review proof|structural workbook QA|QA only/i, description: 'provider, QA or owner-review status wording' },
+  { id: 'engineering-certification-language', pattern: /\b(?:engineering\s+(?:quality|acceptance|gate|certification)|(?:certification|certified)\s+(?:gate|status|proof|evidence|only)|architecture|compositor|composition fixture|acceptance gate|release gate)\b/i, description: 'engineering or certification language' }
+];
+
+export function findCustomerCopyLeakage(text: string): Array<{ id: string; description: string; match: string }> {
+  return CUSTOMER_COPY_LEAKAGE_CHECKS.flatMap(({ id, pattern, description }) => {
+    const match = text.match(pattern);
+    return match ? [{ id, description, match: match[0] }] : [];
+  });
+}
+
+export function findCustomerWorkbookCopyLeakage(text: string): Array<{ id: string; description: string; match: string }> {
+  const checks = [...CUSTOMER_COPY_LEAKAGE_CHECKS, ...CUSTOMER_WORKBOOK_COPY_LEAKAGE_CHECKS];
+  return checks.flatMap(({ id, pattern, description }) => {
+    const match = text.match(pattern);
+    return match ? [{ id, description, match: match[0] }] : [];
+  });
 }
 
 const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
@@ -363,12 +432,91 @@ export function parseBlueprintMarkdown(markdown: string, blueprint: ReportBluepr
         const sourceSubsection = sourceSubs.get(parsedSubsection.subsectionId);
         if (sourceSubsection) parsedSubsection.paragraphs = parsedSubsection.paragraphs.map((block) => ({ ...block, permittedClaimRefs: unique([...sourceSubsection.requiredFacts, ...sourceSubsection.claimRefs]) }));
       }
-      parsedSection.paragraphs = parsedSection.paragraphs.map((block) => ({ ...block, permittedClaimRefs: parsedSection.permittedClaimRefs }));
+      const sectionClaimRefs = unique([...sourceSection.requiredFacts, ...sourceSection.claimRefs]);
+      parsedSection.paragraphs = parsedSection.paragraphs.map((block) => ({ ...block, permittedClaimRefs: sectionClaimRefs }));
       if (parsedSection.paragraphs.length === 0 && parsedSection.subsections.every((item) => item.paragraphs.length === 0)) errors.push({ code: 'missing_narrative', path: parsedSection.sectionId, message: 'Every deterministic section must contain narrative prose.' });
       for (const parsedSubsection of parsedSection.subsections) if (parsedSubsection.paragraphs.length === 0) errors.push({ code: 'missing_subsection_narrative', path: parsedSubsection.subsectionId, message: 'Every deterministic subsection must contain narrative prose.' });
     }
   }
   return { ok: errors.length === 0, markdown: source, chapters, errors };
+}
+
+function sha256Json(value: unknown): string {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+/** Bind every prose paragraph to the exact Blueprint scope and Fact Pack/version used to validate it. */
+export function bindBlueprintTextProvenance(
+  parsed: ParsedBlueprintMarkdown,
+  input: { factPack: NarrativeFactPack; blueprint: ReportBlueprint; generationId: string }
+): ParsedBlueprintMarkdown {
+  const factPackSha256 = sha256Json(input.factPack);
+  const blueprintSha256 = sha256Json(input.blueprint);
+  return {
+    ...parsed,
+    chapters: parsed.chapters.map((chapter) => ({
+      ...chapter,
+      headingProvenance: {
+        chapterId: chapter.chapterId,
+        authorisedClaimRefs: [...(input.blueprint.chapters.find((item) => item.chapterId === chapter.chapterId)?.claimRefs ?? [])],
+        factPackSha256,
+        blueprintSha256,
+        generationId: input.generationId
+      },
+      sections: chapter.sections.map((section) => ({
+        ...section,
+        headingProvenance: {
+          chapterId: chapter.chapterId,
+          sectionId: section.sectionId,
+          blueprintSectionId: section.sectionId,
+          authorisedClaimRefs: [...section.permittedClaimRefs],
+          factPackSha256,
+          blueprintSha256,
+          generationId: input.generationId
+        },
+        paragraphs: section.paragraphs.map((block, paragraphIndex) => ({
+          ...block,
+          provenance: {
+            chapterId: chapter.chapterId,
+            sectionId: section.sectionId,
+            paragraphIndex,
+            authorisedClaimRefs: [...block.permittedClaimRefs],
+            blueprintSectionId: section.sectionId,
+            factPackSha256,
+            blueprintSha256,
+            generationId: input.generationId
+          }
+        })),
+        subsections: section.subsections.map((subsection) => ({
+          ...subsection,
+          headingProvenance: {
+            chapterId: chapter.chapterId,
+            sectionId: section.sectionId,
+            subsectionId: subsection.subsectionId,
+            blueprintSectionId: section.sectionId,
+            authorisedClaimRefs: [...subsection.paragraphs.flatMap((block) => block.permittedClaimRefs).filter((ref, index, refs) => refs.indexOf(ref) === index)],
+            factPackSha256,
+            blueprintSha256,
+            generationId: input.generationId
+          },
+          paragraphs: subsection.paragraphs.map((block, paragraphIndex) => ({
+            ...block,
+            provenance: {
+              chapterId: chapter.chapterId,
+              sectionId: section.sectionId,
+              subsectionId: subsection.subsectionId,
+              paragraphIndex,
+              authorisedClaimRefs: [...block.permittedClaimRefs],
+              blueprintSectionId: section.sectionId,
+              factPackSha256,
+              blueprintSha256,
+              generationId: input.generationId
+            }
+          }))
+        }))
+      }))
+    }))
+  };
 }
 
 function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block: BlueprintTextBlock }> {
@@ -378,9 +526,16 @@ function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block
   ]));
 }
 
-function numericValues(pack: NarrativeFactPack): Set<string> {
-  const values = new Set<string>();
-  for (const match of JSON.stringify(pack).matchAll(/\b\d+(?:\.\d+)?%?\b/g)) values.add(match[0].replace('%', ''));
+function scopedNumericValues(pack: NarrativeFactPack, permittedClaimRefs: string[]): Set<string> {
+  // Scale denominators and neutral counters are structural constants, not
+  // customer claims. All other numbers must come from the paragraph's bound
+  // Fact Pack references.
+  const values = new Set<string>(['0', '1', '100']);
+  const permitted = new Set(permittedClaimRefs);
+  for (const fact of pack.facts) {
+    if (!permitted.has(fact.id)) continue;
+    for (const match of JSON.stringify(fact.value).matchAll(/\b\d+(?:\.\d+)?%?\b/g)) values.add(match[0].replace('%', ''));
+  }
   return values;
 }
 
@@ -398,14 +553,14 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
   const hardTruth: TextFirstValidationIssue[] = parsed.errors.map((item) => ({ ...item, severity: 'HARD_TRUTH_FAILURE' }));
   const repairable: TextFirstValidationIssue[] = [];
   const quality: TextFirstValidationIssue[] = [];
-  const knownNumbers = numericValues(factPack);
   const paragraphsSeen: string[] = [];
   for (const { path, block } of allBlocks(parsed)) {
     const text = block.text;
+    const knownNumbers = scopedNumericValues(factPack, block.provenance?.authorisedClaimRefs ?? block.permittedClaimRefs);
     paragraphsSeen.push(compact(text));
     if (/\u2014/u.test(text)) hardTruth.push({ code: 'em_dash', severity: 'HARD_TRUTH_FAILURE', path, message: 'Em dashes are not permitted in customer-facing report narrative.' });
     if (RAW_ID.test(text)) hardTruth.push({ code: 'raw_internal_id', severity: 'HARD_TRUTH_FAILURE', path, message: 'Raw internal identifiers are not customer-facing prose.' });
-    for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!knownNumbers.has(token.replace('%', ''))) hardTruth.push({ code: 'unsupported_numeric_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Numeric claim ${token} is not present in deterministic Fact Pack data.` });
+    for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!knownNumbers.has(token.replace('%', ''))) hardTruth.push({ code: 'unsupported_numeric_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Numeric claim ${token} is not present in the authorised Fact Pack scope for this paragraph.` });
     // Claims about the customer's organisation that the assessment never established.
     // The first real Essential report told a customer they were "meaningfully ahead of
     // many of similar size" and that knowledge sat with "the one or two people who
@@ -423,6 +578,7 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
     }
     const assurance = classifyAssuranceLanguage(text);
     if (assurance?.category === 'prohibited_assurance') hardTruth.push({ code: 'assurance_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Unsupported MK or assessment assurance language is prohibited (${assurance.matched}).` });
+    for (const leakage of findCustomerCopyLeakage(text)) hardTruth.push({ code: 'customer_copy_leakage', severity: 'HARD_TRUTH_FAILURE', path, message: `Report-engine language is not permitted in customer prose (${leakage.description}: ${leakage.match}).` });
     if (/^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(text)) quality.push({ code: 'mechanical_format', severity: 'QUALITY_FAILURE', path, message: 'The section contains list or code formatting rather than connected prose.' });
   }
   const duplicateCount = paragraphsSeen.filter((value, index) => value && paragraphsSeen.indexOf(value) !== index).length;

@@ -1,5 +1,5 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
-import type { NarrativeStoryPlan } from './story-plan';
+import { type NarrativeStoryPlan } from './story-plan';
 import { positionAssertion } from '../essential/evidence-support';
 import { familyPresentation } from '../essential/content-families';
 
@@ -45,6 +45,7 @@ export type ReportBlueprintTier = NarrativeProductTier | 'snapshot';
 export type BlueprintExhibitType =
   | 'score_display'
   | 'domain_profile'
+  | 'strengths'
   | 'theme_map'
   | 'finding_summary'
   | 'scenario_pathway'
@@ -52,7 +53,10 @@ export type BlueprintExhibitType =
   | 'decision_options'
   | 'roadmap_30_60_90'
   | 'maturation_path'
-  | 'sustainment_scorecard';
+  | 'sustainment_scorecard'
+  | 'enterprise_integration'
+  | 'exposure_pathway'
+  | 'critical_reliance';
 
 export interface ReportBlueprintSubsection {
   subsectionId: string;
@@ -75,6 +79,11 @@ export interface ReportBlueprintSection {
   claimRefs: string[];
   optionalSubsections: ReportBlueprintSubsection[];
   narrativeRole: NarrativeRole;
+  /** Comprehensive-only editorial contract used to prevent one fact set being replayed in every chapter. */
+  managementQuestion?: string;
+  analyticalContribution?: string;
+  prohibitedRestatementOf?: string[];
+  questionEvidenceRefs?: string[];
 }
 
 export interface ReportBlueprintExhibit {
@@ -118,12 +127,27 @@ export interface BlueprintChapter {
 }
 
 export interface BlueprintContentAssignment {
-  contentType: 'theme' | 'finding' | 'scenario' | 'control' | 'decision' | 'roadmap' | 'sustainment_priority' | 'maturation_step';
+  contentType: 'theme' | 'finding' | 'scenario' | 'control' | 'decision' | 'roadmap' | 'sustainment_priority' | 'maturation_step'
+    | 'assurance_coverage' | 'assurance_priority' | 'integration_map' | 'integration_dependency'
+    | 'resilience_test' | 'context_application' | 'exposure_pathway' | 'critical_reliance' | 'question_signal'
+    | 'control_outcome_link' | 'roadmap_dependency_link';
   contentRef: string;
   chapterId: string;
   sectionId: string;
   assignmentType: 'primary_home';
   narrativeRole: NarrativeRole;
+}
+
+export interface BlueprintContextApplicationRequirement {
+  applicationRef: string;
+  contextRefs: string[];
+  dependencyRefs: string[];
+  linkedPriorityRefs: string[];
+  linkedControlRefs: string[];
+  linkedDecisionRefs: string[];
+  linkedRoadmapRefs: string[];
+  linkedResilienceTestRefs: string[];
+  requiredPattern: 'context → analytical consequence → management implication';
 }
 
 export interface BlueprintNarrativeCrossReference {
@@ -133,6 +157,12 @@ export interface BlueprintNarrativeCrossReference {
   fromSectionId: string;
   narrativeRole: NarrativeRole;
   referencePurpose: string;
+  linkedDependencyRefs?: string[];
+  linkedControlRefs?: string[];
+  linkedDecisionRefs?: string[];
+  linkedRoadmapRefs?: string[];
+  linkedResilienceTestRefs?: string[];
+  linkedExposurePathwayRefs?: string[];
 }
 
 export interface BlueprintNarrativeUsageLedgerEntry {
@@ -175,6 +205,7 @@ export interface ReportBlueprint {
   contentAssignments: BlueprintContentAssignment[];
   narrativeCrossReferences: BlueprintNarrativeCrossReference[];
   narrativeRoleUsage: BlueprintNarrativeRoleUsage;
+  contextApplicationRequirements: BlueprintContextApplicationRequirement[];
   transformationSequence: BlueprintTransformationStage[];
   deterministicRules: string[];
   prohibitedClaims: string[];
@@ -301,6 +332,81 @@ const factIds = (pack: NarrativeFactPack, kind?: string): string[] => pack.facts
 const refs = <T extends { factRef: string }>(values: T[]): string[] => values.map((value) => value.factRef);
 const sourceIds = <T extends { sourceId?: string; factRef?: string }>(values: T[]): string[] => values.map((value) => value.sourceId ?? value.factRef ?? '').filter(Boolean);
 
+const premiumContentKinds = [
+  'assurance_coverage',
+  'assurance_priority',
+  'resilience_test',
+  'enterprise_integration_map',
+  'integration_dependency',
+  'context_application',
+  'exposure_pathway',
+  'critical_reliance',
+  'control_outcome_link',
+  'roadmap_dependency_link'
+] as const;
+
+function comprehensivePremiumRefs(pack: NarrativeFactPack): {
+  map: string;
+  coverage: string[];
+  priorities: string[];
+  resilience: string[];
+  dependencies: string[];
+  contextApplications: string[];
+  exposurePathways: string[];
+  criticalReliances: string[];
+  controlOutcome: string[];
+  roadmapDependencies: string[];
+  questionSignals: string[];
+} | undefined {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !pack.enterpriseIntegrationMap) return undefined;
+  return {
+    map: pack.enterpriseIntegrationMap.factRef,
+    coverage: (pack.assuranceCoverage ?? []).map((item) => item.factRef),
+    priorities: (pack.assurancePriorities ?? []).map((item) => item.factRef),
+    resilience: (pack.resilienceTests ?? []).map((item) => item.factRef),
+    dependencies: factIds(pack, 'integration_dependency'),
+    contextApplications: (pack.contextApplications ?? []).map((item) => item.factRef),
+    exposurePathways: (pack.exposurePathways ?? []).map((item) => item.factRef),
+    criticalReliances: (pack.criticalReliances ?? []).map((item) => item.factRef),
+    controlOutcome: (pack.controlOutcomeLinks ?? []).map((item) => item.factRef),
+    roadmapDependencies: (pack.roadmapDependencyLinks ?? []).map((item) => item.factRef),
+    questionSignals: (pack.questionSignals ?? []).map((item) => item.factRef)
+  };
+}
+
+function contextApplicationRequirementsFor(pack: NarrativeFactPack): BlueprintContextApplicationRequirement[] {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT') return [];
+  return (pack.contextApplications ?? []).map((application) => ({
+    applicationRef: application.applicationRef,
+    contextRefs: [...application.contextRefs],
+    dependencyRefs: [...application.dependencyRefs],
+    linkedPriorityRefs: [...application.linkedPriorityRefs],
+    linkedControlRefs: [...application.linkedControlRefs],
+    linkedDecisionRefs: [...application.linkedDecisionRefs],
+    linkedRoadmapRefs: [...application.linkedRoadmapRefs],
+    linkedResilienceTestRefs: [...application.linkedResilienceTestRefs],
+    requiredPattern: 'context → analytical consequence → management implication'
+  }));
+}
+
+function integrationDependencyFactRef(dependencyRef: string): string {
+  return `INTEGRATION-DEPENDENCY-${dependencyRef.slice(-3)}`;
+}
+
+function enterpriseIntegrationExhibitSourceRefs(pack: NarrativeFactPack): string[] {
+  const map = pack.enterpriseIntegrationMap;
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !map) return [];
+  return unique([
+    map.factRef,
+    ...map.loopNodes.flatMap((loop) => [loop.loopRef, ...loop.sourceRefs]),
+    ...map.domainNodes.flatMap((domain) => [domain.domainRef, ...domain.sourceRefs]),
+    ...map.dependencies
+      .filter((dependency) => dependency.supportStatus === 'SUPPORTED')
+      .flatMap((dependency) => [dependency.dependencyRef, integrationDependencyFactRef(dependency.dependencyRef), ...dependency.provenanceRefs]),
+    ...map.overlayNodes.flatMap((overlay) => [overlay.overlayRef, ...overlay.sourceRefs])
+  ]);
+}
+
 function narrativeRoleFor(identity: string, title: string): NarrativeRole {
   const value = `${identity} ${title}`.toUpperCase();
   if (/EXECUTIVE|POSITION|JUDGEMENT|TAKEAWAY/.test(value)) return 'JUDGEMENT';
@@ -370,6 +476,10 @@ function scoreSummary(pack: NarrativeFactPack): string {
 function commonAssuranceBoundary(): string {
   // Wording the model is expected to echo, so it carries no engine vocabulary.
   return "The assessment is based on management's own responses and the MK scoring method. It is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.";
+}
+
+function assuranceBoundaryInstruction(): string {
+  return 'Keep the assurance boundary explicit throughout the manuscript, but state the single customer-facing limitation once in the Executive assessment section and do not repeat it in later sections.';
 }
 
 function section(
@@ -458,6 +568,7 @@ function exhibit(
   const leadInByType: Record<BlueprintExhibitType, string> = {
     score_display: 'Where does the organisation stand on fraud readiness?',
     domain_profile: 'Which standards and domain patterns explain the position?',
+    strengths: 'Which assessed strengths should management actively preserve?',
     theme_map: 'What connected themes explain the result beneath the score?',
     finding_summary: 'Which material observations deserve management attention?',
     scenario_pathway: 'How could the supported exposure pathway materialise if the linked conditions combine?',
@@ -465,7 +576,10 @@ function exhibit(
     decision_options: 'What management choice is required, and what trade-offs accompany it?',
     roadmap_30_60_90: 'What should management make true in the first operating cycle?',
     maturation_path: 'How does the target environment progress through its implementation horizons?',
-    sustainment_scorecard: 'What should remain true to preserve this readiness position?'
+    sustainment_scorecard: 'What should remain true to preserve this readiness position?',
+    enterprise_integration: 'How do the assessed domains connect into one management view?',
+    exposure_pathway: 'Which supported operating changes would alter management attention?',
+    critical_reliance: 'Which control signals are relied on by more than one management route?'
   };
   return { exhibitId, type, placement: { chapterId, sectionId }, purpose, sourceRefs: unique(sourceRefs), captionPurpose, narrativeLeadIn: narrativeLeadIn === 'The preceding narrative establishes the management question this exhibit addresses.' ? leadInByType[type] : narrativeLeadIn, demonstrates, interpretation, aiInterpretationAllowed };
 }
@@ -740,13 +854,71 @@ function assignmentsFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): 
   add('decision', refs(pack.decisions), decisionChapter, byId(decisionChapter));
   add('roadmap', refs(pack.roadmap), roadmapChapter, byId(roadmapChapter));
   add('sustainment_priority', refs(pack.sustainmentPriorities), sustainment ? 'SUSTAINMENT-PRIORITIES' : 'TARGET-CONTROL-ENVIRONMENT', byId(sustainment ? 'SUSTAINMENT-PRIORITIES' : 'TARGET-CONTROL-ENVIRONMENT'));
+  if (comprehensive && sustainment) add('question_signal', (pack.questionSignals ?? []).map((item) => item.factRef), 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
   const maturationChapter = sustainment ? 'SUSTAINMENT-OPTIMISATION' : 'TWELVE-MONTH-MATURATION';
   add('maturation_step', pack.maturationSteps.map((step) => step.maturationRef), maturationChapter, byId(maturationChapter));
+  const premium = comprehensivePremiumRefs(pack);
+  if (premium) {
+    add('integration_map', [premium.map], 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
+    add('integration_dependency', premium.dependencies, 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
+    add('assurance_coverage', premium.coverage, 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
+    add('context_application', premium.contextApplications, 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
+    add('assurance_priority', premium.priorities, 'SUSTAINMENT-PRIORITIES', byId('SUSTAINMENT-PRIORITIES'));
+    add('resilience_test', premium.resilience, 'DETERIORATION-WATCHPOINTS', byId('DETERIORATION-WATCHPOINTS'));
+    add('exposure_pathway', premium.exposurePathways, 'DETERIORATION-WATCHPOINTS', byId('DETERIORATION-WATCHPOINTS'));
+    add('critical_reliance', premium.criticalReliances, 'ANALYTICAL-BASIS', byId('ANALYTICAL-BASIS'));
+    add('control_outcome_link', premium.controlOutcome, 'TARGET-RESILIENT-CONTROL-ENVIRONMENT', byId('TARGET-RESILIENT-CONTROL-ENVIRONMENT'));
+    add('roadmap_dependency_link', premium.roadmapDependencies, 'SUSTAINMENT-OPTIMISATION', byId('SUSTAINMENT-OPTIMISATION'));
+  }
   return all.filter((item) => item.chapterId && item.sectionId);
 }
 
+function contextApplicationCrossReferencesFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): BlueprintNarrativeCrossReference[] {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT') return [];
+  const pathwayByApplicationRef = new Map((pack.exposurePathways ?? []).flatMap((pathway) => pathway.contextRefs.length
+    ? (pack.contextApplications ?? []).filter((application) => pathway.contextRefs.some((ref) => application.contextRefs.includes(ref))).map((application) => [application.applicationRef, pathway.factRef] as const)
+    : []));
+  const targetChapterIds = [
+    'DETERIORATION-WATCHPOINTS',
+    'TARGET-RESILIENT-CONTROL-ENVIRONMENT',
+    'LEADERSHIP-DECISIONS-TO-PRESERVE',
+    'SUSTAINMENT-OPTIMISATION'
+  ];
+  return (pack.contextApplications ?? []).flatMap((application) => targetChapterIds.flatMap((chapterId) => {
+    const chapter = chapters.find((item) => item.chapterId === chapterId);
+    const section = chapter?.sections[0];
+    if (!chapter || !section) return [];
+    const linkedResilienceTestRefs = application.linkedResilienceTestRefs.filter((ref) => ref.length > 0);
+    const links = {
+      linkedDependencyRefs: [...application.dependencyRefs],
+      linkedControlRefs: [...application.linkedControlRefs],
+      linkedDecisionRefs: [...application.linkedDecisionRefs],
+      linkedRoadmapRefs: [...application.linkedRoadmapRefs],
+      linkedResilienceTestRefs,
+      linkedExposurePathwayRefs: pathwayByApplicationRef.has(application.applicationRef) ? [pathwayByApplicationRef.get(application.applicationRef)!] : []
+    };
+    const relevant = chapterId === 'DETERIORATION-WATCHPOINTS'
+      ? links.linkedResilienceTestRefs.length > 0
+      : chapterId === 'SUSTAINMENT-OPTIMISATION'
+        ? links.linkedRoadmapRefs.length > 0
+        : chapterId === 'LEADERSHIP-DECISIONS-TO-PRESERVE'
+          ? links.linkedDecisionRefs.length > 0
+          : links.linkedControlRefs.length > 0;
+    if (!relevant) return [];
+    return [{
+      contentType: 'context_application' as const,
+      contentRef: application.factRef,
+      fromChapterId: chapter.chapterId,
+      fromSectionId: section.sectionId,
+      narrativeRole: section.narrativeRole,
+      referencePurpose: `${application.applicationRef}: context → analytical consequence → management implication; use the linked exposure pathway and this chapter's new management consequence without reprinting the context inventory.`,
+      ...links
+    }];
+  }));
+}
+
 function crossReferencesFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): BlueprintNarrativeCrossReference[] {
-  if (pack.narrativeMode === 'SUSTAINMENT') return [];
+  if (pack.narrativeMode === 'SUSTAINMENT') return contextApplicationCrossReferencesFor(pack, chapters);
   const findingChapterId = pack.productTier === 'comprehensive' ? 'MATERIAL-FRAUD-RISK-THEMES' : 'PRIORITY-FRAUD-EXPOSURES';
   const home = new Map(pack.findings.map((finding) => [finding.factRef, chapters.find((chapter) => chapter.chapterId === findingChapterId)?.sections.find((section) => section.requiredFacts.includes(finding.factRef))?.sectionId ?? '']));
   const scenarioChapterId = pack.productTier === 'comprehensive' ? 'HOW-EXPOSURE-COULD-MATERIALISE' : 'EXPOSURE-COULD-MATERIALISE';
@@ -781,13 +953,89 @@ function pruneAdaptiveStructure(chapters: BlueprintChapter[]): BlueprintChapter[
     .map((chapter, index) => ({ ...chapter, order: index + 1, sections: chapter.sections.map((item, sectionIndex) => ({ ...item, order: sectionIndex + 1 })) }));
 }
 
+function applyComprehensiveSectionContracts(
+  pack: NarrativeFactPack,
+  plan: NarrativeStoryPlan,
+  chapters: BlueprintChapter[]
+): BlueprintChapter[] {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !plan.premiumRequirements) return chapters;
+  const rules = plan.premiumRequirements.sectionContributionRules;
+  const usageBySection = new Map(plan.premiumRequirements.questionSignalUsage.map((item) => [item.sectionId, item]));
+  return chapters.map((chapter) => ({
+    ...chapter,
+    sections: chapter.sections.map((section) => {
+      const rule = rules.find((item) => item.sectionId === section.sectionId);
+      if (!rule) return section;
+      return {
+        ...section,
+        managementQuestion: rule.managementQuestion,
+        analyticalContribution: rule.primaryContribution,
+        prohibitedRestatementOf: [...rule.prohibitedRestatementOf],
+        questionEvidenceRefs: [...(usageBySection.get(section.sectionId)?.questionSignalRefs ?? rule.questionSignalRefs)]
+      };
+    })
+  }));
+}
+
+function comprehensiveSustainmentStageSourceRefs(pack: NarrativeFactPack, stage: (typeof SUSTAINMENT_STAGES)[number]): string[] {
+  const priorities = pack.sustainmentPriorities.map((item) => item.factRef);
+  const controls = pack.controls.map((item) => item.factRef);
+  const roadmap = pack.roadmap.map((item) => item.factRef);
+  const assurancePriorities = (pack.assurancePriorities ?? []).map((item) => item.factRef);
+  const resilienceTests = (pack.resilienceTests ?? []).map((item) => item.factRef);
+  const controlOutcomeLinks = (pack.controlOutcomeLinks ?? []).map((item) => item.factRef);
+  const roadmapDependencyLinks = (pack.roadmapDependencyLinks ?? []).map((item) => item.factRef);
+  const embedMaturation = pack.maturationSteps.filter((item) => item.phase === 'EMBED').map((item) => item.maturationRef);
+  const matureMaturation = pack.maturationSteps.filter((item) => item.phase === 'MATURE').map((item) => item.maturationRef);
+  switch (stage) {
+    case 'PRESERVE':
+      return unique([...priorities, ...controls, ...assurancePriorities, ...roadmap]);
+    case 'EMBED':
+      return unique([...roadmap, ...embedMaturation]);
+    case 'MEASURE':
+      return unique([...roadmap, ...assurancePriorities, ...controlOutcomeLinks, ...resilienceTests, ...embedMaturation]);
+    case 'OPTIMISE':
+      return unique([...roadmapDependencyLinks, ...controlOutcomeLinks, ...resilienceTests, ...matureMaturation]);
+  }
+}
+
 function transformationSequence(pack: NarrativeFactPack): BlueprintTransformationStage[] {
+  if (pack.narrativeMode === 'SUSTAINMENT' && pack.productTier === 'comprehensive') {
+    const purposes: Record<(typeof SUSTAINMENT_STAGES)[number], string> = {
+      PRESERVE: 'Keep the accountable owners, review dates and established standards current so the strong assessed position remains visible in ordinary management routines.',
+      EMBED: 'Make the sustainment disciplines part of the governance and control calendar, with recurring review, action closure and retained management records.',
+      MEASURE: 'Use effectiveness indicators, exception information and change-triggered review to show whether the conditions supporting readiness are holding or beginning to drift.',
+      OPTIMISE: 'Use trend information and management challenge to improve the control environment deliberately after the preservation and measurement rhythm is established.'
+    };
+    return SUSTAINMENT_STAGES.map((stage, index) => {
+      const sourceRefs = comprehensiveSustainmentStageSourceRefs(pack, stage);
+      return {
+        stage,
+        narrativeRole: index === 3 ? 'MATURATION' : index === 0 ? 'SUSTAINMENT' : index === 1 ? 'IMPLEMENTATION' : 'EVIDENCE',
+        supported: sourceRefs.length > 0,
+        sourceRefs,
+        purpose: purposes[stage]
+      };
+    });
+  }
   if (pack.narrativeMode === 'SUSTAINMENT') {
     const refsFor = (stage: string) => pack.roadmap.filter((item) => item.phase === stage || item.phaseWindow.toUpperCase().includes(stage)).map((item) => item.factRef);
-    return SUSTAINMENT_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 0 ? 'SUSTAINMENT' : index === 1 ? 'IMPLEMENTATION' : 'EVIDENCE', supported: stage === 'PRESERVE' || refsFor(stage).length > 0 || pack.maturationSteps.some((item) => item.phase === stage), sourceRefs: unique([...refsFor(stage), ...pack.maturationSteps.filter((item) => item.phase === stage).map((item) => item.maturationRef)]), purpose: `${stage[0]}${stage.slice(1).toLowerCase()} the assessed readiness standard through a deliberate sustainment rhythm.` }));
+    const purposes: Record<(typeof SUSTAINMENT_STAGES)[number], string> = {
+      PRESERVE: 'Keep the accountable owners, review dates and established standards current so the strong assessed position remains visible in ordinary management routines.',
+      EMBED: 'Make the sustainment disciplines part of the governance and control calendar, with recurring review, action closure and retained management records.',
+      MEASURE: 'Use effectiveness indicators, exception information and change-triggered review to show whether the conditions supporting readiness are holding or beginning to drift.',
+      OPTIMISE: 'Use trend information and management challenge to improve the control environment deliberately after the preservation and measurement rhythm is established.'
+    };
+    return SUSTAINMENT_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 0 ? 'SUSTAINMENT' : index === 1 ? 'IMPLEMENTATION' : 'EVIDENCE', supported: stage === 'PRESERVE' || refsFor(stage).length > 0 || pack.maturationSteps.some((item) => item.phase === stage), sourceRefs: unique([...refsFor(stage), ...pack.maturationSteps.filter((item) => item.phase === stage).map((item) => item.maturationRef)]), purpose: purposes[stage] }));
   }
   const refsFor = (stage: string) => [...pack.roadmap.filter((item) => item.phase === stage).map((item) => item.factRef), ...pack.maturationSteps.filter((item) => item.phase === stage).map((item) => item.maturationRef)];
-  return REMEDIATION_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 2 ? 'IMPLEMENTATION' : 'RESPONSE', supported: refsFor(stage).length > 0 || stage === 'STABILISE', sourceRefs: refsFor(stage), purpose: `${stage[0]}${stage.slice(1).toLowerCase()} the recorded response through owned actions, proof and progression.` }));
+  const purposes: Record<(typeof REMEDIATION_STAGES)[number], string> = {
+    STABILISE: 'Make ownership, escalation, incident discipline and the first management checkpoint explicit before improvement work expands.',
+    ESTABLISH: 'Put the priority preventive controls, owners, evidence expectations and decision routes into an agreed operating design.',
+    EMBED: 'Move the target controls into recurring operation, review, exception handling and action closure so the response becomes repeatable.',
+    MATURE: 'Use measured performance, challenge and learning to improve the response deliberately and keep it connected to changing exposure.'
+  };
+  return REMEDIATION_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 2 ? 'IMPLEMENTATION' : 'RESPONSE', supported: refsFor(stage).length > 0 || stage === 'STABILISE', sourceRefs: refsFor(stage), purpose: purposes[stage] }));
 }
 
 interface SectionSpec {
@@ -971,7 +1219,7 @@ function domainFactRef(pack: NarrativeFactPack, domainCode: string | undefined |
 function comprehensiveHierarchy(pack: NarrativeFactPack, chapters: BlueprintChapter[]): BlueprintChapter[] {
   return chapters.map((chapter) => {
     if (chapter.chapterId === 'EXECUTIVE-ASSESSMENT') return reframeSections(chapter, [
-      { suffix: 'POSITION', title: 'Overall readiness position', purpose: 'State the assessed result and its boundary.', takeaway: 'The result is the starting point for the connected management story.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity')] },
+      { suffix: 'POSITION', title: 'Overall readiness position', purpose: 'State the assessed result and its boundary.', takeaway: 'The result is the starting point for the management response.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity')] },
       { suffix: 'PATTERN', title: 'The pattern beneath the score', purpose: 'Preview the cross-cutting themes.', takeaway: 'The report explains concentration rather than repeating the score.', requiredFacts: refs(pack.systemicThemeInputs) },
       { suffix: 'TAKEAWAY', title: 'Executive management takeaway', purpose: 'State what leadership should care about before detail begins.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: refs(pack.systemicThemeInputs) }
     ]);
@@ -1033,29 +1281,45 @@ function comprehensiveChapters(pack: NarrativeFactPack): BlueprintChapter[] {
   const decisions = refs(pack.decisions);
   const roadmap = refs(pack.roadmap);
   const maturation = pack.maturationSteps.map((step) => step.maturationRef);
+  const premium = comprehensivePremiumRefs(pack);
+  const integrationMap = premium ? [premium.map] : [];
+  const integrationDependencies = premium?.dependencies ?? [];
+  const assuranceCoverage = premium?.coverage ?? [];
+  const assurancePriorities = premium?.priorities ?? [];
+  const resilienceTests = premium?.resilience ?? [];
+  const contextApplications = premium?.contextApplications ?? [];
+  const exposurePathways = premium?.exposurePathways ?? [];
+  const criticalReliances = premium?.criticalReliances ?? [];
+  const controlOutcomeLinks = premium?.controlOutcome ?? [];
+  const roadmapDependencyLinks = premium?.roadmapDependencies ?? [];
+  const enterpriseIntegrationExhibitRefs = enterpriseIntegrationExhibitSourceRefs(pack);
   if (sustainment) {
     return [
-      chapter('EXECUTIVE-ASSESSMENT', 1, 'Executive assessment', 'State the strong recorded environment and the assurance boundary.', 'No material weaknesses were identified from the assessment responses; the management task is to preserve the strong profile.', { requiredFacts: scoreFacts, claimRefs: scoreFacts, section: section('EXECUTIVE-ASSESSMENT-SECTION', 'Executive assessment', 'State the result once.', 'The assessed result is strong and should be read as a sustainment position, not as independent assurance.', scoreFacts, scoreFacts) }),
-      chapter('ANALYTICAL-BASIS', 2, 'Analytical basis', 'Explain the deterministic score shape and recorded standards supporting readiness.', 'The conclusion follows from the assessment responses and the MK scoring method, not independent assurance.', { requiredFacts: scoreFacts, claimRefs: scoreFacts, section: section('ANALYTICAL-BASIS-SECTION', 'Analytical basis', 'Explain the basis once without repeating the executive assessment.', 'The analytical basis is transparent and bounded.', scoreFacts, scoreFacts), exhibits: [exhibit('EXH-SUSTAINMENT-PROFILE', 'domain_profile', 'ANALYTICAL-BASIS', 'ANALYTICAL-BASIS-SECTION', 'Show deterministic readiness strengths and domain pattern.', scoreFacts, 'Make the recorded basis legible.')] }),
-      chapter('READINESS-SUPPORTING-STANDARDS', 3, 'Strengths supporting readiness', 'Connect recorded standards to the resilience disciplines that protect them.', 'Current strengths remain valuable when ownership, review and proof are retained.', { requiredFacts: [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], claimRefs: [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], section: section('READINESS-SUPPORTING-STANDARDS-SECTION', 'Strengths supporting readiness', 'Explain the connected standards behind the strong result.', 'Strength is durable when its operating rhythm remains visible.', [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')]) }),
-      chapter('SUSTAINMENT-PRIORITIES', 4, 'Sustainment and resilience priorities', 'Set management priorities for continuity, review and early detection of drift.', 'Priorities preserve readiness through continuity, review and early detection.', { requiredFacts: refs(pack.sustainmentPriorities), claimRefs: refs(pack.sustainmentPriorities), section: section('SUSTAINMENT-PRIORITIES-SECTION', 'Sustainment and resilience priorities', 'Translate strong standards into named management disciplines.', 'Sustainment is an operating rhythm, not a deficiency list.', refs(pack.sustainmentPriorities), refs(pack.sustainmentPriorities)), exhibits: [exhibit('EXH-RESILIENCE-SCORECARD', 'sustainment_scorecard', 'SUSTAINMENT-PRIORITIES', 'SUSTAINMENT-PRIORITIES-SECTION', 'Summarise the resilience priorities.', refs(pack.sustainmentPriorities), 'Show the disciplines that protect readiness.')] }),
-      chapter('DETERIORATION-WATCHPOINTS', 5, 'Emerging or deterioration watchpoints', 'Describe only supported conditions that could erode the assessed position after change.', 'Early deterioration should be visible through management information and change-triggered review.', { requiredFacts: [...refs(pack.controls), ...refs(pack.roadmap)], claimRefs: [...refs(pack.controls), ...refs(pack.roadmap)], linkedControlIds: refs(pack.controls), linkedRoadmapIds: refs(pack.roadmap), section: section('DETERIORATION-WATCHPOINTS-SECTION', 'Emerging or deterioration watchpoints', 'Describe supported change-triggered attention points.', 'Watchpoints make the strong position maintainable.', [...refs(pack.controls), ...refs(pack.roadmap)], [...refs(pack.controls), ...refs(pack.roadmap)]) }),
-      chapter('TARGET-RESILIENT-CONTROL-ENVIRONMENT', 6, 'Target resilient control environment', 'Describe the strong standard, ownership, proof, trigger and effectiveness indicator.', 'A strong control environment stays strong when operating discipline and deterioration signals are explicit.', { requiredFacts: refs(pack.controls), claimRefs: refs(pack.controls), linkedControlIds: refs(pack.controls), section: section('TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', 'Target resilient control environment', 'Set the resilient control design that preserves current maturity.', 'The target state protects what is already working and makes deterioration visible.', refs(pack.controls), refs(pack.controls)), exhibits: [exhibit('EXH-RESILIENT-CONTROL', 'control_response', 'TARGET-RESILIENT-CONTROL-ENVIRONMENT', 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', 'Show owners, proof and effectiveness indicators.', refs(pack.controls), 'Keep the target environment operational.')] }),
-      chapter('LEADERSHIP-DECISIONS-TO-PRESERVE', 7, 'Leadership decisions to preserve maturity', 'Set governance, monitoring, ownership and change-trigger decisions with clear trade-offs.', 'Leadership should protect cadence, ownership continuity and management information.', { requiredFacts: refs(pack.decisions), claimRefs: refs(pack.decisions), linkedDecisionIds: refs(pack.decisions), section: section('LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', 'Leadership decisions to preserve maturity', 'Explain the decisions required to preserve the strong standard.', 'The decisions keep ownership and review routes current.', refs(pack.decisions), refs(pack.decisions)), exhibits: [exhibit('EXH-PRESERVE-DECISIONS', 'decision_options', 'LEADERSHIP-DECISIONS-TO-PRESERVE', 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', 'Show deterministic options and trade-offs.', refs(pack.decisions), 'Make the preservation choices explicit.')] }),
-      chapter('SUSTAINMENT-OPTIMISATION', 8, 'Twelve-month sustainment and optimisation blueprint', 'Show progression from PRESERVE through EMBED, MEASURE and OPTIMISE.', 'Progress should preserve the current standard, embed the rhythm, measure drift and optimise after change.', { requiredFacts: [...refs(pack.roadmap), ...maturation], claimRefs: [...refs(pack.roadmap), ...maturation], linkedRoadmapIds: refs(pack.roadmap), section: section('SUSTAINMENT-OPTIMISATION-SECTION', 'Twelve-month sustainment and optimisation blueprint', 'Sequence the four sustainment horizons.', 'The twelve-month route protects resilience while creating room for deliberate optimisation.', [...refs(pack.roadmap), ...maturation], [...refs(pack.roadmap), ...maturation]), exhibits: [exhibit('EXH-MATURATION-PATH', 'maturation_path', 'SUSTAINMENT-OPTIMISATION', 'SUSTAINMENT-OPTIMISATION-SECTION', 'Show the deterministic PRESERVE → EMBED → MEASURE → OPTIMISE route.', [...refs(pack.roadmap), ...maturation], 'Make the future-state sustainment rhythm visible.')] }),
-      chapter('MANAGEMENT-CONCLUSION', 9, 'Management conclusion', 'Close with the route for preserving readiness and detecting early deterioration.', 'The value is sustained readiness and early detection of drift, not a price-based assurance claim.', { requiredFacts: [...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], claimRefs: [...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], linkedRoadmapIds: refs(pack.roadmap), section: section('MANAGEMENT-CONCLUSION-SECTION', 'Management conclusion', 'End with one durable management commitment.', 'Readiness holds only where it is revisited after material change.', [...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], [...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)]) })
+      chapter('EXECUTIVE-ASSESSMENT', 1, 'Executive assessment', 'State the strong recorded environment and the assurance boundary.', 'No material weaknesses were identified from the assessment responses; the management task is to preserve the strong profile.', { requiredFacts: scoreFacts, claimRefs: scoreFacts, section: section('EXECUTIVE-ASSESSMENT-SECTION', 'Executive assessment', 'State the result once.', 'The assessed result is strong and should be read as a sustainment position, not as independent assurance.', scoreFacts, scoreFacts), exhibits: [exhibit('EXH-SUSTAINMENT-SCORE', 'score_display', 'EXECUTIVE-ASSESSMENT', 'EXECUTIVE-ASSESSMENT-SECTION', 'Show the assessed readiness position.', scoreFacts, 'Orient the reader to the strong assessed position.')] }),
+      chapter('ANALYTICAL-BASIS', 2, 'Analytical basis', 'Explain the recorded score shape, enterprise relationships and standards supporting readiness.', 'The conclusion follows from the assessment responses and the MK scoring method, not independent assurance.', { requiredFacts: [...scoreFacts, ...(pack.questionSignals ?? []).map((item) => item.factRef), ...integrationMap, ...assuranceCoverage, ...integrationDependencies, ...contextApplications, ...criticalReliances], claimRefs: [...scoreFacts, ...(pack.questionSignals ?? []).map((item) => item.factRef), ...integrationMap, ...assuranceCoverage, ...integrationDependencies, ...contextApplications, ...criticalReliances], section: section('ANALYTICAL-BASIS-SECTION', 'Analytical basis', 'Explain the basis once without repeating the executive assessment. Show one concise enterprise view, use question-level evidence proportionately and use context only where it changes the management interpretation.', 'The analytical basis is transparent, bounded and connected to management meaning.', [...scoreFacts, ...(pack.questionSignals ?? []).map((item) => item.factRef), ...integrationMap, ...assuranceCoverage, ...integrationDependencies, ...contextApplications, ...criticalReliances], [...scoreFacts, ...(pack.questionSignals ?? []).map((item) => item.factRef), ...integrationMap, ...assuranceCoverage, ...integrationDependencies, ...contextApplications, ...criticalReliances]), exhibits: [
+        exhibit('EXH-SUSTAINMENT-PROFILE', 'domain_profile', 'ANALYTICAL-BASIS', 'ANALYTICAL-BASIS-SECTION', 'Show the recorded readiness strengths and domain pattern.', scoreFacts, 'Make the recorded basis legible.'),
+        exhibit('EXH-ENTERPRISE-INTEGRATION', 'enterprise_integration', 'ANALYTICAL-BASIS', 'ANALYTICAL-BASIS-SECTION', 'Show the supplied enterprise fraud-readiness integration view.', enterpriseIntegrationExhibitRefs, 'Show how the assessed loops, domains and supported management relationships connect.', 'How do the assessed domains connect into one management view?', 'Show all four supplied loops, ten domain nodes, supported dependency relationships and context overlays.', 'Interpret the supplied relationships as a bounded management view; context overlays remain separate from dependency edges.'),
+        exhibit('EXH-CRITICAL-RELIANCE', 'critical_reliance', 'ANALYTICAL-BASIS', 'ANALYTICAL-BASIS-SECTION', 'Show where a control signal supports more than one connected management route.', criticalReliances, 'Make shared control reliance visible without creating a new risk register.')
+      ] }),
+      chapter('READINESS-SUPPORTING-STANDARDS', 3, 'Strengths supporting readiness', 'Connect recorded standards to the resilience disciplines that protect them.', 'Current strengths remain valuable when ownership, review and proof are retained.', { requiredFacts: [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], claimRefs: [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], section: section('READINESS-SUPPORTING-STANDARDS-SECTION', 'Strengths supporting readiness', 'Explain the connected standards behind the strong result.', 'Strength is durable when its operating rhythm remains visible.', [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')]), exhibits: [exhibit('EXH-SUSTAINMENT-STRENGTHS', 'strengths', 'READINESS-SUPPORTING-STANDARDS', 'READINESS-SUPPORTING-STANDARDS-SECTION', 'Summarise the assessed strengths that support readiness.', [...factIds(pack, 'relative_strength'), ...factIds(pack, 'domain')], 'Keep the positive foundation visible without turning it into a weakness register.')] }),
+      chapter('SUSTAINMENT-PRIORITIES', 4, 'Sustainment and resilience priorities', 'Set management priorities for continuity, review and early detection of drift.', 'Priorities preserve readiness through continuity, review and early detection.', { requiredFacts: [...refs(pack.sustainmentPriorities), ...assurancePriorities], claimRefs: [...refs(pack.sustainmentPriorities), ...assurancePriorities], section: section('SUSTAINMENT-PRIORITIES-SECTION', 'Sustainment and resilience priorities', 'Translate strong standards into named management disciplines and show the recorded assurance basis that should remain visible.', 'Sustainment is an operating rhythm, not a deficiency list.', [...refs(pack.sustainmentPriorities), ...assurancePriorities], [...refs(pack.sustainmentPriorities), ...assurancePriorities]), exhibits: [exhibit('EXH-RESILIENCE-SCORECARD', 'sustainment_scorecard', 'SUSTAINMENT-PRIORITIES', 'SUSTAINMENT-PRIORITIES-SECTION', 'Summarise the resilience priorities.', refs(pack.sustainmentPriorities), 'Show the disciplines that protect readiness.')] }),
+      chapter('DETERIORATION-WATCHPOINTS', 5, 'Emerging or deterioration watchpoints', 'Describe only supported conditions that could erode the assessed position after change.', 'Early deterioration should be visible through management information and change-triggered review.', { requiredFacts: [...refs(pack.controls), ...refs(pack.roadmap), ...resilienceTests, ...exposurePathways], claimRefs: [...refs(pack.controls), ...refs(pack.roadmap), ...resilienceTests, ...exposurePathways], linkedControlIds: refs(pack.controls), linkedRoadmapIds: refs(pack.roadmap), section: section('DETERIORATION-WATCHPOINTS-SECTION', 'Emerging or deterioration watchpoints', 'Describe the supported operating-context pathways and conditional resilience tests tied to the recorded controls, dependencies and response routes. These tests are forward-looking and do not assert a finding.', 'Watchpoints make the strong position maintainable.', [...refs(pack.controls), ...refs(pack.roadmap), ...resilienceTests, ...exposurePathways], [...refs(pack.controls), ...refs(pack.roadmap), ...resilienceTests, ...exposurePathways]), exhibits: [exhibit('EXH-SUPPORTED-EXPOSURE-PATHWAYS', 'exposure_pathway', 'DETERIORATION-WATCHPOINTS', 'DETERIORATION-WATCHPOINTS-SECTION', 'Show the three supported operating-context pathways that would change management attention after material change.', exposurePathways, 'Keep context selective and conditional.') ] }),
+      chapter('TARGET-RESILIENT-CONTROL-ENVIRONMENT', 6, 'Target resilient control environment', 'Describe the strong standard, ownership, proof, trigger and effectiveness indicator.', 'A strong control environment stays strong when operating discipline and deterioration signals are explicit.', { requiredFacts: [...refs(pack.controls), ...controlOutcomeLinks], claimRefs: [...refs(pack.controls), ...controlOutcomeLinks], linkedControlIds: refs(pack.controls), section: section('TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', 'Target resilient control environment', 'Set the resilient control design that preserves current maturity and connect each control to its management question, protected outcome and deterioration response.', 'The target state protects what is already working and makes deterioration visible.', [...refs(pack.controls), ...controlOutcomeLinks], [...refs(pack.controls), ...controlOutcomeLinks]), exhibits: [exhibit('EXH-RESILIENT-CONTROL', 'control_response', 'TARGET-RESILIENT-CONTROL-ENVIRONMENT', 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', 'Show owners, proof and effectiveness indicators.', refs(pack.controls), 'Keep the target environment operational.')] }),
+      chapter('LEADERSHIP-DECISIONS-TO-PRESERVE', 7, 'Leadership decisions to preserve maturity', 'Set governance, monitoring, ownership and change-trigger decisions with clear trade-offs.', 'Leadership should protect cadence, ownership continuity and management information.', { requiredFacts: [...refs(pack.decisions), ...controlOutcomeLinks, ...integrationDependencies], claimRefs: [...refs(pack.decisions), ...controlOutcomeLinks, ...integrationDependencies], linkedDecisionIds: refs(pack.decisions), section: section('LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', 'Leadership decisions to preserve maturity', 'Explain each decision as a distinct management choice and connect its route to the relevant control signal, protected outcome and enterprise relationship.', 'The decisions keep ownership and review routes current.', [...refs(pack.decisions), ...controlOutcomeLinks, ...integrationDependencies], [...refs(pack.decisions), ...controlOutcomeLinks, ...integrationDependencies]), exhibits: [exhibit('EXH-PRESERVE-DECISIONS', 'decision_options', 'LEADERSHIP-DECISIONS-TO-PRESERVE', 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', 'Show the available options and trade-offs.', refs(pack.decisions), 'Make the preservation choices explicit.')] }),
+      chapter('SUSTAINMENT-OPTIMISATION', 8, 'Twelve-month sustainment and optimisation blueprint', 'Show progression from PRESERVE through EMBED, MEASURE and OPTIMISE.', 'Progress should preserve the current standard, embed the rhythm, measure drift and optimise after change.', { requiredFacts: [...refs(pack.roadmap), ...maturation, ...roadmapDependencyLinks], claimRefs: [...refs(pack.roadmap), ...maturation, ...roadmapDependencyLinks], linkedRoadmapIds: refs(pack.roadmap), section: section('SUSTAINMENT-OPTIMISATION-SECTION', 'Twelve-month sustainment and optimisation blueprint', 'Sequence the four sustainment horizons and make the dependency gate before each later stage explicit.', 'The twelve-month route protects resilience while creating room for deliberate optimisation.', [...refs(pack.roadmap), ...maturation, ...roadmapDependencyLinks], [...refs(pack.roadmap), ...maturation, ...roadmapDependencyLinks]), exhibits: [exhibit('EXH-MATURATION-PATH', 'maturation_path', 'SUSTAINMENT-OPTIMISATION', 'SUSTAINMENT-OPTIMISATION-SECTION', 'Show the PRESERVE → EMBED → MEASURE → OPTIMISE route.', [...refs(pack.roadmap), ...maturation], 'Make the future-state sustainment rhythm visible.')] }),
+      chapter('MANAGEMENT-CONCLUSION', 9, 'Management conclusion', 'Close with the route for preserving readiness and detecting early deterioration.', 'The value is sustained readiness and early detection of drift, not a price-based assurance claim.', { requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], claimRefs: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], linkedRoadmapIds: refs(pack.roadmap), section: section('MANAGEMENT-CONCLUSION-SECTION', 'Management conclusion', 'End with one durable management commitment.', 'Readiness holds only where it is revisited after material change.', [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)], [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...refs(pack.sustainmentPriorities), ...refs(pack.roadmap)]) })
     ];
   }
   return [
-    chapter('EXECUTIVE-ASSESSMENT', 1, 'Executive assessment', 'State what the deterministic assessment says and what leadership should care about.', 'The current position, the pattern beneath it and the leadership priorities must be clear from this chapter alone.', { requiredFacts: scoreFacts, claimRefs: scoreFacts, section: section('EXECUTIVE-ASSESSMENT-SECTION', 'Executive assessment', 'State the conclusion and boundary once.', 'The score is the starting point for a connected management story.', scoreFacts, scoreFacts), exhibits: [exhibit('EXH-SCORE-POSITION', 'score_display', 'EXECUTIVE-ASSESSMENT', 'EXECUTIVE-ASSESSMENT-SECTION', 'Show the recorded score, maturity and exposure position.', scoreFacts, 'Orient the reader to the assessed position.')] }),
-    chapter('SYSTEMIC-FRAUD-READINESS-DIAGNOSIS', 2, 'Systemic fraud-readiness diagnosis', 'Explain the cross-cutting patterns supplied by the deterministic layer.', 'The material story is created by linked conditions, not isolated question scores.', { requiredFacts: themes, claimRefs: themes, section: section('SYSTEMIC-FRAUD-READINESS-DIAGNOSIS-SECTION', 'Systemic fraud-readiness diagnosis', 'Connect the themes and management questions.', 'The themes explain concentration and interaction.', themes, themes), exhibits: [exhibit('EXH-SYSTEMIC-THEME-MAP', 'theme_map', 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS', 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS-SECTION', 'Display deterministic themes and finding clusters.', themes, 'Show why the themes belong together.')] }),
-    chapter('MATERIAL-FRAUD-RISK-THEMES', 3, 'Material fraud-risk themes and findings', 'Interpret material findings in their broader control-system context.', 'The findings require connected treatment across owners, controls and oversight.', { requiredFacts: findings, claimRefs: findings, linkedFindingIds: findings, section: section('MATERIAL-FRAUD-RISK-THEMES-SECTION', 'Material fraud-risk themes and findings', 'Explain the selected findings as advisory observations.', 'The priority set identifies the conditions that deserve management attention.', findings, findings), exhibits: [exhibit('EXH-MATERIAL-FINDINGS', 'finding_summary', 'MATERIAL-FRAUD-RISK-THEMES', 'MATERIAL-FRAUD-RISK-THEMES-SECTION', 'Summarise findings and their deterministic links.', findings, 'Keep register detail subordinate to meaning.')] }),
-    chapter('HOW-EXPOSURE-COULD-MATERIALISE', 4, 'How exposure could materialise', 'Narrate approved conditional fraud pathways.', 'Scenario logic should inform prevention, monitoring, containment and response design.', { requiredFacts: scenarios, claimRefs: scenarios, linkedScenarioIds: scenarios, section: section('HOW-EXPOSURE-COULD-MATERIALISE-SECTION', 'How exposure could materialise', 'Explain actor, opportunity, mechanism, warning and consequence.', 'The pathways are conditional management tests, not allegations.', scenarios, scenarios), exhibits: [exhibit('EXH-CONSIDERED-PATHWAYS', 'scenario_pathway', 'HOW-EXPOSURE-COULD-MATERIALISE', 'HOW-EXPOSURE-COULD-MATERIALISE-SECTION', 'Show the deterministic pathways.', scenarios, 'Connect exposure to the target response.')] }),
+      chapter('EXECUTIVE-ASSESSMENT', 1, 'Executive assessment', 'State what the assessment records and what leadership should care about.', 'The current position, the pattern beneath it and the leadership priorities must be clear from this chapter alone.', { requiredFacts: scoreFacts, claimRefs: scoreFacts, section: section('EXECUTIVE-ASSESSMENT-SECTION', 'Executive assessment', 'State the conclusion and boundary once.', 'The score is the starting point for the management response.', scoreFacts, scoreFacts), exhibits: [exhibit('EXH-SCORE-POSITION', 'score_display', 'EXECUTIVE-ASSESSMENT', 'EXECUTIVE-ASSESSMENT-SECTION', 'Show the recorded score, maturity and exposure position.', scoreFacts, 'Orient the reader to the assessed position.')] }),
+      chapter('SYSTEMIC-FRAUD-READINESS-DIAGNOSIS', 2, 'Systemic fraud-readiness diagnosis', 'Explain the cross-cutting patterns supplied by the assessment.', 'Linked conditions show where management attention should concentrate.', { requiredFacts: themes, claimRefs: themes, section: section('SYSTEMIC-FRAUD-READINESS-DIAGNOSIS-SECTION', 'Systemic fraud-readiness diagnosis', 'Connect the themes and management questions.', 'The themes explain concentration and interaction.', themes, themes), exhibits: [exhibit('EXH-SYSTEMIC-THEME-MAP', 'theme_map', 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS', 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS-SECTION', 'Display the recorded themes and finding clusters.', themes, 'Show why the themes belong together.')] }),
+      chapter('MATERIAL-FRAUD-RISK-THEMES', 3, 'Material fraud-risk themes and findings', 'Interpret material findings in their broader control-system context.', 'The findings require connected treatment across owners, controls and oversight.', { requiredFacts: findings, claimRefs: findings, linkedFindingIds: findings, section: section('MATERIAL-FRAUD-RISK-THEMES-SECTION', 'Material fraud-risk themes and findings', 'Explain the selected findings as advisory observations.', 'The priority set identifies the conditions that deserve management attention.', findings, findings), exhibits: [exhibit('EXH-MATERIAL-FINDINGS', 'finding_summary', 'MATERIAL-FRAUD-RISK-THEMES', 'MATERIAL-FRAUD-RISK-THEMES-SECTION', 'Summarise findings and their links.', findings, 'Keep detail subordinate to meaning.')] }),
+      chapter('HOW-EXPOSURE-COULD-MATERIALISE', 4, 'How exposure could materialise', 'Describe approved conditional fraud pathways.', 'Scenario logic should inform prevention, monitoring, containment and response design.', { requiredFacts: scenarios, claimRefs: scenarios, linkedScenarioIds: scenarios, section: section('HOW-EXPOSURE-COULD-MATERIALISE-SECTION', 'How exposure could materialise', 'Explain actor, opportunity, mechanism, warning and consequence.', 'The pathways are conditional management tests, not allegations.', scenarios, scenarios), exhibits: [exhibit('EXH-CONSIDERED-PATHWAYS', 'scenario_pathway', 'HOW-EXPOSURE-COULD-MATERIALISE', 'HOW-EXPOSURE-COULD-MATERIALISE-SECTION', 'Show the conditional pathways.', scenarios, 'Connect exposure to the target response.')] }),
     chapter('TARGET-CONTROL-ENVIRONMENT', 5, 'Target control environment', 'Explain target-state control blueprints and connected operating design.', 'Controls become useful when objective, ownership, proof, challenge and effectiveness are explicit.', { requiredFacts: controls, claimRefs: controls, linkedControlIds: controls, section: section('TARGET-CONTROL-ENVIRONMENT-SECTION', 'Target control environment', 'Describe target controls without reproducing the full register.', 'The control design should interrupt the linked exposure pathway.', controls, controls), exhibits: [exhibit('EXH-TARGET-CONTROLS', 'control_response', 'TARGET-CONTROL-ENVIRONMENT', 'TARGET-CONTROL-ENVIRONMENT-SECTION', 'Show target control objectives, owners and operating measures.', controls, 'Make the target environment usable.')] }),
-    chapter('MANAGEMENT-DECISIONS-REQUIRED', 6, 'Management decisions required', 'Explain the genuine executive choices, options and trade-offs.', 'Leadership must choose a route, owner and target date with the consequence of delay visible.', { requiredFacts: decisions, claimRefs: decisions, linkedDecisionIds: decisions, section: section('MANAGEMENT-DECISIONS-REQUIRED-SECTION', 'Management decisions required', 'Present deterministic options and the decision question.', 'The decision record should be human-readable and tied to the exposure.', decisions, decisions), exhibits: [exhibit('EXH-DECISION-OPTIONS', 'decision_options', 'MANAGEMENT-DECISIONS-REQUIRED', 'MANAGEMENT-DECISIONS-REQUIRED-SECTION', 'Show viable options, benefits and trade-offs.', decisions, 'Support a real management choice.')] }),
-    chapter('IMPLEMENTATION-BLUEPRINT', 7, 'Implementation blueprint', 'Sequence the first response and the owners, dependencies and measures.', 'The implementation route must move from ownership and foundations to repeatability and oversight.', { requiredFacts: roadmap, claimRefs: roadmap, linkedRoadmapIds: roadmap, section: section('IMPLEMENTATION-BLUEPRINT-SECTION', 'Implementation blueprint', 'Show the deterministic implementation route.', 'The first operating cycle should make completion and accountability visible.', roadmap, roadmap), exhibits: [exhibit('EXH-IMPLEMENTATION-ROADMAP', 'roadmap_30_60_90', 'IMPLEMENTATION-BLUEPRINT', 'IMPLEMENTATION-BLUEPRINT-SECTION', 'Show 30/60/90 and later phases.', roadmap, 'Translate the response into sequence.')] }),
-    chapter('TWELVE-MONTH-MATURATION', 8, 'Twelve-month maturation and optimisation path', 'Show progression through the deterministic maturation steps.', 'Progress should become repeatable, measured and subject to deliberate oversight.', { requiredFacts: maturation, claimRefs: maturation, linkedRoadmapIds: roadmap, section: section('TWELVE-MONTH-MATURATION-SECTION', 'Twelve-month maturation and optimisation path', 'Describe the four implementation horizons without claiming completed remediation.', 'The future state is a managed operating rhythm, not a promise of already-established effectiveness.', maturation, maturation), exhibits: [exhibit('EXH-MATURATION', 'maturation_path', 'TWELVE-MONTH-MATURATION', 'TWELVE-MONTH-MATURATION-SECTION', 'Show the deterministic maturation sequence.', maturation, 'Make 12-month progress measurable.')] }),
-    chapter('MANAGEMENT-CONCLUSION', 9, 'Management conclusion', 'Close with the transition required and the next management checkpoint.', 'Success is a control environment management understands, owns, monitors and improves deliberately.', { requiredFacts: [...roadmap, ...maturation], claimRefs: [...roadmap, ...maturation], linkedRoadmapIds: roadmap, section: section('MANAGEMENT-CONCLUSION-SECTION', 'Management conclusion', 'End with a useful management close.', 'The conclusion should identify the next deliberate checkpoint and the route to further support.', [...roadmap, ...maturation], [...roadmap, ...maturation]) })
+      chapter('MANAGEMENT-DECISIONS-REQUIRED', 6, 'Management decisions required', 'Explain the genuine executive choices, options and trade-offs.', 'Leadership must choose a route, owner and target date with the consequence of delay visible.', { requiredFacts: decisions, claimRefs: decisions, linkedDecisionIds: decisions, section: section('MANAGEMENT-DECISIONS-REQUIRED-SECTION', 'Management decisions required', 'Present viable options and the decision question.', 'The decision record should be human-readable and tied to the exposure.', decisions, decisions), exhibits: [exhibit('EXH-DECISION-OPTIONS', 'decision_options', 'MANAGEMENT-DECISIONS-REQUIRED', 'MANAGEMENT-DECISIONS-REQUIRED-SECTION', 'Show viable options, benefits and trade-offs.', decisions, 'Support a real management choice.')] }),
+      chapter('IMPLEMENTATION-BLUEPRINT', 7, 'Implementation blueprint', 'Sequence the first response and the owners, dependencies and measures.', 'The implementation route must move from ownership and foundations to repeatability and oversight.', { requiredFacts: roadmap, claimRefs: roadmap, linkedRoadmapIds: roadmap, section: section('IMPLEMENTATION-BLUEPRINT-SECTION', 'Implementation blueprint', 'Show the implementation route.', 'The first operating cycle should make completion and accountability visible.', roadmap, roadmap), exhibits: [exhibit('EXH-IMPLEMENTATION-ROADMAP', 'roadmap_30_60_90', 'IMPLEMENTATION-BLUEPRINT', 'IMPLEMENTATION-BLUEPRINT-SECTION', 'Show 30/60/90 and later phases.', roadmap, 'Translate the response into sequence.')] }),
+      chapter('TWELVE-MONTH-MATURATION', 8, 'Twelve-month maturation and optimisation path', 'Show progression through the maturation steps.', 'Progress should become repeatable, measured and subject to deliberate oversight.', { requiredFacts: maturation, claimRefs: maturation, linkedRoadmapIds: roadmap, section: section('TWELVE-MONTH-MATURATION-SECTION', 'Twelve-month maturation and optimisation path', 'Describe the four implementation horizons without claiming completed remediation.', 'The future state is a managed operating rhythm, not a promise of already-established effectiveness.', maturation, maturation), exhibits: [exhibit('EXH-MATURATION', 'maturation_path', 'TWELVE-MONTH-MATURATION', 'TWELVE-MONTH-MATURATION-SECTION', 'Show the maturation sequence.', maturation, 'Make 12-month progress measurable.')] }),
+    chapter('MANAGEMENT-CONCLUSION', 9, 'Management conclusion', 'Close with the transition required and the next management checkpoint.', 'Success is a control environment management understands, owns, monitors and improves deliberately.', { requiredFacts: [...roadmap, ...maturation], claimRefs: [...roadmap, ...maturation], linkedRoadmapIds: roadmap, section: section('MANAGEMENT-CONCLUSION-SECTION', 'Management conclusion', 'End with a useful management close.', 'Within 90 days management should confirm accountable ownership, stabilise priority controls and begin a repeatable review cycle with retained evidence.', [...roadmap, ...maturation], [...roadmap, ...maturation]) })
   ];
 }
 
@@ -1063,12 +1327,14 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
   const baseChapters = pack.productTier === 'essential'
     ? (pack.narrativeMode === 'SUSTAINMENT' ? sustainmentEssential(pack) : remediationEssential(pack))
     : comprehensiveChapters(pack);
-  const chapters = pruneAdaptiveStructure((pack.productTier === 'essential'
+  const hierarchicalChapters = pack.productTier === 'essential'
     ? (pack.narrativeMode === 'SUSTAINMENT' ? sustainmentEssentialHierarchy(pack, baseChapters) : essentialRemediationHierarchy(pack, baseChapters))
-    : comprehensiveHierarchy(pack, baseChapters)));
+    : comprehensiveHierarchy(pack, baseChapters);
+  const chapters = applyComprehensiveSectionContracts(pack, plan, pruneAdaptiveStructure(hierarchicalChapters));
   const findingClusters = patternExposureClusters(pack);
   const contentAssignments = assignmentsFor(pack, chapters);
   const narrativeCrossReferences = crossReferencesFor(pack, chapters);
+  const premium = comprehensivePremiumRefs(pack);
   const blueprint: ReportBlueprint = {
     schemaVersion: REPORT_BLUEPRINT_SCHEMA_VERSION,
     bibleVersion: '1.1',
@@ -1086,13 +1352,14 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
       assuranceBoundary: commonAssuranceBoundary()
     },
     executiveStory: pack.narrativeMode === 'SUSTAINMENT'
-      ? `Explain the strong assessed position, the standards supporting it, the supported deterioration watchpoints and the sustainment route. ${commonAssuranceBoundary()}`
-      : `Lead with the management judgement the assessed position supports rather than a zero-base reading. Explain the systemic pattern, then the practical exposure clusters, conditional pathways, connected management response and sequenced 90-day operating rhythm.${crossCuttingIsEnablingWeakness(pack) ? ' Cross-cutting governance and risk identification are the enabling weakness underneath the exposure clusters.' : ''} ${commonAssuranceBoundary()}`,
+      ? `Explain the strong assessed position, the standards supporting it, ${premium ? 'the enterprise relationships and conditional resilience tests that protect it, ' : ''}the supported deterioration watchpoints and the sustainment route. ${assuranceBoundaryInstruction()}`
+      : `Lead with the management judgement the assessed position supports rather than a zero-base reading. Explain the systemic pattern, then the practical exposure clusters, conditional pathways, connected management response and sequenced 90-day operating rhythm.${crossCuttingIsEnablingWeakness(pack) ? ' Cross-cutting governance and risk identification are the enabling weakness underneath the exposure clusters.' : ''} ${assuranceBoundaryInstruction()}`,
     chapters,
     findingClusters,
     contentAssignments,
     narrativeCrossReferences,
     narrativeRoleUsage: narrativeRoleUsage(pack, chapters, contentAssignments, narrativeCrossReferences),
+    contextApplicationRequirements: contextApplicationRequirementsFor(pack),
     transformationSequence: transformationSequence(pack),
     deterministicRules: [
       'Chapter titles, order, section identity and management meaning are deterministic and may not be changed by the writer.',
@@ -1101,6 +1368,13 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
       'The writer must produce one complete manuscript voice with no duplicate executive diagnosis, conclusion, roadmap or stitched next-section language.',
       pack.narrativeMode === 'SUSTAINMENT' ? 'Sustainment mode contains no customer-facing findings, risks or automated fraud scenarios.' : 'Remediation and mixed modes retain supported findings and conditional scenarios only.',
       'Each deterministic object has one primary home; later narrative sections may refer back to its implication through explicit cross-reference metadata without duplicating the analytical object.',
+      ...(premium ? [
+        'Use the supplied enterprise integration map as one concise management view; do not create additional relationships or turn it into a generic technology or AI diagram.',
+        'Apply operating context selectively: every context application must move from context to analytical consequence to management implication, and context without that link must not enter the narrative.',
+        'Describe resilience tests as conditional, forward-looking tests after a material change; they do not assert a current finding, risk or independently verified weakness.',
+        'For each sustainment control, preserve the recorded owner, cadence, evidence, trigger and measure, then explain the supplied control → decision → protected outcome → deterioration response chain.',
+        'The twelve-month sustainment path must explain the dependency gate that makes the next stage useful; it must not manufacture new actions.'
+      ] : []),
       ...(pack.narrativeMode === 'SUSTAINMENT' ? [] : [
         'The diagnosis chapter synthesises the systemic pattern; it is not one repeated mini-finding report per theme.',
         'The exposure chapter contains management clusters grouped by exposure pattern. A cross-cutting capability that enables every exposure is diagnosed, not listed as a further cluster.',
@@ -1142,6 +1416,7 @@ export function buildSnapshotReportBlueprint(input: { organisation: { name: stri
     contentAssignments: [],
     narrativeCrossReferences: [],
     narrativeRoleUsage: { factUsage: {}, findingUsage: {}, scenarioUsage: {}, controlUsage: {}, ledger: [] },
+    contextApplicationRequirements: [],
     transformationSequence: [],
     deterministicRules: ['Snapshot remains compact and free of premium-tier, pricing and fulfilment language.', 'Technical fallback remains Mini → Luna → Terra → Sol when a live writer is separately authorised.'],
     prohibitedClaims: ['Essential', 'Comprehensive', 'R7,500', 'R35,000', 'paid report', 'order', 'payment']
@@ -1149,9 +1424,12 @@ export function buildSnapshotReportBlueprint(input: { organisation: { name: stri
 }
 
 function expectedAssignments(pack: NarrativeFactPack): string[] {
+  const premium = comprehensivePremiumRefs(pack);
   return [
     ...refs(pack.systemicThemeInputs), ...refs(pack.findings), ...refs(pack.scenarios), ...refs(pack.controls),
-    ...refs(pack.decisions), ...refs(pack.roadmap), ...refs(pack.sustainmentPriorities), ...pack.maturationSteps.map((step) => step.maturationRef)
+    ...refs(pack.decisions), ...refs(pack.roadmap), ...refs(pack.sustainmentPriorities), ...pack.maturationSteps.map((step) => step.maturationRef),
+    ...(pack.productTier === 'comprehensive' && pack.narrativeMode === 'SUSTAINMENT' ? (pack.questionSignals ?? []).map((item) => item.factRef) : []),
+    ...(premium ? [premium.map, ...premium.coverage, ...premium.priorities, ...premium.resilience, ...premium.dependencies, ...premium.contextApplications, ...premium.exposurePathways, ...premium.criticalReliances, ...premium.controlOutcome, ...premium.roadmapDependencies] : [])
   ];
 }
 
@@ -1167,13 +1445,71 @@ export function validateReportBlueprint(blueprint: ReportBlueprint, pack?: Narra
   for (let index = 1; index < blueprint.chapters.length; index += 1) {
     if (blueprint.chapters[index - 1]!.narrativeRole === blueprint.chapters[index]!.narrativeRole) duplicateNarrativeRoles.push(`${blueprint.chapters[index - 1]!.chapterId} → ${blueprint.chapters[index]!.chapterId}`);
   }
-  const materialRefs = pack ? [...refs(pack.findings), ...refs(pack.systemicThemeInputs), ...refs(pack.scenarios), ...refs(pack.controls), ...refs(pack.decisions), ...refs(pack.roadmap), ...refs(pack.sustainmentPriorities), ...pack.maturationSteps.map((step) => step.maturationRef)] : [];
+  const premium = pack ? comprehensivePremiumRefs(pack) : undefined;
+  const materialRefs = pack ? [
+    ...refs(pack.findings),
+    ...refs(pack.systemicThemeInputs),
+    ...refs(pack.scenarios),
+    ...refs(pack.controls),
+    ...refs(pack.decisions),
+    ...refs(pack.roadmap),
+    ...refs(pack.sustainmentPriorities),
+    ...pack.maturationSteps.map((step) => step.maturationRef),
+    ...(pack.productTier === 'comprehensive' && pack.narrativeMode === 'SUSTAINMENT' ? (pack.questionSignals ?? []).map((item) => item.factRef) : []),
+    ...(premium ? [premium.map, ...premium.coverage, ...premium.priorities, ...premium.resilience, ...premium.dependencies, ...premium.contextApplications, ...premium.exposurePathways, ...premium.criticalReliances, ...premium.controlOutcome, ...premium.roadmapDependencies] : [])
+  ] : [];
   const factSurface = new Set(blueprint.chapters.flatMap((chapter) => [chapter.requiredFacts, chapter.claimRefs, ...chapter.sections.flatMap((section) => [section.requiredFacts, section.claimRefs, ...section.optionalSubsections.flatMap((subsection) => [subsection.requiredFacts, subsection.claimRefs])])]).flat());
   const missingMaterialFacts = materialRefs.filter((ref) => !factSurface.has(ref));
   if (duplicateContentRefs.length) issues.push(`Content assigned more than once: ${duplicateContentRefs.join(', ')}`);
   if (missingContentRefs.length) issues.push(`Content has no primary assignment: ${missingContentRefs.join(', ')}`);
   if (duplicateNarrativeRoles.length > 0) issues.push(`Adjacent chapters repeat the same narrative role: ${duplicateNarrativeRoles.join(', ')}`);
   if (missingMaterialFacts.length) issues.push(`Material content is absent from the narrative surface: ${missingMaterialFacts.join(', ')}`);
+  const premiumAssignmentTypes = new Set<BlueprintContentAssignment['contentType']>([
+    'assurance_coverage',
+    'assurance_priority',
+    'integration_map',
+    'integration_dependency',
+    'resilience_test',
+    'context_application',
+    'exposure_pathway',
+    'critical_reliance',
+    'control_outcome_link',
+    'roadmap_dependency_link'
+  ]);
+  const premiumAssignments = assignments.filter((assignment) => premiumAssignmentTypes.has(assignment.contentType));
+  if (!premium && premiumAssignments.length) issues.push('Premium propagation assignments may not appear outside a Comprehensive Sustainment Blueprint.');
+  if (premium) {
+    const expectedPremiumRefs = [premium.map, ...premium.coverage, ...premium.priorities, ...premium.resilience, ...premium.dependencies, ...premium.contextApplications, ...premium.exposurePathways, ...premium.criticalReliances, ...premium.controlOutcome, ...premium.roadmapDependencies];
+    const missingPremiumAssignments = expectedPremiumRefs.filter((ref) => !byRef.has(ref));
+    if (missingPremiumAssignments.length) issues.push(`Premium propagation content has no primary assignment: ${missingPremiumAssignments.join(', ')}`);
+    const expectedContextRequirements = contextApplicationRequirementsFor(pack!);
+    if (JSON.stringify(blueprint.contextApplicationRequirements) !== JSON.stringify(expectedContextRequirements)) issues.push('Blueprint context application requirements do not match the deterministic Fact Pack projection.');
+    const expectedContextCrossReferences = contextApplicationCrossReferencesFor(pack!, blueprint.chapters);
+    const actualContextCrossReferences = blueprint.narrativeCrossReferences.filter((reference) => reference.contentType === 'context_application');
+    if (JSON.stringify(actualContextCrossReferences) !== JSON.stringify(expectedContextCrossReferences)) issues.push('Blueprint context applications do not expose the required deterministic cross-chapter consumption routes.');
+    for (const application of pack!.contextApplications ?? []) {
+      const primaryAssignments = assignments.filter((assignment) => assignment.contentType === 'context_application' && assignment.contentRef === application.factRef);
+      if (primaryAssignments.length !== 1) issues.push(`Context application ${application.applicationRef} must have exactly one Analytical basis primary home.`);
+      const crossReferences = actualContextCrossReferences.filter((reference) => reference.contentRef === application.factRef);
+      if (!crossReferences.length || crossReferences.some((reference) => reference.fromChapterId === 'ANALYTICAL-BASIS')) issues.push(`Context application ${application.applicationRef} must be consumed outside its Analytical basis primary home.`);
+    }
+    const contextRefs = new Set(pack!.organisation.operatingContext.map((item) => `OPERATING-CONTEXT-${item.key}`));
+    for (const requirement of blueprint.contextApplicationRequirements) {
+      if (!requirement.contextRefs.length || requirement.contextRefs.some((ref) => !contextRefs.has(ref)) || !requirement.dependencyRefs.length || requirement.requiredPattern !== 'context → analytical consequence → management implication') {
+        issues.push(`Context application requirement ${requirement.applicationRef} is incomplete or unsourced.`);
+      }
+    }
+    const projectedFactIds = new Set([...premiumContentKinds.flatMap((kind) => factIds(pack!, kind)), ...(pack!.questionSignals ?? []).map((item) => item.factRef)]);
+    for (const ref of projectedFactIds) if (!factSurface.has(ref)) issues.push(`Premium Fact Pack object ${ref} is not surfaced by a Blueprint section.`);
+    for (const stage of SUSTAINMENT_STAGES) {
+      const expectedStageRefs = comprehensiveSustainmentStageSourceRefs(pack!, stage);
+      const actualStage = blueprint.transformationSequence.find((item) => item.stage === stage);
+      if (expectedStageRefs.length > 0 && (!actualStage || !actualStage.supported)) issues.push(`Sustainment stage ${stage} is unsupported even though authorised deterministic stage objects are present.`);
+      if (actualStage && JSON.stringify(actualStage.sourceRefs) !== JSON.stringify(expectedStageRefs)) issues.push(`Sustainment stage ${stage} source references do not match its authorised deterministic stage objects.`);
+    }
+  } else if (blueprint.contextApplicationRequirements.length) {
+    issues.push('Context application requirements may not appear outside Comprehensive Sustainment.');
+  }
   const executive = blueprint.chapters.filter((chapter) => /executive assessment|executive diagnosis/i.test(chapter.title)).map((chapter) => chapter.chapterId);
   const roadmap = blueprint.chapters.filter((chapter) => chapter.narrativeRole === 'IMPLEMENTATION' || chapter.narrativeRole === 'MATURATION').map((chapter) => chapter.chapterId);
   const duplicateExecutiveMovements = executive.length > 1 ? executive : [];
@@ -1238,7 +1574,25 @@ export function buildWholeManuscriptContext(pack: NarrativeFactPack, blueprint: 
     reportBlueprint: blueprint,
     permittedDeterministicFacts: pack.facts,
     boundaries: { assurance: commonAssuranceBoundary(), customerLanguage: ['advisory', 'specific', 'conditional where scenario-based', 'plain-language management communication'], prohibitedClaims: blueprint.prohibitedClaims, sourceOfTruth: 'Deterministic Fact Pack and Report Blueprint only.' },
-    style: { voice: 'Senior MK advisory voice: clear, commercially useful, specific, calm and connected.', continuity: ['one authorial voice', 'no repeated executive diagnosis', 'no duplicate conclusion', 'no next-section stitching', 'no register dump as narrative'] },
+    style: {
+      voice: pack.productTier === 'comprehensive'
+        ? 'Senior MK advisory voice: executive-level, commercially useful, specific, calm, connected and interpretive. Comprehensive must deliver deeper management synthesis than Essential while remaining bounded to deterministic truth.'
+        : 'Senior MK advisory voice: clear, commercially useful, specific, calm and connected.',
+      continuity: [
+        'one authorial voice',
+        'no repeated executive diagnosis',
+        'no duplicate conclusion',
+        'no next-section stitching',
+        'no register dump as narrative',
+        ...(pack.productTier === 'comprehensive' ? [
+          'the narrative carries the report; exhibits and the workbook support it',
+          'synthesise relationships across authorised facts before discussing individual details',
+          'explain why the pattern matters to management, not merely what each deterministic object says',
+          'use supported strengths as part of the management judgement and do not manufacture weakness for balance',
+          'do not narrate register rows, field labels or implementation mechanics one by one'
+        ] : [])
+      ]
+    },
     projectedInputTokens,
     projectedOutputTokens,
     outputBudget,

@@ -66,9 +66,14 @@ assert.deepEqual(validateComprehensiveArtifactManifest(artifacts), { version: 1 
 assert.doesNotThrow(() => assertComprehensiveCustomerDelivery({ entitlementTier: 'comprehensive', requestedTier: 'comprehensive', artifact: artifacts[0], authorizedReportId: reportId, requestedReportId: reportId }));
 assert.throws(() => assertComprehensiveCustomerDelivery({ entitlementTier: 'essential', requestedTier: 'comprehensive', artifact: artifacts[0], authorizedReportId: reportId, requestedReportId: reportId }), /entitlement mismatch/);
 
-const snapshotComponent = fs.readFileSync(new URL('../src/components/assessment/FreeSnapshot.tsx', import.meta.url), 'utf8');
-assert.match(snapshotComponent, /\/api\/assessments\/\$\{snapshot\.assessmentReference\}\/paid-order/);
-assert.doesNotMatch(snapshotComponent, /R5,000|R50,000/);
+// FreeSnapshot.tsx was intentionally retired by the current Snapshot conversion UX. Tier
+// selection now belongs to ProductChoice and order creation belongs to the routed OrderJourney;
+// keep the same customer-flow contract without recreating the deleted component.
+const productChoice = fs.readFileSync(new URL('../src/components/products/ProductChoice.tsx', import.meta.url), 'utf8');
+const orderJourney = fs.readFileSync(new URL('../src/components/commercial/OrderJourney.tsx', import.meta.url), 'utf8');
+assert.match(productChoice, /\$\{SCORE_BASE_PATH\}\/order\/new\?/);
+assert.match(orderJourney, /\/api\/assessments\/\$\{assessmentReference\}\/paid-order/);
+assert.doesNotMatch(`${productChoice}\n${orderJourney}`, /R5,000|R50,000/);
 assert.match(fs.readFileSync(new URL('../src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts', import.meta.url), 'utf8'), /isSelfServicePaidTier/);
 
 console.log(JSON.stringify({

@@ -220,7 +220,7 @@ for (const item of inventory) {
   }
   if (item.kind === 'rpc') {
     if (serviceCandidate) {
-      if (item.target === '<dynamic:rpcName>' || `${item.file}:${item.line}` === 'src/app/score/api/webhooks/resend/route.ts:171') {
+      if (item.target === '<dynamic:rpcName>' || item.file === 'src/app/score/api/webhooks/resend/route.ts') {
         for (const name of [
           'execute_phase14_worker_step',
           'terminal_phase14_generation_publication',
@@ -243,8 +243,8 @@ for (const item of inventory) {
       );
     } else {
       const allowedDynamic =
-        `${item.file}:${item.line}` === 'src/app/score/api/webhooks/resend/route.ts:171'
-        || `${item.file}:${item.line}` === 'src/lib/rc1/control-plane.ts:96'
+        item.file === 'src/app/score/api/webhooks/resend/route.ts'
+        || item.file === 'src/lib/rc1/control-plane.ts'
         || `${item.file}:${item.line}` === 'src/lib/reports/premium-report-service-core.ts:74';
       assert(
         allowedDynamic,

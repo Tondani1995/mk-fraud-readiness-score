@@ -12,7 +12,9 @@ const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23
 const syntheticMarker = process.env.PHASE23_SYNTHETIC_MARKER ?? '';
 const executablePath = process.env.CHROME_EXECUTABLE
   ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
-const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
+// Keep the automation secret out of source while accepting Vercel's documented
+// environment-variable name; the legacy alias remains available for local callers.
+const protectionBypass = (process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? process.env.VERCEL_PROTECTION_BYPASS)?.trim();
 await mkdir(outputDirectory, { recursive: true });
 
 let localServer = null;
@@ -209,13 +211,20 @@ try {
   const journeyStartResponse = await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
   assertPreviewPageReached(journey, journeyStartResponse, '/score/start');
   const adaptiveStart = Boolean(await journey.$('[data-adaptive-assessment-start="true"]'));
+  const termsGate = await journey.$('dialog[data-fraud-readiness-terms-gate="true"]');
+  if (termsGate) {
+    await journey.waitForSelector('dialog[open][data-fraud-readiness-terms-gate="true"]');
+    await journey.click('dialog input[name="acceptTerms"]');
+    await journey.click('dialog input[name="acceptPrivacy"]');
+    await journey.click('dialog button');
+    await journey.waitForFunction(() => document.querySelector('[data-terms-accepted="true"]')?.getAttribute('data-terms-accepted') === 'true');
+  }
   const nonce = Date.now();
   const syntheticName = syntheticMarker ? `${syntheticMarker}${nonce}` : `Phase 23 Browser ${nonce}`;
   const syntheticEmail = syntheticMarker ? `${syntheticMarker.toLowerCase()}${nonce}@example.test` : `phase23-browser-${nonce}@example.test`;
   await journey.type('input[name="fullName"]', syntheticName);
   await journey.type('input[name="email"]', syntheticEmail);
   await journey.type('input[name="organisationName"]', syntheticName);
-  await journey.click('input[name="consentPrivacy"]');
   if (adaptiveStart) {
     assert.equal(await journey.$eval('[data-adaptive-assessment-start="true"]', (form) => form instanceof HTMLFormElement), true);
     await journey.screenshot({ path: join(outputDirectory, 'adaptive-start.png'), fullPage: true });

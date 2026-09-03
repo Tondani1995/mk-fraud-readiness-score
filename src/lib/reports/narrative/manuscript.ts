@@ -186,6 +186,16 @@ export interface WholeManuscriptWriterInput {
 }
 
 /**
+ * A request ledger shared by every writer instance participating in one
+ * Comprehensive generation.  The writer remains responsible for charging
+ * immediately before dispatch; the ledger makes that charge global across
+ * model-rung changes and bounded recovery operations.
+ */
+export interface WholeManuscriptProviderCallLedger {
+  claim(kind: string): void;
+}
+
+/**
  * The production boundary for the next writer architecture. It deliberately accepts one
  * complete report context and returns one complete manuscript; section-by-section generation is
  * retained only through the legacy NarrativeWriter compatibility interface above.

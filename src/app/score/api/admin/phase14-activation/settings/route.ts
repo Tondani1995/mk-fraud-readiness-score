@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { createSupabaseAuthenticatedServerClient } from '@/lib/supabase/server';
@@ -13,9 +12,6 @@ export const dynamic = 'force-dynamic';
 const VALID_SETTING_KEYS = new Set(['phase14_autonomous_report_engine', 'phase14_delivery_policy']);
 
 export async function POST(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('activation_control');
-  if (frozen) return frozen;
-
   await requireAdmin(['platform_admin']);
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {

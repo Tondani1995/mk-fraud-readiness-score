@@ -58,8 +58,10 @@ const ABSOLUTELY_PROHIBITED_ASSURANCE = [
   /\breviewer judgement\b/i,
   /\bMK\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|reviewed evidence|tested\s+(?:the\s+)?(?:operation|operating effectiveness|controls?)|independently confirmed)\b/i,
   /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i,
+  /\b(?:MK(?:'s)?|the assessment|this assessment|the report|this report)\b[^.!?]{0,120}\b(?:independently\s+(?:verified|reviewed|validated|confirmed|tested)|independent\s+(?:verification|review)|confirmed|validated|assured)\b[^.!?]{0,120}\b(?:operating effectiveness|controls?|evidence|effective)\b/i,
   /\b(?:independent\s+(?:verification|review)|independently\s+(?:verified|reviewed))\b.{0,100}\b(?:confirmed|established|demonstrates?|shows?)\b.{0,100}\b(?:control|operating effectiveness|operates? effectively)\b/i,
   /\boperating effectiveness\b.{0,80}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+(?:verified|reviewed)|validated|established|confirmed)\b/i,
+  /\bcontrols?\b[^.!?]{0,80}\b(?:were|are|have been|has been)\s+independently\s+(?:verified|reviewed)\b[^.!?]{0,80}\b(?:effective|operat(?:e|ed|ing) effectively)?\b/i,
   /\b(?:the\s+)?evidence\b.{0,40}\b(?:was|were|has been|have been)\s+validated\b/i,
   /\b(?:MK(?:'s)?|the reviewer(?:'s)?)\s+review\b.{0,100}\b(?:confirmed|established|assured|operating effectiveness)\b/i,
   /\b(?:the report|this report)\b.{0,80}\bprovides?\s+(?:independent\s+)?assurance\b/i
@@ -95,7 +97,9 @@ const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equi
  */
 const EXPLICIT_ASSURANCE_LIMITATIONS = [
   /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,180}\bdoes not constitute\s+(?:an?\s+)?(?:independent\s+)?(?:assurance|verification|validation)(?:\s+of\s+[^.!?]{0,120})?/gi,
-  /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,140}\b(?:does not|cannot|is not intended to|isn't intended to)\s+(?:provide|establish|confirm|demonstrate|verify|validate|constitute|offer)\b[^.!?]{0,120}\b(?:assurance|verification|validation|operating effectiveness|effectiveness|evidence|controls?)\b/gi,
+  /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,80}\b(?:does not|did not|cannot|is not intended to|isn't intended to)\s+(?:independently\s+)?(?:verify|review|validate|confirm|test)\b[^.!?]{0,100}\b(?:operating effectiveness|effectiveness|controls?|evidence)\b/gi,
+  /\b(?:this|the)\s+(?:assessment|report|snapshot|result)\b[^.!?]{0,140}\b(?:does not|did not|cannot|is not intended to|isn't intended to)\s+(?:provide|establish|confirm|demonstrate|verify|validate|constitute|offer)\b[^.!?]{0,120}\b(?:assurance|verification|validation|operating effectiveness|effectiveness|evidence|controls?)\b/gi,
+  /\b(?:does not|do not|did not|cannot|can't|should not|must not)\s+(?:assume|assert|claim|state|suggest|imply|mean|indicate)\s+(?:that\s+)?(?:the\s+)?(?:assessment|report|snapshot|result|MK)\b[^.!?]{0,140}\b(?:independently\s+(?:verified|reviewed|validated|confirmed|tested)|provided?\s+(?:independent\s+)?assurance|established\s+(?:operating effectiveness|effectiveness))\b[^.!?]{0,100}/gi,
   new RegExp(NEGATED_ASSURANCE_DISCLAIMER.source, 'gi'),
   /\b(?:not|without)\s+(?:an?\s+)?(?:independent\s+)?(?:assurance|verification|validation)\b[^.!?]{0,100}/gi
 ];
@@ -113,8 +117,9 @@ function stripExplicitAssuranceLimitations(text: string): { residual: string; ma
 }
 
 function hasProhibitedAssuranceActor(text: string): boolean {
-  return /\b(?:MK(?:'s)?|the assessment|this assessment|the findings?|the report|this report)\b/i.test(text)
-    || MK_ASSURANCE_ACTOR.test(text)
+  const actorLinkedToAssurance = /\b(?:MK(?:'s)?|the assessment|this assessment|the findings?|the report|this report)\b[^.!?]{0,120}\b(?:independent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)|assurance|validated|confirmed|tested)\b/i.test(text)
+    || /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b[^.!?]{0,120}\b(?:by|from)\s+MK\b/i.test(text);
+  return actorLinkedToAssurance
     || PROHIBITED_ASSURANCE_SUBJECT.test(text);
 }
 
@@ -193,28 +198,10 @@ export function classifyAssuranceLanguageDetailed(text: string): DetailedAssuran
  * control activity; otherwise it fails closed.
  */
 export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassification | null {
-  const assuranceText = text.replace(NEGATED_ASSURANCE_DISCLAIMER, '');
-  for (const pattern of ABSOLUTELY_PROHIBITED_ASSURANCE) {
-    const match = assuranceText.match(pattern);
-    if (match) return { category: 'prohibited_assurance', matched: match[0] };
-  }
-
-  const ambiguous = assuranceText.match(AMBIGUOUS_CONTROL_VERIFICATION);
-  if (!ambiguous) return null;
-  if (MK_ASSURANCE_ACTOR.test(assuranceText) || PROHIBITED_ASSURANCE_SUBJECT.test(assuranceText)) {
-    return { category: 'prohibited_assurance', matched: ambiguous[0] };
-  }
-
-  const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(assuranceText);
-  const hasControlAction = CONTROL_ACTIVITY_ACTION.test(assuranceText);
-  if ((hasControlSubject && hasControlAction)
-    || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
-    || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
-    || CUSTOMER_PASSIVE_CONTROL_VERIFICATION.test(assuranceText)
-    || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
-    return { category: 'customer_control_activity', matched: ambiguous[0] };
-  }
-  return { category: 'prohibited_assurance', matched: ambiguous[0] };
+  const detailed = classifyAssuranceLanguageDetailed(text);
+  if (!detailed || detailed.category === 'EXPLICIT_LIMITATION') return null;
+  if (detailed.category === 'SAFE_CUSTOMER_CONTROL') return { category: 'customer_control_activity', matched: detailed.matched };
+  return { category: 'prohibited_assurance', matched: detailed.matched };
 }
 
 function issue(code: string, path: string, message: string): NarrativeValidationIssue { return { code, path, message, blocking: true }; }

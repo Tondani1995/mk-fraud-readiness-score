@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { WEBSITE_CONTACT_REQUEST_TYPE } from '@/lib/enquiries/taxonomy';
 import { honeypotTripped, parseWebsiteContactEnquiry } from '@/lib/enquiries/validation';
@@ -27,9 +26,6 @@ import {
 const GENERIC_FAILURE = 'Your message could not be sent right now. Please try again, or email hello@mkfraud.co.za.';
 
 export async function POST(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('order_create');
-  if (frozen) return frozen;
-
   let body: unknown;
   try {
     body = await request.json();

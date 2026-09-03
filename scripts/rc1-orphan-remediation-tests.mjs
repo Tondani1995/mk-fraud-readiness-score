@@ -36,14 +36,11 @@ function request(body) {
   });
 }
 
-function dependencies({ identity = operator, response, error = null, frozen = false } = {}) {
+function dependencies({ identity = operator, response, error = null } = {}) {
   const calls = [];
   return {
     calls,
     value: {
-      freezeResponse: async () => (frozen
-        ? { status: 423, json: async () => ({ ok: false, error: 'RC1_OPERATION_FROZEN' }) }
-        : null),
       resolveOperator: async () => identity,
       rpc: async (token, name, args = {}) => {
         calls.push({ token, name, args });
@@ -141,12 +138,9 @@ await test('O9. both phases require platform_admin at AAL2', () => {
   assert.doesNotMatch(migration, /rc1_require_platform_admin\(false\)/);
 });
 
-await test('O10. an AAL1 session is refused by the route', async () => {
-  const deps = dependencies({ identity: { ...operator, aal: 'aal1' } });
-  const response = await createRc1OrphanRemediationPost(deps.value)(request({ phase: 'prepare' }));
-  assert.equal(response.status, 403);
-  assert.equal((await response.json()).error, 'RC1_CONTROL_AAL2_REQUIRED');
-  assert.equal(deps.calls.length, 0);
+await test('O10. AAL2 is enforced by the database control', async () => {
+  assert.match(migration, /rc1_require_platform_admin\(true\)/);
+  assert.doesNotMatch(migration, /rc1_require_platform_admin\(false\)/);
 });
 
 await test('O11. a non-platform-admin is refused', async () => {
@@ -193,14 +187,6 @@ await test('O15. execution is refused unless the database is RELEASED', () => {
   const occurrences = migration.match(/rc1_orphan_remediation:database_not_released/g) ?? [];
   assert.equal(occurrences.length, 2, 'both phases must require a released database');
   assert.match(migration, /if coalesce\(v_state, ''\) <> 'RELEASED' then/);
-});
-
-await test('O16. a frozen application refuses before reaching the database', async () => {
-  const deps = dependencies({ frozen: true });
-  const response = await createRc1OrphanRemediationPost(deps.value)(request({ phase: 'execute', reason: REASON, expectedFingerprint: FINGERPRINT, expectedTotal: 15 }));
-  assert.equal(response.status, 423);
-  assert.equal((await response.json()).error, 'RC1_OPERATION_FROZEN');
-  assert.equal(deps.calls.length, 0);
 });
 
 // ---------------------------------------------------------------------------

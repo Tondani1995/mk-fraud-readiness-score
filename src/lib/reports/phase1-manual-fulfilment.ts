@@ -602,6 +602,53 @@ export async function generateManualPhase1Report(
     // selection, which is also what validateRoadmapSource() checks provenance against. Deriving it
     // from full L1 here would render an unbounded roadmap and fail QG_ROADMAP_SOURCE_MISMATCH.
     const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
+    let prepared: PreparedPremiumReportNarrative | undefined;
+    // Essential narrative comes from the v1.1 whole-manuscript path. The legacy
+    // preparePremiumReportNarrative boundary stays closed and is never used as a
+    // fallback: if the manuscript cannot be produced or validated, generation fails
+    // rather than silently reopening a retired pipeline.
+    let essentialNarrative: ParsedBlueprintMarkdown | undefined;
+    let comprehensivePdf: Buffer | undefined;
+    if (isComprehensive) {
+      // Comprehensive uses the Reporting Bible manuscript-first architecture:
+      // deterministic truth -> Comprehensive Fact Pack -> Story Plan / Blueprint ->
+      // bounded narrative -> validation -> narrative-led PDF. Detailed registers
+      // stay in the companion workbook rather than becoming PDF appendices.
+      try {
+        const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
+        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
+        const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
+        comprehensivePdf = comprehensive.pdf;
+        const metadata = comprehensive.narrativeRun.writerMetadata;
+        const model = metadata.model ?? null;
+        logPremiumReportPhase({
+          phase: 'ai_route_authorised',
+          status: 'completed',
+          startedAt: generationStartedAt,
+          technicalReference,
+          generationAttemptId: attemptId,
+          provider: metadata.provider ?? model?.split('/')[0] ?? null,
+          model
+        });
+        console.info('comprehensive_manual_generation', {
+          technicalReference,
+          orderReference: targetReference,
+          providerCalls: metadata.recovery?.totalCalls ?? 1,
+          targetedRepairs: metadata.recovery?.targetedRepairCount ?? 0,
+          coherencePasses: metadata.recovery?.coherenceCount ?? 0,
+          totalTokens: metadata.totalTokens,
+          model,
+          architecture: metadata.architecture,
+          semanticSafety: comprehensive.semanticSafety
+        });
+      } catch (error) {
+        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_manuscript', error: messageOf(error) });
+        throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
+      }
+    } else {
+    // Essential still consumes the legacy automation flags. Keep that control-plane read
+    // inside the Essential branch: Comprehensive has its own certified provider/model/recovery
+    // contract and must not depend on the retired Phase 14 AI-generation authority.
     generationStage = 'load_automation_flags';
     const flags = await doGetAutomationFlags(db);
     // Fail closed on a contract-version disagreement rather than running the provider under a false
@@ -631,35 +678,6 @@ export async function generateManualPhase1Report(
       ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
       : undefined;
     generationStage = 'prepare_narrative';
-    let prepared: PreparedPremiumReportNarrative | undefined;
-    // Essential narrative comes from the v1.1 whole-manuscript path. The legacy
-    // preparePremiumReportNarrative boundary stays closed and is never used as a
-    // fallback: if the manuscript cannot be produced or validated, generation fails
-    // rather than silently reopening a retired pipeline.
-    let essentialNarrative: ParsedBlueprintMarkdown | undefined;
-    let comprehensivePdf: Buffer | undefined;
-    if (isComprehensive) {
-      // One bounded interpretation call against the certified Comprehensive pipeline.
-      // Repairs are additional paid calls and are not authorised here, so a slot that
-      // fails surfaces as a visible generation failure rather than more spend.
-      try {
-        const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
-        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
-        const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
-        comprehensivePdf = comprehensive.pdf;
-        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
-        console.info('comprehensive_manual_generation', {
-          technicalReference,
-          orderReference: targetReference,
-          providerCalls: comprehensive.interpretationRun.accounting.calls,
-          repairs: comprehensive.interpretationRun.accounting.repairs,
-          model: comprehensive.interpretationRun.accounting.model
-        });
-      } catch (error) {
-        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
-        throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
-      }
-    } else {
     try {
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
       // v1.1 whole-manuscript composition. The blueprint decides structure and order,

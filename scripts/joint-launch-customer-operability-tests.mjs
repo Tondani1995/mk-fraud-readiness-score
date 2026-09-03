@@ -11,7 +11,11 @@ const eft = read('src/lib/orders/eft-instructions.ts');
 const orderService = read('src/lib/commercial/order-service.ts');
 const catalogue = read('src/lib/commercial/product-catalogue.ts');
 const paidOrderRoute = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
-const snapshot = read('src/components/assessment/FreeSnapshot.tsx');
+// FreeSnapshot.tsx was intentionally retired. ProductChoice owns the tier-to-order handoff;
+// OrderJourney owns paid-order creation and the resulting status link.
+const productChoice = read('src/components/products/ProductChoice.tsx');
+const orderJourney = read('src/components/commercial/OrderJourney.tsx');
+const postPurchaseCopy = read('src/lib/commercial/post-purchase-copy.ts');
 const statusPage = read('src/components/comprehensive/CustomerOrderStatusWorkspace.tsx');
 const access = read('src/lib/reports/customer-report-access.ts');
 const accessRoute = read('src/app/score/report/access/[token]/route.ts');
@@ -26,10 +30,12 @@ check('EFT instructions are active-config gated, snapshot-bound and returned by 
   assert.match(orderService, /eft_instructions_unavailable/);
   assert.match(orderService, /eft_instructions_snapshot/);
   assert.match(paidOrderRoute, /eftInstructions/);
-  assert.match(snapshot, /View order status/);
+  assert.match(productChoice, /\$\{SCORE_BASE_PATH\}\/order\/new\?/);
+  assert.match(orderJourney, /View order status/);
+  assert.match(orderJourney, /MK confirms payment manually/);
 });
 
-check('Comprehensive customer status is an analytical EFT journey with released package downloads, not a reviewer workflow', () => {
+check('Comprehensive customer status is the current manual-EFT order journey, not a retired reviewer workflow', () => {
   assert.match(catalogue, /COMPREHENSIVE_PRICE_CENTS = 3_500_000/);
   assert.match(catalogue, /COMPREHENSIVE_PRODUCT_CODE = 'mk_validated_assessment'/);
   assert.match(catalogue, /fulfilmentModel: 'automated_analytical'/);
@@ -38,17 +44,15 @@ check('Comprehensive customer status is an analytical EFT journey with released 
   assert.match(orderService, /create_paid_order_with_invoice/);
   assert.match(statusPage, /Payment instructions/);
   assert.match(statusPage, /Payment reference/);
-  assert.match(statusPage, /MK confirms payment manually/);
-  assert.match(statusPage, /Your report/);
-  assert.match(statusPage, /automated analysis/);
-  assert.match(statusPage, /does not independently validate evidence/);
-  assert.match(statusPage, /Released Comprehensive package/);
-  assert.match(statusPage, /Annotated register XLSX/);
-  assert.match(statusPage, /supporting_register/);
+  assert.match(statusPage, /Awaiting manual payment confirmation/);
+  assert.match(statusPage, /Comprehensive package includes/);
+  assert.match(statusPage, /Refresh order status/);
+  assert.match(postPurchaseCopy, /full Comprehensive Fraud Readiness package/);
   assert.match(generation, /fromAssembledReportData\(assembled\)/);
   assert.match(generation, /renderHtmlToPdfBuffer/);
   assert.doesNotMatch(statusPage, /Submit requested evidence|Upload evidence/);
   assert.doesNotMatch(statusPage, /Reviewer:|Sign-off:/);
+  assert.doesNotMatch(statusPage, /Released Comprehensive package|supporting_register/);
   assert.doesNotMatch(statusPage, /form\.set\('snapshotToken'/);
   assert.doesNotMatch(statusPage, /storage_path|signedUrl|bucket/);
 });

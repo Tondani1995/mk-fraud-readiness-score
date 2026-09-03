@@ -317,9 +317,10 @@ await test('duplicate payment creates no second attempt', async () => {
   includes(migration, "'fulfilment_attempt_id', null", 'duplicates are not dispatchable');
   includes(replay, 'duplicate payment confirmation creates no second attempt', 'DB proof is present');
 });
-await test('successful payment schedules waitUntil dispatch', async () => {
-  includes(paymentRoute, "import { waitUntil } from '@vercel/functions'", 'Vercel waitUntil is used');
-  includes(paymentRoute, 'waitUntil(dispatchImmediateFulfilment({', 'dispatch is registered with waitUntil');
+await test('successful payment queues durable fulfilment without awaiting PDF generation', async () => {
+  includes(paymentRoute, 'confirmManualPayment', 'admin payment route uses the payment service');
+  includes(payment, 'record_payment_transition', 'payment service records the atomic payment transition');
+  assert.doesNotMatch(paymentRoute, /waitUntil\(|dispatchImmediateFulfilment/);
 });
 await test('payment response does not await PDF generation', async () => {
   assert.doesNotMatch(paymentRoute, /await\s+dispatchImmediateFulfilment/);
@@ -612,9 +613,9 @@ await test('release creates exactly one authorization and email event', async ()
   includes(migration, 'where email_event_id = v_event.id', 'authorization reuses unique event');
   includes(replay, 'authorization and email event', 'DB count proof is present');
 });
-await test('same invocation processes exact authorised delivery', async () => {
+await test('same invocation passes the exact released authorization to the current delivery boundary', async () => {
   includes(worker, 'authorizationId: release.delivery_authorization_id', 'release ID is continued');
-  includes(delivery, "db.rpc('claim_exact_delivery'", 'shared processor exact-claims it');
+  includes(delivery, "return { claimed: false, outcome: 'not_claimed' }", 'current launch keeps customer delivery manual');
 });
 await test('exactly one secure token is issued in successful flow', async () => {
   includes(delivery, "'issue_customer_report_access_token'", 'shared delivery issues token once');
@@ -650,8 +651,10 @@ await test('legacy recovery remains available but dormant in the current launch'
     'stalled-lead monitor must not remain in Vercel cron configuration'
   );
 });
-await test('freeze blocks immediate and scheduled processing', async () => {
-  includes(worker, "getRc1OperationFreezeResponse('worker', 'worker')", 'both methods share freeze guard');
+await test('current worker keeps its authorization and database claim controls without the retired app freeze', async () => {
+  assert.doesNotMatch(worker, /getRc1OperationFreezeResponse|MK_RC1_OPERATION_FREEZE_MODE|RC1_OPERATION_FROZEN/);
+  includes(worker, 'isAuthorised(request)', 'worker authorization remains before processing');
+  includes(worker, "db.rpc('claim_next_fulfilment_job'", 'worker claim remains database-authorized');
   includes(replay, 'frozen exact worker claim', 'exact DB freeze proof is present');
   includes(replay, 'frozen scheduled worker claim', 'scheduled DB freeze proof is present');
 });

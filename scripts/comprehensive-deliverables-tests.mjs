@@ -12,6 +12,7 @@ import {
   renderBoardReadoutHtml,
   renderComprehensiveReportHtml
 } from '../src/lib/reports/comprehensive/index.ts';
+import { buildComprehensiveNarrativeFactPack } from '../src/lib/reports/narrative/fact-pack.ts';
 
 const forbiddenCustomerLanguage = /Named reviewer|Independent reviewer|Human review|Evidence validated|Supported for stated scope|Insufficient evidence|Not supported|Evidence reconciliation|Review notes in scope|Reviewer judgement|Reviewer sign-off|reviewerObservation|validationStatus/i;
 const component = await fs.readFile(new URL('../src/components/products/TierComparison.tsx', import.meta.url), 'utf8');
@@ -40,10 +41,11 @@ assert.ok(COMPREHENSIVE_REPORT_SECTIONS.every((section) => ['diagnosis', 'interp
 assert.ok(!COMPREHENSIVE_REPORT_SECTIONS.some((section) => /validation|reconciliation|signoff|reviewer|observations|gaps/i.test(section.key)), 'old reviewer/evidence-review sections are removed');
 const first = buildComprehensiveDeliveryModel(comprehensiveFixtures.weakOrganisationMeaningfulEvidence.analytical);
 const sheets = buildComprehensiveRegisterSheets(first);
+const firstFactPack = buildComprehensiveNarrativeFactPack(first);
 assert.equal(sheets.length, 6, 'Comprehensive register has six blueprint sheets plus Read me and Summary');
 assert.equal(sheets.find((sheet) => sheet.name === 'Material Findings').rows.length, first.materialFindings.length);
-assert.equal(sheets.find((sheet) => sheet.name === 'Implementation Blueprint').rows.length, first.proofRequirements.length + first.roadmapActions.length);
-assert.ok(sheets.find((sheet) => sheet.name === 'Management Decisions').columns.includes('deterministicRecommendation'));
+assert.equal(sheets.find((sheet) => sheet.name === 'Implementation Blueprint').rows.length, first.proofRequirements.length + first.roadmapActions.length + firstFactPack.maturationSteps.length);
+assert.ok(sheets.find((sheet) => sheet.name === 'Management Decisions').columns.includes('recommendedRoute'));
 assert.match(component, /aria-labelledby/);
 assert.match(component, /aria-label/);
 assert.doesNotMatch(component, /R7,500|R35,000|productCode|essentialCode|comprehensiveCode/);
