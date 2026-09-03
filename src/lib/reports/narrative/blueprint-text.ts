@@ -145,7 +145,11 @@ export const CUSTOMER_COPY_LEAKAGE_CHECKS: ReadonlyArray<{ id: string; pattern: 
   { id: 'fixture-section-template', pattern: /translates the authorised evidence into a specific management account/i, description: 'fixture section template language' },
   { id: 'viewed-through-lens', pattern: /viewed through the .* lens/i, description: 'deterministic lens-template language' },
   { id: 'explicit-in-this-section', pattern: /management consequence .* explicit in this section/i, description: 'section-construction language' },
-  { id: 'engine-vocabulary', pattern: /\b(?:narrative|renderer|rendered|deterministic|provider[- ]?(?:free|backed|call)|fact[ -]?pack|story[ -]?plan|whole[- ]manuscript|report (?:construction|architecture))\b/i, description: 'report-engine vocabulary' }
+  { id: 'engine-vocabulary', pattern: /\b(?:narrative|renderer|rendered|deterministic|provider[- ]?(?:free|backed|call)|fact[ -]?pack|story[ -]?plan|whole[- ]manuscript|report (?:construction|architecture))\b/i, description: 'report-engine vocabulary' },
+  // The assurance boundary is a statement about what this analysis is, never about what was paid
+  // for it. Framing the limitation as a price or certification claim was owner-rejected on the
+  // first released Comprehensive package, so the customer surface must not carry either framing.
+  { id: 'price-based-assurance', pattern: /price[- ]based|assurance claim|\bR\s?\d{1,3},\d{3}\b/i, description: 'price or commercial-certification framing of the assurance boundary' }
 ];
 
 /** Customer workbooks have the same boundary as the PDF, plus workbook-only
