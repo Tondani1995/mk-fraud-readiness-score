@@ -14,6 +14,7 @@ export type ProductionMonitorEventInput = {
   deploymentSha?: string | null;
   safeReference?: string | null;
   synthetic?: boolean;
+  environment?: 'preview' | 'production' | null;
   details?: Record<string, unknown>;
   db?: any;
 };
@@ -40,11 +41,24 @@ export type MonitorAlertCandidate = {
 export type AlertNotificationDecision = 'send_initial' | 'send_reminder' | 'suppress';
 
 export function alertNotificationDecision(input: {
-  existing?: { status?: string | null; last_notified_at?: string | null } | null;
+  existing?: { status?: string | null; last_notified_at?: string | null; detail_json?: Record<string, unknown> | null } | null;
   now: Date;
   cooldownMinutes?: number;
+  priority?: MonitoringPriority;
+  underlyingCount?: number | null;
 }): AlertNotificationDecision {
   if (!input.existing || input.existing.status === 'resolved' || !input.existing.last_notified_at) return 'send_initial';
+
+  // P2 funnel alerts are event-count conditions, not outages. Re-running the monitor against the
+  // same rolling-window events must never create another email. Notify again only when the actual
+  // underlying event count increases. Recovery remains a separate one-time notification.
+  if (input.priority === 'P2' && Number.isFinite(input.underlyingCount)) {
+    const previousCount = Number(input.existing.detail_json?.count);
+    if (Number.isFinite(previousCount)) {
+      return Number(input.underlyingCount) > previousCount ? 'send_reminder' : 'suppress';
+    }
+  }
+
   const cooldownMinutes = input.cooldownMinutes ?? 240;
   const lastNotified = new Date(input.existing.last_notified_at).getTime();
   if (!Number.isFinite(lastNotified)) return 'send_initial';
@@ -57,6 +71,20 @@ export function recoveryNotificationAllowed(existing: { status?: string | null; 
 
 function validSha(value: string | null | undefined) {
   return typeof value === 'string' && /^[0-9a-f]{40}$/i.test(value) ? value.toLowerCase() : null;
+}
+
+function monitorEnvironment(value: unknown) {
+  const environment = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return environment === 'preview' || environment === 'production' ? environment : null;
+}
+
+export function isCountableProductionApiFailure(row: any) {
+  const status = Number(row?.http_status ?? 0);
+  return row?.environment === 'production'
+    && status >= 500
+    && status < 600
+    && row?.stage !== 'browser_javascript'
+    && row?.error_category !== 'authorisation_failure';
 }
 
 export async function recordProductionMonitorEvent(input: ProductionMonitorEventInput) {
@@ -72,6 +100,7 @@ export async function recordProductionMonitorEvent(input: ProductionMonitorEvent
       deployment_sha: validSha(input.deploymentSha),
       safe_reference: isSafeOpaqueReference(input.safeReference) ? input.safeReference : null,
       synthetic: input.synthetic === true,
+      environment: monitorEnvironment(input.environment ?? process.env.VERCEL_ENV),
       detail_json: sanitiseMonitoringDetails(input.details)
     });
     if (error) throw error;
@@ -133,7 +162,7 @@ export async function readProductionFunnelMetrics(db: any, since: string) {
   const [eventRows, syntheticRows, monitorRows, emailRows] = await Promise.all([
     db.from('assessment_events').select('assessment_id,event_type,event_count,last_seen_at,metadata_json').gte('last_seen_at', since).limit(10000),
     db.from('assessments').select('id').eq('monitoring_synthetic', true).gte('created_at', since).limit(10000),
-    db.from('production_monitor_events').select('stage,outcome,route,error_category,occurred_at').gte('occurred_at', since).eq('outcome', 'fail').eq('synthetic', false).limit(10000),
+    db.from('production_monitor_events').select('stage,outcome,route,http_status,error_category,environment,occurred_at').gte('occurred_at', since).eq('outcome', 'fail').eq('synthetic', false).limit(10000),
     db.from('email_events').select('id,status').gte('created_at', since).in('status', ['send_failed', 'reconciliation_required']).not('notification_type', 'is', null).limit(10000)
   ]);
 
@@ -151,7 +180,7 @@ export async function readProductionFunnelMetrics(db: any, since: string) {
   const submittedIds = byEvent.get('assessment_submitted') ?? new Set<string>();
   const snapshotSucceededIds = byEvent.get('snapshot_generation_succeeded') ?? new Set<string>();
   const submittedWithoutSnapshot = [...submittedIds].filter((assessmentId) => !snapshotSucceededIds.has(assessmentId)).length;
-  const failureRows = (monitorRows.data ?? []) as any[];
+  const failureRows = ((monitorRows.data ?? []) as any[]).filter(isCountableProductionApiFailure);
   return {
     starts: uniqueCount('assessment_started'),
     firstAnswers: uniqueCount('first_answer_saved'),
@@ -225,6 +254,9 @@ function subjectForAlert(candidate: MonitorAlertCandidate, recovery = false) {
 }
 
 function textForAlert(candidate: MonitorAlertCandidate, input: { firstDetected?: string | null; detectedAt: string; occurrenceCount?: number; durationMinutes?: number | null; recovery?: boolean }) {
+  const underlyingCount = typeof candidate.detail?.count === 'number' && Number.isFinite(candidate.detail.count)
+    ? candidate.detail.count
+    : null;
   const lines = [
     `Severity: ${candidate.priority}${candidate.priority === 'P1' ? ' CRITICAL' : candidate.priority === 'P2' ? ' HIGH' : ' WARNING'}`,
     `Environment: Production`,
@@ -233,7 +265,7 @@ function textForAlert(candidate: MonitorAlertCandidate, input: { firstDetected?:
     `Failure: ${candidate.errorCategory ?? candidate.category}`,
     `Detected: ${input.detectedAt} UTC`,
     input.firstDetected ? `First detected: ${input.firstDetected} UTC` : null,
-    input.occurrenceCount ? `Failure count: ${input.occurrenceCount}` : null,
+    underlyingCount !== null ? `Affected event count: ${underlyingCount}` : input.occurrenceCount ? `Alert observations: ${input.occurrenceCount}` : null,
     input.recovery ? `Outage duration: ${input.durationMinutes ?? 0} minutes` : null,
     `Current deployment: ${candidate.deploymentSha ?? 'unavailable'}`,
     candidate.safeReference ? `Technical reference: ${candidate.safeReference}` : null,
@@ -246,6 +278,14 @@ async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { fi
   const recipient = process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim() || process.env.MK_INTERNAL_LEADS_EMAIL?.trim();
   if (!recipient) return { sent: false as const, reason: 'recipient_missing' as const };
   const sendEmail = dependencies.sendEmail ?? defaultSendEmail;
+  const underlyingCount = typeof candidate.detail?.count === 'number' && Number.isFinite(candidate.detail.count)
+    ? candidate.detail.count
+    : null;
+  const notificationVersion = input.recovery
+    ? `recovery-${input.occurrenceCount ?? 1}`
+    : underlyingCount !== null
+      ? `count-${underlyingCount}`
+      : `observation-${input.occurrenceCount ?? 1}`;
   const result: SendEmailResult = await sendEmail({
     from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
     to: recipient,
@@ -254,7 +294,7 @@ async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { fi
     text: textForAlert(candidate, input),
     html: `<p>${textForAlert(candidate, input).replace(/\n/g, '<br>')}</p>`,
     audience: 'internal',
-    idempotencyKey: `production-monitor:${candidate.alertKey}:${input.recovery ? 'recovery' : 'incident'}:${input.occurrenceCount ?? 1}`
+    idempotencyKey: `production-monitor:${candidate.alertKey}:${input.recovery ? 'recovery' : 'incident'}:${notificationVersion}`
   });
   return result.ok && result.mode !== 'disabled'
     ? { sent: true as const, reason: 'sent' as const }
@@ -262,7 +302,7 @@ async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { fi
 }
 
 async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, dependencies: ProductionMonitorDependencies) {
-  const { data: existing } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count').eq('source', 'production_monitor').eq('alert_key', candidate.alertKey).maybeSingle();
+  const { data: existing } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count,detail_json').eq('source', 'production_monitor').eq('alert_key', candidate.alertKey).maybeSingle();
   const { data: recorded, error } = await db.rpc('record_production_monitor_alert', {
     p_alert_key: candidate.alertKey,
     p_priority: candidate.priority,
@@ -276,7 +316,15 @@ async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, d
     p_now: now.toISOString()
   });
   if (error || !recorded) return { ok: false as const, emailed: false };
-  const decision = alertNotificationDecision({ existing, now });
+  const underlyingCount = typeof candidate.detail?.count === 'number' && Number.isFinite(candidate.detail.count)
+    ? candidate.detail.count
+    : null;
+  const decision = alertNotificationDecision({
+    existing,
+    now,
+    priority: candidate.priority,
+    underlyingCount
+  });
   if (decision === 'suppress') return { ok: true as const, emailed: false, decision };
   const email = await sendMonitoringEmail(candidate, {
     firstDetected: existing?.first_detected_at ?? now.toISOString(),

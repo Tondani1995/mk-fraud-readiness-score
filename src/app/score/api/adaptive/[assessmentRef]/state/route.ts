@@ -6,12 +6,13 @@ import { safeErrorCategory } from '@/lib/monitoring/privacy';
 
 async function failure(error: unknown, request: Request, route: string) {
   const message = error instanceof Error ? error.message : 'adaptive_state_unavailable';
+  const status = message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' ? 404 : message.includes('token') ? 403 : 500;
   try {
     await recordProductionMonitorEvent({
       stage: 'assessment_state',
       outcome: 'fail',
       route,
-      httpStatus: 500,
+      httpStatus: status,
       errorCategory: safeErrorCategory(error),
       deploymentSha: process.env.VERCEL_GIT_COMMIT_SHA,
       synthetic: Boolean(isAuthorisedSyntheticMonitorRequest(request))
@@ -19,7 +20,6 @@ async function failure(error: unknown, request: Request, route: string) {
   } catch {
     // Monitor persistence must never change the customer-facing failure path.
   }
-  const status = message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' ? 404 : message.includes('token') ? 403 : 500;
   return NextResponse.json({ ok: false, errors: [message] }, { status });
 }
 

@@ -27,11 +27,11 @@ export async function POST(request: Request) {
     stage: 'browser_javascript',
     outcome: 'fail',
     route: payload.route,
-    httpStatus: 500,
+    httpStatus: null,
     errorCategory: payload.errorCategory,
     deploymentSha: process.env.VERCEL_GIT_COMMIT_SHA,
     synthetic: syntheticPreviewTest,
-    details: { error_name: payload.errorName }
+    details: { exception_class: payload.errorName }
   });
   return NextResponse.json({ ok: true });
 }

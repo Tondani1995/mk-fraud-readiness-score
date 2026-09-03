@@ -19,6 +19,7 @@ import {
   alertNotificationDecision,
   candidatesForEvaluation,
   candidatesForFunnel,
+  isCountableProductionApiFailure,
   recoveryNotificationAllowed
 } from '../src/lib/monitoring/production-monitor.ts';
 import { sanitiseMonitoringDetails, sanitiseMonitoringRoute } from '../src/lib/monitoring/privacy.ts';
@@ -156,6 +157,7 @@ const safeDetails = sanitiseMonitoringDetails({
 });
 assert.deepEqual(safeDetails, { stage: 'snapshot_generation', status_code: 500, retryable: true });
 assert.equal(sanitiseMonitoringRoute('/score/api/adaptive/MKFRS-2026-ABC?token=secret'), '/score/api/adaptive/:assessment');
+assert.equal(sanitiseMonitoringRoute('/score/api/adaptive/[assessmentRef]/submit'), '/score/api/adaptive/:assessment/submit');
 assert.equal(sanitiseMonitoringRoute('https://example.com/private'), '/unknown');
 pass('monitoring details and routes are PII/token scrubbed');
 
@@ -197,6 +199,18 @@ const now = new Date('2026-09-01T12:00:00.000Z');
 assert.equal(alertNotificationDecision({ now }), 'send_initial');
 assert.equal(alertNotificationDecision({ now, existing: { status: 'open', last_notified_at: '2026-09-01T11:00:00.000Z' } }), 'suppress');
 assert.equal(alertNotificationDecision({ now, existing: { status: 'open', last_notified_at: '2026-09-01T07:00:00.000Z' } }), 'send_reminder');
+assert.equal(alertNotificationDecision({
+  now,
+  priority: 'P2',
+  underlyingCount: 5,
+  existing: { status: 'open', last_notified_at: '2026-09-01T07:00:00.000Z', detail_json: { count: 5 } }
+}), 'suppress');
+assert.equal(alertNotificationDecision({
+  now,
+  priority: 'P2',
+  underlyingCount: 6,
+  existing: { status: 'open', last_notified_at: '2026-09-01T11:55:00.000Z', detail_json: { count: 5 } }
+}), 'send_reminder');
 assert.equal(recoveryNotificationAllowed({ status: 'open', last_notified_at: '2026-09-01T11:00:00.000Z', last_recovery_notified_at: null }), true);
 assert.equal(recoveryNotificationAllowed({ status: 'resolved', last_notified_at: '2026-09-01T11:00:00.000Z', last_recovery_notified_at: null }), false);
 assert.equal(recoveryNotificationAllowed({ status: 'open', last_notified_at: '2026-09-01T11:00:00.000Z', last_recovery_notified_at: '2026-09-01T11:30:00.000Z' }), false);
@@ -219,6 +233,12 @@ const baseMetrics = {
   notificationFailures: 0
 };
 assert.deepEqual(candidatesForFunnel(baseMetrics, RELEASE_SHA_A), []);
+assert.equal(isCountableProductionApiFailure({ environment: 'production', http_status: 500, stage: 'assessment_start', error_category: 'adaptive_configuration_failure' }), true);
+assert.equal(isCountableProductionApiFailure({ environment: 'production', http_status: 403, stage: 'adaptive_submit', error_category: 'authorisation_failure' }), false);
+assert.equal(isCountableProductionApiFailure({ environment: 'production', http_status: 500, stage: 'assessment_state', error_category: 'authorisation_failure' }), false);
+assert.equal(isCountableProductionApiFailure({ environment: 'production', http_status: 500, stage: 'browser_javascript', error_category: 'uncaught_client_exception' }), false);
+assert.equal(isCountableProductionApiFailure({ environment: 'preview', http_status: 500, stage: 'assessment_start', error_category: 'adaptive_configuration_failure' }), false);
+assert.equal(isCountableProductionApiFailure({ environment: null, http_status: 500, stage: 'assessment_start', error_category: 'adaptive_configuration_failure' }), false);
 assert.equal(candidatesForFunnel({ ...baseMetrics, submittedWithoutSnapshot: 1 }, RELEASE_SHA_A)[0].priority, 'P1');
 assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 5, firstAnswers: 1 }, RELEASE_SHA_A)[0].priority, 'P3');
 assert.equal(candidatesForFunnel({ ...baseMetrics, starts: 1, firstAnswers: 0 }, RELEASE_SHA_A).length, 0);
@@ -250,6 +270,11 @@ assert.match(sentryTestRoute, /Sentry\.init\(/);
 assert.match(sentryTestRoute, /sendDefaultPii:\s*false/);
 assert.match(sentryTestRoute, /Sentry\.flush\(2000\)/);
 assert.match(read('src/lib/monitoring/production-monitor.ts'), /production_monitor_events'.*eq\('synthetic', false\)/);
+assert.match(read('src/lib/monitoring/production-monitor.ts'), /environment: monitorEnvironment/);
+assert.doesNotMatch(read('src/lib/monitoring/production-monitor.ts'), /Failure count:/);
+assert.match(read('src/app/score/api/adaptive/[assessmentRef]/state/route.ts'), /httpStatus: status/);
+assert.match(read('src/app/score/api/internal/client-error/route.ts'), /httpStatus: null/);
+assert.match(read('src/app/score/api/internal/client-error/route.ts'), /exception_class/);
 assert.match(read('src/app/score/api/internal/client-error/route.ts'), /mk_sentry_client_test/);
 assert.match(read('src/app/score/api/adaptive/[assessmentRef]/submit/route.ts'), /safeErrorCategory\(error\)/);
 const monitoringAdminPage = read('src/app/score/admin/monitoring/page.tsx');

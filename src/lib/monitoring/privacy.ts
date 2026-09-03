@@ -8,6 +8,8 @@ export function sanitiseMonitoringRoute(value: unknown) {
   // Use URL-safe route placeholders so sanitisation never falls back to /unknown for a valid
   // dynamic application path.
   route = route.replace(/MKFRS-[A-Z0-9-]+/gi, ':assessment');
+  route = route.replace(/\[(?:assessmentRef|assessmentReference)\]/g, ':assessment');
+  route = route.replace(/\[[A-Za-z][A-Za-z0-9_]*\]/g, ':param');
   route = route.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, ':id');
   return SAFE_ROUTE_RE.test(route) ? route.slice(0, 240) : '/unknown';
 }
