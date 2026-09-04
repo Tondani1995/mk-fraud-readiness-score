@@ -36,6 +36,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
     'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
+    'IDENTIFIER BOUNDARY. All uppercase IDs, control IDs, question IDs, scenario IDs, claim references and Blueprint keys in the supplied JSON are alignment metadata only. Never copy them into narrative prose, including tokens such as CONTROL-01-01, D1-Q01, SCENARIO-01 or FIRST-90-DAYS-CONCLUSION-60-DAYS. Refer to the plain-language subject instead.',
     '',
     `PROHIBITED CLAIMS: ${(input.context.boundaries?.prohibitedClaims ?? []).join('; ') || '(none supplied)'}`,
     'WRITE ONLY THE NARRATIVE UNDER THESE EXISTING HEADINGS.',
@@ -66,6 +67,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
     'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
+    'IDENTIFIER BOUNDARY. All uppercase IDs, control IDs, question IDs, scenario IDs, claim references and Blueprint keys in the supplied JSON are alignment metadata only. Never copy them into narrative prose, including tokens such as CONTROL-01-01, D1-Q01, SCENARIO-01 or FIRST-90-DAYS-CONCLUSION-60-DAYS. Refer to the plain-language subject instead.',
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
     `MISSING HEADINGS IN REQUIRED ORDER: ${JSON.stringify(tail.missingHeadings)}`,
@@ -183,7 +185,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never copy internal IDs or numeric metadata from the supplied JSON into narrative prose. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,
