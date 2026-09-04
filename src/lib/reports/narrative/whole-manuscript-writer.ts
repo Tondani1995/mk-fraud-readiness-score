@@ -35,6 +35,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
+    'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
     '',
     `PROHIBITED CLAIMS: ${(input.context.boundaries?.prohibitedClaims ?? []).join('; ') || '(none supplied)'}`,
     'WRITE ONLY THE NARRATIVE UNDER THESE EXISTING HEADINGS.',
@@ -64,6 +65,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
+    'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
     `MISSING HEADINGS IN REQUIRED ORDER: ${JSON.stringify(tail.missingHeadings)}`,
