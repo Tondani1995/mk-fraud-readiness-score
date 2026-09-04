@@ -1,28 +1,8 @@
-import { createHash } from 'node:crypto';
 import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
-import { buildEssentialProjection } from '../essential-projection';
-import { buildEssentialNarrativeFactPack } from '../narrative/fact-pack';
-import { getMaturityBand } from '@/lib/scoring/maturity-band';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { assembleComprehensive } from './assembly';
-import { buildComprehensiveManagementModel } from './management-model';
-import { renderComprehensiveManagementReportHtml } from './render-comprehensive-html';
-import {
-  adaptComprehensiveEvidenceModel,
-  adaptComprehensiveScenarioFacts
-} from './customer-visible-adaptation';
-import {
-  buildInterpretationBrief,
-  COMPREHENSIVE_INTERPRETATION_VERSION,
-  generateComprehensiveInterpretation,
-  interpretationToCommentary,
-  type InterpretationBrief,
-  type InterpretationRun
-} from './interpretation';
-import { renderHtmlToPdfBuffer } from '../render-pdf';
-
-const COMPREHENSIVE_INTERPRETATION_SCHEMA_VERSION = 'mk-comprehensive-interpretation-schema-v1';
+import { generateComprehensiveNarrativeReport } from './narrative-generation';
+import { persistComprehensiveNarrativeProvenance } from './narrative-provenance';
 
 function reportVersionFromReference(reportReference: string): number {
   const match = reportReference.match(/-V(\d+)$/);
@@ -31,13 +11,6 @@ function reportVersionFromReference(reportReference: string): number {
     throw new Error('Comprehensive manual generation requires a versioned report reference.');
   }
   return version;
-}
-
-function evidenceChecksum(brief: InterpretationBrief): string {
-  // This is the exact deterministic brief supplied to the bounded writer. Hashing it here makes
-  // the persisted provenance describe the evidence actually interpreted, rather than a wider
-  // assessment payload that the provider never received.
-  return createHash('sha256').update(JSON.stringify(brief), 'utf8').digest('hex');
 }
 
 async function resolveManualGenerationProvenanceTarget(assembled: AssembledReportData) {
@@ -59,154 +32,72 @@ async function resolveManualGenerationProvenanceTarget(assembled: AssembledRepor
   if (!Array.isArray(data) || data.length !== 1 || !data[0]?.id) {
     throw new Error('Comprehensive manual generation provenance target is not uniquely active.');
   }
-  return { db, attemptId: String(data[0].id), reportVersion };
-}
-
-async function persistComprehensiveManuscriptProvenance(input: {
-  db: any;
-  attemptId: string;
-  brief: InterpretationBrief;
-  interpretationRun: InterpretationRun;
-}) {
-  const { interpretationRun } = input;
-  const model = interpretationRun.accounting.model;
-  const provider = model.split('/')[0]?.trim() || 'vercel-ai-gateway';
-  const checksum = evidenceChecksum(input.brief);
-  const finalValidation = {
-    validation_mode: 'comprehensive_interpretation_contract_v1',
-    interpretation_version: COMPREHENSIVE_INTERPRETATION_VERSION,
-    issue_count: interpretationRun.issues.length,
-    issues: interpretationRun.issues
-  };
-  const generationMode = interpretationRun.accounting.repairs > 0 ? 'ai_repair' : 'ai';
-
-  const { data, error } = await input.db.rpc('record_manual_report_narrative_provenance', {
-    p_manual_generation_attempt_id: input.attemptId,
-    p_provenance: {
-      generation_mode: generationMode,
-      evidence_checksum: checksum,
-      prompt_version: COMPREHENSIVE_INTERPRETATION_VERSION,
-      schema_version: COMPREHENSIVE_INTERPRETATION_SCHEMA_VERSION,
-      requested_provider: provider,
-      requested_model: model,
-      resolved_provider: provider,
-      resolved_model: model,
-      structured_ai_output: interpretationRun.interpretation,
-      final_narrative: interpretationRun.interpretation,
-      final_validation: finalValidation,
-      initial_validation: finalValidation,
-      repair_validation: interpretationRun.accounting.repairs > 0 ? finalValidation : null,
-      usage: {
-        input_tokens: interpretationRun.accounting.inputTokens,
-        output_tokens: interpretationRun.accounting.outputTokens,
-        total_tokens: interpretationRun.accounting.totalTokens,
-        estimated_cost_micros: interpretationRun.accounting.costMicros,
-        latency_ms: interpretationRun.accounting.durationMs
-      },
-      fallback_reason: null
-    }
-  });
-
-  if (error || !data) {
-    throw error ?? new Error('Comprehensive manuscript provenance could not be persisted.');
-  }
-  return { checksum, persisted: data };
+  return { db, attemptId: String(data[0].id) };
 }
 
 /**
- * The Comprehensive generation path used by admin manual fulfilment.
+ * Production manual fulfilment adapter for the owner-approved Comprehensive architecture.
  *
- * This composes the already-certified Comprehensive pipeline and nothing else. Every
- * analytical decision -- scoring, Fact Pack, scenarios, controls, programme taxonomy,
- * governance, assurance and resilience logic, the interpretation contracts and the
- * renderer -- stays in the frozen modules called below. This file only orders those
- * calls, which is exactly the order the accepted owner-approved PDFs were produced in.
- * There is deliberately no second Comprehensive implementation and no copy of the
- * renderer here; a divergence between what the operator generates and what was
- * certified would be a silent product change.
+ * The customer PDF itself is produced only by the manuscript-first chain:
+ * Fact Pack -> Story Plan -> Report Blueprint -> bounded whole-manuscript generation/recovery ->
+ * provenance validation -> narrative-led PDF. This adapter adds no analytical or presentation
+ * logic. It only binds the resulting manuscript to the exact active manual-generation attempt and
+ * exposes a small compatibility accounting surface to the shared fulfilment controller.
  */
 export async function renderComprehensiveReportPdf(input: {
   assembled: AssembledReportData;
   evidenceModel: AdvisoryEvidenceModel;
-  /**
-   * Repairs are additional paid provider calls. Manual fulfilment runs on an explicit
-   * single-call budget, so the default is zero: one call produces the report or the
-   * attempt fails visibly rather than quietly spending more.
-   */
-  maxRepairsPerSlot?: number;
-}): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
-  const { assembled, evidenceModel } = input;
+}): Promise<{
+  pdf: Buffer;
+  narrativeRun: Awaited<ReturnType<typeof generateComprehensiveNarrativeReport>>['narrativeRun'];
+  semanticSafety: Awaited<ReturnType<typeof generateComprehensiveNarrativeReport>>['semanticSafety'];
+  provenance: Awaited<ReturnType<typeof generateComprehensiveNarrativeReport>>['provenance'];
+  interpretationRun: {
+    accounting: {
+      calls: number;
+      repairs: number;
+      model: string;
+      inputTokens: number | null;
+      outputTokens: number | null;
+      totalTokens: number | null;
+      costMicros: number | null;
+    };
+  };
+}> {
+  // Resolve the exact active attempt before provider dispatch. If the attempt identity is
+  // ambiguous, fail before any paid generation occurs.
+  const target = await resolveManualGenerationProvenanceTarget(input.assembled);
+  const result = await generateComprehensiveNarrativeReport(input);
 
-  // Resolve the exact active manual attempt before spending a provider call. This is the row the
-  // database provenance guard will inspect when finalisation later moves the attempt to
-  // REPORT_READY. If it cannot be identified uniquely, fail here rather than after AI and Storage.
-  const provenanceTarget = await resolveManualGenerationProvenanceTarget(assembled);
-
-  // The standing playbooks deliberately carry formal roles, illustrative operating
-  // routes and case-validation placeholders. They remain authoritative analytical
-  // inputs, but Comprehensive must not present those labels as facts about a customer.
-  // Use one adapted copy for every customer-visible Comprehensive consumer so the
-  // interpretation brief, management model and PDF cannot disagree with each other.
-  const customerEvidenceModel = adaptComprehensiveEvidenceModel(evidenceModel);
-  const pack = buildEssentialNarrativeFactPack(
-    assembled,
-    customerEvidenceModel,
-    buildEssentialProjection(assembled, customerEvidenceModel)
-  );
-  // Fail closed before the provider call. A Comprehensive report is an interpretation of
-  // a completed score; without one there is nothing to interpret and no report to sell.
-  const { score, maturity } = pack.assessment;
-  if (typeof score !== 'number' || !maturity) {
-    throw new Error('Comprehensive generation requires a scored assessment with a maturity band.');
-  }
-
-  const domains = pack.domains
-    .filter((domain) => typeof domain.score === 'number')
-    .map((domain) => ({ name: domain.name, score: domain.score as number, band: getMaturityBand(domain.score as number) }));
-
-  const model = buildComprehensiveManagementModel(
-    assembleComprehensive(customerEvidenceModel, {
-      scenarioFacts: adaptComprehensiveScenarioFacts(pack.scenarios),
-      domains
-    })
-  );
-
-  const brief = buildInterpretationBrief({
-    model,
-    organisationName: pack.organisation.name,
-    score,
-    maturity,
-    domains
-  });
-  const interpretationRun = await generateComprehensiveInterpretation(
-    brief,
-    { maxRepairsPerSlot: input.maxRepairsPerSlot ?? 0 }
-  );
-
-  // The final interpretation is the exact manuscript rendered below. Persist it while the parent
-  // attempt is still REPORT_GENERATING and before PDF rendering or Storage publication. The
-  // database finalisation guard therefore proves provenance instead of discovering its absence at
-  // the last write after the report has already been produced and uploaded.
-  await persistComprehensiveManuscriptProvenance({
-    db: provenanceTarget.db,
-    attemptId: provenanceTarget.attemptId,
-    brief,
-    interpretationRun
+  // Fail closed before Storage/finalisation if the accepted manuscript cannot be durably bound to
+  // this attempt. The database finalisation guard remains authoritative.
+  await persistComprehensiveNarrativeProvenance({
+    db: target.db,
+    manualGenerationAttemptId: target.attemptId,
+    provenance: result.provenance
   });
 
-  const html = renderComprehensiveManagementReportHtml({
-    model,
-    organisationName: pack.organisation.name,
-    assessmentReference: pack.assessment.reference,
-    score,
-    maturity,
-    domains: domains.map((domain) => ({ title: domain.name, score: domain.score, band: domain.band })),
-    commentary: interpretationToCommentary(interpretationRun.interpretation)
-  });
+  const resolvedModel = result.provenance.resolvedModel
+    ?? result.provenance.requestedModel
+    ?? 'openai/gpt-5.6-luna';
 
-  const pdf = await renderHtmlToPdfBuffer(html, {
-    footerLabel: `MK Fraud Readiness Comprehensive: ${pack.organisation.name}`
-  });
-
-  return { pdf, interpretationRun };
+  return {
+    pdf: result.pdf,
+    narrativeRun: result.narrativeRun,
+    semanticSafety: result.semanticSafety,
+    provenance: result.provenance,
+    // Compatibility only: current shared fulfilment logs these three old accounting labels. They
+    // are derived from the manuscript provenance and do not select or alter the report engine.
+    interpretationRun: {
+      accounting: {
+        calls: result.provenance.providerCalls,
+        repairs: result.provenance.targetedRepairs,
+        model: resolvedModel,
+        inputTokens: result.provenance.usage?.input_tokens ?? null,
+        outputTokens: result.provenance.usage?.output_tokens ?? null,
+        totalTokens: result.provenance.usage?.total_tokens ?? null,
+        costMicros: result.provenance.usage?.estimated_cost_micros ?? null
+      }
+    }
+  };
 }

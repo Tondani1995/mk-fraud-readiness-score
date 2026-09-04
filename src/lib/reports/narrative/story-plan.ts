@@ -13,6 +13,29 @@ export interface NarrativeMovement {
   requiredManagementTakeaway: string;
 }
 
+export interface ComprehensivePremiumStoryRequirements {
+  enterpriseIntegrationMapRef: string;
+  integrationDependencyRefs: string[];
+  assuranceCoverageRefs: string[];
+  assurancePriorityRefs: string[];
+  resilienceTestRefs: string[];
+  contextApplicationRefs: string[];
+  exposurePathwayRefs: string[];
+  criticalRelianceRefs: string[];
+  controlOutcomeLinkRefs: string[];
+  roadmapDependencyLinkRefs: string[];
+  questionSignalRefs: string[];
+  questionSignalUsage: Array<{ sectionId: string; purpose: string; questionSignalRefs: string[] }>;
+  sectionContributionRules: Array<{
+    sectionId: string;
+    managementQuestion: string;
+    primaryContribution: string;
+    prohibitedRestatementOf: string[];
+    questionSignalRefs: string[];
+  }>;
+  requiredPattern: 'context → analytical consequence → management implication';
+}
+
 export interface NarrativeStoryPlan {
   schemaVersion: typeof NARRATIVE_STORY_PLAN_SCHEMA_VERSION;
   bibleVersion: '1.1';
@@ -32,10 +55,114 @@ export interface NarrativeStoryPlan {
   narrativeBounds: NarrativeFactPack['narrativeBounds'];
   requiredConclusion: string;
   prohibitedClaims: string[];
+  premiumRequirements?: ComprehensivePremiumStoryRequirements;
 }
 
 function ids<T extends { factRef: string }>(items: T[]): string[] { return items.map((item) => item.factRef); }
 function maturationIds(items: NarrativeFactPack['maturationSteps']): string[] { return items.map((item) => item.maturationRef); }
+
+export const COMPREHENSIVE_SECTION_CONTRIBUTIONS = [
+  {
+    sectionId: 'EXECUTIVE-ASSESSMENT-POSITION',
+    managementQuestion: 'What does the recorded readiness position require management to protect?',
+    primaryContribution: 'State the score, maturity and assurance boundary once, then set the preservation judgement.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'ANALYTICAL-BASIS-SECTION',
+    managementQuestion: 'What question-level evidence pattern and supported relationships explain the position?',
+    primaryContribution: 'Explain the full question-signal coverage, ten-domain shape, four loops, supported dependencies and selective context pathways once.',
+    prohibitedRestatementOf: ['EXECUTIVE-ASSESSMENT-SECTION']
+  },
+  {
+    sectionId: 'READINESS-SUPPORTING-STANDARDS-SECTION',
+    managementQuestion: 'Which recorded strengths should be actively preserved?',
+    primaryContribution: 'Connect the positive recorded standards to the operating rhythms that keep them useful.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'SUSTAINMENT-PRIORITIES-SECTION',
+    managementQuestion: 'Which named management disciplines deserve explicit preservation?',
+    primaryContribution: 'Name the three priorities and their owners, proof, indicators and deterioration signals.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'DETERIORATION-WATCHPOINTS-SECTION']
+  },
+  {
+    sectionId: 'DETERIORATION-WATCHPOINTS-SECTION',
+    managementQuestion: 'What supported operating changes would test the strong position?',
+    primaryContribution: 'Use the three selective exposure pathways and conditional resilience tests to define early attention after change.',
+    prohibitedRestatementOf: ['ANALYTICAL-BASIS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION',
+    managementQuestion: 'What control design preserves each priority and its protected outcome?',
+    primaryContribution: 'Describe priority-specific objectives, states, owners, proof, measures and responses.',
+    prohibitedRestatementOf: ['DETERIORATION-WATCHPOINTS-SECTION', 'SUSTAINMENT-PRIORITIES-SECTION']
+  },
+  {
+    sectionId: 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION',
+    managementQuestion: 'Which distinct choices keep authority, learning and risk-view currency current?',
+    primaryContribution: 'Present the three decision-specific options, route, trade-offs, owner, timing and consequence of delay.',
+    prohibitedRestatementOf: ['TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION']
+  },
+  {
+    sectionId: 'SUSTAINMENT-OPTIMISATION-SECTION',
+    managementQuestion: 'In what dependency-led order should management preserve, embed, measure and optimise?',
+    primaryContribution: 'Sequence the existing roadmap and maturation objects through the four supported stages and their gates.',
+    prohibitedRestatementOf: ['LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION']
+  },
+  {
+    sectionId: 'MANAGEMENT-CONCLUSION-SECTION',
+    managementQuestion: 'What durable management commitment follows from the integrated position?',
+    primaryContribution: 'Close with the integrated outcome and next management rhythm without replaying the roadmap.',
+    prohibitedRestatementOf: ['EXECUTIVE-ASSESSMENT-SECTION', 'SUSTAINMENT-OPTIMISATION-SECTION']
+  }
+] as const;
+
+function questionSignalsForDomains(pack: NarrativeFactPack, domainCodes: readonly string[]): string[] {
+  const allowed = new Set(domainCodes);
+  return (pack.questionSignals ?? []).filter((signal) => allowed.has(signal.domainCode)).map((signal) => signal.factRef);
+}
+
+function questionSignalUsageFor(pack: NarrativeFactPack): Array<{ sectionId: string; purpose: string; questionSignalRefs: string[] }> {
+  const all = (pack.questionSignals ?? []).map((signal) => signal.factRef);
+  const priorityQuestionCodes = new Set(pack.sustainmentPriorities.map((priority) => priority.sourceQuestionCode).filter(Boolean));
+  const priorityRefs = (pack.questionSignals ?? []).filter((signal) => priorityQuestionCodes.has(signal.questionCode)).map((signal) => signal.factRef);
+  const pathwayRefs = (pack.exposurePathways ?? []).flatMap((pathway) => pathway.questionSignalRefs);
+  const applicableHighSignals = (pack.questionSignals ?? []).filter((signal) => signal.applicable && (signal.normalisedScore ?? 0) >= 60).map((signal) => signal.factRef);
+  return [
+    { sectionId: 'ANALYTICAL-BASIS-SECTION', purpose: 'Full question-level evidence surface used to explain the score shape and assurance boundary.', questionSignalRefs: all },
+    { sectionId: 'READINESS-SUPPORTING-STANDARDS-SECTION', purpose: 'Applicable positive responses used to support the recorded strengths.', questionSignalRefs: applicableHighSignals },
+    { sectionId: 'SUSTAINMENT-PRIORITIES-SECTION', purpose: 'Source questions for the three selected sustainment priorities.', questionSignalRefs: priorityRefs },
+    { sectionId: 'DETERIORATION-WATCHPOINTS-SECTION', purpose: 'Question signals relevant to the supported operating-context pathways and change tests.', questionSignalRefs: [...new Set(pathwayRefs)] },
+    { sectionId: 'TARGET-RESILIENT-CONTROL-ENVIRONMENT-SECTION', purpose: 'Source questions for the priority-specific control designs.', questionSignalRefs: priorityRefs },
+    { sectionId: 'LEADERSHIP-DECISIONS-TO-PRESERVE-SECTION', purpose: 'Source questions for the distinct governance, learning and risk-view decisions.', questionSignalRefs: priorityRefs },
+    { sectionId: 'SUSTAINMENT-OPTIMISATION-SECTION', purpose: 'Source questions retained behind the staged management route.', questionSignalRefs: priorityRefs }
+  ];
+}
+
+function premiumStoryRequirements(pack: NarrativeFactPack): ComprehensivePremiumStoryRequirements | undefined {
+  if (pack.productTier !== 'comprehensive' || pack.narrativeMode !== 'SUSTAINMENT' || !pack.enterpriseIntegrationMap) return undefined;
+  return {
+    enterpriseIntegrationMapRef: pack.enterpriseIntegrationMap.factRef,
+    integrationDependencyRefs: pack.facts.filter((fact) => fact.kind === 'integration_dependency').map((fact) => fact.id),
+    assuranceCoverageRefs: (pack.assuranceCoverage ?? []).map((item) => item.factRef),
+    assurancePriorityRefs: (pack.assurancePriorities ?? []).map((item) => item.factRef),
+    resilienceTestRefs: (pack.resilienceTests ?? []).map((item) => item.factRef),
+    contextApplicationRefs: (pack.contextApplications ?? []).map((item) => item.factRef),
+    exposurePathwayRefs: (pack.exposurePathways ?? []).map((item) => item.factRef),
+    criticalRelianceRefs: (pack.criticalReliances ?? []).map((item) => item.factRef),
+    controlOutcomeLinkRefs: (pack.controlOutcomeLinks ?? []).map((item) => item.factRef),
+    roadmapDependencyLinkRefs: (pack.roadmapDependencyLinks ?? []).map((item) => item.factRef),
+    questionSignalRefs: (pack.questionSignals ?? []).map((item) => item.factRef),
+    questionSignalUsage: questionSignalUsageFor(pack),
+    sectionContributionRules: COMPREHENSIVE_SECTION_CONTRIBUTIONS.map((rule) => ({
+      ...rule,
+      prohibitedRestatementOf: [...rule.prohibitedRestatementOf],
+      questionSignalRefs: questionSignalUsageFor(pack).find((usage) => usage.sectionId === rule.sectionId)?.questionSignalRefs ?? []
+    })),
+    requiredPattern: 'context → analytical consequence → management implication'
+  };
+}
 
 export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStoryPlan {
   const essential = pack.productTier === 'essential';
@@ -65,7 +192,7 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
       { id: 'design', order: 6, title: 'Target resilient control environment', objective: 'Describe the current strong standard, ownership, proof, trigger and effectiveness indicator.', sectionIds: ['CONTROL-BLUEPRINTS', 'OPERATING-MODEL'], transitionPurpose: 'Move from the resilient standard to decisions that preserve maturity.', requiredManagementTakeaway: 'A strong control environment stays strong when operating discipline and deterioration signals are explicit.' },
       { id: 'decisions', order: 7, title: 'Leadership decisions to preserve maturity', objective: 'Set governance, monitoring, ownership and change-trigger decisions with clear trade-offs.', sectionIds: ['LEADERSHIP-DECISIONS'], transitionPurpose: 'Sequence the sustainment route through the twelve-month blueprint.', requiredManagementTakeaway: 'Leadership should protect cadence, ownership continuity and management information.' },
       { id: 'roadmap', order: 8, title: 'Twelve-month sustainment and optimisation blueprint', objective: 'Show progression from PRESERVE through EMBED, MEASURE and OPTIMISE.', sectionIds: ['SUSTAINMENT-BLUEPRINT', 'SCORECARD'], transitionPurpose: 'Close with the future-state sustainment rhythm.', requiredManagementTakeaway: 'Progress should preserve the current standard, embed the rhythm, measure drift and optimise after change.' },
-      { id: 'conclusion', order: 9, title: 'Management conclusion', objective: 'Close with the route for preserving readiness and detecting early deterioration.', sectionIds: ['CONCLUSION'], transitionPurpose: 'End with a durable management commitment.', requiredManagementTakeaway: 'The value is sustained readiness and early detection of drift, not a price-based assurance claim.' }
+      { id: 'conclusion', order: 9, title: 'Management conclusion', objective: 'Close with the route for preserving readiness and detecting early deterioration.', sectionIds: ['CONCLUSION'], transitionPurpose: 'End with a durable management commitment.', requiredManagementTakeaway: 'The value is sustained readiness and early detection of drift, not an assurance conclusion about operating effectiveness.' }
     ] : [
       { id: 'diagnosis', order: 1, title: 'Executive diagnosis', objective: 'State what MK concluded from the recorded assessment.', sectionIds: ['EXECUTIVE-DIAGNOSIS'], transitionPurpose: 'Clarify the analytical basis and boundary before interpretation.', requiredManagementTakeaway: 'The current position, the pattern beneath it and the leadership priorities must be clear from this section alone.' },
       { id: 'basis', order: 2, title: 'Analytical basis', objective: 'Explain the self-assessment basis and assurance boundary once.', sectionIds: ['ANALYTICAL-BASIS', 'READINESS-PROFILE'], transitionPurpose: 'Move from score shape to the themes that explain concentration.', requiredManagementTakeaway: 'The result is strategic analysis and control design, not independent operating verification.' },
@@ -85,7 +212,7 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     narrativeMode: pack.narrativeMode,
     executiveStoryObjective: essential
       ? sustainment ? 'Explain the strong assessed position, the disciplines supporting it and the first 90-day sustainment route.' : 'Diagnose the self-assessed fraud-control environment, explain its most material patterns and set the first 90-day response.'
-      : sustainment ? 'Explain the strong recorded environment, define sustainment and deterioration watchpoints, and set the twelve-month resilience route.' : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
+      : sustainment ? 'Explain the strong recorded environment through one enterprise integration view, define conditional resilience and deterioration watchpoints, connect controls to protected outcomes and set the twelve-month dependency-led route.' : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
     movements,
     themeOrder: ids(pack.systemicThemeInputs),
     findingOrder: ids(pack.findings.slice(0, essential ? 8 : 8)),
@@ -106,8 +233,9 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     },
     requiredConclusion: essential
       ? sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the sustainment priorities, what should remain true within 90 days and how management will detect deterioration.' : 'Explain what the assessment shows, which few changes matter most, what must be true within 90 days and the sensible next step.'
-      : sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the transition from preserve to optimise, success at 90 days and 12 months, and the management rhythm that protects maturity.' : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
-    prohibitedClaims: pack.prohibitedClaims
+      : sustainment ? 'State that no material weaknesses were identified from the recorded assessment responses, explain the enterprise relationships that protect the result, the conditional tests after change, the transition from preserve to optimise, success at 90 days and 12 months, and the management rhythm that protects maturity.' : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
+    prohibitedClaims: pack.prohibitedClaims,
+    ...(premiumStoryRequirements(pack) ? { premiumRequirements: premiumStoryRequirements(pack) } : {})
   };
 }
 
@@ -130,6 +258,13 @@ export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: Narrati
   if (JSON.stringify(maturationIds(pack.maturationSteps)) !== JSON.stringify(plan.maturationOrder)) throw new Error('Story Plan maturation order does not match deterministic Fact Pack order.');
   if (!plan.requiredConclusion.trim()) throw new Error('Story Plan must define a required conclusion.');
   if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.findingCount !== 0) throw new Error('Sustainment Story Plan must contain no customer-facing findings.');
+  const premium = premiumStoryRequirements(pack);
+  if (premium) {
+    if (!plan.premiumRequirements) throw new Error('Comprehensive Sustainment Story Plan is missing premium propagation requirements.');
+    if (JSON.stringify(plan.premiumRequirements) !== JSON.stringify(premium)) throw new Error('Comprehensive Sustainment Story Plan premium propagation requirements do not match the Fact Pack.');
+  } else if (plan.premiumRequirements) {
+    throw new Error('Premium propagation requirements may not appear in Essential, Remediation or non-Comprehensive Story Plans.');
+  }
   if (pack.narrativeMode !== 'SUSTAINMENT' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 1 || plan.narrativeBounds.findingCount > 8)))) throw new Error('Story Plan finding narrative core is outside the permitted profile bounds.');
   if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.scenarioCount !== 0) throw new Error('Sustainment Story Plan must contain no automated fraud scenarios.');
   if (pack.narrativeMode !== 'SUSTAINMENT' && plan.productTier === 'essential' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 3)))) throw new Error('Essential Story Plan contains an invalid scenario count for the assessed readiness profile.');

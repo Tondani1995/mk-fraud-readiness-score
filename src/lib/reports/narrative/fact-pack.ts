@@ -13,6 +13,21 @@ import {
   describeOperatingContextFact,
   type OperatingContextFact
 } from './operating-context';
+import {
+  assertComprehensivePremiumProjection,
+  buildComprehensivePremiumProjection,
+  premiumFactEntries,
+  type ComprehensivePremiumProjection,
+  type EnterpriseIntegrationMap,
+  type NarrativeAssuranceCoverageFact,
+  type NarrativeAssurancePriorityFact,
+  type NarrativeContextApplication,
+  type NarrativeControlOutcomeLink,
+  type NarrativeControlRelianceFact,
+  type NarrativeExposurePathwayFact,
+  type NarrativeResilienceTestFact,
+  type NarrativeRoadmapDependencyLink
+} from './premium-projection';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -196,6 +211,38 @@ export interface NarrativeSustainmentPriorityFact {
   deteriorationTrigger: string;
   effectivenessIndicator: string;
   dependencies: string[];
+  /** Comprehensive-only source identity retained for cross-artifact provenance. */
+  sourceId?: string;
+  sourceFindingId?: string;
+  sourceQuestionCode?: string;
+  sourceDomainCode?: string;
+  sourceRefs?: string[];
+}
+
+/**
+ * Question-level evidence retained for the Comprehensive writer. The score and maturity remain
+ * unchanged; this additive view prevents a healthy profile from collapsing into only three
+ * score-level priorities. Excluded or not-applicable traces remain represented with their recorded
+ * state so the writer cannot silently turn absence into a positive assertion.
+ */
+export interface NarrativeQuestionSignal {
+  factRef: string;
+  questionCode: string;
+  domainCode: string;
+  domainName: string;
+  prompt: string;
+  responseValue: number | null;
+  responseLabel: string;
+  responseOperationalMeaning: string;
+  normalisedScore: number | null;
+  applicable: boolean;
+  triggeredRules: string[];
+  isCritical: boolean;
+  isHardGate: boolean;
+  isCriticalGap: boolean;
+  isMajorGap: boolean;
+  contextRefs: string[];
+  sourceRefs: string[];
 }
 
 export interface NarrativeBounds {
@@ -232,6 +279,8 @@ export interface NarrativeFactPack {
     /** Canonical operating facts with graph/question/option provenance. */
     operatingContext: OperatingContextFact[];
   };
+  /** Present only on the Comprehensive projection; Essential retains its prior surface. */
+  questionSignals?: NarrativeQuestionSignal[];
   assessment: {
     reference: string;
     generatedAt: string;
@@ -263,6 +312,16 @@ export interface NarrativeFactPack {
   prohibitedClaims: string[];
   narrativeBounds: NarrativeBounds;
   facts: NarrativeFact[];
+  /** Present only for the Comprehensive Sustainment projection. */
+  assuranceCoverage?: NarrativeAssuranceCoverageFact[];
+  assurancePriorities?: NarrativeAssurancePriorityFact[];
+  resilienceTests?: NarrativeResilienceTestFact[];
+  enterpriseIntegrationMap?: EnterpriseIntegrationMap;
+  contextApplications?: NarrativeContextApplication[];
+  exposurePathways?: NarrativeExposurePathwayFact[];
+  criticalReliances?: NarrativeControlRelianceFact[];
+  controlOutcomeLinks?: NarrativeControlOutcomeLink[];
+  roadmapDependencyLinks?: NarrativeRoadmapDependencyLink[];
 }
 
 const text = (value: unknown, fallback = ''): string => String(value ?? '').trim() || fallback;
@@ -296,6 +355,57 @@ function cleanSustainmentLanguage(value: unknown, fallback = ''): string {
     .replace(/control failure/gi, 'control deterioration')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function naturalSustainmentTitle(value: unknown, fallback = 'Fraud-control readiness'): string {
+  return cleanSustainmentLanguage(value, fallback)
+    .replace(/^sustain\s+/i, '')
+    .replace(/^maintain\s+/i, '')
+    .trim();
+}
+
+function buildQuestionSignals(
+  data: AssembledReportData | undefined,
+  operatingContext: OperatingContextFact[],
+  domains: NarrativeDomainFact[]
+): NarrativeQuestionSignal[] {
+  if (!data?.questionTraces?.length) return [];
+  const labels = new Map(data.officialResponseLabels.map((label) => [label.responseValue, label]));
+  const domainRefs = new Map(domains.map((domain) => [domain.code, domain.factRef]));
+  const contextRefsByQuestion = new Map<string, string[]>();
+  for (const context of operatingContext) {
+    const refs = contextRefsByQuestion.get(context.sourceQuestionId) ?? [];
+    refs.push(`OPERATING-CONTEXT-${context.key}`);
+    contextRefsByQuestion.set(context.sourceQuestionId, refs);
+  }
+  return data.questionTraces.map((trace) => {
+    const response = trace.responseValue === null ? undefined : labels.get(trace.responseValue);
+    const contextRefs = [...new Set(contextRefsByQuestion.get(trace.questionCode) ?? [])];
+    const sourceRefs = [...new Set([
+      trace.questionCode,
+      domainRefs.get(trace.domainCode) ?? `DOMAIN-${trace.domainCode}`,
+      ...contextRefs
+    ])];
+    return {
+      factRef: `QUESTION-SIGNAL-${trace.questionCode}`,
+      questionCode: trace.questionCode,
+      domainCode: trace.domainCode,
+      domainName: trace.domainName,
+      prompt: cleanFactLanguage(trace.prompt, trace.questionCode),
+      responseValue: trace.responseValue,
+      responseLabel: response?.label ?? (trace.responseValue === null ? 'Not applicable' : 'Recorded response'),
+      responseOperationalMeaning: cleanFactLanguage(response?.operationalMeaning, trace.responseValue === null ? 'The question was excluded by the recorded assessment path.' : 'The response is retained in the locked score trace.'),
+      normalisedScore: trace.normalisedScore,
+      applicable: trace.applicable,
+      triggeredRules: trace.triggeredRules.map((rule) => text(rule)).filter(Boolean),
+      isCritical: trace.isCritical,
+      isHardGate: trace.isHardGate,
+      isCriticalGap: trace.isCriticalGap,
+      isMajorGap: trace.isMajorGap,
+      contextRefs,
+      sourceRefs
+    };
+  });
 }
 
 function phaseFor(action: RoadmapAction): NarrativeRoadmapFact['phase'] {
@@ -644,8 +754,11 @@ function fallbackWarnings(family: FraudPathwayFamily): string[] {
     privileged_access_misuse: ['Emergency or administrator access outside the role pattern', 'Unusual record or entitlement change', 'Access review exception remains overdue'],
     detection_evasion: ['Repeated low-value or threshold-adjacent activity', 'Alert or exception backlog grows without assigned owner', 'Monitoring rule is not updated after a material process change'],
     identity_impersonation: ['Credential reset, device change or profile amendment', 'Identity data differs across trusted records', 'Sensitive transaction follows a new or unusual session'],
-    incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue']
-  } as Record<string, string[]>)[family.toLowerCase()];
+    incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue'],
+    payroll_manipulation: ['Payroll master-file change is not independently reviewed before release', 'Unusual payroll record remains unresolved', 'Employee or bank-detail change is made outside the expected role pattern'],
+    cash_custody_misuse: ['Cash difference remains unreconciled beyond the defined review window', 'Count or banking record is incomplete', 'Cash movement or custody transfer lacks attributable approval'],
+    stock_asset_misuse: ['Stock or asset movement is not reconciled to the authorised record', 'Shrinkage or write-off exception remains unresolved', 'Physical count or custody transfer is overdue']
+  } as Record<string, string[]>)[family.toLowerCase()] ?? [];
 }
 
 function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | undefined, members: MaterialFinding[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, risks: RiskRegisterEntry[], index: number, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact {
@@ -909,10 +1022,10 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
   }));
 }
 
-function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): NarrativeSustainmentPriorityFact[] {
+function buildSustainmentPriorityFacts(priorities: SustainmentPriority[], includeSourceMetadata = false): NarrativeSustainmentPriorityFact[] {
   return priorities.map((priority, index) => ({
     factRef: `SUSTAINMENT-${String(index + 1).padStart(3, '0')}`,
-    title: priority.title,
+    title: naturalSustainmentTitle(priority.title),
     domain: priority.domainName,
     semanticFamily: priority.primarySemanticFamily,
     recordedPosition: `${priority.responseLabel}: ${cleanSustainmentLanguage(priority.responseOperationalMeaning)}`,
@@ -924,54 +1037,148 @@ function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): Narra
     proofRetained: priority.proofRetained.map((item) => cleanSustainmentLanguage(item)).filter(Boolean),
     deteriorationTrigger: cleanSustainmentLanguage(priority.deteriorationTrigger, 'Material process, system, product or ownership change.'),
     effectivenessIndicator: cleanSustainmentLanguage(priority.effectivenessIndicator, 'The review rhythm remains current and exceptions are assigned.'),
-    dependencies: priority.dependencies.map((item) => cleanSustainmentLanguage(item)).filter(Boolean)
+    dependencies: priority.dependencies.map((item) => cleanSustainmentLanguage(item)).filter(Boolean),
+    ...(includeSourceMetadata ? {
+      sourceId: text(priority.id),
+      sourceFindingId: text(priority.sourceFindingId),
+      sourceQuestionCode: text(priority.questionCode),
+      sourceDomainCode: text(priority.domainCode),
+      sourceRefs: unique([priority.id, priority.sourceFindingId, priority.questionCode, priority.domainCode])
+    } : {})
   }));
 }
 
 function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]): NarrativeControlFact[] {
-  return priorities.map((priority, index) => ({
-    factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
-    sourceId: priority.factRef,
-    primarySemanticFamily: priority.semanticFamily,
-    objective: `Preserve ${priority.currentStrongStandard.toLowerCase()} and detect deterioration when the operating context changes.`,
-    currentState: `${priority.recordedPosition} This position supports a sustainment treatment.`,
-    targetState: `The current standard remains owned, reviewed and responsive to material change.`,
-    accountableExecutive: priority.accountableExecutive,
-    processOwner: priority.processOwner,
-    population: 'The complete in-scope population for the control standard.',
-    frequency: priority.operatingFrequency,
-    proofRetained: priority.proofRetained,
-    independentCheck: 'Management control-effectiveness review through the normal governance route.',
-    escalationTrigger: priority.deteriorationTrigger,
-    sla: 'Review within the next scheduled management cycle and after a material change.',
-    effectivenessMeasure: priority.effectivenessIndicator,
-    failureResponse: 'Escalate deterioration through the named owner and oversight route, then record the management response.',
-    dependencies: priority.dependencies,
-    linkedFindingRefs: [],
-    linkedSustainmentPriorityRefs: [priority.factRef]
-  }));
+  const designByFamily: Partial<Record<PrimarySemanticFamily, {
+    objective: string;
+    currentState: string;
+    targetState: string;
+    managementReview: string;
+    failureResponse: string;
+  }>> = {
+    FRAUD_GOVERNANCE: {
+      objective: 'Maintain fraud leadership and governance readiness through visible decision rights, funded ownership and timely escalation.',
+      currentState: 'The recorded standard places senior ownership, budget, unresolved exceptions and governing-body reporting within the fraud-risk programme.',
+      targetState: 'Decision rights, funded owners, unresolved actions and escalation status are visible in each governance cycle.',
+      managementReview: 'Management reviews the mandate, decision rights and overdue-action escalation through the normal governance route.',
+      failureResponse: 'Escalate an unowned or overdue material action through the named owner and governing-body route, then record the management response.'
+    },
+    CONTINUOUS_IMPROVEMENT: {
+      objective: 'Maintain control-effectiveness learning through scheduled review, evidence sampling, exception ownership and timely action closure.',
+      currentState: 'The recorded standard combines scheduled risk reassessment, key-control review and consolidated reporting with owned actions.',
+      targetState: 'Review scope, sampled evidence, deterioration signals and action closure feed the next management review.',
+      managementReview: 'Management reviews the population, evidence sample, exception assignment and closure record through the normal risk route.',
+      failureResponse: 'Route an overdue review or deteriorated key control to the named process owner, assign the response and record closure.'
+    },
+    FRAUD_RISK_IDENTIFICATION: {
+      objective: 'Keep the fraud-risk view current through material-process coverage, treatment ownership and change-triggered refresh.',
+      currentState: 'The recorded standard covers material processes, repeatable ratings, named owners and a tracked treatment plan.',
+      targetState: 'Material processes carry current risk ratings, treatment owners and dates, with an interim refresh after material change.',
+      managementReview: 'Management reviews process coverage, risk and treatment currency through the normal governance decision route.',
+      failureResponse: 'Escalate an outdated assessment or unowned material change through the named risk owner and normal governance route.'
+    }
+  };
+  return priorities.map((priority, index) => {
+    const design = designByFamily[priority.semanticFamily] ?? designByFamily.CONTINUOUS_IMPROVEMENT!;
+    return {
+      factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
+      sourceId: priority.factRef,
+      primarySemanticFamily: priority.semanticFamily,
+      objective: design.objective,
+      currentState: `${priority.recordedPosition} ${design.currentState}`,
+      targetState: design.targetState,
+      accountableExecutive: priority.accountableExecutive,
+      processOwner: priority.processOwner,
+      population: 'The complete in-scope population for the control standard.',
+      frequency: priority.operatingFrequency,
+      proofRetained: priority.proofRetained,
+      independentCheck: design.managementReview,
+      escalationTrigger: priority.deteriorationTrigger,
+      sla: 'Review within the next scheduled management cycle and after a material change.',
+      effectivenessMeasure: priority.effectivenessIndicator,
+      failureResponse: design.failureResponse,
+      dependencies: priority.dependencies,
+      linkedFindingRefs: [],
+      linkedSustainmentPriorityRefs: [priority.factRef]
+    };
+  });
 }
 
 function buildSustainmentDecisions(priorities: NarrativeSustainmentPriorityFact[]): NarrativeDecisionFact[] {
-  return priorities.slice(0, 5).map((priority, index) => ({
-    factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
-    sourceId: priority.factRef,
-    decisionFamily: 'governance_reporting_cadence',
-    decisionSemanticFamily: priority.semanticFamily === 'CONTINUOUS_IMPROVEMENT' ? 'CONTROL_EFFECTIVENESS_CADENCE' : 'FRAUD_GOVERNANCE_MODEL',
-    question: `What management rhythm will preserve ${priority.title.toLowerCase()} as the organisation changes?`,
-    options: [
-      { option: 'Maintain the current review cadence with a change-triggered refresh.', cost: 'Uses the existing management rhythm.', benefit: 'Preserves ownership with minimal additional overhead.', tradeOff: 'Requires disciplined attendance and action closure.' },
-      { option: 'Add a focused management-information view for deterioration indicators.', cost: 'Requires modest reporting and data-owner capacity.', benefit: 'Makes early deterioration visible before the standard is materially affected.', tradeOff: 'Adds a recurring reporting obligation.' },
-      { option: 'Include the priority in the next resilience or control-effectiveness review cycle.', cost: 'Uses planned review capacity.', benefit: 'Connects sustainment to the wider control environment and change agenda.', tradeOff: 'Timing follows the established review calendar.' }
-    ],
-    recommendedRoute: 'Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.',
-    rationale: `The ${priority.recordedPosition.toLowerCase()} position is strongest when ownership, review rhythm and change-triggered attention remain explicit.`,
-    owner: priority.accountableExecutive,
-    targetDate: 'Within the next 90 days',
-    consequenceOfDelay: 'Ownership or review discipline may drift after change without an early management signal.',
-    linkedFindingRefs: [],
-    linkedSustainmentPriorityRefs: [priority.factRef]
-  }));
+  const profiles: Record<string, {
+    semanticFamily: string;
+    question: string;
+    options: Array<{ option: string; cost: string; benefit: string; tradeOff: string }>;
+    recommendedRoute: string;
+    rationale: string;
+    consequenceOfDelay: string;
+  }> = {
+    FRAUD_GOVERNANCE: {
+      semanticFamily: 'FRAUD_GOVERNANCE_MODEL',
+      question: 'What governance commitment will keep fraud-risk ownership and escalation current as the organisation changes?',
+      options: [
+        { option: 'Reconfirm the executive mandate and decision rights each quarter.', cost: 'Leadership time to refresh the mandate and resolve boundary questions.', benefit: 'Keeps accountability, funding and escalation authority visible.', tradeOff: 'Requires prompt action when ownership or priorities change.' },
+        { option: 'Add overdue-action escalation to the governing-body pack.', cost: 'A small reporting and data-owner burden each cycle.', benefit: 'Makes unowned and delayed actions visible before they become a wider governance concern.', tradeOff: 'Needs reliable action data and disciplined exception follow-through.' },
+        { option: 'Use the annual governance review to test funding and succession cover.', cost: 'Dedicated agenda time and evidence from the accountable executive.', benefit: 'Checks that the standard can withstand role or resource change.', tradeOff: 'May surface decisions that require additional management capacity.' }
+      ],
+      recommendedRoute: 'Reconfirm the executive mandate and add overdue-action escalation to the quarterly governance pack.',
+      rationale: 'The governance standard depends on visible decision rights, funded ownership and timely escalation. A short quarterly confirmation protects those conditions without adding a parallel committee.',
+      consequenceOfDelay: 'A change in executive ownership or unresolved action load could weaken the route from fraud-risk activity to governing-body oversight.'
+    },
+    CONTINUOUS_IMPROVEMENT: {
+      semanticFamily: 'CONTROL_EFFECTIVENESS_CADENCE',
+      question: 'What review discipline will keep control-effectiveness learning current?',
+      options: [
+        { option: 'Protect the annual control-effectiveness review and record action closure.', cost: 'Review capacity, evidence collation and action-owner time.', benefit: 'Keeps the established learning cycle visible and connected to governance.', tradeOff: 'The cycle can lose value if actions are recorded without timely closure.' },
+        { option: 'Require an event-triggered review after a material incident or restructuring.', cost: 'A defined trigger assessment and additional review capacity when needed.', benefit: 'Refreshes the control view when the operating environment changes materially.', tradeOff: 'Requires management to recognise and record trigger events consistently.' },
+        { option: 'Report deteriorated key controls through the normal risk route.', cost: 'A recurring exception view and named data owner.', benefit: 'Connects control deterioration to an accountable response and due date.', tradeOff: 'Needs a consistent threshold for what is reported as deterioration.' }
+      ],
+      recommendedRoute: 'Protect the annual review, add event-triggered refresh and require named action closure for deterioration.',
+      rationale: 'The improvement discipline is strongest when review records, exceptions and lessons feed a recurring management cycle. The decision should preserve that cycle while making material change a clear reason to refresh it.',
+      consequenceOfDelay: 'Overdue review or unowned deterioration could allow control-learning signals to remain outside the ordinary management route.'
+    },
+    FRAUD_RISK_IDENTIFICATION: {
+      semanticFamily: 'FRAUD_RISK_IDENTIFICATION_MODEL',
+      question: 'How will management keep the fraud-risk view current when material processes or ownership change?',
+      options: [
+        { option: 'Keep the full fraud-risk assessment within the two-year cycle.', cost: 'Assessment planning, participant time and treatment-plan refresh.', benefit: 'Maintains a current view across material processes and residual risks.', tradeOff: 'A periodic cycle alone may not capture an important change between assessments.' },
+        { option: 'Trigger an interim refresh after a material process, product or ownership change.', cost: 'A documented trigger review and focused assessment effort.', benefit: 'Keeps the risk view connected to the operating environment as it changes.', tradeOff: 'Requires a clear threshold and timely recognition of material change.' },
+        { option: 'Require each material process to carry a current owner and treatment date.', cost: 'Ongoing ownership maintenance and review of treatment records.', benefit: 'Makes gaps in coverage and follow-through visible between full assessments.', tradeOff: 'The record must be kept current to remain useful for governance.' }
+      ],
+      recommendedRoute: 'Keep the two-year assessment current and require an interim refresh after material change, with owners and treatment dates visible.',
+      rationale: 'The risk-identification standard remains useful when its age, process coverage and treatment ownership are visible. A defined interim trigger closes the gap between scheduled assessments and material operating change.',
+      consequenceOfDelay: 'An outdated assessment or material residual-risk change without an owner could leave management relying on a risk view that no longer reflects the operating environment.'
+    }
+  };
+  return priorities.slice(0, 5).map((priority, index) => {
+    const profile = profiles[priority.semanticFamily] ?? {
+      semanticFamily: `${priority.semanticFamily}_MODEL`,
+      question: `What management commitment will keep ${priority.title.toLowerCase()} current?`,
+      options: [
+        { option: `Keep the ${priority.title.toLowerCase()} review current.`, cost: 'Protected management and review capacity.', benefit: 'Keeps the standard visible and owned.', tradeOff: 'Requires disciplined follow-through.' },
+        { option: `Add a change-triggered review for ${priority.title.toLowerCase()}.`, cost: 'A defined trigger review when conditions change.', benefit: 'Makes material change visible in time to respond.', tradeOff: 'Requires a clear change threshold.' },
+        { option: `Report exceptions affecting ${priority.title.toLowerCase()} through the normal governance route.`, cost: 'A recurring exception view.', benefit: 'Connects deterioration to an accountable response.', tradeOff: 'Needs reliable records and action closure.' }
+      ],
+      recommendedRoute: `Keep ${priority.title.toLowerCase()} current through scheduled review and change-triggered attention.`,
+      rationale: `The ${priority.title.toLowerCase()} standard is strongest when ownership, review timing and change-triggered attention remain explicit.`,
+      consequenceOfDelay: `A material change could weaken ${priority.title.toLowerCase()} without an early management signal.`
+    };
+    return {
+      factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
+      sourceId: priority.factRef,
+      decisionFamily: 'governance_reporting_cadence',
+      decisionSemanticFamily: profile.semanticFamily,
+      question: profile.question,
+      options: profile.options,
+      recommendedRoute: profile.recommendedRoute,
+      rationale: profile.rationale,
+      owner: priority.accountableExecutive,
+      targetDate: 'Within the next 90 days',
+      consequenceOfDelay: profile.consequenceOfDelay,
+      linkedFindingRefs: [],
+      linkedSustainmentPriorityRefs: [priority.factRef]
+    };
+  });
 }
 
 function buildSustainmentRoadmap(priorities: NarrativeSustainmentPriorityFact[]): NarrativeRoadmapFact[] {
@@ -1140,7 +1347,7 @@ function buildPack(input: {
   decisionSemanticFamilyOverrides?: Map<string, string>;
 }): NarrativeFactPack {
   const sustainment = input.narrativeMode === 'SUSTAINMENT';
-  const sustainmentPriorityFacts = sustainment ? buildSustainmentPriorityFacts(input.sustainmentPriorities ?? []) : [];
+  const sustainmentPriorityFacts = sustainment ? buildSustainmentPriorityFacts(input.sustainmentPriorities ?? [], input.tier === 'comprehensive') : [];
   const narrativeFindings = sustainment ? [] : input.selectedFindings;
   const narrativeRisks = sustainment ? [] : input.selectedRisks;
   const narrativeScenarios = sustainment ? [] : input.selectedScenarios;
@@ -1160,6 +1367,7 @@ function buildPack(input: {
   const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
   const domains = buildDomains(input.data, findings);
+  const questionSignals = input.tier === 'comprehensive' ? buildQuestionSignals(input.data, operatingContext, domains) : [];
   const themes = buildThemeFacts(input.evidenceModel.contradictions, narrativeFindings, narrativeRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
   const standaloneFindingReasons = Object.fromEntries(findings.filter((finding) => !themedFindingRefs.has(finding.factRef)).map((finding) => [finding.factRef, 'Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.']));
@@ -1168,9 +1376,7 @@ function buildPack(input: {
     ? 'Sustainment mode applies because the selected priorities are assurance-only, critical and major gap counts are zero, and no scoring cap changes final maturity. The priorities are not customer-facing material findings.'
     : findings.length < 5 && ((input.score.score ?? 0) >= 60 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
       ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.`
-      : input.tier === 'essential' && scenarios.length < 2
-        ? `Only ${scenarios.length} real fraud pathway scenario${scenarios.length === 1 ? '' : 's'} were supported by the deterministic assessment evidence; the Essential narrative remains sparse and does not invent an additional pathway.`
-        : undefined;
+    : undefined;
   const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
   // "Relative" is a claim about the profile, not about the score. Where every
   // domain is assessed identically nothing is relatively stronger than anything
@@ -1183,6 +1389,7 @@ function buildPack(input: {
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),
     ...domains.map((domain) => makeFact(domain.factRef, 'domain', domain, [domain.code])),
     ...operatingContext.map((fact) => makeFact(`OPERATING-CONTEXT-${fact.key}`, 'operating_context', fact, [fact.sourceGatewayCode, fact.sourceQuestionId])),
+    ...questionSignals.map((signal) => makeFact(signal.factRef, 'question_signal', signal, signal.sourceRefs)),
     ...relativeStrengths.map((strength) => makeFact(strength.factRef, 'relative_strength', strength, [strength.domainCode])),
     ...themes.map((theme) => makeFact(theme.factRef, 'systemic_theme', theme, [...theme.findingRefs, ...theme.riskRefs, ...theme.scenarioRefs])),
     ...findings.map((finding) => makeFact(finding.factRef, 'finding', finding, finding.sourceRefs)),
@@ -1194,7 +1401,7 @@ function buildPack(input: {
     ...maturationSteps.map((item) => makeFact(item.maturationRef, 'maturation', item, [item.linkedFindingRef, item.linkedControlRef])),
     ...(sustainment ? buildSustainmentProofFacts(sustainmentPriorityFacts) : buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride)).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
   ];
-  return {
+  const basePack: NarrativeFactPack = {
     schemaVersion: NARRATIVE_FACT_PACK_SCHEMA_VERSION,
     bibleVersion: REPORTING_BIBLE_VERSION,
     productTier: input.tier,
@@ -1207,6 +1414,7 @@ function buildPack(input: {
         .map(describeOperatingContextFact)
         .filter(Boolean)
     },
+    ...(input.tier === 'comprehensive' ? { questionSignals } : {}),
     assessment: {
       ...input.score,
       reference: text(input.assessmentReference, 'Recorded assessment'),
@@ -1242,8 +1450,15 @@ function buildPack(input: {
     },
     facts: [
       ...facts,
-      ...sustainmentPriorityFacts.map((priority) => makeFact(priority.factRef, 'sustainment_priority', priority, []))
+      ...sustainmentPriorityFacts.map((priority) => makeFact(priority.factRef, 'sustainment_priority', priority, priority.sourceRefs ?? []))
     ]
+  };
+  if (input.tier !== 'comprehensive' || !sustainment) return basePack;
+  const premium: ComprehensivePremiumProjection = buildComprehensivePremiumProjection(basePack);
+  return {
+    ...basePack,
+    ...premium,
+    facts: [...basePack.facts, ...premiumFactEntries(premium)]
   };
 }
 
@@ -1344,6 +1559,18 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
     if (/material (?:control )?(?:weakness|gap)|priority weakness|control failure|remediation required|urgent remediation|foundational failure|close (?:the )?weakness|implement (?:the )?missing control|validate that|independently validate|before relying on self-assessment|self-reported claims remain unverified/i.test(sustainmentText)) throw new Error('Sustainment Fact Pack contains weakness or automated evidence-validation language.');
     if (pack.productTier === 'essential' && pack.maturationSteps.length !== 0) throw new Error('Essential Sustainment Fact Pack must not contain twelve-month maturation steps.');
     if (pack.productTier === 'comprehensive' && pack.maturationSteps.length !== pack.controls.length * 2) throw new Error('Comprehensive Sustainment Fact Pack must contain two maturation steps per sustainment control.');
+    if (pack.productTier === 'comprehensive') {
+      if (!pack.questionSignals?.length || new Set(pack.questionSignals.map((signal) => signal.factRef)).size !== pack.questionSignals.length) {
+        throw new Error('Comprehensive Sustainment Fact Pack must retain unique question-level evidence signals.');
+      }
+      if (pack.questionSignals.some((signal) => !signal.questionCode || !signal.domainCode || !signal.responseLabel || !signal.responseOperationalMeaning || !signal.sourceRefs.includes(signal.questionCode) || !pack.facts.some((fact) => fact.id === signal.factRef && fact.kind === 'question_signal'))) {
+        throw new Error('Comprehensive Sustainment question-level evidence signal is incomplete or not canonicalised.');
+      }
+      if (!pack.enterpriseIntegrationMap || !pack.assuranceCoverage || !pack.assurancePriorities || !pack.resilienceTests || !pack.contextApplications || !pack.controlOutcomeLinks || !pack.roadmapDependencyLinks || !pack.exposurePathways || !pack.criticalReliances) {
+        throw new Error('Comprehensive Sustainment Fact Pack is missing a premium deterministic projection.');
+      }
+      assertComprehensivePremiumProjection(pack);
+    }
     return;
   }
   if (pack.findings.some((finding) => !finding.primarySemanticFamily || !Array.isArray(finding.fraudPathwayFamilies))) throw new Error('Narrative Fact Pack finding is missing explicit semantic family membership.');

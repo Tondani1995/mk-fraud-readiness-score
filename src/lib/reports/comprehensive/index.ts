@@ -6,6 +6,8 @@ export * from './workshop';
 export * from './projection';
 export * from './decision-options';
 export * from './artifact-contract';
+export * from './recovery-policy';
+export * from './manuscript-coordinator';
 export {
   BOARD_READOUT_PAGE_COUNT,
   COMPREHENSIVE_REPORT_SECTIONS,
