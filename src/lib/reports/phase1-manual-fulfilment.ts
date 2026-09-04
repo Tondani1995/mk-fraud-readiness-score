@@ -27,6 +27,11 @@ import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
+import {
+  EssentialManuscriptError,
+  describeEssentialWriterFailure,
+  toSafeEssentialFailureDiagnostics
+} from './narrative/essential-manuscript-coordinator';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -201,13 +206,15 @@ async function recordFailure(
   attemptId: string | null,
   category: Phase1GenerationReason,
   safeMessage: string,
-  assessmentScoped = false
+  assessmentScoped = false,
+  failureDiagnostics?: Record<string, unknown>
 ) {
   if (!attemptId) return;
   const failurePayload = {
     p_attempt_id: attemptId,
     p_error_category: category,
-    p_safe_message: safeMessage
+    p_safe_message: safeMessage,
+    ...(assessmentScoped ? { p_failure_diagnostics: failureDiagnostics ?? {} } : {})
   };
   const { error } = assessmentScoped
     ? await db.rpc('fail_assessment_manual_report_generation', failurePayload)
@@ -217,6 +224,48 @@ async function recordFailure(
       attemptId,
       errorCategory: category,
       safeMessage: 'Generation failure state could not be persisted.'
+    });
+  }
+}
+
+/** Persist safe identity/accounting before the attempt is closed as failed or completed. */
+async function recordAssessmentGenerationDiagnostics(
+  db: any,
+  attemptId: string | null,
+  input: {
+    requestedProvider?: string | null;
+    requestedModel?: string | null;
+    resolvedProvider?: string | null;
+    resolvedModel?: string | null;
+    generationMode?: string | null;
+    aiUsage?: Record<string, unknown>;
+    failureDiagnostics?: Record<string, unknown>;
+  }
+) {
+  if (!attemptId) return;
+  try {
+    const { error } = await db.rpc('record_assessment_manual_report_generation_diagnostics', {
+      p_attempt_id: attemptId,
+      p_requested_provider: input.requestedProvider ?? null,
+      p_requested_model: input.requestedModel ?? null,
+      p_resolved_provider: input.resolvedProvider ?? null,
+      p_resolved_model: input.resolvedModel ?? null,
+      p_generation_mode: input.generationMode ?? null,
+      p_ai_usage: input.aiUsage ?? {},
+      p_failure_diagnostics: input.failureDiagnostics ?? {}
+    });
+    if (error) {
+      console.error('phase1_generation_diagnostics_persistence', {
+        attemptId,
+        outcome: 'error',
+        safeMessage: 'Generation diagnostics could not be persisted.'
+      });
+    }
+  } catch {
+    console.error('phase1_generation_diagnostics_persistence', {
+      attemptId,
+      outcome: 'threw',
+      safeMessage: 'Generation diagnostics could not be persisted.'
     });
   }
 }
@@ -509,6 +558,7 @@ export async function generateManualPhase1Report(
   let registerStoragePath: string | null = null;
   let pdfChecksumForReconciliation: string | null = null;
   let generationStage = 'start_generation';
+  let failureDiagnostics: Record<string, unknown> | undefined;
   try {
     // Payment confirmation queues an attempt, and under manual fulfilment nothing drains
     // that queue. The claim adopts the pending attempt rather than reporting it as active
@@ -661,12 +711,78 @@ export async function generateManualPhase1Report(
       }
     } else {
     try {
-      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
+      // Construct the real writer inside this guarded boundary. Its constructor performs
+      // provider preflight, so constructing it while forming composeEssentialManuscript's
+      // argument used to bypass the coordinator diagnostics and collapse to a generic
+      // prepare_narrative failure before any dispatch could be recorded.
+      const { composeEssentialManuscript } = await import('./narrative/essential-manuscript-coordinator');
+      const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
+      const configuredWriter = dependencies.wholeManuscriptWriter;
+      let writer: WholeManuscriptWriter;
+      if (configuredWriter) {
+        writer = configuredWriter;
+      } else {
+        const requestedProvider = flags.model.split('/')[0]?.trim() || 'vercel-ai-gateway';
+        console.info('essential_manuscript_writer_preflight', {
+          technicalReference,
+          orderReference: targetReference,
+          requestedProvider,
+          requestedModel: flags.model,
+          router: 'vercel_ai_gateway',
+          dispatchOccurred: false,
+          providerCallBudget: 1
+        });
+        try {
+          writer = createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 });
+        } catch (error) {
+          const safeDiagnostics = toSafeEssentialFailureDiagnostics({
+            diagnostics: {
+              stage: 'writer_preflight',
+              requestedProvider,
+              requestedModel: flags.model,
+              dispatchOccurred: false,
+              providerCalls: 0,
+              providerFailure: describeEssentialWriterFailure({
+                error,
+                elapsedWriterMs: 0,
+                dispatchOccurred: false,
+                providerCallsRecorded: 0
+              })
+            }
+          });
+          failureDiagnostics = safeDiagnostics;
+          await recordAssessmentGenerationDiagnostics(db, attemptId, {
+            requestedProvider,
+            requestedModel: flags.model,
+            generationMode: 'ai',
+            aiUsage: { providerCalls: 0, accountingStatus: 'not_dispatched' },
+            failureDiagnostics: safeDiagnostics
+          });
+          console.error('essential_manuscript_generation', { technicalReference, orderReference: targetReference, ...safeDiagnostics });
+          throw new EssentialManuscriptError(
+            'writer_preflight',
+            'The Essential narrative writer could not be initialised. No provider call was dispatched.',
+            {
+              stage: 'writer_preflight',
+              requestedProvider,
+              requestedModel: flags.model,
+              dispatchOccurred: false,
+              providerCalls: 0,
+              providerFailure: describeEssentialWriterFailure({
+                error,
+                elapsedWriterMs: 0,
+                dispatchOccurred: false,
+                providerCallsRecorded: 0
+              })
+            }
+          );
+        }
+      }
+
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: writer.provider, model: writer.model });
       // v1.1 whole-manuscript composition. The blueprint decides structure and order,
       // the existing validator decides acceptability, and deterministic analytics remain
       // the sole source of every number, finding, risk, control and action on the page.
-      const { composeEssentialManuscript } = await import('./narrative/essential-manuscript-coordinator');
-      const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
         // The semantic-safety coordinator owns the three fixed provider roles. Technical tail,
@@ -674,26 +790,61 @@ export async function generateManualPhase1Report(
         // Keep the generation role independently capped at one request. The shared semantic
         // cascade owns its separate adjudication and repair roles, so no technical writer
         // recovery path can consume either of those slots.
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
+        writer
       });
       essentialNarrative = composed.narrative;
+      const writerMetadata = composed.manuscript.writerMetadata;
+      const semanticSafety = composed.semanticSafety;
+      const writerProviderCalls = writerMetadata.recovery?.totalCalls ?? 1;
+      const semanticAdjudicationCalls = semanticSafety?.adjudicationCalls ?? 0;
+      const semanticRepairCalls = semanticSafety?.repairCalls ?? 0;
+      await recordAssessmentGenerationDiagnostics(db, attemptId, {
+        requestedProvider: writer.provider,
+        requestedModel: writer.model,
+        resolvedProvider: writerMetadata.provider,
+        resolvedModel: writerMetadata.model,
+        generationMode: 'ai',
+        aiUsage: {
+          providerCalls: writerProviderCalls + semanticAdjudicationCalls + semanticRepairCalls,
+          writerProviderCalls,
+          semanticAdjudicationCalls,
+          semanticRepairCalls,
+          inputTokens: writerMetadata.inputTokens ?? null,
+          outputTokens: writerMetadata.outputTokens ?? null,
+          totalTokens: writerMetadata.totalTokens ?? null,
+          providerCostMicros: writerMetadata.providerCostMicros ?? null,
+          accountingStatus: 'recorded'
+        }
+      });
       console.info('essential_manuscript_generation', {
         technicalReference, orderReference: targetReference, stage: 'accepted',
-        model: composed.manuscript.writerMetadata?.model,
-        generationId: composed.manuscript.writerMetadata?.generationId,
-        totalTokens: composed.manuscript.writerMetadata?.totalTokens,
-        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1,
-        semanticSafety: composed.semanticSafety
+        provider: writerMetadata.provider,
+        model: writerMetadata.model,
+        generationId: writerMetadata.generationId,
+        totalTokens: writerMetadata.totalTokens,
+        providerCalls: writerProviderCalls,
+        semanticSafety
       });
-      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: writerMetadata.provider, model: writerMetadata.model });
     } catch (error) {
       // Provider spend and the reason for failure must survive the throw. A Mahlori
       // attempt was billed twice before gateway records revealed it, because the writer's
       // accounting only existed on the returned result.
       const diagnostics = (error as { diagnostics?: Record<string, unknown> })?.diagnostics;
-      if (diagnostics) {
-        console.error('essential_manuscript_generation', { technicalReference, orderReference: targetReference, ...diagnostics });
-      }
+      failureDiagnostics = diagnostics
+        ? toSafeEssentialFailureDiagnostics({ diagnostics, requestedProvider: flags.model.split('/')[0]?.trim() || 'vercel-ai-gateway', requestedModel: flags.model })
+        : toSafeEssentialFailureDiagnostics({ stage: 'prepare_narrative', requestedProvider: flags.model.split('/')[0]?.trim() || 'vercel-ai-gateway', requestedModel: flags.model, dispatchOccurred: false, providerCalls: 0 });
+      await recordAssessmentGenerationDiagnostics(db, attemptId, {
+        requestedProvider: flags.model.split('/')[0]?.trim() || 'vercel-ai-gateway',
+        requestedModel: flags.model,
+        generationMode: 'ai',
+        aiUsage: {
+          providerCalls: failureDiagnostics.providerCalls ?? 0,
+          accountingStatus: failureDiagnostics.accountingStatus ?? 'not_dispatched'
+        },
+        failureDiagnostics
+      });
+      console.error('essential_manuscript_generation', { technicalReference, orderReference: targetReference, ...failureDiagnostics });
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,

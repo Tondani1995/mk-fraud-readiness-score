@@ -54,6 +54,7 @@ assert.equal(parity.resultStatus, 'NORMAL', 'all-applicable complete assessment 
 assert.equal(parity.summary.overallScore, 60, 'all 3 responses produce the fixed-scale 60/100 parity result');
 assert.equal(parity.summary.finalMaturity, 'Structured', 'maturity band follows approved thresholds');
 assert.equal(parity.metrics.applicableCount, 68, 'all 68 controls are applicable on the full path');
+assert.equal(parity.metrics.limitationReasons.length, 0, 'complete in-scope assessment has no limitation reasons');
 
 const unknownId = Object.keys(allApplicable)[0];
 const unknown = score({ ...allApplicable, [unknownId]: { responseState: 'unknown', responseValue: null } });
@@ -102,12 +103,14 @@ const redirectedAnswers = { ...gatewayAnswers, G01: 'construction', G03: 'outsou
 const redirected = calculateAdaptiveReadinessScore({ graph, methodology, gatewayAnswers: redirectedAnswers, controlResponses: responses(resolveAdaptivePath({ graph, gatewayAnswers: redirectedAnswers })) });
 assert.equal(redirected.metrics.redirectedCount > 0, true, 'outsourced control is represented as redirected oversight');
 assert.equal(redirected.metrics.redirectedWeight > 0, true, 'redirected oversight retains the base weight');
+assert.equal(redirected.metrics.limitationReasons.some((reason) => reason.includes('redirected')), true, 'redirected scope is explained without withholding the score');
 
 const excludedPath = { ...gatewayAnswers, G01: 'professional_services', G05: 'none', G06: 'no', G08: 'no', G09: 'no', G10: 'no', G11: 'no', G12: 'no', G13: 'no', G14: 'formal_delegation' };
 const excluded = calculateAdaptiveReadinessScore({ graph, methodology, gatewayAnswers: excludedPath, controlResponses: responses(resolveAdaptivePath({ graph, gatewayAnswers: excludedPath })), integritySignals: [] });
 assert.equal(excluded.metrics.excludedCount > 0, true, 'valid gateway exclusions remain outside the denominator');
 assert.equal(excluded.metrics.excludedWeight > 0, true, 'excluded control weight is tracked separately');
 assert.equal(excluded.metrics.questionTraces.filter((trace) => trace.triggeredRules.includes('valid_gateway_exclusion')).every((trace) => !trace.applicable), true, 'excluded controls cannot become applicable weaknesses');
+assert.equal(excluded.metrics.limitationReasons.some((reason) => reason.includes('excluded')), true, 'excluded scope is explained without rewriting the denominator');
 
 const zeroQuestion = Object.keys(allApplicable)[1];
 const zero = score({ ...allApplicable, [zeroQuestion]: { responseState: 'maturity', responseValue: 0 } });
@@ -121,4 +124,4 @@ assert.equal(insufficient.resultStatus, 'INSUFFICIENT_VISIBILITY', 'blocking int
 assert.equal(insufficient.summary.overallScore, null, 'insufficient visibility has no customer score');
 assert.equal(insufficient.summary.finalMaturity, null, 'insufficient visibility has no maturity band');
 
-console.log(JSON.stringify({ ok: true, assertions: 18, parityScore: parity.summary.overallScore, unknownSharePct: unknown.metrics.unknownSharePct, redirected: redirected.metrics.redirectedCount, excluded: excluded.metrics.excludedCount, insufficient: insufficient.resultStatus }));
+console.log(JSON.stringify({ ok: true, assertions: 21, parityScore: parity.summary.overallScore, unknownSharePct: unknown.metrics.unknownSharePct, redirected: redirected.metrics.redirectedCount, excluded: excluded.metrics.excludedCount, insufficient: insufficient.resultStatus }));

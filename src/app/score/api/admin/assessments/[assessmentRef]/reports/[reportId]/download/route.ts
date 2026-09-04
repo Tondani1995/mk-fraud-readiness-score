@@ -29,6 +29,7 @@ export async function GET(
       assessmentReference: params.assessmentRef,
       reportId: params.reportId,
       adminId: admin.id,
+      adminRole: admin.role,
       mode: 'download'
     });
     if (request.headers.get('accept')?.includes('text/html')) {

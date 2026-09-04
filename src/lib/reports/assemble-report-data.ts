@@ -202,6 +202,27 @@ export async function assembleReportData(target: ReportAssemblyTarget): Promise<
   }
   if (adaptiveColumns) Object.assign(scoreRunRow, adaptiveColumns);
 
+  // Locked score runs remain immutable. Synthetic proof metadata is an additive companion row,
+  // merged only for report assembly and never treated as a scoring input.
+  const { data: syntheticExplainability, error: syntheticExplainabilityError } = await supabase
+    .from('synthetic_score_explainability')
+    .select('limitation_reasons,cap_effect')
+    .eq('score_run_id', scoreRunRow.id)
+    .maybeSingle();
+  if (syntheticExplainabilityError
+    && syntheticExplainabilityError.code !== '42P01'
+    && syntheticExplainabilityError.code !== 'PGRST205'
+    && !String(syntheticExplainabilityError.message ?? '').toLowerCase().includes('does not exist')) {
+    throw syntheticExplainabilityError;
+  }
+  if (syntheticExplainability) {
+    scoreRunRow.adaptive_metrics_json = {
+      ...(scoreRunRow.adaptive_metrics_json ?? {}),
+      limitationReasons: syntheticExplainability.limitation_reasons ?? [],
+      capEffect: syntheticExplainability.cap_effect
+    } as AdaptiveResultMetrics;
+  }
+
   let paymentRows: any[] = [];
   let paymentError: any = null;
   if (!assessmentScoped) {
@@ -556,6 +577,7 @@ export async function assembleReportData(target: ReportAssemblyTarget): Promise<
       majorGapCount: scoreRunRow.major_gap_count,
       capApplied: scoreRunRow.cap_applied,
       capReason: scoreRunRow.cap_reason,
+      capEffect: scoreRunRow.adaptive_metrics_json?.capEffect,
       adaptiveResultStatus: scoreRunRow.adaptive_result_status ?? null,
       adaptiveMetrics: scoreRunRow.adaptive_metrics_json && Object.keys(scoreRunRow.adaptive_metrics_json).length ? scoreRunRow.adaptive_metrics_json : null
     },

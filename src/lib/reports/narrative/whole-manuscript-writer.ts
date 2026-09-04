@@ -164,6 +164,15 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       throw error;
     }
     this.providerCallsUsed += 1;
+    console.info('essential_manuscript_provider_dispatch_authorised', {
+      kind,
+      provider: this.provider,
+      model: this.model,
+      router: 'vercel_ai_gateway',
+      dispatchOccurred: true,
+      providerCallNumber: this.providerCallsUsed,
+      providerCallBudget: Number.isFinite(this.providerCallBudget) ? this.providerCallBudget : null
+    });
   }
 
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {

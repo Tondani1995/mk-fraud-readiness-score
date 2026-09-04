@@ -15,6 +15,7 @@ import type { MaturityBand } from '@/lib/types/domain';
 import { getMaturityBand, MATURITY_RANK } from './maturity-band';
 
 export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
+export type AdaptiveCapEffect = 'band_lowered' | 'no_band_change' | 'none';
 
 export type AdaptiveVisibilityGap = {
   id: string;
@@ -56,6 +57,7 @@ export type AdaptiveResultMetrics = {
   unknownSharePct: number;
   scoreComparabilityStatement: string;
   limitationReasons: string[];
+  capEffect?: AdaptiveCapEffect;
   excludedQuestionCodes: string[];
   redirectedQuestionCodes: string[];
   invalidatedQuestionCodes: string[];
@@ -92,6 +94,7 @@ export type AdaptiveScoringResult = {
     majorGapCount: number;
     capApplied: boolean;
     capReason: string | null;
+    capEffect: AdaptiveCapEffect;
     flags: string[];
   };
   resultStatus: AdaptiveResultStatus;
@@ -276,13 +279,25 @@ export function calculateAdaptiveReadinessScore(input: {
   const materialExclusionSharePct = totalControlWeight > 0 ? round((excludedWeight + invalidatedWeight) / totalControlWeight * 100) : 100;
   const knownWeight = [...domainAccumulators.values()].reduce((sum, accumulator) => sum + accumulator.knownWeight, 0);
   const controlVisibilityPct = applicableWeight > 0 ? round(knownWeight / applicableWeight * 100) : 0;
-  const limitationReasons: string[] = [];
-  if (input.integritySignals?.some((signal) => signal.blocking)) limitationReasons.push('The submitted assessment contains a blocking integrity condition.');
-  if (coveragePct < 70) limitationReasons.push('Applicable controls were not sufficiently answered.');
-  if (applicableCount === 0) limitationReasons.push('No applicable control areas remained in scope.');
-  if (materialExclusionSharePct >= 40) limitationReasons.push('A material share of the control set was outside the assessed scope.');
-  if (unknownSharePct >= 30) limitationReasons.push('Unknown responses reached 30% or more of applicable control weight; the control position cannot be confirmed.');
-  const resultStatus: AdaptiveResultStatus = limitationReasons.length > 0
+  // Keep blocking visibility failures separate from explanatory scope conditions. Exclusions,
+  // redirects and nonblocking integrity signals can make a result provisional without falsely
+  // withholding a score that the deterministic denominator still supports.
+  const blockingLimitationReasons: string[] = [];
+  const scopeLimitationReasons: string[] = [];
+  if (input.integritySignals?.some((signal) => signal.blocking)) blockingLimitationReasons.push('The submitted assessment contains a blocking integrity condition.');
+  if (coveragePct < 70) blockingLimitationReasons.push('Applicable controls were not sufficiently answered.');
+  if (applicableCount === 0) blockingLimitationReasons.push('No applicable control areas remained in scope.');
+  if (materialExclusionSharePct >= 40) blockingLimitationReasons.push('A material share of the control set was outside the assessed scope.');
+  if (unknownSharePct >= 30) blockingLimitationReasons.push('Unknown responses reached 30% or more of applicable control weight; the control position cannot be confirmed.');
+  if (excludedCount > 0) scopeLimitationReasons.push(`${excludedCount} control question${excludedCount === 1 ? '' : 's'} was excluded from the assessed denominator.`);
+  if (redirectedCount > 0) scopeLimitationReasons.push(`${redirectedCount} control question${redirectedCount === 1 ? '' : 's'} was redirected to an oversight path.`);
+  if (unknownSharePct >= 20 && unknownSharePct < 30) scopeLimitationReasons.push('Unknown responses remain within the scored denominator and limit comparability.');
+  if (coveragePct >= 70 && coveragePct < 90) scopeLimitationReasons.push('Some applicable control responses remain unanswered.');
+  for (const signal of input.integritySignals ?? []) {
+    if (!signal.blocking) scopeLimitationReasons.push(`A nonblocking integrity signal remains attached: ${signal.signalId}.`);
+  }
+  const limitationReasons = [...blockingLimitationReasons, ...scopeLimitationReasons];
+  const resultStatus: AdaptiveResultStatus = blockingLimitationReasons.length > 0
     ? 'INSUFFICIENT_VISIBILITY'
     : (unknownSharePct >= 20 || excludedCount > 0 || redirectedCount > 0 || (input.integritySignals?.length ?? 0) > 0 || coveragePct < 90 ? 'PROVISIONAL' : 'NORMAL');
   const scoreAllowed = resultStatus !== 'INSUFFICIENT_VISIBILITY' && overallScore !== null;
@@ -298,6 +313,8 @@ export function calculateAdaptiveReadinessScore(input: {
   if (finalMaturity && criticalGapCount >= 3) { finalMaturity = applyCap(finalMaturity, 'Developing'); maturityCapEvents.push({ ruleCode: 'three_or_more_critical_controls_lte_2', capTo: 'Developing', reason: 'Three or more critical controls scored 0, 1 or 2.' }); }
   if (finalMaturity && coreBelow40) { finalMaturity = applyCap(finalMaturity, 'Developing'); maturityCapEvents.push({ ruleCode: 'any_core_domain_below_40', capTo: 'Developing', reason: `Core domain ${coreBelow40.domainCode} scored below 40.`, relatedDomainId: coreBelow40.domainId }); }
   if (finalMaturity && coreBelow60) { finalMaturity = applyCap(finalMaturity, 'Structured'); maturityCapEvents.push({ ruleCode: 'any_core_domain_below_60', capTo: 'Structured', reason: `Core domain ${coreBelow60.domainCode} scored below 60.`, relatedDomainId: coreBelow60.domainId }); }
+  const capApplied = Boolean(scoreAllowed && finalMaturity !== calculatedMaturity);
+  const capEffect: AdaptiveCapEffect = capApplied ? 'band_lowered' : maturityCapEvents.length ? 'no_band_change' : 'none';
   const flagsList = [...flags, ...(input.integritySignals ?? []).map((signal) => signal.signalId)];
   const metrics: AdaptiveResultMetrics = {
     resultStatus, graphVersion: input.graph.graphVersion, graphFingerprint: input.graph.graphFingerprint,
@@ -324,14 +341,14 @@ export function calculateAdaptiveReadinessScore(input: {
       : resultStatus === 'PROVISIONAL'
         ? 'Use as a directional result only; differences in scope or uncertainty may limit comparison with other assessments.'
         : 'A numeric Fraud Readiness Score is withheld because the submitted assessment did not provide enough visibility for a reliable result.',
-    limitationReasons, excludedQuestionCodes: excludedCodes, redirectedQuestionCodes: redirectedCodes,
+    limitationReasons, capEffect, excludedQuestionCodes: excludedCodes, redirectedQuestionCodes: redirectedCodes,
     invalidatedQuestionCodes: invalidatedCodes, unknownQuestionCodes: unknownCodes, questionTraces: reportTraces
   };
   return {
     summary: {
       overallScore: scoreAllowed ? overallScore : null, calculatedMaturity: scoreAllowed ? calculatedMaturity : null, finalMaturity: scoreAllowed ? finalMaturity : null,
       exposureScore: null, exposureBand: null, coveragePct, nARatePct: unknownSharePct, criticalGapCount, majorGapCount,
-      capApplied: Boolean(scoreAllowed && finalMaturity !== calculatedMaturity), capReason: maturityCapEvents.length ? maturityCapEvents.map((event) => event.reason).join(' ') : null,
+      capApplied, capReason: maturityCapEvents.length ? maturityCapEvents.map((event) => event.reason).join(' ') : null, capEffect,
       flags: flagsList
     },
     resultStatus, metrics, domainResults, questionTraces: traces, maturityCapEvents,

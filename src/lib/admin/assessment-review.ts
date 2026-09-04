@@ -25,7 +25,7 @@ export async function getAdminAssessmentList(filters: AdminAssessmentListFilters
 
   let query: any = service
     .from('assessments')
-    .select('id,assessment_reference,status,started_at,submitted_at,locked_at,current_score_run_id,organisations(legal_name,trading_name,sector,industry),respondents(full_name,email,role_title)', { count: 'exact' })
+    .select('id,assessment_reference,status,started_at,submitted_at,locked_at,current_score_run_id,synthetic_demonstration,synthetic_certification_ref,organisations(legal_name,trading_name,sector,industry),respondents(full_name,email,role_title)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -64,7 +64,7 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
 
   const { data: assessment, error } = await service
     .from('assessments')
-    .select('id,assessment_reference,status,started_at,submitted_at,locked_at,current_score_run_id,methodology_version_id,organisations(*),respondents(*)')
+    .select('id,assessment_reference,status,started_at,submitted_at,locked_at,current_score_run_id,methodology_version_id,synthetic_demonstration,synthetic_certification_ref,organisations(*),respondents(*)')
     .eq('assessment_reference', assessmentReference)
     .maybeSingle();
 
@@ -128,7 +128,7 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
 
   const reportResult: AdminDataResult<any[]> = await service
     .from('reports')
-    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at,generated_at')
+    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,synthetic_demonstration,synthetic_certification_ref,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at,generated_at')
     .eq('assessment_id', assessment.id)
     .eq('report_type', 'essential_self_assessment')
     .order('version_number', { ascending: false });

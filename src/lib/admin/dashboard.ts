@@ -4,9 +4,9 @@ export async function getAdminDashboardCounts() {
   const service = createSupabaseServiceClient();
 
   const [assessments, orders, reports, reportRequests, products, auditEvents] = await Promise.all([
-    service.from('assessments').select('id', { count: 'exact', head: true }),
+    service.from('assessments').select('id', { count: 'exact', head: true }).eq('synthetic_demonstration', false),
     service.from('orders').select('id', { count: 'exact', head: true }),
-    service.from('reports').select('id', { count: 'exact', head: true }),
+    service.from('reports').select('id', { count: 'exact', head: true }).eq('synthetic_demonstration', false),
     service.from('data_requests').select('id', { count: 'exact', head: true }).eq('request_type', 'detailed_report'),
     service.from('products').select('id', { count: 'exact', head: true }),
     service.from('audit_logs').select('id', { count: 'exact', head: true })

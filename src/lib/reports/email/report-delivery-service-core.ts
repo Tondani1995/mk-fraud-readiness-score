@@ -98,7 +98,7 @@ function messageCopy(reportReference: string, customerName: string | null, organ
 async function loadReport(db: any, reportId: string) {
   const { data, error } = await db.from('reports').select(`
     id,report_reference,storage_bucket,storage_path,checksum,
-    assessment_id,order_id,report_type,status,version_number,
+    assessment_id,order_id,report_type,status,version_number,synthetic_demonstration,
     orders:order_id(customer_email,customer_name,organisation_name,order_reference)
   `).eq('id', reportId).maybeSingle();
   if (error || !data) throw error ?? new Error(`Report ${reportId} was not found.`);
@@ -157,6 +157,9 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
       : (await requirePhase14Action(action)).client;
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
+  if (report.synthetic_demonstration) {
+    throw new Error('Synthetic demonstration reports are owner-review only and cannot be sent to customers.');
+  }
   // H5: application-layer defense-in-depth, on top of (never instead of) the RPC call below to
   // the authoritative public.phase14_delivery_entitlement (via authorize_premium_report_delivery).
   // Fails fast, before any authorization/claim cycle is spent, if this report is

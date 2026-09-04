@@ -38,6 +38,7 @@ export type AdaptiveResultMetrics = {
   unknownSharePct: number;
   scoreComparabilityStatement: string;
   limitationReasons: string[];
+  capEffect?: 'band_lowered' | 'no_band_change' | 'none';
   excludedQuestionCodes: string[];
   redirectedQuestionCodes: string[];
   invalidatedQuestionCodes: string[];
@@ -70,6 +71,7 @@ export interface ScoreRunRecord {
   majorGapCount: number;
   capApplied: boolean;
   capReason: string | null;
+  capEffect?: 'band_lowered' | 'no_band_change' | 'none';
   adaptiveResultStatus?: AdaptiveResultStatus | null;
   adaptiveMetrics?: AdaptiveResultMetrics | null;
 }

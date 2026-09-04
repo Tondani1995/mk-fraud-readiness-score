@@ -81,6 +81,8 @@ export function SnapshotResult({
   const facts = factStrip(snapshot, areaCount);
   const fairness = fairnessLine(snapshot);
   const scoredAt = formatScoredAt(snapshot.scoredAt);
+  const limitationReasons = snapshot.adaptiveMetrics?.limitationReasons ?? [];
+  const capEffect = snapshot.adaptiveMetrics?.capEffect;
 
   return (
     <>
@@ -119,6 +121,17 @@ export function SnapshotResult({
             <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">{commercialInsights.riskImplication}</p>
             <div aria-hidden="true" className="mt-6 h-px w-[120px] bg-mk-accent/40" />
             {fairness ? <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p> : null}
+            {limitationReasons.length > 0 ? (
+              <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
+                <p className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Why this result is provisional</p>
+                <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
+                  {limitationReasons.map((reason) => <li key={reason}>{reason}</li>)}
+                </ul>
+              </div>
+            ) : null}
+            {snapshot.capReason && capEffect === 'no_band_change' ? (
+              <p className="mt-4 max-w-[62ch] text-sm leading-6 text-mk-muted">A maturity rule was evaluated but did not lower the recorded band: {snapshot.capReason}</p>
+            ) : null}
           </div>
           <div className="md:col-span-5 md:col-start-9">
             <dl className="border border-mk-line">

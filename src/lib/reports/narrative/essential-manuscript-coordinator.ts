@@ -233,6 +233,91 @@ export function describeEssentialWriterFailure(input: {
   };
 }
 
+function safeDiagnosticToken(value: unknown, fallback?: string): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  return value.trim().replace(/[^A-Za-z0-9_.:/-]/g, '_').slice(0, 160) || fallback;
+}
+
+function safeDiagnosticNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+}
+
+/**
+ * Persist only the bounded identity/accounting subset of manuscript diagnostics.
+ *
+ * Provider SDK error objects can carry response bodies, prompts and customer text. The attempt
+ * record is an operator diagnostic surface, not a payload archive, so this projection deliberately
+ * keeps closed-vocabulary stage/category codes, opaque provider IDs, counts and safe paths only.
+ */
+export function toSafeEssentialFailureDiagnostics(input: {
+  diagnostics?: Partial<EssentialManuscriptDiagnostics> | null;
+  stage?: string;
+  requestedProvider?: string | null;
+  requestedModel?: string | null;
+  dispatchOccurred?: boolean;
+  providerCalls?: number;
+}): Record<string, unknown> {
+  const diagnostics = input.diagnostics ?? {};
+  const failure = diagnostics.providerFailure;
+  const semantic = diagnostics.semanticSafety;
+  const dispatchOccurred = diagnostics.dispatchOccurred ?? input.dispatchOccurred ?? false;
+  const providerCalls = safeDiagnosticNumber(diagnostics.providerCalls ?? input.providerCalls)
+    ?? (dispatchOccurred ? 1 : 0);
+  return {
+    schemaVersion: 'essential-failure-diagnostics-v1',
+    stage: safeDiagnosticToken(diagnostics.stage ?? input.stage, 'unknown'),
+    requestedProvider: safeDiagnosticToken(diagnostics.requestedProvider ?? input.requestedProvider),
+    requestedModel: safeDiagnosticToken(diagnostics.requestedModel ?? input.requestedModel),
+    dispatchOccurred: Boolean(dispatchOccurred),
+    providerCalls,
+    generationId: safeDiagnosticToken(diagnostics.generationId),
+    accountingStatus: failure?.accountingStatus
+      ?? (dispatchOccurred ? 'dispatched_settlement_unknown' : 'not_dispatched'),
+    providerFailure: failure ? {
+      errorName: safeDiagnosticToken(failure.errorName),
+      errorCode: safeDiagnosticToken(failure.errorCode),
+      errorCategory: safeDiagnosticToken(failure.errorCategory, 'unknown'),
+      safeErrorMessage: typeof failure.safeErrorMessage === 'string' ? failure.safeErrorMessage.slice(0, 300) : undefined,
+      httpStatus: safeDiagnosticNumber(failure.httpStatus),
+      providerRequestId: safeDiagnosticToken(failure.providerRequestId),
+      elapsedWriterMs: safeDiagnosticNumber(failure.elapsedWriterMs) ?? 0,
+      configuredTimeoutMs: safeDiagnosticNumber(failure.configuredTimeoutMs),
+      maxOutputTokens: safeDiagnosticNumber(failure.maxOutputTokens),
+      accountingStatus: failure.accountingStatus
+    } : undefined,
+    parse: diagnostics.parseOk === undefined && !diagnostics.parseErrors
+      ? undefined
+      : {
+        ok: diagnostics.parseOk ?? false,
+        errorCodes: (diagnostics.parseErrors ?? []).map((issue) => safeDiagnosticToken(issue.code, 'unknown')).filter(Boolean),
+        errorPaths: (diagnostics.parseErrors ?? []).map((issue) => safeDiagnosticToken(issue.path, 'unknown')).filter(Boolean)
+      },
+    validation: diagnostics.validationCode || diagnostics.validationIssues?.length
+      ? {
+        code: safeDiagnosticToken(diagnostics.validationCode),
+        issueCodes: (diagnostics.validationIssues ?? []).map((issue) => safeDiagnosticToken(issue.code, 'unknown')).filter(Boolean),
+        issuePaths: (diagnostics.validationIssues ?? []).map((issue) => safeDiagnosticToken(issue.path, 'unknown')).filter(Boolean)
+      }
+      : undefined,
+    classification: safeDiagnosticToken(diagnostics.classification),
+    missingTail: diagnostics.missingTail ? {
+      ok: Boolean(diagnostics.missingTail.ok),
+      missingHeadingCount: safeDiagnosticNumber(diagnostics.missingTail.missingHeadingCount) ?? 0,
+      lastCompleteHeading: safeDiagnosticToken(diagnostics.missingTail.lastCompleteHeading),
+      errorCodes: diagnostics.missingTail.errors.map((error) => safeDiagnosticToken(error, 'unknown')).filter(Boolean)
+    } : undefined,
+    semanticSafety: semantic ? {
+      outcome: safeDiagnosticToken(semantic.outcome),
+      finalResult: safeDiagnosticToken(semantic.finalResult),
+      reasonCode: safeDiagnosticToken(semantic.reasonCode),
+      generationCalls: safeDiagnosticNumber(semantic.generationCalls) ?? 0,
+      adjudicationCalls: safeDiagnosticNumber(semantic.adjudicationCalls) ?? 0,
+      repairCalls: safeDiagnosticNumber(semantic.repairCalls) ?? 0,
+      totalProviderCalls: safeDiagnosticNumber(semantic.totalProviderCalls) ?? 0
+    } : undefined
+  };
+}
+
 function diagnosticsFrom(stage: string, writer: { provider?: string; model?: string }, manuscript?: { writerMetadata?: any }): EssentialManuscriptDiagnostics {
   const meta = manuscript?.writerMetadata ?? {};
   return {

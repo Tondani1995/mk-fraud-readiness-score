@@ -33,6 +33,7 @@ export type FreeSnapshot = {
   majorGapCount: number;
   capApplied: boolean;
   capReason: string | null;
+  capEffect?: 'band_lowered' | 'no_band_change' | 'none';
   scoredAt: string | null;
   domains: FreeSnapshotDomain[];
   resultStatus?: AdaptiveResultStatus | null;
@@ -97,6 +98,25 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
   };
   if (adaptiveColumns) Object.assign(scoreRunWithAdaptive, adaptiveColumns);
 
+  const { data: syntheticExplainability, error: syntheticExplainabilityError } = await service
+    .from('synthetic_score_explainability')
+    .select('limitation_reasons,cap_effect')
+    .eq('score_run_id', scoreRun.id)
+    .maybeSingle();
+  if (syntheticExplainabilityError
+    && syntheticExplainabilityError.code !== '42P01'
+    && syntheticExplainabilityError.code !== 'PGRST205'
+    && !String(syntheticExplainabilityError.message ?? '').toLowerCase().includes('does not exist')) {
+    throw syntheticExplainabilityError;
+  }
+  if (syntheticExplainability) {
+    scoreRunWithAdaptive.adaptive_metrics_json = {
+      ...(scoreRunWithAdaptive.adaptive_metrics_json ?? {}),
+      limitationReasons: syntheticExplainability.limitation_reasons ?? [],
+      capEffect: syntheticExplainability.cap_effect
+    };
+  }
+
   const { data: domainRows, error: domainRowsError } = await service
     .from('score_domain_results')
     .select('domain_id,raw_score,weighted_contribution,coverage_pct,critical_gap_count')
@@ -150,6 +170,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     majorGapCount: Number(scoreRun.major_gap_count ?? 0),
     capApplied: Boolean(scoreRun.cap_applied),
     capReason: scoreRun.cap_reason,
+    capEffect: scoreRunWithAdaptive.adaptive_metrics_json?.capEffect,
     scoredAt: scoreRun.locked_at ?? scoreRun.created_at ?? null,
     domains: snapshotDomains
     ,resultStatus: scoreRunWithAdaptive.adaptive_result_status ?? null

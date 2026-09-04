@@ -17,6 +17,7 @@ export type CustomerAccessReason =
   | 'rate_limited'
   | 'report_record_missing'
   | 'report_order_mismatch'
+  | 'synthetic_report_not_customer_deliverable'
   | 'report_status_ineligible'
   | 'report_not_current_version'
   | 'storage_path_mismatch'
@@ -195,12 +196,16 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
 
   const { data: report, error: reportError } = await db
     .from('reports')
-    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status')
+    .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,synthetic_demonstration,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status')
     .eq('id', tokenRow.report_id)
     .maybeSingle();
   if (reportError || !report) {
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'report_record_missing', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('report_record_missing', 'The report record does not exist.', 404, technicalReference);
+  }
+  if (report.synthetic_demonstration) {
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'synthetic_report_not_customer_deliverable', technicalReference, artefact: requestedArtefact });
+    throw new CustomerReportAccessError('synthetic_report_not_customer_deliverable', 'This demonstration report is available only for authorised owner review.', 403, technicalReference);
   }
   if (report.order_id !== tokenRow.order_id) {
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_order_mismatch', technicalReference, artefact: requestedArtefact });

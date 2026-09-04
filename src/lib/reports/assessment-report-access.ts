@@ -74,6 +74,7 @@ export async function createSecureAssessmentAdminReportAccess(input: {
   assessmentReference: string;
   reportId: string;
   adminId: string;
+  adminRole: string;
   mode: 'preview' | 'download';
 }) {
   const technicalReference = crypto.randomUUID();
@@ -95,11 +96,14 @@ export async function createSecureAssessmentAdminReportAccess(input: {
 
   const { data: report, error: reportError } = await db
     .from('reports')
-    .select('id,assessment_id,organisation_id,order_id,score_run_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,orders(assessment_id,order_reference)')
+    .select('id,assessment_id,organisation_id,order_id,score_run_id,report_type,report_reference,version_number,status,synthetic_demonstration,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,orders(assessment_id,order_reference)')
     .eq('id', input.reportId)
     .maybeSingle();
   if (reportError || !report) {
     throw new AssessmentReportAccessError('report_record_missing', 'The report record does not exist.', 404, technicalReference);
+  }
+  if (report.synthetic_demonstration && input.adminRole !== 'platform_admin') {
+    await failWithEvidence(db, report, accessInput, 'synthetic_report_platform_admin_required', 'Synthetic demonstration reports are restricted to platform administrators.', 403);
   }
 
   const linkedOrder = Array.isArray(report.orders) ? report.orders[0] : report.orders;
