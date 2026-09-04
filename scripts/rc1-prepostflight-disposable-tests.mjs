@@ -232,28 +232,27 @@ async function replayBaseline() {
   const files = fs.readdirSync(path.join(root, 'supabase', 'migrations')).filter((name) => name.endsWith('.sql')).sort();
   // Pre-G30 timeout and AI-budget diagnostic migrations are Staging-only. This harness models
   // the approved Production pre/postflight ledger, so neither enters either side of that replay.
-  const productionExcluded = new Set([
+  const stagingOnlyWithinRc1 = new Set([
     '20260805200000_pre_g30_ai_timeout_window.sql',
     '20260806090000_pre_g30_ai_budget_diagnostics.sql',
-    '20260806143000_pre_g30_structured_output_release_gate.sql',
-    // These ten files reconstruct the later Preview/Staging live ledger. They are covered by
-    // release-v12-migration-replay.sh, but are not part of the accepted RC1 Production replay.
-    '20260820120000_comprehensive_automated_launch_closure.sql',
-    '20260821090000_adaptive_v1_2_staging_activation.sql',
-    '20260821102116_customer_conversion_interim_closure.sql',
-    '20260821113000_interim_manual_fulfilment_transition.sql',
-    '20260821170050_comprehensive_finalisation_rpc_contract_fix.sql',
-    '20260821181032_canonical_preview_staging_project_rebind.sql',
-    '20260824130345_essential_report_reference_v1.sql',
-    '20260824135232_retire_rc1_operational_gating.sql',
-    '20260825115921_remove_mfa_aal2_operational_dependency.sql',
-    // The V1.2 forward migration is replayed and contract-tested by the dedicated release
-    // harness. Applying it after the RC1 freeze bootstrap would intentionally hit the legacy
-    // operational freeze guard, so it is outside this historical pre/postflight lane.
-    '20260826114407_v12_essential_assessment_admin_generation.sql'
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
   ]);
-  const baseline = files.filter((name) => !pending.includes(name) && !productionExcluded.has(name));
-  assert(baseline.length === 34, `expected 34 baseline migrations, got ${baseline.length}`);
+  // The accepted RC1 Production ledger closed here. Everything from this version onwards belongs
+  // to the later Preview/Staging lane, which release-v12-migration-replay.sh replays in full.
+  //
+  // This used to be an enumerated list of post-RC1 filenames, which silently asserted that the
+  // repository could never gain another migration: every forward migration broke this historical
+  // harness until someone appended its name. What is actually frozen is the RC1 boundary, not the
+  // repository's migration count, so the boundary is what this now expresses.
+  const RC1_PRODUCTION_LEDGER_BOUNDARY = '20260820120000';
+  const versionOf = (name) => name.slice(0, name.indexOf('_'));
+  const baseline = files.filter((name) => !pending.includes(name)
+    && !stagingOnlyWithinRc1.has(name)
+    && versionOf(name) < RC1_PRODUCTION_LEDGER_BOUNDARY);
+  // The historical RC1 baseline is exactly these 34 migrations. The number is still asserted --
+  // it is real evidence about that ledger -- but it is now derived from the boundary rather than
+  // from a list that has to be edited every time the repository moves forward.
+  assert(baseline.length === 34, `expected 34 RC1 baseline migrations before ${RC1_PRODUCTION_LEDGER_BOUNDARY}, got ${baseline.length}`);
   for (const name of baseline) {
     console.log(`Applying baseline ${name}`);
     await applyMigration(name);

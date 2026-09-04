@@ -19,11 +19,6 @@ const postPurchaseCopy = read('src/lib/commercial/post-purchase-copy.ts');
 const statusPage = read('src/components/comprehensive/CustomerOrderStatusWorkspace.tsx');
 const access = read('src/lib/reports/customer-report-access.ts');
 const accessRoute = read('src/app/score/report/access/[token]/route.ts');
-const reviewer = read('src/components/comprehensive/ComprehensiveReviewWorkspace.tsx');
-const generation = read('src/lib/comprehensive/generation-service.ts');
-const packageRegistration = read('src/lib/comprehensive/package-registration.ts');
-const migration = read('supabase/migrations/20260810140000_final_pre_staging_comprehensive_closure.sql');
-const lifecycleMigration = read('supabase/migrations/20260810131000_joint_launch_last_mile_customer_operability.sql');
 
 check('EFT instructions are active-config gated, snapshot-bound and returned by paid-order creation', () => {
   assert.match(eft, /active === true/);
@@ -48,8 +43,9 @@ check('Comprehensive customer status is the current manual-EFT order journey, no
   assert.match(statusPage, /Comprehensive package includes/);
   assert.match(statusPage, /Refresh order status/);
   assert.match(postPurchaseCopy, /full Comprehensive Fraud Readiness package/);
-  assert.match(generation, /fromAssembledReportData\(assembled\)/);
-  assert.match(generation, /renderHtmlToPdfBuffer/);
+  const comprehensiveGeneration = read('src/lib/reports/comprehensive/narrative-generation.ts');
+  assert.match(comprehensiveGeneration, /buildComprehensiveDeliveryModel/);
+  assert.match(comprehensiveGeneration, /renderHtmlToPdfBuffer/);
   assert.doesNotMatch(statusPage, /Submit requested evidence|Upload evidence/);
   assert.doesNotMatch(statusPage, /Reviewer:|Sign-off:/);
   assert.doesNotMatch(statusPage, /Released Comprehensive package|supporting_register/);
@@ -57,49 +53,70 @@ check('Comprehensive customer status is the current manual-EFT order journey, no
   assert.doesNotMatch(statusPage, /storage_path|signedUrl|bucket/);
 });
 
-check('customer downloads cover all five Comprehensive artefacts and never expose signed URLs', () => {
-  for (const selector of ['register', 'board', 'presentation', 'workshop']) assert.match(accessRoute, new RegExp(`'${selector}'`));
-  for (const type of ['supporting_register', 'board_readout', 'executive_presentation', 'workshop_material']) assert.match(access, new RegExp(type));
-  assert.match(access, /state !== 'delivered'/);
-  assert.match(access, /signed_off_artifact_version/);
-  assert.match(access, /release_state/);
+// The four checks that stood here asserted the retired reviewed-engagement lifecycle: five
+// customer artefacts, signed_off_artifact_version, a reviewer sign-off workspace and a
+// 'delivered' engagement state gate. That lifecycle is retired -- the active Comprehensive
+// product is payment -> durable fulfilment -> verified PDF + workbook -> automatic release ->
+// secure token -> customer access, with no reviewer and no human sign-off. The assertions below
+// are the current contract. The security and operability properties those checks genuinely
+// protected -- never exposing a signed URL, serving only verified bytes, binding an artefact to
+// the exact current report version -- are preserved and strengthened here, not dropped.
+
+check('the customer package is the automated PDF and supporting register, bound to the exact current version', () => {
+  // Two customer artefacts, selected only after report-level token authority has passed.
+  assert.match(accessRoute, /searchParams\.get\('artefact'\)/);
+  assert.match(accessRoute, /requested === 'register'/);
+  assert.match(access, /supporting_register/);
+  // The active package has no reviewed engagement: the register is bound by null engagement_id
+  // and the exact report version, and must actually be released and verified.
+  assert.match(access, /\.is\('engagement_id', null\)/);
+  assert.match(access, /\.eq\('artifact_version', report\.version_number\)/);
+  assert.match(access, /\.eq\('release_state', 'released'\)/);
+  assert.match(access, /\.eq\('storage_status', 'VERIFIED'\)/);
+  // No reviewer sign-off may gate customer access any more.
+  assert.doesNotMatch(access, /signed_off_artifact_version/);
+});
+
+check('customer bytes are verified in memory and never served through a signed URL', () => {
   assert.doesNotMatch(access, /createSignedUrl\s*\(/);
+  assert.doesNotMatch(accessRoute, /createSignedUrl\s*\(/);
+  // Byte-level integrity on the PDF instance that is actually returned.
+  assert.match(access, /'%PDF'/);
+  assert.match(access, /integrity_failed/);
+  assert.match(access, /createHash\('sha256'\)/);
+  // Superseded versions are unreachable even with a valid token for them.
+  assert.match(access, /resolveCurrentReportId/);
+  assert.match(access, /report_not_current_version/);
+  // Possession is the control: revocation and expiry are enforced before anything is read.
+  assert.match(access, /revoked_token/);
+  assert.match(access, /expired_token/);
+  // Every attempt, including a failure, records which artefact was asked for.
+  assert.match(access, /record_customer_report_artefact_access/);
 });
 
-check('reviewer workspace exposes payment, evidence, five human records, generation, signoff and release controls', () => {
-  for (const type of ['finding', 'risk', 'control_design', 'decision', 'management_action']) assert.match(reviewer, new RegExp(type));
-  for (const action of ['/reviewer', '/evidence/', '/review-records', '/generate', '/finalise', '/transition']) assert.match(reviewer, new RegExp(action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(reviewer, /Current analytical subject<select/);
-  assert.match(reviewer, /subjectAuthority/);
-  assert.match(reviewer, /evidenceRefs\.length === 0/);
-  assert.doesNotMatch(reviewer, /Subject key<input/);
-  assert.match(reviewer, /role="alert"/);
-  assert.match(reviewer, /role="status"/);
+check('release is automatic after verified payment, with no reviewer or human sign-off in the path', () => {
+  const automatedClosure = read('supabase/migrations/20260820120000_comprehensive_automated_launch_closure.sql');
+  // The database refuses to leave an active Comprehensive order depending on a reviewed engagement.
+  assert.match(automatedClosure, /comprehensive_active_order_still_depends_on_reviewed_engagement/);
+  // Release binds the register to the exact report version with a deliberate null engagement_id.
+  assert.match(automatedClosure, /release_state = 'released'/);
+  assert.match(automatedClosure, /engagement_id is null/);
+  assert.match(automatedClosure, /artifact_version = v_report\.version_number/);
+  assert.match(automatedClosure, /comprehensive_package_release_binding_failed/);
+  // Release is refused unless the exact PDF/register pair is present and verified.
+  assert.match(automatedClosure, /comprehensive_package_incomplete/);
 });
 
-check('generation is persisted-input based, real-file based and fail-closed for the presentation requirement', () => {
-  assert.match(generation, /assembleReportData/);
-  assert.match(generation, /fromAssembledReportData\(assembled\)/);
-  assert.match(generation, /assertNarrativeCompositionReady/);
-  assert.match(generation, /narrativeRelease/);
-  assert.doesNotMatch(generation, /loadComprehensiveReviewerInput|reviewerInput/);
-  assert.match(generation, /renderHtmlToPdfBuffer/);
-  assert.match(generation, /buildComprehensiveRegisterWorkbookBytes/);
-  assert.match(generation, /registerComprehensivePackageAtomically/);
-  assert.match(packageRegistration, /complete_comprehensive_package/);
-  assert.match(generation, /presentation_upload_required/);
-  assert.doesNotMatch(generation, /completeComprehensiveArtifact/);
-  assert.match(generation, /executive_presentation/);
-});
-
-check('database release ordering is exact-version and delivered-gated', () => {
-  assert.match(lifecycleMigration, /state <> 'review_complete'/);
-  assert.match(lifecycleMigration, /signed_off_artifact_version is distinct from p_artifact_version/);
-  assert.match(lifecycleMigration, /release_state = 'released'/);
-  assert.match(lifecycleMigration, /update public\.reports set status = 'released'/);
-  assert.match(lifecycleMigration, /state = 'delivered' and not public\.comprehensive_delivery_ready/);
-  assert.match(migration, /jsonb_array_length\(p_secondary\) <> 4/);
-  assert.match(migration, /secondary_count', 4/);
+check('the accepted Comprehensive manuscript is durably bound before a package can be released', () => {
+  const fulfilment = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  const guard = read('supabase/migrations/20260904030000_comprehensive_manuscript_provenance_and_v2_recovery_release.sql');
+  assert.match(fulfilment, /persistComprehensiveNarrativeProvenance/);
+  assert.match(guard, /comprehensive_manuscript_provenance_missing/);
+  // A superseded version's customer access is closed by the version transition itself, and only
+  // once the newer version is actually released.
+  assert.match(guard, /supersede_prior_version_report_access/);
+  assert.match(guard, /supersede_access_current_report_not_released/);
+  assert.match(guard, /supersede_access_prior_version_still_live/);
 });
 
 console.log(JSON.stringify({ ok: true, checks, provider: 'none', surface: 'customer-operability-contract' }, null, 2));

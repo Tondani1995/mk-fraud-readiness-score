@@ -9,6 +9,7 @@ import {
   type ParsedBlueprintMarkdown
 } from '../narrative/blueprint-text';
 import { buildReportBlueprint, buildWholeManuscriptContext, type ReportBlueprint } from '../narrative/report-blueprint';
+import { sha256Json } from '../narrative/release-gate';
 import type { NarrativeFactPack } from '../narrative/fact-pack';
 import type { WholeManuscriptTextResult, WholeManuscriptWriter } from '../narrative/manuscript';
 import { recoverWholeManuscript, WholeManuscriptRecoveryError } from '../narrative/whole-manuscript-recovery';
@@ -40,6 +41,13 @@ export interface ComprehensiveManuscriptResult {
   providerCalls: ComprehensiveProviderCallRecord[];
   rejectedCandidateDirectories: string[];
   coherenceUsed: boolean;
+  /** The validation the accepted manuscript passed, kept so it can be persisted with it. */
+  finalValidation: ReturnType<typeof validateBlueprintTextManuscript>;
+  /** Identity of the deterministic inputs this manuscript was written and validated against. */
+  generationId: string;
+  factPackSha256: string;
+  storyPlanSha256: string;
+  blueprintSha256: string;
 }
 
 function isTechnicalWriterFailure(error: unknown): boolean {
@@ -155,7 +163,12 @@ export async function composeComprehensiveManuscript(input: ComprehensiveManuscr
     recovery: recovered.recovery,
     providerCalls: ledger.snapshot(),
     rejectedCandidateDirectories: recovered.rejectedCandidateDirectories,
-    coherenceUsed: recovered.coherenceUsed
+    coherenceUsed: recovered.coherenceUsed,
+    finalValidation,
+    generationId,
+    factPackSha256: sha256Json(input.factPack),
+    storyPlanSha256: sha256Json(storyPlan),
+    blueprintSha256: sha256Json(blueprint)
   };
 }
 

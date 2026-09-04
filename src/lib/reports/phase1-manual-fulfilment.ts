@@ -637,6 +637,30 @@ export async function generateManualPhase1Report(
           architecture: metadata.architecture,
           semanticSafety: comprehensive.semanticSafety
         });
+
+        // Bind the accepted manuscript to this attempt before the package can be finalised.
+        // Without this the narrative only ever existed for the life of the request: the first
+        // released Preview Comprehensive package has final_narrative_json null, which made a
+        // provider-free revision of a released report impossible. This is the same provenance
+        // contract the Essential path uses, so there is no second reporting architecture, and it
+        // is deliberately not wrapped in a tolerant catch -- a Comprehensive package must fail
+        // rather than reach REPORT_READY with its accepted manuscript discarded.
+        generationStage = 'persist_narrative_provenance';
+        const { persistComprehensiveNarrativeProvenance } = await import('./comprehensive/narrative-provenance');
+        await persistComprehensiveNarrativeProvenance({
+          db,
+          manualGenerationAttemptId: attemptId,
+          provenance: comprehensive.provenance
+        });
+        console.info('comprehensive_narrative_provenance', {
+          technicalReference,
+          generationAttemptId: attemptId,
+          status: 'persisted',
+          generationMode: comprehensive.provenance.generationMode,
+          providerCalls: comprehensive.provenance.providerCalls,
+          factPackSha256: comprehensive.provenance.factPackSha256,
+          blueprintSha256: comprehensive.provenance.blueprintSha256
+        });
       } catch (error) {
         console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_manuscript', error: messageOf(error) });
         throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
