@@ -17,6 +17,34 @@ function sha(value: unknown): string { return crypto.createHash('sha256').update
 function numeric(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
 function textValue(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
 
+// Alignment metadata is required by the deterministic binder, but exposing raw IDs in
+// the prose-writing prompt encourages the model to copy them into customer narrative.
+// Give the writer the same evidence and plain-language blueprint shape without the
+// identifiers that are only meaningful to the application.
+const WRITER_ALIGNMENT_KEYS = new Set([
+  'id', 'chapterId', 'sectionId', 'subsectionId', 'exhibitId', 'clusterId', 'contentRef',
+  'factRef', 'sourceId', 'sourceRefs', 'claimRefs', 'requiredFacts', 'linkedFindingIds',
+  'linkedScenarioIds', 'linkedControlIds', 'linkedDecisionIds', 'linkedRoadmapIds',
+  'linkedFindingRefs', 'linkedRiskRefs', 'linkedSustainmentPriorityRefs', 'sourceFindingRef',
+  'sourceSustainmentPriorityRef', 'canonicalScenarioId', 'contentAssignments',
+  'narrativeCrossReferences', 'narrativeRoleUsage', 'ledger', 'factUsage', 'findingUsage',
+  'scenarioUsage', 'controlUsage'
+]);
+const WRITER_ALIGNMENT_TOKEN = /\b(?:D\d+-Q\d+|SCENARIO-\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/g;
+
+function writerFacingPayload(value: unknown, key?: string): unknown {
+  if (key && WRITER_ALIGNMENT_KEYS.has(key)) return undefined;
+  if (typeof value === 'string') return value.replace(WRITER_ALIGNMENT_TOKEN, '[alignment reference]');
+  if (Array.isArray(value)) return value.map((item) => writerFacingPayload(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).flatMap(([entryKey, entryValue]) => {
+      const projected = writerFacingPayload(entryValue, entryKey);
+      return projected === undefined ? [] : [[entryKey, projected]];
+    }));
+  }
+  return value;
+}
+
 function requireProvider(model = selectNarrativeModel().requestedModel): { model: string; provider: string } {
   const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
   if (!model || (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) && !runningOnVercel)) throw new NarrativeWriterUnavailableError();
@@ -36,7 +64,8 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
     'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
-    'IDENTIFIER BOUNDARY. All uppercase IDs, control IDs, question IDs, scenario IDs, claim references and Blueprint keys in the supplied JSON are alignment metadata only. Never copy them into narrative prose, including tokens such as CONTROL-01-01, D1-Q01, SCENARIO-01 or FIRST-90-DAYS-CONCLUSION-60-DAYS. Refer to the plain-language subject instead.',
+    'IDENTIFIER BOUNDARY. Any alignment references that appear in the supplied JSON are metadata only. Never copy an ID, claim reference, Blueprint key or placeholder such as [alignment reference] into narrative prose. Refer to the plain-language subject instead.',
+    'PUNCTUATION BOUNDARY. The Unicode em dash character (U+2014, —) is forbidden. If a sentence needs a pause, use a comma, colon or full stop.',
     '',
     `PROHIBITED CLAIMS: ${(input.context.boundaries?.prohibitedClaims ?? []).join('; ') || '(none supplied)'}`,
     'WRITE ONLY THE NARRATIVE UNDER THESE EXISTING HEADINGS.',
@@ -45,10 +74,10 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     skeleton.markdown,
     '',
     'DETERMINISTIC REPORT BLUEPRINT',
-    JSON.stringify(input.blueprint),
+    JSON.stringify(writerFacingPayload(input.blueprint)),
     '',
     'PERMITTED DETERMINISTIC FACTS',
-    JSON.stringify(input.context.permittedDeterministicFacts),
+    JSON.stringify(writerFacingPayload(input.context.permittedDeterministicFacts)),
     '',
     'BOUNDARIES AND STYLE',
     JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
@@ -67,7 +96,8 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
     'NUMERIC FACT BOUNDARY. Do not write a numeral, percentage, date, duration, count or other numeric claim unless that exact value is present in the permitted deterministic facts for the paragraph. When a number is not needed, use qualitative wording such as "the recorded position" or "the identified pathway". Never use an approximate or invented count to make prose sound concrete.',
-    'IDENTIFIER BOUNDARY. All uppercase IDs, control IDs, question IDs, scenario IDs, claim references and Blueprint keys in the supplied JSON are alignment metadata only. Never copy them into narrative prose, including tokens such as CONTROL-01-01, D1-Q01, SCENARIO-01 or FIRST-90-DAYS-CONCLUSION-60-DAYS. Refer to the plain-language subject instead.',
+    'IDENTIFIER BOUNDARY. Any alignment references that appear in the supplied JSON are metadata only. Never copy an ID, claim reference, Blueprint key or placeholder such as [alignment reference] into narrative prose. Refer to the plain-language subject instead.',
+    'PUNCTUATION BOUNDARY. The Unicode em dash character (U+2014, —) is forbidden. If a sentence needs a pause, use a comma, colon or full stop.',
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
     `MISSING HEADINGS IN REQUIRED ORDER: ${JSON.stringify(tail.missingHeadings)}`,
@@ -81,10 +111,10 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     input.precedingContext,
     '',
     'DETERMINISTIC REPORT BLUEPRINT',
-    JSON.stringify(input.blueprint),
+    JSON.stringify(writerFacingPayload(input.blueprint)),
     '',
     'PERMITTED DETERMINISTIC FACTS',
-    JSON.stringify(input.context.permittedDeterministicFacts),
+    JSON.stringify(writerFacingPayload(input.context.permittedDeterministicFacts)),
     '',
     'BOUNDARIES AND STYLE',
     JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
@@ -185,7 +215,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never copy internal IDs or numeric metadata from the supplied JSON into narrative prose. Do not use em dashes. Use normal sentence punctuation instead. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never copy alignment IDs, numeric metadata or [alignment reference] placeholders from the supplied JSON into narrative prose. Never emit the Unicode em dash character U+2014. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
       maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
       maxRetries: 0,
