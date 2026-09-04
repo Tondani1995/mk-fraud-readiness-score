@@ -626,14 +626,40 @@ export async function composeEssentialManuscript(input: {
   semanticAdapters?: EssentialSemanticAdapters;
 }): Promise<EssentialManuscriptResult> {
   const { factPack, writer } = input;
-
-  const plan = buildNarrativeStoryPlan(factPack);
-  assertNarrativeStoryPlan(plan, factPack);
-
-  const blueprint = buildReportBlueprint(factPack, plan);
-  const context = buildWholeManuscriptContext(factPack, blueprint);
-
   const writerIdentity = writer as unknown as { provider?: string; model?: string };
+  const preparationStartedAt = Date.now();
+  let plan: ReturnType<typeof buildNarrativeStoryPlan>;
+  let blueprint: ReportBlueprint;
+  let context: ReturnType<typeof buildWholeManuscriptContext>;
+  try {
+    plan = buildNarrativeStoryPlan(factPack);
+    assertNarrativeStoryPlan(plan, factPack);
+    blueprint = buildReportBlueprint(factPack, plan);
+    context = buildWholeManuscriptContext(factPack, blueprint);
+  } catch (error) {
+    // Blueprint and context construction happen before writer.writeManuscript(). Keep this
+    // deterministic preflight boundary observable and bounded instead of collapsing an
+    // assertion or context-contract failure into a generic generation error with no cause.
+    const providerFailure = describeEssentialWriterFailure({
+      error,
+      elapsedWriterMs: Date.now() - preparationStartedAt,
+      dispatchOccurred: false,
+      providerCallsRecorded: 0
+    });
+    throw new EssentialManuscriptError(
+      'prepare_narrative',
+      'The deterministic Essential narrative contract could not be prepared. No provider call was dispatched.',
+      {
+        stage: 'prepare_narrative',
+        requestedProvider: writerIdentity.provider,
+        requestedModel: writerIdentity.model,
+        dispatchOccurred: false,
+        providerCalls: 0,
+        providerFailure
+      }
+    );
+  }
+
   const writerStartedAt = Date.now();
   let manuscript: WholeManuscriptTextResult;
   try {

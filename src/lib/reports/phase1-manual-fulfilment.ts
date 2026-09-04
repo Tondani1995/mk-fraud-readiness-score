@@ -1118,7 +1118,7 @@ export async function generateManualPhase1Report(
     // established -- the database may already hold a committed REPORT_READY transaction the client
     // simply cannot read. Both cases emit reconciliation-required evidence instead of mutating.
     if (finalisationOutcome === 'not_committed') {
-      await recordFailure(db, attemptId, mapped.reason, mapped.message, assessmentScoped);
+      await recordFailure(db, attemptId, mapped.reason, mapped.message, assessmentScoped, failureDiagnostics);
     } else {
       console.error('phase1_finalisation_reconciliation_required', {
         technicalReference,
