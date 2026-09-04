@@ -164,7 +164,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=14
+forward_migration_count=15
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
@@ -527,3 +527,57 @@ end;
 $do$;
 SQL
 printf 'PASS: a Comprehensive attempt cannot reach REPORT_READY with its accepted manuscript discarded.\n'
+
+# --- Comprehensive recovery seam enters the existing release contract --------------------------
+# The first version of this seam inserted the recovery report already 'released' and its register
+# already 'released'. The live automatic_release_completed_fulfilment() requires 'generated' plus
+# VERIFIED storage and a leased REPORT_READY attempt, and performs the register release binding
+# itself -- so the original shape could only ever have been refused, or have bypassed the quality
+# gates by manufacturing its own delivery authorization. Assert the corrected contract against the
+# replayed catalogue rather than against the file.
+psql "${psql_args[@]}" >/dev/null <<'SQL'
+do $do$
+declare
+  v_def text;
+  v_failed text := '';
+begin
+  select pg_get_functiondef(p.oid) into v_def
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = 'create_comprehensive_recovery_revision'
+    and pg_get_function_identity_arguments(p.oid) like '%p_lease_owner text, p_lease_seconds integer';
+  if v_def is null then
+    raise exception 'the corrected recovery seam (with a bounded worker lease) is not present';
+  end if;
+
+  if position('automatic_release_completed_fulfilment' in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not call the existing automatic release; ';
+  end if;
+  if position($q$'generated'$q$ in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not create the revision as generated; ';
+  end if;
+  if position($q$'verified'$q$ in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not create the register as verified; ';
+  end if;
+  if position('comprehensive_recovery_release_refused' in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not fail closed when release is refused; ';
+  end if;
+  if position('report_delivery_authorizations' in v_def) > 0 then
+    v_failed := v_failed || 'the seam manufactures its own delivery authorization; ';
+  end if;
+
+  -- The superseded pre-release shape must no longer be callable.
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'create_comprehensive_recovery_revision'
+      and pg_get_function_identity_arguments(p.oid) not like '%p_lease_seconds integer'
+  ) then
+    v_failed := v_failed || 'the superseded pre-release recovery shape is still callable; ';
+  end if;
+
+  if v_failed <> '' then
+    raise exception 'comprehensive_recovery_seam_contract_failed: %', v_failed;
+  end if;
+end;
+$do$;
+SQL
+printf 'PASS: the recovery seam enters the existing automatic quality release instead of pre-empting it.\n'
