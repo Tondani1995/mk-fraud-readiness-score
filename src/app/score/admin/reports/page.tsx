@@ -1,6 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { SyntheticComprehensiveProofActions } from '@/components/admin/SyntheticComprehensiveProofActions';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getFulfilmentSchemaCapability } from '@/lib/reports/phase1-schema-capability';
+import { generateSyntheticComprehensiveReport } from '@/lib/comprehensive/synthetic-fixture-generation';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,6 +36,20 @@ const syntheticComprehensiveProofFixtures = [
   { label: 'ORG-03 · MzansiLink Marketplace', assessmentReference: 'MKFRS-2026-A68F8A2017', requestKey: 'synthetic-proof-ORG-03-comprehensive-v1-20260904' }
 ] as const;
 
+async function generateSyntheticProofFixture(formData: FormData) {
+  'use server';
+  const admin = await requireAdmin(['platform_admin']);
+  const assessmentReference = String(formData.get('assessmentReference') ?? '');
+  const fixture = syntheticComprehensiveProofFixtures.find((item) => item.assessmentReference === assessmentReference);
+  if (!fixture) throw new Error('The requested synthetic proof fixture is not allowlisted.');
+  const result = await generateSyntheticComprehensiveReport({
+    assessmentReference: fixture.assessmentReference,
+    requestedBy: admin.id,
+    requestKey: fixture.requestKey
+  });
+  redirect(`/score/admin/reports?syntheticReport=${encodeURIComponent(result.reportId)}`);
+}
+
 export default async function AdminReportsPage() {
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const db = createSupabaseServiceClient() as any;
@@ -45,7 +60,7 @@ export default async function AdminReportsPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Report control" title="Generated report versions" description="Review generated report versions and access controlled admin downloads. Essential reports can be generated directly from a completed assessment; legacy order-linked reports remain supported." />
         {capability.status !== 'available' ? <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">{capability.message}</div> : null}
-        {admin.role === 'platform_admin' ? <Card><CardHeader><CardTitle>Synthetic Comprehensive proof fixtures</CardTitle></CardHeader><CardContent><p className="mb-4 max-w-3xl text-sm leading-6 text-mk-muted">Platform-admin-only owner-review controls for the isolated synthetic demonstration route. These samples are marked synthetic, stay in private storage and never create an order or customer delivery.</p><SyntheticComprehensiveProofActions fixtures={syntheticComprehensiveProofFixtures} /></CardContent></Card> : null}
+        {admin.role === 'platform_admin' ? <Card><CardHeader><CardTitle>Synthetic Comprehensive proof fixtures</CardTitle></CardHeader><CardContent><p className="mb-4 max-w-3xl text-sm leading-6 text-mk-muted">Platform-admin-only owner-review controls for the isolated synthetic demonstration route. These samples are marked synthetic, stay in private storage and never create an order or customer delivery.</p><div className="grid gap-3 md:grid-cols-3">{syntheticComprehensiveProofFixtures.map((fixture) => <form key={fixture.assessmentReference} action={generateSyntheticProofFixture} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4"><input type="hidden" name="assessmentReference" value={fixture.assessmentReference} /><p className="mb-3 text-sm font-semibold text-mk-ink">{fixture.label}</p><Button type="submit">Generate Comprehensive</Button></form>)}</div></CardContent></Card> : null}
         <Card><CardHeader><CardTitle>Recent reports</CardTitle></CardHeader><CardContent className="space-y-3">
           {reports.map((report: any) => <div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mk-line bg-white p-4 text-sm"><div><div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(report.status)}</Badge>{report.synthetic_demonstration ? <Badge>Synthetic owner review</Badge> : null}<span className="font-semibold text-mk-ink">{report.report_reference}</span></div><p className="mt-2 text-mk-muted">Version {report.version_number} · {report.assessments?.assessment_reference ?? 'Assessment not linked'} · {report.orders?.organisation_name ?? (report.synthetic_demonstration ? 'Synthetic demonstration organisation' : 'Organisation not captured')}</p><p className="mt-1 text-mk-muted">Generated {report.generated_at ? new Date(report.generated_at).toLocaleString('en-ZA') : 'date not captured'}</p></div><div className="flex flex-wrap gap-2">{report.orders?.order_reference ? <Button asChild variant="secondary"><Link href={`/score/admin/orders/${report.orders.order_reference}`}>Open order</Link></Button> : null}{report.synthetic_demonstration && report.storage_bucket && report.storage_path ? <Button asChild><a href={`/score/api/admin/synthetic-reports/${report.id}/download`}>Download owner-review sample</a></Button> : null}{capability.status === 'available' && report.storage_bucket && report.storage_path && report.orders?.order_reference ? <><Button asChild variant="secondary"><a href={`/score/api/admin/reports/${report.id}/preview?order=${encodeURIComponent(report.orders.order_reference)}`}>Preview</a></Button><Button asChild><a href={`/score/api/admin/reports/${report.id}/download?order=${encodeURIComponent(report.orders.order_reference)}`}>Download</a></Button></> : null}</div></div>)}
           {!reports.length ? <p className="text-sm leading-6 text-mk-muted">No generated reports yet. Essential reports are generated by an authorised MK administrator from a completed, scored assessment.</p> : null}
