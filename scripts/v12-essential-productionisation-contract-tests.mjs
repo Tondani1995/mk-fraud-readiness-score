@@ -1088,6 +1088,7 @@ function createDirectGenerationDb(overrides = {}) {
       error: null
     },
     start_assessment_manual_report_generation: { data: { ok: true }, error: null },
+    record_assessment_manual_report_generation_diagnostics: { data: { ok: true }, error: null },
     fail_assessment_manual_report_generation: { data: { ok: true }, error: null },
     complete_assessment_manual_report_generation: {
       data: {
@@ -1192,6 +1193,7 @@ assert.equal(directSuccess.state.calls.tail + directSuccess.state.calls.repair +
 assert.deepEqual(directSuccess.calls.rpc.map((call) => call.name), [
   'claim_assessment_manual_report_generation',
   'start_assessment_manual_report_generation',
+  'record_assessment_manual_report_generation_diagnostics',
   'complete_assessment_manual_report_generation'
 ]);
 assert.equal(directSuccess.calls.from.includes('orders'), false);

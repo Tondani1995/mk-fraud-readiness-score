@@ -43,6 +43,8 @@ type Props = {
   recipientException: RecipientExceptionProps;
   canRetryDelivery: boolean;
   canManageAccessTokens: boolean;
+  /** Comprehensive uses the shared manual-delivery workflow; historical access rows remain audit evidence. */
+  manualOnly?: boolean;
 };
 
 type Notice = { tone: 'success' | 'error' | 'info'; text: string } | null;
@@ -136,7 +138,7 @@ export function DeliveryAccessPanel(props: Props) {
                 </div>
                 <p className="mt-2 text-mk-muted">Issued {dateTime(token.issuedAt)} · Expires {dateTime(token.expiresAt)} · Accessed {token.accessCount} time(s){token.lastAccessedAt ? ` (last ${dateTime(token.lastAccessedAt)})` : ''}</p>
                 {token.revokedReason ? <p className="mt-1 text-xs text-mk-muted">{token.revokedReason}</p> : null}
-                {props.canManageAccessTokens && active ? (
+                {props.canManageAccessTokens && !props.manualOnly && active ? (
                   <Button type="button" variant="secondary" className="mt-3" disabled={Boolean(running)} onClick={() => revokeToken(token.id)}>
                     {running === `revoke:${token.id}` ? 'Revoking…' : 'Revoke Link'}
                   </Button>
@@ -148,9 +150,9 @@ export function DeliveryAccessPanel(props: Props) {
         </div>
       </div>
 
-      {props.canManageAccessTokens ? (
+      {props.manualOnly || props.canManageAccessTokens ? (
         <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
-          Customer report delivery and access issuance are handled manually by MK. This panel retains historical access records for audit and revocation only.
+          This panel retains delivery and access records for audit. Use the Manual delivery panel above for customer delivery; recording delivery does not send an email or issue a new access link.
         </div>
       ) : null}
 

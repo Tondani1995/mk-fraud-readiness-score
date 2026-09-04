@@ -55,7 +55,7 @@ const ORDER_DETAIL_REQUEST_PATH = '/score/admin/orders/[orderReference]';
 async function getReportVersions(db: any, orderId: string, capabilityAvailable: boolean) {
   if (!capabilityAvailable) {
     const base = await db.from('reports')
-      .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
+      .select('id,report_reference,report_type,version_number,status,generated_at,storage_bucket,storage_path,checksum')
       .eq('order_id', orderId).order('version_number', { ascending: false });
     if (base.error) {
       const failedQuery = logCapabilityQueryFailure('reports:base', base.error, { requestPath: ORDER_DETAIL_REQUEST_PATH });
@@ -64,13 +64,31 @@ async function getReportVersions(db: any, orderId: string, capabilityAvailable: 
     return { reports: (base.data ?? []).map((report: any) => ({ ...report, storage_status: 'NOT_STORED' })), available: true, failedQuery: null as QueryFailureDiagnostic | null };
   }
   const detailed = await db.from('reports')
-    .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at')
+    .select('id,report_reference,report_type,version_number,status,generated_at,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at')
     .eq('order_id', orderId).order('version_number', { ascending: false });
   if (detailed.error) {
     const failedQuery = logCapabilityQueryFailure('reports:detailed', detailed.error, { requestPath: ORDER_DETAIL_REQUEST_PATH });
     return { reports: [], available: false, failedQuery };
   }
   return { reports: detailed.data ?? [], available: true, failedQuery: null as QueryFailureDiagnostic | null };
+}
+
+async function getSupportingRegister(db: any, reportId: string | null, capabilityAvailable: boolean) {
+  if (!reportId || !capabilityAvailable) return { artifact: null, failedQuery: null as QueryFailureDiagnostic | null };
+  const result = await db.from('report_artifacts')
+    .select('id,report_id,artefact_type,storage_bucket,storage_path,checksum_sha256,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at,release_state,artifact_version,engagement_id')
+    .eq('report_id', reportId)
+    .eq('artefact_type', 'supporting_register')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (result.error) {
+    return {
+      artifact: null,
+      failedQuery: logCapabilityQueryFailure('report_artifacts:supporting_register', result.error, { requestPath: ORDER_DETAIL_REQUEST_PATH })
+    };
+  }
+  return { artifact: result.data ?? null, failedQuery: null as QueryFailureDiagnostic | null };
 }
 
 export default async function AdminOrderDetailPage(
@@ -88,6 +106,7 @@ export default async function AdminOrderDetailPage(
   const { order, events, auditEvents } = detail;
   const capability = await getPhase1SchemaCapability(db, { requestPath: ORDER_DETAIL_REQUEST_PATH });
   const capabilityAvailable = capability.status === 'available';
+  const isComprehensive = order.products?.product_code === 'mk_validated_assessment';
   const [reportResult, operations, payment, realDeliveryState] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
     getPhase1OrderOperations(order.id, capability, { requestPath: ORDER_DETAIL_REQUEST_PATH }),
@@ -102,6 +121,9 @@ export default async function AdminOrderDetailPage(
     ...(reportResult.failedQuery ? [reportResult.failedQuery] : [])
   ];
   const latestReport = reportVersions[0] ?? null;
+  const supportingRegisterResult = await getSupportingRegister(db, latestReport?.id ?? null, capabilityAvailable && isComprehensive);
+  if (supportingRegisterResult.failedQuery) failedDependencies.push(supportingRegisterResult.failedQuery);
+  const supportingRegister = supportingRegisterResult.artifact;
   // Manual operator delivery is persisted in the existing Phase 1 delivery-attempt
   // table. provider_mode=disabled distinguishes an operator-sent customer email from the
   // historical provider-double test path; DELIVERED is written only by the existing
@@ -140,7 +162,16 @@ export default async function AdminOrderDetailPage(
   const eft = order.eft_instructions_snapshot ?? {};
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
-  const isComprehensive = order.products?.product_code === 'mk_validated_assessment';
+  const supportingRegisterReady = !isComprehensive || Boolean(
+    supportingRegister
+      && supportingRegister.storage_status === 'VERIFIED'
+      && supportingRegister.storage_bucket
+      && supportingRegister.storage_path
+      && supportingRegister.checksum_sha256
+      && supportingRegister.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      && Number(supportingRegister.file_size_bytes) > 0
+      && ['verified', 'released'].includes(String(supportingRegister.release_state ?? 'verified'))
+  );
 
   return (
     <AdminShell admin={admin}>
@@ -148,7 +179,7 @@ export default async function AdminOrderDetailPage(
         <PageHeader
           eyebrow="Paid report fulfilment"
           title={order.order_reference}
-          description="Manual, recoverable report generation and delivery control. Phase 14 automation remains disabled."
+          description="MK-controlled report preparation, secure file access and manual customer delivery."
         />
 
         {(searchParams?.message || searchParams?.report_error || searchParams?.error) ? (
@@ -205,7 +236,7 @@ export default async function AdminOrderDetailPage(
               canDeliver={canDeliver}
               capabilityAvailable={operationalAvailable}
             />
-            {canDeliver && storageReady ? (
+            {canDeliver && storageReady && !isComprehensive ? (
               <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
                 <span className="font-semibold text-mk-ink">Legacy/manual delivery.</span> The button above (and the retry
                 state it reacts to, currently <span className="font-semibold">{cleanStatus(legacyDeliveryState)}</span>)
@@ -218,7 +249,7 @@ export default async function AdminOrderDetailPage(
                 ) : null}
               </div>
             ) : null}
-            {operations.latestGeneration ? (
+            {operations.latestGeneration && !isComprehensive ? (
               <FulfilmentReviewPanel
                 orderReference={order.order_reference}
                 attemptId={operations.latestGeneration.id}
@@ -256,6 +287,7 @@ export default async function AdminOrderDetailPage(
               recipientException={realDeliveryState.recipientException}
               canRetryDelivery={DELIVERY_RETRY_ROLES.includes(admin.role)}
               canManageAccessTokens={ACCESS_TOKEN_ROLES.includes(admin.role)}
+              manualOnly={isComprehensive}
             />
           </CardContent>
         </Card></div>
@@ -264,7 +296,10 @@ export default async function AdminOrderDetailPage(
           orderReference={order.order_reference}
           organisationName={order.organisation_name ?? assessment?.organisations?.legal_name ?? assessment?.organisations?.trading_name ?? 'your organisation'}
           reportReference={latestReport?.report_reference ?? null}
+          reportId={latestReport?.id ?? null}
           reportFileName={latestReport?.file_name ?? null}
+          supportingRegisterFileName={supportingRegister?.file_name ?? null}
+          supportingRegisterReady={supportingRegisterReady}
           recipientEmail={order.customer_email ?? assessment?.respondents?.email ?? null}
           productCode={order.products?.product_code ?? null}
           storageReady={storageReady}
@@ -274,7 +309,7 @@ export default async function AdminOrderDetailPage(
         />
 
         <Card>
-          <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Payment and fulfilment record</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
               <SnapshotValue label="Expected amount" value={formatOrderAmount(payment.record.expected_amount_cents ?? order.amount_cents, payment.record.currency ?? order.currency)} />
@@ -303,7 +338,6 @@ export default async function AdminOrderDetailPage(
             <SnapshotValue label="Product" value={order.product_name} />
             <SnapshotValue label="Amount" value={formatOrderAmount(order.amount_cents, order.currency)} />
             <SnapshotValue label="Created" value={dateTime(order.created_at)} />
-            {isComprehensive ? <div className="md:col-span-3"><Button asChild><Link href={`/score/admin/comprehensive/${encodeURIComponent(order.order_reference)}`}>Open Comprehensive reviewer workspace</Link></Button></div> : null}
           </CardContent>
         </Card>
 
@@ -336,7 +370,7 @@ export default async function AdminOrderDetailPage(
               </div>
             ))}
             {!operations.notifications.length ? <p className="text-sm text-mk-muted">No notification records found.</p> : null}
-            <p className="text-xs text-mk-muted">Internal MK notifications are sent only when the configured provider mode permits it. Customer report delivery remains a manual MK process after payment confirmation and preparation.</p>
+            <p className="text-xs text-mk-muted">Internal MK notifications are sent only when the configured provider mode permits it. Customer report delivery is recorded through the shared manual fulfilment panel and secure access audit.</p>
           </CardContent>
         </Card>
 
@@ -344,7 +378,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Payment status update</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
-              Manual and verified-provider confirmation share one payment state machine. A valid final payment requests deterministic Phase 1 fulfilment only when its schema capability is available. Phase 14 remains disabled.
+              Manual and verified-provider confirmation share one payment state machine. Once final payment is recorded, MK prepares the selected report through the authorised fulfilment workflow; customer delivery is then completed and recorded by an MK operator.
             </div>
             <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_160px_100px_1fr_auto]">
               <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">

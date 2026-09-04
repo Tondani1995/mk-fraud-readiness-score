@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const assessmentPage = read('src/app/score/admin/assessments/[assessmentRef]/page.tsx');
-const actions = read('src/components/admin/AssessmentEssentialReportActions.tsx');
+const actions = read('src/components/admin/AssessmentReportActions.tsx');
 const generation = read('src/app/score/api/admin/assessments/[assessmentRef]/generate-essential-report/route.ts');
 const download = read('src/app/score/api/admin/assessments/[assessmentRef]/reports/[reportId]/download/route.ts');
 const loginPage = read('src/app/score/admin/login/page.tsx');
@@ -15,8 +15,8 @@ assert.match(assessmentPage, /requireAdmin/);
 assert.match(assessmentPage, /ADMIN_MUTATION_ROLES/);
 assert.doesNotMatch(assessmentPage, /getAdminMutationAuthState|authState|Sign in/);
 
-assert.match(actions, /Generate Essential report/);
-assert.match(actions, /Download Report/);
+assert.match(actions, /Generate assessment report/);
+assert.match(actions, /Download report/);
 assert.doesNotMatch(actions, /Sign in to generate|authState|AdminMutationAuthState|localStorage|sessionStorage/);
 
 for (const [label, source] of [['generation', generation], ['download', download]]) {

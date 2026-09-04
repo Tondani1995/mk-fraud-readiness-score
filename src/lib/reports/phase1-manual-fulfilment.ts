@@ -460,7 +460,6 @@ export async function generateManualPhase1Report(
   const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
   const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
   const doRenderValidatedCommercialPdf = dependencies.renderValidatedCommercialPdf ?? renderValidatedCommercialPdfWithNavigation;
-  const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
   const doCreateAttemptStore = dependencies.createManualNarrativeAttemptStore ?? createManualNarrativeAttemptStore;
   const doPersistNarrativeProvenance = dependencies.persistManualNarrativeProvenance ?? persistManualNarrativeProvenance;
 
@@ -652,34 +651,6 @@ export async function generateManualPhase1Report(
     // selection, which is also what validateRoadmapSource() checks provenance against. Deriving it
     // from full L1 here would render an unbounded roadmap and fail QG_ROADMAP_SOURCE_MISMATCH.
     const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
-    generationStage = 'load_automation_flags';
-    const flags = await doGetAutomationFlags(db);
-    // Fail closed on a contract-version disagreement rather than running the provider under a false
-    // version label. V6's attempts were stamped v2 by a stale config row while executing v5 code;
-    // because those labels participate in durable-attempt identity and reuse, that is a correctness
-    // problem, not cosmetics. The deterministic path still produces a complete report.
-    if (flags.contractVersionMismatch) {
-      console.error('premium_report_ai_contract_version_mismatch', {
-        outcome: 'ai_disabled_fail_closed', detail: flags.contractVersionMismatch
-      });
-    }
-    const aiNarrativeAllowed = flags.aiNarrativeEnabled && !flags.contractVersionMismatch;
-    const generator = dependencies.narrativeGenerator
-      ?? (aiNarrativeAllowed
-        ? dependencies.createNarrativeGenerator
-          ? dependencies.createNarrativeGenerator(flags.model)
-          : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
-        : undefined);
-    const generationIdentity = [
-      'manual-report',
-      assembled.orderId,
-      assembled.assessmentId,
-      assembled.scoreRun.id,
-      `v${versionNumber}`
-    ].join(':');
-    const attemptStore = aiNarrativeAllowed && generator
-      ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
-      : undefined;
     generationStage = 'prepare_narrative';
     let prepared: PreparedPremiumReportNarrative | undefined;
     // Essential narrative comes from the v1.1 whole-manuscript path. The legacy
@@ -710,6 +681,38 @@ export async function generateManualPhase1Report(
         throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
       }
     } else {
+    // Essential still consumes the legacy automation flags. Keep that control-plane read
+    // inside the Essential branch: Comprehensive has its own certified provider/model/recovery
+    // contract and must not depend on the retired Phase 14 AI-generation authority.
+    generationStage = 'load_automation_flags';
+    const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
+    const flags = await doGetAutomationFlags(db);
+    // Fail closed on a contract-version disagreement rather than running the provider under a false
+    // version label. V6's attempts were stamped v2 by a stale config row while executing v5 code;
+    // because those labels participate in durable-attempt identity and reuse, that is a correctness
+    // problem, not cosmetics. The deterministic path still produces a complete report.
+    if (flags.contractVersionMismatch) {
+      console.error('premium_report_ai_contract_version_mismatch', {
+        outcome: 'ai_disabled_fail_closed', detail: flags.contractVersionMismatch
+      });
+    }
+    const aiNarrativeAllowed = flags.aiNarrativeEnabled && !flags.contractVersionMismatch;
+    const generator = dependencies.narrativeGenerator
+      ?? (aiNarrativeAllowed
+        ? dependencies.createNarrativeGenerator
+          ? dependencies.createNarrativeGenerator(flags.model)
+          : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
+        : undefined);
+    const generationIdentity = [
+      'manual-report',
+      assembled.orderId,
+      assembled.assessmentId,
+      assembled.scoreRun.id,
+      `v${versionNumber}`
+    ].join(':');
+    const attemptStore = aiNarrativeAllowed && generator
+      ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
+      : undefined;
     try {
       // Construct the real writer inside this guarded boundary. Its constructor performs
       // provider preflight, so constructing it while forming composeEssentialManuscript's

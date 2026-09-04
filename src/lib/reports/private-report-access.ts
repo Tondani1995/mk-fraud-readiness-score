@@ -12,6 +12,7 @@ export type PrivateReportAccessEvidenceInput = {
   success: boolean;
   reason?: string | null;
   technicalReference: string;
+  artefactType?: string | null;
 };
 
 export class PrivateReportStorageError extends Error {
@@ -102,6 +103,7 @@ export async function recordPrivateReportAccessEvidence(input: PrivateReportAcce
   const eventType = input.mode === 'preview' ? 'report_preview_accessed' : 'report_downloaded';
   const metadata = {
     report_id: input.report.id,
+    artefact_type: input.artefactType ?? 'pdf',
     technical_reference: input.technicalReference,
     success: input.success,
     error_category: input.reason ?? null,
@@ -112,7 +114,9 @@ export async function recordPrivateReportAccessEvidence(input: PrivateReportAcce
       report_id: input.report.id,
       event_type: input.success ? eventType : `${input.mode}_failed`,
       actor_user_id: input.adminId,
-      note: input.success ? `Short-lived ${input.mode} access issued.` : `Report ${input.mode} failed: ${input.reason}.`,
+      note: input.success
+        ? `Short-lived ${input.mode} access issued for ${input.artefactType ?? 'PDF'}.`
+        : `${input.artefactType ?? 'Report'} ${input.mode} failed: ${input.reason}.`,
       metadata_json: metadata
     }),
     input.db.from('audit_logs').insert({
@@ -130,7 +134,9 @@ export async function recordPrivateReportAccessEvidence(input: PrivateReportAcce
       order_id: input.report.order_id,
       event_type: input.success ? eventType : `${input.mode}_failed`,
       actor_admin_user_id: input.adminId,
-      note: input.success ? `Short-lived ${input.mode} access issued.` : `Report ${input.mode} failed: ${input.reason}.`,
+      note: input.success
+        ? `Short-lived ${input.mode} access issued for ${input.artefactType ?? 'PDF'}.`
+        : `${input.artefactType ?? 'Report'} ${input.mode} failed: ${input.reason}.`,
       metadata_json: metadata
     }));
   }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -7,7 +7,8 @@ const route = read('src/app/score/api/admin/comprehensive/synthetic/route.ts');
 const service = read('src/lib/comprehensive/synthetic-fixture-generation.ts');
 const download = read('src/app/score/api/admin/synthetic-reports/[reportId]/download/route.ts');
 const migration = read('supabase/migrations/20260904150000_frozen_synthetic_report_generation_and_explainability.sql');
-const commercial = read('src/app/score/api/admin/comprehensive/[orderReference]/generate/route.ts');
+const sharedOrderConsole = read('src/app/score/admin/orders/[orderReference]/page.tsx');
+const manualDelivery = read('src/components/admin/ManualDeliveryPanel.tsx');
 const dashboard = read('src/lib/admin/dashboard.ts');
 
 assert.match(route, /requireAuthenticatedAdmin\(\['platform_admin'\]\)/);
@@ -38,8 +39,9 @@ assert.match(migration, /synthetic_score_explainability/);
 assert.doesNotMatch(migration, /insert into public\.orders/i);
 assert.doesNotMatch(migration, /insert into public\.(payments|invoices|email_events)/i);
 
-assert.match(commercial, /orderReference/);
-assert.match(commercial, /generateComprehensivePackage/);
+assert.match(sharedOrderConsole, /<ManualDeliveryPanel/);
+assert.match(manualDelivery, /supporting workbook/i);
+assert.equal(existsSync(new URL('src/app/score/api/admin/comprehensive/[orderReference]/generate/route.ts', root)), false);
 assert.match(dashboard, /eq\('synthetic_demonstration', false\)/g);
 
-console.log(JSON.stringify({ ok: true, assertions: 25, route: 'platform_admin_only', engine: 'shared_comprehensive_manual_generation', commercial_path_unchanged: true }));
+console.log(JSON.stringify({ ok: true, assertions: 26, route: 'platform_admin_only', engine: 'shared_comprehensive_manual_generation', commercial_path: 'shared_manual_fulfilment_console', synthetic_isolation: true }));

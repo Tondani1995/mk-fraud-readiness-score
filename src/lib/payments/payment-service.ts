@@ -5,25 +5,10 @@ import { notifyInternalPaymentReceived } from '@/lib/notifications/internal-orde
 import { getPaymentAutomationCapability } from './payment-capability';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
 
-// Release B: record_payment_transition() (extended in
-// supabase/migrations/20260724160000_release_b_durable_fulfilment.sql) now queues the
-// deterministic Phase 1 fulfilment job itself, inside the same transaction as the payment
-// state transition (closes the Q6 atomicity gap -- see
-// docs/safe-launch/11-release-b-existing-infrastructure-audit.md and
-// docs/safe-launch/12-durable-fulfilment-design.md, "Payment transaction boundary").
-// processVerifiedPayment() therefore no longer calls the synchronous fulfilment trigger
-// (src/lib/payments/fulfilment.ts, which still exists for reference/tests but is no longer
-// imported here) to run generateManualPhase1Report() synchronously inside this request --
-// generation now runs later, out of band, when the internal worker route
-// (src/app/score/api/internal/fulfilment-worker/route.ts) claims the queued row. This is
-// what makes the payment-confirmation HTTP response return without waiting for PDF
-// generation, per the design doc's "Durable workflow boundary".
-function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
-  const queued = String(result?.fulfilment ?? '');
-  if (queued === 'QUEUED') return 'queued';
-  if (queued === 'ALREADY_ACTIVE') return 'already_active';
-  return 'not_requested';
-}
+// Payment confirmation remains one atomic database transition. Both paid products then follow
+// the same MK-controlled fulfilment boundary: payment confirmation records the order and leaves
+// report preparation and customer delivery to the shared admin console. No customer email,
+// fulfilment worker or provider dispatch is started here.
 
 function targetState(event: NormalisedPaymentEvent, expectedAmount: number, expectedCurrency: string, requireTransactionReference: boolean): { state: PaymentState; reason: string } {
   if (event.outcome === 'failed') return { state: 'PAYMENT_FAILED', reason: 'Provider reported payment failure.' };
@@ -86,15 +71,13 @@ export async function processVerifiedPayment(input: {
     console.error('payment_transition', { technicalReference, orderReference: order.order_reference, outcome: 'error', code: error?.code ?? null });
     return { ok: false, duplicate: false, state: 'PAYMENT_REVIEW_REQUIRED', fulfilment: 'not_requested', message: 'Payment could not be recorded safely. The order requires review.', technicalReference };
   }
-  let fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
+  const fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
+  const fulfilmentAttemptId: string | undefined = undefined;
   let message = target.reason;
   if (target.state === 'PAID' && !data.duplicate) {
-    fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
-    if (fulfilment === 'queued') message = 'Payment confirmed. MK will review the order and prepare the selected product through the manual fulfilment workflow.';
-    else if (fulfilment === 'already_active') message = 'Payment confirmed. MK will review the selected product through the manual fulfilment workflow.';
+    message = 'Payment confirmed. MK will prepare the selected report through the manual fulfilment workflow.';
     await db.from('payment_automation_records').update({
-      fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
-        : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
+      fulfilment_trigger_result: 'NOT_REQUESTED',
       updated_at: new Date().toISOString()
     }).eq('order_id', order.id);
     // Fire-and-forget: a notification failure must never fail payment recording itself. The
@@ -116,10 +99,6 @@ export async function processVerifiedPayment(input: {
     metadata: { source: input.source, payment_state: target.state, duplicate: data.duplicate === true, fulfilment }
   });
   console.info('payment_transition', { orderReference: order.order_reference, state: target.state, source: input.source, duplicate: data.duplicate === true, fulfilment, technicalReference });
-  const fulfilmentAttemptId = fulfilment === 'queued'
-    && typeof data.fulfilment_attempt_id === 'string'
-    ? data.fulfilment_attempt_id
-    : undefined;
   return {
     ok: true,
     duplicate: data.duplicate === true,

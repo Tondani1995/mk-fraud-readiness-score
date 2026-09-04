@@ -185,6 +185,7 @@
     "pdf:certify-v7-equivalent": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/essential-v7-equivalent-certification.mjs",
     "joint-launch:test-product-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-product-contract-tests.mjs",
     "joint-launch:test-comprehensive": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-comprehensive-tests.mjs",
+    "comprehensive:test-manual-fulfilment-parity": "node scripts/comprehensive-manual-fulfilment-parity-tests.mjs",
     "joint-launch:test-migration-replay": "node scripts/joint-launch-migration-replay-tests.mjs",
     "joint-launch:report-r5k-disposition": "node scripts/joint-launch-r5k-disposition-report.mjs",
     "joint-launch:test": "npm run joint-launch:test-product-contract && npm run joint-launch:test-comprehensive && npm run joint-launch:test-evidence-compensation && npm run joint-launch:test-migration-replay && npm run joint-launch:test-transactional-safety",
