@@ -3,7 +3,7 @@ import type { AdvisoryEvidenceModel } from '../evidence-model';
 import { buildComprehensiveDeliveryModel } from './contract';
 import { buildComprehensiveNarrativeFactPack } from '../narrative/fact-pack';
 import { composeComprehensiveManuscript } from './manuscript-coordinator';
-import { createV11WholeManuscriptWriter } from '../narrative/whole-manuscript-writer';
+import { createV11WholeManuscriptWriter } from '../narrative/whole-manuscript-writer-comprehensive';
 import { renderHtmlToPdfBuffer } from '../render-pdf';
 import { ComprehensiveProviderCallLedger, COMPREHENSIVE_PRIMARY_MODEL, COMPREHENSIVE_TECHNICAL_MODEL_CHAIN } from './recovery-policy';
 import { buildComprehensiveNarrativePresentationModel } from './narrative-presentation-model';
@@ -161,14 +161,7 @@ export async function generateComprehensiveNarrativeReport(input: {
         estimated_cost_micros: metadata.providerCostMicros ?? null
       }
     },
-    semanticSafety: {
-      contractVersion: 'mk-comprehensive-deterministic-safety-v1',
-      outcome: 'ACCEPT',
-      hardTruthFailures: 0,
-      repairableSemanticFailures: composed.recovery.targetedRepairCount,
-      qualityFailures: composed.recovery.qualityEscalationCount,
-      providerCalls: composed.recovery.totalCalls
-    },
+    semanticSafety,
     html
   };
 }
