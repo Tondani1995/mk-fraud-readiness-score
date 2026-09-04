@@ -41,7 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({
       ok: false,
       reason: 'forbidden',
-      message: 'You are not authorised to generate Essential reports.',
+      message: 'You are not authorised to generate assessment reports.',
       technicalReference
     }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
   }
@@ -85,7 +85,7 @@ export async function POST(request: Request, context: RouteContext) {
   } catch (error) {
     const mapped = error instanceof Phase1GenerationError
       ? error
-      : new Phase1GenerationError('generation_failed', 'Essential report generation failed. Retry or contact support.', 500, technicalReference);
+      : new Phase1GenerationError('generation_failed', 'Assessment report generation failed. Retry or contact support.', 500, technicalReference);
     console.error('assessment_essential_generation_route', {
       outcome: 'failed',
       assessmentReference: assessmentRef,

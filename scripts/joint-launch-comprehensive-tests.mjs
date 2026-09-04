@@ -334,11 +334,11 @@ check('the evidence bucket is private and no public object is ever produced', ()
   assert.match(migration, /joint_launch_evidence_bucket_not_private/);
   assert.match(migration, /comprehensive_evidence_items_private_bucket_chk/);
 
-  // No code path mints a public or signed URL for evidence.
+  // No code path mints a public or signed URL for evidence. The admin reviewer route is retired;
+  // evidence remains covered by the customer intake route and service layer.
   for (const file of [
     'src/lib/comprehensive/evidence-service.ts',
-    'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts',
-    'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts'
+    'src/app/score/api/assessments/[assessmentRef]/comprehensive-evidence/route.ts'
   ]) {
     const source = read(file);
     assert.doesNotMatch(source, /getPublicUrl/, `${file} must not produce a public evidence URL`);
@@ -377,11 +377,7 @@ check('evidence cannot be read or reviewed across orders', () => {
   assert.match(service, /existing\.engagement_id !== input\.engagementId/);
   assert.match(service, /\.eq\('engagement_id', input\.engagementId\)/);
 
-  const route = read('src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts');
-  // The engagement comes from the path's order reference, never from the request body.
-  assert.match(route, /getEngagementByOrderReference\(params\.orderReference\)/);
-  assert.match(route, /engagementId: engagement\.id/);
-  assert.doesNotMatch(route, /engagementId: body\./);
+  assert.equal(fs.existsSync(path.join(root, 'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts')), false, 'the retired admin reviewer evidence route is not active');
 
   // The database independently rejects a mismatched order/assessment binding.
   const migration = read('supabase/migrations/20260810122000_joint_launch_comprehensive_evidence.sql');
@@ -430,18 +426,18 @@ check('no Supabase service credential can reach the client', () => {
   }
 });
 
-check('every admin Comprehensive route authenticates and authorises before acting', () => {
+check('the retired Comprehensive reviewer workspace and admin APIs are not active', () => {
   for (const file of [
+    'src/app/score/admin/comprehensive/[orderReference]/page.tsx',
     'src/app/score/api/admin/comprehensive/[orderReference]/route.ts',
+    'src/app/score/api/admin/comprehensive/[orderReference]/generate/route.ts',
+    'src/app/score/api/admin/comprehensive/[orderReference]/finalise/route.ts',
+    'src/app/score/api/admin/comprehensive/[orderReference]/review-records/route.ts',
     'src/app/score/api/admin/comprehensive/[orderReference]/reviewer/route.ts',
     'src/app/score/api/admin/comprehensive/[orderReference]/transition/route.ts',
-    'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts'
-  ]) {
-    const source = read(file);
-    assert.match(source, /getAdminSession\(\)/, `${file} must require an admin session`);
-    assert.match(source, /status: 403/, `${file} must deny unauthenticated callers`);
-    assert.match(source, /'Cache-Control': 'no-store'/, `${file} must not cache engagement state`);
-  }
+    'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts',
+    'src/components/comprehensive/ComprehensiveReviewWorkspace.tsx'
+  ]) assert.equal(fs.existsSync(path.join(root, file)), false, `${file} must be retired from the active application`);
   const paidOrder = read('src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts');
   assert.doesNotMatch(paidOrder, /getRc1OperationFreezeResponse|MK_RC1_OPERATION_FREEZE_MODE|RC1_OPERATION_FROZEN/);
   for (const required of [

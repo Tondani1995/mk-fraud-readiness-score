@@ -64,7 +64,8 @@ export async function getCustomerPaidOrderStatus(input: { assessmentId: string; 
   const tier = tierForProductCode(product?.product_code ?? null);
   // The active customer status surface is deliberately independent of the retired reviewed-
   // engagement lifecycle. The released PDF and supporting register are reached through the
-  // separate, token-bound delivery route after automated release.
+  // separate, token-bound access route after authorised fulfilment; the active operator delivery
+  // path remains the shared admin console.
   const engagement: CustomerPaidOrderStatus['engagement'] = null;
   const amountCents = Number(order.amount_cents);
   return {

@@ -44,6 +44,8 @@ type Props = {
   recipientException: RecipientExceptionProps;
   canRetryDelivery: boolean;
   canManageAccessTokens: boolean;
+  /** Comprehensive follows the shared manual-delivery workflow; retained Release C rows are audit history only. */
+  manualOnly?: boolean;
 };
 
 type Notice = { tone: 'success' | 'error' | 'info'; text: string } | null;
@@ -116,10 +118,10 @@ export function DeliveryAccessPanel(props: Props) {
         <div className="space-y-3 rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4">
           <p className="text-sm font-semibold text-mk-danger">Customer delivery requires attention</p>
           <p className="text-sm text-mk-ink">
-            Report {props.recipientException.pendingReportReference} is ready, but an operator must correct the
-            delivery recipient before automated delivery can proceed.
+            Report {props.recipientException.pendingReportReference} is ready, but its historical delivery record needs
+            attention. {props.manualOnly ? 'Use Manual delivery above after confirming the recipient and files.' : 'Correct the delivery recipient before any recorded delivery action proceeds.'}
           </p>
-          {props.canManageAccessTokens ? (
+          {props.canManageAccessTokens && !props.manualOnly ? (
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <input
                 type="email"
@@ -176,7 +178,7 @@ export function DeliveryAccessPanel(props: Props) {
                 </div>
                 <p className="mt-2 text-mk-muted">Issued {dateTime(token.issuedAt)} · Expires {dateTime(token.expiresAt)} · Accessed {token.accessCount} time(s){token.lastAccessedAt ? ` (last ${dateTime(token.lastAccessedAt)})` : ''}</p>
                 {token.revokedReason ? <p className="mt-1 text-xs text-mk-muted">{token.revokedReason}</p> : null}
-                {props.canManageAccessTokens && active ? (
+                {props.canManageAccessTokens && !props.manualOnly && active ? (
                   <Button type="button" variant="secondary" className="mt-3" disabled={Boolean(running)} onClick={() => revokeToken(token.id)}>
                     {running === `revoke:${token.id}` ? 'Revoking…' : 'Revoke Link'}
                   </Button>
@@ -188,9 +190,9 @@ export function DeliveryAccessPanel(props: Props) {
         </div>
       </div>
 
-      {props.canManageAccessTokens ? (
+      {props.manualOnly || props.canManageAccessTokens ? (
         <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
-          Customer report delivery and access issuance are handled by the protected fulfilment worker. This panel retains historical access records for audit and revocation only.
+          This panel retains delivery and access records for audit. Use the Manual delivery panel above for customer delivery; recording delivery does not send an email or issue a new access link.
         </div>
       ) : null}
 

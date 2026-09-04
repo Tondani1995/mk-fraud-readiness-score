@@ -99,7 +99,7 @@ assert.ok(internalOrderNotifications.includes("'comprehensive_order_created'"), 
 assert.ok(internalOrderNotifications.includes('dedupeKey'), 'internal order notifications are idempotent');
 assert.ok(postPurchaseCopy.includes('full Comprehensive Fraud Readiness package'), 'Comprehensive next steps use the current product-specific fulfilment copy');
 assert.ok(postPurchaseCopy.includes('supporting registers, target-state control design and implementation material'), 'Comprehensive next steps name the approved deliverables');
-assert.ok(postPurchaseCopy.includes('contact you directly if clarification is needed'), 'Comprehensive next steps preserve the manual MK contact boundary');
+assert.ok(postPurchaseCopy.includes('MK sends the completed package directly'), 'Comprehensive next steps preserve the manual MK delivery boundary');
 assert.doesNotMatch(postPurchaseCopy, /named reviewer|independent(?:ly)? validat|assurance opinion|automated (?:delivery|email)|customer portal|access link|customer access token|price floor/i, 'customer fulfilment copy does not promise retired delivery or assurance mechanics');
 
 const actions = read('src/components/admin/FulfilmentActions.tsx');

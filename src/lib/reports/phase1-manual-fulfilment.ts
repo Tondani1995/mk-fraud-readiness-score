@@ -411,7 +411,6 @@ export async function generateManualPhase1Report(
   const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
   const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
   const doRenderValidatedCommercialPdf = dependencies.renderValidatedCommercialPdf ?? renderValidatedCommercialPdfWithNavigation;
-  const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
   const doCreateAttemptStore = dependencies.createManualNarrativeAttemptStore ?? createManualNarrativeAttemptStore;
   const doPersistNarrativeProvenance = dependencies.persistManualNarrativeProvenance ?? persistManualNarrativeProvenance;
 
@@ -670,6 +669,7 @@ export async function generateManualPhase1Report(
     // inside the Essential branch: Comprehensive has its own certified provider/model/recovery
     // contract and must not depend on the retired Phase 14 AI-generation authority.
     generationStage = 'load_automation_flags';
+    const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
     const flags = await doGetAutomationFlags(db);
     // Fail closed on a contract-version disagreement rather than running the provider under a false
     // version label. V6's attempts were stamped v2 by a stale config row while executing v5 code;

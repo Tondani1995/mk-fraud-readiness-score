@@ -132,7 +132,7 @@ export function FulfilmentActions(props: Props) {
       ) : null}
       {generationPending ? (
         <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
-          Payment is confirmed and this report is queued for generation. The protected fulfilment worker will process it; use Generate Report only as an authorised recovery action.
+          Payment is confirmed and this report is ready for an authorised administrator to start preparation from this console.
         </p>
       ) : null}
       {props.generationStuck ? (
@@ -147,7 +147,7 @@ export function FulfilmentActions(props: Props) {
       ) : null}
       {props.capabilityAvailable && props.canDeliver && props.storageReady ? (
         <p className="rounded-xl border border-mk-line bg-mk-cream p-3 text-sm text-mk-ink">
-          The protected fulfilment worker handles customer delivery after verified release. Delivery state and secure customer access are shown in the Release C panel below.
+          Customer delivery is handled directly by MK. Download the verified files below, send them from the approved MK mailbox, then record delivery in the manual-delivery panel.
         </p>
       ) : null}
       {notice ? (

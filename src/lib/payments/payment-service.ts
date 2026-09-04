@@ -1,23 +1,14 @@
 import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
-import { dispatchImmediateFulfilment } from '@/lib/fulfilment/immediate-dispatch';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { notifyInternalPaymentReceived } from '@/lib/notifications/internal-order-notifications';
 import { getPaymentAutomationCapability } from './payment-capability';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
 
-// Payment confirmation remains one atomic database transition. For Comprehensive, the same
-// transaction returns the exact durable attempt ID and this service then invokes the existing
-// exact-deployment worker dispatcher after commit. A dispatch failure is operational evidence,
-// not a payment failure: the committed attempt remains recoverable by the worker/recovery path.
-// Essential remains outside this branch because its payment transition does not queue a
-// Comprehensive fulfilment attempt.
-function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
-  const queued = String(result?.fulfilment ?? '');
-  if (queued === 'QUEUED') return 'queued';
-  if (queued === 'ALREADY_ACTIVE') return 'already_active';
-  return 'not_requested';
-}
+// Payment confirmation remains one atomic database transition. Both paid products then follow
+// the same MK-controlled fulfilment boundary: payment confirmation records the order and leaves
+// report preparation and customer delivery to the shared admin console. No customer email,
+// fulfilment worker or provider dispatch is started here.
 
 function targetState(event: NormalisedPaymentEvent, expectedAmount: number, expectedCurrency: string, requireTransactionReference: boolean): { state: PaymentState; reason: string } {
   if (event.outcome === 'failed') return { state: 'PAYMENT_FAILED', reason: 'Provider reported payment failure.' };
@@ -80,44 +71,13 @@ export async function processVerifiedPayment(input: {
     console.error('payment_transition', { technicalReference, orderReference: order.order_reference, outcome: 'error', code: error?.code ?? null });
     return { ok: false, duplicate: false, state: 'PAYMENT_REVIEW_REQUIRED', fulfilment: 'not_requested', message: 'Payment could not be recorded safely. The order requires review.', technicalReference };
   }
-  let fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
-  let fulfilmentAttemptId: string | undefined;
+  const fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
+  const fulfilmentAttemptId: string | undefined = undefined;
   let message = target.reason;
   if (target.state === 'PAID' && !data.duplicate) {
-    fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
-    if (fulfilment === 'queued') message = 'Payment confirmed. MK will now prepare the selected Comprehensive package.';
-    else if (fulfilment === 'already_active') message = 'Payment confirmed. Preparation of the selected Comprehensive package is already in progress.';
-    fulfilmentAttemptId = fulfilment === 'queued'
-      && typeof data.fulfilment_attempt_id === 'string'
-      ? data.fulfilment_attempt_id
-      : undefined;
-    if (fulfilmentAttemptId) {
-      try {
-        const dispatch = await dispatchImmediateFulfilment({
-          attemptId: fulfilmentAttemptId,
-          correlationReference: technicalReference
-        });
-        if (!dispatch.ok) {
-          console.error('comprehensive_fulfilment_dispatch_failed_after_payment', {
-            technicalReference,
-            orderReference: order.order_reference,
-            attemptId: fulfilmentAttemptId,
-            errorCategory: dispatch.errorCategory
-          });
-        }
-      } catch (dispatchError) {
-        console.error('comprehensive_fulfilment_dispatch_exception_after_payment', {
-          technicalReference,
-          orderReference: order.order_reference,
-          attemptId: fulfilmentAttemptId,
-          errorCategory: 'dispatch_exception',
-          message: dispatchError instanceof Error ? dispatchError.message : String(dispatchError)
-        });
-      }
-    }
+    message = 'Payment confirmed. MK will prepare the selected report through the manual fulfilment workflow.';
     await db.from('payment_automation_records').update({
-      fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
-        : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
+      fulfilment_trigger_result: 'NOT_REQUESTED',
       updated_at: new Date().toISOString()
     }).eq('order_id', order.id);
     // Fire-and-forget: a notification failure must never fail payment recording itself. The

@@ -20,7 +20,7 @@ const comprehensive = getPostPurchaseCopy('comprehensive');
 assert.equal(essential.productLabel, 'Essential Fraud Readiness');
 assert.equal(comprehensive.productLabel, 'Comprehensive Fraud Readiness');
 assert.equal(essential.paymentSummary, 'Once your EFT payment is confirmed, MK prepares your Essential Fraud Readiness report.');
-assert.equal(comprehensive.paymentSummary, 'Once your EFT payment is confirmed, the full Comprehensive Fraud Readiness package is prepared automatically.');
+assert.equal(comprehensive.paymentSummary, 'Once your EFT payment is confirmed, MK prepares the full Comprehensive Fraud Readiness package.');
 assert.equal(comprehensive.deliverableSummary, 'A detailed report with supporting registers, target-state control design and implementation material.');
 assert.notDeepEqual(essential.nextSteps, comprehensive.nextSteps, 'Essential and Comprehensive must have distinct post-purchase next steps');
 assert.match(essential.nextSteps.join(' '), /EFT|payment reference/i);
@@ -28,8 +28,8 @@ assert.match(essential.nextSteps.join(' '), /Essential.*report/i);
 assert.match(essential.nextSteps.join(' '), /send.*directly/i);
 assert.match(comprehensive.nextSteps.join(' '), /full Comprehensive.*package/i);
 assert.match(comprehensive.nextSteps.join(' '), /registers.*implementation material/i);
-assert.match(comprehensive.nextSteps.join(' '), /package enters preparation/i);
-assert.match(comprehensive.nextSteps.join(' '), /delivered securely/i);
+assert.match(comprehensive.nextSteps.join(' '), /MK prepares the full Comprehensive.*package/i);
+assert.match(comprehensive.nextSteps.join(' '), /MK sends the completed package directly/i);
 for (const copy of [essential, comprehensive]) {
   const customerCopy = [copy.paymentSummary, copy.deliverableSummary, ...copy.nextSteps].join(' ');
   assert.doesNotMatch(customerCopy, /named reviewer|independent(?:ly)? validat|assurance opinion|automated (?:delivery|email)|customer portal|access link|customer access token|price floor/i);
@@ -137,7 +137,9 @@ assertIncludes(legacyEssentialOrder, 'notifyInternalOrderCreated', 'Essential EF
 assertIncludes(legacyEssentialOrder, 'invoice_details', 'Essential EFT orders preserve invoice details');
 assertIncludes(paymentService, 'notifyInternalPaymentReceived', 'Payment confirmation queues an internal notification');
 assertNotIncludes(paymentService, 'recordPaymentConfirmedNotification', 'Payment confirmation does not dispatch the customer template directly');
-assertIncludes(paymentService, 'dispatchImmediateFulfilment', 'Verified Comprehensive payment dispatches the exact durable attempt after commit');
+assertNotIncludes(paymentService, 'dispatchImmediateFulfilment', 'Verified payment does not dispatch an automatic fulfilment worker');
+assertIncludes(paymentService, "fulfilment_trigger_result: 'NOT_REQUESTED'", 'Verified payment records the shared manual fulfilment boundary');
+assertIncludes(paymentService, 'manual fulfilment workflow', 'Payment confirmation directs operators to the shared manual fulfilment workflow');
 const phase1Source = read(phase1Generation);
 const comprehensiveBranchStart = phase1Source.indexOf('if (isComprehensive) {');
 const essentialBranchStart = phase1Source.indexOf('} else {', comprehensiveBranchStart);
@@ -177,10 +179,10 @@ assertIncludes(deliveryWorker, "'fail_delivery'", 'The active delivery worker pr
 assertIncludes(orderStatus, 'const engagement: CustomerPaidOrderStatus[\'engagement\'] = null', 'Customer order status does not expose reviewed-engagement or access-token state');
 assertNotIncludes(orderStatus, "from('comprehensive_engagements')", 'Customer order status does not depend on a reviewed Comprehensive engagement');
 assertIncludes(adminSendRoute, 'MANUAL_CUSTOMER_DELIVERY_REASON', 'Admin customer-send route reports the manual delivery boundary');
-assertIncludes(fulfilmentActions, 'protected fulfilment worker', 'Admin fulfilment actions explain the current protected customer-delivery path');
+assertIncludes(fulfilmentActions, 'Customer delivery is handled directly by MK', 'Admin fulfilment actions explain the shared manual customer-delivery path');
 assertIncludes(orderJourney, 'getPostPurchaseCopy', 'Order journey uses product-specific post-purchase copy');
 assertNotIncludes(orderJourney, 'Sent to the delivery email held for this order', 'Order journey does not promise automated customer delivery');
 assertIncludes(comprehensiveWorkspace, 'getPostPurchaseCopy', 'Comprehensive status uses product-specific post-purchase copy');
 assertNotIncludes(comprehensiveWorkspace, 'customerAccessToken', 'Comprehensive status does not render a customer access token');
 
-console.log('V1.2 commercial fulfilment contract tests passed: atomic payment, exact Comprehensive dispatch, protected generation/release/delivery, secure access, internal notifications, manual invoice handling and Essential isolation are covered.');
+console.log('V1.2 commercial fulfilment contract tests passed: atomic payment, shared manual preparation/delivery, protected report access, internal notifications, manual invoice handling and Essential isolation are covered.');

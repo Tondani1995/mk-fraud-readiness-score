@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { AssessmentEssentialReportActions } from '@/components/admin/AssessmentEssentialReportActions';
+import { AssessmentReportActions } from '@/components/admin/AssessmentReportActions';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -51,7 +51,7 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
           <Card><CardHeader><CardTitle>Coverage</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold text-mk-ink">{formatScore(scoreRun?.coverage_pct)}%</p><p className="text-sm text-mk-muted">Critical gaps: {scoreRun?.critical_gap_count ?? '—'}</p></CardContent></Card>
         </div>
 
-        <AssessmentEssentialReportActions
+        <AssessmentReportActions
           assessmentReference={assessment.assessment_reference}
           canGenerate={ADMIN_MUTATION_ROLES.includes(admin.role)}
           canRegenerate={admin.role === 'platform_admin' || admin.role === 'approver'}
@@ -59,6 +59,9 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
           reports={reports.map((report: any) => ({
             id: report.id,
             report_reference: report.report_reference,
+            report_type: report.report_type ?? null,
+            product_name: report.product_name ?? null,
+            order_reference: report.order_reference ?? null,
             version_number: Number(report.version_number),
             status: report.status,
             storage_status: report.storage_status

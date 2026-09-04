@@ -14,6 +14,7 @@ function responseFor(reason: string): [string, number] {
     phase1_report_record_missing: ['A generated report could not be found for this order.', 409],
     phase1_report_order_mismatch: ['The report does not belong to this order.', 409],
     phase1_report_not_ready: ['Delivery can only be recorded once a verified report exists.', 409],
+    phase1_supporting_register_not_ready: ['Delivery can only be recorded once the verified supporting workbook exists.', 409],
     phase1_delivery_recipient_missing: ['This order has no delivery recipient on file.', 409],
     phase1_delivery_attempt_not_active: ['The delivery record changed before it could be completed. Retry once.', 409]
   } as Record<string, [string, number]>)[reason] ?? ['The delivery could not be recorded.', 409];
@@ -33,7 +34,7 @@ export async function POST(
   const { orderReference } = await context.params;
   const db = createSupabaseServiceClient() as any;
   const { data: order, error: orderError } = await db.from('orders')
-    .select('id,status')
+    .select('id,status,products:product_id(product_code)')
     .eq('order_reference', orderReference)
     .maybeSingle();
   if (orderError || !order) {
@@ -44,13 +45,36 @@ export async function POST(
   }
 
   const { data: report, error: reportError } = await db.from('reports')
-    .select('id,storage_status,storage_bucket,storage_path,checksum,version_number')
+    .select('id,storage_status,storage_bucket,storage_path,checksum,version_number,report_type')
     .eq('order_id', order.id)
     .order('version_number', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (reportError || !report || report.storage_status !== 'VERIFIED' || !report.storage_bucket || !report.storage_path || !report.checksum) {
     return NextResponse.json({ ok: false, reason: 'manual_delivery_report_not_ready', message: 'Delivery can only be recorded once a verified report exists.' }, { status: 409 });
+  }
+
+  const product = Array.isArray(order.products) ? order.products[0] : order.products;
+  if (product?.product_code === 'mk_validated_assessment') {
+    const { data: supportingRegister, error: supportingRegisterError } = await db.from('report_artifacts')
+      .select('storage_bucket,storage_path,checksum_sha256,file_name,mime_type,file_size_bytes,storage_status,release_state')
+      .eq('report_id', report.id)
+      .eq('artefact_type', 'supporting_register')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (supportingRegisterError
+      || !supportingRegister
+      || supportingRegister.storage_status !== 'VERIFIED'
+      || !['verified', 'released'].includes(String(supportingRegister.release_state ?? 'verified'))
+      || supportingRegister.mime_type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || !supportingRegister.storage_bucket
+      || !supportingRegister.storage_path
+      || !supportingRegister.checksum_sha256
+      || !supportingRegister.file_name
+      || Number(supportingRegister.file_size_bytes) <= 0) {
+      return NextResponse.json({ ok: false, reason: 'phase1_supporting_register_not_ready', message: 'Delivery can only be recorded once the verified supporting workbook exists.' }, { status: 409 });
+    }
   }
 
   const technicalReference = crypto.randomUUID();

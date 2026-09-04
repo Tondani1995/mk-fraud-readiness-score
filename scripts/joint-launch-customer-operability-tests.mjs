@@ -56,13 +56,13 @@ check('Comprehensive customer status is the current manual-EFT order journey, no
 // The four checks that stood here asserted the retired reviewed-engagement lifecycle: five
 // customer artefacts, signed_off_artifact_version, a reviewer sign-off workspace and a
 // 'delivered' engagement state gate. That lifecycle is retired -- the active Comprehensive
-// product is payment -> durable fulfilment -> verified PDF + workbook -> automatic release ->
-// secure token -> customer access, with no reviewer and no human sign-off. The assertions below
-// are the current contract. The security and operability properties those checks genuinely
-// protected -- never exposing a signed URL, serving only verified bytes, binding an artefact to
-// the exact current report version -- are preserved and strengthened here, not dropped.
+// product is payment -> authorised admin preparation -> verified PDF + workbook -> manual MK
+// delivery and audit recording. The assertions below are the current contract. The security
+// and operability properties those checks genuinely protected -- never exposing a signed URL,
+// serving only verified bytes, binding an artefact to the exact current report version -- are
+// preserved and strengthened here, not dropped.
 
-check('the customer package is the automated PDF and supporting register, bound to the exact current version', () => {
+check('the customer package is the verified PDF and supporting register, bound to the exact current version', () => {
   // Two customer artefacts, selected only after report-level token authority has passed.
   assert.match(accessRoute, /searchParams\.get\('artefact'\)/);
   assert.match(accessRoute, /requested === 'register'/);
@@ -94,17 +94,17 @@ check('customer bytes are verified in memory and never served through a signed U
   assert.match(access, /record_customer_report_artefact_access/);
 });
 
-check('release is automatic after verified payment, with no reviewer or human sign-off in the path', () => {
-  const automatedClosure = read('supabase/migrations/20260820120000_comprehensive_automated_launch_closure.sql');
-  // The database refuses to leave an active Comprehensive order depending on a reviewed engagement.
-  assert.match(automatedClosure, /comprehensive_active_order_still_depends_on_reviewed_engagement/);
-  // Release binds the register to the exact report version with a deliberate null engagement_id.
-  assert.match(automatedClosure, /release_state = 'released'/);
-  assert.match(automatedClosure, /engagement_id is null/);
-  assert.match(automatedClosure, /artifact_version = v_report\.version_number/);
-  assert.match(automatedClosure, /comprehensive_package_release_binding_failed/);
-  // Release is refused unless the exact PDF/register pair is present and verified.
-  assert.match(automatedClosure, /comprehensive_package_incomplete/);
+check('verified payment enters the shared manual fulfilment path without a customer send', () => {
+  const paymentService = read('src/lib/payments/payment-service.ts');
+  const fulfilmentMigration = read('supabase/migrations/20260904180000_align_paid_fulfilment_to_shared_manual_console.sql');
+  const orderConsole = read('src/app/score/admin/orders/[orderReference]/page.tsx');
+  const manualDelivery = read('src/components/admin/ManualDeliveryPanel.tsx');
+  assert.doesNotMatch(paymentService, /dispatchImmediateFulfilment/);
+  assert.match(paymentService, /fulfilment_trigger_result: 'NOT_REQUESTED'/);
+  assert.match(fulfilmentMigration, /manual_fulfilment_pending/);
+  assert.doesNotMatch(fulfilmentMigration, /REPORT_QUEUED/);
+  assert.match(orderConsole, /<ManualDeliveryPanel/);
+  assert.match(manualDelivery, /Recording delivery does not send anything/);
 });
 
 check('the accepted Comprehensive manuscript is durably bound before a package can be released', () => {

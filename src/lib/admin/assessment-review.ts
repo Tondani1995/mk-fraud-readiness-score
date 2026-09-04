@@ -130,8 +130,18 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
     .from('reports')
     .select('id,assessment_id,order_id,report_type,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at,generated_at')
     .eq('assessment_id', assessment.id)
-    .eq('report_type', 'essential_self_assessment')
     .order('version_number', { ascending: false });
+
+  const reportOrderIds = (reportResult.data ?? []).map((report: any) => report.order_id).filter(Boolean);
+  const reportOrderResult: AdminDataResult<any[]> = reportOrderIds.length
+    ? await service.from('orders').select('id,order_reference,product_name').in('id', reportOrderIds)
+    : emptyResult([]);
+  const ordersById = new Map((reportOrderResult.data ?? []).map((order: any) => [order.id, order]));
+  const reports = (reportResult.data ?? []).map((report: any) => ({
+    ...report,
+    order_reference: ordersById.get(report.order_id)?.order_reference ?? null,
+    product_name: ordersById.get(report.order_id)?.product_name ?? null
+  }));
 
   const generationAttemptResult: AdminDataResult<any[]> = await service
     .from('manual_report_generation_attempts')
@@ -139,7 +149,7 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
     .eq('assessment_id', assessment.id)
     .order('created_at', { ascending: false });
 
-  for (const [label, result] of Object.entries({ scoreRunResult, domainResult, answerResult, exposureResult, traceResult, capResult, requestResult, auditResult, reportResult, generationAttemptResult })) {
+  for (const [label, result] of Object.entries({ scoreRunResult, domainResult, answerResult, exposureResult, traceResult, capResult, requestResult, auditResult, reportResult, reportOrderResult, generationAttemptResult })) {
     if (result.error) console.error(`admin assessment ${label} query failed`, result.error);
   }
 
@@ -168,7 +178,7 @@ export async function getAdminAssessmentDetail(assessmentReference: string, admi
     maturityCapEvents: capResult.data ?? [],
     dataRequests: requestResult.data ?? [],
     auditEvents: auditResult.data ?? [],
-    reports: reportResult.data ?? [],
+    reports,
     generationAttempts: generationAttemptResult.data ?? []
   };
 }
