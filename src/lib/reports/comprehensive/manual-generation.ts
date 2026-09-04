@@ -1,8 +1,7 @@
 import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { generateComprehensiveNarrativeReport } from './narrative-generation';
-import { persistComprehensiveNarrativeProvenance } from './narrative-provenance';
+import { generateComprehensiveNarrativeReport, type ComprehensiveNarrativeProvenance } from './narrative-generation';
 
 function reportVersionFromReference(reportReference: string): number {
   const match = reportReference.match(/-V(\d+)$/);
@@ -33,6 +32,51 @@ async function resolveManualGenerationProvenanceTarget(assembled: AssembledRepor
     throw new Error('Comprehensive manual generation provenance target is not uniquely active.');
   }
   return { db, attemptId: String(data[0].id) };
+}
+
+async function persistComprehensiveManuscriptProvenance(input: {
+  db: any;
+  attemptId: string;
+  provenance: ComprehensiveNarrativeProvenance;
+}) {
+  const { provenance } = input;
+  const { data, error } = await input.db.rpc('record_manual_report_narrative_provenance', {
+    p_manual_generation_attempt_id: input.attemptId,
+    p_provenance: {
+      generation_mode: provenance.generationMode,
+      evidence_checksum: provenance.factPackSha256,
+      prompt_version: provenance.promptVersion,
+      schema_version: provenance.schemaVersion,
+      requested_provider: provenance.requestedProvider,
+      requested_model: provenance.requestedModel,
+      resolved_provider: provenance.resolvedProvider,
+      resolved_model: provenance.resolvedModel,
+      structured_ai_output: {
+        contract_version: provenance.contractVersion,
+        architecture: provenance.architecture,
+        markdown: provenance.markdown
+      },
+      final_narrative: provenance.narrative,
+      final_validation: {
+        ...provenance.validation,
+        product: 'Comprehensive',
+        semantic_safety: provenance.semanticSafety,
+        provider_calls: provenance.providerCalls,
+        targeted_repairs: provenance.targetedRepairs,
+        coherence_passes: provenance.coherencePasses,
+        generation_id: provenance.generationId,
+        fact_pack_sha256: provenance.factPackSha256,
+        story_plan_sha256: provenance.storyPlanSha256,
+        blueprint_sha256: provenance.blueprintSha256
+      },
+      usage: provenance.usage,
+      fallback_reason: null
+    }
+  });
+  if (error || !data) {
+    throw error ?? new Error('Comprehensive narrative provenance could not be persisted.');
+  }
+  return data;
 }
 
 /**
@@ -71,9 +115,9 @@ export async function renderComprehensiveReportPdf(input: {
 
   // Fail closed before Storage/finalisation if the accepted manuscript cannot be durably bound to
   // this attempt. The database finalisation guard remains authoritative.
-  await persistComprehensiveNarrativeProvenance({
+  await persistComprehensiveManuscriptProvenance({
     db: target.db,
-    manualGenerationAttemptId: target.attemptId,
+    attemptId: target.attemptId,
     provenance: result.provenance
   });
 
