@@ -164,7 +164,7 @@ SQL
 
 migration_files=("${release_root}"/supabase/migrations/*.sql)
 canonical_reconstructed_migration_count=121
-forward_migration_count=13
+forward_migration_count=15
 expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"
 expected_last_file="${migration_files[$((expected_migrations - 1))]##*/}"
 expected_last_version="${expected_last_file%%_*}"
@@ -400,3 +400,184 @@ printf '\nPASS: %s/%s migrations replayed in deterministic filename order (%s re
 printf 'PASS: exact-once log has %s rows and %s distinct versions.\n' "${replay_count}" "${distinct_count}"
 printf 'PASS: assessment/adaptive/graph/score/report/admin structures exist.\n'
 printf 'PASS: replay tail is %s.\n' "${last_version}"
+
+# --- Comprehensive manuscript-provenance guard -------------------------------------------------
+# The first released Preview Comprehensive package reached REPORT_READY, release and delivery with
+# final_narrative_json null, because the Comprehensive branch never crossed the provenance boundary.
+# The application now persists that provenance; this proves the durable half against the replayed
+# schema, so no future Comprehensive attempt can reach REPORT_READY with its manuscript discarded --
+# whichever code path sets the status -- while the one authorised legacy recovery revision, which by
+# definition has no manuscript, is still allowed through on an explicit, self-declaring payload.
+psql "${psql_args[@]}" >/dev/null <<'SQL'
+create or replace function pg_temp.seed_comprehensive_attempt(p_status text, p_validation jsonb, p_narrative jsonb, p_checksum text, p_model text)
+returns uuid
+language plpgsql as $fn$
+declare
+  v_org uuid := extensions.gen_random_uuid();
+  v_assessment uuid := extensions.gen_random_uuid();
+  v_order uuid := extensions.gen_random_uuid();
+  v_product uuid;
+  v_methodology uuid;
+  v_attempt uuid := extensions.gen_random_uuid();
+  v_suffix text := replace(v_attempt::text, '-', '');
+begin
+  select id into v_product from public.products where product_code = 'mk_validated_assessment' limit 1;
+  if v_product is null then raise exception 'replay fixture: Comprehensive product missing from the catalogue'; end if;
+  select id into v_methodology from public.methodology_versions order by created_at limit 1;
+
+  insert into public.organisations(id, legal_name) values (v_org, 'Replay Fixture ' || left(v_suffix, 8));
+  insert into public.assessments(id, assessment_reference, organisation_id, methodology_version_id)
+  values (v_assessment, 'MKFRS-REPLAY-' || left(v_suffix, 10), v_org, v_methodology);
+  insert into public.orders(id, order_reference, assessment_id, product_id, amount_cents)
+  values (v_order, 'MKORD-REPLAY-' || left(v_suffix, 8), v_assessment, v_product, 3500000);
+
+  insert into public.manual_report_generation_attempts(
+    id, request_key, order_id, assessment_id, report_version, trigger_source, status,
+    technical_reference, evidence_checksum, final_validation_json, final_narrative_json,
+    resolved_model, narrative_prepared_at)
+  values (
+    v_attempt, 'replay-' || v_suffix, v_order, v_assessment, 1, 'payment_confirmation', p_status,
+    v_attempt::text, p_checksum, p_validation, p_narrative, p_model,
+    case when p_narrative is null then null else pg_catalog.now() end);
+  return v_attempt;
+end;
+$fn$;
+
+do $do$
+declare
+  v_attempt uuid;
+  v_failed text := '';
+  v_checksum text := repeat('a', 64);
+  v_narrative jsonb := '{"ok": true, "chapters": []}'::jsonb;
+  v_validation jsonb := '{"ok": true}'::jsonb;
+begin
+  -- A Comprehensive attempt that has persisted its accepted manuscript may become REPORT_READY.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt(
+      'REPORT_GENERATING', v_validation, v_narrative, v_checksum, 'openai/gpt-5.6-luna');
+    update public.manual_report_generation_attempts set status = 'REPORT_READY' where id = v_attempt;
+  exception when others then
+    v_failed := v_failed || format('a complete Comprehensive attempt was refused: %s; ', sqlerrm);
+  end;
+
+  -- The defect itself: no manuscript, no provenance. This must not be allowed to become ready.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt('REPORT_GENERATING', null, null, null, null);
+    update public.manual_report_generation_attempts set status = 'REPORT_READY' where id = v_attempt;
+    v_failed := v_failed || 'a Comprehensive attempt reached REPORT_READY with its manuscript discarded; ';
+  exception when others then
+    if sqlerrm not like '%comprehensive_manuscript_provenance_missing%' then
+      v_failed := v_failed || format('unexpected guard error: %s; ', sqlerrm);
+    end if;
+  end;
+
+  -- Inserting straight into REPORT_READY must be refused on the same terms.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt('REPORT_READY', null, null, null, null);
+    v_failed := v_failed || 'a Comprehensive attempt was inserted directly at REPORT_READY without provenance; ';
+  exception when others then
+    if sqlerrm not like '%comprehensive_manuscript_provenance_missing%' then
+      v_failed := v_failed || format('unexpected insert guard error: %s; ', sqlerrm);
+    end if;
+  end;
+
+  -- A validation payload that merely looks present is not provenance.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt(
+      'REPORT_GENERATING', v_validation, null, v_checksum, 'openai/gpt-5.6-luna');
+    update public.manual_report_generation_attempts set status = 'REPORT_READY' where id = v_attempt;
+    v_failed := v_failed || 'a Comprehensive attempt reached REPORT_READY with a validation but no narrative; ';
+  exception when others then
+    if sqlerrm not like '%comprehensive_manuscript_provenance_missing%' then
+      v_failed := v_failed || format('unexpected narrative guard error: %s; ', sqlerrm);
+    end if;
+  end;
+
+  -- The one authorised exception: a self-declaring legacy recovery revision.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt(
+      'REPORT_READY',
+      jsonb_build_object(
+        'validation_mode', 'legacy_pdf_native_recovery_revision',
+        'source_report_checksum', repeat('b', 64),
+        'report_checksum', v_checksum,
+        'provider_generation_reused', true),
+      null, v_checksum, null);
+  exception when others then
+    v_failed := v_failed || format('the authorised recovery revision was refused: %s; ', sqlerrm);
+  end;
+
+  -- ...but only when it actually declares what it is.
+  begin
+    v_attempt := pg_temp.seed_comprehensive_attempt(
+      'REPORT_READY',
+      jsonb_build_object('validation_mode', 'legacy_pdf_native_recovery_revision'),
+      null, v_checksum, null);
+    v_failed := v_failed || 'an unsubstantiated recovery revision was accepted; ';
+  exception when others then
+    if sqlerrm not like '%comprehensive_recovery_revision_provenance_invalid%' then
+      v_failed := v_failed || format('unexpected recovery guard error: %s; ', sqlerrm);
+    end if;
+  end;
+
+  if v_failed <> '' then
+    raise exception 'comprehensive_manuscript_provenance_replay_failed: %', v_failed;
+  end if;
+end;
+$do$;
+SQL
+printf 'PASS: a Comprehensive attempt cannot reach REPORT_READY with its accepted manuscript discarded.\n'
+
+# --- Comprehensive recovery seam enters the existing release contract --------------------------
+# The first version of this seam inserted the recovery report already 'released' and its register
+# already 'released'. The live automatic_release_completed_fulfilment() requires 'generated' plus
+# VERIFIED storage and a leased REPORT_READY attempt, and performs the register release binding
+# itself -- so the original shape could only ever have been refused, or have bypassed the quality
+# gates by manufacturing its own delivery authorization. Assert the corrected contract against the
+# replayed catalogue rather than against the file.
+psql "${psql_args[@]}" >/dev/null <<'SQL'
+do $do$
+declare
+  v_def text;
+  v_failed text := '';
+begin
+  select pg_get_functiondef(p.oid) into v_def
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = 'create_comprehensive_recovery_revision'
+    and pg_get_function_identity_arguments(p.oid) like '%p_lease_owner text, p_lease_seconds integer';
+  if v_def is null then
+    raise exception 'the corrected recovery seam (with a bounded worker lease) is not present';
+  end if;
+
+  if position('automatic_release_completed_fulfilment' in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not call the existing automatic release; ';
+  end if;
+  if position($q$'generated'$q$ in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not create the revision as generated; ';
+  end if;
+  if position($q$'verified'$q$ in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not create the register as verified; ';
+  end if;
+  if position('comprehensive_recovery_release_refused' in v_def) = 0 then
+    v_failed := v_failed || 'the seam does not fail closed when release is refused; ';
+  end if;
+  if position('report_delivery_authorizations' in v_def) > 0 then
+    v_failed := v_failed || 'the seam manufactures its own delivery authorization; ';
+  end if;
+
+  -- The superseded pre-release shape must no longer be callable.
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'create_comprehensive_recovery_revision'
+      and pg_get_function_identity_arguments(p.oid) not like '%p_lease_seconds integer'
+  ) then
+    v_failed := v_failed || 'the superseded pre-release recovery shape is still callable; ';
+  end if;
+
+  if v_failed <> '' then
+    raise exception 'comprehensive_recovery_seam_contract_failed: %', v_failed;
+  end if;
+end;
+$do$;
+SQL
+printf 'PASS: the recovery seam enters the existing automatic quality release instead of pre-empting it.\n'

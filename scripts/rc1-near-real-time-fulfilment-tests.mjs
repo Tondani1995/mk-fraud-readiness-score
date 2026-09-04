@@ -704,7 +704,7 @@ await test('historical RC1 postflight remains frozen at its certified ledger bou
 });
 await test('current V1.2 migration source is certified by the exact disposable replay contract', async () => {
   includes(v12Replay, 'canonical_reconstructed_migration_count=121', 'replay preserves 121 reconstructed migrations');
-  includes(v12Replay, 'forward_migration_count=13', 'replay includes the current forward migration set');
+  includes(v12Replay, 'forward_migration_count=15', 'replay includes the current forward migration set');
   includes(v12Replay, 'expected_migrations="$((canonical_reconstructed_migration_count + forward_migration_count))"', 'replay derives exact expected total');
   includes(v12Replay, 'PASS: %s/%s migrations replayed in deterministic filename order (%s reconstructed plus %s forward).', 'replay prints the exact reconstructed-plus-forward evidence');
   includes(v12Replay, 'PASS: exact-once log has %s rows and %s distinct versions.', 'replay proves exact-once versions');
@@ -733,6 +733,32 @@ assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/s
 // A row recorded while the provider was off must WAIT for the provider, not consume the recovery
 // budget through a no-op. The active delivery worker preserves the exact retry/reconciliation
 // contract while the provider boundary remains disabled/test/live-mode controlled.
+await test('an accepted Comprehensive manuscript is persisted before the package can be finalised', async () => {
+  const fulfilment = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  const generation = read('src/lib/reports/comprehensive/narrative-generation.ts');
+  const provenance = read('src/lib/reports/comprehensive/narrative-provenance.ts');
+  const guard = read('supabase/migrations/20260904030000_comprehensive_manuscript_provenance_and_v2_recovery_release.sql');
+
+  // The generator must hand the accepted manuscript back rather than leaving it in request scope.
+  includes(generation, 'provenance: ComprehensiveNarrativeProvenance', 'Comprehensive generation returns its manuscript provenance');
+  includes(generation, 'narrative: composed.narrative', 'the accepted parsed manuscript is carried out of the generator');
+  includes(generation, 'factPackSha256: composed.factPackSha256', 'the deterministic Fact Pack identity is carried with it');
+  includes(generation, 'blueprintSha256: composed.blueprintSha256', 'the deterministic Blueprint identity is carried with it');
+
+  // The Comprehensive branch must persist it, on the same contract Essential already uses.
+  includes(fulfilment, 'persistComprehensiveNarrativeProvenance', 'the Comprehensive branch persists narrative provenance');
+  includes(provenance, "'record_manual_report_narrative_provenance'", 'persistence reuses the existing provenance RPC rather than a second model');
+  assert.ok(
+    !/fulfilmentId\s*[:=]\s*['"`]/.test(provenance),
+    'Comprehensive provenance must not fabricate a legacy fulfilment id'
+  );
+
+  // And the database must refuse the transition if it was not persisted.
+  includes(guard, 'comprehensive_manuscript_provenance_missing', 'the database fails closed on a discarded manuscript');
+  includes(guard, 'before insert or update on public.manual_report_generation_attempts', 'the guard covers every path that sets the status');
+  includes(guard, 'legacy_pdf_native_recovery_revision', 'the one authorised legacy recovery revision is named explicitly');
+});
+
 await test('disabled provider does not consume the recovery budget', async () => {
   const { store, db } = createNotificationStore();
   const sends = [];
@@ -777,4 +803,4 @@ await test('disabled provider does not consume the recovery budget', async () =>
   assert.equal(store.emailEvents.length, 1, 'recovery never creates a second event row');
 });
 
-console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/38.`);
+console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/39.`);

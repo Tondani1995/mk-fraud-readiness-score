@@ -1,7 +1,11 @@
 import type { AssembledReportData } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
 import type { WholeManuscriptTextResult } from '../narrative/manuscript';
-import { generateComprehensiveNarrativeReport, type ComprehensiveNarrativeSafetySummary } from './narrative-generation';
+import {
+  generateComprehensiveNarrativeReport,
+  type ComprehensiveNarrativeProvenance,
+  type ComprehensiveNarrativeSafetySummary
+} from './narrative-generation';
 
 /**
  * Admin/manual Comprehensive fulfilment entrypoint.
@@ -17,11 +21,15 @@ export async function renderComprehensiveReportPdf(input: {
   pdf: Buffer;
   narrativeRun: WholeManuscriptTextResult;
   semanticSafety?: ComprehensiveNarrativeSafetySummary;
+  provenance: ComprehensiveNarrativeProvenance;
 }> {
   const result = await generateComprehensiveNarrativeReport(input);
   return {
     pdf: result.pdf,
     narrativeRun: result.narrativeRun,
-    semanticSafety: result.semanticSafety
+    semanticSafety: result.semanticSafety,
+    // Carried out of the generator deliberately: the caller must persist this before the package
+    // can be finalised, so an accepted manuscript can never be discarded with the request scope.
+    provenance: result.provenance
   };
 }
