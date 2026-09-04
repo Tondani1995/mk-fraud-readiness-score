@@ -1168,7 +1168,9 @@ function buildPack(input: {
     ? 'Sustainment mode applies because the selected priorities are assurance-only, critical and major gap counts are zero, and no scoring cap changes final maturity. The priorities are not customer-facing material findings.'
     : findings.length < 5 && ((input.score.score ?? 0) >= 60 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
       ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.`
-    : undefined;
+      : input.tier === 'essential' && scenarios.length < 2
+        ? `Only ${scenarios.length} real fraud pathway scenario${scenarios.length === 1 ? '' : 's'} were supported by the deterministic assessment evidence; the Essential narrative remains sparse and does not invent an additional pathway.`
+        : undefined;
   const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
   // "Relative" is a claim about the profile, not about the score. Where every
   // domain is assessed identically nothing is relatively stronger than anything
