@@ -33,10 +33,6 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
   robots: { index: true, follow: true },
   alternates: { canonical: SITE_URL },
-  // Meta Business portfolio domain verification for mkfraud.co.za (asset 953170070387590).
-  // A public ownership token, not a secret. Meta reads it from the home page <head>, so it
-  // must be server-rendered here rather than injected by client-side script.
-  other: { 'facebook-domain-verification': 'qs2r0rwt1h7hestyvhc5ji47t7v09z' },
   openGraph: {
     type: 'website',
     locale: 'en_ZA',
