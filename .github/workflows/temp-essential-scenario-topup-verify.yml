@@ -1,0 +1,25 @@
+name: Temporary Essential Scenario Top-up Verify
+
+on:
+  push:
+    branches:
+      - hotfix/essential-scenario-topup-20260905
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/essential-scenario-topup-20260905
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Consolidated-risk scenario regression
+        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-scenario-topup-regression.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
