@@ -63,9 +63,18 @@ export const SECONDARY_SEMANTIC_FAMILIES_BY_QUESTION: Record<string, PrimarySema
   'D8-Q05': ['IDENTITY_VERIFICATION']
 };
 
-/** Approved fraud pathways are also question-identity driven. */
+/**
+ * Approved fraud pathways are question-identity driven. Operational-control questions that already
+ * carry concrete scenario mechanisms in their authoritative playbooks must remain connected to the
+ * matching existing pathway family here; otherwise a valid material finding can be retained by the
+ * evidence model and then disappear from the narrative scenario projection.
+ */
 export const FRAUD_PATHWAY_FAMILIES_BY_QUESTION: Record<string, FraudPathwayFamily[]> = {
+  'D3-Q01': ['PRIVILEGED_ACCESS_MISUSE'],
+  'D3-Q02': ['DETECTION_EVASION'],
   'D3-Q03': ['SUPPLIER_PAYMENT_DIVERSION'],
+  'D3-Q04': ['PRIVILEGED_ACCESS_MISUSE'],
+  'D3-Q05': ['DETECTION_EVASION'],
   'D7-Q01': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D7-Q04': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D4-Q01': ['DETECTION_EVASION'],
