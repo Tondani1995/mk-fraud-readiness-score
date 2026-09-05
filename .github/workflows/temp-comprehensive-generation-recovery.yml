@@ -1,0 +1,93 @@
+name: Temporary Comprehensive Generation Recovery
+
+on:
+  push:
+    branches:
+      - hotfix/comprehensive-generation-hardtruth-recovery-20260905
+    paths:
+      - .github/workflows/temp-comprehensive-generation-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-prove:
+    if: github.event.head_commit.message == 'ci: diagnose comprehensive generation recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/comprehensive-generation-hardtruth-recovery-20260905
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Apply bounded recovery and diagnostics hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          function replaceOnce(path, before, after) {
+            const source = fs.readFileSync(path, 'utf8');
+            const count = source.split(before).length - 1;
+            if (count !== 1) throw new Error(`${path}: expected one target, found ${count}`);
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replaceOnce(
+            'src/lib/reports/narrative/validation-severity.ts',
+            `const REPAIRABLE_CODES = new Set([\n  'duplicate_statement',`,
+            `const REPAIRABLE_CODES = new Set([\n  // These are customer-copy defects, not changes to deterministic truth. They remain\n  // release-blocking until a bounded replacement block passes the same validator.\n  'em_dash',\n  'customer_copy_leakage',\n  'duplicate_statement',`
+          );
+
+          replaceOnce(
+            'src/lib/reports/narrative/whole-manuscript-recovery.ts',
+            `    if (input.strictHardTruth && hardIssues.length > 0) {\n      throw new WholeManuscriptRecoveryError('human_review_required', 'A hard-truth validation failure cannot be auto-repaired on the Comprehensive path.', { validation: checked.validation, recovery, rejectedCandidateDirectories });\n    }\n\n    const decisionSeverity = (input.strictHardTruth && hardIssues.length > 0) || classified.severity === 'HARD_TRUTH_FAILURE'\n      ? 'HARD_TRUTH_FAILURE'`,
+            `    // Comprehensive still fails closed on any truth-bearing defect. The old blanket\n    // strictHardTruth gate also blocked explicitly repairable customer-copy defects such as\n    // assurance wording, em dashes and report-engine vocabulary before the bounded repair\n    // policy could run. Permit only codes the recovery classifier has explicitly marked\n    // repair-eligible; unsupported facts, numbers, IDs, owners, timings and unknown codes\n    // remain immediate hard failures.\n    const unrepairableHardIssues = hardIssues.filter((issue) => {\n      const issueTarget = sectionForPath(checked.parsed, input.blueprint, issue.path);\n      const assuranceLocallyRepairable = issue.code === 'assurance_claim'\n        ? Boolean(issueTarget && localAssuranceEligible(checked.validation, checked.parsed))\n        : Boolean(issueTarget);\n      return !classifyNarrativeRecoveryIssue({ code: issue.code, localSemanticEligible: assuranceLocallyRepairable }).repairEligible;\n    });\n    if (input.strictHardTruth && unrepairableHardIssues.length > 0) {\n      throw new WholeManuscriptRecoveryError('human_review_required', 'A truth-bearing validation failure cannot be auto-repaired on the Comprehensive path.', { validation: checked.validation, recovery, rejectedCandidateDirectories });\n    }\n\n    const decisionSeverity = classified.severity === 'HARD_TRUTH_FAILURE'\n      ? 'HARD_TRUTH_FAILURE'`
+          );
+
+          replaceOnce(
+            'src/lib/reports/phase1-manual-fulfilment.ts',
+            `      } catch (error) {\n        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error) });\n        throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);\n      }`,
+            `      } catch (error) {\n        const recoveryError = error && typeof error === 'object' ? error as Record<string, any> : {};\n        const details = recoveryError.details && typeof recoveryError.details === 'object' ? recoveryError.details as Record<string, any> : {};\n        const validation = details.validation && typeof details.validation === 'object' ? details.validation as Record<string, any> : {};\n        const hardIssues = Array.isArray(validation.hardTruth?.issues) ? validation.hardTruth.issues : [];\n        const semanticIssues = Array.isArray(validation.repairableSemantic?.issues) ? validation.repairableSemantic.issues : [];\n        const qualityIssues = Array.isArray(validation.quality?.issues) ? validation.quality.issues : [];\n        const safeDiagnostics = {\n          schemaVersion: 'comprehensive-failure-diagnostics-v1',\n          stage: 'comprehensive_interpretation',\n          code: typeof recoveryError.code === 'string' ? recoveryError.code : 'unknown',\n          hardIssueCodes: hardIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),\n          hardIssuePaths: hardIssues.map((issue: any) => String(issue?.path ?? 'unknown')).slice(0, 20),\n          semanticIssueCodes: semanticIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),\n          qualityIssueCodes: qualityIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),\n          recovery: details.recovery && typeof details.recovery === 'object' ? details.recovery : null\n        };\n        failureDiagnostics = safeDiagnostics;\n        try {\n          const { error: diagnosticError } = await db.from('manual_report_generation_attempts').update({ failure_diagnostics_json: safeDiagnostics }).eq('id', attemptId);\n          if (diagnosticError) console.warn('comprehensive_failure_diagnostics_persist_failed', { technicalReference, attemptId, error: messageOf(diagnosticError) });\n        } catch (diagnosticError) {\n          console.warn('comprehensive_failure_diagnostics_persist_failed', { technicalReference, attemptId, error: messageOf(diagnosticError) });\n        }\n        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error), diagnostics: safeDiagnostics });\n        throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);\n      }`
+          );
+
+          replaceOnce(
+            'scripts/commercial-quality/whole-manuscript-recovery-tests.mjs',
+            `assert.equal(repaired.recovery.coherenceCount, 0);\nassert.equal(repaired.parsed.chapters[0].sections[0].title, 'What management should take away');`,
+            `assert.equal(repaired.recovery.coherenceCount, 0);\nassert.equal(repaired.parsed.chapters[0].sections[0].title, 'What management should take away');\n\nlet strictRepairCalls = 0;\nconst strictWriter = { ...writer, async repairBlock() { strictRepairCalls += 1; return writer.repairBlock(); } };\nconst strictRepaired = await recoverWholeManuscript({ writer: strictWriter, context, blueprint, factPack: facts, initialResult: baseCandidate(bad), attemptIdentity: 'case-strict-repairable', diagnosticsRootDirectory: root, runCoherence: false, strictHardTruth: true });\nassert.equal(strictRepairCalls, 1);\nassert.equal(strictRepaired.validation.ok, true);\nassert.equal(classifyNarrativeIssue('em_dash').repairEligible, true);\nassert.equal(classifyNarrativeIssue('customer_copy_leakage').repairEligible, true);`
+          );
+
+          replaceOnce(
+            'scripts/commercial-quality/whole-manuscript-recovery-tests.mjs',
+            `console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls }));`,
+            `console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable customer-copy defects', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls }));`
+          );
+          NODE
+
+      - name: Run focused recovery proof
+        run: npm run v11:whole-manuscript-recovery
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/temp-comprehensive-generation-recovery.yml
+          git config user.name "MK Comprehensive Recovery"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(comprehensive): recover safe copy defects and persist diagnostics"
+          git push origin HEAD:hotfix/comprehensive-generation-hardtruth-recovery-20260905
