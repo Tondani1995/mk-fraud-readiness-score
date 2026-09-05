@@ -415,12 +415,13 @@ function companionPanel(model: ComprehensiveNarrativePresentationModel): string 
 function css(): string {
   return `<style>
   :root{${MK_CSS_VARIABLES}}
-  @page{size:A4;margin:17mm 16mm 20mm}
+  @page{size:A4;margin:17mm 12mm 20mm}
+  @page :first{size:A4;margin:0 0 15mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{font:10.6pt/1.58 'Open Sans','Noto Sans','Helvetica Neue',Arial,sans-serif;color:var(--mk-ink);background:var(--mk-white);print-color-adjust:exact;-webkit-print-color-adjust:exact}
   h1,h2,h3,h4,strong,b,figcaption,.cover-brand,.cover-eyebrow,.chapter-marker{font-family:'Open Sans','Noto Sans','Helvetica Neue',Arial,sans-serif}
-  .cover{height:260mm;page-break-after:always;background:var(--mk-navy-900);color:var(--mk-white);padding:24mm 20mm;display:flex;flex-direction:column;justify-content:space-between}
+  .cover{height:282mm;page-break-after:always;background:var(--mk-navy-900);color:var(--mk-white);padding:24mm 20mm;display:flex;flex-direction:column;justify-content:space-between}
   .cover-brand{min-height:24pt}
   .cover-brand img{display:block;height:24pt;width:auto}
   .cover-rule{width:28mm;border-top:1.2mm solid var(--mk-brass);margin:9mm 0}
