@@ -66,6 +66,10 @@ export const SECONDARY_SEMANTIC_FAMILIES_BY_QUESTION: Record<string, PrimarySema
 /** Approved fraud pathways are also question-identity driven. */
 export const FRAUD_PATHWAY_FAMILIES_BY_QUESTION: Record<string, FraudPathwayFamily[]> = {
   'D3-Q03': ['SUPPLIER_PAYMENT_DIVERSION'],
+  // The authoritative playbook treats sensitive manual adjustments as a concealment route and
+  // requires complete-population detective review. This is the same established pathway used for
+  // transaction anomalies and exception-review weaknesses; it does not introduce a new taxonomy.
+  'D3-Q05': ['DETECTION_EVASION'],
   'D7-Q01': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D7-Q04': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D4-Q01': ['DETECTION_EVASION'],
