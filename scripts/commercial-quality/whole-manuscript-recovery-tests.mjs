@@ -55,6 +55,14 @@ assert.equal(repaired.recovery.targetedRepairCount, 1);
 assert.equal(repaired.recovery.fullRegenerationCount, 0);
 assert.equal(repaired.recovery.coherenceCount, 0);
 assert.equal(repaired.parsed.chapters[0].sections[0].title, 'What management should take away');
+
+let strictRepairCalls = 0;
+const strictWriter = { ...writer, async repairBlock() { strictRepairCalls += 1; return writer.repairBlock(); } };
+const strictRepaired = await recoverWholeManuscript({ writer: strictWriter, context, blueprint, factPack: facts, initialResult: baseCandidate(bad), attemptIdentity: 'case-strict-repairable', diagnosticsRootDirectory: root, runCoherence: false, strictHardTruth: true });
+assert.equal(strictRepairCalls, 1);
+assert.equal(strictRepaired.validation.ok, true);
+assert.equal(classifyNarrativeIssue('em_dash').repairEligible, true);
+assert.equal(classifyNarrativeIssue('customer_copy_leakage').repairEligible, true);
 assert.match(repaired.markdown, /reviewed by management/);
 assert.equal((repaired.markdown.match(/^#{1,3} .+$/gm) ?? []).length, 38);
 assert.equal((await fs.readdir(path.join(root, 'failed-attempts', 'case-a-01'))).includes('customer-manuscript.md'), true);
@@ -73,4 +81,4 @@ const beforeUnaffected = bad.split('## What management should take away')[0];
 assert.equal(repaired.markdown.split('## What management should take away')[0], beforeUnaffected);
 assert.equal(classifyAssuranceLanguage('the recorded control position should be reviewed by management before reliance'), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls }));
+console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable customer-copy defects', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls }));

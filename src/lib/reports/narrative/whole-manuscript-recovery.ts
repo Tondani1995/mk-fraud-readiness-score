@@ -227,11 +227,23 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
     sequence += 1;
     rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: [...hardIssues, ...semanticIssues].map((issue) => issue.path), matchedPhrases: target && targetIssue ? [matchedPhraseFor(target.targetText, targetIssue.code)].filter((value): value is string => Boolean(value)) : [], recovery, sequence }));
 
-    if (input.strictHardTruth && hardIssues.length > 0) {
-      throw new WholeManuscriptRecoveryError('human_review_required', 'A hard-truth validation failure cannot be auto-repaired on the Comprehensive path.', { validation: checked.validation, recovery, rejectedCandidateDirectories });
+    // Comprehensive still fails closed on truth-bearing defects. The previous blanket
+    // strictHardTruth gate also blocked explicitly repairable customer-copy defects before
+    // the bounded recovery policy could run. Permit only codes that are explicitly marked
+    // repair-eligible; unsupported facts, numbers, IDs, owners, timings and unknown codes
+    // remain immediate hard failures and still cannot reach a repair call.
+    const unrepairableHardIssues = hardIssues.filter((issue) => {
+      const issueTarget = sectionForPath(checked.parsed, input.blueprint, issue.path);
+      const localSemanticEligible = issue.code === 'assurance_claim'
+        ? Boolean(issueTarget && localAssuranceEligible(checked.validation, checked.parsed))
+        : Boolean(issueTarget);
+      return !classifyNarrativeRecoveryIssue({ code: issue.code, localSemanticEligible }).repairEligible;
+    });
+    if (input.strictHardTruth && unrepairableHardIssues.length > 0) {
+      throw new WholeManuscriptRecoveryError('human_review_required', 'A truth-bearing validation failure cannot be auto-repaired on the Comprehensive path.', { validation: checked.validation, recovery, rejectedCandidateDirectories });
     }
 
-    const decisionSeverity = (input.strictHardTruth && hardIssues.length > 0) || classified.severity === 'HARD_TRUTH_FAILURE'
+    const decisionSeverity = classified.severity === 'HARD_TRUTH_FAILURE'
       ? 'HARD_TRUTH_FAILURE'
       : classified.severity === 'QUALITY_FAILURE'
         ? 'QUALITY_FAILURE'

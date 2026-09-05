@@ -36,6 +36,10 @@ const HARD_TRUTH_CODES = new Set([
 ]);
 
 const REPAIRABLE_CODES = new Set([
+  // These are customer-copy defects, not changes to deterministic truth. They remain
+  // release-blocking until a bounded replacement block passes the same validator.
+  'em_dash',
+  'customer_copy_leakage',
   'duplicate_statement',
   'malformed_transition',
   'customer_facing_internal_wording',

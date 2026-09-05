@@ -677,7 +677,30 @@ export async function generateManualPhase1Report(
           model: comprehensive.interpretationRun.accounting.model
         });
       } catch (error) {
-        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
+        const recoveryError = error && typeof error === 'object' ? error as Record<string, any> : {};
+        const details = recoveryError.details && typeof recoveryError.details === 'object' ? recoveryError.details as Record<string, any> : {};
+        const validation = details.validation && typeof details.validation === 'object' ? details.validation as Record<string, any> : {};
+        const hardIssues = Array.isArray(validation.hardTruth?.issues) ? validation.hardTruth.issues : [];
+        const semanticIssues = Array.isArray(validation.repairableSemantic?.issues) ? validation.repairableSemantic.issues : [];
+        const qualityIssues = Array.isArray(validation.quality?.issues) ? validation.quality.issues : [];
+        const safeDiagnostics = {
+          schemaVersion: 'comprehensive-failure-diagnostics-v1',
+          stage: 'comprehensive_interpretation',
+          code: typeof recoveryError.code === 'string' ? recoveryError.code : 'unknown',
+          hardIssueCodes: hardIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
+          hardIssuePaths: hardIssues.map((issue: any) => String(issue?.path ?? 'unknown')).slice(0, 20),
+          semanticIssueCodes: semanticIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
+          qualityIssueCodes: qualityIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
+          recovery: details.recovery && typeof details.recovery === 'object' ? details.recovery : null
+        };
+        failureDiagnostics = safeDiagnostics;
+        try {
+          const { error: diagnosticError } = await db.from('manual_report_generation_attempts').update({ failure_diagnostics_json: safeDiagnostics }).eq('id', attemptId);
+          if (diagnosticError) console.warn('comprehensive_failure_diagnostics_persist_failed', { technicalReference, attemptId, error: messageOf(diagnosticError) });
+        } catch (diagnosticError) {
+          console.warn('comprehensive_failure_diagnostics_persist_failed', { technicalReference, attemptId, error: messageOf(diagnosticError) });
+        }
+        console.error('phase1_manual_generation', { technicalReference, orderReference: targetReference, stage: 'comprehensive_interpretation', error: messageOf(error), diagnostics: safeDiagnostics });
         throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
       }
     } else {
