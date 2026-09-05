@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
@@ -223,6 +224,7 @@ export default async function AdminOrderDetailPage(
               </div>
             ) : null}
             <FulfilmentActions
+              essentialRetryRequestKey={!isComprehensive ? randomUUID() : undefined}
               orderReference={order.order_reference}
               reportId={latestReport?.id}
               generationState={generationState}

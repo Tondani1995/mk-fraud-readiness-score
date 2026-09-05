@@ -225,7 +225,8 @@
     "v11:comprehensive-coverage-contents-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-coverage-contents-gate.mjs",
     "v11:portfolio-census": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/portfolio-census.mjs",
     "v11:comprehensive-live": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-live-report.mjs",
-    "website:test-meta-tracking": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/meta-tracking-tests.mjs"
+    "website:test-meta-tracking": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/meta-tracking-tests.mjs",
+    "essential:test-retry-browser": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/recovery/retry-browser-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
@@ -260,11 +261,13 @@
     "zod": "4.1.8"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "embedded-postgres": "^18.4.0-beta.17",
+    "esbuild": "0.28.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.22",
     "ip-address": "10.3.1",
