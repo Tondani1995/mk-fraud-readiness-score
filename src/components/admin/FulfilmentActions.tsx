@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { EssentialRetryGeneration } from './EssentialRetryGeneration';
 import { Button } from '@/components/ui/Button';
 
 type Props = {
   orderReference: string;
+  essentialRetryRequestKey?: string;
   reportId?: string | null;
   generationState: string;
   generationStuck: boolean;
@@ -105,7 +107,7 @@ export function FulfilmentActions(props: Props) {
           </Button>
         ) : null}
         {props.capabilityAvailable && props.canGenerate && props.eligible && (props.generationState === 'GENERATION_FAILED' || props.generationStuck) ? (
-          <Button type="button" disabled={Boolean(running)} onClick={() => generation('admin_retry')}>
+          props.essentialRetryRequestKey ? <EssentialRetryGeneration orderReference={props.orderReference} requestKey={props.essentialRetryRequestKey} /> : <Button type="button" disabled={Boolean(running)} onClick={() => generation('admin_retry')}>
             {running === 'admin_retry' ? 'Generating report…' : 'Retry Generation'}
           </Button>
         ) : null}
