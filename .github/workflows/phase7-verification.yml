@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   focused-comprehensive-propagation:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/hotfix/comprehensive-manuscript-production-propagation-20260904'
+    if: github.event_name == 'pull_request' && github.head_ref == 'hotfix/comprehensive-manuscript-production-propagation-20260904'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
