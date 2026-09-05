@@ -182,19 +182,38 @@ export function buildPlausibleScenarios(
 
   const minimum = weakAssessment ? 3 : 2;
   const maximum = weakAssessment ? 5 : 3;
-  const scenarios = eligibleRisks.slice(0, maximum).map((risk) =>
+  const primaryRisks = eligibleRisks.slice(0, maximum);
+  const scenarios = primaryRisks.map((risk) =>
     scenarioForRisk(risk, findings.filter((finding) => risk.linkedFindingIds.includes(finding.id)))
   );
 
   if (scenarios.length < minimum) {
-    const represented = new Set(scenarios.flatMap((scenario) => scenario.linkedFindingIds));
+    // A consolidated risk can legitimately carry several material findings. A primary scenario
+    // represents that pathway, but it must not mark every linked finding as exhausted: doing so can
+    // leave a weak assessment with one scenario even when several distinct, evidence-backed control
+    // conditions exist. Preserve each primary lead, then use the next highest-materiality linked
+    // findings as bounded variants until the evidence-model minimum is met.
+    const primaryLeadFindingIds = new Set<string>();
+    for (const risk of primaryRisks) {
+      const linked = findings
+        .filter((finding) => risk.linkedFindingIds.includes(finding.id))
+        .filter((finding) => weakAssessment
+          ? finding.materialityClass !== 'assurance_priority'
+          : finding.materialityClass === 'assurance_priority')
+        .sort((a, b) => b.materialityScore - a.materialityScore || a.questionCode.localeCompare(b.questionCode));
+      if (linked[0]) primaryLeadFindingIds.add(linked[0].id);
+    }
+
     const topUps = [...findings]
-      .filter((finding) => !represented.has(finding.id))
-      .filter((finding) => weakAssessment ? finding.materialityClass !== 'assurance_priority' : finding.materialityClass === 'assurance_priority')
+      .filter((finding) => !primaryLeadFindingIds.has(finding.id))
+      .filter((finding) => weakAssessment
+        ? finding.materialityClass !== 'assurance_priority'
+        : finding.materialityClass === 'assurance_priority')
+      .filter((finding) => eligibleRisks.some((risk) => risk.linkedFindingIds.includes(finding.id)))
       .sort((a, b) => b.materialityScore - a.materialityScore || a.questionCode.localeCompare(b.questionCode));
     for (const finding of topUps) {
       if (scenarios.length >= minimum) break;
-      const risk = risks.find((item) => item.linkedFindingIds.includes(finding.id));
+      const risk = eligibleRisks.find((item) => item.linkedFindingIds.includes(finding.id));
       if (risk) scenarios.push(scenarioForRisk(risk, [finding], finding.questionCode));
     }
   }
