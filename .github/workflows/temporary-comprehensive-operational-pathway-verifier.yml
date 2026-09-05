@@ -1,0 +1,27 @@
+name: Temporary Comprehensive operational-pathway verifier
+
+on:
+  push:
+    branches:
+      - hotfix/comprehensive-operational-pathway-mapping-20260905
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Operational-pathway regression
+        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/operational-pathway-mapping-regression.mjs
+      - name: Existing consolidated-pathway regression
+        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-scenario-projection-topup-regression.mjs
+      - name: Typecheck
+        run: npm run typecheck
