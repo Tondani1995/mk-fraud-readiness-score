@@ -74,6 +74,14 @@ export function classifyNarrativeIssue(code: string): ClassifiedNarrativeIssue {
  */
 export function classifyNarrativeRecoveryIssue(input: NarrativeRecoveryIssueInput): ClassifiedNarrativeIssue {
   const base = classifyNarrativeIssue(input.code);
+  if (input.code === 'unsupported_numeric_claim' && input.localSemanticEligible) {
+    return {
+      ...base,
+      severity: 'REPAIRABLE_SEMANTIC_FAILURE',
+      repairEligible: true,
+      rationale: 'An unsupported numeric claim remains release-blocking, but a bounded paragraph replacement may remove it using only the permitted deterministic facts and must pass the unchanged numeric validator before release.'
+    };
+  }
   if (input.code === 'assurance_claim' && input.localSemanticEligible) {
     return {
       ...base,

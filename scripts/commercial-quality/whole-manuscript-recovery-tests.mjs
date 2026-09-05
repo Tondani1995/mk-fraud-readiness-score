@@ -63,6 +63,26 @@ assert.equal(strictRepairCalls, 1);
 assert.equal(strictRepaired.validation.ok, true);
 assert.equal(classifyNarrativeIssue('em_dash').repairEligible, true);
 assert.equal(classifyNarrativeIssue('customer_copy_leakage').repairEligible, true);
+assert.equal(classifyNarrativeIssue('unsupported_numeric_claim').repairEligible, false);
+assert.equal(classifyNarrativeRecoveryIssue({ code: 'unsupported_numeric_claim', localSemanticEligible: true }).repairEligible, true);
+
+const numericBad = complete.replace(/## What management should take away\n\n[^\n]+/, '## What management should take away\n\nManagement should preserve the recorded position within 999999 days.');
+const numericValidation = validateBlueprintTextManuscript(parseBlueprintMarkdown(numericBad, blueprint), blueprint, facts);
+assert.equal(numericValidation.hardTruth.issues.some((issue) => issue.code === 'unsupported_numeric_claim'), true);
+let numericRepairCalls = 0;
+const numericWriter = {
+  ...writer,
+  async repairBlock(input) {
+    numericRepairCalls += 1;
+    assert.equal(input.validationCode, 'unsupported_numeric_claim');
+    return { contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1', architecture: 'whole-manuscript-targeted-repair', repairedText: 'Management should preserve the recorded position through a clear management response.', blueprint, writerMetadata: { ...baseCandidate('', { ...emptyNarrativeRecoveryBudget(), targetedRepairCount: 1, totalCalls: 1 }).writerMetadata } };
+  }
+};
+const numericRepaired = await recoverWholeManuscript({ writer: numericWriter, context, blueprint, factPack: facts, initialResult: baseCandidate(numericBad), attemptIdentity: 'case-strict-numeric', diagnosticsRootDirectory: root, runCoherence: false, strictHardTruth: true });
+assert.equal(numericRepairCalls, 1);
+assert.equal(numericRepaired.validation.ok, true);
+assert.doesNotMatch(numericRepaired.markdown, /999999/);
+
 assert.match(repaired.markdown, /reviewed by management/);
 assert.equal((repaired.markdown.match(/^#{1,3} .+$/gm) ?? []).length, 38);
 assert.equal((await fs.readdir(path.join(root, 'failed-attempts', 'case-a-01'))).includes('customer-manuscript.md'), true);
@@ -81,4 +101,4 @@ const beforeUnaffected = bad.split('## What management should take away')[0];
 assert.equal(repaired.markdown.split('## What management should take away')[0], beforeUnaffected);
 assert.equal(classifyAssuranceLanguage('the recorded control position should be reviewed by management before reliance'), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable customer-copy defects', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls }));
+console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable bounded defects', 'unsupported numeric claims receive bounded paragraph repair but remain release-blocking until revalidation', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls + numericRepairCalls }));

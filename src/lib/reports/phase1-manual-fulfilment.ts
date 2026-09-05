@@ -689,6 +689,7 @@ export async function generateManualPhase1Report(
           code: typeof recoveryError.code === 'string' ? recoveryError.code : 'unknown',
           hardIssueCodes: hardIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
           hardIssuePaths: hardIssues.map((issue: any) => String(issue?.path ?? 'unknown')).slice(0, 20),
+          hardIssueMessages: hardIssues.map((issue: any) => String(issue?.message ?? 'unknown').slice(0, 240)).slice(0, 20),
           semanticIssueCodes: semanticIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
           qualityIssueCodes: qualityIssues.map((issue: any) => String(issue?.code ?? 'unknown')).slice(0, 20),
           recovery: details.recovery && typeof details.recovery === 'object' ? details.recovery : null

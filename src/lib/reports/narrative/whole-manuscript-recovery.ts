@@ -221,7 +221,14 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
     const semanticIssues = checked.validation.repairableSemantic.issues;
     const targetIssue = hardIssues[0] ?? semanticIssues[0];
     const target = targetIssue ? sectionForPath(checked.parsed, input.blueprint, targetIssue.path) : null;
-    const localEligible = Boolean(target && targetIssue && (semanticIssues.includes(targetIssue) || localAssuranceEligible(checked.validation, checked.parsed)));
+    const localEligible = Boolean(target && targetIssue && (
+      semanticIssues.includes(targetIssue)
+      || localAssuranceEligible(checked.validation, checked.parsed)
+      // Comprehensive may repair an unsupported numeric sentence only by replacing the
+      // bounded paragraph from its permitted deterministic facts. The unchanged final
+      // validator still decides release, so unsupported numbers can never pass through.
+      || (input.strictHardTruth && targetIssue.code === 'unsupported_numeric_claim')
+    ));
     const issueCode = targetIssue?.code ?? (qualityFailure ? 'repetition' : 'malformed_manuscript');
     const classified = classifyNarrativeRecoveryIssue({ code: issueCode, localSemanticEligible: localEligible });
     sequence += 1;

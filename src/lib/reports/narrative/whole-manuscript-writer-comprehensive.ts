@@ -57,6 +57,7 @@ export function buildWholeManuscriptGenerationPrompt(input: WholeManuscriptWrite
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
+    'NUMERIC FACT BOUNDARY. Within each paragraph, use a digit or percentage only when that exact value is present in that section or subsection permitted deterministic facts. Do not invent counts, durations, percentages, thresholds, stage numbers, sequence numbers, time horizons, sample sizes or frequencies. If a quantitative detail is not explicitly permitted for that paragraph, express the management implication without a number. Never spell an unsupported number in words to bypass this boundary.',
     '',
     `PROHIBITED CLAIMS: ${(input.context.boundaries?.prohibitedClaims ?? []).join('; ') || '(none supplied)'}`,
     'WRITE ONLY THE NARRATIVE UNDER THESE EXISTING HEADINGS.',
@@ -88,6 +89,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
     'CUSTOMER FACT BOUNDARY. Do not compare this organisation with peers, similar-sized organisations, industry averages, benchmarks, medians or percentiles unless an explicit deterministic benchmark fact is supplied. Do not infer or state employee or staff counts. Do not say or imply that knowledge or control responsibility sits with "one or two people", "a single employee" or any other invented concentration of people. Do not invent organisational structures, committees, executive titles or functions; use only those present in the permitted deterministic facts. Where a fact is not in the permitted deterministic material, express the management implication without inventing it.',
+    'NUMERIC FACT BOUNDARY. Within each paragraph, use a digit or percentage only when that exact value is present in that section or subsection permitted deterministic facts. Do not invent counts, durations, percentages, thresholds, stage numbers, sequence numbers, time horizons, sample sizes or frequencies. If a quantitative detail is not explicitly permitted for that paragraph, express the management implication without a number. Never spell an unsupported number in words to bypass this boundary.',
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
     `MISSING HEADINGS IN REQUIRED ORDER: ${JSON.stringify(tail.missingHeadings)}`,
@@ -342,6 +344,9 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       'This is a targeted semantic correction, not a report regeneration. Return only the replacement prose for the target block. Do not return a heading, bullets, labels, IDs, claim references, metadata, commentary or code fences.',
       'Preserve the deterministic meaning exactly. Do not change any score, maturity, finding, scenario, control, owner, timing, decision, roadmap, fact or Blueprint hierarchy.',
       'The assurance boundary remains strict: do not imply that MK, the assessment, the report or any external reviewer independently verified evidence or operating effectiveness. Customer-owned control design may describe what management should independently review or verify. Do not use em dashes. Use normal sentence punctuation instead.',
+    ...(input.validationCode === 'unsupported_numeric_claim' ? [
+      'NUMERIC REPAIR. Remove every unsupported quantitative claim from the target block. Do not preserve an unsupported quantity by spelling the number in words. Do not introduce a new count, duration, percentage, threshold, stage number, sequence, time horizon, sample size or frequency unless it appears explicitly in PERMITTED FACTS. If no permitted number is needed, preserve only the management implication using non-quantitative wording.'
+    ] : []),
       '',
       `REPAIR SCOPE: ${input.scope}`,
       `FAILING PATH: ${input.failingPath}`,
