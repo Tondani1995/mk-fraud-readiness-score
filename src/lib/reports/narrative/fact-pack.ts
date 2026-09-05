@@ -839,17 +839,58 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
   };
 }
 
-function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFinding[], risks: RiskRegisterEntry[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, tier: NarrativeProductTier, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact[] {
+export function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFinding[], risks: RiskRegisterEntry[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, tier: NarrativeProductTier, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact[] {
   const candidates = FRAUD_PATHWAY_RULES.map((rule) => ({ rule, members: pathwayMembers(rule, findings) }))
     .filter((item) => item.members.length > 0)
     .filter((item) => risks.some((risk) => risk.linkedFindingIds.some((id) => item.members.some((finding) => finding.id === id))))
     .sort((left, right) => pathwayPriority(right.rule, findings) - pathwayPriority(left.rule, findings) || left.rule.family.localeCompare(right.rule.family));
+  const minimum = 2;
   const limit = tier === 'essential' ? 3 : 4;
   const selected = candidates.slice(0, limit);
+  const usedSourceIds = new Set<string>();
   const result = selected.map(({ rule, members }, index) => {
     const source = scenarios.find((scenario) => ruleForScenario(scenario, findings)?.family === rule.family && scenario.linkedFindingIds.some((id) => members.some((finding) => finding.id === id)));
+    if (source) usedSourceIds.add(source.id);
     return synthesizeScenario(rule, source, members, findingRefs, riskRefs, risks, index, exposures);
   });
+
+  // The evidence model may legitimately emit multiple evidence-backed variants beneath one
+  // consolidated fraud pathway. The narrative projection previously collapsed those variants to
+  // one scenario per pathway family, which could reduce a valid evidence set to one and then fail
+  // the unchanged Story Plan minimum before any provider call. Preserve pathway diversity first,
+  // then retain distinct canonical evidence variants only when the projection is below the product
+  // minimum. This never invents a pathway, finding or risk and remains within the existing tier cap.
+  if (result.length < minimum) {
+    const topUps = scenarios
+      .filter((source) => !usedSourceIds.has(source.id))
+      .map((source) => {
+        const rule = ruleForScenario(source, findings);
+        if (!rule) return null;
+        const members = findings
+          .filter((finding) => source.linkedFindingIds.includes(finding.id) && finding.fraudPathwayFamilies.includes(rule.family))
+          .sort((left, right) => right.materialityScore - left.materialityScore || left.questionCode.localeCompare(right.questionCode));
+        if (members.length === 0) return null;
+        const linkedRiskExists = risks.some((risk) => risk.linkedFindingIds.some((id) => members.some((finding) => finding.id === id)));
+        if (!linkedRiskExists) return null;
+        return {
+          source,
+          rule,
+          members,
+          priority: members.reduce((total, finding) => total + finding.materialityScore, 0)
+        };
+      })
+      .filter((item): item is { source: PlausibleScenario; rule: FraudPathwayRule; members: MaterialFinding[]; priority: number } => Boolean(item))
+      .sort((left, right) => right.priority - left.priority || left.source.id.localeCompare(right.source.id));
+
+    for (const topUp of topUps) {
+      if (result.length >= minimum || result.length >= limit) break;
+      const variant = synthesizeScenario(topUp.rule, topUp.source, topUp.members, findingRefs, riskRefs, risks, result.length, exposures);
+      if (result.some((scenario) => scenario.canonicalScenarioId === variant.canonicalScenarioId)) continue;
+      result.push(variant);
+      usedSourceIds.add(topUp.source.id);
+    }
+  }
+
   result.forEach(assertScenario);
   return result;
 }
