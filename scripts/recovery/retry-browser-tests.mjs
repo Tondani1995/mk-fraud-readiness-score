@@ -2,6 +2,7 @@
 // Auth, assembly, SQLite-backed RPC adapter, writer and PDF renderer are explicit test doubles.
 // This is not proof of production PostgreSQL RPCs or the deployed Next.js/auth integration.
 import assert from 'node:assert/strict';
+import {createPostgresJourney} from './postgres-journey.mjs';
 import {createOfflineJourney} from './offline-journey.mjs';
 import {createRequire} from 'node:module';
 import {Phase1GenerationError} from '../../src/lib/reports/phase1-manual-fulfilment.ts';
@@ -25,28 +26,29 @@ const ssr = await build({...options,stdin:{contents:shared+`import {renderToStri
 const ssrFile=join(process.cwd(),`scripts/recovery/.ssr-${randomUUID()}.mjs`);
 await writeFile(ssrFile,ssr.outputFiles[0].contents);
 const markup=(await import(pathToFileURL(ssrFile))).default;
-let requests=[]; let mode='ok'; let journey;
-globalThis.__retryTest = {Phase1GenerationError, generate: key => journey.generate(key), admin: () => ({id:'offline-admin',role:mode==='forbidden'?'read_only_admin':'platform_admin'})};
+let requests=[]; let mode='ok'; let journey; let currentKey='offline-server-key';
+const postgres=process.argv.includes('--postgres');
+globalThis.__retryTest = {Phase1GenerationError, generate: input => {assert.equal(input.orderReference,journey.orderReference??props.orderReference);assert.equal(input.action,'admin_retry');return journey.generate(input.requestKey);}, admin: () => ({id:journey.adminId??'offline-admin',role:mode==='forbidden'?'read_only_admin':'platform_admin'})};
 const routeFile=join(process.cwd(),`scripts/recovery/.route-${randomUUID()}.cjs`);
 await build({entryPoints:['src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts'],outfile:routeFile,bundle:true,platform:'node',format:'cjs',packages:'external',tsconfig:'tsconfig.json',plugins:[{name:'offline-boundaries',setup(b){
  b.onResolve({filter:/^@\/lib\/(auth\/admin-route|reports\/phase1-manual-fulfilment|rc1\/operation-freeze)$/},a=>({path:a.path,namespace:'offline'}));
- b.onLoad({filter:/.*/,namespace:'offline'},a=>({contents:a.path.includes('admin-route')?'export const getAdminSession = async () => globalThis.__retryTest.admin();':a.path.includes('operation-freeze')?'export const getRc1OperationFreezeResponse = async () => null;':'export const Phase1GenerationError = globalThis.__retryTest.Phase1GenerationError; export const generateManualPhase1Report = input => globalThis.__retryTest.generate(input.requestKey);'}));
+ b.onLoad({filter:/.*/,namespace:'offline'},a=>({contents:a.path.includes('admin-route')?'export const getAdminSession = async () => globalThis.__retryTest.admin();':a.path.includes('operation-freeze')?'export const getRc1OperationFreezeResponse = async () => null;':'export const Phase1GenerationError = globalThis.__retryTest.Phase1GenerationError; export const generateManualPhase1Report = input => globalThis.__retryTest.generate(input);'}));
 }}]});
 const {POST}=createRequire(import.meta.url)(routeFile);
 // No server-side network use is permitted: all provider and persistence boundaries are local.
 globalThis.fetch=()=>{throw new Error('External network forbidden in offline regression');};
 const server=createServer(async(req,res)=>{
-  if(req.url==='/client.js'){res.setHeader('Content-Type','text/javascript');res.end(client.outputFiles[0].contents);return;}
+  if(req.url==='/client.js'){res.setHeader('Content-Type','text/javascript');res.end(client.outputFiles[0].text.replaceAll('MKORD-OFFLINE-RETRY',journey.orderReference??props.orderReference).replaceAll('offline-server-key',currentKey));return;}
   if(req.method==='POST'){
     let body='';for await(const part of req)body+=part;
     const values=req.headers['content-type']?.includes('json')?JSON.parse(body):Object.fromEntries(new URLSearchParams(body));
     requests.push({url:req.url,headers:req.headers,values});
     if(mode==='disconnect'){req.socket.destroy();return;}
     if(mode==='html'){res.end('<html>Session expired</html>');return;}
-    const response=await POST(new Request(`http://127.0.0.1${req.url}`,{method:'POST',headers:req.headers,body}),{params:Promise.resolve({orderReference:'MKORD-OFFLINE-RETRY'})});
+    const response=await POST(new Request(`http://127.0.0.1${req.url}`,{method:'POST',headers:req.headers,body}),{params:Promise.resolve({orderReference:journey.orderReference??props.orderReference})});
     res.writeHead(response.status,Object.fromEntries(response.headers));res.end(await response.text());return;
   }
-  res.setHeader('Content-Type','text/html');res.end(`<!doctype html><html><body><h1>Failed paid Essential order</h1><div id="root">${markup}</div><script src="/client.js"></script></body></html>`);
+  res.setHeader('Content-Type','text/html');res.end(`<!doctype html><html><body><h1>Failed paid Essential order</h1><div id="root">${markup.replaceAll('MKORD-OFFLINE-RETRY',journey.orderReference??props.orderReference).replaceAll('offline-server-key',currentKey)}</div><script src="/client.js"></script></body></html>`);
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const origin=`http://127.0.0.1:${server.address().port}`;
@@ -56,7 +58,7 @@ for(const [engine,device] of [[chromium,{}],[chromium,devices['Pixel 7']],[webki
 const browser=await engine.launch();
 try{
 for(const scenario of ['normal','missing-uuid','no-javascript','chunk-failure','construction-failure','disconnect','html','forbidden','double-click']){
-journey=createOfflineJourney(join(work,randomUUID()+'.sqlite'));
+journey=postgres?await createPostgresJourney():createOfflineJourney(join(work,randomUUID()+'.sqlite'));currentKey=randomUUID();
 requests=[];mode=['disconnect','html','forbidden'].includes(scenario)?scenario:'ok';
 const context=await browser.newContext({...device,javaScriptEnabled:scenario!=='no-javascript'});
 await context.route('**/*',route=>route.request().url().startsWith(origin)?route.continue():route.abort());
@@ -75,20 +77,27 @@ if(scenario==='construction-failure'){
  await posted;
  if(['disconnect','html','forbidden'].includes(scenario))await page.getByRole('alert').waitFor();
  else await page.waitForLoadState('networkidle');
- if(scenario==='disconnect') { assert.ok(requests.length >= 1); assert.ok(requests.every(r=>r.values.requestKey==='offline-server-key')); }
+ if(scenario==='disconnect') { assert.ok(requests.length >= 1); assert.ok(requests.every(r=>r.values.requestKey===currentKey)); }
  else assert.equal(requests.length,1,`${scenario} sends exactly one POST`);
- assert.equal(requests[0].url,'/score/api/admin/orders/MKORD-OFFLINE-RETRY/generate-report');
- assert.equal(requests[0].values.action,'admin_retry');assert.equal(requests[0].values.requestKey,'offline-server-key');
- if(!['no-javascript','chunk-failure'].includes(scenario))assert.equal(requests[0].headers['x-idempotency-key'],'offline-server-key');
+ assert.equal(requests[0].url,`/score/api/admin/orders/${journey.orderReference??props.orderReference}/generate-report`);
+ assert.equal(requests[0].values.action,'admin_retry');assert.equal(requests[0].values.requestKey,currentKey);
+ if(!['no-javascript','chunk-failure'].includes(scenario))assert.equal(requests[0].headers['x-idempotency-key'],currentKey);
 }
 assert.deepEqual(errors,[]);
-if(['normal','missing-uuid','no-javascript','chunk-failure','double-click'].includes(scenario))journey.verify();
-else assert.equal(journey.ledger.prepare('SELECT COUNT(*) AS n FROM attempts').get().n,1);
-journey.ledger.close();
+const success=['normal','missing-uuid','no-javascript','chunk-failure','double-click'].includes(scenario);
+if(postgres){
+ await journey.verify(success);
+ if(scenario==='normal'){
+  const replay=await context.request.post(`${origin}/score/api/admin/orders/${journey.orderReference}/generate-report`,{data:{action:'admin_retry',requestKey:currentKey},headers:{'X-Idempotency-Key':currentKey}});
+  const body=await replay.json();assert.equal(body.ok,true);assert.equal(body.reusedExistingReport,true);await journey.verify(true);
+ }
+ await journey.close();
+}
+else {if(success)journey.verify();else assert.equal(journey.ledger.prepare('SELECT COUNT(*) AS n FROM attempts').get().n,1);journey.ledger.close();}
 evidence.push({engine:engine.name(),device:device.defaultBrowserType?'mobile':'desktop',scenario,posts:requests.length,passed:true});
 await context.close();
 }
 }finally{await browser.close();}
 }
-console.log(JSON.stringify({passed:true,externalProviderCalls:0,productionMutations:0,evidence},null,2));
+console.log(JSON.stringify({passed:true,persistence:postgres?'PostgreSQL with 139 real migrations':'SQLite adapter',externalProviderCalls:0,productionMutations:0,evidence},null,2));
 }finally{server.close();await rm(ssrFile,{force:true});await rm(routeFile,{force:true});await rm(work,{recursive:true,force:true});}

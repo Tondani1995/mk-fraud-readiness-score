@@ -1,28 +1,41 @@
-# Essential Retry offline regression
+# Essential Retry browser regression
 
 Run on Node 24 or later:
 
 ```sh
 npm ci
 npx playwright install chromium webkit
-npm run essential:test-retry-browser
+npm run essential:test-retry-postgres
 ```
 
-The regression server-renders and hydrates the production `FulfilmentActions` component,
-executes the production POST handler and real `generateManualPhase1Report` orchestration,
-and checks a file-backed SQLite attempt ledger. It tests desktop Chromium, mobile Chromium
-and mobile WebKit with nine transport/runtime cases each.
+The primary regression uses an **existing local PostgreSQL installation** (`initdb`,
+`pg_ctl`, `createdb`, `psql`). Homebrew PostgreSQL 17 is detected on macOS. It creates
+an isolated temporary database on a free loopback port, replays all repository migrations,
+runs the browser matrix, and stops/removes the database on exit. It never uses cloud
+credentials, creates a cloud resource, or incurs provider charges.
 
-Boundaries replaced by test doubles: admin identity, operation-freeze lookup, report-data
-assembly, Supabase RPC/storage adapter, manuscript writer and PDF renderer. Production
-PostgreSQL migrations, deployed Next.js routing/auth, real PDF quality and external providers
-are **not certified by this harness**. Server-side fetch is prohibited; browser traffic is
-restricted to the local test server. No real order identifiers or credentials are used.
+The test server renders/hydrates production `FulfilmentActions`, executes the production
+POST handler and `generateManualPhase1Report`, checks the real schema-capability gate,
+and executes the actual PostgreSQL claim/start/fail/complete functions. The database's
+admin profile, paid order, locked score-run, attempt and report relationships are real
+synthetic rows. Three browser engines/profiles run nine cases each: desktop Chromium,
+mobile Chromium and iPhone WebKit. Normal success also replays the same request key through
+the HTTP route and verifies report reuse without another attempt or writer invocation.
 
-The synthetic paid fixture contains three findings consolidated into two risks. It needs the
-scenario top-up from a6a5af396b2c64acc93ae1e15573d480afff019c to reach the unchanged minimum
-of three scenarios. Each success checks that the original failed attempt is retained with
-retry_count 0 and a new attempt progresses REPORT_QUEUED → REPORT_GENERATING → REPORT_READY
-with retry_count 1. Forbidden and transport failures must not create an attempt. Native forms
-still submit when JavaScript is disabled or the client chunk fails. Duplicate clicks use one
-request; network-stack retransmission after disconnection retains the same request key.
+The synthetic assembly has three findings consolidated into two risks. The scenario top-up
+from a6a5af396b2c64acc93ae1e15573d480afff019c is required to reach the unchanged minimum of
+three scenarios. Each success preserves the original failed attempt with retry_count 0
+and persists a new retry_count 1 attempt through REPORT_QUEUED → REPORT_GENERATING →
+REPORT_READY, with a bound report row. Forbidden and pre-dispatch/transport failures
+must not create an attempt. Native forms work without JavaScript or client chunks.
+
+Explicit doubles: route admin identity, freeze lookup, report-data assembly, automation
+flags, private object storage, manuscript writer and PDF renderer. Actual provider prose,
+PDF quality, Supabase HTTP transport, deployed Next.js routing/session behaviour and
+customer delivery are not certified by this harness. PostgreSQL cron/net/vault/auth
+platform scaffolding follows the existing migration replay harness. Server-side fetch is
+prohibited; browser traffic is restricted to localhost. No real order data or credentials
+are used.
+
+`npm run essential:test-retry-browser` retains a faster SQLite-adapter smoke matrix.
+It does not replace the PostgreSQL regression.

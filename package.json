@@ -226,7 +226,8 @@
     "v11:portfolio-census": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/portfolio-census.mjs",
     "v11:comprehensive-live": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-live-report.mjs",
     "website:test-meta-tracking": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/meta-tracking-tests.mjs",
-    "essential:test-retry-browser": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/recovery/retry-browser-tests.mjs"
+    "essential:test-retry-browser": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/recovery/retry-browser-tests.mjs",
+    "essential:test-retry-postgres": "bash scripts/recovery/test-postgres-browser.sh"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
