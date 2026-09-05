@@ -213,8 +213,7 @@ export async function generateSyntheticComprehensiveReport(input: {
     const advisoryModel = buildAdvisoryEvidenceModel(assembled);
     const rendered = await renderComprehensiveReportPdf({
       assembled,
-      evidenceModel: advisoryModel,
-      maxRepairsPerSlot: 0
+      evidenceModel: advisoryModel
     });
     const pdf = await prependSyntheticSampleCover(rendered.pdf);
     if (!pdf.length || pdf.subarray(0, 4).toString('ascii') !== '%PDF') {

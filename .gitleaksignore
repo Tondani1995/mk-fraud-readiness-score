@@ -88,28 +88,3 @@ c46430b490f0cdb18c8d0a7353563fae7149e200:.gitleaksignore:generic-api-key:75
 # run-time derived value in a later commit; this entry covers the historical commit, which
 # the full-history scan still reaches.
 f01dd0510abf51386bc49e726803f08a03a7d28b:.github/workflows/supabase-migration-replay.yml:generic-api-key:828
-
-# Reviewed 2026-09-04: the full-history scan surfaced three hard-coded authorization literals on
-# the temporary canonical Comprehensive owner-export branch. They were local Preview-route gates,
-# not provider/API credentials; the branch has now been retired by resetting it to the current
-# Production base, so those literals are no longer used by an active branch surface. The remaining
-# records are immutable historical commits, so suppression is restricted to these exact fingerprints.
-189025e4b0ab12ec5293e88b1e54554b61f10fd4:src/app/owner-canonical-diagnostics/page.tsx:generic-api-key:9
-596a64d03629c98a84f569a07009e15b549293e2:src/app/owner-canonical-export/page.tsx:generic-api-key:11
-cf0653055cc89b38536f6e2d95d9800cfc2b63cb:src/app/score/api/internal/canonical-synthetic-export/route.ts:generic-api-key:13
-
-# Reviewed 2026-09-04: these ten historical REQUEST_KEY literals were deterministic idempotency
-# keys in credential-free acceptance workflows. They were included in request JSON to prevent
-# duplicate report-generation attempts; they were not authentication credentials and granted no
-# access to Vercel, GitHub, Supabase, the AI provider or any customer system. The Preview session
-# itself was separately protected. Suppress only the exact historical fingerprints.
-655db1c576147750499ff68838c6bc0008e0d517:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
-c97b919f7e169e2d5579b1ab3726869570ae46d3:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
-4e1bc2bde84aef2c0fb4016f387b09ad820c635a:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
-846a4bde8fa3fb3afb28279a0ff9579d0c38ec50:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
-c1c7c1c0add919a6e66c14bf634847de1f873ecc:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
-a4e41e38ab14028b2cca99a32b8fafe557627a8c:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
-f257126a9f02feb4b895d67c4ba0bd5f53646ef0:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
-0472502a058909ef1ac2684f1bffe9660405a3e2:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:19
-8cd9ec6adc0ecb6088891fcba9bea5ac6acf5e7e:.github/workflows/essential-v9-rendered-certification.yml:generic-api-key:129
-cb84b72a27b621eaa4280740f4ecec5dfa690a39:.github/workflows/v10-final-acceptance-generation.yml:generic-api-key:23

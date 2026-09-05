@@ -151,23 +151,11 @@ if (process.argv.includes('--print-hash')) {
   process.exit(0);
 }
 
-// PR #63 carries one manually reviewed AST shape for the bounded Comprehensive production
-// propagation. The diff adds no new Storage or Auth Admin call sites and no new service-role
-// table/RPC authority; the changed shape comes from moving the already-authorised Comprehensive
-// provenance lookup/call into the manuscript-first adapter. Accept only that exact reviewed hash,
-// then continue through every table, RPC, Storage and Auth Admin assertion below. This is not a
-// blanket bypass: any subsequent source-level database-operation drift still fails closed.
-const reviewedProductionPropagationAstSha256 = '77aefb5f1cf7062302730483d298e6503195a584019a6637ff27e2bad2dad9dc';
-const astInventoryReviewed =
-  fullAstInventorySha256 === manifest.analysis.fullAstInventorySha256
-  || fullAstInventorySha256 === reviewedProductionPropagationAstSha256;
-assert(
-  astInventoryReviewed,
+assert.equal(
+  fullAstInventorySha256,
+  manifest.analysis.fullAstInventorySha256,
   'AST database-operation inventory changed: MANUAL PRIVILEGE REVIEW REQUIRED',
 );
-if (fullAstInventorySha256 === reviewedProductionPropagationAstSha256) {
-  console.log('AST inventory matches the manually reviewed PR #63 Comprehensive propagation shape; running full privilege assertions.');
-}
 
 const tableByName = new Map(manifest.tables.map((table) => [table.table, table]));
 const serviceRpcByName = new Map(

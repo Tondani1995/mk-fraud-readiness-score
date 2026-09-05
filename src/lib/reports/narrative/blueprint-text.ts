@@ -531,10 +531,13 @@ function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block
 }
 
 function scopedNumericValues(pack: NarrativeFactPack, permittedClaimRefs: string[]): Set<string> {
-  // Scale denominators and neutral counters are structural constants, not
-  // customer claims. All other numbers must come from the paragraph's bound
-  // Fact Pack references.
+  // Essential keeps its certified whole-Fact-Pack numeric grounding behaviour.
+  // Comprehensive uses the paragraph-scoped provenance contract below.
   const values = new Set<string>(['0', '1', '100']);
+  if (pack.productTier === 'essential') {
+    for (const match of JSON.stringify(pack).matchAll(/\b\d+(?:\.\d+)?%?\b/g)) values.add(match[0].replace('%', ''));
+    return values;
+  }
   const permitted = new Set(permittedClaimRefs);
   for (const fact of pack.facts) {
     if (!permitted.has(fact.id)) continue;
