@@ -148,8 +148,41 @@ export function replaceWholeManuscriptRepairTarget(markdown: string, input: { ti
   return `${markdown.slice(0, start)}${repairedText.trim()}${markdown.slice(end)}`;
 }
 
+type WholeManuscriptRepairTarget = NonNullable<ReturnType<typeof sectionForPath>>;
+
+/** Essential retains its certified legacy condition unchanged: bounded local assurance repair
+ * is offered only when the whole current hard-issue set is assurance. */
 function localAssuranceEligible(validation: TextFirstValidationReport, parsed: ParsedBlueprintMarkdown): boolean {
   return parsed.ok && validation.hardTruth.issues.length > 0 && validation.hardTruth.issues.every((issue) => issue.code === 'assurance_claim');
+}
+
+/**
+ * Recoverability is a property of ONE validation issue against ONE deterministic Blueprint
+ * target, not of the manuscript's current hard-issue set. Comprehensive previously reused the
+ * Essential whole-set condition above, so a manuscript carrying both unsupported numeric claims
+ * and assurance claims classified every assurance claim as non-repairable and failed closed
+ * before the first targeted repair. Severity is untouched: both codes remain release-blocking
+ * hard-truth results, and the unchanged validators still decide release after each repair.
+ */
+function localHardIssueEligible(input: {
+  code: string;
+  target: WholeManuscriptRepairTarget | null;
+  parsed: ParsedBlueprintMarkdown;
+  validation: TextFirstValidationReport;
+  strictHardTruth: boolean | undefined;
+}): boolean {
+  if (!input.parsed.ok || !input.target) return false;
+  // Comprehensive may replace a bounded paragraph that carries an unsupported number using only
+  // its permitted deterministic facts. The unchanged numeric validator still decides release.
+  if (input.code === 'unsupported_numeric_claim') return Boolean(input.strictHardTruth);
+  if (input.code === 'assurance_claim') {
+    // The defect is local only when the deterministic assurance classifier still matches a
+    // phrase inside this exact target block. No fuzzy or cross-block matching is permitted.
+    return input.strictHardTruth
+      ? Boolean(classifyAssuranceLanguage(input.target.targetText))
+      : localAssuranceEligible(input.validation, input.parsed);
+  }
+  return false;
 }
 
 function matchedPhraseFor(targetText: string, code: string): string | undefined {
@@ -230,27 +263,22 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
     const target = targetIssue ? sectionForPath(checked.parsed, input.blueprint, targetIssue.path) : null;
     const localEligible = Boolean(target && targetIssue && (
       semanticIssues.includes(targetIssue)
-      || localAssuranceEligible(checked.validation, checked.parsed)
-      // Comprehensive may repair an unsupported numeric sentence only by replacing the
-      // bounded paragraph from its permitted deterministic facts. The unchanged final
-      // validator still decides release, so unsupported numbers can never pass through.
-      || (input.strictHardTruth && targetIssue.code === 'unsupported_numeric_claim')
+      || localHardIssueEligible({ code: targetIssue.code, target, parsed: checked.parsed, validation: checked.validation, strictHardTruth: input.strictHardTruth })
     ));
     const issueCode = targetIssue?.code ?? (qualityFailure ? 'repetition' : 'malformed_manuscript');
     const classified = classifyNarrativeRecoveryIssue({ code: issueCode, localSemanticEligible: localEligible });
     sequence += 1;
     rejectedCandidateDirectories.push(await persistWholeManuscriptRejectedCandidate({ rootDirectory: input.diagnosticsRootDirectory, attemptIdentity: input.attemptIdentity, candidate, parsed: checked.parsed, validation: checked.validation, failurePaths: [...hardIssues, ...semanticIssues].map((issue) => issue.path), matchedPhrases: target && targetIssue ? [matchedPhraseFor(target.targetText, targetIssue.code)].filter((value): value is string => Boolean(value)) : [], recovery, sequence }));
 
-    // Comprehensive still fails closed on truth-bearing defects. The previous blanket
-    // strictHardTruth gate also blocked explicitly repairable customer-copy defects before
-    // the bounded recovery policy could run. Permit only codes that are explicitly marked
-    // repair-eligible; unsupported facts, numbers, IDs, owners, timings and unknown codes
-    // remain immediate hard failures and still cannot reach a repair call.
+    // Comprehensive still fails closed on truth-bearing defects. Each hard issue is classified
+    // against its own deterministic Blueprint target, so a mixed manuscript no longer condemns
+    // the repairable issues in it. Permit only codes that are explicitly marked repair-eligible
+    // for that individual target; unsupported facts, IDs, owners, timings, an issue with no
+    // deterministic target and unknown codes remain immediate hard failures and still cannot
+    // reach a repair call.
     const unrepairableHardIssues = hardIssues.filter((issue) => {
       const issueTarget = sectionForPath(checked.parsed, input.blueprint, issue.path);
-      const localSemanticEligible = issue.code === 'assurance_claim'
-        ? Boolean(issueTarget && localAssuranceEligible(checked.validation, checked.parsed))
-        : Boolean(issueTarget);
+      const localSemanticEligible = localHardIssueEligible({ code: issue.code, target: issueTarget, parsed: checked.parsed, validation: checked.validation, strictHardTruth: input.strictHardTruth });
       return !classifyNarrativeRecoveryIssue({ code: issue.code, localSemanticEligible }).repairEligible;
     });
     if (input.strictHardTruth && unrepairableHardIssues.length > 0) {
