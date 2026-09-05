@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildBlueprintMarkdownSkeleton, parseBlueprintMarkdown, validateBlueprintTextManuscript } from '../../src/lib/reports/narrative/blueprint-text.ts';
-import { recoverWholeManuscript } from '../../src/lib/reports/narrative/whole-manuscript-recovery.ts';
+import { recoverWholeManuscript, replaceWholeManuscriptRepairTarget } from '../../src/lib/reports/narrative/whole-manuscript-recovery.ts';
 import { emptyNarrativeRecoveryBudget, recoveryDecision } from '../../src/lib/reports/narrative/recovery-policy.ts';
 import { classifyNarrativeIssue, classifyNarrativeRecoveryIssue } from '../../src/lib/reports/narrative/validation-severity.ts';
 import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
@@ -101,4 +101,105 @@ const beforeUnaffected = bad.split('## What management should take away')[0];
 assert.equal(repaired.markdown.split('## What management should take away')[0], beforeUnaffected);
 assert.equal(classifyAssuranceLanguage('the recorded control position should be reviewed by management before reliance'), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable bounded defects', 'unsupported numeric claims receive bounded paragraph repair but remain release-blocking until revalidation', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls + numericRepairCalls }));
+// The real Comprehensive shape legitimately repeats this H2 for a systemic theme and its
+// later material-risk cluster. Recovery used to discard the section identity, choose the first
+// same-title heading globally and then report zero matches for the later paragraph.
+const productionHeading = 'Monitoring, escalation and detection coverage';
+const systemicChapterId = 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS';
+const materialChapterId = 'MATERIAL-FRAUD-RISK-THEMES';
+const productionShapeBlueprint = {
+  ...structuredClone(blueprint),
+  reportTier: 'comprehensive',
+  chapters: [
+    {
+      ...structuredClone(blueprint.chapters[0]), chapterId: systemicChapterId, order: 1, title: 'Systemic fraud-readiness diagnosis',
+      sections: [{ ...structuredClone(sections[0]), chapterId: systemicChapterId, sectionId: `${systemicChapterId}-THEME-03`, order: 1, title: productionHeading }]
+    },
+    {
+      ...structuredClone(blueprint.chapters[0]), chapterId: materialChapterId, order: 2, title: 'Material fraud-risk themes',
+      sections: [{ ...structuredClone(sections[1]), chapterId: materialChapterId, sectionId: `${materialChapterId}-CLUSTER-03`, order: 1, title: productionHeading }]
+    }
+  ]
+};
+const productionShapeFacts = { ...structuredClone(facts), productTier: 'comprehensive' };
+const unsafeProductionParagraph = 'The controls were independently verified across the monitoring process.';
+const repairedProductionParagraph = 'Management should review monitoring exceptions and retain evidence of timely escalation.';
+const earlierSameTitleParagraph = 'The earlier systemic theme records the management context for monitoring coverage.';
+const precedingParagraph = 'The preceding material-risk paragraph remains linked to the recorded control position.';
+const followingParagraph = 'The following material-risk paragraph remains linked to the management response.';
+const productionShapeMarkdown = [
+  '# Systemic fraud-readiness diagnosis',
+  `## ${productionHeading}`,
+  earlierSameTitleParagraph,
+  '# Material fraud-risk themes',
+  `## ${productionHeading}`,
+  precedingParagraph,
+  unsafeProductionParagraph,
+  followingParagraph
+].join('\n\n');
+const productionParsed = parseBlueprintMarkdown(productionShapeMarkdown, productionShapeBlueprint);
+assert.equal(productionParsed.ok, true, JSON.stringify(productionParsed.errors));
+assert.equal((productionShapeMarkdown.match(new RegExp(`^## ${productionHeading}$`, 'gm')) ?? []).length, 2);
+assert.equal(productionParsed.chapters[1].sections[0].paragraphs[1].text, unsafeProductionParagraph);
+assert.equal(productionParsed.chapters[0].sections[0].paragraphs.some((block) => block.text === unsafeProductionParagraph), false);
+assert.throws(
+  () => replaceWholeManuscriptRepairTarget(productionShapeMarkdown, { title: productionHeading, level: 2, headingIndex: 1, targetText: unsafeProductionParagraph, repairedText: repairedProductionParagraph }),
+  (error) => error?.code === 'repair_target_ambiguous' && /received 0/.test(error.message)
+);
+
+let productionRepairCalls = 0;
+const productionShapeWriter = {
+  ...writer,
+  async repairBlock(input) {
+    productionRepairCalls += 1;
+    assert.equal(input.sectionId, `${materialChapterId}-CLUSTER-03`);
+    assert.equal(input.failingPath, `${materialChapterId}-CLUSTER-03.paragraphs[1]`);
+    assert.equal(input.targetText, unsafeProductionParagraph);
+    return {
+      contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1', architecture: 'whole-manuscript-targeted-repair',
+      repairedText: repairedProductionParagraph,
+      blueprint: productionShapeBlueprint,
+      writerMetadata: { ...baseCandidate('', { ...emptyNarrativeRecoveryBudget(), targetedRepairCount: 1, totalCalls: 1 }).writerMetadata }
+    };
+  }
+};
+const productionShapeCandidate = { ...baseCandidate(productionShapeMarkdown), blueprint: productionShapeBlueprint };
+const productionShapeRepaired = await recoverWholeManuscript({
+  writer: productionShapeWriter,
+  context,
+  blueprint: productionShapeBlueprint,
+  factPack: productionShapeFacts,
+  initialResult: productionShapeCandidate,
+  attemptIdentity: 'production-duplicate-monitoring-heading',
+  diagnosticsRootDirectory: root,
+  runCoherence: false,
+  strictHardTruth: true
+});
+const expectedProductionMarkdown = productionShapeMarkdown.replace(unsafeProductionParagraph, repairedProductionParagraph);
+assert.equal(productionRepairCalls, 1);
+assert.equal(productionShapeRepaired.markdown, expectedProductionMarkdown);
+assert.equal(productionShapeRepaired.validation.ok, true);
+assert.equal(productionShapeRepaired.recovery.targetedRepairCount, 1);
+assert.equal(productionShapeRepaired.recovery.fullRegenerationCount, 0);
+assert.equal(productionShapeRepaired.markdown.includes(earlierSameTitleParagraph), true);
+assert.equal(productionShapeRepaired.markdown.includes(precedingParagraph), true);
+assert.equal(productionShapeRepaired.markdown.includes(followingParagraph), true);
+assert.deepEqual(productionShapeRepaired.markdown.match(/^#{1,3} .+$/gm), productionShapeMarkdown.match(/^#{1,3} .+$/gm));
+
+const structurallyScopedReplacement = replaceWholeManuscriptRepairTarget(
+  productionShapeMarkdown.replace(earlierSameTitleParagraph, unsafeProductionParagraph),
+  { title: productionHeading, level: 2, headingIndex: 3, targetText: unsafeProductionParagraph, repairedText: repairedProductionParagraph }
+);
+assert.equal(structurallyScopedReplacement.split('# Material fraud-risk themes')[0].includes(unsafeProductionParagraph), true);
+assert.equal(structurallyScopedReplacement.split('# Material fraud-risk themes')[1].includes(repairedProductionParagraph), true);
+assert.throws(
+  () => replaceWholeManuscriptRepairTarget(productionShapeMarkdown, { title: productionHeading, level: 2, headingIndex: 3, targetText: 'A target that is absent from this structural scope.', repairedText: repairedProductionParagraph }),
+  (error) => error?.code === 'repair_target_ambiguous' && /received 0/.test(error.message)
+);
+const duplicateWithinTargetBody = productionShapeMarkdown.replace(unsafeProductionParagraph, `${unsafeProductionParagraph}\n\n${unsafeProductionParagraph}`);
+assert.throws(
+  () => replaceWholeManuscriptRepairTarget(duplicateWithinTargetBody, { title: productionHeading, level: 2, headingIndex: 3, targetText: unsafeProductionParagraph, repairedText: repairedProductionParagraph }),
+  (error) => error?.code === 'repair_target_ambiguous' && /received 2/.test(error.message)
+);
+
+console.log(JSON.stringify({ status: 'PASS', checks: ['release-blocking assurance claim routed to targeted repair', 'strict Comprehensive mode permits only explicitly repairable bounded defects', 'unsupported numeric claims receive bounded paragraph repair but remain release-blocking until revalidation', 'em dash and customer-copy leakage are repairable without weakening truth validation', 'safe wording passes hard truth and assurance', 'retry increments per failed repair and stops at four', 'full regeneration remains available only after repairs', 'non-repairable structural failure fails closed', 'rejected candidate persisted before repair handling', 'unaffected prose preserved', 'duplicate Production monitoring headings retain structural identity', 'only the intended later paragraph is replaced', 'neighbouring prose and headings remain byte-identical', 'same prose in another structural scope is untouched', 'zero and multiple in-scope targets fail closed'], aiCalls: 0, repairCalls: repairCalls + failingRepairCalls + strictRepairCalls + numericRepairCalls + productionRepairCalls }));

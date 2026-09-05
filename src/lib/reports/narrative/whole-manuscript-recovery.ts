@@ -92,26 +92,31 @@ function validationFor(markdown: string, blueprint: ReportBlueprint, factPack: N
   return { parsed, validation: validateBlueprintTextManuscript(parsed, blueprint, factPack) };
 }
 
-function sectionForPath(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, pathValue: string): { section: ReportBlueprint['chapters'][number]['sections'][number]; subsection?: ReportBlueprint['chapters'][number]['sections'][number]['optionalSubsections'][number]; targetText: string; permittedClaimRefs: string[]; chapterTitle: string; sectionTitle: string; subsectionTitle?: string; paragraphIndex: number; surrounding: string } | null {
+function sectionForPath(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, pathValue: string): { section: ReportBlueprint['chapters'][number]['sections'][number]; subsection?: ReportBlueprint['chapters'][number]['sections'][number]['optionalSubsections'][number]; targetText: string; permittedClaimRefs: string[]; chapterTitle: string; sectionTitle: string; subsectionTitle?: string; paragraphIndex: number; headingIndex: number; surrounding: string } | null {
   const match = pathValue.match(/^([^\.]+)\.(?:paragraphs|subsections\[[^\]]+\]\.paragraphs)\[(\d+)\]/);
   if (!match) return null;
   const identity = match[1]!;
   const paragraphIndex = Number(match[2]);
+  let headingIndex = -1;
   for (const chapter of blueprint.chapters) {
+    headingIndex += 1;
     for (const section of chapter.sections) {
+      headingIndex += 1;
       if (section.sectionId === identity) {
         const parsedSection = parsed.chapters.find((item) => item.chapterId === chapter.chapterId)?.sections.find((item) => item.sectionId === section.sectionId);
         const block = parsedSection?.paragraphs[paragraphIndex];
         if (!block) return null;
-        return { section, targetText: block.text, permittedClaimRefs: block.permittedClaimRefs, chapterTitle: chapter.title, sectionTitle: section.title, paragraphIndex, surrounding: parsedSection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n') };
+        return { section, targetText: block.text, permittedClaimRefs: block.permittedClaimRefs, chapterTitle: chapter.title, sectionTitle: section.title, paragraphIndex, headingIndex, surrounding: parsedSection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n') };
       }
-      const subsection = section.optionalSubsections.find((item) => item.subsectionId === identity);
-      if (subsection) {
-        const parsedSection = parsed.chapters.find((item) => item.chapterId === chapter.chapterId)?.sections.find((item) => item.sectionId === section.sectionId);
-        const parsedSubsection = parsedSection?.subsections.find((item) => item.subsectionId === subsection.subsectionId);
-        const block = parsedSubsection?.paragraphs[paragraphIndex];
-        if (!block) return null;
-        return { section, subsection, targetText: block.text, permittedClaimRefs: block.permittedClaimRefs, chapterTitle: chapter.title, sectionTitle: section.title, subsectionTitle: subsection.title, paragraphIndex, surrounding: parsedSubsection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n') };
+      for (const subsection of section.optionalSubsections) {
+        headingIndex += 1;
+        if (subsection.subsectionId === identity) {
+          const parsedSection = parsed.chapters.find((item) => item.chapterId === chapter.chapterId)?.sections.find((item) => item.sectionId === section.sectionId);
+          const parsedSubsection = parsedSection?.subsections.find((item) => item.subsectionId === subsection.subsectionId);
+          const block = parsedSubsection?.paragraphs[paragraphIndex];
+          if (!block) return null;
+          return { section, subsection, targetText: block.text, permittedClaimRefs: block.permittedClaimRefs, chapterTitle: chapter.title, sectionTitle: section.title, subsectionTitle: subsection.title, paragraphIndex, headingIndex, surrounding: parsedSubsection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n') };
+        }
       }
     }
   }
@@ -121,15 +126,17 @@ function sectionForPath(parsed: ParsedBlueprintMarkdown, blueprint: ReportBluepr
 function escapeRegex(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function proseRegex(value: string): RegExp { return new RegExp(value.trim().split(/\s+/).map(escapeRegex).join('\\s+'), 'g'); }
 
-function replaceTargetBlock(markdown: string, title: string, level: 2 | 3, targetText: string, repairedText: string): string {
+export function replaceWholeManuscriptRepairTarget(markdown: string, input: { title: string; level: 2 | 3; headingIndex: number; targetText: string; repairedText: string }): string {
+  const { title, level, headingIndex, targetText, repairedText } = input;
   if (/^#{1,3}\s/m.test(repairedText) || /^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(repairedText)) throw new WholeManuscriptRecoveryError('repair_output_malformed', 'Targeted repair returned a heading, list or code block instead of prose.');
-  const heading = new RegExp(`^${'#'.repeat(level)}[ \\t]+${escapeRegex(title)}[ \\t]*$`, 'm');
-  const headingMatch = heading.exec(markdown);
-  if (!headingMatch || headingMatch.index === undefined) throw new WholeManuscriptRecoveryError('repair_target_missing', `Repair target heading ${title} was not found.`);
+  // Blueprint titles intentionally repeat across chapters and subsections. The parser binds
+  // headings by Blueprint order, so retain that structural position instead of rebuilding a
+  // source boundary from the display title alone.
+  const headings = [...markdown.matchAll(/^(#{1,3})[ \t]+(.+?)[ \t]*\r?$/gm)];
+  const headingMatch = headings[headingIndex];
+  if (!headingMatch || headingMatch.index === undefined || headingMatch[1]?.length !== level || headingMatch[2] !== title) throw new WholeManuscriptRecoveryError('repair_target_missing', `Repair target heading ${title} was not found at its Blueprint position.`);
   const bodyStart = headingMatch.index + headingMatch[0].length;
-  const nextHeading = /^#{1,3}[ \t]+.+$/gm;
-  nextHeading.lastIndex = bodyStart;
-  const next = nextHeading.exec(markdown);
+  const next = headings[headingIndex + 1];
   const bodyEnd = next?.index ?? markdown.length;
   const body = markdown.slice(bodyStart, bodyEnd);
   const matcher = proseRegex(targetText);
@@ -277,7 +284,13 @@ export async function recoverWholeManuscript(input: WholeManuscriptRecoveryInput
         assuranceBoundary: input.context.boundaries.assurance
       });
       const level = target.subsection ? 3 : 2;
-      const replacedMarkdown = replaceTargetBlock(candidate.markdown, target.subsection?.title ?? target.section.title, level, target.targetText, repair.repairedText);
+      const replacedMarkdown = replaceWholeManuscriptRepairTarget(candidate.markdown, {
+        title: target.subsection?.title ?? target.section.title,
+        level,
+        headingIndex: target.headingIndex,
+        targetText: target.targetText,
+        repairedText: repair.repairedText
+      });
       const before = recovery;
       recovery = combineRecovery(before, repair.writerMetadata.recovery);
       repairRecords.push({ attempt: recovery.targetedRepairCount, scope, path: targetIssue.path, code: targetIssue.code, matchedPhrase: matchedPhraseFor(target.targetText, targetIssue.code) });
