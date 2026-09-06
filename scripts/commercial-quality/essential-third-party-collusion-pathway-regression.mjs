@@ -23,7 +23,14 @@ import { buildAdvisoryEvidenceModel } from '../../src/lib/reports/evidence-model
 import { buildEssentialProjection } from '../../src/lib/reports/essential-projection.ts';
 import { buildEssentialNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
+import { buildNarrativeWriterBrief } from '../../src/lib/reports/narrative/writer-brief.ts';
+import { runPreAiFactPackGates } from '../../src/lib/reports/narrative/pre-ai-gates.ts';
 import { FRAUD_PATHWAY_FAMILIES, FRAUD_PATHWAY_FAMILIES_BY_QUESTION } from '../../src/lib/reports/evidence-model/semantic-mappings.ts';
+import { getQuestionPlaybook } from '../../src/lib/reports/evidence-model/question-playbooks.ts';
+
+const METHODOLOGY = { methodologyVersionId: 'offline-v12', methodologyVersionCode: 'MFRS-V1.2-CANDIDATE-OWNER-CORRECTION' };
+/** The authoritative customer-facing prompt, so generated prose matches production exactly. */
+const promptFor = (questionCode) => getQuestionPlaybook(questionCode, METHODOLOGY)?.prompt ?? getQuestionPlaybook(questionCode, METHODOLOGY)?.controlObjective ?? 'Control response.';
 
 const ELIGIBLE = ['D2-Q05', 'D7-Q02', 'D7-Q03', 'D7-Q05', 'D7-Q06', 'D7-Q07'];
 
@@ -73,7 +80,7 @@ function buildData(overrides = {}) {
     const domainCode = questionCode.split('-')[0];
     return {
       questionCode, domainCode, domainName: domainMeta[domainCode].name,
-      prompt: `Anonymised ${questionCode} control response.`,
+      prompt: promptFor(questionCode),
       responseValue, normalisedScore: responseValue * 20, applicable: true, triggeredRules: [],
       weight: weights[questionCode],
       isCritical: critical.has(questionCode), isHardGate: hardGates.has(questionCode),
@@ -150,15 +157,17 @@ assert.ok(collusion.linkedFindingRefs.length > 0 && collusion.linkedRiskRefs.len
 // Full generated fact, asserted field by field.
 assert.equal(collusion.title, 'Third-party relationship manipulation or collusion escapes timely challenge');
 assert.equal(collusion.actorClass, 'A third party acting for or with the organisation, alone or with an insider able to influence the relationship');
-assert.equal(collusion.opportunity, 'Third-party relationships, and the decisions that select, retain or reward them, are not yet subject to sufficiently independent and current review.');
-assert.equal(collusion.entryPoint, 'A third-party relationship, or a decision affecting one, proceeds without timely independent challenge.');
-assert.equal(collusion.mechanism, 'An actor uses influence over a third-party relationship, or authority delegated through it, to move value or obtain advantage while the arrangement continues to appear routine.');
+assert.equal(collusion.opportunity, 'A weakness in how a third-party relationship is assessed, governed or reviewed can leave manipulation or collusion insufficiently challenged.');
+assert.equal(collusion.entryPoint, 'A third-party relationship continues, or changes, without the review the organisation intends to apply to it.');
+assert.equal(collusion.mechanism, 'An actor uses the gap left by that weakness to obtain value or advantage through the relationship while it continues to appear routine.');
 assert.equal(collusion.consequence, 'Value or advantage can move through a third-party relationship before the arrangement is independently challenged.');
-assert.equal(collusion.immediateContainment, 'Pause further commitment, payment or delegated authority on the affected third-party relationship, independently confirm its current ownership, control and pricing basis, and preserve the selection and approval trail.');
-assert.equal(collusion.longTermResponse, 'Implement risk-tiered third-party assessment, periodic re-review of high-risk relationships and independent oversight of the decisions that select, retain or reward a third party.');
+assert.equal(collusion.immediateContainment, 'Pause the affected third-party activity where proportionate, preserve the relevant relationship and decision records, and complete the review required by the linked control before further commitment.');
+assert.equal(collusion.longTermResponse, 'Apply the assessment, governance and review disciplines identified by the linked findings consistently across the third-party population, with defined ownership, evidence and escalation.');
 // Member-derived, not a hardcoded family assertion.
-assert.match(collusion.currentControlWeakness, /D7-Q05/, 'the weakness is derived from the linked finding');
-assert.equal(/D7-Q02|D7-Q03|D7-Q06|D7-Q07|D2-Q05/.test(collusion.currentControlWeakness), false, 'no other member is asserted');
+assert.equal(collusion.currentControlWeakness, `"${promptFor('D7-Q05').replace(/\.$/, '')}" is recorded as "Initial / ad hoc".`, 'the weakness quotes the linked condition and its recorded response');
+for (const other of ['D7-Q02', 'D7-Q03', 'D7-Q06', 'D7-Q07', 'D2-Q05']) {
+  assert.equal(collusion.currentControlWeakness.includes(promptFor(other).replace(/\.$/, '')), false, `no other member is asserted: ${other}`);
+}
 // Indicators come only from D7-Q05's own playbook.
 for (const indicator of ['A high-risk third party is overdue for periodic review', 'An ownership change is detected without reassessment', 'Pricing drifts away from the agreed basis without challenge']) {
   assert.equal(collusion.warningIndicators.includes(indicator), true, `missing D7-Q05 indicator: ${indicator}`);
@@ -168,14 +177,22 @@ for (const foreign of ['Award criteria are set or changed after bid opening', 'A
 }
 
 // The explicit truth requirement: a D7-Q05-only scenario asserts none of these.
-const collusionText = Object.values(collusion).flatMap((v) => Array.isArray(v) ? v : [v]).filter((v) => typeof v === 'string').join(' ');
+// Only the family-level generated language is scanned. Member-derived fields
+// (currentControlWeakness, requiredControlResponse, warningIndicators) are authorised by the
+// linked finding's own authoritative playbook, which is exactly what the owner permits.
+const FAMILY_LEVEL_FIELDS = ['title', 'actorClass', 'opportunity', 'entryPoint', 'mechanism', 'concealment', 'consequence', 'immediateContainment', 'longTermResponse'];
+const collusionText = FAMILY_LEVEL_FIELDS.map((field) => collusion[field]).join(' ');
 for (const [label, pattern] of [
-  ['bank-detail change', /bank[- ]detail|bank detail|banking detail/i],
-  ['payment-instruction verification', /payment[- ]instruction/i],
+  ['bank-detail or payment-instruction', /bank[- ]detail|banking detail|payment[- ]instruction/i],
   ['supplier onboarding', /onboard/i],
-  ['bid rigging', /bid rig|bid rotation|rotated? (?:winning )?bid|bid opening/i],
+  ['bid rigging', /bid rig|bid rotation|rotated? (?:winning )?bid|bid opening|single-source/i],
   ['conflict of interest', /conflict of interest|undisclosed interest|declared conflict/i],
-  ['fictitious supplier', /fictitious supplier|false supplier|ghost supplier/i]
+  ['fictitious supplier', /fictitious supplier|false supplier|ghost supplier/i],
+  ['supplier selection', /supplier selection|select(?:s|ing)? (?:a )?(?:third part|supplier|vendor)|sourcing decision|award/i],
+  ['reward decisions', /reward|retain or reward/i],
+  ['payment', /\bpayment\b|\bpay(?:able|ment)s?\b|invoice/i],
+  ['delegated authority', /delegated authority|delegated collection/i],
+  ['selection or approval trail', /approval trail|selection trail/i]
 ]) {
   assert.equal(pattern.test(collusionText), false, `D7-Q05-only scenario must not claim ${label}: ${collusionText.match(pattern)}`);
 }
@@ -208,6 +225,74 @@ const noScenarioPack = { ...pack, scenarios: [], narrativeBounds: { ...pack.narr
 assert.throws(() => planFor(noScenarioPack), /Essential Story Plan contains an invalid scenario count/);
 assert.doesNotThrow(() => planFor({ ...noScenarioPack, highReadinessSparseNarrativeReason: 'Only 3 material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.' }));
 
+// ---------------------------------------------------------------------------
+// The real semantic pre-AI contract, not just the Story Plan assertion.
+// ---------------------------------------------------------------------------
+const writerBrief = buildNarrativeWriterBrief(pack, plan);
+const gateReport = runPreAiFactPackGates(pack, plan, writerBrief);
+// The gate that this correction exists to satisfy.
+const pathwayGate = gateReport.results.find((r) => r.gate === 'scenario-pathways');
+assert.ok(pathwayGate && pathwayGate.status === 'PASS', 'the scenario-pathways gate must accept THIRD_PARTY_COLLUSION');
+assert.ok(gateReport.results.find((r) => r.gate === 'scenario-source-compatibility')?.status === 'PASS', 'scenario families must be supported by linked finding pathway mappings');
+assert.ok(gateReport.results.find((r) => r.gate === 'SCENARIO-FIELD-INTEGRITY')?.status === 'PASS', 'scenario fields must distinguish recorded weakness from required response');
+assert.ok(gateReport.results.find((r) => r.gate === 'writer-brief-purity')?.status === 'PASS', 'the sanitized writer payload must stay free of internal identifiers');
+assert.ok(gateReport.results.find((r) => r.gate === 'story-plan-bounds')?.status === 'PASS', 'Story Plan bounds must match the Fact Pack narrative core');
+// ROADMAP-TARGET-PRESERVATION is a pre-existing property of this assessment's finding set: every
+// selected finding's playbook targets 60 or 90 days, so the roadmap carries no "30 days" item.
+// It fails identically before this candidate and is unrelated to the scenario taxonomy. It is
+// pinned here so any future change to it is deliberate, not silent.
+const failedGates = gateReport.results.filter((r) => r.status !== 'PASS').map((r) => r.gate);
+assert.deepEqual(failedGates, ['ROADMAP-TARGET-PRESERVATION'], `unexpected pre-AI gate failure: ${gateReport.results.filter((r) => r.status !== 'PASS').map((r) => `${r.gate}: ${r.detail}`).join(' | ')}`);
+
+// ---------------------------------------------------------------------------
+// Owner-review variants: complete generated fact for each shape.
+// ---------------------------------------------------------------------------
+const SCENARIO_FIELDS = ['title','actorClass','opportunity','entryPoint','mechanism','currentControlWeakness','requiredControlResponse','concealment','consequence','immediateContainment','longTermResponse','warningIndicators','linkedFindingIds','linkedRiskIds'];
+function variant(label, overrides) {
+  const vData = buildData(overrides);
+  const vModel = buildAdvisoryEvidenceModel(vData);
+  const { pack: vPack } = packFor(vData, vModel);
+  const scenario = vPack.scenarios.find((x) => x.scenarioFamily === 'THIRD_PARTY_COLLUSION');
+  assert.ok(scenario, `${label}: THIRD_PARTY_COLLUSION scenario must be generated`);
+  // Every field of the generated fact is populated and asserted present.
+  for (const field of SCENARIO_FIELDS) {
+    const value = scenario[field];
+    assert.ok(Array.isArray(value) ? value.length > 0 : Boolean(String(value ?? '').trim()), `${label}: ${field} is empty`);
+  }
+  // Shared family-level language is identical across every shape.
+  assert.equal(scenario.title, 'Third-party relationship manipulation or collusion escapes timely challenge');
+  assert.equal(scenario.opportunity, collusion.opportunity);
+  assert.equal(scenario.entryPoint, collusion.entryPoint);
+  assert.equal(scenario.mechanism, collusion.mechanism);
+  assert.equal(scenario.consequence, collusion.consequence);
+  assert.equal(scenario.immediateContainment, collusion.immediateContainment);
+  assert.equal(scenario.longTermResponse, collusion.longTermResponse);
+  // Member-derived fields name only the actually linked members.
+  for (const id of scenario.linkedFindingIds) {
+    const code = id.replace('MF-', '');
+    assert.ok(scenario.currentControlWeakness.includes(promptFor(code).replace(/\.$/, '')), `${label}: weakness must quote the condition for ${code}`);
+  }
+  assert.match(scenario.currentControlWeakness, /^("[^"]+" is recorded as "[^"]+"\.\s?)+$/, `${label}: weakness must be quoted condition and quoted recorded response`);
+  // Family-level language never carries a concept the linked members do not establish.
+  const famText = FAMILY_LEVEL_FIELDS.map((f) => scenario[f]).join(' ');
+  for (const pattern of [/bank[- ]detail|payment[- ]instruction/i, /onboard/i, /bid rig|bid opening|single-source/i, /conflict of interest/i, /\bpayment\b|invoice/i, /delegated authority/i, /approval trail/i, /reward/i]) {
+    assert.equal(pattern.test(famText), false, `${label}: family-level language must not assert ${pattern}`);
+  }
+  const vPlan = buildNarrativeStoryPlan(vPack);
+  assert.doesNotThrow(() => assertNarrativeStoryPlan(vPlan, vPack), `${label}: Story Plan must pass`);
+  const vGate = runPreAiFactPackGates(vPack, vPlan, buildNarrativeWriterBrief(vPack, vPlan));
+  assert.equal(vGate.results.find((r) => r.gate === 'scenario-pathways')?.status, 'PASS', `${label}: scenario-pathways must accept the family`);
+  const vFailed = vGate.results.filter((r) => r.status !== 'PASS').map((r) => r.gate);
+  assert.deepEqual(vFailed, ['ROADMAP-TARGET-PRESERVATION'], `${label}: unexpected pre-AI gate failure: ${vFailed.join(' | ')}`);
+  return { label, scenario, scenarioCount: vPack.scenarios.length, families: vPack.scenarios.map((x) => x.scenarioFamily) };
+}
+const variants = [
+  variant('1 - D7-Q05 only (real affected order)', {}),
+  variant('2 - D7-Q02 / D7-Q03 procurement and conflict', { 'D7-Q02': 0, 'D7-Q03': 0, 'D7-Q05': 3 }),
+  variant('3 - D2-Q05 third-party fraud-risk assessment', { 'D2-Q05': 0, 'D7-Q05': 3 })
+];
+assert.equal(variants[0].scenario.linkedFindingIds.join(','), 'MF-D7-Q05');
+
 console.log(JSON.stringify({
   status: 'PASS', providerCalls: 0, aiCalls: 0,
   before: { scenarioCount: beforePack.scenarios.length, families: beforePack.scenarios.map((s) => s.scenarioFamily), storyPlan: 'FAILS' },
@@ -215,5 +300,8 @@ console.log(JSON.stringify({
   selectedFindings: projection.findings.map((f) => f.questionCode),
   collusionLinkedFindings: collusion.linkedFindingIds,
   collusionLinkedRisks: collusion.linkedRiskIds,
-  eligibleQuestions: mapped
+  eligibleQuestions: mapped,
+  preAiGateScenarioPathways: pathwayGate.status,
+  preAiGateKnownPreExistingFailure: failedGates,
+  variants: variants.map((v) => ({ variant: v.label, scenarioCount: v.scenarioCount, families: v.families, scenario: v.scenario }))
 }, null, 2));

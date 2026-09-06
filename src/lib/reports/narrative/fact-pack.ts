@@ -444,7 +444,7 @@ const SCENARIO_FAMILY_LANGUAGE: Record<string, ScenarioFamilyLanguage> = {
   // deliberately asserts no bid rigging, conflict of interest, onboarding failure or bank-detail
   // change, because no single eligible finding establishes those. Member-specific conditions
   // reach the customer only through member-derived fields.
-  third_party_collusion: { actorClass: 'A third party acting for or with the organisation, alone or with an insider able to influence the relationship', opportunity: 'Third-party relationships, and the decisions that select, retain or reward them, are not yet subject to sufficiently independent and current review.', entryPoint: 'A third-party relationship, or a decision affecting one, proceeds without timely independent challenge.', mechanism: 'An actor uses influence over a third-party relationship, or authority delegated through it, to move value or obtain advantage while the arrangement continues to appear routine.' },
+  third_party_collusion: { actorClass: 'A third party acting for or with the organisation, alone or with an insider able to influence the relationship', opportunity: 'A weakness in how a third-party relationship is assessed, governed or reviewed can leave manipulation or collusion insufficiently challenged.', entryPoint: 'A third-party relationship continues, or changes, without the review the organisation intends to apply to it.', mechanism: 'An actor uses the gap left by that weakness to obtain value or advantage through the relationship while it continues to appear routine.' },
   external_fraud_monitoring_gap: { actorClass: 'An external actor using a customer, supplier, partner or provider-operated channel', opportunity: 'External-party threat coverage and provider reporting are not yet connected to timely organisational review.', entryPoint: 'A relevant external channel produces a fraud signal or provider exception.', mechanism: 'An actor uses a channel or service boundary where the organisation’s own monitoring and provider reporting are not joined or escalated promptly.' }
 };
 
@@ -830,7 +830,7 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     payroll_manipulation: 'Hold the affected payroll run or payment instruction, independently verify the master-file change, preserve the change trail and escalate the exception to Finance and People leadership.',
     cash_custody_misuse: 'Secure the cash point, perform an independent recount and banking reconciliation, preserve custody records and escalate the difference under the defined threshold.',
     stock_asset_misuse: 'Secure the affected stock or asset population, pause unsupported movement or disposal, perform an independent count and preserve the movement and write-off trail.',
-    third_party_collusion: 'Pause further commitment, payment or delegated authority on the affected third-party relationship, independently confirm its current ownership, control and pricing basis, and preserve the selection and approval trail.'
+    third_party_collusion: 'Pause the affected third-party activity where proportionate, preserve the relevant relationship and decision records, and complete the review required by the linked control before further commitment.'
   };
   const fallbackLongTerm: Record<string, string> = {
     supplier_payment_diversion: 'Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.',
@@ -841,7 +841,7 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     payroll_manipulation: 'Implement complete payroll-population reconciliation, independent pre-payment change review, anomaly testing and tracked exception closure.',
     cash_custody_misuse: 'Implement defined cash custodians, attributable counts, sealed transfers, banking reconciliation and difference escalation.',
     stock_asset_misuse: 'Implement complete stock and asset registers, authorised movement, periodic counts, reconciliation and independent write-off review.',
-    third_party_collusion: 'Implement risk-tiered third-party assessment, periodic re-review of high-risk relationships and independent oversight of the decisions that select, retain or reward a third party.'
+    third_party_collusion: 'Apply the assessment, governance and review disciplines identified by the linked findings consistently across the third-party population, with defined ownership, evidence and escalation.'
   };
   const sourceWarnings = source?.earlyWarningIndicators.filter(Boolean) ?? [];
   const usableSourceResponse = (value: string | undefined, fallback: string): string => {
@@ -861,7 +861,9 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     cash_custody_misuse: 'Cash custody, counting and reconciliation are at an initial or ad hoc stage.',
     stock_asset_misuse: 'Stock and physical-asset custody, movement and reconciliation are at an initial or ad hoc stage.'
   };
-  const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} is recorded as ${text(finding.responseLabel, 'not consistently in place').toLowerCase()}.`)).join(' ');
+  // Quoted condition and quoted recorded response. Only families without a hardcoded entry
+  // above use this path, so the rendering change is scoped to THIRD_PARTY_COLLUSION.
+  const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `"${text(finding.questionPrompt, finding.title).replace(/\.$/, '')}" is recorded as "${text(finding.responseLabel, 'not consistently in place')}".`)).join(' ');
   const canonicalScenarioId = source?.id ?? `SC-${rule.family.toUpperCase()}`;
   return {
     factRef: `SCENARIO-${String(index + 1).padStart(3, '0')}`,
