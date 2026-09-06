@@ -439,6 +439,12 @@ const SCENARIO_FAMILY_LANGUAGE: Record<string, ScenarioFamilyLanguage> = {
   payroll_master_file_manipulation: { actorClass: 'An insider manipulating payroll data or payment preparation', opportunity: 'Payroll master-file changes and unusual records are not yet independently reviewed before payment.', entryPoint: 'A bank, pay-rate, joiner or leaver change, duplicate or unusual payroll record enters a payment run.', mechanism: 'An actor alters a payroll record or introduces a duplicate or ghost record and relies on weak pre-payment reconciliation to release value.' },
   cash_custody_shortage_or_overage: { actorClass: 'An insider using weak physical-cash custody or reconciliation', opportunity: 'Cash counts, banking and difference investigation are not yet consistently attributable and timely.', entryPoint: 'A cash count, banking or reconciliation difference arises at a cash point or site.', mechanism: 'An actor diverts or withholds cash and relies on ordinary variance, delayed banking or incomplete reconciliation to avoid challenge.' },
   stock_asset_shrinkage_or_adjustment: { actorClass: 'An insider using weak stock or physical-asset custody', opportunity: 'Physical-asset movement, counting, reconciliation and write-off review are not yet consistently controlled.', entryPoint: 'A stock movement, count difference, disposal or write-off occurs without complete custody evidence.', mechanism: 'An actor removes or redirects physical value and relies on incomplete movement records, delayed counts or unsupported adjustments to conceal the loss.' },
+  // Written at the level every eligible member establishes: a third-party relationship, or a
+  // decision that selects, retains or rewards one, escaping timely independent challenge. It
+  // deliberately asserts no bid rigging, conflict of interest, onboarding failure or bank-detail
+  // change, because no single eligible finding establishes those. Member-specific conditions
+  // reach the customer only through member-derived fields.
+  third_party_collusion: { actorClass: 'A third party acting for or with the organisation, alone or with an insider able to influence the relationship', opportunity: 'Third-party relationships, and the decisions that select, retain or reward them, are not yet subject to sufficiently independent and current review.', entryPoint: 'A third-party relationship, or a decision affecting one, proceeds without timely independent challenge.', mechanism: 'An actor uses influence over a third-party relationship, or authority delegated through it, to move value or obtain advantage while the arrangement continues to appear routine.' },
   external_fraud_monitoring_gap: { actorClass: 'An external actor using a customer, supplier, partner or provider-operated channel', opportunity: 'External-party threat coverage and provider reporting are not yet connected to timely organisational review.', entryPoint: 'A relevant external channel produces a fraud signal or provider exception.', mechanism: 'An actor uses a channel or service boundary where the organisation’s own monitoring and provider reporting are not joined or escalated promptly.' }
 };
 
@@ -536,6 +542,15 @@ const FRAUD_PATHWAY_RULES: FraudPathwayRule[] = [
     whyTogether: 'These findings connect supplier identity, onboarding and payment-instruction controls to the point at which value can be redirected.',
     anchorFamilies: ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT'],
     language: SCENARIO_FAMILY_LANGUAGE.supplier_payment_redirection
+  },
+  {
+    family: 'THIRD_PARTY_COLLUSION',
+    title: 'Third-party relationship integrity',
+    whyTogether: 'These findings connect third-party risk assessment, sourcing decisions, conflict disclosure, ongoing relationship review and oversight of delegated authority to the point at which a third-party arrangement can move value without timely challenge.',
+    // Descriptive grouping only. Membership is decided solely by the explicit per-question
+    // fraudPathwayFamilies mapping, never by these families.
+    anchorFamilies: ['THIRD_PARTY_OVERSIGHT', 'FRAUD_RISK_IDENTIFICATION'],
+    language: SCENARIO_FAMILY_LANGUAGE.third_party_collusion
   },
   {
     family: 'PRIVILEGED_ACCESS_MISUSE',
@@ -743,9 +758,36 @@ function qualitativeConsequence(family: FraudPathwayFamily, findings: MaterialFi
     incident_concealment: 'Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified.',
     payroll_manipulation: 'Unauthorised payroll changes or unusual records can divert value before payment release.',
     cash_custody_misuse: 'Unresolved cash differences can conceal shortage or diversion across sites or cash points.',
-    stock_asset_misuse: 'Unreconciled movement, shrinkage or write-off can conceal loss of stock or physical assets.'
+    stock_asset_misuse: 'Unreconciled movement, shrinkage or write-off can conceal loss of stock or physical assets.',
+    third_party_collusion: 'Value or advantage can move through a third-party relationship before the arrangement is independently challenged.'
   };
+  // likelyFinancialImpact and likelyOperationalImpact are DOMAIN-level strings, not
+  // question-level. For THIRD_PARTY_COLLUSION the D7 domain impact names false suppliers,
+  // invoices and bank changes, which no single eligible finding establishes on its own, so this
+  // family states only the consequence its own pathway supports. Member-specific content
+  // reaches the customer through the member-derived weakness, indicators and control response.
+  if (family === 'THIRD_PARTY_COLLUSION') return base[family.toLowerCase()]!;
   return unique([base[family.toLowerCase()], ...financial.slice(0, 1), ...operational.slice(0, 1)]).join(' ');
+}
+
+/**
+ * Member-aware warning indicators. Each entry restates only what that question's own
+ * authoritative playbook escalation threshold and fraud mechanism already establish, so a
+ * scenario built from one finding never carries another finding's failure mode.
+ */
+const THIRD_PARTY_COLLUSION_INDICATORS_BY_QUESTION: Record<string, string[]> = {
+  'D2-Q05': ['A high-risk third-party relationship operates without a recorded fraud assessment', 'Delegated authority is granted outside an assessed risk tier'],
+  'D7-Q02': ['Award criteria are set or changed after bid opening', 'An unjustified single-source award', 'Repeat awards to one supplier without competitive evidence'],
+  'D7-Q03': ['An employee and supplier interest match is not investigated', 'A declared conflict has no recorded management action'],
+  'D7-Q05': ['A high-risk third party is overdue for periodic review', 'An ownership change is detected without reassessment', 'Pricing drifts away from the agreed basis without challenge'],
+  'D7-Q06': ['A procurement or vendor-master review is overdue', 'Exceptions concentrate with one individual without investigation'],
+  'D7-Q07': ['An intermediary operates without contractual fraud obligations', 'Undisclosed sub-contracting by an intermediary', 'Delegated collections remain unreconciled']
+};
+
+/** Indicators contributed by the actual linked members only; empty for every other family. */
+function memberAwareWarnings(family: FraudPathwayFamily, members: MaterialFinding[]): string[] {
+  if (family !== 'THIRD_PARTY_COLLUSION') return [];
+  return unique(members.flatMap((finding) => THIRD_PARTY_COLLUSION_INDICATORS_BY_QUESTION[finding.questionCode] ?? []));
 }
 
 function fallbackWarnings(family: FraudPathwayFamily): string[] {
@@ -757,7 +799,8 @@ function fallbackWarnings(family: FraudPathwayFamily): string[] {
     incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue'],
     payroll_manipulation: ['Payroll master-file change is not independently reviewed before release', 'Unusual payroll record remains unresolved', 'Employee or bank-detail change is made outside the expected role pattern'],
     cash_custody_misuse: ['Cash difference remains unreconciled beyond the defined review window', 'Count or banking record is incomplete', 'Cash movement or custody transfer lacks attributable approval'],
-    stock_asset_misuse: ['Stock or asset movement is not reconciled to the authorised record', 'Shrinkage or write-off exception remains unresolved', 'Physical count or custody transfer is overdue']
+    stock_asset_misuse: ['Stock or asset movement is not reconciled to the authorised record', 'Shrinkage or write-off exception remains unresolved', 'Physical count or custody transfer is overdue'],
+    third_party_collusion: ['A third-party relationship or the decision affecting it proceeds without independent challenge']
   } as Record<string, string[]>)[family.toLowerCase()] ?? [];
 }
 
@@ -775,7 +818,8 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     incident_concealment: 'Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat',
     payroll_manipulation: 'Payroll master-file manipulation reaches payment release',
     cash_custody_misuse: 'Cash custody difference remains unresolved',
-    stock_asset_misuse: 'Stock or physical-asset movement is not reconciled'
+    stock_asset_misuse: 'Stock or physical-asset movement is not reconciled',
+    third_party_collusion: 'Third-party relationship manipulation or collusion escapes timely challenge'
   };
   const fallbackContainment: Record<string, string> = {
     supplier_payment_diversion: 'Pause the affected supplier or payment instruction, independently confirm the trusted beneficiary details and preserve the approval trail.',
@@ -785,7 +829,8 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     incident_concealment: 'Open an incident record, preserve relevant records under controlled custody and assign a named containment and investigation owner.',
     payroll_manipulation: 'Hold the affected payroll run or payment instruction, independently verify the master-file change, preserve the change trail and escalate the exception to Finance and People leadership.',
     cash_custody_misuse: 'Secure the cash point, perform an independent recount and banking reconciliation, preserve custody records and escalate the difference under the defined threshold.',
-    stock_asset_misuse: 'Secure the affected stock or asset population, pause unsupported movement or disposal, perform an independent count and preserve the movement and write-off trail.'
+    stock_asset_misuse: 'Secure the affected stock or asset population, pause unsupported movement or disposal, perform an independent count and preserve the movement and write-off trail.',
+    third_party_collusion: 'Pause further commitment, payment or delegated authority on the affected third-party relationship, independently confirm its current ownership, control and pricing basis, and preserve the selection and approval trail.'
   };
   const fallbackLongTerm: Record<string, string> = {
     supplier_payment_diversion: 'Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.',
@@ -795,13 +840,17 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     incident_concealment: 'Implement protected reporting, severity-based escalation, evidence preservation and repeat-exposure review.',
     payroll_manipulation: 'Implement complete payroll-population reconciliation, independent pre-payment change review, anomaly testing and tracked exception closure.',
     cash_custody_misuse: 'Implement defined cash custodians, attributable counts, sealed transfers, banking reconciliation and difference escalation.',
-    stock_asset_misuse: 'Implement complete stock and asset registers, authorised movement, periodic counts, reconciliation and independent write-off review.'
+    stock_asset_misuse: 'Implement complete stock and asset registers, authorised movement, periodic counts, reconciliation and independent write-off review.',
+    third_party_collusion: 'Implement risk-tiered third-party assessment, periodic re-review of high-risk relationships and independent oversight of the decisions that select, retain or reward a third party.'
   };
   const sourceWarnings = source?.earlyWarningIndicators.filter(Boolean) ?? [];
   const usableSourceResponse = (value: string | undefined, fallback: string): string => {
     const candidate = text(value);
     return candidate && !/case-specific validation|escalate .*threshold|apply the control's escalation threshold|independently validate/i.test(candidate) ? candidate : fallback;
   };
+  // THIRD_PARTY_COLLUSION deliberately has no entry here. Its members establish different
+  // third-party failure modes, so the current weakness is derived below from the linked
+  // findings themselves rather than asserting every failure mode for every instance.
   const currentWeaknessByFamily: Record<string, string> = {
     supplier_payment_diversion: 'Supplier onboarding and supplier payment-instruction changes are not consistently verified before activation or payment.',
     privileged_access_misuse: 'Privileged access is not consistently restricted, logged and independently recertified.',
@@ -829,7 +878,7 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     requiredControlResponse: unique(members.map((finding) => finding.recommendedControl)).join('; '),
     concealment: text(source?.concealmentMechanism, rule.family === 'INCIDENT_CONCEALMENT' ? 'A delayed report, incomplete record or unclear custody trail makes the matter harder to reconstruct and contain.' : 'An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.'),
     consequence: qualitativeConsequence(rule.family, members),
-    warningIndicators: unique([...sourceWarnings, ...fallbackWarnings(rule.family)]).slice(0, 5),
+    warningIndicators: unique([...sourceWarnings, ...memberAwareWarnings(rule.family, members), ...fallbackWarnings(rule.family)]).slice(0, 5),
     immediateContainment: usableSourceResponse(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
     longTermResponse: fallbackLongTerm[rule.family.toLowerCase()],
     linkedFindingIds,

@@ -32,6 +32,7 @@
     "v11:whole-manuscript-truncation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/whole-manuscript-truncation-tests.mjs",
     "v11:whole-manuscript-reconciliation": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/whole-manuscript-reconciliation-tests.mjs",
     "v11:whole-manuscript-recovery": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/whole-manuscript-recovery-tests.mjs",
+    "v11:essential-third-party-collusion": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-third-party-collusion-pathway-regression.mjs",
     "v11:comprehensive-mixed-hard-issue-recovery": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-mixed-hard-issue-recovery-regression.mjs",
     "v11:bounded-section-engine": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/bounded-section-engine-tests.mjs",
     "v11:bounded-rivonia-preflight": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/bounded-rivonia-offline-preflight.mjs",

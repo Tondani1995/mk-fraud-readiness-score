@@ -16,7 +16,7 @@ export type PrimarySemanticFamily = typeof PRIMARY_SEMANTIC_FAMILIES[number];
 export const FRAUD_PATHWAY_FAMILIES = [
   'SUPPLIER_PAYMENT_DIVERSION', 'PRIVILEGED_ACCESS_MISUSE', 'IDENTITY_IMPERSONATION',
   'DETECTION_EVASION', 'INCIDENT_CONCEALMENT', 'PAYROLL_MANIPULATION', 'CASH_CUSTODY_MISUSE',
-  'STOCK_ASSET_MISUSE'
+  'STOCK_ASSET_MISUSE', 'THIRD_PARTY_COLLUSION'
 ] as const;
 export type FraudPathwayFamily = typeof FRAUD_PATHWAY_FAMILIES[number];
 
@@ -97,7 +97,21 @@ export const FRAUD_PATHWAY_FAMILIES_BY_QUESTION: Record<string, FraudPathwayFami
   'D3-Q11': ['STOCK_ASSET_MISUSE'],
   'D4-Q08': ['DETECTION_EVASION'],
   'D8-Q09': ['PRIVILEGED_ACCESS_MISUSE'],
-  'D8-Q10': ['IDENTITY_IMPERSONATION']
+  'D8-Q10': ['IDENTITY_IMPERSONATION'],
+  // THIRD_PARTY_COLLUSION carries the third_party_collusion and procurement_collusion scenario
+  // types that the authoritative question playbooks already describe but that no approved
+  // pathway previously consumed. Eligibility is explicit and question-identity driven: only
+  // questions whose own playbook names a collusion scenario type are listed. It is NOT inferred
+  // from anchorFamilies, from the THIRD_PARTY_OVERSIGHT primary family, or from keywords.
+  // D7-Q01 and D7-Q04 stay on SUPPLIER_PAYMENT_DIVERSION because their playbooks name only
+  // supplier onboarding and supplier payment-redirection types. D6-Q05 is deliberately excluded:
+  // its only scenario type is suppressed_reporting.
+  'D2-Q05': ['THIRD_PARTY_COLLUSION'],
+  'D7-Q02': ['THIRD_PARTY_COLLUSION'],
+  'D7-Q03': ['THIRD_PARTY_COLLUSION'],
+  'D7-Q05': ['THIRD_PARTY_COLLUSION'],
+  'D7-Q06': ['THIRD_PARTY_COLLUSION'],
+  'D7-Q07': ['THIRD_PARTY_COLLUSION']
 };
 
 export function semanticMappingForQuestion(questionCode: string, methodologyVersionId?: string): {
