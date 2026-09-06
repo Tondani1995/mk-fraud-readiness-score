@@ -72,6 +72,20 @@ export const FRAUD_PATHWAY_FAMILIES_BY_QUESTION: Record<string, FraudPathwayFami
   'D3-Q05': ['DETECTION_EVASION'],
   'D7-Q01': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D7-Q04': ['SUPPLIER_PAYMENT_DIVERSION'],
+  // THIRD_PARTY_OVERSIGHT is already a declared anchor family of the approved
+  // SUPPLIER_PAYMENT_DIVERSION pathway, whose own rationale is that supplier identity,
+  // onboarding and payment-instruction controls connect "to the point at which value can be
+  // redirected". These five controls govern that same third-party channel: procurement
+  // safeguards against collusion and bid rigging, supplier conflict-of-interest disclosure,
+  // periodic review of high-risk suppliers, oversight of vendor-management activity, and
+  // fraud risk over agents, brokers and outsourced providers. The per-question map simply
+  // never reflected the anchor family the pathway rule already declares. This adds no new
+  // taxonomy and no new pathway family.
+  'D7-Q02': ['SUPPLIER_PAYMENT_DIVERSION'],
+  'D7-Q03': ['SUPPLIER_PAYMENT_DIVERSION'],
+  'D7-Q05': ['SUPPLIER_PAYMENT_DIVERSION'],
+  'D7-Q06': ['SUPPLIER_PAYMENT_DIVERSION'],
+  'D7-Q07': ['SUPPLIER_PAYMENT_DIVERSION'],
   'D4-Q01': ['DETECTION_EVASION'],
   'D4-Q02': ['DETECTION_EVASION'],
   'D4-Q03': ['DETECTION_EVASION'],
