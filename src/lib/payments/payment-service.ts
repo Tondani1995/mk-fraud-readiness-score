@@ -28,8 +28,11 @@ export async function processVerifiedPayment(input: {
   actorReference: string | null;
   idempotencyKey: string;
   event: NormalisedPaymentEvent;
+  /** Test-only seam. Production always uses the real service client and notifier. */
+  dependencies?: { db?: unknown; notifyPaymentReceived?: typeof notifyInternalPaymentReceived };
 }): Promise<PaymentTransitionResult> {
-  const db = createSupabaseServiceClient() as any;
+  const db = (input.dependencies?.db ?? createSupabaseServiceClient()) as any;
+  const notifyPaymentReceived = input.dependencies?.notifyPaymentReceived ?? notifyInternalPaymentReceived;
   const technicalReference = crypto.randomUUID();
   const capability = await getPaymentAutomationCapability(db);
   if (capability.status !== 'available') {
@@ -73,7 +76,17 @@ export async function processVerifiedPayment(input: {
   }
   const fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
   const fulfilmentAttemptId: string | undefined = undefined;
-  let message = target.reason;
+  // record_payment_transition() is idempotent. When it reports a duplicate it returns the state
+  // of the ORIGINAL persisted event, and nothing was applied. Reporting the newly calculated
+  // target in that case claimed a transition that never happened: a corrected manual payment
+  // logged PAID, duplicate:true while the order was still PAYMENT_REVIEW_REQUIRED.
+  const duplicate = data.duplicate === true;
+  const persistedState: PaymentTransitionResult['state'] = duplicate && typeof data.state === 'string' && data.state
+    ? data.state as PaymentTransitionResult['state']
+    : target.state;
+  let message = duplicate
+    ? `This payment confirmation was already recorded. The order remains ${persistedState}.`
+    : target.reason;
   if (target.state === 'PAID' && !data.duplicate) {
     message = 'Payment confirmed. MK will prepare the selected report through the manual fulfilment workflow.';
     await db.from('payment_automation_records').update({
@@ -82,7 +95,7 @@ export async function processVerifiedPayment(input: {
     }).eq('order_id', order.id);
     // Fire-and-forget: a notification failure must never fail payment recording itself. The
     // payment transition above already committed, and this notification is internal-only.
-    await notifyInternalPaymentReceived({
+    await notifyPaymentReceived({
       assessmentId: order.assessment_id,
       order,
       source: input.source,
@@ -96,13 +109,13 @@ export async function processVerifiedPayment(input: {
   }
   await trackAssessmentEvent({
     eventType: 'payment_marked_received', assessmentId: order.assessment_id, orderId: order.id,
-    metadata: { source: input.source, payment_state: target.state, duplicate: data.duplicate === true, fulfilment }
+    metadata: { source: input.source, payment_state: persistedState, calculated_target_state: target.state, duplicate, fulfilment }
   });
-  console.info('payment_transition', { orderReference: order.order_reference, state: target.state, source: input.source, duplicate: data.duplicate === true, fulfilment, technicalReference });
+  console.info('payment_transition', { orderReference: order.order_reference, state: persistedState, calculatedTargetState: target.state, source: input.source, duplicate, fulfilment, technicalReference });
   return {
     ok: true,
-    duplicate: data.duplicate === true,
-    state: target.state,
+    duplicate,
+    state: persistedState,
     eventId: data.event_id,
     fulfilmentAttemptId,
     fulfilment,

@@ -7,6 +7,7 @@ import { getPaymentAutomationCapability } from '@/lib/payments/payment-capabilit
 import { confirmManualPayment } from '@/lib/payments/payment-service';
 import { getPhase1SchemaCapability } from '@/lib/reports/phase1-schema-capability';
 import crypto from 'node:crypto';
+import { parseZarAmountToCents } from '@/lib/payments/zar-amount';
 
 const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
@@ -31,6 +32,20 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
     return NextResponse.redirect(detailUrl);
   }
 
+  // The operator enters ZAR major units. Conversion to the integer-cent contract happens once,
+  // here, and a malformed or out-of-range value fails closed rather than silently falling back
+  // to the order amount.
+  const rawAmount = form.get('amountZar') ?? form.get('amountCentsZar');
+  const amountCents = rawAmount === null || rawAmount === undefined || String(rawAmount).trim() === ''
+    ? undefined
+    : parseZarAmountToCents(rawAmount);
+  // A supplied but malformed amount always fails closed, whatever the status, rather than
+  // falling through as "no amount given" and being treated as the full order amount.
+  if (amountCents === null) {
+    detailUrl.searchParams.set('error', 'invalid_payment_amount');
+    return NextResponse.redirect(detailUrl);
+  }
+
   const paymentCapability = await getPaymentAutomationCapability();
   let result: { ok: boolean; error?: string; message?: string };
   if (status === 'payment_received' && paymentCapability.status === 'available') {
@@ -38,7 +53,7 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
       orderReference: params.orderReference,
       adminId: admin.id,
       note,
-      amountCents: form.get('amountCents') ? Number(form.get('amountCents')) : undefined,
+      amountCents,
       currency: String(form.get('currency') ?? 'ZAR'),
       idempotencyKey: String(form.get('idempotencyKey') ?? request.headers.get('x-idempotency-key') ?? crypto.randomUUID())
     });

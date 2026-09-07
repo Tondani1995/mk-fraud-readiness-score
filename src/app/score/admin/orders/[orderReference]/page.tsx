@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { formatCentsAsZarInput } from '@/lib/payments/zar-amount';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
@@ -108,6 +109,10 @@ export default async function AdminOrderDetailPage(
   const capability = await getPhase1SchemaCapability(db, { requestPath: ORDER_DETAIL_REQUEST_PATH });
   const capabilityAvailable = capability.status === 'available';
   const isComprehensive = order.products?.product_code === 'mk_validated_assessment';
+  // One idempotency key per rendered manual-payment form. Computed once on the server for this
+  // render, so an accidental double submit of the same form stays duplicate-safe while a fresh
+  // page load is a new, legitimate confirmation attempt.
+  const manualPaymentRequestKey = `manual-payment:${order.order_reference}:${randomUUID()}`;
   const [reportResult, operations, payment, realDeliveryState] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
     getPhase1OrderOperations(order.id, capability, { requestPath: ORDER_DETAIL_REQUEST_PATH }),
@@ -382,14 +387,18 @@ export default async function AdminOrderDetailPage(
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
               Manual and verified-provider confirmation share one payment state machine. Once final payment is recorded, MK prepares the selected report through the authorised fulfilment workflow; customer delivery is then completed and recorded by an MK operator.
             </div>
+            {/* One key per rendered form. Re-submitting this same form stays duplicate-safe in
+                record_payment_transition(); reopening the order page is a new, legitimate
+                confirmation attempt. A single order-level key permanently consumed the
+                idempotency slot on the first attempt, so a corrected amount could never apply. */}
             <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_160px_100px_1fr_auto]">
               <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{cleanStatus(option)}</option>)}
               </select>
-              <input name="amountCents" type="number" min="0" defaultValue={order.amount_cents} aria-label="Received amount in cents" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="amountZar" type="text" inputMode="decimal" defaultValue={formatCentsAsZarInput(order.amount_cents)} aria-label="Received amount in ZAR" placeholder="Received amount in ZAR" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <input name="currency" defaultValue={order.currency} aria-label="Payment currency" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <input name="note" placeholder="Admin note for activity timeline" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
-              <input name="idempotencyKey" type="hidden" value={`manual-payment:${order.order_reference}`} />
+              <input name="idempotencyKey" type="hidden" value={manualPaymentRequestKey} />
               <Button type="submit">Update status</Button>
             </form>
           </CardContent>
