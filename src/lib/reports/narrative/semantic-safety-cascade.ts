@@ -380,7 +380,11 @@ export type SemanticCascadeResult<T> = {
 
 /**
  * Runs the fixed semantic sequence after the caller has claimed the generation call.
- * The function never calls a provider more than once for adjudication and once for repair.
+ *
+ * Provider budget: at most one adjudication call and at most two repair calls, and never more
+ * than three provider calls in total including the generation call the caller already claimed.
+ * The second repair is only reachable when no adjudication call was spent, so a run that
+ * adjudicated has one repair and stops at the same total of three.
  */
 export async function runSemanticSafetyCascade<T>(input: {
   initialValue: T;

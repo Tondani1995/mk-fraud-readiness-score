@@ -200,11 +200,14 @@ assert.equal(emBlocks[emChanged[0]].includes(EM), false, 'the changed block carr
 const emWords = (t) => t.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean);
 assert.deepEqual(emWords(emBlocks[emChanged[0]]), emWords(EM_DASHED), 'no word is added, removed or reordered');
 
-// 2. A repair that INTRODUCES U+2014 is still caught by the unchanged validator and fails closed
-//    after the one permitted bounded retry.
-const emStillDashed = await run(leaked, `Management should act now ${EM} the weaknesses persist.`);
-assert.ok(emStillDashed.error, 'a repair that introduces U+2014 must fail closed');
-assert.equal(emStillDashed.calls.repair, 2, 'one bounded retry, then fail closed');
+// 2. A repair that INTRODUCES U+2014 but is otherwise clean is normalised deterministically
+//    after the repair, so the dash never buys the remaining repair call.
+const emStillDashed = await run(leaked, `Management should act on the recorded weaknesses now ${EM} ownership and review both need an owner.`);
+assert.ok(!emStillDashed.error, `a repair carrying only an em dash must be normalised, not retried: ${emStillDashed.error?.message}`);
+assert.equal(emStillDashed.calls.repair, 1, 'exactly one repair call: the dash does not consume the retry');
+assert.equal(emStillDashed.calls.adjudicate, 0);
+assert.equal(emStillDashed.result.manuscript.markdown.includes(EM), false, 'the introduced em dash is cleared deterministically');
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(emStillDashed.result.manuscript.markdown, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
 
 // 3. Both defects on one paragraph -> one target, one repair call, both cleared.
 const bothDefects = clean.replace(cleanTakeaway, `Management should read this as a connected management story ${EM} not a list of separate issues.`);

@@ -866,10 +866,21 @@ export async function composeEssentialManuscript(input: {
     evaluate,
     adjudicate: adapters?.adjudicate,
     repair: adapters?.repair,
-    applyRepairs: (value, replacements) => reparseAuthoritativeBlueprint(
-      replacements.reduce((current, replacement) => replaceParsedBlock(current, replacement.targetId, replacement.repairedText), value),
-      authoritativeBlueprint
-    )
+    applyRepairs: (value, replacements) => {
+      const repaired = replacements.reduce(
+        (current, replacement) => replaceParsedBlock(current, replacement.targetId, replacement.repairedText),
+        value
+      );
+      // The same deterministic normalisation the initial manuscript gets. A repair that returns an
+      // em dash must not buy the remaining repair call to delete punctuation, so the dash is
+      // cleared here and the unchanged full validator then judges the repaired manuscript on its
+      // substantive content alone.
+      const postRepairNormalisations = normaliseEssentialEmDashes(repaired);
+      if (postRepairNormalisations > 0) {
+        console.info('essential_em_dash_normalisation', { stage: 'post_repair', replacements: postRepairNormalisations });
+      }
+      return reparseAuthoritativeBlueprint(repaired, authoritativeBlueprint);
+    }
   });
   if (cascade.outcome !== 'ACCEPT' || !cascade.value) {
     // Safe post-repair record: attempt number, closed-vocabulary remaining codes, structural

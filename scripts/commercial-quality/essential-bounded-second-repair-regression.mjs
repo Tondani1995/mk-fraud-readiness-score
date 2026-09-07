@@ -210,6 +210,48 @@ assert.equal(finalMarkdown.includes(EM), false, 'no em dash survives');
 assert.equal(findCustomerCopyLeakage(finalMarkdown).length, 0, 'no leaked vocabulary survives');
 
 // ---------------------------------------------------------------------------
+// Post-repair deterministic normalisation. An em dash returned BY a repair is mechanical
+// typography too, so it is cleared before the validator judges that repair result and never
+// consumes the remaining repair call.
+// ---------------------------------------------------------------------------
+
+// 2. Repair #1 returns otherwise-clean prose that carries U+2014 -> one repair call total.
+const REPAIR_WITH_EM = `Management should act on the recorded weaknesses now ${EM} ownership and review both need a named owner.`;
+assert.equal(findCustomerCopyLeakage(REPAIR_WITH_EM).length, 0, 'the repaired prose carries no leaked vocabulary');
+assert.ok(REPAIR_WITH_EM.includes(EM), 'the repaired prose does carry U+2014');
+const leakOnly = clean.replace(cleanLeakTarget, LEAKED);
+const dashIntroduced = await run(leakOnly, (targets) => replaceAll(targets, REPAIR_WITH_EM));
+assert.ok(!dashIntroduced.error, `an em dash introduced by a repair must be normalised: ${dashIntroduced.error?.message}`);
+assert.equal(dashIntroduced.calls.repair, 1, 'exactly one repair call: the dash does not consume repair #2');
+assert.equal(dashIntroduced.calls.adjudicate, 0);
+assert.equal(dashIntroduced.result.manuscript.markdown.includes(EM), false, 'U+2014 is normalised after the repair');
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(dashIntroduced.result.manuscript.markdown, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
+assert.equal(dashIntroduced.result.semanticSafety.finalResult, 'ACCEPT');
+
+// 3. Repair #1 returns customer_copy_leakage AND an em dash -> the dash is cleared
+//    deterministically and only the substantive copy defect survives into repair #2.
+const LEAK_PLUS_EM = `Management should treat this as a connected management story ${EM} not a list of separate issues.`;
+assert.ok(findCustomerCopyLeakage(LEAK_PLUS_EM).length > 0 && LEAK_PLUS_EM.includes(EM), 'the first repair returns both defects');
+const mixedRepair = await run(leakOnly, (targets, context, attempt) => replaceAll(targets, attempt === 1 ? LEAK_PLUS_EM : LEAK_REPAIRED));
+assert.ok(!mixedRepair.error, `the substantive defect must be retried: ${mixedRepair.error?.message}`);
+assert.equal(mixedRepair.calls.repair, 2, 'generation 1 / adjudication 0 / repairs 2');
+assert.equal(mixedRepair.calls.adjudicate, 0);
+assert.equal(mixedRepair.result.semanticSafety.totalProviderCalls, 3);
+assert.deepEqual(mixedRepair.repairContexts[1].survivingIssueCodes, ['customer_copy_leakage'], 'only the substantive copy defect survives into the retry');
+assert.equal(mixedRepair.repairContexts[1].survivingIssueCodes.includes('em_dash'), false, 'the em dash never reaches the retry');
+assert.equal(mixedRepair.result.manuscript.markdown.includes(EM), false);
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(mixedRepair.result.manuscript.markdown, blueprint), blueprint, factPack).ok, true);
+
+// 4. Repair #2 introduces U+2014 while resolving everything substantive -> normalised, PASS,
+//    and no third repair.
+const secondIntroducesDash = await run(leakOnly, (targets, context, attempt) => replaceAll(targets, attempt === 1 ? STILL_LEAKING : REPAIR_WITH_EM));
+assert.ok(!secondIntroducesDash.error, `an em dash from repair #2 must be normalised: ${secondIntroducesDash.error?.message}`);
+assert.equal(secondIntroducesDash.calls.repair, 2, 'no third repair call');
+assert.equal(secondIntroducesDash.result.manuscript.markdown.includes(EM), false, 'U+2014 from the retry is cleared deterministically');
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(secondIntroducesDash.result.manuscript.markdown, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
+assert.equal(secondIntroducesDash.result.semanticSafety.totalProviderCalls, 3, 'the total ceiling still holds');
+
+// ---------------------------------------------------------------------------
 // Negative: the second repair is still bad -> fail closed, no third call.
 // ---------------------------------------------------------------------------
 const stillBad = await run(production, (targets) => replaceAll(targets, STILL_LEAKING));
@@ -276,6 +318,11 @@ console.log(JSON.stringify({
   status: 'PASS', providerCalls: 0, databaseWrites: 0, emailsSent: 0,
   targets: { emDash: EM_PATH, customerCopyLeakage: LEAK_PATH },
   deterministicEmDash: { replacements, emDashPresentBefore: true, emDashPresentAfter: false, wordsUnchanged: true, numbersUnchanged: true, headingsUnchanged: true },
+  postRepairNormalisation: {
+    repairIntroducedEmDashOnly: { repairCalls: dashIntroduced.calls.repair, emDashSurvives: false, finalResult: dashIntroduced.result.semanticSafety.finalResult },
+    repairIntroducedEmDashPlusCopyDefect: { repairCalls: mixedRepair.calls.repair, retrySurvivingIssueCodes: mixedRepair.repairContexts[1].survivingIssueCodes },
+    secondRepairIntroducedEmDash: { repairCalls: secondIntroducesDash.calls.repair, totalProviderCalls: secondIntroducesDash.result.semanticSafety.totalProviderCalls }
+  },
   recoveredFlow: {
     generationCalls: semantic.generationCalls,
     adjudicationCalls: semantic.adjudicationCalls,
