@@ -164,6 +164,63 @@ assert.ok(mixed.error, 'an objective hard-truth failure in the same paragraph mu
 assert.equal(mixed.calls.repair, 0, 'no unsafe rescue repair is attempted');
 
 // ---------------------------------------------------------------------------
+// em_dash: the identical repository-level inconsistency, same bounded routing.
+// ---------------------------------------------------------------------------
+const EM = '\u2014';
+const EM_DASHED = `Management should treat ownership and review together ${EM} both weaknesses run through the same findings.`;
+const EM_REPAIRED = 'Management should treat ownership and review together, because both weaknesses run through the same findings.';
+assert.ok(EM_DASHED.includes(EM), 'the injected paragraph carries U+2014');
+assert.equal(EM_REPAIRED.includes(EM), false, 'the replacement carries no U+2014');
+const emOnly = clean.replace(cleanTakeaway, EM_DASHED);
+const emValidation = validateBlueprintTextManuscript(parseBlueprintMarkdown(emOnly, blueprint), blueprint, factPack);
+assert.deepEqual(emValidation.hardTruth.issues.map((i) => `${i.path}::${i.code}`), ['EXECUTIVE-ASSESSMENT-TAKEAWAY.paragraphs[0]::em_dash'], 'em_dash is the only blocking defect');
+assert.equal(classifyNarrativeIssue('em_dash').severity, 'REPAIRABLE_SEMANTIC_FAILURE');
+assert.equal(classifyNarrativeIssue('em_dash').repairEligible, true);
+assert.equal(classifyNarrativeIssue('em_dash').blocking, true, 'em_dash stays release-blocking');
+
+// 1. em_dash alone -> no adjudication, exactly one repair, validator passes.
+const emRun = await run(emOnly, EM_REPAIRED);
+assert.ok(!emRun.error, `an em dash alone must be repaired, not rejected: ${emRun.error?.message}`);
+assert.equal(emRun.calls.adjudicate, 0, 'no adjudication call for a deterministic em dash');
+assert.equal(emRun.calls.repair, 1, 'exactly one bounded repair call');
+const emFinal = emRun.result.manuscript.markdown;
+assert.equal(emFinal.includes(EM), false, 'no U+2014 survives anywhere in the manuscript');
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(emFinal, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
+const emBlocks = blocks(emFinal);
+const emChanged = emBlocks.map((b, i) => (b === cleanBlocks[i] ? null : i)).filter((i) => i !== null);
+assert.equal(emChanged.length, 1, 'exactly one block changed');
+assert.equal(emBlocks[emChanged[0]], EM_REPAIRED);
+
+// 2. Repair still contains U+2014 -> fail closed, no second repair.
+const emStillDashed = await run(emOnly, `Management should act now ${EM} the weaknesses persist.`);
+assert.ok(emStillDashed.error, 'a repair that still carries U+2014 must fail closed');
+assert.equal(emStillDashed.calls.repair, 1, 'no second repair call for the same target');
+
+// 3. Both defects on one paragraph -> one target, one repair call, both cleared.
+const bothDefects = clean.replace(cleanTakeaway, `Management should read this as a connected management story ${EM} not a list of separate issues.`);
+const bothValidation = validateBlueprintTextManuscript(parseBlueprintMarkdown(bothDefects, blueprint), blueprint, factPack);
+const bothCodes = bothValidation.hardTruth.issues.map((i) => i.code).sort();
+assert.deepEqual(bothCodes, ['customer_copy_leakage', 'em_dash'], 'both defects are detected on the one paragraph');
+assert.equal(new Set(bothValidation.hardTruth.issues.map((i) => i.path)).size, 1, 'both defects share one paragraph target');
+const bothRun = await run(bothDefects, REPAIRED);
+assert.ok(!bothRun.error, `both defects must clear in one bounded repair: ${bothRun.error?.message}`);
+assert.equal(bothRun.calls.adjudicate, 0, 'no adjudication call');
+assert.equal(bothRun.calls.repair, 1, 'one repair call, not two, for a single paragraph target');
+const bothFinal = bothRun.result.manuscript.markdown;
+assert.equal(bothFinal.includes(EM), false, 'the em dash is cleared');
+assert.equal(findCustomerCopyLeakage(REPAIRED).length, 0, 'the leaked vocabulary is cleared');
+assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(bothFinal, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
+
+// 4. em_dash plus an objective hard-truth failure -> HARD_REJECT, no repair.
+const emPlusHard = clean.replace(cleanTakeaway, `Management should act on the recorded position ${EM} coverage sits at 88.11 percent.`);
+const emHardValidation = validateBlueprintTextManuscript(parseBlueprintMarkdown(emPlusHard, blueprint), blueprint, factPack);
+assert.equal(emHardValidation.hardTruth.issues.some((i) => i.code === 'em_dash'), true);
+assert.equal(emHardValidation.hardTruth.issues.some((i) => i.code === 'unsupported_numeric_claim'), true);
+const emHardRun = await run(emPlusHard, EM_REPAIRED);
+assert.ok(emHardRun.error, 'an objective hard-truth failure keeps the paragraph a hard reject');
+assert.equal(emHardRun.calls.repair, 0, 'no unsafe rescue repair is attempted');
+
+// ---------------------------------------------------------------------------
 // Negative: objective hard-truth codes stay hard.
 // ---------------------------------------------------------------------------
 for (const code of ['unsupported_numeric_claim', 'raw_internal_id', 'unknown_claim_ref', 'invented_finding', 'wrong_product_tier', 'missing_provenance']) {
@@ -175,5 +232,11 @@ console.log(JSON.stringify({
   status: 'PASS', providerCalls: 0, aiCalls: 0,
   before: { parserOk: true, blockingIssues: leakedValidation.hardTruth.issues.map((i) => i.code), severityContradiction: { validatorBucket: 'hardTruth', policyClass: classifyNarrativeIssue('customer_copy_leakage').severity } },
   after: { adjudicationCalls: repaired.calls.adjudicate, repairCalls: repaired.calls.repair, validatorOk: true, onlyTargetChanged: true },
+  emDash: {
+    alone: { adjudicationCalls: emRun.calls.adjudicate, repairCalls: emRun.calls.repair, validatorOk: true },
+    stillDashedFailsClosed: { repairCalls: emStillDashed.calls.repair, failedClosed: Boolean(emStillDashed.error) },
+    withCopyLeakage: { adjudicationCalls: bothRun.calls.adjudicate, repairCalls: bothRun.calls.repair, bothCleared: true },
+    withObjectiveHardTruth: { repairCalls: emHardRun.calls.repair, hardRejected: Boolean(emHardRun.error) }
+  },
   factPack: { findings: factPack.findings.length, scenarios: factPack.scenarios.length, roadmap: factPack.roadmap.map((i) => i.targetPeriod) }
 }, null, 2));

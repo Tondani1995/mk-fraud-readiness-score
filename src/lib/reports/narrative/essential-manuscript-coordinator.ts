@@ -478,12 +478,15 @@ function essentialCandidatesForReport(
  * not an objective untruth. The Essential partition previously treated every non-assurance hard
  * entry as objective hard truth, so a leaked report-engine phrase was rejected before repair.
  *
- * Only this code is listed. Objective hard-truth codes -- invented facts, raw identifiers,
+ * Only these two codes are listed. em_dash carries the identical inconsistency: the validator
+ * emits it into hardTruth while validation-severity.ts classifies it REPAIRABLE_SEMANTIC_FAILURE
+ * with repairEligible true. Both defects on one paragraph stay one repair target.
+ * Objective hard-truth codes -- invented facts, raw identifiers,
  * unsupported structures, missing provenance, wrong product or tier and unknown codes -- stay
  * hard rejects, and a paragraph that also carries one of those is never rescued by this route.
  * The detector itself is unchanged and still decides release after the bounded replacement.
  */
-const ESSENTIAL_DIRECT_REPAIR_HARD_CODES: ReadonlySet<string> = new Set(['customer_copy_leakage']);
+const ESSENTIAL_DIRECT_REPAIR_HARD_CODES: ReadonlySet<string> = new Set(['customer_copy_leakage', 'em_dash']);
 
 function partitionEssentialValidationIssues(
   parsed: ParsedBlueprintMarkdown,
