@@ -289,12 +289,25 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       totalTokens: (initialResult.writerMetadata.recovery.totalTokens ?? 0) + (numeric(response.usage?.totalTokens) ?? 0),
       totalProviderCostMicros: (initialResult.writerMetadata.recovery.totalProviderCostMicros ?? 0) + parseCostMicros(response)
     };
+    // Production persistence reads the top-level writerMetadata token and cost fields, so a
+    // successful two-call recovery must return the combined spend for both provider calls, not
+    // just the second response. This follows the existing tail-reconciliation aggregation:
+    // the second call's generation and response identity is retained, the spend is summed.
+    const initialMeta = initialResult.writerMetadata;
+    const regeneratedMeta = metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, recovery);
     const regenerated: WholeManuscriptTextResult = {
       contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
       architecture: 'whole-manuscript',
       markdown,
       blueprint: input.blueprint,
-      writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, recovery)
+      writerMetadata: {
+        ...regeneratedMeta,
+        inputTokens: sumOptional(initialMeta.inputTokens, regeneratedMeta.inputTokens),
+        outputTokens: sumOptional(initialMeta.outputTokens, regeneratedMeta.outputTokens),
+        totalTokens: sumOptional(initialMeta.totalTokens, regeneratedMeta.totalTokens),
+        providerCostMicros: sumOptional(initialMeta.providerCostMicros, regeneratedMeta.providerCostMicros),
+        providerCostRaw: sumRawCosts(initialMeta.providerCostRaw, regeneratedMeta.providerCostRaw)
+      }
     };
     if (!markdown) failClosed('technical_regeneration_not_recoverable', 'The bounded technical regeneration returned empty Markdown.', { outcome: initialOutcome, parsed: initialParsed.errors }, regenerated, initialParsed, 1);
     const reparsed = parseBlueprintMarkdown(markdown, input.blueprint);
@@ -437,14 +450,10 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     const prompt = tailPrompt(input, tail);
     const maxOutputTokens = deriveTailOutputTokenLimit(input.context.outputBudget, tail.missingHeadings.length);
     this.chargeProviderCall('tail');
-    const response = await generateText({
-      model: this.model,
+    const response = await this.dispatchGeneration({
       system: 'You are the constrained MK Fraud Readiness v1.1 tail-completion writer. The deterministic Blueprint decides the report. Do not use em dashes. Use normal sentence punctuation instead. Return only the missing Markdown tail; never rewrite existing content.',
       prompt,
-      maxOutputTokens,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [this.provider] } },
-      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      maxOutputTokens
     });
     const markdown = String(response.text ?? '').trim();
     if (!markdown) throw new Error('Whole-manuscript tail completion returned empty Markdown.');

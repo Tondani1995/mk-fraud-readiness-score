@@ -61,8 +61,11 @@ assert.deepEqual(pack.scenarios.map((s) => s.scenarioFamily), ['DETECTION_EVASIO
 assert.deepEqual(pack.roadmap.map((i) => `${i.targetPeriod}/${i.phase}`), ['30 days/STABILISE', '60 days/ESTABLISH', '90 days/ESTABLISH', '90 days/ESTABLISH', '90 days/ESTABLISH', '90 days/ESTABLISH']);
 assert.equal(headingCount(skeleton), 27, 'the affected order Blueprint has 27 deterministic headings, matching Production');
 
+// Digit-free, distinct prose: numbers would register as unsupported numeric claims and
+// identical paragraphs would register as repetition, neither of which is under test here.
 let prose = 0;
-const complete = skeleton.split('\n\n').map((b) => /^#{1,3} /.test(b) ? `${b}\n\nRecorded management position paragraph ${++prose} for this bounded section.` : b).join('\n\n');
+const label = () => { prose += 1; return `${String.fromCharCode(96 + Math.ceil(prose / 26))}${String.fromCharCode(96 + ((prose - 1) % 26) + 1)}`; };
+const complete = skeleton.split('\n\n').map((b) => /^#{1,3} /.test(b) ? `${b}\n\nThe recorded management position for bounded section ${label()} should guide the response management sets out here.` : b).join('\n\n');
 assert.equal(parseBlueprintMarkdown(complete, blueprint).ok, true, 'the reference manuscript binds exactly');
 
 // Production shape: 25 headings, renamed and mis-levelled from heading 16.
@@ -105,29 +108,33 @@ assert.equal(resolveStructuralBindingAction({ parsedOk: false, missing: truncate
 // The real writer, driven through its provider seam.
 // ---------------------------------------------------------------------------
 const context = { singleCallFeasible: true, partitionPlan: [], outputBudget: { hardOutputTokenLimit: 9288 }, boundaries: { assurance: 'The assessment does not independently verify operating effectiveness.' }, permittedDeterministicFacts: pack.facts };
+// Distinguishable per-call accounting: a "second call only" aggregation cannot pass.
+const CALL_TOKENS = [{ input: 600, output: 400, total: 1000, costMicros: 1200 }, { input: 500, output: 200, total: 700, costMicros: 800 }, { input: 100, output: 50, total: 150, costMicros: 90 }];
 class SeamWriter extends V11WholeManuscriptWriter {
-  constructor(responsesToReturn, budget) { super('openai/gpt-5-mini', { providerCallBudget: budget }); this.queue = [...responsesToReturn]; this.dispatches = []; }
+  constructor(responsesToReturn, budget, finishReasons = []) { super('openai/gpt-5-mini', { providerCallBudget: budget }); this.queue = [...responsesToReturn]; this.dispatches = []; this.finishReasons = finishReasons; }
   async dispatchGeneration(args) {
-    this.dispatches.push(args.system.slice(0, 60));
+    const call = CALL_TOKENS[this.dispatches.length] ?? CALL_TOKENS[CALL_TOKENS.length - 1];
+    this.dispatches.push(args.system.slice(0, 140));
     const text = this.queue.shift();
     if (text === undefined) throw new Error('unexpected extra provider dispatch');
     // Gateway routing shape the writer verifies. Fixed offline values; no call is made.
     return {
       text,
-      usage: { totalTokens: 1000 },
-      finishReason: 'stop',
+      usage: { inputTokens: call.input, outputTokens: call.output, totalTokens: call.total },
+      finishReason: this.finishReasons[this.dispatches.length - 1] ?? 'stop',
       response: { modelId: 'gpt-5-mini' },
       providerMetadata: {
         gateway: {
-          generationId: 'gen_offline_structural_fixture',
+          cost: String(call.costMicros / 1_000_000),
+          generationId: `gen_offline_structural_fixture_${this.dispatches.length}`,
           routing: { originalModelId: 'openai/gpt-5-mini', canonicalSlug: 'openai/gpt-5-mini', resolvedProvider: 'openai', finalProvider: 'openai', resolvedProviderApiModelId: 'gpt-5-mini' }
         }
       }
     };
   }
 }
-const run = async (queue, budget = 2) => {
-  const writer = new SeamWriter(queue, budget);
+const run = async (queue, budget = 2, finishReasons = []) => {
+  const writer = new SeamWriter(queue, budget, finishReasons);
   try { return { writer, result: await writer.writeManuscript({ context, factPack: pack, blueprint, semanticSafety: true }) }; }
   catch (error) { return { writer, error }; }
 };
@@ -149,13 +156,49 @@ const recovery = regenerated.result.writerMetadata.recovery;
 assert.equal(recovery.initialGenerationCount, 1, 'initial generation counted once');
 assert.equal(recovery.technicalFallbackCount, 1, 'the regeneration is counted as a technical operation');
 assert.equal(recovery.totalCalls, 2, 'total provider calls are exact');
-assert.equal(recovery.totalTokens, 2000, 'tokens accumulate across both calls');
+assert.equal(recovery.totalTokens, 1700, 'recovery tokens are call 1 (1000) + call 2 (700)');
+// Top-level writerMetadata is what Production persistence reads: it must carry combined spend.
+const aggregated = regenerated.result.writerMetadata;
+assert.equal(aggregated.totalTokens, 1700, `persisted totalTokens must be 1000 + 700, received ${aggregated.totalTokens}`);
+assert.equal(aggregated.inputTokens, 1100, 'persisted inputTokens must be 600 + 500');
+assert.equal(aggregated.outputTokens, 600, 'persisted outputTokens must be 400 + 200');
+assert.equal(aggregated.providerCostMicros, 2000, 'persisted providerCostMicros must be 1200 + 800');
+assert.equal(recovery.totalProviderCostMicros, 2000, 'recovery cost is call 1 + call 2');
+// The second call's identity is retained while the spend stays aggregate.
+assert.equal(aggregated.generationId, 'gen_offline_structural_fixture_2', 'second-call generation identity is preserved');
 // Semantic budgets stay distinguishable and untouched by a structural operation.
 assert.equal(recovery.targetedRepairCount, 0);
 assert.equal(recovery.fullRegenerationCount, 0);
 assert.equal(recovery.qualityEscalationCount, 0);
 assert.equal(recovery.coherenceCount, 0);
 assert.equal(recovery.truncationContinuationCount, 0);
+
+// 2. Proven missing deterministic suffix: the REAL tail path runs provider-free end to end.
+//    The tail dispatch now shares the technical-generation seam, so this exercises
+//    completeTail() -> appendBlueprintTail/reconcile, not just the discriminator.
+const tailBoundary = [...complete.matchAll(/^#{1,3}\s+.+$/gm)][25];
+const tailContinuation = complete.slice(tailBoundary.index).trimEnd();
+assert.equal(headingCount(tailContinuation), 2, 'the continuation carries exactly the two missing headings');
+// Call 1 stops at the token limit, which is what a real truncation reports.
+const tailRun = await run([truncatedShape, tailContinuation], 2, ['length']);
+assert.ok(!tailRun.error, `the proven-suffix tail path must succeed: ${tailRun.error?.message}`);
+assert.equal(tailRun.writer.dispatches.length, 2, 'exactly one tail dispatch follows the initial generation');
+assert.ok(/tail-completion writer/.test(tailRun.writer.dispatches[1]), 'the second dispatch is the tail operation, not a regeneration');
+assert.equal(headingCount(tailRun.result.markdown), 27, 'the reconciled manuscript carries all 27 Blueprint headings');
+const tailParsed = parseBlueprintMarkdown(tailRun.result.markdown, blueprint);
+assert.equal(tailParsed.ok, true, `the reconciled manuscript must bind exactly: ${tailParsed.errors.map((e) => e.message).join(' | ')}`);
+const tailRecovery = tailRun.result.writerMetadata.recovery;
+assert.equal(tailRecovery.truncationContinuationCount, 1, 'the tail is counted as a truncation continuation');
+assert.equal(tailRecovery.technicalFallbackCount, 0, 'no technical full regeneration occurred');
+assert.equal(tailRecovery.initialGenerationCount, 1);
+assert.equal(tailRecovery.totalCalls, 2, 'exactly two provider calls');
+assert.equal(tailRecovery.targetedRepairCount, 0);
+assert.equal(tailRecovery.fullRegenerationCount, 0);
+// Aggregated spend across both tail-path calls, not the tail response alone.
+assert.equal(tailRun.result.writerMetadata.totalTokens, 1700, 'tail-path persisted totalTokens must be 1000 + 700');
+assert.equal(tailRun.result.writerMetadata.providerCostMicros, 2000, 'tail-path persisted cost must be 1200 + 800');
+// A third call is never attempted.
+assert.equal(tailRun.writer.queue.length, 0, 'no unconsumed response remains');
 
 // 4. Second technical response still invalid: fail closed, no third attempt.
 const stillInvalid = await run([productionShape, productionShape]);
