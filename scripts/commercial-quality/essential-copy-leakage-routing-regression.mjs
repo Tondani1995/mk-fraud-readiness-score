@@ -150,7 +150,11 @@ const stillLeaking = 'Management should treat this as a connected management sto
 assert.ok(findCustomerCopyLeakage(stillLeaking).length > 0);
 const failed = await run(leaked, stillLeaking);
 assert.ok(failed.error, 'a still-leaking repair must fail closed');
-assert.equal(failed.calls.repair, 1, 'no second repair call for the same target');
+// customer_copy_leakage is an approved bounded customer-copy class, so the unused semantic slot
+// pays for exactly one targeted retry. It is still a hard ceiling: a second failure fails closed
+// and there is never a third call.
+assert.equal(failed.calls.repair, 2, 'exactly one bounded retry, then fail closed');
+assert.equal(failed.calls.adjudicate, 0, 'the retry never becomes an adjudication call');
 
 // ---------------------------------------------------------------------------
 // Negative: leakage plus an objective hard-truth failure in the same paragraph.
@@ -178,23 +182,29 @@ assert.equal(classifyNarrativeIssue('em_dash').severity, 'REPAIRABLE_SEMANTIC_FA
 assert.equal(classifyNarrativeIssue('em_dash').repairEligible, true);
 assert.equal(classifyNarrativeIssue('em_dash').blocking, true, 'em_dash stays release-blocking');
 
-// 1. em_dash alone -> no adjudication, exactly one repair, validator passes.
+// 1. em_dash alone -> cleared deterministically, with NO provider call at all.
+//    An em dash is mechanical typography, not semantic judgement, so it no longer consumes the
+//    bounded repair slot that a genuine copy defect on another paragraph may need.
 const emRun = await run(emOnly, EM_REPAIRED);
-assert.ok(!emRun.error, `an em dash alone must be repaired, not rejected: ${emRun.error?.message}`);
+assert.ok(!emRun.error, `an em dash alone must be normalised, not rejected: ${emRun.error?.message}`);
 assert.equal(emRun.calls.adjudicate, 0, 'no adjudication call for a deterministic em dash');
-assert.equal(emRun.calls.repair, 1, 'exactly one bounded repair call');
+assert.equal(emRun.calls.repair, 0, 'an em dash is cleared without any provider repair call');
 const emFinal = emRun.result.manuscript.markdown;
 assert.equal(emFinal.includes(EM), false, 'no U+2014 survives anywhere in the manuscript');
 assert.equal(validateBlueprintTextManuscript(parseBlueprintMarkdown(emFinal, blueprint), blueprint, factPack).ok, true, 'the unchanged validator passes');
 const emBlocks = blocks(emFinal);
 const emChanged = emBlocks.map((b, i) => (b === cleanBlocks[i] ? null : i)).filter((i) => i !== null);
 assert.equal(emChanged.length, 1, 'exactly one block changed');
-assert.equal(emBlocks[emChanged[0]], EM_REPAIRED);
+assert.equal(emBlocks[emChanged[0]].includes(EM), false, 'the changed block carries no em dash');
+// The wording survives the normalisation: only the dash becomes punctuation.
+const emWords = (t) => t.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean);
+assert.deepEqual(emWords(emBlocks[emChanged[0]]), emWords(EM_DASHED), 'no word is added, removed or reordered');
 
-// 2. Repair still contains U+2014 -> fail closed, no second repair.
-const emStillDashed = await run(emOnly, `Management should act now ${EM} the weaknesses persist.`);
-assert.ok(emStillDashed.error, 'a repair that still carries U+2014 must fail closed');
-assert.equal(emStillDashed.calls.repair, 1, 'no second repair call for the same target');
+// 2. A repair that INTRODUCES U+2014 is still caught by the unchanged validator and fails closed
+//    after the one permitted bounded retry.
+const emStillDashed = await run(leaked, `Management should act now ${EM} the weaknesses persist.`);
+assert.ok(emStillDashed.error, 'a repair that introduces U+2014 must fail closed');
+assert.equal(emStillDashed.calls.repair, 2, 'one bounded retry, then fail closed');
 
 // 3. Both defects on one paragraph -> one target, one repair call, both cleared.
 const bothDefects = clean.replace(cleanTakeaway, `Management should read this as a connected management story ${EM} not a list of separate issues.`);
@@ -205,6 +215,8 @@ assert.equal(new Set(bothValidation.hardTruth.issues.map((i) => i.path)).size, 1
 const bothRun = await run(bothDefects, REPAIRED);
 assert.ok(!bothRun.error, `both defects must clear in one bounded repair: ${bothRun.error?.message}`);
 assert.equal(bothRun.calls.adjudicate, 0, 'no adjudication call');
+// The em dash is normalised deterministically first, so the single repair call is spent on the
+// customer-copy defect alone.
 assert.equal(bothRun.calls.repair, 1, 'one repair call, not two, for a single paragraph target');
 const bothFinal = bothRun.result.manuscript.markdown;
 assert.equal(bothFinal.includes(EM), false, 'the em dash is cleared');

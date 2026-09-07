@@ -19,6 +19,7 @@ import {
 } from './validation';
 import { classifyNarrativeRecoveryIssue } from './validation-severity';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
+import { normaliseEssentialEmDashes } from './em-dash-normalisation';
 import {
   runSemanticSafetyCascade,
   SemanticAdjudicationUnusableError,
@@ -27,6 +28,7 @@ import {
   SEMANTIC_ADJUDICATION_MIN_CONFIDENCE,
   type SemanticAdjudicationResult,
   type SemanticCandidate,
+  type SemanticRepairContext,
   type SemanticRepairResult,
   type SemanticCascadeDiagnostics
 } from './semantic-safety-cascade';
@@ -321,7 +323,21 @@ export function toSafeEssentialFailureDiagnostics(input: {
       // Closed-vocabulary tokens only: which acceptance predicate the adjudication failed and
       // how that was handled. No provider or customer prose is carried here.
       invalidAdjudicationPredicate: safeDiagnosticToken(semantic.invalidAdjudicationPredicate),
-      invalidAdjudicationDisposition: safeDiagnosticToken(semantic.invalidAdjudicationDisposition)
+      invalidAdjudicationDisposition: safeDiagnosticToken(semantic.invalidAdjudicationDisposition),
+      repairAttempts: safeDiagnosticNumber(semantic.repairAttempts) ?? 0,
+      // Closed-vocabulary codes and structural Blueprint paths only. No customer prose and no
+      // provider response body is persisted here.
+      postRepair: (semantic.postRepair ?? []).map((entry) => ({
+        attempt: safeDiagnosticNumber(entry.attempt) ?? 0,
+        remainingIssueCodes: entry.remainingIssueCodes.map((code) => safeDiagnosticToken(code, 'unknown')).filter(Boolean),
+        remainingIssuePaths: entry.remainingIssuePaths.map((path) => String(path).slice(0, 200)),
+        remainingHardCount: safeDiagnosticNumber(entry.remainingHardCount) ?? 0,
+        remainingRepairableCount: safeDiagnosticNumber(entry.remainingRepairableCount) ?? 0,
+        generationCalls: safeDiagnosticNumber(entry.generationCalls) ?? 0,
+        adjudicationCalls: safeDiagnosticNumber(entry.adjudicationCalls) ?? 0,
+        repairCalls: safeDiagnosticNumber(entry.repairCalls) ?? 0,
+        totalProviderCalls: safeDiagnosticNumber(entry.totalProviderCalls) ?? 0
+      }))
     } : undefined
   };
 }
@@ -442,7 +458,8 @@ function essentialCandidatesForReport(
   hardTruth: boolean,
   assuranceCategories?: Map<string, AssuranceSemanticCategory>,
   semanticRepairPaths: ReadonlySet<string> = new Set(),
-  directRepairPaths: ReadonlySet<string> = new Set()
+  directRepairPaths: ReadonlySet<string> = new Set(),
+  secondRepairPaths: ReadonlySet<string> = new Set()
 ): SemanticCandidate[] {
   const byTarget = new Map<string, SemanticCandidate>();
   for (const issue of issues) {
@@ -473,7 +490,8 @@ function essentialCandidatesForReport(
       hardTruth,
       deterministicRepairAvailable: false,
       directRepairEligible: !hardTruth && directRepairPaths.has(issue.path),
-      semanticRepairEligible: !hardTruth && semanticRepairPaths.has(issue.path)
+      semanticRepairEligible: !hardTruth && semanticRepairPaths.has(issue.path),
+      secondRepairEligible: secondRepairPaths.has(issue.path)
     });
   }
   return [...byTarget.values()];
@@ -522,7 +540,14 @@ function partitionEssentialValidationIssues(
 
   const semanticRepairPaths = new Set<string>();
   const directRepairPaths = new Set<string>();
+  // The explicitly approved bounded customer-copy repair classes, and nothing else. A paragraph
+  // qualifies for the single retry only when EVERY issue on it is one of these mechanical
+  // customer-copy defects: one additional code of any other kind disqualifies the whole path.
+  const secondRepairPaths = new Set<string>();
   for (const [path, entries] of issuesByPath) {
+    if (entries.length > 0 && entries.every((entry) => ESSENTIAL_DIRECT_REPAIR_HARD_CODES.has(entry.code))) {
+      secondRepairPaths.add(path);
+    }
     const hasObjectiveHardTruth = entries.some((entry) => entry.source === 'hard'
       && entry.code !== 'assurance_claim'
       && !ESSENTIAL_DIRECT_REPAIR_HARD_CODES.has(entry.code));
@@ -563,7 +588,7 @@ function partitionEssentialValidationIssues(
 
   return {
     hardCandidates: essentialCandidatesForReport(parsed, hardIssuesForCascade, factPack, true, hardAssuranceCategories),
-    candidates: essentialCandidatesForReport(parsed, candidateIssues, factPack, false, candidateAssuranceCategories, semanticRepairPaths, directRepairPaths)
+    candidates: essentialCandidatesForReport(parsed, candidateIssues, factPack, false, candidateAssuranceCategories, semanticRepairPaths, directRepairPaths, secondRepairPaths)
   };
 }
 
@@ -633,7 +658,7 @@ const essentialRepairSchema = z.object({
 
 export type EssentialSemanticAdapters = {
   adjudicate: (candidates: SemanticCandidate[]) => Promise<SemanticAdjudicationResult[]>;
-  repair: (targets: SemanticCandidate[]) => Promise<SemanticRepairResult[]>;
+  repair: (targets: SemanticCandidate[], context?: SemanticRepairContext) => Promise<SemanticRepairResult[]>;
 };
 
 function createEssentialSemanticAdapters(input: {
@@ -672,11 +697,13 @@ function createEssentialSemanticAdapters(input: {
       }
       return response.output.decisions;
     },
-    async repair(targets) {
+    async repair(targets, context) {
       const response = await generateText({
         model,
         system: 'You are a bounded semantic repair editor for an MK Fraud Readiness Essential report. Return one replacement prose value for each supplied target ID and no other target. Preserve every deterministic fact, evidence reference, finding, scenario, owner, timing, score, maturity and Blueprint hierarchy. Repair only the flagged wording. Do not use em dashes, raw IDs, unsupported numbers, unsupported assurance, invented consequences or new facts. Return only the structured object.',
-        prompt: `Repair exactly these target IDs and nothing else.\n\nBOUNDED FACTS\n${JSON.stringify(boundedFacts)}\n\nTARGETS\n${JSON.stringify(targets.map((target) => ({ targetId: target.targetId, fieldRole: target.fieldRole, issueCode: target.issueCode, text: target.text, deterministicFeatures: target.deterministicFeatures, evidenceRefs: target.evidenceRefs, evidence: target.evidence })))}\n\nBLUEPRINT SUMMARY\n${JSON.stringify({ schemaVersion: input.blueprint.schemaVersion, reportTier: input.blueprint.reportTier })}`,
+        // On a retry the instruction names the closed-vocabulary validator codes that survived the
+        // previous attempt. No provider response body and no other prose is fed back.
+        prompt: `Repair exactly these target IDs and nothing else.${context?.attempt === 2 ? `\n\nThis is the final permitted attempt. The previous repair left these validator failures unresolved: ${context.survivingIssueCodes.join(', ')}. Resolve every one of them.` : ''}\n\nBOUNDED FACTS\n${JSON.stringify(boundedFacts)}\n\nTARGETS\n${JSON.stringify(targets.map((target) => ({ targetId: target.targetId, fieldRole: target.fieldRole, issueCode: target.issueCode, text: target.text, deterministicFeatures: target.deterministicFeatures, evidenceRefs: target.evidenceRefs, evidence: target.evidence })))}\n\nBLUEPRINT SUMMARY\n${JSON.stringify({ schemaVersion: input.blueprint.schemaVersion, reportTier: input.blueprint.reportTier })}`,
         output: Output.object({ schema: essentialRepairSchema, name: 'mk_essential_semantic_repairs' }),
         maxOutputTokens: 4096,
         maxRetries: 0,
@@ -803,6 +830,14 @@ export async function composeEssentialManuscript(input: {
     });
   }
 
+  // Mechanical customer-copy typography is cleared deterministically, before any provider call.
+  // An em dash is not semantic judgement, and spending the bounded repair slot on one is what left
+  // a genuine copy defect on another paragraph unrepaired in Production.
+  const deterministicEmDashNormalisations = normaliseEssentialEmDashes(narrative);
+  if (deterministicEmDashNormalisations > 0) {
+    console.info('essential_em_dash_normalisation', { replacements: deterministicEmDashNormalisations });
+  }
+
   const ledger = new SemanticCallLedger();
   ledger.claim('generation');
   const evaluate = (candidate: ParsedBlueprintMarkdown) => {
@@ -837,6 +872,23 @@ export async function composeEssentialManuscript(input: {
     )
   });
   if (cascade.outcome !== 'ACCEPT' || !cascade.value) {
+    // Safe post-repair record: attempt number, closed-vocabulary remaining codes, structural
+    // paths, the hard-versus-repairable split and the provider-call counts. Never customer prose
+    // and never a provider response body.
+    for (const entry of cascade.diagnostics.postRepair ?? []) {
+      console.warn('essential_semantic_repair_incomplete', {
+        reasonCode: cascade.diagnostics.reasonCode,
+        repairAttempt: entry.attempt,
+        remainingIssueCodes: entry.remainingIssueCodes,
+        remainingIssuePaths: entry.remainingIssuePaths,
+        remainingHardCount: entry.remainingHardCount,
+        remainingRepairableCount: entry.remainingRepairableCount,
+        generationCalls: entry.generationCalls,
+        adjudicationCalls: entry.adjudicationCalls,
+        repairCalls: entry.repairCalls,
+        totalProviderCalls: entry.totalProviderCalls
+      });
+    }
     const finalReport = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
     throw new EssentialManuscriptError(
       'semantic_safety',

@@ -261,9 +261,12 @@ assert.equal(leakRun.calls.repair, 1, 'customer_copy_leakage still spends exactl
 const EM_DASHED = 'Management should treat ownership and review together — both weaknesses run through the same findings.';
 const EM_REPAIRED = 'Management should treat ownership and review together, because both weaknesses run through the same findings.';
 const emRun = await run(reference.replace(cleanTarget, EM_DASHED), () => { throw new Error('adjudication must not run for a direct-repair code'); }, EM_REPAIRED);
-assert.ok(!emRun.error, `em_dash must still route to direct repair: ${emRun.error?.message}`);
+assert.ok(!emRun.error, `em_dash must still be cleared, not rejected: ${emRun.error?.message}`);
 assert.equal(emRun.calls.adjudicate, 0, 'em_dash still spends no adjudication call');
-assert.equal(emRun.calls.repair, 1, 'em_dash still spends exactly one repair call');
+// An em dash is now cleared by deterministic normalisation before the cascade, so it spends no
+// provider call at all and cannot consume the bounded repair slot.
+assert.equal(emRun.calls.repair, 0, 'em_dash is cleared without any provider repair call');
+assert.equal(emRun.result.manuscript.markdown.includes('\u2014'), false, 'no U+2014 survives in the manuscript');
 
 // ---------------------------------------------------------------------------
 // 10. A pipeline that does not mark a candidate semantically repair-eligible -- which is every
@@ -324,6 +327,6 @@ console.log(JSON.stringify({
   invalidAdjudicationFallback: fallbackOutcomes,
   failClosed: { repairDidNotFix: 'REJECT', repairIntroducedHardIssue: 'REJECT', objectiveHardTruth: { adjudicationCalls: mixed.calls.adjudicate, repairCalls: mixed.calls.repair, outcome: 'HARD_REJECT' }, notRepairEligible: closed.diagnostics.reasonCode, transportFailure: transport.diagnostics.reasonCode },
   changedBlocks: changed.length,
-  directRepairUnchanged: { customer_copy_leakage: { adjudicate: leakRun.calls.adjudicate, repair: leakRun.calls.repair }, em_dash: { adjudicate: emRun.calls.adjudicate, repair: emRun.calls.repair } },
+  directRepairUnchanged: { customer_copy_leakage: { adjudicate: leakRun.calls.adjudicate, repair: leakRun.calls.repair }, em_dash: { adjudicate: emRun.calls.adjudicate, repair: emRun.calls.repair, clearedDeterministically: true } },
   confidenceThreshold: SEMANTIC_ADJUDICATION_MIN_CONFIDENCE
 }, null, 2));

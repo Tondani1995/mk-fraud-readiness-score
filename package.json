@@ -36,6 +36,7 @@
     "v11:essential-structural-recovery": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-structural-recovery-regression.mjs",
     "v11:essential-copy-leakage-routing": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-copy-leakage-routing-regression.mjs",
     "reports:test-invalid-adjudication": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/invalid-adjudication-conservative-repair-regression.mjs",
+    "reports:test-bounded-second-repair": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-bounded-second-repair-regression.mjs",
     "reports:test-lineage-scope": "bash scripts/commercial-quality/report-lineage-postgres.sh",
     "payments:test-manual-idempotency": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/manual-payment-idempotency-regression.mjs",
     "v11:comprehensive-mixed-hard-issue-recovery": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-mixed-hard-issue-recovery-regression.mjs",

@@ -31,6 +31,12 @@ export type SemanticCandidate = {
   directRepairEligible?: boolean;
   /** A confirmed violation may still use the bounded repair path for this candidate. */
   semanticRepairEligible?: boolean;
+  /**
+   * The candidate belongs to an explicitly approved bounded customer-copy repair class, so it may
+   * take the one retry that the unused semantic slot allows. Set only by the pipeline that owns
+   * that approved list; a pipeline that does not set it never retries.
+   */
+  secondRepairEligible?: boolean;
 };
 
 export type SemanticDecision = {
@@ -52,6 +58,16 @@ export type SemanticAdjudicationResult = {
 export type SemanticRepairResult = {
   targetId: string;
   repairedText: string;
+};
+
+/**
+ * What the repair adapter is told about the attempt it is serving. The surviving issue codes are
+ * closed-vocabulary validator codes, so the retry can name what is still wrong without quoting any
+ * customer prose back to the provider.
+ */
+export type SemanticRepairContext = {
+  attempt: 1 | 2;
+  survivingIssueCodes: string[];
 };
 
 export type SemanticEvaluation<T> = {
@@ -83,7 +99,37 @@ export type SemanticCascadeDiagnostics = {
   invalidAdjudicationPredicate?: AdjudicationInvalidPredicate;
   /** How an unusable adjudication was handled: conservative bounded repair, or fail closed. */
   invalidAdjudicationDisposition?: 'conservative_repair' | 'fail_closed';
+  /** How many bounded repair calls were dispatched (at most two, inside the total ceiling). */
+  repairAttempts?: number;
+  /**
+   * Safe structured record of what a repair attempt left behind. Closed-vocabulary issue codes
+   * and structural target paths only -- never customer prose or a provider response body.
+   */
+  postRepair?: Array<{
+    attempt: number;
+    remainingIssueCodes: string[];
+    remainingIssuePaths: string[];
+    remainingHardCount: number;
+    remainingRepairableCount: number;
+    generationCalls: number;
+    adjudicationCalls: number;
+    repairCalls: number;
+    totalProviderCalls: number;
+  }>;
 };
+
+/**
+ * Per-stage ceilings. Repair may be claimed twice, but only inside the unchanged total ceiling of
+ * three: a run that spent an adjudication call has already used generation + adjudication + repair
+ * and the total cap refuses a fourth call on its own.
+ */
+export const SEMANTIC_STAGE_CALL_LIMITS: Readonly<Record<SemanticCallStage, number>> = {
+  generation: 1,
+  adjudication: 1,
+  repair: 2
+};
+
+export const SEMANTIC_TOTAL_CALL_LIMIT = 3;
 
 export class SemanticCallLedger {
   private readonly counts: Record<SemanticCallStage, number> = {
@@ -93,10 +139,10 @@ export class SemanticCallLedger {
   };
 
   claim(stage: SemanticCallStage): void {
-    if (this.counts[stage] >= 1) {
+    if (this.counts[stage] >= SEMANTIC_STAGE_CALL_LIMITS[stage]) {
       throw new Error(`semantic_${stage}_call_budget_exhausted`);
     }
-    if (this.totalProviderCalls >= 3) {
+    if (this.totalProviderCalls >= SEMANTIC_TOTAL_CALL_LIMIT) {
       throw new Error('semantic_total_provider_call_budget_exhausted');
     }
     this.counts[stage] += 1;
@@ -130,6 +176,12 @@ const labels: readonly SemanticAdjudicationLabel[] = ['ALLOW_CONTEXT', 'REPAIRAB
  */
 export const SAFE_DIAGNOSTIC_TOKEN_PATTERN = /^[A-Za-z0-9_.:-]{1,120}$/;
 const SAFE_DIAGNOSTIC_TOKEN = SAFE_DIAGNOSTIC_TOKEN_PATTERN;
+/**
+ * Target paths are structural Blueprint coordinates such as
+ * `essential:EXECUTIVE-ASSESSMENT-TAKEAWAY.paragraphs[0]`, so they carry the array brackets the
+ * reason-code token deliberately excludes. Still no prose: only node identifiers and indices.
+ */
+const SAFE_DIAGNOSTIC_PATH = /^[A-Za-z0-9_.:\-\[\]]{1,200}$/;
 
 export function determineSemanticDisposition(input: {
   candidate: SemanticCandidate;
@@ -264,6 +316,37 @@ function invalidRepairs(targets: SemanticCandidate[], repairs: SemanticRepairRes
   });
 }
 
+function unique(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()))];
+}
+
+/**
+ * Records what a repair attempt left behind, using closed-vocabulary validator codes and
+ * structural target paths only. No customer prose and no provider response body is captured.
+ */
+function recordPostRepair(
+  diagnostics: SemanticCascadeDiagnostics,
+  attempt: number,
+  ledger: SemanticCallLedger,
+  evaluation: SemanticEvaluation<unknown>,
+  allowedIds: Set<string>
+): void {
+  const survivors = evaluation.candidates.filter((candidate) => !allowedIds.has(candidate.targetId));
+  const safeCodes = (values: string[]) => unique(values).filter((value) => value && SAFE_DIAGNOSTIC_TOKEN.test(value));
+  const safePaths = (values: string[]) => unique(values).filter((value) => value && SAFE_DIAGNOSTIC_PATH.test(value));
+  diagnostics.postRepair = [
+    ...(diagnostics.postRepair ?? []),
+    {
+      attempt,
+      remainingIssueCodes: safeCodes([...evaluation.hardCandidates, ...survivors].flatMap((candidate) => String(candidate.issueCode ?? '').split(','))),
+      remainingIssuePaths: safePaths([...evaluation.hardCandidates, ...survivors].map((candidate) => candidate.targetId)),
+      remainingHardCount: evaluation.hardCandidates.length,
+      remainingRepairableCount: survivors.length,
+      ...ledger.snapshot()
+    }
+  ];
+}
+
 function baseDiagnostics(ledger: SemanticCallLedger, candidates: SemanticCandidate[]): SemanticCascadeDiagnostics {
   return {
     contractVersion: SEMANTIC_SAFETY_CONTRACT_VERSION,
@@ -305,7 +388,7 @@ export async function runSemanticSafetyCascade<T>(input: {
   evaluate: (value: T) => SemanticEvaluation<T>;
   applyDeterministicRepairs?: (value: T, decisions: SemanticDecision[]) => T;
   adjudicate?: (candidates: SemanticCandidate[]) => Promise<SemanticAdjudicationResult[]>;
-  repair?: (targets: SemanticCandidate[]) => Promise<SemanticRepairResult[]>;
+  repair?: (targets: SemanticCandidate[], context?: SemanticRepairContext) => Promise<SemanticRepairResult[]>;
   applyRepairs: (value: T, replacements: SemanticRepairResult[]) => T;
 }): Promise<SemanticCascadeResult<T>> {
   const initialEvaluation = input.evaluate(input.initialValue);
@@ -460,19 +543,48 @@ export async function runSemanticSafetyCascade<T>(input: {
       return { outcome: 'ACCEPT', value, diagnostics };
     }
     if (!input.repair) return reject(diagnostics, 'repair_adapter_unavailable', 'REPAIR_FAILED');
-    input.ledger.claim('repair');
-    diagnostics.repairCalls = input.ledger.repairCalls;
-    diagnostics.totalProviderCalls = input.ledger.totalProviderCalls;
-    const repairs = await input.repair(repairTargets);
-    if (invalidRepairs(repairTargets, repairs)) return reject(diagnostics, 'invalid_repair_targets', 'REPAIR_FAILED');
-    value = input.applyRepairs(value, repairs);
-    const finalEvaluation = input.evaluate(value);
-    if (finalEvaluation.hardCandidates.length > 0) return reject(diagnostics, 'repair_introduced_hard_truth_failure', 'HARD_REJECT');
-    const unallowedCandidates = finalEvaluation.candidates.filter((candidate) => !allowedIds.has(candidate.targetId));
-    if (unallowedCandidates.length > 0 || finalEvaluation.valid === false && finalEvaluation.candidates.length === 0) return reject(diagnostics, 'repair_failed_final_validation', 'REPAIR_FAILED');
-    diagnostics.outcome = 'ACCEPT';
-    diagnostics.finalResult = 'ACCEPT';
-    return { outcome: 'ACCEPT', value, diagnostics };
+
+    // One bounded repair attempt, and at most one retry using the semantic slot an adjudication
+    // call would otherwise have taken. The total ceiling is never raised.
+    let targets = repairTargets;
+    for (let attempt: 1 | 2 = 1; ; attempt = 2) {
+      input.ledger.claim('repair');
+      diagnostics.repairCalls = input.ledger.repairCalls;
+      diagnostics.repairAttempts = input.ledger.repairCalls;
+      diagnostics.totalProviderCalls = input.ledger.totalProviderCalls;
+      const survivingIssueCodes = unique(targets.flatMap((target) => String(target.issueCode ?? '').split(',')))
+        .filter((code) => code && SAFE_DIAGNOSTIC_TOKEN.test(code));
+      const repairs = await input.repair(targets, { attempt, survivingIssueCodes });
+      if (invalidRepairs(targets, repairs)) return reject(diagnostics, 'invalid_repair_targets', 'REPAIR_FAILED');
+      value = input.applyRepairs(value, repairs);
+      const evaluationAfterRepair = input.evaluate(value);
+      if (evaluationAfterRepair.hardCandidates.length > 0) {
+        recordPostRepair(diagnostics, attempt, input.ledger, evaluationAfterRepair, allowedIds);
+        return reject(diagnostics, 'repair_introduced_hard_truth_failure', 'HARD_REJECT');
+      }
+      const survivors = evaluationAfterRepair.candidates.filter((candidate) => !allowedIds.has(candidate.targetId));
+      const invalidWithoutCandidates = evaluationAfterRepair.valid === false && evaluationAfterRepair.candidates.length === 0;
+      if (survivors.length === 0 && !invalidWithoutCandidates) {
+        diagnostics.outcome = 'ACCEPT';
+        diagnostics.finalResult = 'ACCEPT';
+        return { outcome: 'ACCEPT', value, diagnostics };
+      }
+
+      recordPostRepair(diagnostics, attempt, input.ledger, evaluationAfterRepair, allowedIds);
+
+      // A retry is permitted only when the run still holds an unused semantic slot and every
+      // surviving defect is in the pipeline's explicitly approved bounded customer-copy repair
+      // classes. No second adjudication, no regeneration, and never for objective hard truth.
+      const retryPermitted = attempt === 1
+        && !invalidWithoutCandidates
+        && input.ledger.adjudicationCalls === 0
+        && input.ledger.totalProviderCalls < SEMANTIC_TOTAL_CALL_LIMIT
+        && input.ledger.repairCalls < SEMANTIC_STAGE_CALL_LIMITS.repair
+        && survivors.length > 0
+        && survivors.every((candidate) => candidate.secondRepairEligible === true && candidate.hardTruth !== true);
+      if (!retryPermitted) return reject(diagnostics, 'repair_failed_final_validation', 'REPAIR_FAILED');
+      targets = survivors;
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'semantic_provider_failure';
     return reject(diagnostics, reason.startsWith('semantic_') ? reason : 'semantic_provider_failure', 'AMBIGUOUS');
