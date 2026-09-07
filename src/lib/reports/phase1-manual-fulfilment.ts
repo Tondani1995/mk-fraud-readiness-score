@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
 import { COMPREHENSIVE_REPORT_TYPE, ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
+import { buildReportReference, preflightReportIdentity } from './report-reference';
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
@@ -48,6 +49,11 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   /** Injected for provider-free proof; production uses the real v1.1 writer. */
   wholeManuscriptWriter?: WholeManuscriptWriter;
+  /**
+   * Injected for provider-free proof of the semantic cascade; production builds the real
+   * gateway-backed adjudication and repair adapters inside the coordinator.
+   */
+  semanticAdapters?: { adjudicate: (candidates: any[]) => Promise<any[]>; repair: (targets: any[]) => Promise<any[]> };
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
@@ -110,6 +116,7 @@ export type Phase1GenerationReason =
   | 'stored_file_missing'
   | 'storage_integrity_failed'
   | 'report_persistence_failed'
+  | 'report_identity_conflict'
   | 'phase1_schema_unavailable'
   | 'commercial_quality_failed'
   | 'generation_failed';
@@ -590,15 +597,47 @@ export async function generateManualPhase1Report(
     // Use the versioned reference (e.g. "...-V2") everywhere, including the
     // rendered report itself, so the PDF's own footer/title page match the
     // reports.report_reference value stored for this version instead of the
-    // bare assessment reference assembleReportData() defaults to.
-    const reportAssessmentReference = reportType === 'essential_self_assessment'
-      ? assembled.assessmentReference.replaceAll('-COMP-', '-ESS-')
-      : reportType === COMPREHENSIVE_REPORT_TYPE
-        ? (assembled.assessmentReference.includes('-COMP-')
-          ? assembled.assessmentReference
-          : `${assembled.assessmentReference}-COMP`)
-        : assembled.assessmentReference;
-    assembled.reportReference = `RPT-${reportAssessmentReference}-V${versionNumber}`;
+    // bare assessment reference assembleReportData() defaults to. The rule lives in
+    // report-reference.ts and is mirrored by public.mk_report_reference(), so the printed
+    // reference and the persisted one cannot drift apart.
+    assembled.reportReference = buildReportReference({
+      assessmentReference: assembled.assessmentReference,
+      reportType,
+      versionNumber
+    });
+
+    // Pre-provider identity proof. The claimed (version_number, report_reference) pair must be
+    // persistable under the authoritative uniqueness scope -- (assessment_id, report_type,
+    // version_number) and the globally unique report_reference -- BEFORE any AI, PDF or storage
+    // spend. A deterministic collision here used to surface only at finalisation, as a 23505 on
+    // reports_report_reference_key, after the report had already been written and stored.
+    generationStage = 'preflight_report_identity';
+    const { data: identityRows, error: identityError } = await db
+      .from('reports')
+      .select('id,version_number,report_reference')
+      .eq('assessment_id', assembled.assessmentId)
+      .eq('report_type', reportType);
+    if (identityError) throw identityError;
+    const identity = preflightReportIdentity({
+      versionNumber,
+      reportReference: assembled.reportReference,
+      existingReports: identityRows ?? []
+    });
+    if (!identity.ok) {
+      console.error('phase1_report_identity_conflict', {
+        technicalReference,
+        attemptId,
+        conflict: identity.conflict,
+        conflictingReportId: identity.conflictingReportId,
+        versionNumber
+      });
+      throw new Phase1GenerationError(
+        'report_identity_conflict',
+        'The report version for this assessment is already in use. Refresh the order and start generation again.',
+        409,
+        technicalReference
+      );
+    }
 
     const { data: template, error: templateError } = await db
       .from('report_templates')
@@ -824,7 +863,8 @@ export async function generateManualPhase1Report(
         // Keep the generation role independently capped at one request. The shared semantic
         // cascade owns its separate adjudication and repair roles, so no technical writer
         // recovery path can consume either of those slots.
-        writer
+        writer,
+        semanticAdapters: dependencies.semanticAdapters
       });
       essentialNarrative = composed.narrative;
       const writerMetadata = composed.manuscript.writerMetadata;

@@ -21,12 +21,16 @@ import { classifyNarrativeRecoveryIssue } from './validation-severity';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import {
   runSemanticSafetyCascade,
+  SemanticAdjudicationUnusableError,
   SemanticCallLedger,
+  SAFE_DIAGNOSTIC_TOKEN_PATTERN,
+  SEMANTIC_ADJUDICATION_MIN_CONFIDENCE,
   type SemanticAdjudicationResult,
   type SemanticCandidate,
   type SemanticRepairResult,
   type SemanticCascadeDiagnostics
 } from './semantic-safety-cascade';
+import { NoObjectGeneratedError, TypeValidationError } from 'ai';
 
 /**
  * The Essential production narrative path.
@@ -313,7 +317,11 @@ export function toSafeEssentialFailureDiagnostics(input: {
       generationCalls: safeDiagnosticNumber(semantic.generationCalls) ?? 0,
       adjudicationCalls: safeDiagnosticNumber(semantic.adjudicationCalls) ?? 0,
       repairCalls: safeDiagnosticNumber(semantic.repairCalls) ?? 0,
-      totalProviderCalls: safeDiagnosticNumber(semantic.totalProviderCalls) ?? 0
+      totalProviderCalls: safeDiagnosticNumber(semantic.totalProviderCalls) ?? 0,
+      // Closed-vocabulary tokens only: which acceptance predicate the adjudication failed and
+      // how that was handled. No provider or customer prose is carried here.
+      invalidAdjudicationPredicate: safeDiagnosticToken(semantic.invalidAdjudicationPredicate),
+      invalidAdjudicationDisposition: safeDiagnosticToken(semantic.invalidAdjudicationDisposition)
     } : undefined
   };
 }
@@ -586,15 +594,35 @@ function finalEssentialValidationReport(
   };
 }
 
-const essentialAdjudicationSchema = z.object({
-  decisions: z.array(z.object({
-    targetId: z.string().min(1).max(200),
-    label: z.enum(['ALLOW_CONTEXT', 'REPAIRABLE', 'CONFIRMED_VIOLATION', 'AMBIGUOUS']),
-    confidence: z.number().min(0).max(1),
-    reasonCode: z.string().min(1).max(120),
-    evidenceRefs: z.array(z.string().min(1).max(120)).max(8)
-  }).strict()).max(64)
-}).strict();
+/**
+ * The provider schema is built per call so it structurally encodes every condition the downstream
+ * acceptance contract checks: exactly one decision per candidate, only the candidate target IDs
+ * that were actually sent, the confidence floor the cascade enforces, and the safe-token shape
+ * required of reason codes and evidence references.
+ *
+ * These were previously left to prompt wording and re-checked afterwards, so a response that
+ * satisfied a loose schema could still be refused as an invalid adjudication after the call had
+ * been paid for. Duplicate target IDs are the one condition a JSON schema cannot express, so they
+ * stay a refinement; the cascade re-checks all of them regardless, because the schema constrains
+ * the provider but is not the authority.
+ */
+function buildEssentialAdjudicationSchema(candidates: SemanticCandidate[]) {
+  const targetIds = candidates.map((candidate) => candidate.targetId);
+  const safeToken = z.string().min(1).max(120).regex(SAFE_DIAGNOSTIC_TOKEN_PATTERN);
+  return z.object({
+    decisions: z.array(z.object({
+      targetId: z.enum(targetIds as [string, ...string[]]),
+      label: z.enum(['ALLOW_CONTEXT', 'REPAIRABLE', 'CONFIRMED_VIOLATION', 'AMBIGUOUS']),
+      confidence: z.number().min(SEMANTIC_ADJUDICATION_MIN_CONFIDENCE).max(1),
+      reasonCode: safeToken,
+      evidenceRefs: z.array(safeToken).max(8)
+    }).strict())
+      .length(targetIds.length)
+      .refine((decisions) => new Set(decisions.map((decision) => decision.targetId)).size === decisions.length, {
+        message: 'duplicate_target'
+      })
+  }).strict();
+}
 
 const essentialRepairSchema = z.object({
   repairs: z.array(z.object({
@@ -620,16 +648,28 @@ function createEssentialSemanticAdapters(input: {
   const boundedFacts = input.factPack.facts.slice(0, 40).map((fact) => ({ id: fact.id, kind: fact.kind, value: fact.value }));
   return {
     async adjudicate(candidates) {
-      const response = await generateText({
+      // A provider that answers unusably (schema violation) is reported as an unusable
+      // adjudication so the cascade can take its bounded conservative route. A transport,
+      // abort or gateway failure is a different condition -- no adjudication happened -- and is
+      // rethrown unchanged so it stays a provider failure.
+      let response;
+      try {
+        response = await generateText({
         model,
         system: 'You are a bounded semantic adjudicator for an MK Fraud Readiness Essential report. Assess only the candidate prose and bounded evidence supplied. You cannot rewrite text. Hard factual or structural failures are already excluded from this call. Use ALLOW_CONTEXT only when the candidate is supported, REPAIRABLE only when a bounded prose repair can preserve the deterministic meaning, and AMBIGUOUS when evidence is insufficient. Return only the structured object.',
         prompt: `Return exactly one disposition for every candidate. Do not add facts or identifiers.\n\nBOUNDED FACTS\n${JSON.stringify(boundedFacts)}\n\nCANDIDATES\n${JSON.stringify(candidates.map((candidate) => ({ targetId: candidate.targetId, fieldRole: candidate.fieldRole, issueCode: candidate.issueCode, issueFamily: candidate.issueFamily, candidateHash: candidate.candidateHash, text: candidate.text, neighbourText: candidate.neighborText, deterministicFeatures: candidate.deterministicFeatures, evidenceRefs: candidate.evidenceRefs, evidence: candidate.evidence })))}\n\nBLUEPRINT SUMMARY\n${JSON.stringify({ schemaVersion: input.blueprint.schemaVersion, reportTier: input.blueprint.reportTier, chapterCount: input.blueprint.chapters.length })}`,
-        output: Output.object({ schema: essentialAdjudicationSchema, name: 'mk_essential_semantic_adjudication' }),
+        output: Output.object({ schema: buildEssentialAdjudicationSchema(candidates), name: 'mk_essential_semantic_adjudication' }),
         maxOutputTokens: 2048,
         maxRetries: 0,
         providerOptions: { gateway },
         abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
-      });
+        });
+      } catch (error) {
+        if (NoObjectGeneratedError.isInstance(error) || TypeValidationError.isInstance(error)) {
+          throw new SemanticAdjudicationUnusableError('provider_schema_violation');
+        }
+        throw error;
+      }
       return response.output.decisions;
     },
     async repair(targets) {

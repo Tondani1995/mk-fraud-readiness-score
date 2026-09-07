@@ -79,6 +79,10 @@ export type SemanticCascadeDiagnostics = {
   decisions: Array<Pick<SemanticDecision, 'targetId' | 'disposition' | 'reasonCode' | 'confidence' | 'evidenceRefs'>>;
   finalResult: 'ACCEPT' | 'HARD_REJECT' | 'AMBIGUOUS' | 'REPAIR_FAILED' | 'VALIDATION_FAILED';
   reasonCode?: string;
+  /** Which closed-vocabulary acceptance predicate the adjudication response failed, if any. */
+  invalidAdjudicationPredicate?: AdjudicationInvalidPredicate;
+  /** How an unusable adjudication was handled: conservative bounded repair, or fail closed. */
+  invalidAdjudicationDisposition?: 'conservative_repair' | 'fail_closed';
 };
 
 export class SemanticCallLedger {
@@ -119,7 +123,13 @@ function countBy<T extends string>(values: T[], keys: readonly T[]): Record<T, n
 
 const dispositions: readonly SemanticDisposition[] = ['HARD_REJECT', 'MUST_ALLOW', 'MUST_REPAIR', 'AMBIGUOUS'];
 const labels: readonly SemanticAdjudicationLabel[] = ['ALLOW_CONTEXT', 'REPAIRABLE', 'CONFIRMED_VIOLATION', 'AMBIGUOUS'];
-const SAFE_DIAGNOSTIC_TOKEN = /^[A-Za-z0-9_.:-]{1,120}$/;
+/**
+ * The reason-code / evidence-reference shape the acceptance contract requires. Exported so the
+ * provider's structured-output schema can constrain the same characters, instead of asking for
+ * them in prompt wording and rejecting the answer afterwards.
+ */
+export const SAFE_DIAGNOSTIC_TOKEN_PATTERN = /^[A-Za-z0-9_.:-]{1,120}$/;
+const SAFE_DIAGNOSTIC_TOKEN = SAFE_DIAGNOSTIC_TOKEN_PATTERN;
 
 export function determineSemanticDisposition(input: {
   candidate: SemanticCandidate;
@@ -173,21 +183,74 @@ function uniqueCandidates(candidates: SemanticCandidate[]): SemanticCandidate[] 
   });
 }
 
-function invalidAdjudication(candidates: SemanticCandidate[], results: SemanticAdjudicationResult[]): boolean {
-  if (results.length !== candidates.length) return true;
+/**
+ * Closed vocabulary naming which acceptance predicate an adjudication response failed.
+ *
+ * These are fixed tokens, never provider or customer prose, so they are safe to log and to carry
+ * in runtime diagnostics.
+ */
+export const ADJUDICATION_INVALID_PREDICATES = [
+  'result_count_mismatch',
+  'unknown_target',
+  'duplicate_target',
+  'label_not_recognised',
+  'confidence_not_finite',
+  'confidence_below_threshold',
+  'reason_code_not_safe_token',
+  'evidence_refs_not_array',
+  'evidence_ref_not_safe_token',
+  'provider_schema_violation'
+] as const;
+
+export type AdjudicationInvalidPredicate = (typeof ADJUDICATION_INVALID_PREDICATES)[number];
+
+export type AdjudicationValidity =
+  | { valid: true }
+  | { valid: false; predicate: AdjudicationInvalidPredicate };
+
+/**
+ * An adjudication adapter throws this when the provider answered but the answer is unusable --
+ * for example it violated the structured-output schema. It is deliberately distinct from a
+ * transport or timeout failure, which means no adjudication happened at all and must stay a
+ * provider failure.
+ */
+export class SemanticAdjudicationUnusableError extends Error {
+  readonly predicate: AdjudicationInvalidPredicate;
+
+  constructor(predicate: AdjudicationInvalidPredicate) {
+    super(`semantic_adjudication_unusable:${predicate}`);
+    this.name = 'SemanticAdjudicationUnusableError';
+    this.predicate = predicate;
+  }
+}
+
+export function classifyAdjudicationValidity(
+  candidates: SemanticCandidate[],
+  results: SemanticAdjudicationResult[]
+): AdjudicationValidity {
+  if (!Array.isArray(results) || results.length !== candidates.length) {
+    return { valid: false, predicate: 'result_count_mismatch' };
+  }
   const expected = new Set(candidates.map((candidate) => candidate.targetId));
   const seen = new Set<string>();
-  return results.some((result) => {
-    if (!expected.has(result.targetId) || seen.has(result.targetId)) return true;
+  for (const result of results) {
+    if (!expected.has(result?.targetId)) return { valid: false, predicate: 'unknown_target' };
+    if (seen.has(result.targetId)) return { valid: false, predicate: 'duplicate_target' };
     seen.add(result.targetId);
-    return !labels.includes(result.label)
-      || !Number.isFinite(result.confidence)
-      || result.confidence < SEMANTIC_ADJUDICATION_MIN_CONFIDENCE
-      || typeof result.reasonCode !== 'string'
-      || !SAFE_DIAGNOSTIC_TOKEN.test(result.reasonCode)
-      || !Array.isArray(result.evidenceRefs)
-      || result.evidenceRefs.some((ref) => typeof ref !== 'string' || !SAFE_DIAGNOSTIC_TOKEN.test(ref));
-  });
+    if (!labels.includes(result.label)) return { valid: false, predicate: 'label_not_recognised' };
+    if (!Number.isFinite(result.confidence)) return { valid: false, predicate: 'confidence_not_finite' };
+    if (result.confidence < SEMANTIC_ADJUDICATION_MIN_CONFIDENCE) {
+      return { valid: false, predicate: 'confidence_below_threshold' };
+    }
+    if (typeof result.reasonCode !== 'string' || !SAFE_DIAGNOSTIC_TOKEN.test(result.reasonCode)) {
+      return { valid: false, predicate: 'reason_code_not_safe_token' };
+    }
+    if (!Array.isArray(result.evidenceRefs)) return { valid: false, predicate: 'evidence_refs_not_array' };
+    if (result.evidenceRefs.some((ref) => typeof ref !== 'string' || !SAFE_DIAGNOSTIC_TOKEN.test(ref))) {
+      return { valid: false, predicate: 'evidence_ref_not_safe_token' };
+    }
+  }
+  return { valid: true };
 }
 
 function invalidRepairs(targets: SemanticCandidate[], repairs: SemanticRepairResult[]): boolean {
@@ -321,30 +384,63 @@ export async function runSemanticSafetyCascade<T>(input: {
       input.ledger.claim('adjudication');
       diagnostics.adjudicationCalls = input.ledger.adjudicationCalls;
       diagnostics.totalProviderCalls = input.ledger.totalProviderCalls;
-      const adjudications = await input.adjudicate(unresolved);
-      if (invalidAdjudication(unresolved, adjudications)) return reject(diagnostics, 'invalid_adjudication', 'AMBIGUOUS');
-      diagnostics.adjudicationCounts = countBy(adjudications.map((result) => result.label), labels);
-      const adjudicationById = new Map(adjudications.map((result) => [result.targetId, result]));
-      decisions = unresolved.map((candidate) => {
-        const result = adjudicationById.get(candidate.targetId)!;
-        const disposition: SemanticDisposition = result.label === 'ALLOW_CONTEXT'
-          ? 'MUST_ALLOW'
-          : result.label === 'REPAIRABLE'
-            ? 'MUST_REPAIR'
-            : result.label === 'CONFIRMED_VIOLATION'
-              ? candidate.semanticRepairEligible === true && candidate.hardTruth !== true ? 'MUST_REPAIR' : 'HARD_REJECT'
-              : 'AMBIGUOUS';
-        return {
+      let adjudications: SemanticAdjudicationResult[] = [];
+      let validity: AdjudicationValidity;
+      try {
+        adjudications = await input.adjudicate(unresolved);
+        validity = classifyAdjudicationValidity(unresolved, adjudications);
+      } catch (error) {
+        // A provider that answered unusably is not the same condition as a provider that never
+        // answered. Only the former joins the conservative route below; a transport or timeout
+        // failure still propagates as a provider failure.
+        if (!(error instanceof SemanticAdjudicationUnusableError)) throw error;
+        validity = { valid: false, predicate: error.predicate };
+      }
+
+      if (!validity.valid) {
+        // The adjudication is unusable. It is never read as permission: an unusable answer is
+        // treated at least as severely as a CONFIRMED_VIOLATION, so a candidate the pathway has
+        // already approved for bounded semantic repair takes the repair route, and anything else
+        // fails closed. There is no second adjudication and no full regeneration.
+        diagnostics.invalidAdjudicationPredicate = validity.predicate;
+        const conservativelyRepairable = unresolved.every((candidate) => candidate.semanticRepairEligible === true
+          && candidate.hardTruth !== true);
+        if (!conservativelyRepairable) {
+          diagnostics.invalidAdjudicationDisposition = 'fail_closed';
+          return reject(diagnostics, 'invalid_adjudication', 'AMBIGUOUS');
+        }
+        diagnostics.invalidAdjudicationDisposition = 'conservative_repair';
+        decisions = unresolved.map((candidate) => ({
           targetId: candidate.targetId,
-          disposition,
-          reasonCode: result.reasonCode,
-          confidence: result.confidence,
-          evidenceRefs: [...result.evidenceRefs]
-        } satisfies SemanticDecision;
-      });
-      diagnostics.decisions = [...diagnostics.decisions, ...decisions];
-      if (decisions.some((decision) => decision.disposition === 'HARD_REJECT')) return reject(diagnostics, 'ai_confirmed_violation', 'HARD_REJECT');
-      if (decisions.some((decision) => decision.disposition === 'AMBIGUOUS')) return reject(diagnostics, 'ai_ambiguous_or_low_confidence', 'AMBIGUOUS');
+          disposition: 'MUST_REPAIR' as const,
+          reasonCode: `invalid_adjudication:${validity.predicate}`,
+          evidenceRefs: [...candidate.evidenceRefs]
+        } satisfies SemanticDecision));
+        diagnostics.decisions = [...diagnostics.decisions, ...decisions];
+      } else {
+        diagnostics.adjudicationCounts = countBy(adjudications.map((result) => result.label), labels);
+        const adjudicationById = new Map(adjudications.map((result) => [result.targetId, result]));
+        decisions = unresolved.map((candidate) => {
+          const result = adjudicationById.get(candidate.targetId)!;
+          const disposition: SemanticDisposition = result.label === 'ALLOW_CONTEXT'
+            ? 'MUST_ALLOW'
+            : result.label === 'REPAIRABLE'
+              ? 'MUST_REPAIR'
+              : result.label === 'CONFIRMED_VIOLATION'
+                ? candidate.semanticRepairEligible === true && candidate.hardTruth !== true ? 'MUST_REPAIR' : 'HARD_REJECT'
+                : 'AMBIGUOUS';
+          return {
+            targetId: candidate.targetId,
+            disposition,
+            reasonCode: result.reasonCode,
+            confidence: result.confidence,
+            evidenceRefs: [...result.evidenceRefs]
+          } satisfies SemanticDecision;
+        });
+        diagnostics.decisions = [...diagnostics.decisions, ...decisions];
+        if (decisions.some((decision) => decision.disposition === 'HARD_REJECT')) return reject(diagnostics, 'ai_confirmed_violation', 'HARD_REJECT');
+        if (decisions.some((decision) => decision.disposition === 'AMBIGUOUS')) return reject(diagnostics, 'ai_ambiguous_or_low_confidence', 'AMBIGUOUS');
+      }
     }
 
     const allowedIds = new Set(decisions.filter((decision) => decision.disposition === 'MUST_ALLOW').map((decision) => decision.targetId));
