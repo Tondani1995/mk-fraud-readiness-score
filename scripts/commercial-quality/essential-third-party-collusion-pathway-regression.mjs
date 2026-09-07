@@ -237,12 +237,46 @@ assert.ok(gateReport.results.find((r) => r.gate === 'scenario-source-compatibili
 assert.ok(gateReport.results.find((r) => r.gate === 'SCENARIO-FIELD-INTEGRITY')?.status === 'PASS', 'scenario fields must distinguish recorded weakness from required response');
 assert.ok(gateReport.results.find((r) => r.gate === 'writer-brief-purity')?.status === 'PASS', 'the sanitized writer payload must stay free of internal identifiers');
 assert.ok(gateReport.results.find((r) => r.gate === 'story-plan-bounds')?.status === 'PASS', 'Story Plan bounds must match the Fact Pack narrative core');
-// ROADMAP-TARGET-PRESERVATION is a pre-existing property of this assessment's finding set: every
-// selected finding's playbook targets 60 or 90 days, so the roadmap carries no "30 days" item.
-// It fails identically before this candidate and is unrelated to the scenario taxonomy. It is
-// pinned here so any future change to it is deliberate, not silent.
-const failedGates = gateReport.results.filter((r) => r.status !== 'PASS').map((r) => r.gate);
-assert.deepEqual(failedGates, ['ROADMAP-TARGET-PRESERVATION'], `unexpected pre-AI gate failure: ${gateReport.results.filter((r) => r.status !== 'PASS').map((r) => `${r.gate}: ${r.detail}`).join(' | ')}`);
+const failedGates = gateReport.results.filter((r) => r.status !== 'PASS').map((r) => `${r.gate}: ${r.detail}`);
+assert.deepEqual(failedGates, [], `pre-AI gates must all pass: ${failedGates.join(' | ')}`);
+assert.equal(gateReport.status, 'PASS', 'the complete pre-AI gate report must PASS with no pinned exception');
+
+// ---------------------------------------------------------------------------
+// 30/60/90 management sequence.
+// ---------------------------------------------------------------------------
+const roadmapPeriods = pack.roadmap.map((item) => `${item.targetPeriod}/${item.phase}`);
+assert.ok(roadmapPeriods.includes('30 days/STABILISE'), `a 30-day STABILISE action is required: ${roadmapPeriods.join(', ')}`);
+assert.ok(roadmapPeriods.includes('60 days/ESTABLISH'), `a 60-day ESTABLISH action is required: ${roadmapPeriods.join(', ')}`);
+assert.ok(roadmapPeriods.includes('90 days/ESTABLISH'), `a 90-day ESTABLISH action is required: ${roadmapPeriods.join(', ')}`);
+assert.equal(pack.roadmap.filter((item) => item.targetPeriod === '30 days').length, 1, 'exactly one stabilisation action');
+const stabilise = pack.roadmap.find((item) => item.targetPeriod === '30 days');
+// It is evidence-linked and keeps its source finding's identity and semantic family.
+assert.ok(pack.findings.some((f) => f.factRef === stabilise.sourceFindingRef && f.primarySemanticFamily === stabilise.primarySemanticFamily), 'the stabilisation action must retain a real source finding reference and family');
+// It mobilises treatment; it never claims the 60- or 90-day control is already implemented.
+const stabiliseText = [stabilise.managementOutcome, stabilise.priorityWork, stabilise.proofOfCompletion, stabilise.successMeasure, stabilise.failureTrigger].join(' ');
+for (const pattern of [/implemented|completed|in place|operating effectively|embedded|delivered/i]) {
+  assert.equal(pattern.test(stabiliseText), false, `the 30-day action must not claim the control is done: ${stabiliseText.match(pattern)}`);
+}
+
+// No authoritative finding or control target period is mutated.
+assert.deepEqual(projection.findings.map((f) => f.targetPeriod).sort(), ['60 days', '90 days', '90 days', '90 days', '90 days', '90 days', '90 days', '90 days'], 'source finding target periods must be unchanged');
+assert.equal(projection.findings.some((f) => f.targetPeriod === '30 days'), false, 'no finding is relabelled to 30 days');
+assert.equal(projection.roadmapActions.some((a) => a.period === '30 days'), false, 'no evidence-model roadmap action is relabelled to 30 days');
+
+// A profile that already has a genuine 30-day action receives no duplicate stabilisation item.
+const nativeThirtyData = buildData();
+const nativeThirtyModel = buildAdvisoryEvidenceModel(nativeThirtyData);
+// Give the profile's own lead roadmap action a genuine 30-day target. The evidence model
+// carries prebuilt roadmapActions, so the action itself is what must change.
+const leadActionId = buildEssentialProjection(nativeThirtyData, nativeThirtyModel).roadmapActions[0].id;
+const patchedModel = {
+  ...nativeThirtyModel,
+  roadmapActions: nativeThirtyModel.roadmapActions.map((a) => a.id === leadActionId ? { ...a, period: '30 days' } : a)
+};
+const { pack: nativePack } = packFor(nativeThirtyData, patchedModel);
+assert.equal(nativePack.roadmap.filter((item) => item.targetPeriod === '30 days').length, 1, 'a genuine 30-day action must not be duplicated by a stabilisation item');
+assert.equal(nativePack.roadmap.some((item) => item.sourceId.startsWith('RA-STABILISE-')), false, 'no synthetic stabilisation item when a genuine 30-day action exists');
+assert.equal(pack.roadmap.filter((item) => item.sourceId.startsWith('RA-STABILISE-')).length, 1, 'the affected profile receives exactly one stabilisation item');
 
 // ---------------------------------------------------------------------------
 // Owner-review variants: complete generated fact for each shape.
@@ -282,8 +316,8 @@ function variant(label, overrides) {
   assert.doesNotThrow(() => assertNarrativeStoryPlan(vPlan, vPack), `${label}: Story Plan must pass`);
   const vGate = runPreAiFactPackGates(vPack, vPlan, buildNarrativeWriterBrief(vPack, vPlan));
   assert.equal(vGate.results.find((r) => r.gate === 'scenario-pathways')?.status, 'PASS', `${label}: scenario-pathways must accept the family`);
-  const vFailed = vGate.results.filter((r) => r.status !== 'PASS').map((r) => r.gate);
-  assert.deepEqual(vFailed, ['ROADMAP-TARGET-PRESERVATION'], `${label}: unexpected pre-AI gate failure: ${vFailed.join(' | ')}`);
+  const vFailed = vGate.results.filter((r) => r.status !== 'PASS').map((r) => `${r.gate}: ${r.detail}`);
+  assert.deepEqual(vFailed, [], `${label}: pre-AI gates must all pass: ${vFailed.join(' | ')}`);
   return { label, scenario, scenarioCount: vPack.scenarios.length, families: vPack.scenarios.map((x) => x.scenarioFamily) };
 }
 const variants = [
@@ -301,7 +335,7 @@ console.log(JSON.stringify({
   collusionLinkedFindings: collusion.linkedFindingIds,
   collusionLinkedRisks: collusion.linkedRiskIds,
   eligibleQuestions: mapped,
-  preAiGateScenarioPathways: pathwayGate.status,
-  preAiGateKnownPreExistingFailure: failedGates,
+  preAiGateStatus: gateReport.status,
+  roadmapSequence: pack.roadmap.map((i) => `${i.targetPeriod}/${i.phase}`),
   variants: variants.map((v) => ({ variant: v.label, scenarioCount: v.scenarioCount, families: v.families, scenario: v.scenario }))
 }, null, 2));

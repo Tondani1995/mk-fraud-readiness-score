@@ -1050,12 +1050,65 @@ function roadmapWorkFor(finding: MaterialFinding): string {
   return work[finding.primarySemanticFamily];
 }
 
+/**
+ * The Reporting Bible requires the remediation response to carry a 30/60/90 management
+ * sequence, but a legitimate profile can have every selected finding on a 60- or 90-day
+ * control-completion target. The authoritative finding and control targets are deterministic
+ * and must not be relabelled, so the missing first window is supplied as a separate
+ * stabilisation action: mobilising the treatment, not completing it.
+ *
+ * It is derived from the highest-urgency selected finding and keeps that finding's reference
+ * and semantic family, so it stays evidence-linked. It is added only when the profile has no
+ * genuine 30-day action of its own. Sustainment uses buildSustainmentRoadmap() and is
+ * unaffected.
+ */
+function stabilisationRoadmapEntry(action: RoadmapAction, finding: MaterialFinding, findingRefs: Map<string, string>): Omit<NarrativeRoadmapFact, 'factRef'> {
+  return {
+    sourceId: `RA-STABILISE-${finding.questionCode}`,
+    sourceFindingRef: findingRefs.get(action.linkedFindingId) ?? '',
+    primarySemanticFamily: finding.primarySemanticFamily,
+    phase: 'STABILISE',
+    phaseWindow: '0-30 days',
+    managementOutcome: 'Priority remediation is mobilised with named owners, active escalation thresholds and confirmed evidence requirements.',
+    priorityWork: 'Confirm the accountable executive and process owner for each priority finding, activate the defined escalation threshold, resolve the blockers that would delay treatment, and confirm the evidence required to begin the linked control response.',
+    accountableExecutive: text(action.accountableExecutive),
+    processOwner: text(action.processOwner, action.accountableOwner),
+    targetPeriod: '30 days',
+    dependencies: [],
+    proofOfCompletion: 'Retain the recorded owner assignments, the activated escalation threshold and the confirmed evidence requirements for each priority finding.',
+    successMeasure: 'Every priority finding has a named accountable executive and process owner, an active escalation threshold and a confirmed evidence requirement before treatment begins.',
+    failureTrigger: 'A priority finding has no named owner, no active escalation threshold, or an unresolved blocker at the end of the first 30 days.'
+  };
+}
+
 function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[], findingRefs: Map<string, string>, tier: NarrativeProductTier): NarrativeRoadmapFact[] {
   const findingById = new Map(findings.map((finding) => [finding.id, finding]));
-  return actions
-    .filter((action) => findingRefs.has(action.linkedFindingId) && findingById.has(action.linkedFindingId))
-    .map((action, index) => ({
-    factRef: `ROADMAP-${String(index + 1).padStart(3, '0')}`,
+  const usable = actions.filter((action) => findingRefs.has(action.linkedFindingId) && findingById.has(action.linkedFindingId));
+  const leadAction = usable[0];
+  const leadFinding = leadAction ? findingById.get(leadAction.linkedFindingId) : undefined;
+  const needsStabilisation = usable.length > 0 && !usable.some((action) => action.period === '30 days');
+  const stabilisation = needsStabilisation && leadAction && leadFinding
+    ? [stabilisationRoadmapEntry(leadAction, leadFinding, findingRefs)]
+    : [];
+  // The Story Plan narrates only the first `limit` roadmap facts. Adding a stabilisation action
+  // must not push the profile's only 60- or 90-day action out of that window, so the remediation
+  // actions are trimmed here with one action of each distinct target period reserved first, then
+  // the remaining budget filled in existing urgency order.
+  const limit = tier === 'essential' ? 6 : 12;
+  const budget = Math.max(0, limit - stabilisation.length);
+  const selected = new Set<RoadmapAction>();
+  for (const period of unique(usable.map((action) => action.period))) {
+    const first = usable.find((action) => action.period === period);
+    if (first && selected.size < budget) selected.add(first);
+  }
+  for (const action of usable) {
+    if (selected.size >= budget) break;
+    selected.add(action);
+  }
+  const orderedSelection = usable.filter((action) => selected.has(action));
+  return [
+    ...stabilisation,
+    ...orderedSelection.map((action) => ({
     sourceId: action.id,
     sourceFindingRef: findingRefs.get(action.linkedFindingId) ?? '',
     primarySemanticFamily: findings.find((finding) => finding.id === action.linkedFindingId)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE',
@@ -1070,7 +1123,8 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
     proofOfCompletion: text(action.evidenceOfCompletion),
     successMeasure: text(action.successMeasure),
     failureTrigger: text(action.escalationThreshold, 'Escalate when the target-period success measure is not met or an exception remains overdue.')
-  }));
+  }))
+  ].map((entry, index) => ({ ...entry, factRef: `ROADMAP-${String(index + 1).padStart(3, '0')}` }));
 }
 
 function buildSustainmentPriorityFacts(priorities: SustainmentPriority[], includeSourceMetadata = false): NarrativeSustainmentPriorityFact[] {
