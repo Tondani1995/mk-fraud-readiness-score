@@ -471,6 +471,20 @@ function essentialCandidatesForReport(
   return [...byTarget.values()];
 }
 
+/**
+ * validateBlueprintTextManuscript() emits customer_copy_leakage into its hardTruth collection
+ * because the paragraph is release-blocking, but validation-severity.ts classifies that code as
+ * REPAIRABLE_SEMANTIC_FAILURE with repairEligible true: it is a bounded customer-copy defect,
+ * not an objective untruth. The Essential partition previously treated every non-assurance hard
+ * entry as objective hard truth, so a leaked report-engine phrase was rejected before repair.
+ *
+ * Only this code is listed. Objective hard-truth codes -- invented facts, raw identifiers,
+ * unsupported structures, missing provenance, wrong product or tier and unknown codes -- stay
+ * hard rejects, and a paragraph that also carries one of those is never rescued by this route.
+ * The detector itself is unchanged and still decides release after the bounded replacement.
+ */
+const ESSENTIAL_DIRECT_REPAIR_HARD_CODES: ReadonlySet<string> = new Set(['customer_copy_leakage']);
+
 function partitionEssentialValidationIssues(
   parsed: ParsedBlueprintMarkdown,
   hardIssues: Array<{ code: string; severity: string; path: string; message: string }>,
@@ -498,12 +512,23 @@ function partitionEssentialValidationIssues(
   const semanticRepairPaths = new Set<string>();
   const directRepairPaths = new Set<string>();
   for (const [path, entries] of issuesByPath) {
-    const hasObjectiveHardTruth = entries.some((entry) => entry.source === 'hard' && entry.code !== 'assurance_claim');
+    const hasObjectiveHardTruth = entries.some((entry) => entry.source === 'hard'
+      && entry.code !== 'assurance_claim'
+      && !ESSENTIAL_DIRECT_REPAIR_HARD_CODES.has(entry.code));
     const assuranceEntries = entries.filter((entry) => entry.code === 'assurance_claim');
 
     for (const issue of entries.filter((entry) => entry.code !== 'assurance_claim')) {
-      if (issue.source === 'hard') hardIssuesForCascade.push(issue);
-      else if (!hasObjectiveHardTruth) candidateIssues.push(issue);
+      if (issue.source === 'hard') {
+        // A bounded customer-copy defect is routed to direct repair only when this paragraph
+        // carries no objective hard-truth failure. Otherwise it stays a hard reject.
+        if (ESSENTIAL_DIRECT_REPAIR_HARD_CODES.has(issue.code) && !hasObjectiveHardTruth) {
+          candidateIssues.push(issue);
+          directRepairPaths.add(path);
+          semanticRepairPaths.add(path);
+        } else {
+          hardIssuesForCascade.push(issue);
+        }
+      } else if (!hasObjectiveHardTruth) candidateIssues.push(issue);
     }
 
     for (const issue of assuranceEntries) {
