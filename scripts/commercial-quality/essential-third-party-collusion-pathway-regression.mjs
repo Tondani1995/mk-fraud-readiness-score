@@ -249,6 +249,20 @@ assert.ok(roadmapPeriods.includes('30 days/STABILISE'), `a 30-day STABILISE acti
 assert.ok(roadmapPeriods.includes('60 days/ESTABLISH'), `a 60-day ESTABLISH action is required: ${roadmapPeriods.join(', ')}`);
 assert.ok(roadmapPeriods.includes('90 days/ESTABLISH'), `a 90-day ESTABLISH action is required: ${roadmapPeriods.join(', ')}`);
 assert.equal(pack.roadmap.filter((item) => item.targetPeriod === '30 days').length, 1, 'exactly one stabilisation action');
+assert.equal(pack.roadmap.length, 6, 'the Essential roadmap cap stays at six');
+
+// The Bible requires a sequenced 30/60/90 plan, not merely one of each period present.
+assert.equal(`${pack.roadmap[0].targetPeriod}/${pack.roadmap[0].phase}`, '30 days/STABILISE', 'the first item must be the 30-day stabilisation action');
+const dayOrder = pack.roadmap.map((item) => Number.parseInt(item.targetPeriod, 10));
+assert.deepEqual(dayOrder, [...dayOrder].sort((a, b) => a - b), `roadmap must be chronological, received ${pack.roadmap.map((i) => i.targetPeriod).join(' -> ')}`);
+const lastSixty = dayOrder.lastIndexOf(60);
+const firstNinety = dayOrder.indexOf(90);
+assert.ok(lastSixty >= 0 && firstNinety >= 0, 'a 60-day and a 90-day action must both remain');
+assert.ok(lastSixty < firstNinety, 'every 60-day item must precede every 90-day item');
+// Within one period the existing urgency order is preserved.
+const ninetyRefs = pack.roadmap.filter((i) => i.targetPeriod === '90 days').map((i) => i.sourceId);
+const urgencyNinety = projection.roadmapActions.filter((a) => a.period === '90 days').map((a) => a.id).filter((id) => ninetyRefs.includes(id));
+assert.deepEqual(ninetyRefs, urgencyNinety, 'within a target period the urgency order must be preserved');
 const stabilise = pack.roadmap.find((item) => item.targetPeriod === '30 days');
 // It is evidence-linked and keeps its source finding's identity and semantic family.
 assert.ok(pack.findings.some((f) => f.factRef === stabilise.sourceFindingRef && f.primarySemanticFamily === stabilise.primarySemanticFamily), 'the stabilisation action must retain a real source finding reference and family');
@@ -262,6 +276,21 @@ for (const pattern of [/implemented|completed|in place|operating effectively|emb
 assert.deepEqual(projection.findings.map((f) => f.targetPeriod).sort(), ['60 days', '90 days', '90 days', '90 days', '90 days', '90 days', '90 days', '90 days'], 'source finding target periods must be unchanged');
 assert.equal(projection.findings.some((f) => f.targetPeriod === '30 days'), false, 'no finding is relabelled to 30 days');
 assert.equal(projection.roadmapActions.some((a) => a.period === '30 days'), false, 'no evidence-model roadmap action is relabelled to 30 days');
+
+// A direct chronological guard: a profile whose urgency order would otherwise interleave
+// periods must still be narrated 30 -> 60 -> 90. This fails if ordering is ever removed.
+const interleavedData = buildData();
+const interleavedModel = buildAdvisoryEvidenceModel(interleavedData);
+const interleavedActions = buildEssentialProjection(interleavedData, interleavedModel).roadmapActions;
+const reshuffled = {
+  ...interleavedModel,
+  roadmapActions: interleavedActions.map((a, i) => ({ ...a, period: i % 2 === 0 ? '90 days' : '60 days' }))
+};
+const { pack: interleavedPack } = packFor(interleavedData, reshuffled);
+const interleavedDays = interleavedPack.roadmap.map((item) => Number.parseInt(item.targetPeriod, 10));
+assert.deepEqual(interleavedDays, [...interleavedDays].sort((a, b) => a - b), `interleaved urgency order must still narrate chronologically, received ${interleavedPack.roadmap.map((i) => i.targetPeriod).join(' -> ')}`);
+assert.equal(interleavedPack.roadmap[0].targetPeriod, '30 days', 'stabilisation still leads');
+assert.ok(interleavedDays.includes(60) && interleavedDays.includes(90), 'both remediation periods survive selection');
 
 // A profile that already has a genuine 30-day action receives no duplicate stabilisation item.
 const nativeThirtyData = buildData();

@@ -1105,7 +1105,18 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
     if (selected.size >= budget) break;
     selected.add(action);
   }
-  const orderedSelection = usable.filter((action) => selected.has(action));
+  const urgencyOrdered = usable.filter((action) => selected.has(action));
+  // The Reporting Bible requires a sequenced 30/60/90 management plan, so the Essential
+  // remediation narrative roadmap is ordered chronologically after selection. The selection
+  // itself, including the urgency priority and the period-diversity reserve above, is unchanged;
+  // within one target period the existing urgency order is preserved by decorating with the
+  // pre-sort index. Comprehensive keeps its existing order.
+  const orderedSelection = tier === 'essential'
+    ? urgencyOrdered
+      .map((action, index) => ({ action, index, days: Number.parseInt(action.period, 10) || Number.MAX_SAFE_INTEGER }))
+      .sort((left, right) => left.days - right.days || left.index - right.index)
+      .map((entry) => entry.action)
+    : urgencyOrdered;
   return [
     ...stabilisation,
     ...orderedSelection.map((action) => ({
