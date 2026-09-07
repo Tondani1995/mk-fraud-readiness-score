@@ -124,11 +124,17 @@ export async function processVerifiedPayment(input: {
   };
 }
 
+/**
+ * A manual confirmation must always state the amount actually received, so amountCents is
+ * required. It previously defaulted to the order total, which meant a submission that reached
+ * here without an amount was silently recorded as payment in full. The only caller is the admin
+ * status route, which fails closed on a missing, blank or malformed operator amount.
+ */
 export async function confirmManualPayment(input: {
   orderReference: string;
   adminId: string;
   note: string;
-  amountCents?: number;
+  amountCents: number;
   currency?: string;
   idempotencyKey: string;
 }) {
@@ -142,7 +148,7 @@ export async function confirmManualPayment(input: {
     source: 'manual_admin', actorReference: input.adminId, idempotencyKey: input.idempotencyKey,
     event: {
       eventId, orderReference: input.orderReference, transactionReference: null,
-      amountCents: input.amountCents ?? Number(order.amount_cents), currency: (input.currency ?? order.currency).toUpperCase(),
+      amountCents: input.amountCents, currency: (input.currency ?? order.currency).toUpperCase(),
       outcome: 'completed', occurredAt: new Date().toISOString(), verificationResult: 'authorised_manual_confirmation', safeNote: input.note.trim()
     }
   });

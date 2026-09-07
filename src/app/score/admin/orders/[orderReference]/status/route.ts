@@ -7,7 +7,7 @@ import { getPaymentAutomationCapability } from '@/lib/payments/payment-capabilit
 import { confirmManualPayment } from '@/lib/payments/payment-service';
 import { getPhase1SchemaCapability } from '@/lib/reports/phase1-schema-capability';
 import crypto from 'node:crypto';
-import { parseZarAmountToCents } from '@/lib/payments/zar-amount';
+import { resolveManualPaymentAmount } from '@/lib/payments/zar-amount';
 
 const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
@@ -33,27 +33,24 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
   }
 
   // The operator enters ZAR major units. Conversion to the integer-cent contract happens once,
-  // here, and a malformed or out-of-range value fails closed rather than silently falling back
-  // to the order amount.
-  const rawAmount = form.get('amountZar') ?? form.get('amountCentsZar');
-  const amountCents = rawAmount === null || rawAmount === undefined || String(rawAmount).trim() === ''
-    ? undefined
-    : parseZarAmountToCents(rawAmount);
-  // A supplied but malformed amount always fails closed, whatever the status, rather than
-  // falling through as "no amount given" and being treated as the full order amount.
-  if (amountCents === null) {
+  // here. A malformed value fails closed whatever the status, and a payment confirmation with a
+  // missing or blank amount fails closed too rather than being defaulted to the order total.
+  const amount = resolveManualPaymentAmount(status, form.get('amountZar'));
+  if (amount.kind === 'invalid') {
     detailUrl.searchParams.set('error', 'invalid_payment_amount');
     return NextResponse.redirect(detailUrl);
   }
 
   const paymentCapability = await getPaymentAutomationCapability();
   let result: { ok: boolean; error?: string; message?: string };
-  if (status === 'payment_received' && paymentCapability.status === 'available') {
+  // Discriminating on the resolution, not on the status string, is what guarantees the payment
+  // service is only ever called with an operator-stated amount.
+  if (amount.kind === 'confirmation' && paymentCapability.status === 'available') {
     const payment = await confirmManualPayment({
       orderReference: params.orderReference,
       adminId: admin.id,
       note,
-      amountCents,
+      amountCents: amount.amountCents,
       currency: String(form.get('currency') ?? 'ZAR'),
       idempotencyKey: String(form.get('idempotencyKey') ?? request.headers.get('x-idempotency-key') ?? crypto.randomUUID())
     });

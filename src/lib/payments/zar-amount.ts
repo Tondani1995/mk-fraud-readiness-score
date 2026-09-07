@@ -29,3 +29,34 @@ export function formatCentsAsZarInput(amountCents: unknown): string {
   const remainder = Math.abs(cents % 100);
   return `${whole}.${String(remainder).padStart(2, '0')}`;
 }
+
+/**
+ * One admin status submission resolved to the amount the payment service may use.
+ *
+ * `confirmation` is the only shape carrying an amount, so a manual payment confirmation cannot
+ * reach the payment service without one.
+ */
+export type ManualPaymentAmountResolution =
+  | { kind: 'invalid' }
+  | { kind: 'confirmation'; amountCents: number }
+  | { kind: 'no_confirmation' };
+
+/**
+ * A manual payment_received submission must always state the amount actually received. A missing,
+ * blank or malformed field fails closed here rather than reaching confirmManualPayment() and
+ * being defaulted to the order total.
+ *
+ * A stale form carrying only the retired `amountCents` field arrives as a missing ZAR amount.
+ * That value was denominated in cents and is ambiguous against the ZAR major-unit contract, so it
+ * is never reinterpreted -- the submission fails closed and the operator re-enters the amount.
+ *
+ * Non-payment status updates are unaffected by the presence requirement.
+ */
+export function resolveManualPaymentAmount(status: string, rawAmountZar: unknown): ManualPaymentAmountResolution {
+  const confirmation = status === 'payment_received';
+  const missing = rawAmountZar === null || rawAmountZar === undefined || String(rawAmountZar).trim() === '';
+  if (missing) return confirmation ? { kind: 'invalid' } : { kind: 'no_confirmation' };
+  const amountCents = parseZarAmountToCents(rawAmountZar);
+  if (amountCents === null) return { kind: 'invalid' };
+  return confirmation ? { kind: 'confirmation', amountCents } : { kind: 'no_confirmation' };
+}
