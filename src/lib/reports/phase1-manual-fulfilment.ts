@@ -744,6 +744,13 @@ export async function generateManualPhase1Report(
       // prepare_narrative failure before any dispatch could be recorded.
       const { composeEssentialManuscript } = await import('./narrative/essential-manuscript-coordinator');
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
+      // Essential provider-call ceiling. One initial generation, plus at most one bounded
+      // technical operation when structural binding fails on deterministic evidence: either the
+      // proven missing-tail completion or a single technical-format regeneration. Semantic
+      // adjudication and repair are separate budgets and never draw on this ceiling. Exceeding
+      // it fails closed rather than dispatching.
+      const ESSENTIAL_PROVIDER_CALL_CEILING = 2;
+
       const configuredWriter = dependencies.wholeManuscriptWriter;
       let writer: WholeManuscriptWriter;
       if (configuredWriter) {
@@ -757,10 +764,10 @@ export async function generateManualPhase1Report(
           requestedModel: flags.model,
           router: 'vercel_ai_gateway',
           dispatchOccurred: false,
-          providerCallBudget: 1
+          providerCallBudget: ESSENTIAL_PROVIDER_CALL_CEILING
         });
         try {
-          writer = createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 });
+          writer = createV11WholeManuscriptWriter(flags.model, { providerCallBudget: ESSENTIAL_PROVIDER_CALL_CEILING });
         } catch (error) {
           const safeDiagnostics = toSafeEssentialFailureDiagnostics({
             diagnostics: {

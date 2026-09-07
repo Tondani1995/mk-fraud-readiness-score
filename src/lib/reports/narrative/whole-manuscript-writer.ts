@@ -167,6 +167,29 @@ function metadata(input: { context: WholeManuscriptWriterInput['context']; bluep
   };
 }
 
+export type StructuralBindingAction = 'ACCEPT' | 'TAIL_COMPLETION' | 'TECHNICAL_REGENERATION';
+
+/**
+ * The single deterministic discriminator for a structurally non-conforming manuscript.
+ *
+ * ACCEPT                 the manuscript binds to the Blueprint exactly.
+ * TAIL_COMPLETION        deriveMissingBlueprintTail() proved a clean deterministic prefix and a
+ *                        missing suffix, and the generation classifies as technical truncation.
+ * TECHNICAL_REGENERATION the prefix cannot be proven, so no prose may be re-bound. Only a
+ *                        bounded technical-format regeneration is permitted.
+ *
+ * It never inspects prose and never guesses which text belongs to which Blueprint node.
+ */
+export function resolveStructuralBindingAction(input: {
+  parsedOk: boolean;
+  missing: MissingBlueprintTail;
+  generationOutcome: string;
+}): StructuralBindingAction {
+  if (input.parsedOk) return 'ACCEPT';
+  if (input.missing.ok && input.generationOutcome === 'TECHNICAL_TRUNCATION') return 'TAIL_COMPLETION';
+  return 'TECHNICAL_REGENERATION';
+}
+
 export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   readonly provider: string;
   readonly model: string;
@@ -209,18 +232,99 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     });
   }
 
+  /**
+   * One bounded technical-format regeneration for a structurally non-conforming manuscript.
+   *
+   * Nothing analytical changes: the same deterministic Blueprint and Fact Pack are re-sent. No
+   * prose is remapped and no semantic repair runs, because structural binding has not yet
+   * succeeded. The second response must parse exactly against the Blueprint or this fails
+   * closed; there is no third structural attempt.
+   *
+   * It is charged as its own provider-call kind and recorded as technicalFallbackCount, so it
+   * stays distinguishable from the semantic adjudication and repair budgets.
+   */
+  private async regenerateForStructuralBinding(
+    input: WholeManuscriptWriterInput,
+    initialResult: WholeManuscriptTextResult,
+    initialParsed: ReturnType<typeof parseBlueprintMarkdown>,
+    initialMissing: MissingBlueprintTail,
+    initialOutcome: string
+  ): Promise<WholeManuscriptTextResult> {
+    const failClosed = (stage: string, message: string, detail: Record<string, unknown>, result: WholeManuscriptTextResult, parsed: ReturnType<typeof parseBlueprintMarkdown>, technicalRegenerations: number) => {
+      const failure = new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', message, detail);
+      (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
+        stage,
+        writerMetadata: result.writerMetadata,
+        classification: 'STRUCTURAL_BINDING_FAILURE',
+        missingTail: { ok: initialMissing.ok, missingHeadingCount: initialMissing.missingHeadings.length, lastCompleteHeading: initialMissing.lastCompleteHeading, errors: initialMissing.errors },
+        providerCalls: this.providerCallsUsed,
+        technicalRegenerations,
+        structural: buildManuscriptStructuralDiagnostics({ markdown: result.markdown, blueprint: input.blueprint, parsed })
+      };
+      throw failure;
+    };
+
+    let response;
+    const prompt = generationPrompt(input);
+    try {
+      this.chargeProviderCall('technical_structural_regeneration');
+      response = await this.dispatchGeneration({
+        system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The previous response did not match the deterministic Blueprint heading contract. Reproduce every Blueprint heading exactly once, at exactly the given level, in exactly the given order, with the given text unchanged, and write prose only under each heading. Never copy alignment IDs, numeric metadata or [alignment reference] placeholders from the supplied JSON into narrative prose. Never emit the Unicode em dash character U+2014. Return plain Markdown text only.',
+        prompt,
+        maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit
+      });
+    } catch (error) {
+      // The ceiling refused the second call, or the provider failed. Either way the original
+      // structural failure stands and nothing further is attempted.
+      failClosed('initial_manuscript_not_recoverable', 'Structural binding failed and the bounded technical regeneration could not be dispatched.', { outcome: initialOutcome, parsed: initialParsed.errors, missing: initialMissing.errors, regeneration: error instanceof Error ? error.message : String(error) }, initialResult, initialParsed, 0);
+      throw error;
+    }
+
+    const markdown = String(response.text ?? '').trim();
+    const recovery = {
+      ...emptyNarrativeRecoveryBudget(),
+      initialGenerationCount: 1,
+      technicalFallbackCount: 1,
+      totalCalls: 2,
+      totalTokens: (initialResult.writerMetadata.recovery.totalTokens ?? 0) + (numeric(response.usage?.totalTokens) ?? 0),
+      totalProviderCostMicros: (initialResult.writerMetadata.recovery.totalProviderCostMicros ?? 0) + parseCostMicros(response)
+    };
+    const regenerated: WholeManuscriptTextResult = {
+      contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+      architecture: 'whole-manuscript',
+      markdown,
+      blueprint: input.blueprint,
+      writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, recovery)
+    };
+    if (!markdown) failClosed('technical_regeneration_not_recoverable', 'The bounded technical regeneration returned empty Markdown.', { outcome: initialOutcome, parsed: initialParsed.errors }, regenerated, initialParsed, 1);
+    const reparsed = parseBlueprintMarkdown(markdown, input.blueprint);
+    if (!reparsed.ok) {
+      failClosed('technical_regeneration_not_recoverable', 'The bounded technical regeneration still did not bind to the deterministic Blueprint.', { outcome: initialOutcome, parsed: reparsed.errors, initialParsed: initialParsed.errors }, regenerated, reparsed, 1);
+    }
+    return regenerated;
+  }
+
+  /** Single provider seam. Overridden only by provider-free structural-recovery tests. */
+  protected async dispatchGeneration(args: { system: string; prompt: string; maxOutputTokens: number }): Promise<any> {
+    return generateText({
+      model: this.model,
+      system: args.system,
+      prompt: args.prompt,
+      maxOutputTokens: args.maxOutputTokens,
+      maxRetries: 0,
+      providerOptions: { gateway: { only: [this.provider] } },
+      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+    });
+  }
+
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
     const prompt = generationPrompt(input);
     this.chargeProviderCall('initial');
-    const response = await generateText({
-      model: this.model,
+    const response = await this.dispatchGeneration({
       system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Never copy alignment IDs, numeric metadata or [alignment reference] placeholders from the supplied JSON into narrative prose. Never emit the Unicode em dash character U+2014. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
       prompt,
-      maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [this.provider] } },
-      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit
     });
     const markdown = String(response.text ?? '').trim();
     if (!markdown) throw new Error('Whole-manuscript text generation returned empty Markdown.');
@@ -232,19 +336,29 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) })
     };
     const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
+    // Structural binding is decided on deterministic evidence, never on a presumed label.
+    // The previous semantic-safety branch threw here and stamped the failure
+    // SEMANTIC_SAFETY_TECHNICAL_TRUNCATION before deriveMissingBlueprintTail() had run, so a
+    // renamed, reordered or mis-levelled manuscript was reported as truncation and no bounded
+    // technical recovery was ever attempted. The derivation below is the only discriminator:
+    // it proves a clean deterministic prefix with a missing suffix, or it does not.
     if (input.semanticSafety && !initialParsed.ok) {
-      // Semantic-cascade generation has a fixed role budget. A technical tail retry is a
-      // different operation and must not silently consume the adjudication or repair slots.
-      const failure = new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a complete manuscript in semantic-safety mode.', { parsed: initialParsed.errors });
-      (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
-        stage: 'initial_manuscript_not_recoverable',
-        writerMetadata: initialResult.writerMetadata,
-        classification: 'SEMANTIC_SAFETY_TECHNICAL_TRUNCATION',
-        missingTail: { ok: false, missingHeadingCount: 0, lastCompleteHeading: undefined, errors: initialParsed.errors.map((issue) => issue.message) },
-        providerCalls: this.providerCallsUsed,
-        structural: buildManuscriptStructuralDiagnostics({ markdown: initialResult.markdown, blueprint: input.blueprint, parsed: initialParsed })
-      };
-      throw failure;
+      const semanticMissing = deriveMissingBlueprintTail(initialResult.markdown, input.blueprint);
+      const semanticOutcome = classifyWholeManuscriptGeneration({
+        finishReason: initialResult.writerMetadata.finishReason,
+        providerFinishReason: initialResult.writerMetadata.providerFinishReason,
+        outputTokens: initialResult.writerMetadata.outputTokens,
+        maxOutputTokens: initialResult.writerMetadata.executionContract?.maxOutputTokens,
+        missingHeadingCount: semanticMissing.missingHeadings.length
+      });
+      // A proven technical truncation keeps the existing bounded tail path below.
+      if (resolveStructuralBindingAction({ parsedOk: initialParsed.ok, missing: semanticMissing, generationOutcome: semanticOutcome }) === 'TECHNICAL_REGENERATION') {
+        // The prefix cannot be proven, so no prose may be re-bound heuristically. One explicit
+        // technical-format regeneration is permitted against the same Blueprint and Fact Pack.
+        // It is a separately counted operation and never consumes a semantic adjudication or
+        // repair slot. The second response must parse exactly or this fails closed.
+        return await this.regenerateForStructuralBinding(input, initialResult, initialParsed, semanticMissing, semanticOutcome);
+      }
     }
     // A structurally complete manuscript is returned to the caller even when text-first
     // validation identifies an editorial/semantic issue; the existing bounded semantic-repair
