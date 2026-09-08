@@ -17,11 +17,16 @@ import type { MonitorAlertCandidate } from './production-monitor';
 export const FULFILMENT_THRESHOLDS = Object.freeze({
   /**
    * Paid orders are fulfilled through an admin-triggered pipeline (`manual_fulfilment_pending`).
-   * Generation itself completes in ~1-2 minutes once requested, but the request step is human, so
-   * the grace has to cover human turnaround rather than machine latency. 72h sits above observed
-   * routine turnaround while still bounding a genuinely forgotten paid obligation.
+   * Generation completes in ~1-2 minutes once requested; the request step is human, so the grace
+   * must cover human turnaround rather than machine latency.
+   *
+   * Calibrated against the live distribution of 13 legitimately fulfilled paid orders, measured
+   * from payment verification to first ready report: avg 44.7h, p95 156.0h, max 270.8h. A 72h
+   * grace sits far below p95 and would routinely alert on normal manual fulfilment, so it is set
+   * above p95 at 168h (7 days). Both genuinely unfulfilled Production orders (182.1h and 186.0h,
+   * one with a single failed attempt never retried and one with no attempt at all) remain caught.
    */
-  paidOrderGraceHours: 72,
+  paidOrderGraceHours: 168,
   /**
    * Observed attempt duration: max 2.1 min (REPORT_READY), 2.3 min (GENERATION_FAILED),
    * 4.4 min (DELIVERY_QUEUED), with zero attempts ever left started-but-not-completed.
@@ -59,6 +64,8 @@ export type OrderRow = {
   status?: string | null;
   product_name?: string | null;
   created_at?: string | null;
+  /** Payment verification time. The commercial obligation starts here, not at order creation. */
+  verified_at?: string | null;
   assessment_id?: string | null;
 };
 
@@ -137,7 +144,7 @@ export function evaluateFulfilmentSignals(
   const paidOrdersWithoutReport = entitled.filter(
     (order) =>
       !readyOrderIds.has(order.id) &&
-      ageMinutes(order.created_at, now) > thresholds.paidOrderGraceHours * 60
+      ageMinutes(order.verified_at ?? order.created_at, now) > thresholds.paidOrderGraceHours * 60
   ).length;
 
   const entitledIds = new Set(entitled.map((order) => order.id));
@@ -318,7 +325,7 @@ export async function readFulfilmentSignalInput(db: any, now: Date): Promise<Ful
   const clientErrorSince = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
 
   const [orders, reports, attempts, emails, clientErrors, synthetic] = await Promise.all([
-    db.from('orders').select('id,status,product_name,created_at,assessment_id').limit(5000),
+    db.from('orders').select('id,status,product_name,created_at,verified_at,assessment_id').limit(5000),
     db.from('reports').select('order_id,status').limit(10000),
     db
       .from('manual_report_generation_attempts')
