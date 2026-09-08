@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { evaluateProductionReadiness, type ReadinessContext, type ReadinessFailureInjection } from './production-readiness';
 import { isSafeOpaqueReference, PRODUCTION_MONITOR_NAME, type MonitoringPriority, type ReadinessCheck, type ReadinessEvaluation, type ProductionOverallStatus } from './contracts';
 import { sanitiseMonitoringDetails, sanitiseMonitoringRoute } from './privacy';
+import { candidatesForFulfilment, evaluateFulfilmentSignals, readFulfilmentSignalInput } from './fulfilment-signals';
 
 export type ProductionMonitorEventInput = {
   monitorName?: string;
@@ -390,7 +391,20 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
     const readiness = await evaluate({ origin: input.origin, db, now: started, failureInjection: input.failureInjection });
     const since = new Date(started.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const metrics = await readProductionFunnelMetrics(db, since);
-    const candidates = [...candidatesForEvaluation(readiness), ...candidatesForFunnel(metrics, deploymentSha)];
+    // Read-only fulfilment/queue signals. A failure to read them must never take down the monitor
+    // itself, so they degrade to "no candidates" rather than throwing into the runner catch.
+    let fulfilmentCandidates: MonitorAlertCandidate[] = [];
+    try {
+      const fulfilmentInput = await readFulfilmentSignalInput(db, started);
+      fulfilmentCandidates = candidatesForFulfilment(evaluateFulfilmentSignals(fulfilmentInput), deploymentSha);
+    } catch {
+      console.error('production_monitor_fulfilment_signal_read_failed');
+    }
+    const candidates = [
+      ...candidatesForEvaluation(readiness),
+      ...candidatesForFunnel(metrics, deploymentSha),
+      ...fulfilmentCandidates
+    ];
     const activeKeys = new Set(candidates.map((candidate) => candidate.alertKey));
     let emailsSent = 0;
     for (const candidate of candidates) {
