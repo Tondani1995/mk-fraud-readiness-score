@@ -118,6 +118,22 @@ function baseInput(overrides = {}) {
   );
   assert.equal(synth.paidOrdersWithoutReport, 0);
 
+  // The obligation clock starts at payment verification, not order creation. An order created
+  // long ago but only just paid is inside grace.
+  const latePayment = evaluateFulfilmentSignals(
+    baseInput({ orders: [{ id: 'o1', status: 'payment_received', product_name: 'Essential', created_at: hoursAgo(grace + 200), verified_at: hoursAgo(1) }] })
+  );
+  assert.equal(latePayment.paidOrdersWithoutReport, 0, 'grace must run from verified_at, not created_at');
+
+  // And an order paid long ago still alerts even if created_at is recent.
+  const oldPayment = evaluateFulfilmentSignals(
+    baseInput({ orders: [{ id: 'o1', status: 'payment_received', product_name: 'Essential', created_at: hoursAgo(1), verified_at: hoursAgo(grace + 10) }] })
+  );
+  assert.equal(oldPayment.paidOrdersWithoutReport, 1);
+
+  // Calibration guard: grace must sit above the observed p95 (156h) of legitimate fulfilment.
+  assert.ok(grace > 156, `grace ${grace}h must exceed observed legitimate p95 of 156h`);
+
   // Paid states are exactly the entitled set.
   assert.deepEqual([...PAID_ORDER_STATUSES], ['payment_received', 'verified']);
 }
