@@ -499,6 +499,12 @@ export async function monitorAdaptiveStalledLeads(input: {
     .select('id,assessment_reference,organisation_id,primary_respondent_id,status,assessment_mode,started_at,updated_at,completion_percentage,organisations(legal_name,trading_name),respondents(full_name,email)')
     .eq('status', 'draft')
     .eq('assessment_mode', 'adaptive')
+    // Monitoring and demonstration assessments are not commercial leads. Production synthetic
+    // browser monitoring deliberately abandons a draft on every run, so without this exclusion the
+    // stalled-lead notifier reports each monitoring run to the orders mailbox as a real abandoned
+    // customer. This mirrors the non-commercial boundary already used by readProductionFunnelMetrics.
+    .not('monitoring_synthetic', 'is', true)
+    .not('synthetic_demonstration', 'is', true)
     .limit(500);
   if (assessmentsError) throw assessmentsError;
 
