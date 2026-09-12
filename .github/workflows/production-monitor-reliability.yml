@@ -1,0 +1,40 @@
+name: Production monitor reliability
+on:
+  pull_request:
+    paths:
+      - 'src/lib/monitoring/**'
+      - 'src/lib/notifications/internal-assessment-notifications.ts'
+      - 'src/app/score/api/internal/**'
+      - 'scripts/production-monitor*'
+      - 'supabase/migrations/20260912082816_production_monitor_reliability.sql'
+      - '.github/workflows/production-monitor-reliability.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/monitoring/**'
+      - 'scripts/production-monitor*'
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-monitor-test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run monitoring:test-contracts
+      - run: npm run monitoring:test-fulfilment-signals
+      - run: npm run monitoring:test-reliability
+      - run: node scripts/production-monitor-database-tests.mjs
+        env:
+          MONITOR_TEST_DATABASE_URL: postgresql://postgres:disposable-monitor-test@127.0.0.1:5432/postgres
