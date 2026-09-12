@@ -7,6 +7,6 @@ create table public.production_monitor_notifications (
   provider_message_id text
 );
 alter table public.production_monitor_notifications enable row level security;
-revoke all on public.production_monitor_notifications from public, anon, authenticated;
+revoke all on public.production_monitor_notifications from public, anon, authenticated, service_role;
 grant select, insert on public.production_monitor_notifications to service_role;
 grant update (sent_at, provider_message_id) on public.production_monitor_notifications to service_role;

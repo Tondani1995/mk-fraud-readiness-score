@@ -10,6 +10,8 @@ try {
   const {rows}=await db.query('select 1 from pg_roles where rolname=$1',[name]);
   if(!rows.length) await db.query(`CREATE ROLE ${name} ${name==='service_role'?'BYPASSRLS':''}`);
  }
+ // Supabase owners can inherit broad defaults; the migration must narrow them explicitly.
+ await db.query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role');
  await db.query(readFileSync('supabase/migrations/20260912082816_production_monitor_reliability.sql','utf8'));
  await db.query('SET LOCAL ROLE service_role');
  await db.query("insert into production_monitor_notifications(notification_key,payload_json) values ('episode:1:initial','{\"text\":\"first payload\"}') on conflict do nothing");
