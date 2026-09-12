@@ -1,3 +1,4 @@
+import { monitorDatabaseError } from '@/lib/monitoring/database';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import {
@@ -490,7 +491,10 @@ export async function monitorAdaptiveStalledLeads(input: {
     .select('value_json')
     .eq('setting_key', STALLED_LEAD_SETTING_KEY)
     .maybeSingle();
-  if (settingError) console.warn('stalled_lead_control_setting_unavailable', { reason: settingError.message });
+  if (settingError) {
+    console.warn('stalled_lead_control_setting_unavailable', monitorDatabaseError(settingError));
+    throw settingError;
+  }
   const control = parseStalledLeadControl(setting?.value_json);
   if (!control.enabled) return { ok: true as const, disabled: true, inspected: 0, stalled: 0, notified: 0 };
 

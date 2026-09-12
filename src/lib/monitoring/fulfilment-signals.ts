@@ -344,6 +344,10 @@ export async function readFulfilmentSignalInput(db: any, now: Date): Promise<Ful
     db.from('assessments').select('id').or('monitoring_synthetic.eq.true,synthetic_demonstration.eq.true').limit(10000)
   ]);
 
+  for (const result of [orders, reports, attempts, emails, clientErrors, synthetic]) {
+    if (result.error) throw result.error;
+  }
+
   return {
     orders: (orders?.data ?? []) as OrderRow[],
     reports: (reports?.data ?? []) as ReportRow[],

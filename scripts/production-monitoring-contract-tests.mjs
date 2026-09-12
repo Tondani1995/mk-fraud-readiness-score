@@ -143,7 +143,7 @@ assert.deepEqual(
     staleMinutes: 30,
     production: true
   }),
-  { status: 'FAIL', safeCode: 'monitor_heartbeat_stale_or_missing' }
+  { status: 'FAIL', safeCode: 'monitor_heartbeat_failed' }
 );
 pass('fresh degraded monitor heartbeat stays DEGRADED while stale or failed heartbeats remain incidents');
 

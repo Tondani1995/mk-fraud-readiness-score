@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { createMonitorDatabase, monitorDatabaseError, monitorSelfHealth } from './database';
 import { sendEmail as defaultSendEmail, type SendEmailResult } from '@/lib/notifications/email-provider';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { evaluateProductionReadiness, type ReadinessContext, type ReadinessFailureInjection } from './production-readiness';
@@ -118,13 +120,13 @@ export async function recordProductionMonitorEvent(input: ProductionMonitorEvent
   }
 }
 
-async function upsertHeartbeat(db: any, input: Record<string, unknown>) {
+export async function upsertHeartbeat(db: any, input: Record<string, unknown>) {
   try {
     const { error } = await db.from('production_monitor_heartbeats').upsert(input, { onConflict: 'monitor_name' });
     if (error) throw error;
     return true;
-  } catch {
-    console.error('production_monitor_heartbeat_write_failed');
+  } catch (error) {
+    console.error('production_monitor_heartbeat_write_failed', monitorDatabaseError(error));
     return false;
   }
 }
@@ -166,6 +168,10 @@ export async function readProductionFunnelMetrics(db: any, since: string) {
     db.from('production_monitor_events').select('stage,outcome,route,http_status,error_category,environment,occurred_at').gte('occurred_at', since).eq('outcome', 'fail').eq('synthetic', false).limit(10000),
     db.from('email_events').select('id,status').gte('created_at', since).in('status', ['send_failed', 'reconciliation_required']).not('notification_type', 'is', null).limit(10000)
   ]);
+
+  for (const result of [eventRows, syntheticRows, monitorRows, emailRows]) {
+    if (result.error) throw result.error;
+  }
 
   const syntheticIds = new Set((syntheticRows.data ?? []).map((row: any) => row.id));
   const byEvent = new Map<string, Set<string>>();
@@ -212,6 +218,7 @@ export function candidatesForEvaluation(evaluation: ReadinessEvaluation): Monito
   return evaluation.checks.filter((check) =>
     (check.status === 'FAIL' || check.status === 'WARN')
     && check.safeCode !== 'preview_deployment_protection_blocks_internal_probe'
+    && check.safeCode !== 'monitor_dependency_query_unavailable'
   ).map((check) => ({
     alertKey: `production-readiness:${check.key}`,
     priority: check.status === 'FAIL' ? routePriority(check.key, check.category) : 'P3',
@@ -275,35 +282,46 @@ function textForAlert(candidate: MonitorAlertCandidate, input: { firstDetected?:
   return lines.filter((line): line is string => Boolean(line)).join('\n');
 }
 
-async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { firstDetected?: string | null; detectedAt: string; occurrenceCount?: number; durationMinutes?: number | null; recovery?: boolean }, dependencies: ProductionMonitorDependencies) {
+export async function sendMonitoringEmail(candidate: MonitorAlertCandidate, input: { firstDetected?: string | null; detectedAt: string; occurrenceCount?: number; durationMinutes?: number | null; recovery?: boolean }, dependencies: ProductionMonitorDependencies) {
   const recipient = process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim() || process.env.MK_INTERNAL_LEADS_EMAIL?.trim();
   if (!recipient) return { sent: false as const, reason: 'recipient_missing' as const };
-  const sendEmail = dependencies.sendEmail ?? defaultSendEmail;
-  const underlyingCount = typeof candidate.detail?.count === 'number' && Number.isFinite(candidate.detail.count)
-    ? candidate.detail.count
-    : null;
-  const notificationVersion = input.recovery
-    ? `recovery-${input.occurrenceCount ?? 1}`
-    : underlyingCount !== null
-      ? `count-${underlyingCount}`
-      : `observation-${input.occurrenceCount ?? 1}`;
-  const result: SendEmailResult = await sendEmail({
+  const db = dependencies.db;
+  const episode = new Date(input.firstDetected ?? input.detectedAt).toISOString();
+  // Observation count is not a notification identity: a failed marker write must not send again.
+  const version = input.recovery ? 'recovery'
+    : candidate.priority === 'P2' && typeof candidate.detail?.count === 'number' ? `count-${candidate.detail.count}`
+      : `period-${Math.max(0, Math.floor((new Date(input.detectedAt).getTime() - new Date(episode).getTime()) / (240 * 60_000)))}`;
+  const key = `production-monitor:${createHash('sha256').update(`${candidate.alertKey}:${episode}:${version}`).digest('hex')}`;
+  const payload = {
     from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
     to: recipient,
     replyTo: process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null,
     subject: subjectForAlert(candidate, input.recovery),
     text: textForAlert(candidate, input),
     html: `<p>${textForAlert(candidate, input).replace(/\n/g, '<br>')}</p>`,
-    audience: 'internal',
-    idempotencyKey: `production-monitor:${candidate.alertKey}:${input.recovery ? 'recovery' : 'incident'}:${notificationVersion}`
-  });
-  return result.ok && result.mode !== 'disabled'
-    ? { sent: true as const, reason: 'sent' as const }
-    : { sent: false as const, reason: 'provider_unavailable' as const };
+    audience: 'internal' as const,
+    idempotencyKey: key
+  };
+  const { error: insertError } = await db.from('production_monitor_notifications').upsert({ notification_key: key, payload_json: payload }, { onConflict: 'notification_key', ignoreDuplicates: true });
+  if (insertError) throw insertError;
+  const { data: receipt, error: readError } = await db.from('production_monitor_notifications').select('payload_json,sent_at,created_at').eq('notification_key', key).single();
+  if (readError || !receipt) throw readError ?? new Error('monitor_notification_receipt_missing');
+  if (receipt.sent_at) return { sent: true as const, reason: 'already_sent' as const };
+  // Resend retains idempotency for 24h. Ambiguous old sends need reconciliation, never blind resend.
+  if ((dependencies.now?.() ?? new Date()).getTime() - new Date(receipt.created_at).getTime() >= 23 * 60 * 60_000) {
+    console.error('production_monitor_notification_reconciliation_required');
+    return { sent: false as const, reason: 'reconciliation_required' as const };
+  }
+  const result: SendEmailResult = await (dependencies.sendEmail ?? defaultSendEmail)(receipt.payload_json);
+  if (!result.ok || result.mode === 'disabled') return { sent: false as const, reason: 'provider_unavailable' as const };
+  const { error } = await db.from('production_monitor_notifications').update({ sent_at: input.detectedAt, provider_message_id: result.providerMessageId }).eq('notification_key', key);
+  if (error) throw error;
+  return { sent: true as const, reason: 'sent' as const };
 }
 
 async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, dependencies: ProductionMonitorDependencies) {
-  const { data: existing } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count,detail_json').eq('source', 'production_monitor').eq('alert_key', candidate.alertKey).maybeSingle();
+  const { data: existing, error: readError } = await db.from('phase14_operational_alerts').select('id,status,last_notified_at,last_recovery_notified_at,first_detected_at,occurrence_count,detail_json').eq('source', 'production_monitor').eq('alert_key', candidate.alertKey).maybeSingle();
+  if (readError) throw readError;
   const { data: recorded, error } = await db.rpc('record_production_monitor_alert', {
     p_alert_key: candidate.alertKey,
     p_priority: candidate.priority,
@@ -316,7 +334,7 @@ async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, d
     p_detail: sanitiseMonitoringDetails(candidate.detail),
     p_now: now.toISOString()
   });
-  if (error || !recorded) return { ok: false as const, emailed: false };
+  if (error || !recorded) throw error ?? new Error('monitor_alert_record_missing');
   const underlyingCount = typeof candidate.detail?.count === 'number' && Number.isFinite(candidate.detail.count)
     ? candidate.detail.count
     : null;
@@ -328,25 +346,31 @@ async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, d
   });
   if (decision === 'suppress') return { ok: true as const, emailed: false, decision };
   const email = await sendMonitoringEmail(candidate, {
-    firstDetected: existing?.first_detected_at ?? now.toISOString(),
+    firstDetected: recorded.first_detected_at ?? now.toISOString(),
     detectedAt: now.toISOString(),
     occurrenceCount: Number(recorded.occurrence_count ?? existing?.occurrence_count ?? 1)
   }, dependencies);
   if (email.sent) {
-    await db.rpc('mark_production_monitor_alert_notified', { p_alert_key: candidate.alertKey, p_notified_at: now.toISOString(), p_is_recovery: false });
+    const { error: markerError } = await db.rpc('mark_production_monitor_alert_notified', { p_alert_key: candidate.alertKey, p_notified_at: now.toISOString(), p_is_recovery: false });
+    if (markerError) throw markerError;
   }
-  return { ok: true as const, emailed: email.sent, decision };
+  return { ok: true as const, emailed: email.sent && email.reason === 'sent', decision };
 }
 
 async function resolveRecoveredAlerts(db: any, activeKeys: Set<string>, now: Date, dependencies: ProductionMonitorDependencies) {
-  const { data: openAlerts } = await db.from('phase14_operational_alerts').select('alert_key,status,last_notified_at,last_recovery_notified_at,first_detected_at,last_seen_at,occurrence_count,route,stage,error_category,deployment_sha,safe_reference,monitoring_priority,category').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']).limit(100);
+  const { data: openAlerts, error: readError } = await db.from('phase14_operational_alerts').select('alert_key,status,last_notified_at,last_recovery_notified_at,first_detected_at,last_seen_at,occurrence_count,route,stage,error_category,deployment_sha,safe_reference,monitoring_priority,category').eq('source', 'production_monitor').in('status', ['open', 'acknowledged', 'resolved']).limit(100);
+  if (readError) throw readError;
   let recovered = 0;
+  let recoveryEmailsSent = 0;
   for (const row of (openAlerts ?? []) as any[]) {
     if (activeKeys.has(row.alert_key)) continue;
-    const { data: resolved, error } = await db.rpc('resolve_production_monitor_alert', { p_alert_key: row.alert_key, p_now: now.toISOString() });
-    if (error || !resolved) continue;
-    recovered += 1;
-    if (!recoveryNotificationAllowed(row)) continue;
+    if (row.status !== 'resolved') {
+      const { data: resolved, error } = await db.rpc('resolve_production_monitor_alert', { p_alert_key: row.alert_key, p_now: now.toISOString() });
+      if (error) throw error;
+      if (!resolved) continue;
+      recovered += 1;
+    }
+    if (!row.last_notified_at || row.last_recovery_notified_at) continue;
     const candidate: MonitorAlertCandidate = {
       alertKey: row.alert_key,
       priority: row.monitoring_priority === 'P1' || row.monitoring_priority === 'P2' || row.monitoring_priority === 'P3' ? row.monitoring_priority : 'P2',
@@ -360,25 +384,31 @@ async function resolveRecoveredAlerts(db: any, activeKeys: Set<string>, now: Dat
     const first = row.first_detected_at ? new Date(row.first_detected_at).getTime() : now.getTime();
     const durationMinutes = Math.max(0, Math.round((now.getTime() - first) / 60_000));
     const email = await sendMonitoringEmail(candidate, { firstDetected: row.first_detected_at, detectedAt: now.toISOString(), occurrenceCount: Number(row.occurrence_count ?? 1), durationMinutes, recovery: true }, dependencies);
-    if (email.sent) await db.rpc('mark_production_monitor_alert_notified', { p_alert_key: row.alert_key, p_notified_at: now.toISOString(), p_is_recovery: true });
+    if (email.sent && email.reason === 'sent') recoveryEmailsSent += 1;
+    if (email.sent) {
+      const { error } = await db.rpc('mark_production_monitor_alert_notified', { p_alert_key: row.alert_key, p_notified_at: now.toISOString(), p_is_recovery: true });
+      if (error) throw error;
+    }
   }
-  return recovered;
+  return { recovered, recoveryEmailsSent };
 }
 
 export async function runProductionMonitor(input: { origin?: string | null; daily?: boolean; failureInjection?: ReadinessFailureInjection } = {}, dependencies: ProductionMonitorDependencies = {}) {
-  const db = dependencies.db ?? (createSupabaseServiceClient() as any);
+  const db = dependencies.db ?? createMonitorDatabase();
+  dependencies = { ...dependencies, db };
   const nowFactory = dependencies.now ?? (() => new Date());
   const started = nowFactory();
   const deploymentSha = validSha(process.env.VERCEL_GIT_COMMIT_SHA);
   let previousHeartbeat: any = null;
   try {
-    const { data } = await db.from('production_monitor_heartbeats').select('run_count,consecutive_failures').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle();
+    const { data, error } = await db.from('production_monitor_heartbeats').select('run_count,consecutive_failures,safe_summary_json').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle();
+    if (error) throw error;
     previousHeartbeat = data;
   } catch {
     previousHeartbeat = null;
   }
   const nextRunCount = Number(previousHeartbeat?.run_count ?? 0) + 1;
-  await upsertHeartbeat(db, {
+  const startWritten = await upsertHeartbeat(db, {
     monitor_name: PRODUCTION_MONITOR_NAME,
     last_started_at: started.toISOString(),
     status: 'running',
@@ -390,46 +420,71 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
     const evaluate = dependencies.evaluateReadiness ?? evaluateProductionReadiness;
     const readiness = await evaluate({ origin: input.origin, db, now: started, failureInjection: input.failureInjection });
     const since = new Date(started.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const metrics = await readProductionFunnelMetrics(db, since);
+    let internalFailure = !startWritten || !previousHeartbeat;
+    let metrics: Awaited<ReturnType<typeof readProductionFunnelMetrics>> | null = null;
+    try { metrics = await readProductionFunnelMetrics(db, since); } catch (error) {
+      internalFailure = true;
+      console.error('production_monitor_funnel_read_failed', monitorDatabaseError(error));
+    }
     // Read-only fulfilment/queue signals. A failure to read them must never take down the monitor
-    // itself, so they degrade to "no candidates" rather than throwing into the runner catch.
+    // itself. Unavailable inputs preserve their existing incidents until a successful read.
     let fulfilmentCandidates: MonitorAlertCandidate[] = [];
+    let fulfilmentAvailable = false;
     try {
       const fulfilmentInput = await readFulfilmentSignalInput(db, started);
+      fulfilmentAvailable = true;
       fulfilmentCandidates = candidatesForFulfilment(evaluateFulfilmentSignals(fulfilmentInput), deploymentSha);
-    } catch {
-      console.error('production_monitor_fulfilment_signal_read_failed');
+    } catch (error) {
+      internalFailure = true;
+      console.error('production_monitor_fulfilment_signal_read_failed', monitorDatabaseError(error));
     }
+    const unavailable = readiness.checks.filter(check => check.safeCode === 'monitor_dependency_query_unavailable');
+    internalFailure ||= unavailable.length > 0;
+    const selfHealth = monitorSelfHealth(previousHeartbeat?.safe_summary_json, internalFailure);
     const candidates = [
-      ...candidatesForEvaluation(readiness),
-      ...candidatesForFunnel(metrics, deploymentSha),
+      ...candidatesForEvaluation(readiness).filter(candidate => candidate.alertKey !== 'production-readiness:internal_monitor_heartbeat'),
+      ...(metrics ? candidatesForFunnel(metrics, deploymentSha) : []),
       ...fulfilmentCandidates
     ];
+    if (selfHealth.self_active) candidates.push({ alertKey: 'monitor-self:infrastructure', priority: 'P3', category: 'monitor_infrastructure', stage: 'dependency', errorCategory: 'monitor_infrastructure_unavailable', deploymentSha });
     const activeKeys = new Set(candidates.map((candidate) => candidate.alertKey));
+    unavailable.forEach(check => activeKeys.add(`production-readiness:${check.key}`));
+    if (internalFailure || selfHealth.self_active) activeKeys.add('production-readiness:internal_monitor_heartbeat');
+    // Failed input is unknown, never evidence of recovery. Preserve only affected namespaces.
+    const { data: priorAlerts, error: priorError } = await db.from('phase14_operational_alerts').select('alert_key,monitoring_priority').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']);
+    if (priorError) throw priorError;
+    for (const row of priorAlerts ?? []) {
+      if ((!metrics && row.alert_key.startsWith('funnel:')) || (!fulfilmentAvailable && row.alert_key.startsWith('fulfilment:'))) activeKeys.add(row.alert_key);
+    }
     let emailsSent = 0;
     for (const candidate of candidates) {
       const result = await syncAlert(db, candidate, started, dependencies);
       if (result.emailed) emailsSent += 1;
     }
-    const recovered = await resolveRecoveredAlerts(db, activeKeys, started, dependencies);
+    const { recovered, recoveryEmailsSent } = await resolveRecoveredAlerts(db, activeKeys, started, dependencies);
+    emailsSent += recoveryEmailsSent;
     if (input.daily) await recordDriftChecks(db, readiness);
-    const status: ProductionOverallStatus = candidates.some((candidate) => candidate.priority === 'P1') ? 'INCIDENT' : candidates.length ? 'DEGRADED' : readiness.status;
+    const preservedP1 = (priorAlerts ?? []).some((row: any) => activeKeys.has(row.alert_key) && row.monitoring_priority === 'P1');
+    const status: ProductionOverallStatus = candidates.some(candidate => candidate.priority === 'P1') || preservedP1 ? 'INCIDENT'
+      : candidates.length || internalFailure ? 'DEGRADED' : readiness.status;
     const completed = nowFactory();
     const durationMs = Math.max(0, completed.getTime() - started.getTime());
-    await upsertHeartbeat(db, {
+    const completedWritten = await upsertHeartbeat(db, {
       monitor_name: PRODUCTION_MONITOR_NAME,
       last_started_at: started.toISOString(),
       last_completed_at: completed.toISOString(),
-      status: status === 'INCIDENT' ? 'failed' : status === 'DEGRADED' ? 'degraded' : 'healthy',
+      status: internalFailure ? 'degraded' : 'healthy',
       deployment_sha: deploymentSha,
       duration_ms: durationMs,
-      run_count: nextRunCount,
-      consecutive_failures: status === 'INCIDENT' ? Number(previousHeartbeat?.consecutive_failures ?? 0) + 1 : 0,
-      safe_summary_json: { status, candidate_count: candidates.length, recovery_count: recovered, emails_sent: emailsSent },
+      ...(previousHeartbeat ? { run_count: nextRunCount } : {}),
+      consecutive_failures: selfHealth.self_failures,
+      safe_summary_json: { ...selfHealth, status, candidate_count: candidates.length, recovery_count: recovered, emails_sent: emailsSent },
       updated_at: completed.toISOString()
     });
+    if (!completedWritten) throw new Error('monitor_heartbeat_completion_failed');
     return { ok: status !== 'INCIDENT', status, readiness, metrics, candidateCount: candidates.length, emailsSent, recovered, durationMs };
-  } catch {
+  } catch (error) {
+    console.error('production_monitor_runner_failed', monitorDatabaseError(error));
     const completed = nowFactory();
     await upsertHeartbeat(db, {
       monitor_name: PRODUCTION_MONITOR_NAME,
@@ -438,9 +493,9 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
       status: 'failed',
       deployment_sha: deploymentSha,
       duration_ms: Math.max(0, completed.getTime() - started.getTime()),
-      run_count: nextRunCount,
+      ...(previousHeartbeat ? { run_count: nextRunCount } : {}),
       consecutive_failures: Number(previousHeartbeat?.consecutive_failures ?? 0) + 1,
-      safe_summary_json: { status: 'INCIDENT', candidate_count: 0, runner_failure: true },
+      safe_summary_json: { ...monitorSelfHealth(previousHeartbeat?.safe_summary_json, true), status: 'INCIDENT', candidate_count: 0, runner_failure: true },
       updated_at: completed.toISOString()
     });
     await recordProductionMonitorEvent({ db, stage: 'monitor_runner', outcome: 'fail', errorCategory: 'monitor_runner_failure', deploymentSha });

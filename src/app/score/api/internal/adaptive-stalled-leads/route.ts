@@ -1,3 +1,4 @@
+import { createMonitorDatabase, monitorDatabaseError } from '@/lib/monitoring/database';
 import { NextResponse } from 'next/server';
 import { monitorAdaptiveStalledLeads } from '@/lib/notifications/internal-assessment-notifications';
 
@@ -19,12 +20,12 @@ export async function GET(request: Request) {
   try {
     const result = await monitorAdaptiveStalledLeads({
       adminUrlFor: (assessmentReference) => `${configuredBaseUrl.replace(/\/$/, '')}/score/admin/assessments/${encodeURIComponent(assessmentReference)}`
-    });
+    }, { db: createMonitorDatabase() });
     return NextResponse.json(result);
   } catch (error) {
     console.error('adaptive_stalled_lead_monitor_failed', {
       errorCategory: 'stalled_lead_monitor_failed',
-      reason: error instanceof Error ? error.message : 'unknown'
+      ...monitorDatabaseError(error)
     });
     return NextResponse.json({ ok: false, error: 'stalled_lead_monitor_failed' }, { status: 500 });
   }

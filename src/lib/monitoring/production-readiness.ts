@@ -144,6 +144,10 @@ export function monitorHeartbeatReadiness(input: {
     return { status: 'WARN', safeCode: 'monitor_heartbeat_degraded' };
   }
 
+  if (input.heartbeat?.status === 'failed' && heartbeatAge <= staleMs) {
+    return { status: input.production ? 'FAIL' : 'WARN', safeCode: 'monitor_heartbeat_failed' };
+  }
+
   return {
     status: input.production ? 'FAIL' : 'WARN',
     safeCode: 'monitor_heartbeat_stale_or_missing'
@@ -245,7 +249,17 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     querySafely(() => db.from('production_monitor_heartbeats').select('monitor_name,last_started_at,last_completed_at,status,deployment_sha').eq('monitor_name', 'production-incident-monitor').maybeSingle())
   ]);
 
+  const unavailableKeys = new Set<string>();
+  for (const [result, keys] of [
+    [activation, ['adaptive_activation_exists', 'adaptive_activation_binding']],
+    [graphs, ['adaptive_graph_identity']], [methodologies, ['methodology_single_active']],
+    [products, ['products_public_contract']], [settings, ['critical_runtime_settings']],
+    [heartbeat, ['internal_monitor_heartbeat']]
+  ] as const) {
+    if (result.error) keys.forEach(key => unavailableKeys.add(key));
+  }
   const dbReachable = [activation, graphs, methodologies, products, settings, heartbeat].some((result) => !result.error);
+  if (!dbReachable) unavailableKeys.add('database_reachable');
   addCheck(checks, 'database_reachable', 'dependency', dbReachable ? 'PASS' : 'FAIL', dbReachable ? 'database_query_completed' : 'database_query_failed');
 
   const policy = activation.data;
@@ -307,6 +321,13 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   addCheck(checks, 'internal_monitor_heartbeat', 'dependency', heartbeatReadiness.status, heartbeatReadiness.safeCode);
 
   await publicChecks(checks, context, production);
+  for (const check of checks) {
+    if (unavailableKeys.has(check.key)) {
+      check.status = 'WARN';
+      check.safeCode = 'monitor_dependency_query_unavailable';
+    }
+  }
+
 
   // Failure injection is a Preview-only certification aid. It is deliberately applied after the
   // real checks so a test can prove the incident path without changing Production semantics.
