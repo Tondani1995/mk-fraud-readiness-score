@@ -115,3 +115,103 @@ advance();await sendMonitoringEmail(candidate,{firstDetected:first,detectedAt:no
 assert.equal(sent.length,1);
 assert.equal(db.rows.get('production_monitor_notifications').length,1);
 pass('one durable notification per episode/period; no customer email or external calls');
+
+// Count-notified fulfilment P1s: notify on first detection and count increases, never on elapsed time alone.
+{
+  const { alertNotificationDecision, COUNT_NOTIFIED_P1_ALERT_KEYS } = await import('../src/lib/monitoring/production-monitor.ts');
+  assert.deepEqual([...COUNT_NOTIFIED_P1_ALERT_KEYS].sort(), ['fulfilment:comprehensive_generation_failed', 'fulfilment:paid_order_without_report']);
+  time = new Date('2026-09-13T17:00:00Z');
+  const hoursAgo = (h) => new Date(time.getTime() - h * 3_600_000).toISOString();
+  const minutes = (m) => { time = new Date(time.getTime() + m * 60_000); };
+  const paid = (id, product) => ({ id, status: 'verified', product_name: product, created_at: hoursAgo(300), verified_at: hoursAgo(300), assessment_id: null });
+  const failedAttempt = (orderId) => ({ order_id: orderId, status: 'generation_failed', retry_count: 0, max_attempts: 5, requested_at: hoursAgo(290), started_at: hoursAgo(290), completed_at: hoursAgo(290) });
+  db = dbDouble(); sent.length = 0;
+  const run = () => runProductionMonitor({}, { db, now, sendEmail, evaluateReadiness: healthy });
+  const alert = (key) => db.rows.get('phase14_operational_alerts').find((row) => row.alert_key === key);
+  const subjects = (from) => sent.slice(from).map((mail) => mail.subject);
+  const COMP = 'fulfilment:comprehensive_generation_failed';
+  const PAID = 'fulfilment:paid_order_without_report';
+
+  // 1 + 4. No existing alerts: one initial email per key.
+  db.rows.set('orders', [paid('o1', 'comprehensive')]);
+  db.rows.set('manual_report_generation_attempts', [failedAttempt('o1')]);
+  await run();
+  assert.equal(sent.length, 2);
+  assert.deepEqual(subjects(0).sort(), ['[MK P1] Fraud Readiness fulfilment requires attention', '[MK P1] Fraud Readiness report_generation requires attention']);
+  assert.equal(alert(COMP).detail_json.count, 1); assert.equal(alert(PAID).detail_json.count, 1);
+
+  // 2. Same counts: silent at +15m, after 4h and after 24h, while both incidents stay open.
+  minutes(15); await run();
+  minutes(4 * 60); await run();
+  minutes(24 * 60); await run();
+  assert.equal(sent.length, 2, 'static P1 counts never re-email because the cooldown elapsed');
+  assert.equal(alert(COMP).status, 'open'); assert.equal(alert(PAID).status, 'open');
+  pass('count-notified fulfilment P1s: initial email once; unchanged count silent after 4h and 24h');
+
+  // 3 + 4. Increases email immediately, inside the same four-hour period as the previous send.
+  db.rows.get('orders').push(paid('o2', 'essential'));
+  minutes(15); await run();
+  assert.deepEqual(subjects(2), ['[MK P1] Fraud Readiness fulfilment requires attention']);
+  assert.match(sent[2].text, /Affected event count: 2/);
+  db.rows.get('orders').push(paid('o3', 'comprehensive'));
+  db.rows.get('manual_report_generation_attempts').push(failedAttempt('o3'));
+  minutes(15); await run();
+  assert.equal(sent.length, 5);
+  assert.deepEqual(subjects(3).sort(), ['[MK P1] Fraud Readiness fulfilment requires attention', '[MK P1] Fraud Readiness report_generation requires attention']);
+  assert.equal(alert(COMP).detail_json.count, 2); assert.equal(alert(PAID).detail_json.count, 3);
+  assert.equal(new Set(sent.map((mail) => mail.idempotencyKey)).size, sent.length, 'every send has a distinct receipt key');
+  pass('count increase (1->2 comprehensive, 1->2->3 paid-unfulfilled) emails immediately');
+
+  // 5. Decreases that stay above zero update state without email.
+  db.rows.set('manual_report_generation_attempts', [failedAttempt('o1')]);
+  db.rows.set('orders', [paid('o1', 'comprehensive'), paid('o3', 'comprehensive')]);
+  minutes(15); await run();
+  assert.equal(sent.length, 5, 'count decrease is not news');
+  assert.equal(alert(COMP).detail_json.count, 1); assert.equal(alert(PAID).detail_json.count, 2);
+  assert.equal(alert(COMP).status, 'open'); assert.equal(alert(PAID).status, 'open');
+  pass('count decrease (2->1, 3->2) updates the open incident silently');
+
+  // 6. Clear: exactly one recovery email per incident, and nothing more afterwards.
+  db.rows.set('orders', []); db.rows.set('manual_report_generation_attempts', []);
+  minutes(15); await run();
+  minutes(15); await run();
+  minutes(4 * 60); await run();
+  assert.equal(sent.length, 7);
+  assert.deepEqual(subjects(5).map((subject) => subject.startsWith('[RECOVERED]')), [true, true]);
+  assert.equal(alert(COMP).status, 'resolved'); assert.equal(alert(PAID).status, 'resolved');
+  pass('clearing sends exactly one recovery per incident');
+
+  // 7. Genuine reopen: a fresh initial notification under a new episode identity.
+  const earlierKeys = new Set(sent.map((mail) => mail.idempotencyKey));
+  db.rows.set('orders', [paid('o9', 'comprehensive')]);
+  db.rows.set('manual_report_generation_attempts', [failedAttempt('o9')]);
+  minutes(15); await run();
+  assert.equal(sent.length, 9);
+  assert.ok(sent.slice(7).every((mail) => !earlierKeys.has(mail.idempotencyKey) && /^\[MK P1\]/.test(mail.subject)));
+  minutes(4 * 60); await run();
+  assert.equal(sent.length, 9, 'reopened static count stays silent too');
+  pass('reopen after resolve sends a new initial email with a new episode key');
+
+  // 8. Every other P1 keeps the four-hour reminder, including count-bearing funnel P1s.
+  db = dbDouble(); sent.length = 0;
+  const outage = () => runProductionMonitor({}, { db, now, sendEmail, evaluateReadiness: broken });
+  await outage(); assert.equal(sent.length, 1);
+  minutes(15); await outage(); assert.equal(sent.length, 1);
+  minutes(4 * 60); await outage(); assert.equal(sent.length, 2, 'public route P1 still reminds after 4h');
+  assert.notEqual(sent[1].idempotencyKey, sent[0].idempotencyKey);
+  const staticP1 = { status: 'open', last_notified_at: new Date(time.getTime() - 5 * 3_600_000).toISOString(), detail_json: { count: 1 } };
+  for (const key of ['funnel:submitted_without_snapshot', 'funnel:snapshot_generation_failed', 'production-readiness:adaptive_activation_binding', 'production-readiness:database_reachable', 'fulfilment:some_future_p1']) {
+    assert.equal(alertNotificationDecision({ existing: staticP1, now: time, priority: 'P1', underlyingCount: 1, alertKey: key }), 'send_reminder', key);
+  }
+  assert.equal(alertNotificationDecision({ existing: staticP1, now: time, priority: 'P1', underlyingCount: 1 }), 'send_reminder', 'no key keeps the cooldown');
+  assert.equal(alertNotificationDecision({ existing: staticP1, now: time, priority: 'P1', underlyingCount: 1, alertKey: COMP }), 'suppress');
+  pass('unrelated P1s (route, adaptive, snapshot, database, future) keep the four-hour reminder');
+
+  // 9. P2 count semantics unchanged.
+  const p2 = { status: 'open', last_notified_at: new Date(time.getTime() - 30 * 3_600_000).toISOString(), detail_json: { count: 9 } };
+  assert.equal(alertNotificationDecision({ existing: p2, now: time, priority: 'P2', underlyingCount: 9, alertKey: 'fulfilment:notification_queue_stalled' }), 'suppress');
+  assert.equal(alertNotificationDecision({ existing: p2, now: time, priority: 'P2', underlyingCount: 10, alertKey: 'fulfilment:notification_queue_stalled' }), 'send_reminder');
+  assert.equal(alertNotificationDecision({ existing: p2, now: time, priority: 'P2', underlyingCount: 8 }), 'suppress');
+  assert.equal(alertNotificationDecision({ existing: { ...p2, status: 'resolved' }, now: time, priority: 'P2', underlyingCount: 9 }), 'send_initial');
+  pass('P2 count alerts unchanged: same/lower suppress, higher reminds, resolved re-initialises');
+}

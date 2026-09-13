@@ -45,19 +45,34 @@ export type MonitorAlertCandidate = {
 
 export type AlertNotificationDecision = 'send_initial' | 'send_reminder' | 'suppress';
 
+/**
+ * Fulfilment P1s that count events rather than describe an outage. Like P2 count alerts they notify on
+ * first detection and when the count rises, never merely because the reminder cooldown elapsed.
+ * Deliberately a closed list: every other P1 keeps the four-hour reminder.
+ */
+export const COUNT_NOTIFIED_P1_ALERT_KEYS: ReadonlySet<string> = new Set([
+  'fulfilment:comprehensive_generation_failed',
+  'fulfilment:paid_order_without_report'
+]);
+
+function notifiesOnCountIncrease(alertKey: string | null | undefined, priority: MonitoringPriority | undefined) {
+  return priority === 'P2' || (priority === 'P1' && typeof alertKey === 'string' && COUNT_NOTIFIED_P1_ALERT_KEYS.has(alertKey));
+}
+
 export function alertNotificationDecision(input: {
   existing?: { status?: string | null; last_notified_at?: string | null; detail_json?: Record<string, unknown> | null } | null;
   now: Date;
   cooldownMinutes?: number;
   priority?: MonitoringPriority;
   underlyingCount?: number | null;
+  alertKey?: string | null;
 }): AlertNotificationDecision {
   if (!input.existing || input.existing.status === 'resolved' || !input.existing.last_notified_at) return 'send_initial';
 
   // P2 funnel alerts are event-count conditions, not outages. Re-running the monitor against the
   // same rolling-window events must never create another email. Notify again only when the actual
   // underlying event count increases. Recovery remains a separate one-time notification.
-  if (input.priority === 'P2' && Number.isFinite(input.underlyingCount)) {
+  if (notifiesOnCountIncrease(input.alertKey, input.priority) && Number.isFinite(input.underlyingCount)) {
     const previousCount = Number(input.existing.detail_json?.count);
     if (Number.isFinite(previousCount)) {
       return Number(input.underlyingCount) > previousCount ? 'send_reminder' : 'suppress';
@@ -291,7 +306,7 @@ export async function sendMonitoringEmail(candidate: MonitorAlertCandidate, inpu
   const episode = new Date(input.firstDetected ?? input.detectedAt).toISOString();
   // Observation count is not a notification identity: a failed marker write must not send again.
   const version = input.recovery ? 'recovery'
-    : candidate.priority === 'P2' && typeof candidate.detail?.count === 'number' ? `count-${candidate.detail.count}`
+    : notifiesOnCountIncrease(candidate.alertKey, candidate.priority) && typeof candidate.detail?.count === 'number' ? `count-${candidate.detail.count}`
       : `period-${Math.max(0, Math.floor((new Date(input.detectedAt).getTime() - new Date(episode).getTime()) / (240 * 60_000)))}`;
   const key = `production-monitor:${createHash('sha256').update(`${candidate.alertKey}:${episode}:${version}`).digest('hex')}`;
   const payload = {
@@ -344,7 +359,8 @@ async function syncAlert(db: any, candidate: MonitorAlertCandidate, now: Date, d
     existing,
     now,
     priority: candidate.priority,
-    underlyingCount
+    underlyingCount,
+    alertKey: candidate.alertKey
   });
   if (decision === 'suppress') return { ok: true as const, emailed: false, decision };
   const email = await sendMonitoringEmail(candidate, {
