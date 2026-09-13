@@ -153,7 +153,7 @@ const transientQueryResult = await querySafely(async () => {
   return transientQueryAttempts === 1
     ? { data: null, error: new Error('transient') }
     : { data: { ok: true }, error: null };
-});
+}, 1);
 assert.equal(transientQueryAttempts, 2);
 assert.deepEqual(transientQueryResult, { data: { ok: true }, error: null });
 
@@ -161,10 +161,18 @@ let persistentQueryAttempts = 0;
 const persistentQueryResult = await querySafely(async () => {
   persistentQueryAttempts += 1;
   return { data: null, error: new Error('persistent') };
-});
+}, 5);
 assert.equal(persistentQueryAttempts, 2);
 assert.equal(Boolean(persistentQueryResult.error), true);
-pass('readiness database queries retry once on transient failure and remain bounded on persistent failure');
+
+let defaultQueryAttempts = 0;
+const defaultQueryResult = await querySafely(async () => {
+  defaultQueryAttempts += 1;
+  throw new Error('customer@example.com transport detail');
+});
+assert.equal(defaultQueryAttempts, 1);
+assert.equal(defaultQueryResult.error.message, 'query_failed');
+pass('readiness query wrapper adds no retry layer by default (the monitor transport owns retries) and stays bounded');
 
 const safeDetails = sanitiseMonitoringDetails({
   stage: 'snapshot_generation',
