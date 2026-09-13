@@ -21,7 +21,7 @@ assert.equal((await f('https://db.test/rest/v1/production_monitor_heartbeats',{m
 assert.equal(attempts,2);
 attempts=0;
 f = monitorFetch(async () => { attempts++; return new Response('{}',{status:504}); },async()=>{});
-assert.equal((await f('https://db.test/rest/v1/production_monitor_heartbeats',{method:'POST'})).status,504); assert.equal(attempts,3);
+assert.equal((await f('https://db.test/rest/v1/production_monitor_heartbeats',{method:'POST'})).status,504); assert.equal(attempts,2);
 attempts=0;
 await f('https://db.test/rest/v1/rpc/record_production_monitor_alert',{method:'POST'}); assert.equal(attempts,1);
 await f('https://api.resend.com/emails',{method:'POST'}); assert.equal(attempts,2);

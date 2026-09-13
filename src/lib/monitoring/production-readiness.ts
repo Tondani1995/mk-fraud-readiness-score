@@ -1,5 +1,5 @@
 import { getEmailProviderMode } from '@/lib/notifications/email-provider';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { createMonitorDatabase, PRODUCTION_READINESS_BUDGET_MS } from './database';
 import { FRAUD_READINESS_TERMS_VERSION, PRIVACY_NOTICE_VERSION } from '@/lib/legal/fraud-readiness-terms';
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { isValidGaMeasurementId, isValidDeploymentSha, EXPECTED_PRODUCTION, EXPECTED_PUBLIC_PRODUCTS, EXPECTED_ADVISORY_PRICE_FROM_CENTS, READINESS_REQUIRED_ENVIRONMENT, READINESS_OPTIONAL_MONITOR_ENVIRONMENT, overallStatusFromChecks, type ReadinessCheck, type ReadinessEvaluation, type MonitoringStatus } from './contracts';
@@ -61,7 +61,11 @@ export function validatedDeploymentSha(env: NodeJS.ProcessEnv): string | null {
   return isValidDeploymentSha(rawDeploymentSha) ? rawDeploymentSha : null;
 }
 
-export async function querySafely(factory: () => PromiseLike<QueryResult>, retries = 1): Promise<QueryResult> {
+/**
+ * Converts thrown query failures into results. Retries default to zero because the monitor database
+ * transport is the single authoritative retry layer; stacking both multiplied one outage into many attempts.
+ */
+export async function querySafely(factory: () => PromiseLike<QueryResult>, retries = 0): Promise<QueryResult> {
   let lastResult: QueryResult = { data: null, error: new Error('query_failed') };
   const boundedRetries = Math.max(0, Math.min(1, Math.floor(retries)));
 
@@ -230,7 +234,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
 
   let db: any;
   try {
-    db = context.db ?? createSupabaseServiceClient();
+    db = context.db ?? createMonitorDatabase({ budgetMs: PRODUCTION_READINESS_BUDGET_MS });
   } catch {
     addCheck(checks, 'database_reachable', 'dependency', 'FAIL', 'database_client_unavailable');
     addCheck(checks, 'adaptive_activation', 'adaptive', 'FAIL', 'database_client_unavailable');

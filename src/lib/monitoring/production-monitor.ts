@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createMonitorDatabase, monitorDatabaseError, monitorSelfHealth } from './database';
+import { createMonitorDatabase, isMonitorDependencyFailure, monitorDatabaseError, monitorSelfHealth, PRODUCTION_MONITOR_TERMINAL_BUDGET_MS, PRODUCTION_MONITOR_WORK_BUDGET_MS } from './database';
 import { sendEmail as defaultSendEmail, type SendEmailResult } from '@/lib/notifications/email-provider';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { evaluateProductionReadiness, type ReadinessContext, type ReadinessFailureInjection } from './production-readiness';
@@ -24,6 +24,8 @@ export type ProductionMonitorEventInput = {
 
 export type ProductionMonitorDependencies = {
   db?: any;
+  /** Terminal heartbeat writes get their own fresh transport budget so work overruns cannot strand `running`. */
+  createTerminalDb?: () => any;
   now?: () => Date;
   evaluateReadiness?: (context: ReadinessContext) => Promise<ReadinessEvaluation>;
   sendEmail?: typeof defaultSendEmail;
@@ -394,7 +396,12 @@ async function resolveRecoveredAlerts(db: any, activeKeys: Set<string>, now: Dat
 }
 
 export async function runProductionMonitor(input: { origin?: string | null; daily?: boolean; failureInjection?: ReadinessFailureInjection } = {}, dependencies: ProductionMonitorDependencies = {}) {
-  const db = dependencies.db ?? createMonitorDatabase();
+  const injectedDb = dependencies.db;
+  const db = injectedDb ?? createMonitorDatabase({ budgetMs: PRODUCTION_MONITOR_WORK_BUDGET_MS });
+  const createTerminalDb = dependencies.createTerminalDb
+    ?? (() => injectedDb ?? createMonitorDatabase({ budgetMs: PRODUCTION_MONITOR_TERMINAL_BUDGET_MS }));
+  let terminalDb: any = null;
+  const terminal = () => terminalDb ??= createTerminalDb();
   dependencies = { ...dependencies, db };
   const nowFactory = dependencies.now ?? (() => new Date());
   const started = nowFactory();
@@ -469,7 +476,7 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
       : candidates.length || internalFailure ? 'DEGRADED' : readiness.status;
     const completed = nowFactory();
     const durationMs = Math.max(0, completed.getTime() - started.getTime());
-    const completedWritten = await upsertHeartbeat(db, {
+    const completedWritten = await upsertHeartbeat(terminal(), {
       monitor_name: PRODUCTION_MONITOR_NAME,
       last_started_at: started.toISOString(),
       last_completed_at: completed.toISOString(),
@@ -484,21 +491,28 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
     if (!completedWritten) throw new Error('monitor_heartbeat_completion_failed');
     return { ok: status !== 'INCIDENT', status, readiness, metrics, candidateCount: candidates.length, emailsSent, recovered, durationMs };
   } catch (error) {
-    console.error('production_monitor_runner_failed', monitorDatabaseError(error));
+    // An unreachable monitoring database is an unknown input: degraded self-health, not a runner
+    // defect or customer incident. Real Supabase outages still surface through readiness checks.
+    const dependencyFailure = isMonitorDependencyFailure(error) || (error as Error)?.message === 'monitor_heartbeat_completion_failed';
+    console.error('production_monitor_runner_failed', { ...monitorDatabaseError(error), dependencyFailure });
     const completed = nowFactory();
-    await upsertHeartbeat(db, {
+    await upsertHeartbeat(terminal(), {
       monitor_name: PRODUCTION_MONITOR_NAME,
       last_started_at: started.toISOString(),
       last_completed_at: completed.toISOString(),
-      status: 'failed',
+      status: dependencyFailure ? 'degraded' : 'failed',
       deployment_sha: deploymentSha,
       duration_ms: Math.max(0, completed.getTime() - started.getTime()),
       ...(previousHeartbeat ? { run_count: nextRunCount } : {}),
       consecutive_failures: Number(previousHeartbeat?.consecutive_failures ?? 0) + 1,
-      safe_summary_json: { ...monitorSelfHealth(previousHeartbeat?.safe_summary_json, true), status: 'INCIDENT', candidate_count: 0, runner_failure: true },
+      safe_summary_json: dependencyFailure
+        ? { ...monitorSelfHealth(previousHeartbeat?.safe_summary_json, true), status: 'DEGRADED', candidate_count: 0, dependency_failure: true }
+        : { ...monitorSelfHealth(previousHeartbeat?.safe_summary_json, true), status: 'INCIDENT', candidate_count: 0, runner_failure: true },
       updated_at: completed.toISOString()
     });
+    const durationMs = Math.max(0, nowFactory().getTime() - started.getTime());
+    if (dependencyFailure) return { ok: true as const, status: 'DEGRADED' as const, errorCategory: 'monitor_dependency_unavailable' as const, durationMs };
     await recordProductionMonitorEvent({ db, stage: 'monitor_runner', outcome: 'fail', errorCategory: 'monitor_runner_failure', deploymentSha });
-    return { ok: false as const, status: 'INCIDENT' as const, errorCategory: 'monitor_runner_failure' as const };
+    return { ok: false as const, status: 'INCIDENT' as const, errorCategory: 'monitor_runner_failure' as const, durationMs };
   }
 }
