@@ -1,4 +1,4 @@
-import { createMonitorDatabase, monitorDatabaseError } from '@/lib/monitoring/database';
+import { createMonitorDatabase, monitorDatabaseError, STALLED_LEAD_MONITOR_BUDGET_MS } from '@/lib/monitoring/database';
 import { NextResponse } from 'next/server';
 import { monitorAdaptiveStalledLeads } from '@/lib/notifications/internal-assessment-notifications';
 
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   try {
     const result = await monitorAdaptiveStalledLeads({
       adminUrlFor: (assessmentReference) => `${configuredBaseUrl.replace(/\/$/, '')}/score/admin/assessments/${encodeURIComponent(assessmentReference)}`
-    }, { db: createMonitorDatabase() });
+    }, { db: createMonitorDatabase({ budgetMs: STALLED_LEAD_MONITOR_BUDGET_MS }) });
     return NextResponse.json(result);
   } catch (error) {
     console.error('adaptive_stalled_lead_monitor_failed', {

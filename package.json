@@ -238,7 +238,7 @@
     "essential:test-retry-browser": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/recovery/retry-browser-tests.mjs",
     "essential:test-retry-postgres": "bash scripts/recovery/test-postgres-browser.sh",
     "monitoring:test-fulfilment-signals": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-fulfilment-signal-tests.mjs",
-    "monitoring:test-reliability": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-reliability-tests.mjs"
+    "monitoring:test-reliability": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-reliability-tests.mjs && node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-timeout-budget-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

@@ -6,6 +6,8 @@ import type { ReadinessFailureInjection } from '@/lib/monitoring/production-read
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Backstop only: database work is bounded by the monitor transport budget (well under this limit).
+export const maxDuration = 60;
 
 /**
  * Signed internal runner. It is intentionally separate from the read-only readiness endpoint:
