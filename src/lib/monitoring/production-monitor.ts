@@ -45,6 +45,10 @@ export type MonitorAlertCandidate = {
 
 export type AlertNotificationDecision = 'send_initial' | 'send_reminder' | 'suppress';
 
+/** Monitor self-health incident. One initial P3 per sustained episode; never a time-based reminder. */
+export const MONITOR_SELF_ALERT_KEY = 'monitor-self:infrastructure';
+const HEARTBEAT_CYCLE_CONTINUITY_MS = 25 * 60_000;
+
 /**
  * Fulfilment P1s that count events rather than describe an outage. Like P2 count alerts they notify on
  * first detection and when the count rises, never merely because the reminder cooldown elapsed.
@@ -68,6 +72,7 @@ export function alertNotificationDecision(input: {
   alertKey?: string | null;
 }): AlertNotificationDecision {
   if (!input.existing || input.existing.status === 'resolved' || !input.existing.last_notified_at) return 'send_initial';
+  if (input.alertKey === MONITOR_SELF_ALERT_KEY) return 'suppress';
 
   // P2 funnel alerts are event-count conditions, not outages. Re-running the monitor against the
   // same rolling-window events must never create another email. Notify again only when the actual
@@ -424,7 +429,7 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
   const deploymentSha = validSha(process.env.VERCEL_GIT_COMMIT_SHA);
   let previousHeartbeat: any = null;
   try {
-    const { data, error } = await db.from('production_monitor_heartbeats').select('run_count,consecutive_failures,safe_summary_json').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle();
+    const { data, error } = await db.from('production_monitor_heartbeats').select('run_count,consecutive_failures,safe_summary_json,last_completed_at').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle();
     if (error) throw error;
     previousHeartbeat = data;
   } catch {
@@ -463,19 +468,23 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
     }
     const unavailable = readiness.checks.filter(check => check.safeCode === 'monitor_dependency_query_unavailable');
     internalFailure ||= unavailable.length > 0;
-    const selfHealth = monitorSelfHealth(previousHeartbeat?.safe_summary_json, internalFailure);
+    const { data: priorAlerts, error: priorError } = await db.from('phase14_operational_alerts').select('alert_key,monitoring_priority').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']);
+    if (priorError) throw priorError;
+    const previousCompletedAt = previousHeartbeat?.last_completed_at ? new Date(previousHeartbeat.last_completed_at).getTime() : Number.NaN;
+    const selfHealth = monitorSelfHealth(previousHeartbeat?.safe_summary_json, internalFailure, {
+      incidentOpen: (priorAlerts ?? []).some((row: any) => row.alert_key === MONITOR_SELF_ALERT_KEY),
+      previousCycleRecorded: Number.isFinite(previousCompletedAt) && started.getTime() - previousCompletedAt <= HEARTBEAT_CYCLE_CONTINUITY_MS
+    });
     const candidates = [
       ...candidatesForEvaluation(readiness).filter(candidate => candidate.alertKey !== 'production-readiness:internal_monitor_heartbeat'),
       ...(metrics ? candidatesForFunnel(metrics, deploymentSha) : []),
       ...fulfilmentCandidates
     ];
-    if (selfHealth.self_active) candidates.push({ alertKey: 'monitor-self:infrastructure', priority: 'P3', category: 'monitor_infrastructure', stage: 'dependency', errorCategory: 'monitor_infrastructure_unavailable', deploymentSha });
+    if (selfHealth.self_active) candidates.push({ alertKey: MONITOR_SELF_ALERT_KEY, priority: 'P3', category: 'monitor_infrastructure', stage: 'dependency', errorCategory: 'monitor_infrastructure_unavailable', deploymentSha });
     const activeKeys = new Set(candidates.map((candidate) => candidate.alertKey));
     unavailable.forEach(check => activeKeys.add(`production-readiness:${check.key}`));
     if (internalFailure || selfHealth.self_active) activeKeys.add('production-readiness:internal_monitor_heartbeat');
     // Failed input is unknown, never evidence of recovery. Preserve only affected namespaces.
-    const { data: priorAlerts, error: priorError } = await db.from('phase14_operational_alerts').select('alert_key,monitoring_priority').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']);
-    if (priorError) throw priorError;
     for (const row of priorAlerts ?? []) {
       if ((!metrics && row.alert_key.startsWith('funnel:')) || (!fulfilmentAvailable && row.alert_key.startsWith('fulfilment:'))) activeKeys.add(row.alert_key);
     }

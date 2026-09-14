@@ -70,8 +70,8 @@ assert.equal(await upsertHeartbeat(db,{monitor_name:'production-incident-monitor
 pass('heartbeat persistence success and failed write are observable');
 assert.equal(monitorHeartbeatReadiness({heartbeat:{status:'failed',last_completed_at:now().toISOString()},now:now(),staleMinutes:30,production:true}).safeCode,'monitor_heartbeat_failed');
 assert.equal(monitorHeartbeatReadiness({heartbeat:{status:'failed',last_completed_at:'2026-09-11T00:00:00Z'},now:now(),staleMinutes:30,production:true}).safeCode,'monitor_heartbeat_stale_or_missing');
-let h=monitorSelfHealth(null,true);assert.equal(h.self_active,false);h=monitorSelfHealth(h,true);assert.equal(h.self_active,true);h=monitorSelfHealth(h,false);assert.equal(h.self_active,true);h=monitorSelfHealth(h,false);assert.equal(h.self_active,false);
-pass('self-health escalates after two failures and recovers after two successes; freshness semantics remain distinct');
+let h=null;for(let i=1;i<=3;i++){h=monitorSelfHealth(h,true);assert.equal(h.self_active,false);}h=monitorSelfHealth(h,true);assert.equal(h.self_active,true);for(let i=1;i<=3;i++){h=monitorSelfHealth(h,false);assert.equal(h.self_active,true);}h=monitorSelfHealth(h,false);assert.equal(h.self_active,false);
+pass('self-health escalates after four failures and recovers after four successes; freshness semantics remain distinct');
 
 const healthy=async()=>({status:'HEALTHY',checks:[],currentDeploymentSha:'a'.repeat(40),checkedAt:now().toISOString()});
 const broken=async()=>({status:'INCIDENT',checks:[{key:'public_home',category:'public_route',status:'FAIL',safeCode:'public_route_unavailable'}],currentDeploymentSha:'a'.repeat(40),checkedAt:now().toISOString()});
@@ -98,6 +98,7 @@ db.rows.get('phase14_operational_alerts').push({alert_key:'fulfilment:paid_order
 db.faults.set('orders:read',true);
 await runProductionMonitor({},{db,now,sendEmail,evaluateReadiness:healthy});
 assert.equal(db.rows.get('phase14_operational_alerts')[0].status,'open');assert.equal(sent.length,0);
+advance();await runProductionMonitor({},{db,now,sendEmail,evaluateReadiness:healthy});advance();await runProductionMonitor({},{db,now,sendEmail,evaluateReadiness:healthy});assert.equal(sent.length,0);
 advance();await runProductionMonitor({},{db,now,sendEmail,evaluateReadiness:healthy});assert.equal(sent.length,1);assert.match(sent[0].text,/monitor_infrastructure_unavailable/);
 pass('unavailable fulfilment preserves incidents; repeated internal failure raises only self-health');
 
@@ -214,4 +215,114 @@ pass('one durable notification per episode/period; no customer email or external
   assert.equal(alertNotificationDecision({ existing: p2, now: time, priority: 'P2', underlyingCount: 8 }), 'suppress');
   assert.equal(alertNotificationDecision({ existing: { ...p2, status: 'resolved' }, now: time, priority: 'P2', underlyingCount: 9 }), 'send_initial');
   pass('P2 count alerts unchanged: same/lower suppress, higher reminds, resolved re-initialises');
+}
+
+// Monitor self-health operator escalation: sustained 4-failure open, no reminders, sustained 4-success recovery.
+{
+  const { alertNotificationDecision, MONITOR_SELF_ALERT_KEY } = await import('../src/lib/monitoring/production-monitor.ts');
+  time = new Date('2026-09-14T06:00:00Z');
+  db = dbDouble(); sent.length = 0;
+  const heartbeat = () => db.rows.get('production_monitor_heartbeats')[0];
+  const selfAlert = () => db.rows.get('phase14_operational_alerts').find((row) => row.alert_key === MONITOR_SELF_ALERT_KEY);
+  const selfMail = (from = 0) => sent.slice(from).filter((mail) => /dependency/.test(mail.subject));
+  const cycle = async (failed) => {
+    advance();
+    if (failed) db.faults.set('orders:read', true); else db.faults.delete('orders:read');
+    return runProductionMonitor({}, { db, now, sendEmail, evaluateReadiness: healthy });
+  };
+
+  // 1-3 + 12. Degraded state is recorded from the first failed cycle; no operator email yet.
+  for (let failure = 1; failure <= 3; failure += 1) {
+    await cycle(true);
+    assert.equal(heartbeat().status, 'degraded', `failed cycle ${failure} is recorded as degraded`);
+    assert.equal(heartbeat().safe_summary_json.self_failures, failure);
+    assert.equal(heartbeat().safe_summary_json.self_active, false);
+    assert.equal(sent.length, 0, `no email after ${failure} failed cycle(s)`);
+    assert.equal(selfAlert(), undefined);
+  }
+  pass('1, 2 and 3 failed cycles: heartbeat truthfully degraded, no P3 incident or email');
+
+  // 4 + 5. Fourth failure opens one P3; failures 5-20 (almost four hours) send nothing more.
+  await cycle(true);
+  assert.equal(selfMail().length, 1); assert.match(selfMail()[0].subject, /^\[MK P3\]/);
+  assert.equal(selfAlert().status, 'open');
+  const firstEpisode = selfAlert().first_detected_at;
+  for (let failure = 5; failure <= 20; failure += 1) await cycle(true);
+  assert.equal(selfMail().length, 1, 'no reminder or duplicate for a continuing incident');
+  assert.equal(selfAlert().first_detected_at, firstEpisode);
+  for (let hours = 0; hours < 20; hours += 1) await cycle(true);
+  assert.equal(selfMail().length, 1, 'still one email after many hours');
+  pass('fourth failed cycle sends exactly one P3; the continuing incident never reminds');
+
+  // 6, 7, 9. One and three healthy cycles keep it open; a failure before the fourth resets the streak.
+  await cycle(false);
+  assert.equal(selfAlert().status, 'open'); assert.equal(selfMail().length, 1);
+  assert.equal(heartbeat().status, 'healthy');
+  await cycle(false); await cycle(false);
+  assert.equal(heartbeat().safe_summary_json.self_successes, 3);
+  assert.equal(selfAlert().status, 'open'); assert.equal(selfMail().length, 1, 'no recovery after three healthy cycles');
+  await cycle(true);
+  assert.equal(selfAlert().status, 'open'); assert.equal(selfAlert().first_detected_at, firstEpisode, 'same incident, no new episode');
+  assert.equal(heartbeat().safe_summary_json.self_successes, 0);
+  for (let healthyRun = 1; healthyRun <= 3; healthyRun += 1) await cycle(false);
+  assert.equal(selfAlert().status, 'open');
+  assert.equal(selfMail().length, 1, 'flap inside the recovery window sends neither recovery nor a new P3');
+  pass('1 and 3 healthy cycles keep the incident open; 3 healthy then 1 failure keeps the same incident silently');
+
+  // Flap while Supabase also loses heartbeat state: the durable alert row keeps the incident open.
+  // Overnight path: previous heartbeat unreadable and the run fails before alert sync (dependency runner failure).
+  db.faults.set('production_monitor_heartbeats:read', 1);
+  db.faults.set('phase14_operational_alerts:read', 1);
+  const lostStateRun = await cycle(true);
+  assert.equal(lostStateRun.status, 'DEGRADED'); assert.equal(heartbeat().status, 'degraded');
+  assert.equal(heartbeat().safe_summary_json.self_active, false, 'heartbeat JSON lost the active state, as it did overnight');
+  for (let healthyRun = 1; healthyRun <= 3; healthyRun += 1) await cycle(false);
+  assert.equal(selfAlert().status, 'open', 'lost heartbeat state never produces a false recovery');
+  assert.equal(selfMail().length, 1);
+  // A failed cycle whose own heartbeat outcome was never persisted breaks the success streak.
+  db.faults.set('production_monitor_heartbeats:upsert', 3);
+  await cycle(true);
+  await cycle(false);
+  assert.equal(heartbeat().safe_summary_json.self_successes, 1, 'unrecorded cycle resets the healthy streak');
+  assert.equal(selfAlert().status, 'open');
+  pass('durable alert state and cycle continuity stop Supabase heartbeat loss from forging a recovery');
+
+  // 8. Fourth consecutive healthy cycle: exactly one recovery.
+  for (let healthyRun = 2; healthyRun <= 3; healthyRun += 1) await cycle(false);
+  assert.equal(selfAlert().status, 'open');
+  await cycle(false);
+  assert.equal(selfAlert().status, 'resolved');
+  assert.equal(selfMail().length, 2); assert.match(selfMail()[1].subject, /^\[RECOVERED\]/);
+  for (let healthyRun = 1; healthyRun <= 8; healthyRun += 1) await cycle(false);
+  assert.equal(selfMail().length, 2, 'exactly one recovery');
+  pass('fourth consecutive healthy cycle resolves with exactly one recovery email');
+
+  // 10. After full recovery a later sustained outage is a fresh episode with one new P3.
+  const earlierKeys = new Set(sent.map((mail) => mail.idempotencyKey));
+  for (let failure = 1; failure <= 3; failure += 1) await cycle(true);
+  assert.equal(selfMail().length, 2);
+  await cycle(true);
+  assert.equal(selfMail().length, 3); assert.match(selfMail()[2].subject, /^\[MK P3\]/);
+  assert.notEqual(selfAlert().first_detected_at, firstEpisode);
+  assert.equal(earlierKeys.has(selfMail()[2].idempotencyKey), false);
+  pass('later sustained outage after full recovery opens a fresh episode with one new P3');
+
+  // 11. Unrelated P1/P2 and fulfilment notification semantics unchanged.
+  const fiveHoursAgo = new Date(time.getTime() - 5 * 3_600_000).toISOString();
+  const openRow = (count) => ({ status: 'open', last_notified_at: fiveHoursAgo, detail_json: count === undefined ? {} : { count } });
+  assert.equal(alertNotificationDecision({ existing: openRow(), now: time, priority: 'P3', alertKey: MONITOR_SELF_ALERT_KEY }), 'suppress');
+  assert.equal(alertNotificationDecision({ existing: null, now: time, priority: 'P3', alertKey: MONITOR_SELF_ALERT_KEY }), 'send_initial');
+  assert.equal(alertNotificationDecision({ existing: { ...openRow(), status: 'resolved' }, now: time, priority: 'P3', alertKey: MONITOR_SELF_ALERT_KEY }), 'send_initial');
+  assert.equal(alertNotificationDecision({ existing: openRow(), now: time, priority: 'P1', alertKey: 'production-readiness:public_home' }), 'send_reminder');
+  assert.equal(alertNotificationDecision({ existing: openRow(), now: time, priority: 'P3', alertKey: 'production-readiness:legal_contract' }), 'send_reminder');
+  assert.equal(alertNotificationDecision({ existing: openRow(1), now: time, priority: 'P1', underlyingCount: 1, alertKey: 'funnel:submitted_without_snapshot' }), 'send_reminder');
+  assert.equal(alertNotificationDecision({ existing: openRow(2), now: time, priority: 'P1', underlyingCount: 2, alertKey: 'fulfilment:paid_order_without_report' }), 'suppress');
+  assert.equal(alertNotificationDecision({ existing: openRow(2), now: time, priority: 'P1', underlyingCount: 3, alertKey: 'fulfilment:paid_order_without_report' }), 'send_reminder');
+  assert.equal(alertNotificationDecision({ existing: openRow(9), now: time, priority: 'P2', underlyingCount: 9, alertKey: 'fulfilment:notification_queue_stalled' }), 'suppress');
+  assert.equal(alertNotificationDecision({ existing: openRow(9), now: time, priority: 'P2', underlyingCount: 10, alertKey: 'fulfilment:notification_queue_stalled' }), 'send_reminder');
+  db = dbDouble(); sent.length = 0;
+  await runProductionMonitor({}, { db, now, sendEmail, evaluateReadiness: broken }); assert.equal(sent.length, 1);
+  time = new Date(time.getTime() + 241 * 60_000);
+  await runProductionMonitor({}, { db, now, sendEmail, evaluateReadiness: broken }); assert.equal(sent.length, 2, 'public-route P1 still reminds after four hours');
+  pass('unrelated P1/P2, fulfilment count rules and other P3 reminders are unchanged');
 }
