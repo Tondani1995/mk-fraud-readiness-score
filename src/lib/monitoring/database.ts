@@ -177,9 +177,28 @@ export function createMonitorDatabase(options: MonitorFetchOptions & { fetchImpl
   });
 }
 
-export function monitorSelfHealth(previous: Record<string, any> | null, failed: boolean) {
+/**
+ * Operator-escalation hysteresis for monitor self-health. Degraded cycles are still recorded on the
+ * heartbeat every time; only the P3 incident waits for a sustained outage (about an hour at the
+ * 15-minute cadence) and resolves only after a sustained recovery.
+ */
+export const MONITOR_SELF_HEALTH_OPEN_FAILURES = 4;
+export const MONITOR_SELF_HEALTH_RECOVERY_SUCCESSES = 4;
+
+export function monitorSelfHealth(
+  previous: Record<string, any> | null | undefined,
+  failed: boolean,
+  context: {
+    /** The durable alert row is open. Heartbeat JSON can be lost when Supabase flaps; the incident must not be. */
+    incidentOpen?: boolean;
+    /** False when the previous cycle's own outcome was never persisted, so its success streak cannot be trusted. */
+    previousCycleRecorded?: boolean;
+  } = {}
+) {
   const failures = failed ? Number(previous?.self_failures ?? 0) + 1 : 0;
-  const successes = failed ? 0 : Number(previous?.self_successes ?? 0) + 1;
-  const active = failures >= 2 || previous?.self_active === true && successes < 2;
+  const priorSuccesses = context.previousCycleRecorded === false ? 0 : Number(previous?.self_successes ?? 0);
+  const successes = failed ? 0 : priorSuccesses + 1;
+  const incidentOpen = previous?.self_active === true || context.incidentOpen === true;
+  const active = failures >= MONITOR_SELF_HEALTH_OPEN_FAILURES || incidentOpen && successes < MONITOR_SELF_HEALTH_RECOVERY_SUCCESSES;
   return { self_failures: failures, self_successes: successes, self_active: active };
 }

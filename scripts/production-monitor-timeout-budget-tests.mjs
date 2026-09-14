@@ -272,11 +272,13 @@ for (const [label, options] of [['hanging', { hang: () => true }], ['gateway 504
   await cycle(); await cycle();
   assert.equal(sentEmails.length, 0);
   assert.notEqual(fake.heartbeat.status, 'healthy');
-  // Record the two failures the outage could not persist, as the next runs would observe them.
-  fake.heartbeat.safe_summary_json = { self_failures: 2, self_successes: 0, self_active: true };
+  // Record the sustained failures the outage could not persist, as the next runs would observe them.
+  fake.heartbeat.safe_summary_json = { self_failures: 4, self_successes: 0, self_active: true };
+  fake.heartbeat.last_completed_at = new Date().toISOString();
   down = false;
   let result = await cycle();
-  assert.equal(fake.alerts.find((a) => a.alert_key === 'monitor-self:infrastructure')?.status, 'open', 'hysteresis holds self-health for one healthy run');
+  for (let healthyRun = 2; healthyRun <= 3; healthyRun += 1) result = await cycle();
+  assert.equal(fake.alerts.find((a) => a.alert_key === 'monitor-self:infrastructure')?.status, 'open', 'hysteresis holds self-health for three healthy runs');
   assert.equal(fake.alerts.filter((a) => a.monitoring_priority === 'P1').length, 0);
   result = await cycle();
   assert.equal(result.status, 'HEALTHY');
@@ -286,7 +288,7 @@ for (const [label, options] of [['hanging', { hang: () => true }], ['gateway 504
   assert.equal(sentEmails.length, 2, 'one P3 self-health notice and one recovery');
   result = await cycle();
   assert.equal(sentEmails.length, 2, 'no duplicate emails once healthy');
-  pass('next healthy cycles resume evaluation and self-health recovers under the existing two-success hysteresis');
+  pass('next healthy cycles resume evaluation and self-health recovers only after four consecutive healthy cycles');
 }
 
 // C. Readiness: one unavailable dependency query does not manufacture unrelated application failures.
