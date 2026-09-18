@@ -1,0 +1,39 @@
+name: Apply approved website reset
+on:
+  push:
+    branches:
+      - website/ia-mobile-reset
+    paths:
+      - '.tmp/ia-reset/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: website/ia-mobile-reset
+          fetch-depth: 0
+      - name: Reconstruct and apply approved patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat             .tmp/ia-reset/00             .tmp/ia-reset/01_02             .tmp/ia-reset/03_04             .tmp/ia-reset/05_06             .tmp/ia-reset/07_08             .tmp/ia-reset/09_10             .tmp/ia-reset/11             > /tmp/website-reset.patch.b64
+          base64 -d /tmp/website-reset.patch.b64 | gzip -d > /tmp/website-reset.patch
+          test "$(sha256sum /tmp/website-reset.patch | awk '{print $1}')" = "0e84cb40bc1222ed69db2815baa7455aafb49b7b52662a2d51ac517921aa3f7e"
+          git apply --check /tmp/website-reset.patch
+          git apply /tmp/website-reset.patch
+      - name: Commit approved website state
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .tmp/ia-reset
+          rm -f .github/workflows/apply-ia-reset.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply approved website IA, mobile and AI fraud reset"
+          git push origin HEAD:website/ia-mobile-reset
