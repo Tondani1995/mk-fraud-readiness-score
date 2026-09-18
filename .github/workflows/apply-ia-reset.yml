@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat             .tmp/ia-reset/00             .tmp/ia-reset/01_02             .tmp/ia-reset/03_04             .tmp/ia-reset/05_06             .tmp/ia-reset/07_08             .tmp/ia-reset/09_10             .tmp/ia-reset/11             > /tmp/website-reset.patch.b64
+          cat             .tmp/ia-reset/00             .tmp/ia-reset/01             .tmp/ia-reset/02             .tmp/ia-reset/03             .tmp/ia-reset/04             .tmp/ia-reset/05             .tmp/ia-reset/06             .tmp/ia-reset/07             .tmp/ia-reset/08             .tmp/ia-reset/09             .tmp/ia-reset/10             .tmp/ia-reset/11             > /tmp/website-reset.patch.b64
           base64 -d /tmp/website-reset.patch.b64 | gzip -d > /tmp/website-reset.patch
           test "$(sha256sum /tmp/website-reset.patch | awk '{print $1}')" = "0e84cb40bc1222ed69db2815baa7455aafb49b7b52662a2d51ac517921aa3f7e"
           git apply --check /tmp/website-reset.patch
