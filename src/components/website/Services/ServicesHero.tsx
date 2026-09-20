@@ -10,8 +10,7 @@ export default function ServicesHero() {
           Start from the question your organisation needs answered.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-          MK&apos;s work is organised into four capabilities, each answering a distinct management question. Use them
-          on their own or together.
+          MK&apos;s work is organised into four capabilities, but the capability names are only the entry points. The named service lines underneath them include fraud readiness, strategy and programme design, fraud awareness and training, internal and employee fraud controls, supplier and third-party fraud risk, digital and cyber-enabled fraud risk, AI-enabled fraud readiness, detection and threat intelligence.
         </p>
 
         <nav id="services" aria-label="Capabilities" className="mt-8 sm:mt-10 lg:mt-14">
