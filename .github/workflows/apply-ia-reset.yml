@@ -30,10 +30,8 @@ jobs:
           echo "gzip_status=$gzip_status"
           echo "patch_sha=$(sha256sum /tmp/website-reset.patch | awk '{print $1}')"
           echo "patch_bytes=$(wc -c < /tmp/website-reset.patch)"
-          echo "--- diff headers 4850-6200 ---"
-          nl -ba /tmp/website-reset.patch | sed -n '4850,6200p' | grep -E 'diff --git|^ *[0-9]+[[:space:]]+index |^ *[0-9]+[[:space:]]+--- |^ *[0-9]+[[:space:]]+\+\+\+' || true
-          echo "--- raw 4980-5060 ---"
-          sed -n '4980,5060p' /tmp/website-reset.patch
+          echo "--- diff headers after line 4800 ---"
+          grep -n '^diff --git a/' /tmp/website-reset.patch | awk -F: '$1>=4800' || true
           echo "--- end ---"
           exit 1
       - name: Commit approved website state
