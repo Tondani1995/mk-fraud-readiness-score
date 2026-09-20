@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Eyebrow } from '@/components/website/primitives/Eyebrow';
-import { CAPABILITIES } from '@/lib/website/capabilities';
+import { CAPABILITIES, PUBLIC_SERVICE_PORTFOLIO } from '@/lib/website/capabilities';
 
 export default function CapabilitiesSection() {
   return (
@@ -16,7 +16,7 @@ export default function CapabilitiesSection() {
             Four points of entry, each starting from a management question.
           </h2>
           <p className="mt-4 text-base leading-7 text-slate-600">
-            Start with the question closest to where you are today. The capabilities work on their own or together.
+            Assess, Build, Enable and Monitor organise the portfolio. They are not the only things MK does, and they are not a sequence an organisation must complete.
           </p>
         </div>
 
@@ -38,6 +38,25 @@ export default function CapabilitiesSection() {
             </li>
           ))}
         </ul>
+
+        <div className="mt-10 border-t border-slate-300 pt-7 lg:mt-12 lg:pt-8">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Named service portfolio</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Fraud Readiness is a flagship route into MK, not the boundary of the advisory practice.
+            </p>
+          </div>
+          <ul className="mt-5 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+            {PUBLIC_SERVICE_PORTFOLIO.map((service) => (
+              <li key={service} className="border-t border-slate-200 py-3 text-sm font-medium leading-6 text-[#001030]">
+                {service}
+              </li>
+            ))}
+          </ul>
+          <Link href="/services" className="mt-5 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-[#1d3658] hover:text-[#001030]">
+            View the full service portfolio <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </section>
   );
