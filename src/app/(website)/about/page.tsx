@@ -13,12 +13,12 @@ const commitments = [
   },
   {
     title: "We design for the people who have to run it",
-    body: "Controls, escalation routes and playbooks are built around existing systems and teams, so they can be operated after MK has left the room.",
+    body: "Controls, escalation routes, training and playbooks are built around existing systems and teams, so they can be operated after MK has left the room.",
   },
 ];
 
 const scope = [
-  "MK is an advisory practice. We do not conduct forensic investigations or provide regulatory audit opinions.",
+  "MK is an advisory practice. Where formal investigative or forensic work is required, that work is delivered through specialist investigative partners. MK does not present advisory work as a regulatory audit opinion.",
   "The Fraud Readiness Assessment analyses what an organisation reports. It does not independently test evidence or provide assurance.",
   "We do not promise zero fraud. We help organisations understand and reduce their exposure in a deliberate, prioritised way.",
 ];
@@ -34,8 +34,7 @@ export default function About() {
               Specialist fraud risk advice for organisations beyond the banks.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-              MK Fraud Insights is an independent South African fraud risk advisory practice. We help leadership teams
-              understand where fraud exposure sits, whether their controls genuinely address it and what to prioritise.
+              MK Fraud Insights is an independent South African fraud strategy and risk advisory practice. We help leadership teams understand where fraud exposure sits, whether their controls genuinely address it and what to prioritise.
             </p>
           </div>
         </section>
@@ -57,9 +56,10 @@ export default function About() {
               </p>
               <p>
                 The practice is led by a fraud risk practitioner whose operational experience spans fraud risk,
-                governance, process design and solution strategy. MK applies that experience to organisations where
-                fraud has usually been managed in fragments, and Fraud Readiness is built from the same practitioner
-                insight.
+                governance, process design and solution strategy. MK applies that experience across fraud readiness and
+                risk assessments, fraud strategy and programme design, internal and employee fraud controls, procurement
+                and third-party fraud risk, fraud awareness and resilience training, digital and cyber-enabled fraud,
+                AI-enabled fraud, detection, monitoring and threat intelligence.
               </p>
             </div>
           </div>
