@@ -30,8 +30,10 @@ jobs:
           echo "gzip_status=$gzip_status"
           echo "patch_sha=$(sha256sum /tmp/website-reset.patch | awk '{print $1}')"
           echo "patch_bytes=$(wc -c < /tmp/website-reset.patch)"
-          git apply --check /tmp/website-reset.patch
-          git apply /tmp/website-reset.patch
+          echo "--- patch around failure ---"
+          sed -n '4960,5035p' /tmp/website-reset.patch
+          echo "--- end patch around failure ---"
+          exit 1
       - name: Commit approved website state
         shell: bash
         run: |
