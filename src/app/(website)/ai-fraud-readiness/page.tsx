@@ -59,11 +59,11 @@ export default function AiFraudReadinessPage() {
               recognising something as genuine are the ones most exposed.
             </p>
             <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
-              <CtaLink href="/score/start" variant="primaryOnDark" arrow ctaName="assess_your_organisation" placement="ai_fraud_hero">
-                Assess your organisation
+              <CtaLink href="/contact" variant="primaryOnDark" arrow ctaName="speak_to_mk_about_ai_fraud" placement="ai_fraud_hero">
+                Speak to MK about AI fraud
               </CtaLink>
-              <CtaLink href="/contact" variant="secondaryOnDark" ctaName="speak_to_mk" placement="ai_fraud_hero">
-                Speak to MK
+              <CtaLink href="/fraud-readiness" variant="secondaryOnDark" ctaName="explore_fraud_readiness" placement="ai_fraud_hero">
+                Explore Fraud Readiness
               </CtaLink>
             </div>
           </div>
@@ -100,6 +100,12 @@ export default function AiFraudReadinessPage() {
               </h2>
             </div>
             <div className="space-y-4 text-base leading-7 text-slate-600">
+              <p>
+                AI-enabled fraud is fraud strengthened by artificial intelligence, used to automate the work, scale it
+                across many targets, personalise each attempt, fabricate identities, media and documents, or run parts of
+                a campaign with little human involvement, spanning generative techniques that produce convincing content
+                and agentic techniques that carry out sequences of actions.
+              </p>
               <p>
                 Most organisations have built their fraud defences around recognition. A caller sounds like the finance
                 director, an invoice looks like the one that arrives every month, a supplier letter carries the right
@@ -278,11 +284,11 @@ export default function AiFraudReadinessPage() {
                 </p>
               ) : null}
               <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
-                <CtaLink href="/score/start" variant="primary" arrow ctaName="assess_your_organisation" placement="ai_fraud_instrument">
-                  Start the assessment
+                <CtaLink href="/fraud-readiness" variant="primary" arrow ctaName="explore_fraud_readiness" placement="ai_fraud_instrument">
+                  Explore Fraud Readiness
                 </CtaLink>
-                <CtaLink href="/fraud-readiness" variant="secondary" ctaName="fraud_readiness_overview" placement="ai_fraud_instrument">
-                  Fraud Readiness overview
+                <CtaLink href="/score/start" variant="secondary" ctaName="assess_core_fraud_readiness" placement="ai_fraud_instrument">
+                  Assess your core fraud readiness
                 </CtaLink>
               </div>
             </div>
@@ -320,16 +326,16 @@ export default function AiFraudReadinessPage() {
                   Test whether your controls still hold.
                 </h2>
                 <p className="mt-3 text-base leading-7 text-white/75">
-                  Start with the free assessment for a structured view of readiness, or speak to MK about the AI-enabled
-                  exposure specific to your organisation.
+                  Speak to MK about the AI-enabled exposure specific to your organisation, or use the Fraud Readiness
+                  Assessment to understand your core fraud readiness first.
                 </p>
               </div>
               <div className="mt-6 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap lg:mt-0 lg:shrink-0">
-                <CtaLink href="/score/start" variant="primaryOnDark" arrow ctaName="assess_your_organisation" placement="ai_fraud_closing">
-                  Assess your organisation
+                <CtaLink href="/contact" variant="primaryOnDark" arrow ctaName="speak_to_mk_about_ai_fraud" placement="ai_fraud_closing">
+                  Speak to MK about AI fraud
                 </CtaLink>
-                <CtaLink href="/contact" variant="secondaryOnDark" ctaName="speak_to_mk" placement="ai_fraud_closing">
-                  Speak to MK
+                <CtaLink href="/score/start" variant="secondaryOnDark" ctaName="assess_core_fraud_readiness" placement="ai_fraud_closing">
+                  Assess your core fraud readiness
                 </CtaLink>
               </div>
             </div>
