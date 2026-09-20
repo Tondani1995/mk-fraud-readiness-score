@@ -155,10 +155,10 @@ export const AI_FRAUD_VECTORS: readonly FraudVector[] = [
   },
   {
     id: 'agentic',
-    name: 'Emerging agentic-AI patterns',
+    name: 'Emerging agentic AI',
     description:
-      'INTERPOL describes agentic AI systems capable of autonomously planning and executing complete fraud campaigns, from reconnaissance through to the demand. This is an emerging pattern rather than a routine one, and it deserves watching rather than alarm.',
-    whereItLands: 'Every channel that can be reached without a human on the other side'
+      'AI systems that can plan and run a fraud campaign largely on their own, from researching a target through to making the demand, with far less operator time than before. This is still emerging rather than routine, and worth watching rather than worrying about.',
+    whereItLands: 'Any channel that accepts requests continuously, such as email, web forms and self-service portals'
   }
 ];
 

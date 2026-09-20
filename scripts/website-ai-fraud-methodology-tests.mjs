@@ -80,8 +80,20 @@ check('the public methodology statement keeps its two load-bearing sentences', (
   assert.match(methodology, /not decided by generative AI/);
   assert.match(methodologyComponent, /AI does not determine your assessment result/);
   assert.match(methodologyComponent, /operates downstream of the validated assessment logic/);
-  // Never claim AI is absent from the platform altogether.
   assert.doesNotMatch(methodology, /no AI is used anywhere|does not use AI at all/i);
+});
+
+check('the published methodology is four concise points plus one bounded AI disclosure', () => {
+  const pointsBlock = methodology.match(/METHODOLOGY_POINTS:[\s\S]*?= \[([\s\S]*?)\n\];/)?.[1] ?? '';
+  assert.equal((pointsBlock.match(/title:/g) ?? []).length, 4);
+  for (const title of [
+    'Deterministic scoring',
+    'Defined maturity logic',
+    'Findings traceable to recorded responses',
+    'Generative AI cannot alter your result'
+  ]) assert.ok(pointsBlock.includes(title), 'missing methodology point: ' + title);
+  assert.match(methodology, /limited to drafting the plain-language interpretation/);
+  assert.match(methodology, /validated before presentation/);
 });
 
 check('the methodology component is published on the Fraud Readiness and AI pages', () => {
@@ -109,6 +121,20 @@ check('the AI page states the current scope limit while no AI-specific questions
   if (/explicitAiQuestions: true/.test(aiFraud)) return;
   assert.match(aiPage, /does not yet ask about deepfakes, voice cloning or synthetic identities by\s*\n?\s*name/);
   assert.doesNotMatch(aiPage, /comprehensively (tests|assesses)/i);
+});
+
+check('the AI definition covers generative and agentic techniques without the old narrow wording', () => {
+  assert.match(aiPage, /AI-enabled fraud is fraud strengthened by artificial intelligence/);
+  assert.match(aiPage, /generative techniques that produce convincing content/);
+  assert.match(aiPage, /agentic techniques that carry out sequences of actions/);
+  assert.doesNotMatch(aiPage, /ordinary fraud carried out with generative AI tools/i);
+});
+
+check('the agentic entry is bounded and operationally specific', () => {
+  assert.match(aiFraud, /name: 'Emerging agentic AI'/);
+  assert.match(aiFraud, /plan and run a fraud campaign largely on their own/);
+  assert.match(aiFraud, /still emerging rather than routine/);
+  assert.match(aiFraud, /email, web forms and self-service portals/);
 });
 
 check('every cited figure on the AI page carries a named public source', () => {
@@ -143,12 +169,24 @@ check('the AI page is reachable without a new primary navigation item', () => {
   }
 });
 
-check('the AI page carries metadata, canonical and structured data', () => {
+check('the AI page carries metadata, canonical and only matched visible structured data', () => {
   const layout = read('src/app/(website)/ai-fraud-readiness/layout.tsx');
   assert.match(layout, /buildPageMetadata/);
   assert.match(layout, /path: "\/ai-fraud-readiness"/);
   assert.match(layout, /"@type": "Service"/);
-  assert.match(layout, /"@type": "FAQPage"/);
+  assert.doesNotMatch(layout, /"@type": "FAQPage"/);
+  assert.doesNotMatch(layout, /faqJsonLd/);
+});
+
+check('AI page CTAs prioritise advisory and label the assessment as core readiness', () => {
+  for (const label of ['Speak to MK about AI fraud', 'Explore Fraud Readiness', 'Assess your core fraud readiness']) {
+    assert.ok(aiPage.includes(label), 'missing AI CTA label: ' + label);
+  }
+  assert.match(aiPage, /ctaName="speak_to_mk_about_ai_fraud"/);
+  assert.match(aiPage, /ctaName="explore_fraud_readiness"/);
+  assert.match(aiPage, /ctaName="assess_core_fraud_readiness"/);
+  assert.doesNotMatch(aiPage, /ctaName="assess_your_organisation"/);
+  assert.doesNotMatch(aiPage, />\s*Assess your organisation\s*</);
 });
 
 console.log(failures === 0 ? 'AI fraud and methodology transparency checks passed.' : `${failures} FAILED`);
