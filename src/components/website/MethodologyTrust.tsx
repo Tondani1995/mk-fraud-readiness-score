@@ -1,5 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
-import { METHODOLOGY_HEADLINE, METHODOLOGY_POINTS, METHODOLOGY_SUMMARY } from '@/lib/website/methodology';
+import { METHODOLOGY_AI_DISCLOSURE, METHODOLOGY_HEADLINE, METHODOLOGY_POINTS, METHODOLOGY_SUMMARY } from '@/lib/website/methodology';
 
 /**
  * "How your result is produced": the public methodology statement for Fraud Readiness.
@@ -35,14 +35,17 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
             </p>
           </div>
 
-          <dl className={`divide-y ${dark ? 'divide-white/10 border-y border-white/10' : 'divide-slate-200 border-y border-slate-200'}`}>
-            {METHODOLOGY_POINTS.map((point) => (
-              <div key={point.title} className="py-4 sm:py-5">
-                <dt className="text-base font-semibold">{point.title}</dt>
-                <dd className={`mt-1.5 text-[15px] leading-7 ${dark ? 'text-white/70' : 'text-slate-600'}`}>{point.description}</dd>
-              </div>
-            ))}
-          </dl>
+          <div>
+            <dl className={`divide-y ${dark ? 'divide-white/10 border-y border-white/10' : 'divide-slate-200 border-y border-slate-200'}`}>
+              {METHODOLOGY_POINTS.map((point) => (
+                <div key={point.title} className="py-4 sm:py-5">
+                  <dt className="text-base font-semibold">{point.title}</dt>
+                  <dd className={`mt-1.5 text-[15px] leading-7 ${dark ? 'text-white/70' : 'text-slate-600'}`}>{point.description}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className={`mt-5 text-sm leading-6 ${dark ? 'text-white/60' : 'text-slate-500'}`}>{METHODOLOGY_AI_DISCLOSURE}</p>
+          </div>
         </div>
       </div>
     </section>
