@@ -4,9 +4,6 @@ on:
   pull_request:
   push:
 
-permissions:
-  contents: write
-
 jobs:
   v1-verification:
     name: V1 verification checks
@@ -31,29 +28,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Apply frozen website reset payload
-        if: github.ref == 'refs/heads/website/ia-mobile-reset'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f .tmp/ia-reset/READY ]; then
-            echo "No reset payload to apply."
-            exit 0
-          fi
-          cat .tmp/ia-reset/00 .tmp/ia-reset/01 .tmp/ia-reset/02 .tmp/ia-reset/03 .tmp/ia-reset/04 .tmp/ia-reset/05 .tmp/ia-reset/06 .tmp/ia-reset/07 .tmp/ia-reset/08 .tmp/ia-reset/09 .tmp/ia-reset/10 .tmp/ia-reset/11 > /tmp/website-reset.patch.b64
-          base64 -d /tmp/website-reset.patch.b64 | gzip -d > /tmp/website-reset.patch
-          test "$(sha256sum /tmp/website-reset.patch | awk '{print $1}')" = "0e84cb40bc1222ed69db2815baa7455aafb49b7b52662a2d51ac517921aa3f7e"
-          git apply --check /tmp/website-reset.patch
-          git apply /tmp/website-reset.patch
-          rm -rf .tmp/ia-reset
-          rm -f .github/workflows/apply-ia-reset.yml
-          git show db908c027b7e0e59b95cb7026160da84332cbbfc:.github/workflows/phase7-verification.yml > .github/workflows/phase7-verification.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Apply approved website IA, mobile and AI fraud reset"
-          git push origin HEAD:website/ia-mobile-reset
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
