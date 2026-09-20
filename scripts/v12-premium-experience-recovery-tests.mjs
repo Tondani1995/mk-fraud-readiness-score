@@ -60,9 +60,9 @@ check('the storefront presents a three-step journey and distinct product variant
 
 check('public assessment CTAs stay on the canonical adaptive start route', () => {
   assert.match(homeHero, /href="\/score\/start"/);
-  assert.match(homeHero, /Assess Your Organisation/);
-  assert.match(homeHero, /href="\/fraud-readiness"/);
-  assert.match(homeHero, /Compare Fraud Readiness Options/);
+  assert.match(homeHero, /Assess your organisation/);
+  assert.match(homeHero, /href="\/contact"/);
+  assert.match(homeHero, /Speak to MK/);
   assert.match(storefront, /href="\/score\/start"/);
   assert.match(storefront, /id="start-score"/);
   assert.match(storefront, /data-adaptive-assessment-entry="true"/);

@@ -89,11 +89,11 @@ const publicCtaFiles = [
   'src/components/website/Navbar.tsx',
   'src/components/website/Footer.tsx',
   'src/components/website/Home/HeroSection.tsx',
-  'src/components/website/Home/ServicesSection.tsx',
-  'src/components/website/Home/LeadMagnetSection.tsx',
-  'src/components/website/Home/CTASection.tsx',
-  'src/components/website/Services/FraudReadinessScoreSection.tsx',
-  'src/components/website/Services/FraudHealthCheckSection.tsx'
+  'src/components/website/Home/FraudReadinessSection.tsx',
+  'src/components/website/Home/TriggersSection.tsx',
+  'src/components/website/FraudReadiness/FraudReadinessStorefront.tsx',
+  'src/lib/website/capabilities.ts',
+  'src/app/(website)/services/page.tsx'
 ];
 
 check('the public CTA inventory resolves assessment actions to the adaptive start route', () => {

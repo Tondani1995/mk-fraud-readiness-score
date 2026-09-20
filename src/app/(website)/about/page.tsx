@@ -1,115 +1,125 @@
-import { ArrowRight, CheckCircle2, Shield } from "lucide-react";
-import Link from "next/link";
-
 import Wrapper from "@/components/website/Wrapper";
-import HowWeWorkSection from "@/components/website/About/HowWeWorkSection";
-import { Button } from "@/components/website/ui/button";
+import { CtaLink } from "@/components/website/primitives/CtaLink";
+import { Eyebrow } from "@/components/website/primitives/Eyebrow";
 
-const focusAreas = [
-    "Fraud health checks grounded in real operating environments",
-    "Fraud programme design that can be implemented by frontline teams",
-    "Awareness and resilience work that helps people spot the warning signs",
-    "Controls, playbooks and advisory support aligned to business priorities",
+const commitments = [
+  {
+    title: "We start from exposure, not from a framework",
+    body: "Engagements begin with how the organisation actually operates: its customer journeys, supplier relationships, payment processes and the decisions staff make every day. Frameworks are used where they help, never as the starting point.",
+  },
+  {
+    title: "We make the position discussable at management level",
+    body: "Our output is written for the people who allocate budget and accountability. That means a clear view of exposure, an honest reading of control coverage and a short list of priorities, rather than a long catalogue of findings.",
+  },
+  {
+    title: "We design for the people who have to run it",
+    body: "Controls, escalation routes and playbooks are built around existing systems and teams, so they can be operated after MK has left the room.",
+  },
+];
+
+const scope = [
+  "MK is an advisory practice. We do not conduct forensic investigations or provide regulatory audit opinions.",
+  "The Fraud Readiness Assessment analyses what an organisation reports. It does not independently test evidence or provide assurance.",
+  "We do not promise zero fraud. We help organisations understand and reduce their exposure in a deliberate, prioritised way.",
 ];
 
 export default function About() {
-    return (
-        <Wrapper>
-            <main className="bg-white">
-                <section className="relative overflow-hidden bg-[#001030]">
+  return (
+    <Wrapper>
+      <main className="bg-white">
+        <section className="bg-[#001030] text-white" aria-labelledby="about-heading">
+          <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-24">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">About MK Fraud Insights</p>
+            <h1 id="about-heading" className="mt-4 max-w-[18ch] text-[2.1rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.5rem]">
+              Specialist fraud risk advice for organisations beyond the banks.
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
+              MK Fraud Insights is an independent South African fraud risk advisory practice. We help leadership teams
+              understand where fraud exposure sits, whether their controls genuinely address it and what to prioritise.
+            </p>
+          </div>
+        </section>
 
-                    <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-                        <div className="mx-auto max-w-3xl text-center">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 shadow-sm backdrop-blur">
-                                <Shield className="h-4 w-4 text-white" />
-                                <span className="text-sm font-bold uppercase tracking-wide text-white">About us</span>
-                            </div>
+        <section className="bg-white" aria-labelledby="about-origin-heading">
+          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:px-8 lg:py-24">
+            <div>
+              <Eyebrow>Why MK exists</Eyebrow>
+              <h2 id="about-origin-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl">
+                Fraud risk does not stop at financial services.
+              </h2>
+            </div>
+            <div className="space-y-4 text-base leading-7 text-slate-600">
+              <p>
+                Banks and insurers have spent decades building dedicated fraud functions. Retailers, logistics
+                operators, public bodies, manufacturers and fast-growing digital businesses face many of the same
+                threats, often through their suppliers, payments and frontline processes, but rarely with a fraud
+                programme designed for them.
+              </p>
+              <p>
+                The practice is led by a fraud risk practitioner whose operational experience spans fraud risk,
+                governance, process design and solution strategy. MK applies that experience to organisations where
+                fraud has usually been managed in fragments, and Fraud Readiness is built from the same practitioner
+                insight.
+              </p>
+            </div>
+          </div>
+        </section>
 
-                            <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-                                MK Fraud <span className="text-[#c8d6ff]">Insights</span>
-                            </h1>
+        <section className="border-t border-slate-200 bg-[#f8fafc]" aria-labelledby="about-how-heading">
+          <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+            <Eyebrow>How we work</Eyebrow>
+            <h2 id="about-how-heading" className="mt-4 max-w-2xl text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl">
+              Three commitments that shape every engagement.
+            </h2>
+            <div className="mt-10 grid gap-10 lg:grid-cols-3 lg:gap-12">
+              {commitments.map((item) => (
+                <article key={item.title} className="border-t-2 border-[#001030] pt-5">
+                  <h3 className="text-lg font-semibold leading-snug text-[#001030]">{item.title}</h3>
+                  <p className="mt-3 text-[15px] leading-7 text-slate-600">{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                            <p className="mt-6 leading-relaxed text-slate-200">
-                                MK Fraud Insights is a South African fraud risk and strategy consultancy focused on helping organisations build practical fraud capability, reduce leakage and protect customers.
-                            </p>
+        <section className="border-t border-slate-200 bg-white" aria-labelledby="about-scope-heading">
+          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:px-8 lg:py-24">
+            <div>
+              <Eyebrow>Scope and independence</Eyebrow>
+              <h2 id="about-scope-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl">
+                The limits of our work are stated upfront.
+              </h2>
+            </div>
+            <ul className="divide-y divide-slate-200 border-y border-slate-200">
+              {scope.map((line) => (
+                <li key={line} className="flex gap-4 py-4 text-base leading-7 text-[#001030]">
+                  <span aria-hidden="true" className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[#1d3658]" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-                            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                                <Link href="/contact" className="w-full sm:w-auto">
-                                    <Button className="w-full rounded-xl bg-white px-8 py-6 text-base font-semibold text-[#001030] shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-slate-100">
-                                        Book a call
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Button>
-                                </Link>
-                                <Link href="/services" className="w-full sm:w-auto">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full rounded-xl border-2 border-white/25 bg-transparent px-8 py-6 text-base font-semibold text-white transition-all duration-300 hover:border-white/40 hover:bg-white/5"
-                                    >
-                                        View services
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="relative overflow-hidden bg-white">
-                    <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-                        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
-                            <div className="lg:col-span-5">
-                                <p className="text-sm font-bold uppercase tracking-wide text-[#1d3658]">Built by practitioners</p>
-                                <h2 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-[#001030] sm:text-4xl">
-                                    Practical fraud support for real operating environments
-                                </h2>
-                                <p className="mt-5 leading-relaxed text-slate-600">
-                                    Our work is designed around what actually happens inside businesses: customer journeys, staff decisions, process gaps, control weaknesses and the fraud methods that exploit them.
-                                </p>
-                            </div>
-
-                            <div className="lg:col-span-7">
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {focusAreas.map((item) => (
-                                        <div key={item} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-                                            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#001030]">
-                                                <CheckCircle2 className="h-5 w-5 text-white" />
-                                            </div>
-                                            <p className="font-semibold leading-relaxed text-[#001030]">{item}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <HowWeWorkSection />
-
-                <section className="relative overflow-hidden bg-[#001030]">
-                    <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
-                        <div className="overflow-hidden rounded-3xl border border-white/15 bg-white/5 p-8 backdrop-blur lg:p-12">
-                            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
-                                <div className="lg:col-span-7">
-                                    <h3 className="text-2xl font-bold leading-tight text-white lg:text-3xl">
-                                        Ready to strengthen your fraud defences?
-                                    </h3>
-                                    <p className="mt-3 text-slate-200">
-                                        Book a call to discuss how we can help your organisation build practical fraud capability and reduce risk.
-                                    </p>
-                                </div>
-                                <div className="lg:col-span-5 lg:text-right">
-                                    <Link href="/contact">
-                                        <Button className="rounded-xl bg-white px-8 py-6 text-base font-semibold text-[#001030] shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-slate-100">
-                                            Book a call
-                                            <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
-        </Wrapper>
-    );
+          <div className="mx-auto w-full max-w-7xl px-5 pb-14 sm:px-6 sm:pb-20 lg:px-8">
+            <div className="rounded-[1.5rem] bg-[#001030] px-4 py-8 text-white min-[360px]:px-5 sm:px-10 sm:py-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-12">
+              <div className="max-w-xl">
+                <h2 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Talk to MK about your organisation.</h2>
+                <p className="mt-3 text-base leading-7 text-white/75">
+                  Tell us what you are trying to understand or fix, and we will suggest a sensible place to start.
+                </p>
+              </div>
+              <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap lg:mt-0 lg:shrink-0">
+                <CtaLink href="/contact" variant="primaryOnDark" arrow ctaName="speak_to_mk" placement="about_closing">
+                  Speak to MK
+                </CtaLink>
+                <CtaLink href="/services" variant="secondaryOnDark" ctaName="view_services" placement="about_closing">
+                  View services
+                </CtaLink>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </Wrapper>
+  );
 }

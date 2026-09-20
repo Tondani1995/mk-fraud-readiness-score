@@ -9,6 +9,7 @@ const staticRoutes: MetadataRoute.Sitemap = [
   { url: absoluteUrl("/fraud-readiness"), changeFrequency: "weekly", priority: 0.95 },
   { url: absoluteUrl("/fraud-readiness/advisory"), changeFrequency: "monthly", priority: 0.8 },
   { url: absoluteUrl("/services"), changeFrequency: "monthly", priority: 0.9 },
+  { url: absoluteUrl("/ai-fraud-readiness"), changeFrequency: "monthly", priority: 0.85 },
   { url: absoluteUrl("/insights"), changeFrequency: "weekly", priority: 0.9 },
   { url: absoluteUrl("/about"), changeFrequency: "monthly", priority: 0.8 },
   { url: absoluteUrl("/industries"), changeFrequency: "monthly", priority: 0.8 },

@@ -28,7 +28,12 @@ assert.match(assessmentEngine, /data-assessment-native="true"/);
 assert.doesNotMatch(scoreLanding + scoreStart + assessmentEngine, /<iframe|postMessage|ResizeObserver/);
 assert.match(runtimeCheck, /dynamic = ['"]force-dynamic['"]/, 'Runtime check must never execute during build.');
 assert.match(uatStartCheck, /dynamic = ['"]force-dynamic['"]/, 'UAT start check must never execute during build.');
-assert.equal((navbar.match(/\/score\/start/g) ?? []).length, 2, 'Desktop and mobile navigation CTAs must use the adaptive start route.');
+// Navigation reset: the desktop header carries one button (Speak to MK); the mobile sheet carries the
+// assessment CTA on the adaptive start route plus Speak to MK.
+assert.equal((navbar.match(/\/score\/start/g) ?? []).length, 1, 'The mobile navigation assessment CTA must use the adaptive start route.');
+assert.equal((navbar.match(/href="\/contact"/g) ?? []).length, 2, 'Desktop and mobile navigation must both offer Speak to MK.');
+assert.match(navbar, /Speak to MK/);
+assert.doesNotMatch(navbar, /name: "Home"|name: "Industries"|name: "Contact"/, 'Home, Industries and Contact are not primary navigation items.');
 assert.doesNotMatch(contact, /https:\/\/api\.web3forms\.com\/submit/);
 assert.match(contact, /fetch\(["']\/score\/api\/enquiries\/contact["']/);
 assert.match(contact, /new FormData\(e\.currentTarget\)/);

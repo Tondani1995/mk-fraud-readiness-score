@@ -394,7 +394,7 @@ export default function Industries() {
                                                         <div className="mt-5">
                                                             <Link href="/contact">
                                                                 <Button className="w-full rounded-xl bg-[#001030] py-6 text-base font-semibold text-white hover:bg-[#0b1b44]">
-                                                                    Book a call
+                                                                    Speak to MK
                                                                     <ArrowRight className="ml-2 h-5 w-5" />
                                                                 </Button>
                                                             </Link>
@@ -420,7 +420,7 @@ export default function Industries() {
                                     Ready to address fraud risk in your industry?
                                 </h2>
                                 <p className="mt-3 leading-relaxed text-slate-200">
-                                    Book a call to discuss how fraud manifests in your operating environment and how
+                                    Speak to MK about how fraud manifests in your operating environment and how
                                     we can help you build effective defences.
                                 </p>
                             </div>

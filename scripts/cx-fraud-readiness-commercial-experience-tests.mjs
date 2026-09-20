@@ -165,12 +165,17 @@ check('the free Snapshot route is present and is not presented as a fourth paid 
   assert.deepEqual(cards.map((card) => card.tier), ['essential', 'comprehensive', 'advisory']);
 });
 
-check('the homepage hero offers the storefront alongside the assessment CTA', () => {
+check('the homepage hero offers exactly two routes: assess, or speak to MK', () => {
   const hero = read('src/components/website/Home/HeroSection.tsx');
-  assert.ok(hero.includes('Assess Your Organisation'), 'primary assessment CTA must be preserved');
+  assert.ok(hero.includes('Assess your organisation'), 'primary assessment CTA must be preserved');
   assert.ok(hero.includes('href="/score/start"'));
-  assert.ok(hero.includes('Compare Fraud Readiness Options'));
-  assert.ok(hero.includes('href="/fraud-readiness"'));
+  assert.ok(hero.includes('Speak to MK'));
+  assert.ok(hero.includes('href="/contact"'));
+  assert.equal((hero.match(/<CtaLink/g) ?? []).length, 2, 'the hero must not add competing CTAs');
+  // The storefront is reached from the dedicated homepage Fraud Readiness section instead.
+  const readiness = read('src/components/website/Home/FraudReadinessSection.tsx');
+  assert.ok(readiness.includes('href="/fraud-readiness"'));
+  assert.ok(readiness.includes('href="/score/start"'));
 });
 
 check('Fraud Readiness sits immediately before Insights in navigation', () => {
@@ -181,7 +186,7 @@ check('Fraud Readiness sits immediately before Insights in navigation', () => {
   assert.ok(insights > -1, 'Insights nav item is missing');
   assert.ok(fraudReadiness < insights, 'Fraud Readiness must precede Insights');
   // One `links` array drives both the desktop row and the mobile sheet.
-  assert.equal(navbar.split('links.slice(1)').length - 1, 2, 'both navigations must render the shared links array');
+  assert.equal(navbar.split('links.map(').length - 1, 2, 'both navigations must render the shared links array');
 });
 
 // --- PRODUCT INTENT -----------------------------------------------------------------------------

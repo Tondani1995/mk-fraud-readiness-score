@@ -1,170 +1,118 @@
-"use client";
-
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Eyebrow } from '@/components/website/primitives/Eyebrow';
+import type { WebsiteInsight } from '@/lib/website/insights/repository';
 import {
-  Briefcase,
-  ShieldCheck,
-  TrendingUp,
-  Check,
-  Award,
-  ArrowRight,
-  Star,
-} from "lucide-react";
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/website/ui/button";
+  APPROVED_ASSOCIATIONS,
+  APPROVED_CLIENT_LOGOS,
+  ENGAGEMENT_EXAMPLES
+} from '@/lib/website/proof';
 
-export default function ProofSection() {
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+const evidence = [
+  {
+    title: 'Practitioner-led',
+    body:
+      'Engagements are led by a fraud risk practitioner whose operational experience spans fraud risk, governance, process design and solution strategy. The Fraud Readiness Assessment is built from the same operational fraud experience and practitioner insight.'
+  },
+  {
+    title: 'A method you can examine first',
+    body:
+      'The Fraud Readiness Assessment is live and free to complete, so leadership can see how MK frames fraud readiness before deciding whether to engage further.',
+    link: { href: '/fraud-readiness', label: 'How the assessment works' }
+  },
+  {
+    title: 'Published thinking',
+    body:
+      'MK publishes analysis of the fraud patterns affecting South African organisations, from procurement and tax refund fraud to the criminal services behind modern scams.'
+  }
+];
 
-  const proofPoints = [
-    {
-      icon: Briefcase,
-      title: "Practitioner-Led",
-      description:
-        "Built by professionals with hands-on experience across fraud strategy, prevention, controls, and awareness.",
-      highlights: ["15+ years experience", "Multi-industry expertise", "Real fraud cases"],
-    },
-    {
-      icon: ShieldCheck,
-      title: "Practical by Design",
-      description:
-        "Focused on people, processes, and decision points, not just policies or systems.",
-      highlights: ["Action-oriented", "No tick-box compliance", "Operational focus"],
-    },
-    {
-      icon: TrendingUp,
-      title: "Outcome Focused",
-      description:
-        "Designed to reduce leakage, improve visibility, and enable faster, more confident responses.",
-      highlights: ["Measurable results", "ROI-driven", "Sustainable impact"],
-    },
-  ];
+export default function ProofSection({ insights }: { insights: WebsiteInsight[] }) {
+  const recent = insights.filter((insight) => insight.slug?.trim()).slice(0, 3);
 
   return (
-    <section className="relative overflow-hidden bg-[#001030]">
-
-
-      <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-        <div className="mb-16 max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-5 py-2.5 shadow-lg backdrop-blur-xl">
-            <Award className="h-4 w-4 text-white/85" />
-            <span className="text-sm font-bold uppercase tracking-wide text-white/90">
-              Proven Expertise
-            </span>
-            <Star className="h-4 w-4 fill-white text-white" />
-          </div>
-
-          <h2 className="mb-6 text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
-            Built for{" "}
-            <span className="relative inline-block">
-              <span className="relative z-10 text-white">real-world</span>
-            </span>{" "}
-            fraud risk
+    <section className="bg-white" aria-labelledby="home-proof-heading">
+      <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
+        <div className="max-w-2xl">
+          <Eyebrow>Why MK</Eyebrow>
+          <h2
+            id="home-proof-heading"
+            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl lg:text-[2.6rem]"
+          >
+            What stands behind MK’s advice.
           </h2>
+        </div>
 
-          <p className="leading-relaxed text-white/75">
-            Grounded in operational reality, focused on outcomes, not theory, tools, or tick-box
-            compliance.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <Link href="/contact" className="w-full sm:w-auto">
-              <Button className="w-full rounded-xl bg-white px-8 py-6 text-base font-semibold text-[#001030] shadow-lg transition-all duration-300 hover:scale-[1.03] hover:bg-white/90">
-                Book a call
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/insights" className="w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="w-full rounded-xl border-2 border-white/20 bg-transparent px-8 py-6 text-base font-semibold text-white transition-all duration-300 hover:border-white/35 hover:bg-white/5"
-              >
-                View insights
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+        {APPROVED_CLIENT_LOGOS.length > 0 ? (
+          <div className="mt-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Organisations MK has worked with</p>
+            <ul className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-6">
+              {APPROVED_CLIENT_LOGOS.map((logo) => (
+                <li key={logo.name}>
+                  <Image src={logo.src} alt={logo.name} width={logo.width} height={logo.height} className="h-8 w-auto opacity-80 grayscale" />
+                </li>
+              ))}
+            </ul>
           </div>
+        ) : null}
+
+        <div className="mt-8 grid gap-8 sm:mt-10 sm:gap-10 lg:mt-14 lg:grid-cols-3 lg:gap-12">
+          {evidence.map((item) => (
+            <article key={item.title} className="border-t-2 border-[#001030] pt-5">
+              <h3 className="text-lg font-semibold text-[#001030]">{item.title}</h3>
+              <p className="mt-2 text-[15px] leading-7 text-slate-600 sm:mt-3">{item.body}</p>
+              {item.link ? (
+                <Link href={item.link.href} className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#1d3658] hover:text-[#001030]">
+                  {item.link.label} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              ) : null}
+              {item.title === 'Published thinking' && recent.length > 0 ? (
+                <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+                  {recent.map((insight) => (
+                    <li key={insight.slug}>
+                      <Link
+                        href={`/insights/${insight.slug.trim()}`}
+                        className="group flex min-h-12 items-start justify-between gap-3 py-3 text-sm font-medium leading-6 text-[#001030] hover:text-[#1d3658]"
+                      >
+                        <span>{insight.title.replace(/:\s*$/, '')}</span>
+                        <ArrowUpRight aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-[#1d3658]" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </article>
+          ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {proofPoints.map((point, index) => {
-            const Icon = point.icon;
-            const isHovered = hoveredCard === index;
+        {ENGAGEMENT_EXAMPLES.length > 0 ? (
+          <div className="mt-14">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected engagements</h3>
+            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+              {ENGAGEMENT_EXAMPLES.map((example) => (
+                <article key={`${example.client}-${example.challenge}`} className="rounded-2xl border border-slate-200 p-6">
+                  <p className="text-sm font-semibold text-[#1d3658]">{example.client}</p>
+                  <dl className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                    <div><dt className="font-semibold text-[#001030]">Challenge</dt><dd>{example.challenge}</dd></div>
+                    <div><dt className="font-semibold text-[#001030]">What MK did</dt><dd>{example.work}</dd></div>
+                    <div><dt className="font-semibold text-[#001030]">Outcome</dt><dd>{example.outcome}</dd></div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-            return (
-              <div
-                key={point.title}
-                className="relative"
-                onMouseEnter={() => setHoveredCard(index)}
-                onMouseLeave={() => setHoveredCard(null)}
-              >
-
-                <div
-                  className={`relative h-full overflow-hidden rounded-3xl border bg-white/5 p-8 shadow-2xl backdrop-blur-xl transition-all duration-500 ${isHovered
-                      ? "-translate-y-1 border-white/18 bg-white/8"
-                      : "border-white/10"
-                    }`}
-                >
-                  <div
-                    className={`absolute inset-0 opacity-0 transition-opacity duration-500 ${isHovered ? "opacity-100" : ""
-                      }`}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(29,54,88,0.12) 55%, rgba(255,255,255,0.05) 100%)",
-                    }}
-                  />
-
-                  <div className="relative">
-                    <div className="mb-6 flex items-start justify-between gap-6">
-                      <div
-                        className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-white/12 bg-white/8 shadow-sm transition-transform duration-500 ${isHovered ? "rotate-6 scale-110" : ""
-                          }`}
-                      >
-                        <Icon className="h-7 w-7 text-white" strokeWidth={2.5} />
-                      </div>
-
-                    </div>
-
-                    <h3 className="mb-3 text-2xl font-bold leading-tight text-white">{point.title}</h3>
-
-                    <p className="mb-6 leading-relaxed text-white/75">{point.description}</p>
-
-                    <div className="space-y-3">
-                      {point.highlights.map((highlight, idx) => (
-                        <div
-                          key={highlight}
-                          className={`flex items-center gap-3 transition-all duration-300 ${isHovered ? "translate-x-1" : ""
-                            }`}
-                          style={{ transitionDelay: `${idx * 40}ms` }}
-                        >
-                          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/15">
-                            <Check className="h-4 w-4 text-white" strokeWidth={3} />
-                          </div>
-                          <span className="text-sm font-semibold text-white/85">{highlight}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Link
-                      href="/about"
-                      className={`mt-8 flex items-center justify-between rounded-2xl border border-white/12 bg-white/6 p-5 transition-all duration-500 hover:bg-white/10 ${isHovered ? "translate-y-0" : ""
-                        }`}
-                    >
-                      <span className="text-sm font-bold text-white/90">Learn more</span>
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#001030] transition-transform duration-300 ${isHovered ? "translate-x-1" : ""
-                          }`}
-                      >
-                        <ArrowRight className="h-5 w-5" />
-                      </div>
-                    </Link>
-                  </div>
-
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {APPROVED_ASSOCIATIONS.length > 0 ? (
+          <ul className="mt-12 flex flex-wrap gap-3">
+            {APPROVED_ASSOCIATIONS.map((association) => (
+              <li key={association.name} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                <span className="font-semibold text-[#001030]">{association.name}</span> {association.description}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </section>
   );

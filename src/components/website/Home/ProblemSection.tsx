@@ -1,108 +1,77 @@
-"use client";
+import { Eyebrow } from '@/components/website/primitives/Eyebrow';
 
-import { ShieldAlert, TrendingDown, Users, AlertCircle } from "lucide-react";
-import { useState } from "react";
+const functions = [
+  { name: 'Finance', controls: 'Payment approvals, reconciliations' },
+  { name: 'Operations', controls: 'Process checks, exception handling' },
+  { name: 'Digital channels', controls: 'Onboarding, authentication' },
+  { name: 'Risk and compliance', controls: 'Policies, audit findings' },
+  { name: 'Third parties', controls: 'Vendor onboarding, contract terms' }
+];
 
 export default function ProblemSection() {
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
-
-  const problems = [
-    {
-      icon: ShieldAlert,
-      title: "Hidden Loss",
-      description:
-        "Fraud often hides inside operational noise, small exceptions, and manual workarounds, going unnoticed until it becomes material.",
-    },
-    {
-      icon: TrendingDown,
-      title: "Misaligned Controls",
-      description:
-        "Many controls are built for audit and compliance, not prevention. As a result, fraud is detected late or managed reactively.",
-    },
-    {
-      icon: Users,
-      title: "People Are the Gap",
-      description:
-        "When roles, escalation paths, and accountability are unclear, even well-intentioned staff become part of the exposure.",
-    },
-  ];
-
   return (
-    <section className="relative overflow-hidden bg-white">
-
-      <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-        <div className="mb-14 max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#1d3658]/15 bg-white px-5 py-2.5 shadow-sm">
-            <AlertCircle className="h-4 w-4 text-[#1d3658]" />
-            <span className="text-sm font-bold uppercase tracking-wide text-[#001030]">
-              Core Problem
-            </span>
-          </div>
-
-          <h2 className="mb-6 text-3xl font-bold leading-tight tracking-tight text-[#001030] sm:text-4xl lg:text-5xl">
-            Fraud is already embedded in your{" "}
-            <span className="relative inline-block">
-              <span className="relative z-10 text-[#1d3658]">operating model</span>
-            </span>
+    <section className="bg-white" aria-labelledby="home-problem-heading">
+      <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:gap-20 lg:px-8 lg:py-28">
+        <div className="min-w-0">
+          <Eyebrow>The problem</Eyebrow>
+          <h2
+            id="home-problem-heading"
+            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl lg:text-[2.6rem]"
+          >
+            Controls are not the same as readiness.
           </h2>
-
-          <p className="leading-relaxed text-slate-600">
-            Most organisations don&apos;t see fraud clearly because it hides inside everyday
-            processes, trusted roles, and operational noise.
-          </p>
+          <div className="mt-5 max-w-xl space-y-3 text-base leading-7 text-slate-600 sm:space-y-4">
+            <p>
+              Most organisations already have fraud-relevant controls spread across finance, operations, digital
+              channels, risk and their third parties. Each one was designed for a local purpose, owned by a different
+              team and reported in a different place.
+            </p>
+            <p>
+              What is usually missing is the assembled view. Without it, leadership can say that controls exist but
+              cannot say whether the organisation is ready.
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {problems.map((problem, index) => {
-            const Icon = problem.icon;
-            const isHovered = hoveredCard === index;
-
-            return (
-              <div
-                key={index}
-                className="relative"
-                onMouseEnter={() => setHoveredCard(index)}
-                onMouseLeave={() => setHoveredCard(null)}
-              >
-
-                <div
-                  className={`relative h-full overflow-hidden rounded-3xl border bg-white p-8 shadow-lg transition-all duration-500 ${isHovered
-                      ? "-translate-y-1 border-[#1d3658]/18 shadow-2xl"
-                      : "border-slate-200"
-                    }`}
+        <figure className="min-w-0" aria-label="Controls held separately across functions, assembled into one management view of fraud risk">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_3rem_minmax(0,0.9fr)] lg:items-center lg:gap-0">
+            <ul className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-1">
+              {functions.map((fn, index) => (
+                <li
+                  key={fn.name}
+                  className={`rounded-xl border border-slate-200 bg-[#f8fafc] px-3.5 py-3 lg:px-4 ${index === functions.length - 1 ? 'col-span-2 lg:col-span-1' : ''}`}
                 >
-                  <div
-                    className={`absolute inset-0 opacity-0 transition-opacity duration-500 ${isHovered ? "opacity-100" : ""
-                      }`}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(29,54,88,0.06) 0%, rgba(0,16,48,0.04) 55%, rgba(64,80,80,0.04) 100%)",
-                    }}
-                  />
+                  <p className="text-sm font-semibold text-[#001030]">{fn.name}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">{fn.controls}</p>
+                </li>
+              ))}
+            </ul>
 
-                  <div className="relative">
-                    <div className="mb-6">
-                      <div
-                        className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[#1d3658]/15 bg-white shadow-sm transition-transform duration-500 ${isHovered ? "rotate-6 scale-110" : ""
-                          }`}
-                      >
-                        <Icon className="h-7 w-7 text-[#1d3658]" strokeWidth={2.5} />
-                      </div>
-                    </div>
+            <div aria-hidden="true" className="flex justify-center lg:h-full">
+              <svg className="h-6 w-6 text-[#1d3658] lg:hidden" viewBox="0 0 24 32" fill="none">
+                <path d="M12 2v24m0 0-7-7m7 7 7-7" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <svg className="hidden h-full w-12 text-slate-300 lg:block" viewBox="0 0 48 100" preserveAspectRatio="none" fill="none">
+                {[10, 30, 50, 70, 90].map((y) => (
+                  <path key={y} d={`M0 ${y} C 28 ${y}, 20 50, 48 50`} stroke="currentColor" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+                ))}
+              </svg>
+            </div>
 
-                    <h3 className="mb-4 text-2xl font-bold leading-tight text-[#001030]">
-                      {problem.title}
-                    </h3>
-
-                    <p className="leading-relaxed text-slate-600">{problem.description}</p>
-                  </div>
-
-
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            <div className="rounded-2xl bg-[#001030] p-5 text-white sm:p-6 lg:p-7">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">One management view</p>
+              <p className="mt-3 text-xl font-semibold leading-snug">Fraud risk, assembled across the organisation</p>
+              <ul className="mt-4 space-y-2 text-sm leading-6 text-white/78 sm:mt-5 sm:space-y-2.5">
+                {['Where exposure sits', 'Which controls address it', 'Where the gaps are', 'Who owns what happens next'].map((item) => (
+                  <li key={item} className="flex gap-3">
+                    <span aria-hidden="true" className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#a9d4ce]" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </figure>
       </div>
     </section>
   );

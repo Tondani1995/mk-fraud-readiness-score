@@ -29,7 +29,7 @@ const styles: Record<ProductTier, {
 }> = {
   essential: {
     card: 'border-[#d8cbbb] bg-[#f4efe7] text-[#001030]',
-    phase: 'text-[#8a6d4b]',
+    phase: 'text-[#6f5537]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
@@ -48,7 +48,7 @@ const styles: Record<ProductTier, {
   },
   advisory: {
     card: 'border-[#cbbd9f] bg-[#e8decc] text-[#001030]',
-    phase: 'text-[#80613b]',
+    phase: 'text-[#64491f]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
@@ -89,7 +89,7 @@ export function ProductTierCard({
           <p className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] ${style.body}`}>{label}</p>
           <h3 id={headingId} className={`mt-3 text-2xl font-semibold tracking-tight ${style.title}`}>{tagline}</h3>
         </div>
-        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#80613b]/25 bg-white/50 text-[#80613b]'}`}>{featuredLabel}</span> : null}
+        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#80613b]/25 bg-white/50 text-[#64491f]'}`}>{featuredLabel}</span> : null}
       </div>
       {priceLabel ? <p className={`mt-6 text-lg font-semibold ${style.price}`}>{priceLabel}</p> : null}
       {description ? <p className={`mt-3 text-sm leading-6 ${style.body}`}>{description}</p> : null}
