@@ -10,7 +10,7 @@ export default function Wrapper({ children }: Props) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-white">
       <Navbar />
-      <div className="w-full pt-20 md:pt-24"></div>
+      <div aria-hidden="true" className="w-full pt-16 md:pt-20"></div>
       {children}
       <Footer />
     </div>

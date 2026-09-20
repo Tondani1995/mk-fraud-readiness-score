@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useId, useRef, useState } from "react";
 import { ANALYTICS_CONSENT_STORAGE_KEY, GA_CONSENT_EVENT } from "@/lib/website/gtag";
 import { readMarketingConsent, setMarketingConsent } from "@/lib/website/meta/consent";
 
@@ -9,6 +10,9 @@ const CONSENT_KEY = ANALYTICS_CONSENT_STORAGE_KEY;
 export default function CookieConsent() {
     const [visible, setVisible] = useState(false);
     const [allowMarketing, setAllowMarketing] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
+    const bannerRef = useRef<HTMLDivElement>(null);
+    const detailsId = useId();
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -23,6 +27,20 @@ export default function CookieConsent() {
         // stored analytics choice is untouched unless they answer again here.
         setVisible(!storedAnalytics || readMarketingConsent() === "unset");
     }, []);
+
+    useEffect(() => {
+        if (!visible || !bannerRef.current || typeof ResizeObserver === "undefined") return;
+        const banner = bannerRef.current;
+        const previous = document.body.style.paddingBottom;
+        const observer = new ResizeObserver(() => {
+            document.body.style.paddingBottom = `${Math.ceil(banner.getBoundingClientRect().height) + 16}px`;
+        });
+        observer.observe(banner);
+        return () => {
+            observer.disconnect();
+            document.body.style.paddingBottom = previous;
+        };
+    }, [visible]);
 
     function record(analyticsAccepted: boolean, marketingAccepted: boolean) {
         try {
@@ -42,38 +60,55 @@ export default function CookieConsent() {
     if (!visible) return null;
 
     return (
-        <div className="fixed inset-x-0 bottom-0 z-[100] border-t border-slate-200 bg-white/95 px-6 py-4 shadow-2xl backdrop-blur">
-            <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="max-w-3xl">
-                    <p className="text-sm font-semibold text-[#001030]">Analytics and advertising cookies</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                        We use analytics to understand which MK Fraud Insights pages are useful and improve the website. You can accept or decline non-essential analytics cookies.
+        <div
+            ref={bannerRef}
+            role="region"
+            aria-label="Cookie preferences"
+            className="fixed inset-x-2 bottom-2 z-[100] rounded-2xl border border-slate-200 bg-white px-4 py-3 xl:py-2.5 shadow-[0_8px_30px_rgba(0,16,48,0.14)] sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-[min(72rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:px-5"
+        >
+            <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-6">
+                <div className="min-w-0 flex-1 xl:flex xl:flex-wrap xl:items-center xl:gap-x-5">
+                    <p className="text-[13px] leading-5 text-slate-700">
+                        <span className="font-semibold text-[#001030]">Optional cookies.</span>{" "}
+                        We use analytics to improve this website.{" "}
+                        <button
+                            type="button"
+                            aria-expanded={showDetails}
+                            aria-controls={detailsId}
+                            onClick={() => setShowDetails((value) => !value)}
+                            className="font-medium text-[#1d3658] underline underline-offset-2"
+                        >
+                            {showDetails ? "Hide details" : "Details"}
+                        </button>
+                        <span aria-hidden="true" className="px-1.5 text-slate-300">|</span>
+                        <Link href="/privacy-policy" className="font-medium text-[#1d3658] underline underline-offset-2">Privacy policy</Link>
                     </p>
-                    <label className="mt-3 flex items-start gap-3 text-sm leading-relaxed text-slate-600">
+                    <label className="mt-1 flex min-h-8 items-center gap-2 text-[13px] leading-5 text-slate-700 xl:mt-0">
                         <input
                             type="checkbox"
                             name="marketingConsent"
                             checked={allowMarketing}
                             onChange={(event) => setAllowMarketing(event.target.checked)}
-                            className="mt-1 h-4 w-4"
+                            className="h-4 w-4 shrink-0 accent-[#001030]"
                         />
-                        <span>
-                            Also allow advertising measurement cookies, so we can see which campaigns bring organisations to the Fraud Readiness assessment. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
-                        </span>
+                        <span>Also allow advertising measurement</span>
                     </label>
+                    <p id={detailsId} hidden={!showDetails} className="mt-1 text-xs leading-5 text-slate-600 xl:basis-full">
+                        Advertising measurement cookies let us see which campaigns bring organisations to the Fraud Readiness assessment. They stay off unless you tick the box. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
+                    </p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="grid shrink-0 grid-cols-2 gap-2 md:flex">
                     <button
                         type="button"
                         onClick={() => record(false, false)}
-                        className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                         Decline
                     </button>
                     <button
                         type="button"
                         onClick={() => record(true, allowMarketing)}
-                        className="rounded-xl bg-[#001030] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b1b44]"
+                        className="min-h-11 rounded-xl bg-[#001030] px-5 text-sm font-semibold text-white transition hover:bg-[#1d3658]"
                     >
                         Accept
                     </button>

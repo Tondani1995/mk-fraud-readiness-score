@@ -3,7 +3,7 @@ import { buildPageMetadata } from "@/lib/website/site";
 export const metadata = buildPageMetadata({
   title: "About MK Fraud Insights",
   description:
-    "Learn about MK Fraud Insights, a South African fraud risk and strategy consultancy built around practical fraud controls, intelligence-led advisory and operational resilience.",
+    "MK Fraud Insights is an independent South African fraud risk advisory practice helping organisations beyond financial services understand their fraud exposure, control coverage and priorities.",
   path: "/about",
 });
 

@@ -4,7 +4,6 @@ import {
   Mail,
   CheckCircle2,
   Linkedin,
-  MessageSquare,
   Send,
   Clock,
   Shield,
@@ -144,29 +143,19 @@ function ContactUsForm() {
     <Wrapper>
       <section className="relative overflow-hidden bg-white">
 
-        <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#1d3658]/15 bg-white px-5 py-2.5 shadow-sm">
-              <MessageSquare className="h-4 w-4 text-[#1d3658]" />
-              <span className="text-sm font-bold uppercase tracking-wide text-[#001030]">
-                Get in touch
-              </span>
-            </div>
-
-            <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-[#001030] sm:text-5xl lg:text-5xl">
-              Let&apos;s discuss your{" "}
-              <span className="relative inline-block">
-                <span className="relative z-10 text-[#1d3658]">fraud strategy</span>
-              </span>
+        <div className="mx-auto max-w-7xl px-5 pb-14 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1d3658]">Speak to MK</p>
+            <h1 className="mt-4 text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-[#001030] sm:text-5xl">
+              Tell us what you need to understand or fix.
             </h1>
-
-            <p className="mt-6 leading-relaxed text-slate-600">
-              Book a free consultation to explore how we can strengthen your fraud defences and
-              build resilience across your organisation.
+            <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+              Share a little about your organisation and the fraud risk question in front of you. MK will reply to
+              arrange an initial conversation.
             </p>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+          <div className="mt-10 grid grid-cols-1 gap-8 lg:mt-14 lg:grid-cols-12 lg:gap-10">
             <div className="lg:col-span-7">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
                 <div className="border-b border-slate-200 bg-white px-8 py-7 lg:px-10">
