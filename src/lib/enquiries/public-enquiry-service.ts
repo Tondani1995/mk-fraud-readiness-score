@@ -201,11 +201,26 @@ export async function recordPublicEnquiryAudit(
     ipHash: string | null;
     notificationStatus: string;
     attribution?: CampaignAttribution;
+  } | {
+    commercialEvent: {
+      id: string;
+      action: 'service_consultation_booked';
+      afterJson: Record<string, unknown>;
+    };
   },
   dependencies: { db?: Db } = {}
-) {
+): Promise<void | 'recorded' | 'already_recorded'> {
   const client = db(dependencies);
-  const { error } = await client.from('audit_logs').insert({
+  const isCommercialEvent = 'commercialEvent' in input;
+  const payload = isCommercialEvent ? {
+    id: input.commercialEvent.id,
+    actor_type: 'system',
+    assessment_id: null,
+    entity_table: 'service_commercial_events',
+    entity_id: input.commercialEvent.id,
+    action: input.commercialEvent.action,
+    after_json: input.commercialEvent.afterJson
+  } : {
     // 'system' rather than a new enum value: audit_actor_type is ('admin','respondent_token',
     // 'system') and is referenced by certified fulfilment SQL, so extending it for a lead form is
     // more blast radius than the distinction is worth. The server is genuinely the actor here --
@@ -227,6 +242,11 @@ export async function recordPublicEnquiryAudit(
       payment_obligation: false,
       report_generation: false
     }
-  });
+  };
+  const { error } = await client.from('audit_logs').insert(payload);
+  if (isCommercialEvent) {
+    if (error && String(error.code) !== '23505') throw error;
+    return error ? 'already_recorded' : 'recorded';
+  }
   if (error) console.error('public enquiry audit insert failed', error);
 }

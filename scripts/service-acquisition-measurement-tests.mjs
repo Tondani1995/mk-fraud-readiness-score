@@ -83,10 +83,11 @@ assert.ok(!/trackEvent\('service_consultation_booked',[\s\S]*?(email|name|phone|
 
 const bookingRoute = read('src/app/score/api/commercial-events/calendly/route.ts');
 const bookingLedger = read('src/lib/website/calendly-ledger.ts');
+const enquiryService = read('src/lib/enquiries/public-enquiry-service.ts');
 assert.ok(bookingRoute.includes('recordCalendlyCommercialEvent'));
-assert.ok(bookingLedger.includes("from('audit_logs')"));
+assert.ok(bookingLedger.includes('recordPublicEnquiryAudit'));
 assert.ok(bookingLedger.includes("action: 'service_consultation_booked'"));
-assert.ok(bookingLedger.includes("String(error.code) !== '23505'"));
+assert.ok(enquiryService.includes("String(error.code) !== '23505'"));
 assert.ok(bookingLedger.includes('sanitiseCampaignAttribution'));
 assert.ok(!bookingLedger.includes('gclid'));
 assert.ok(!bookingLedger.includes("from('assessment_events')"));
@@ -114,7 +115,6 @@ const duplicate = await recordCalendlyCommercialEvent({
 });
 assert.equal(duplicate, 'already_recorded');
 
-const enquiryService = read('src/lib/enquiries/public-enquiry-service.ts');
 assert.ok(enquiryService.includes('attribution: input.attribution ?? {}'));
 assert.ok(!enquiryService.includes('attribution_json: input.attribution'));
 
