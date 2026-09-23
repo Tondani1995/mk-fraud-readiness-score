@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   if (honeypotTripped(body)) {
-    return NextResponse.json({ ok: true, requestReference: makeEnquiryReference(), status: 'received' });
+    return NextResponse.json({ ok: true, requestReference: makeEnquiryReference(), status: 'received', persisted: false });
   }
 
   const parsed = parseWebsiteContactEnquiry(body);
@@ -79,13 +79,15 @@ export async function POST(request: Request) {
       requestType: WEBSITE_CONTACT_REQUEST_TYPE,
       enquirySource: 'website_contact',
       ipHash: getClientIpHashKey(request, 'website_contact_enquiry'),
-      notificationStatus: notification.status
+      notificationStatus: notification.status,
+      attribution: parsed.data.attribution
     });
 
     return NextResponse.json({
       ok: true,
       requestReference: enquiry.requestReference,
       status: enquiry.status,
+      persisted: true,
       message: 'Thank you. Your message has been received and MK Fraud Insights will be in touch.'
     });
   } catch (error) {

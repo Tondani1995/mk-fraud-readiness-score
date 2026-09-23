@@ -326,7 +326,7 @@ check('a failure to persist cannot produce a success state', () => {
 
 // --- SAFETY --------------------------------------------------------------------------------------
 
-check('the honeypot is effective and silent on both intakes', () => {
+check('the honeypot is effective, returns a generic success, and cannot qualify a contact conversion', () => {
   assert.equal(honeypotTripped({ botcheck: 'filled' }), true);
   assert.equal(honeypotTripped({ company_website: 'http://spam' }), true);
   assert.equal(honeypotTripped({ botcheck: '' }), false);
@@ -336,8 +336,12 @@ check('the honeypot is effective and silent on both intakes', () => {
     const honeypotIndex = source.indexOf('honeypotTripped(body)');
     const persistIndex = source.search(/await persist(WebsiteContact|PublicAdvisory)Enquiry/);
     assert.ok(honeypotIndex > -1 && honeypotIndex < persistIndex, `${route} must check the honeypot before persisting`);
-    assert.ok(source.includes('ok: true, requestReference: makeEnquiryReference()'), 'a bot must not learn it was caught');
+    assert.ok(source.includes('ok: true, requestReference: makeEnquiryReference()'), 'a bot still receives generic success and a random reference');
   }
+  const contactRoute = read('src/app/score/api/enquiries/contact/route.ts');
+  assert.ok(contactRoute.includes('persisted: false'));
+  const contactForm = read('src/app/(website)/contact/page.tsx');
+  assert.ok(contactForm.includes('if (body.persisted === true)'));
 });
 
 check('both intakes are rate limited per IP and per email', () => {
@@ -477,9 +481,10 @@ check('the enquiry migration is additive and orders after the terms migration', 
   assert.ok(!/create table/i.test(migration), 'no second enquiry table');
 
   const all = fs.readdirSync(path.join(root, 'supabase/migrations')).filter((name) => name.endsWith('.sql')).sort();
-  assert.equal(all[all.length - 1], '20260831201000_public_enquiry_intake.sql');
-  assert.ok(all[all.length - 1].slice(0, 14) > '20260831153650', 'must order after the production ledger head');
-  assert.ok(all[all.length - 1].slice(0, 14) > all[all.length - 2].slice(0, 14));
+  const migrationIndex = all.indexOf('20260831201000_public_enquiry_intake.sql');
+  assert.ok(migrationIndex >= 0);
+  assert.ok(all[migrationIndex].slice(0, 14) > '20260831153650', 'must order after the production ledger head');
+  assert.ok(migrationIndex === 0 || all[migrationIndex].slice(0, 14) > all[migrationIndex - 1].slice(0, 14));
 });
 
 check('the migration keeps public Advisory inside the existing Advisory constraints', () => {

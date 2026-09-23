@@ -17,8 +17,8 @@ import Wrapper from "@/components/website/Wrapper";
 import Link from "next/link";
 import { trackEvent } from "@/lib/website/gtag";
 import { LINKEDIN_URL } from "@/lib/website/site";
-
-const CALENDLY_URL = "https://calendly.com/mkfraud/30min?embed_domain=mkfraud.co.za&embed_type=Inline";
+import { getCampaignAttribution } from "@/lib/website/acquisition-context";
+import CalendlyBooking from "@/components/website/CalendlyBooking";
 
 /**
  * `useSearchParams` forces this subtree to render on the client, so it is isolated behind its own
@@ -108,6 +108,7 @@ function ContactUsForm() {
           service: formData.service,
           message: formData.message,
           botcheck: honeypot,
+          attribution: getCampaignAttribution(),
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -120,14 +121,13 @@ function ContactUsForm() {
         return;
       }
 
-      trackEvent("generate_lead", {
-        form_name: "contact_form",
-        service_interest: formData.service || "not_specified",
-        page_location: "/contact",
-      });
-      trackEvent("website_contact_submitted", {
-        service_interest: formData.service || "not_specified",
-      });
+      if (body.persisted === true) {
+        trackEvent("service_enquiry_submitted", {
+          form_name: "contact_form",
+          page_path: "/contact",
+          enquiry_type: formData.service || "not_specified",
+        });
+      }
 
       setEnquiryReference(body.requestReference ?? null);
       setIsSubmitted(true);
@@ -421,13 +421,7 @@ function ContactUsForm() {
 
                 <div className="p-6">
                   <div className="h-[520px] overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white">
-                    <iframe
-                      src={CALENDLY_URL}
-                      width="100%"
-                      height="100%"
-                      frameBorder="0"
-                      title="Calendly Scheduling"
-                    />
+                    <CalendlyBooking />
                   </div>
                 </div>
               </div>

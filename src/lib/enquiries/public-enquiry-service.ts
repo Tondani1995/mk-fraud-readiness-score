@@ -20,6 +20,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sanitiseEventMetadata } from '@/lib/analytics/assessment-events';
 import { ADVISORY_REQUEST_TYPE, WEBSITE_CONTACT_REQUEST_TYPE, type EnquirySource } from '@/lib/enquiries/taxonomy';
 import type { PublicAdvisoryEnquiryInput, WebsiteContactEnquiryInput } from '@/lib/enquiries/validation';
+import type { CampaignAttribution } from '@/lib/website/acquisition-context';
 
 export type PersistedEnquiry = {
   id: string;
@@ -199,6 +200,7 @@ export async function recordPublicEnquiryAudit(
     enquirySource: EnquirySource;
     ipHash: string | null;
     notificationStatus: string;
+    attribution?: CampaignAttribution;
   },
   dependencies: { db?: Db } = {}
 ) {
@@ -220,6 +222,7 @@ export async function recordPublicEnquiryAudit(
       request_type: input.requestType,
       enquiry_source: input.enquirySource,
       notification_status: input.notificationStatus,
+      attribution: input.attribution ?? {},
       order_created: false,
       payment_obligation: false,
       report_generation: false

@@ -15,6 +15,7 @@ import {
   ALLOWED_ADVISORY_TIMEFRAMES,
   ALLOWED_WEBSITE_SERVICE_INTERESTS
 } from '@/lib/enquiries/taxonomy';
+import { sanitiseCampaignAttribution, type CampaignAttribution } from '@/lib/website/acquisition-context';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -149,6 +150,7 @@ export type WebsiteContactEnquiryInput = {
   contactPhone: string | null;
   serviceInterest: string;
   message: string;
+  attribution: CampaignAttribution;
 };
 
 export function parseWebsiteContactEnquiry(
@@ -184,7 +186,8 @@ export function parseWebsiteContactEnquiry(
       companyName: companyName || null,
       contactPhone: contactPhone || null,
       serviceInterest,
-      message
+      message,
+      attribution: sanitiseCampaignAttribution(record.attribution)
     }
   };
 }
