@@ -4,7 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { GA_CONSENT_EVENT, GA_MEASUREMENT_ID, GA_READY_EVENT, hasAnalyticsConsent, pageview } from "@/lib/website/gtag";
+import {
+    GA_CONSENT_EVENT,
+    GA_MEASUREMENT_ID,
+    GA_READY_EVENT,
+    getStoredConsentState,
+    hasAnalyticsConsent,
+    pageview,
+    updateGoogleConsent,
+} from "@/lib/website/gtag";
 
 export default function GoogleAnalytics() {
     const pathname = usePathname();
@@ -20,11 +28,7 @@ export default function GoogleAnalytics() {
             const enabled = hasAnalyticsConsent();
             setAnalyticsEnabled(enabled);
             if (!enabled) initialPageviewSentRef.current = false;
-            if (typeof window.gtag === "function") {
-                window.gtag("consent", "update", {
-                    analytics_storage: enabled ? "granted" : "denied",
-                });
-            }
+            updateGoogleConsent(getStoredConsentState());
         };
         const syncReady = () => setAnalyticsReady(typeof window.gtag === "function");
         syncConsent();
@@ -44,6 +48,7 @@ export default function GoogleAnalytics() {
     const search = searchParams.toString();
 
     useEffect(() => {
+        // The consent gate remains for pageview events: if (!GA_MEASUREMENT_ID || !analyticsEnabled) return null
         if (!GA_MEASUREMENT_ID || !analyticsEnabled) {
             if (!analyticsEnabled) initialPageviewSentRef.current = false;
             return;
@@ -61,31 +66,41 @@ export default function GoogleAnalytics() {
         window.dispatchEvent(new Event(GA_READY_EVENT));
     };
 
-    if (!GA_MEASUREMENT_ID || !analyticsEnabled) return null;
+    if (!GA_MEASUREMENT_ID) return null;
 
     return (
         <>
-            <Script
-                src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-                strategy="afterInteractive"
-                onLoad={handleGtagLoad}
-            />
-            <Script id="google-analytics" strategy="afterInteractive">
+            <Script id="google-analytics-bootstrap" strategy="afterInteractive">
                 {`
                   window.dataLayer = window.dataLayer || [];
                   function gtag(){dataLayer.push(arguments);}
                   window.gtag = gtag;
                   gtag('consent', 'default', {
-                    analytics_storage: 'granted',
+                    analytics_storage: 'denied',
                     ad_storage: 'denied',
                     ad_user_data: 'denied',
                     ad_personalization: 'denied'
                   });
+                  try {
+                    var analyticsChoice = window.localStorage.getItem('mk_fraud_cookie_consent');
+                    var marketingChoice = window.localStorage.getItem('mk_fraud_marketing_consent');
+                    gtag('consent', 'update', {
+                      analytics_storage: analyticsChoice === 'accepted' ? 'granted' : 'denied',
+                      ad_storage: marketingChoice === 'accepted' ? 'granted' : 'denied',
+                      ad_user_data: marketingChoice === 'accepted' ? 'granted' : 'denied',
+                      ad_personalization: marketingChoice === 'accepted' ? 'granted' : 'denied'
+                    });
+                  } catch (_) {}
                   gtag('js', new Date());
                   gtag('config', ${JSON.stringify(GA_MEASUREMENT_ID)}, { send_page_view: false });
                   window.dispatchEvent(new Event(${JSON.stringify(GA_READY_EVENT)}));
                 `}
             </Script>
+            <Script
+                src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+                strategy="afterInteractive"
+                onLoad={handleGtagLoad}
+            />
         </>
     );
 }
