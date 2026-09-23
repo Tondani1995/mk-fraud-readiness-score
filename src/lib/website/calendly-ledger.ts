@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sanitiseCampaignAttribution } from '@/lib/website/acquisition-context';
+import { recordPublicEnquiryAudit } from '@/lib/enquiries/public-enquiry-service';
 
 function digest(value: string) {
   return createHash('sha256').update(value).digest('hex');
@@ -22,24 +22,19 @@ export async function recordCalendlyCommercialEvent(
   const inviteeHash = input.inviteeUri ? digest(input.inviteeUri) : null;
   const dedupeKeyHash = digest(`${input.eventUri ?? ''}|${input.inviteeUri ?? ''}`);
   const ledgerId = deterministicUuid(dedupeKeyHash);
-  const client = dependencies.db ?? createSupabaseServiceClient();
-  const { error } = await (client as any).from('audit_logs').insert({
-    id: ledgerId,
-    actor_type: 'system',
-    assessment_id: null,
-    entity_table: 'service_commercial_events',
-    entity_id: ledgerId,
-    action: 'service_consultation_booked',
-    after_json: {
-      source: 'calendly_parent_event',
-      dedupe_key_hash: dedupeKeyHash,
-      provider_event_hash: eventHash,
-      provider_invitee_hash: inviteeHash,
-      attribution: sanitiseCampaignAttribution(input.attribution),
-      contains_pii: false,
+  const result = await recordPublicEnquiryAudit({
+    commercialEvent: {
+      id: ledgerId,
+      action: 'service_consultation_booked',
+      afterJson: {
+        source: 'calendly_parent_event',
+        dedupe_key_hash: dedupeKeyHash,
+        provider_event_hash: eventHash,
+        provider_invitee_hash: inviteeHash,
+        attribution: sanitiseCampaignAttribution(input.attribution),
+        contains_pii: false,
+      },
     },
-  });
-
-  if (error && String(error.code) !== '23505') throw error;
-  return error ? 'already_recorded' : 'recorded';
+  }, dependencies);
+  return result as 'recorded' | 'already_recorded';
 }
