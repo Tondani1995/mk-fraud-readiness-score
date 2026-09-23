@@ -199,14 +199,13 @@ await check('commercial event hooks use non-identifying parameters only', () => 
   }
 });
 
-await check('Contact generate_lead and website_contact_submitted fire only after persistence succeeds', () => {
+await check('Contact service_enquiry_submitted fires only after authoritative persistence succeeds', () => {
   const responseGuard = contact.indexOf('if (!response.ok || !body.ok)');
-  const generateLead = contact.indexOf('trackEvent("generate_lead"');
-  const contactSubmitted = contact.indexOf('trackEvent("website_contact_submitted"');
-  assert.ok(responseGuard >= 0 && responseGuard < generateLead);
-  assert.ok(generateLead < contactSubmitted);
-  assert.match(contact, /trackEvent\("generate_lead",/);
-  assert.match(contact, /trackEvent\("website_contact_submitted", \{\s*service_interest:/);
+  const persistenceGuard = contact.indexOf('if (body.persisted === true)');
+  const submitted = contact.indexOf('trackEvent("service_enquiry_submitted"');
+  assert.ok(responseGuard >= 0 && responseGuard < persistenceGuard);
+  assert.ok(persistenceGuard < submitted);
+  assert.match(contact, /trackEvent\("service_enquiry_submitted", \{[\s\S]{0,240}form_name:[\s\S]{0,240}page_path:[\s\S]{0,240}enquiry_type:/);
 });
 
 await check('existing Snapshot funnel events remain intact', () => {
@@ -224,11 +223,16 @@ await check('commercial analytics snippets contain no customer or private identi
     ['invoice', orderJourney, 'invoice_requested'],
     ['snapshot advisory', snapshotAdvisory, 'advisory_enquiry_submitted'],
     ['public advisory', publicAdvisory, 'advisory_enquiry_submitted'],
-    ['website contact', contact, 'website_contact_submitted']
+    ['website contact', contact, 'service_enquiry_submitted']
   ]) {
     const index = source.indexOf(eventName);
     assert.ok(index >= 0, `${label} event is present`);
     const snippet = analyticsCallSnippet(source, eventName);
+    if (label === 'website contact') {
+      assert.match(snippet, /form_name:[\s\S]*page_path:[\s\S]*enquiry_type:/);
+      assert.doesNotMatch(snippet, /(?:email|phone|company|organisation|assessmentreference|orderreference|invoicedetails|token)/i);
+      continue;
+    }
     assert.doesNotMatch(snippet, forbiddenAnalyticsKeys, `${label} analytics must not carry PII/private identifiers`);
   }
 });
