@@ -20,6 +20,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sanitiseEventMetadata } from '@/lib/analytics/assessment-events';
 import { ADVISORY_REQUEST_TYPE, WEBSITE_CONTACT_REQUEST_TYPE, type EnquirySource } from '@/lib/enquiries/taxonomy';
 import type { PublicAdvisoryEnquiryInput, WebsiteContactEnquiryInput } from '@/lib/enquiries/validation';
+import { getEmailProviderMode, sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
+import { isRecipientPermitted, providerIdempotencyKeyFor, recipientAllowlist } from '@/lib/notifications/phase1-order-notifications';
 
 export type PersistedEnquiry = {
   id: string;
@@ -132,6 +134,59 @@ export async function persistWebsiteContactEnquiry(
  * The dedupe key is the enquiry reference, which is unique, so a repeated call for the same
  * enquiry can never queue a second email.
  */
+type PublicEnquiryNotificationDependencies = {
+  db?: Db;
+  sendEmailImpl?: typeof defaultSendEmail;
+  providerModeImpl?: typeof getEmailProviderMode;
+  now?: () => Date;
+};
+
+function enquiryNotificationMessage(
+  input: {
+    notificationType: 'public_advisory_enquiry_submitted' | 'website_contact_enquiry_submitted';
+    enquiry: PersistedEnquiry;
+    metadata: Record<string, unknown>;
+  }
+) {
+  const value = (key: string) => {
+    const raw = input.metadata[key];
+    if (raw === null || raw === undefined || raw === '') return null;
+    if (Array.isArray(raw)) return raw.map((item) => String(item)).join(', ');
+    return String(raw);
+  };
+  const label = input.notificationType === 'public_advisory_enquiry_submitted'
+    ? 'Public Advisory enquiry'
+    : 'Website contact enquiry';
+  const lines = [
+    label,
+    `Reference: ${input.enquiry.requestReference}`,
+    value('contact_name') ? `Name: ${value('contact_name')}` : null,
+    value('contact_email') ? `Email: ${value('contact_email')}` : null,
+    value('company_name') ? `Company: ${value('company_name')}` : null,
+    value('contact_phone') ? `Phone: ${value('contact_phone')}` : null,
+    value('service_interest') ? `Service interest: ${value('service_interest')}` : null,
+    value('primary_reason') ? `Primary reason: ${value('primary_reason')}` : null,
+    value('areas_of_focus') ? `Areas of focus: ${value('areas_of_focus')}` : null,
+    value('preferred_contact_method') ? `Preferred contact: ${value('preferred_contact_method')}` : null,
+    value('preferred_consultation_timeframe') ? `Timeframe: ${value('preferred_consultation_timeframe')}` : null,
+    value('message') ? `Message: ${value('message')}` : null,
+    value('notes') ? `Notes: ${value('notes')}` : null,
+    value('admin_url') ? `Admin: ${value('admin_url')}` : null
+  ].filter((line): line is string => Boolean(line));
+  const text = lines.join('\n');
+  const escapeHtml = (raw: string) => raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  return {
+    subject: `[MK Lead] ${label} — ${input.enquiry.requestReference}`,
+    text,
+    html: `<p>${lines.map((line) => escapeHtml(line)).join('<br>')}</p>`
+  };
+}
+
 export async function queuePublicEnquiryNotification(
   input: {
     notificationType: 'public_advisory_enquiry_submitted' | 'website_contact_enquiry_submitted';
@@ -139,18 +194,19 @@ export async function queuePublicEnquiryNotification(
     recipientEmail?: string | null;
     metadata: Record<string, unknown>;
   },
-  dependencies: { db?: Db } = {}
-): Promise<{ ok: boolean; status: 'queued' | 'already_queued' | 'skipped_no_recipient' | 'failed'; emailEventId?: string; error?: string }> {
+  dependencies: PublicEnquiryNotificationDependencies = {}
+): Promise<{ ok: boolean; status: 'sent' | 'recorded_disabled' | 'send_failed' | 'already_queued' | 'skipped_no_recipient' | 'recipient_not_permitted' | 'failed'; emailEventId?: string; error?: string }> {
   const recipient = input.recipientEmail?.trim() || process.env.MK_INTERNAL_LEADS_EMAIL?.trim() || '';
   if (!recipient) return { ok: false, status: 'skipped_no_recipient', error: 'MK_INTERNAL_LEADS_EMAIL is not configured' };
 
   const client = db(dependencies);
   const dedupeKey = `internal_notification:${input.notificationType}:enquiry:${input.enquiry.requestReference}`;
+  const now = dependencies.now ?? (() => new Date());
 
   try {
     const { data: existing, error: existingError } = await client
       .from('email_events')
-      .select('id')
+      .select('id,status,sent_at,provider_message_id')
       .eq('dedupe_key', dedupeKey)
       .maybeSingle();
     if (existingError) throw existingError;
@@ -168,6 +224,8 @@ export async function queuePublicEnquiryNotification(
         notification_type: input.notificationType,
         dedupe_key: dedupeKey,
         status: 'queued',
+        provider_mode: 'disabled',
+        retry_count: 0,
         metadata_json: {
           ...sanitiseEventMetadata(input.metadata),
           request_reference: input.enquiry.requestReference,
@@ -179,7 +237,61 @@ export async function queuePublicEnquiryNotification(
       .select('id')
       .single();
     if (insertError) throw insertError;
-    return { ok: true, status: 'queued', emailEventId: inserted.id };
+
+    const providerMode = (dependencies.providerModeImpl ?? getEmailProviderMode)();
+    if (providerMode === 'disabled') {
+      await client.from('email_events').update({
+        status: 'recorded_disabled',
+        provider_mode: 'disabled',
+        updated_at: now().toISOString()
+      }).eq('id', inserted.id);
+      return { ok: true, status: 'recorded_disabled', emailEventId: inserted.id };
+    }
+
+    const lowerRecipient = recipient.toLowerCase();
+    const testAllowlist = recipientAllowlist();
+    const permitted = isRecipientPermitted(recipient)
+      && (providerMode !== 'test' || Boolean(testAllowlist?.includes(lowerRecipient)));
+    if (!permitted) {
+      await client.from('email_events').update({
+        status: 'send_failed',
+        provider_mode: 'disabled',
+        error_message: providerMode === 'test'
+          ? 'Test-mode public enquiry recipient is not on the configured MK allowlist.'
+          : 'Public enquiry notification recipient is not allowlisted.',
+        updated_at: now().toISOString()
+      }).eq('id', inserted.id);
+      return { ok: false, status: 'recipient_not_permitted', emailEventId: inserted.id };
+    }
+
+    const message = enquiryNotificationMessage(input);
+    const sendResult = await (dependencies.sendEmailImpl ?? defaultSendEmail)({
+      from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
+      to: recipient,
+      replyTo: process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+      audience: 'internal',
+      idempotencyKey: providerIdempotencyKeyFor(inserted.id)
+    });
+    const sent = sendResult.ok && sendResult.mode !== 'disabled';
+    const status = !sendResult.ok ? 'send_failed' : sent ? 'sent' : 'recorded_disabled';
+    await client.from('email_events').update({
+      status,
+      provider_mode: sent ? 'external' : 'disabled',
+      provider_message_id: sent ? sendResult.providerMessageId : null,
+      sent_at: sent ? now().toISOString() : null,
+      error_message: sendResult.ok ? null : 'The internal public-enquiry notification provider request failed.',
+      updated_at: now().toISOString()
+    }).eq('id', inserted.id);
+
+    return {
+      ok: sent || status === 'recorded_disabled',
+      status,
+      emailEventId: inserted.id,
+      ...(sendResult.ok ? {} : { error: 'provider_send_failed' })
+    };
   } catch (error) {
     // A notification failure must not lose the lead: the enquiry is already persisted and visible
     // in the admin queue, so the caller reports success and this is recorded for operations.
