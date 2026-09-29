@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import CookieConsent from '@/components/website/CookieConsent';
 import GoogleAnalytics from '@/components/website/GoogleAnalytics';
+import AcquisitionAttribution from '@/components/website/AcquisitionAttribution';
 
 const PRIVATE_SCORE_PATH_PREFIXES = ['/score/admin', '/score/visual-review'];
 
@@ -20,6 +21,9 @@ export default function ScoreAnalyticsRuntime() {
     <>
       <Suspense fallback={null}>
         <GoogleAnalytics />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AcquisitionAttribution />
       </Suspense>
       <CookieConsent />
     </>

@@ -20,6 +20,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sanitiseEventMetadata } from '@/lib/analytics/assessment-events';
 import { ADVISORY_REQUEST_TYPE, WEBSITE_CONTACT_REQUEST_TYPE, type EnquirySource } from '@/lib/enquiries/taxonomy';
 import type { PublicAdvisoryEnquiryInput, WebsiteContactEnquiryInput } from '@/lib/enquiries/validation';
+import type { CampaignAttribution } from '@/lib/website/acquisition-context';
 
 export type PersistedEnquiry = {
   id: string;
@@ -199,11 +200,27 @@ export async function recordPublicEnquiryAudit(
     enquirySource: EnquirySource;
     ipHash: string | null;
     notificationStatus: string;
+    attribution?: CampaignAttribution;
+  } | {
+    commercialEvent: {
+      id: string;
+      action: 'service_consultation_booked';
+      afterJson: Record<string, unknown>;
+    };
   },
   dependencies: { db?: Db } = {}
-) {
+): Promise<void | 'recorded' | 'already_recorded'> {
   const client = db(dependencies);
-  const { error } = await client.from('audit_logs').insert({
+  const isCommercialEvent = 'commercialEvent' in input;
+  const payload = isCommercialEvent ? {
+    id: input.commercialEvent.id,
+    actor_type: 'system',
+    assessment_id: null,
+    entity_table: 'service_commercial_events',
+    entity_id: input.commercialEvent.id,
+    action: input.commercialEvent.action,
+    after_json: input.commercialEvent.afterJson
+  } : {
     // 'system' rather than a new enum value: audit_actor_type is ('admin','respondent_token',
     // 'system') and is referenced by certified fulfilment SQL, so extending it for a lead form is
     // more blast radius than the distinction is worth. The server is genuinely the actor here --
@@ -220,10 +237,16 @@ export async function recordPublicEnquiryAudit(
       request_type: input.requestType,
       enquiry_source: input.enquirySource,
       notification_status: input.notificationStatus,
+      attribution: input.attribution ?? {},
       order_created: false,
       payment_obligation: false,
       report_generation: false
     }
-  });
+  };
+  const { error } = await client.from('audit_logs').insert(payload);
+  if (isCommercialEvent) {
+    if (error && String(error.code) !== '23505') throw error;
+    return error ? 'already_recorded' : 'recorded';
+  }
   if (error) console.error('public enquiry audit insert failed', error);
 }
