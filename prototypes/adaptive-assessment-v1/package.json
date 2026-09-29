@@ -1,0 +1,24 @@
+{
+  "name": "mk-adaptive-assessment-prototype",
+  "version": "1.0.0-prototype",
+  "private": true,
+  "type": "module",
+  "description": "PROTOTYPE ONLY - MK Adaptive Fraud Readiness Assessment experience. Not production. No backend, no customer data, no production endpoints.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "review": "node tools/review-server.mjs",
+    "serve": "node tools/review-server.mjs",
+    "test": "node --test tests/graph.test.mjs",
+    "test:browser": "playwright test --config=playwright.config.mjs",
+    "test:chromium": "PW_PROJECT=chromium playwright test --config=playwright.config.mjs",
+    "test:firefox": "PW_PROJECT=firefox playwright test --config=playwright.config.mjs",
+    "test:webkit": "PW_PROJECT=webkit playwright test --config=playwright.config.mjs",
+    "test:all": "npm run test && npm run test:browser",
+    "journeys": "node tests/journey-report.mjs",
+    "journeys:json": "node tests/journey-report.mjs --json"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.0"
+  }
+}
