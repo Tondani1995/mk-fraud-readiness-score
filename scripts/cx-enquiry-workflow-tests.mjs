@@ -81,6 +81,16 @@ function fakeDb() {
             maybeSingle: async () => ({ data: null, error: null })
           };
           return chain;
+        },
+        update(payload) {
+          return {
+            eq(field, value) {
+              for (const record of rows[table]) {
+                if (record[field] === value) Object.assign(record, payload);
+              }
+              return Promise.resolve({ data: null, error: null });
+            }
+          };
         }
       };
     }
@@ -376,20 +386,67 @@ await check('exactly one notification is queued per persisted enquiry, and repea
 
   const first = await queuePublicEnquiryNotification(
     { notificationType: 'public_advisory_enquiry_submitted', enquiry, metadata: { a: 1 } },
-    { db }
+    { db, providerModeImpl: () => 'disabled' }
   );
-  assert.equal(first.status, 'queued');
+  assert.equal(first.status, 'recorded_disabled');
   assert.equal(db.rows.email_events.length, 1);
   const event = db.rows.email_events[0];
   assert.equal(event.assessment_id, null);
   assert.equal(event.data_request_id, 'dr-1');
-  assert.equal(event.status, 'queued');
+  assert.equal(event.status, 'recorded_disabled');
+  assert.equal(event.provider_mode, 'disabled');
   assert.equal(event.dedupe_key, 'internal_notification:public_advisory_enquiry_submitted:enquiry:MKENQ-2026-ABCDEF01');
   assert.equal(event.metadata_json.request_reference, 'MKENQ-2026-ABCDEF01');
   assert.equal(event.metadata_json.order_created, false);
   assert.equal(event.metadata_json.report_generation, false);
   // The dedupe key is the enquiry reference, so a repeat for the same enquiry cannot double-send.
   assert.ok(event.dedupe_key.includes(enquiry.requestReference));
+});
+
+await check('a live public enquiry notification is dispatched once through the internal provider', async () => {
+  const db = fakeDb();
+  const enquiry = { id: 'dr-live', requestReference: 'MKENQ-2026-ABCDEF03', status: 'received', createdAt: 'now' };
+  process.env.MK_INTERNAL_LEADS_EMAIL = 'leads@example.co.za';
+  let sends = 0;
+  let sentInput = null;
+
+  const result = await queuePublicEnquiryNotification(
+    {
+      notificationType: 'website_contact_enquiry_submitted',
+      enquiry,
+      metadata: {
+        contact_name: 'Sipho Dlamini',
+        contact_email: 'sipho@example.co.za',
+        company_name: 'Example Traders',
+        service_interest: 'fraud-health-check',
+        message: 'Please contact us.',
+        admin_url: 'https://www.mkfraud.co.za/score/admin/enquiries/MKENQ-2026-ABCDEF03'
+      }
+    },
+    {
+      db,
+      providerModeImpl: () => 'live',
+      sendEmailImpl: async (input) => {
+        sends += 1;
+        sentInput = input;
+        return { ok: true, mode: 'live', providerMessageId: 'provider-message-1' };
+      },
+      now: () => new Date('2026-09-29T20:30:00.000Z')
+    }
+  );
+
+  assert.equal(result.status, 'sent');
+  assert.equal(sends, 1);
+  assert.equal(sentInput.audience, 'internal');
+  assert.equal(sentInput.to, 'leads@example.co.za');
+  assert.equal(sentInput.idempotencyKey, 'id-1');
+  assert.match(sentInput.subject, /Website contact enquiry/);
+  assert.match(sentInput.text, /fraud-health-check/);
+  const event = db.rows.email_events[0];
+  assert.equal(event.status, 'sent');
+  assert.equal(event.provider_mode, 'external');
+  assert.equal(event.provider_message_id, 'provider-message-1');
+  assert.equal(event.sent_at, '2026-09-29T20:30:00.000Z');
 });
 
 await check('a missing internal recipient is reported, not silently dropped', async () => {
