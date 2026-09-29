@@ -9,7 +9,6 @@ const CONSENT_KEY = ANALYTICS_CONSENT_STORAGE_KEY;
 
 export default function CookieConsent() {
     const [visible, setVisible] = useState(false);
-    const [allowMarketing, setAllowMarketing] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const bannerRef = useRef<HTMLDivElement>(null);
     const detailsId = useId();
@@ -83,18 +82,8 @@ export default function CookieConsent() {
                         <span aria-hidden="true" className="px-1.5 text-slate-300">|</span>
                         <Link href="/privacy-policy" className="font-medium text-[#1d3658] underline underline-offset-2">Privacy policy</Link>
                     </p>
-                    <label className="mt-1 flex min-h-8 items-center gap-2 text-[13px] leading-5 text-slate-700 xl:mt-0">
-                        <input
-                            type="checkbox"
-                            name="marketingConsent"
-                            checked={allowMarketing}
-                            onChange={(event) => setAllowMarketing(event.target.checked)}
-                            className="h-4 w-4 shrink-0 accent-[#001030]"
-                        />
-                        <span>Also allow advertising measurement</span>
-                    </label>
                     <p id={detailsId} hidden={!showDetails} className="mt-1 text-xs leading-5 text-slate-600 xl:basis-full">
-                        Advertising measurement cookies let us see which campaigns bring organisations to the Fraud Readiness assessment. They stay off unless you tick the box. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
+                        Also allow advertising measurement &mdash; this is the only thing &ldquo;Accept all&rdquo; adds. Advertising measurement cookies let us see which campaigns bring organisations to the Fraud Readiness assessment. They stay off if you choose &ldquo;Analytics only&rdquo; or &ldquo;Decline&rdquo;. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
                     </p>
                 </div>
                 <div className="grid shrink-0 grid-cols-2 gap-2 md:flex">
@@ -107,10 +96,17 @@ export default function CookieConsent() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => record(true, allowMarketing)}
-                        className="min-h-11 rounded-xl bg-[#001030] px-5 text-sm font-semibold text-white transition hover:bg-[#1d3658]"
+                        onClick={() => record(true, false)}
+                        className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
-                        Accept
+                        Analytics only
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => record(true, true)}
+                        className="col-span-2 min-h-11 rounded-xl bg-[#001030] px-5 text-sm font-semibold text-white transition hover:bg-[#1d3658] md:col-span-1"
+                    >
+                        Accept all
                     </button>
                 </div>
             </div>

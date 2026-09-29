@@ -2,8 +2,16 @@ export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""
 export const GA_READY_EVENT = "mk-ga-ready";
 export const GA_CONSENT_EVENT = "mk-fraud-consent-updated";
 export const ANALYTICS_CONSENT_STORAGE_KEY = "mk_fraud_cookie_consent";
+export const MARKETING_CONSENT_STORAGE_KEY = "mk_fraud_marketing_consent";
 // One second gives gtag a delivery-acknowledgement window without materially delaying navigation.
 export const NAVIGATION_EVENT_TIMEOUT_MS = 1000;
+
+export type GoogleConsentState = {
+    analytics_storage: "granted" | "denied";
+    ad_storage: "granted" | "denied";
+    ad_user_data: "granted" | "denied";
+    ad_personalization: "granted" | "denied";
+};
 
 type GtagValue = string | number | boolean | undefined;
 
@@ -21,6 +29,38 @@ export function hasAnalyticsConsent(): boolean {
     } catch {
         return false;
     }
+}
+
+export function getStoredConsentState(): GoogleConsentState {
+    if (typeof window === "undefined") {
+        return {
+            analytics_storage: "denied",
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied",
+        };
+    }
+
+    let analyticsGranted = false;
+    let marketingGranted = false;
+    try {
+        analyticsGranted = window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) === "accepted";
+        marketingGranted = window.localStorage.getItem(MARKETING_CONSENT_STORAGE_KEY) === "accepted";
+    } catch {
+        // A blocked or unavailable localStorage must fail closed.
+    }
+
+    return {
+        analytics_storage: analyticsGranted ? "granted" : "denied",
+        ad_storage: marketingGranted ? "granted" : "denied",
+        ad_user_data: marketingGranted ? "granted" : "denied",
+        ad_personalization: marketingGranted ? "granted" : "denied",
+    };
+}
+
+export function updateGoogleConsent(state: GoogleConsentState = getStoredConsentState()) {
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    window.gtag("consent", "update", state);
 }
 
 export function pageview(url: string): boolean {
