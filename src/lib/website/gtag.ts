@@ -1,3 +1,5 @@
+import { sanitiseAnalyticsUrl } from "./analytics-url";
+
 export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "";
 export const GA_READY_EVENT = "mk-ga-ready";
 export const GA_CONSENT_EVENT = "mk-fraud-consent-updated";
@@ -63,14 +65,43 @@ export function updateGoogleConsent(state: GoogleConsentState = getStoredConsent
     window.gtag("consent", "update", state);
 }
 
+function currentHref(): string | undefined {
+    return typeof window !== "undefined" && typeof window.location?.href === "string" ? window.location.href : undefined;
+}
+
+// The page context gtag attaches to every hit (page_location / page_referrer) is pinned to the
+// sanitised URL by the inline bootstrap in GoogleAnalytics.tsx, on load and on every history
+// change. These helpers sanitise what they themselves pass: the explicit page_view location and any
+// URL-valued event parameter. See analytics-url.ts.
+
+/** URL-valued event parameters are sanitised too; any other value is passed through unchanged. */
+function sanitiseEventParams(params: Record<string, GtagValue>): Record<string, GtagValue> {
+    const base = currentHref();
+    const result: Record<string, GtagValue> = {};
+    for (const [key, value] of Object.entries(params)) {
+        if (typeof value !== "string" || !/^(https?:\/\/|\/)/.test(value) || !/[?#]/.test(value)) {
+            result[key] = value;
+            continue;
+        }
+        let normalised: string | undefined;
+        try {
+            normalised = new URL(value, base).toString();
+        } catch {
+            normalised = undefined;
+        }
+        const sanitised = sanitiseAnalyticsUrl(value, base);
+        result[key] = sanitised === normalised ? value : sanitised;
+    }
+    return result;
+}
+
 export function pageview(url: string): boolean {
     if (!GA_MEASUREMENT_ID || !hasAnalyticsConsent() || typeof window.gtag !== "function") {
         return false;
     }
 
-    const pageLocation = typeof window.location?.href === "string"
-        ? new URL(url, window.location.href).toString()
-        : url;
+    const pageLocation = sanitiseAnalyticsUrl(url, currentHref());
+    if (!pageLocation) return false;
 
     window.gtag("event", "page_view", {
         page_title: typeof document !== "undefined" ? document.title : undefined,
@@ -84,6 +115,7 @@ export function trackEvent(action: string, params: Record<string, GtagValue> = {
         return false;
     }
 
+    params = sanitiseEventParams(params);
     window.gtag("event", action, params);
     return true;
 }
@@ -130,7 +162,7 @@ export function trackEventBeforeNavigation(
 
     try {
         window.gtag("event", action, {
-            ...params,
+            ...sanitiseEventParams(params),
             event_callback: acknowledge,
             event_timeout: NAVIGATION_EVENT_TIMEOUT_MS,
         });
