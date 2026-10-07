@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import GoogleAnalytics from '@/components/website/GoogleAnalytics';
 import CookieConsent from '@/components/website/CookieConsent';
+import AcquisitionAttribution from '@/components/website/AcquisitionAttribution';
 import MetaPixel from '@/components/website/MetaPixel';
 import JsonLd from '@/components/website/JsonLd';
 import {
@@ -49,6 +50,9 @@ export default function WebsiteLayout({ children }: { children: React.ReactNode 
       <JsonLd data={organizationJsonLd} />
       <Suspense fallback={null}>
         <GoogleAnalytics />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AcquisitionAttribution />
       </Suspense>
       <Suspense fallback={null}>
         <MetaPixel />
