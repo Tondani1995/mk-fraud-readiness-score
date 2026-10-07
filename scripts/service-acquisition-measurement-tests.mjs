@@ -47,15 +47,21 @@ const afterNavigation = captureAcquisitionContext('', start + 60_000);
 assert.equal(afterNavigation.utm_campaign, 'service_search', 'untagged internal navigation preserves attribution');
 
 localStorage.setItem('mk_fraud_marketing_consent', 'accepted');
-const paidRefresh = captureAcquisitionContext('?utm_source=google&utm_campaign=second_touch&gclid=abc123', start + 120_000);
+const paidRefresh = captureAcquisitionContext('?utm_source=google&utm_campaign=second_touch&gclid=abc123&fbclid=meta123', start + 120_000);
 assert.equal(paidRefresh.gclid, 'abc123');
-assert.deepEqual(getCampaignAttribution(), { utm_source: 'google', utm_campaign: 'second_touch' });
+assert.equal(paidRefresh.fbclid, 'meta123');
+assert.deepEqual(getCampaignAttribution(), {
+  utm_source: 'google',
+  utm_campaign: 'second_touch',
+  gclid: 'abc123',
+  fbclid: 'meta123',
+});
 
 const stored = JSON.parse(localStorage.getItem(ACQUISITION_CONTEXT_STORAGE_KEY));
-assert.equal(stored.gclid, 'abc123', 'consented click ID stays browser-local');
+assert.equal(stored.gclid, 'abc123', 'consented click ID remains in the bounded browser context');
 assert.deepEqual(
-  sanitiseCampaignAttribution({ utm_source: ' google ', gclid: 'must-not-persist', email: 'pii@example.com' }),
-  { utm_source: 'google' },
+  sanitiseCampaignAttribution({ utm_source: ' google ', gclid: 'google-click', fbclid: 'meta-click', email: 'pii@example.com' }),
+  { utm_source: 'google', gclid: 'google-click', fbclid: 'meta-click' },
 );
 
 const contact = read('src/app/(website)/contact/page.tsx');
@@ -89,22 +95,25 @@ assert.ok(bookingLedger.includes('recordPublicEnquiryAudit'));
 assert.ok(bookingLedger.includes("action: 'service_consultation_booked'"));
 assert.ok(enquiryService.includes("String(error.code) !== '23505'"));
 assert.ok(bookingLedger.includes('sanitiseCampaignAttribution'));
-assert.ok(!bookingLedger.includes('gclid'));
 assert.ok(!bookingLedger.includes("from('assessment_events')"));
 
 const insertedRows = [];
 const recorded = await recordCalendlyCommercialEvent({
   eventUri: 'https://api.calendly.com/scheduled_events/event-123',
   inviteeUri: 'https://api.calendly.com/scheduled_events/event-123/invitees/invitee-456',
-  attribution: { utm_source: 'google', gclid: 'must-not-persist', email: 'must-not-persist@example.com' },
+  attribution: { utm_source: 'google', gclid: 'google-click', fbclid: 'meta-click', email: 'must-not-persist@example.com' },
 }, {
   db: { from: () => ({ insert: async (row) => { insertedRows.push(row); return { error: null }; } }) },
 });
 assert.equal(recorded, 'recorded');
 assert.equal(insertedRows.length, 1);
 assert.equal(insertedRows[0].action, 'service_consultation_booked');
-assert.deepEqual(insertedRows[0].after_json.attribution, { utm_source: 'google' });
-assert.equal(JSON.stringify(insertedRows[0]).includes('must-not-persist'), false);
+assert.deepEqual(insertedRows[0].after_json.attribution, {
+  utm_source: 'google',
+  gclid: 'google-click',
+  fbclid: 'meta-click',
+});
+assert.equal(JSON.stringify(insertedRows[0]).includes('must-not-persist@example.com'), false);
 
 const duplicate = await recordCalendlyCommercialEvent({
   eventUri: 'https://api.calendly.com/scheduled_events/event-123',

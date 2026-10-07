@@ -6,12 +6,12 @@ export const ACQUISITION_RETENTION_DAYS = 30;
 export const ACQUISITION_RETENTION_MS = ACQUISITION_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 export const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
-export const CLICK_ID_KEYS = ['gclid', 'gbraid', 'wbraid'] as const;
+export const CLICK_ID_KEYS = ['gclid', 'gbraid', 'wbraid', 'fbclid'] as const;
 
 export type UtmKey = (typeof UTM_KEYS)[number];
 export type ClickIdKey = (typeof CLICK_ID_KEYS)[number];
-export type CampaignAttribution = Partial<Record<UtmKey, string>>;
-export type AcquisitionContext = CampaignAttribution & Partial<Record<ClickIdKey, string>> & {
+export type CampaignAttribution = Partial<Record<UtmKey | ClickIdKey, string>>;
+export type AcquisitionContext = CampaignAttribution & {
   captured_at: string;
   expires_at: string;
 };
@@ -34,14 +34,14 @@ function analyticsAllowed(): boolean {
 }
 
 /**
- * Server-safe allow-list for campaign metadata. Advertising click IDs are deliberately excluded:
- * MK preserves them only in the consent-scoped browser context until a verified booking/API
- * correlation exists, rather than storing them beside a person's enquiry details.
+ * Server-safe allow-list for campaign metadata. Click IDs enter this path only from the
+ * consent-scoped browser context and are retained in the existing private audit evidence rather
+ * than exposed in GA4 event parameters or public/customer-facing records.
  */
 export function sanitiseCampaignAttribution(value: unknown): CampaignAttribution {
   const input = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const output: CampaignAttribution = {};
-  for (const key of UTM_KEYS) {
+  for (const key of [...UTM_KEYS, ...CLICK_ID_KEYS]) {
     const cleaned = cleanValue(input[key]);
     if (cleaned) output[key] = cleaned;
   }

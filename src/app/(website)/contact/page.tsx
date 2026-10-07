@@ -300,12 +300,10 @@ function ContactUsForm() {
                           className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
                         >
                           <option value="">Select a service</option>
-                          <option value="mk-advisory">MK Advisory Engagement</option>
-                          <option value="fraud-health-check">Fraud Health Check</option>
-                          <option value="threat-intelligence">Threat Intelligence for Fraud</option>
-                          <option value="programme-design">Fraud Programme Design</option>
-                          <option value="awareness">Awareness & Resilience</option>
-                          <option value="controls">Internal Fraud Controls</option>
+                          <option value="mk-advisory">Assess — Advisory &amp; Risk Review</option>
+                          <option value="programme-design">Build — Programmes, Governance &amp; Controls</option>
+                          <option value="awareness">Enable — Awareness, Training &amp; Playbooks</option>
+                          <option value="threat-intelligence">Monitor — Detection, Intelligence &amp; Reporting</option>
                           <option value="other">Other / Not Sure</option>
                         </select>
                       </div>
