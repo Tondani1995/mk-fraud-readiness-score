@@ -185,6 +185,43 @@ export function buildAssessmentCompletedInternalMessage(input: AssessmentComplet
   return { subject, text, html };
 }
 
+export type SnapshotAdvisoryEnquiryInternalInput = {
+  requestReference: string;
+  assessmentReference: string;
+  organisationName: string | null;
+  respondentName: string | null;
+  respondentEmail: string | null;
+  scoreBand: string | null;
+  maturityBand: string | null;
+  primaryReason: string;
+  areasOfFocus: string[];
+  preferredContactMethod: string;
+  preferredConsultationTimeframe: string;
+  note: string | null;
+  adminUrl: string;
+};
+
+export function buildSnapshotAdvisoryEnquiryInternalMessage(input: SnapshotAdvisoryEnquiryInternalInput) {
+  const subject = `[MK Lead] Snapshot Advisory enquiry — ${input.requestReference}`;
+  const rows: Array<[string, string]> = [
+    ['Reference', input.requestReference],
+    ['Assessment reference', input.assessmentReference],
+    ['Organisation', input.organisationName ?? 'Not captured'],
+    ['Respondent', input.respondentName ?? 'Not captured'],
+    ['Work email', input.respondentEmail ?? 'Not captured'],
+    ['Score band', input.scoreBand ?? 'Not available'],
+    ['Maturity', input.maturityBand ?? 'Not available'],
+    ['Primary reason', input.primaryReason],
+    ['Areas of focus', input.areasOfFocus.join(', ')],
+    ['Preferred contact', input.preferredContactMethod],
+    ['Timeframe', input.preferredConsultationTimeframe],
+    ['Notes', input.note ?? 'None']
+  ];
+  const text = `A respondent requested an MK Advisory conversation from their private Snapshot.\n\n${rows.map(([label, value]) => `${label}: ${value}`).join('\n')}\n\nOpen enquiry in MK admin: ${input.adminUrl}`;
+  const html = `<p>A respondent requested an MK Advisory conversation from their private Snapshot.</p><ul>${rows.map(([label, value]) => `<li>${escapeHtml(label)}: ${escapeHtml(value)}</li>`).join('')}</ul><p><a href="${escapeHtml(input.adminUrl)}">Open enquiry in MK admin</a></p>`;
+  return { subject, text, html };
+}
+
 export type AssessmentStalledLeadInput = {
   assessmentReference: string;
   organisationName: string | null;

@@ -13,6 +13,7 @@ import {
     pageview,
     updateGoogleConsent,
 } from "@/lib/website/gtag";
+import { analyticsPrivacyBootstrapScript } from "@/lib/website/analytics-url";
 
 export default function GoogleAnalytics() {
     const pathname = usePathname();
@@ -91,6 +92,7 @@ export default function GoogleAnalytics() {
                       ad_personalization: marketingChoice === 'accepted' ? 'granted' : 'denied'
                     });
                   } catch (_) {}
+                  ${analyticsPrivacyBootstrapScript()}
                   gtag('js', new Date());
                   gtag('config', ${JSON.stringify(GA_MEASUREMENT_ID)}, { send_page_view: false });
                   window.dispatchEvent(new Event(${JSON.stringify(GA_READY_EVENT)}));

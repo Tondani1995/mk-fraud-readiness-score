@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
-import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
+import { notifySnapshotAdvisoryEnquiry } from '@/lib/notifications/internal-assessment-notifications';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { COMMERCIAL_OPTION_CODES, commercialScoreBand } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
@@ -247,15 +247,32 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         optionCode: COMMERCIAL_OPTION_CODES.advisory,
         metadata
       }),
-      queueInternalNotification({
-        notificationType: 'advisory_enquiry_submitted',
-        assessmentId: assessment.id,
-        organisationId: assessment.organisation_id,
-        respondentId: assessment.primary_respondent_id,
-        dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.advisory,
-        metadata: notificationMetadata,
-        strict: true
+      notifySnapshotAdvisoryEnquiry({
+        queue: {
+          notificationType: 'advisory_enquiry_submitted',
+          assessmentId: assessment.id,
+          organisationId: assessment.organisation_id,
+          respondentId: assessment.primary_respondent_id,
+          dataRequestId: result.request.id,
+          optionCode: COMMERCIAL_OPTION_CODES.advisory,
+          metadata: notificationMetadata,
+          strict: true
+        },
+        message: {
+          requestReference: result.request.request_reference,
+          assessmentReference: assessment.assessment_reference,
+          organisationName,
+          respondentName,
+          respondentEmail: respondent?.email ?? null,
+          scoreBand: metadata.score_band,
+          maturityBand: snapshot.finalMaturity ?? null,
+          primaryReason,
+          areasOfFocus,
+          preferredContactMethod,
+          preferredConsultationTimeframe,
+          note: notes,
+          adminUrl
+        }
       }),
       db.from('audit_logs').insert({
         actor_type: 'respondent_token',

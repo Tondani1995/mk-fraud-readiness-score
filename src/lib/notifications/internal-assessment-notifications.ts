@@ -15,7 +15,9 @@ import {
 } from '@/lib/notifications/email-provider';
 import {
   buildAssessmentCompletedInternalMessage,
-  buildAssessmentStalledLeadMessage
+  buildAssessmentStalledLeadMessage,
+  buildSnapshotAdvisoryEnquiryInternalMessage,
+  type SnapshotAdvisoryEnquiryInternalInput
 } from '@/lib/notifications/message-templates';
 import {
   isRecipientPermitted,
@@ -268,6 +270,44 @@ export async function queueAndDispatchInternalNotification(input: {
     notificationType: input.queue.notificationType,
     message: input.message
   }, { ...dependencies, db });
+}
+
+/**
+ * Records and dispatches the internal MK notification for an assessment-linked Snapshot Advisory
+ * enquiry. Recording stays strict: a failure to write the durable email_events row still fails the
+ * request, and a retry is idempotent because the dedupe key is bound to the enquiry's data_request.
+ * Dispatch never throws: the enquiry is already persisted, and a provider or settle failure is
+ * left on the row (send_failed / sending) where a repeated submission can recover it under the
+ * same provider idempotency key. An update to an existing active enquiry reuses the same row, so
+ * an already-sent notification is never sent twice.
+ */
+export async function notifySnapshotAdvisoryEnquiry(input: {
+  queue: QueueInternalNotificationInput & { notificationType: 'advisory_enquiry_submitted'; strict: true };
+  message: SnapshotAdvisoryEnquiryInternalInput;
+}, dependencies: InternalAssessmentNotificationDependencies = {}) {
+  const db = dependencies.db ?? (dependencies.createClient ?? createSupabaseServiceClient)() as any;
+  const queued = await queueInternalNotification(input.queue, {
+    db,
+    trackAssessmentEventImpl: dependencies.trackAssessmentEventImpl
+  });
+  if (!queued.ok || !queued.emailEventId) return queued;
+
+  try {
+    return await dispatchInternalAssessmentNotification({
+      emailEventId: queued.emailEventId,
+      assessmentId: input.queue.assessmentId,
+      organisationId: input.queue.organisationId,
+      respondentId: input.queue.respondentId,
+      notificationType: input.queue.notificationType,
+      message: buildSnapshotAdvisoryEnquiryInternalMessage(input.message)
+    }, { ...dependencies, db });
+  } catch (error) {
+    console.error('snapshot advisory notification dispatch failed', {
+      requestReference: input.message.requestReference,
+      message: error instanceof Error ? error.message : 'unknown_error'
+    });
+    return { ok: false as const, status: 'dispatch_failed' as const, emailEventId: queued.emailEventId };
+  }
 }
 
 export async function notifyScoredAssessmentCompletion(input: {
