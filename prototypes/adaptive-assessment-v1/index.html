@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Fraud Readiness Assessment — MK Fraud Insights (Prototype)</title>
+  <meta name="description" content="Prototype of the MK adaptive fraud readiness assessment experience. Prototype only — not connected to production." />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the current question</a>
+
+  <div class="app">
+    <header class="topbar" role="banner">
+      <div class="shell topbar__inner">
+        <span class="brandmark">MK</span>
+        <span class="proto-flag" title="This is a design prototype, not the live assessment">Prototype</span>
+        <div class="progress" id="progress" hidden>
+          <div class="progress__meta">
+            <span class="progress__area" id="progress-area">Getting started</span>
+            <span class="progress__time" id="progress-time"></span>
+          </div>
+          <div class="progress__track"
+               role="progressbar"
+               aria-labelledby="progress-area"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+               id="progress-bar">
+            <div class="progress__fill" id="progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main" id="main" tabindex="-1">
+      <div class="shell stage" id="stage" aria-live="polite" aria-atomic="false"></div>
+    </main>
+
+    <div class="shell">
+      <div class="savebar" id="savebar" data-state="idle" hidden>
+        <span class="savebar__dot" aria-hidden="true"></span>
+        <span id="savebar-text">All answers saved</span>
+      </div>
+    </div>
+
+    <!-- Prototype inspection controls. Not part of the customer experience. -->
+    <div class="devbar" id="devbar">
+      <div class="shell devbar__inner">
+        <label for="journey-select">Synthetic journey</label>
+        <select id="journey-select" aria-label="Load a synthetic organisation journey">
+          <option value="">— none (answer manually) —</option>
+        </select>
+        <button type="button" id="btn-path">Inspect branching path</button>
+        <button type="button" id="btn-simulate-fail">Simulate save failure</button>
+        <button type="button" id="btn-reset">Reset state</button>
+      </div>
+      <div class="shell"><pre class="pathdump" id="pathdump" hidden></pre></div>
+    </div>
+  </div>
+
+  <!-- Screen-reader announcements for state that is otherwise conveyed visually -->
+  <div class="visually-hidden" role="status" aria-live="polite" id="sr-status"></div>
+  <div class="visually-hidden" role="alert" aria-live="assertive" id="sr-alert"></div>
+
+  <div id="dialog-root"></div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
