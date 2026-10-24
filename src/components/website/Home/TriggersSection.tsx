@@ -5,7 +5,7 @@ import { ENGAGEMENT_TRIGGERS } from '@/lib/website/capabilities';
 
 export default function TriggersSection() {
   return (
-    <section className="border-t border-slate-200 bg-[#f8fafc]" aria-labelledby="home-triggers-heading">
+    <section className="clarity-triggers border-t border-slate-200 bg-[#f8fafc]" aria-labelledby="home-triggers-heading">
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
           <div>

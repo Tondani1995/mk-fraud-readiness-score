@@ -12,7 +12,7 @@ const journey = [
 
 export default function FraudReadinessSection() {
   return (
-    <section id="fraud-readiness" className="scroll-mt-20 bg-[#0b2631] text-white" aria-labelledby="home-fraud-readiness-heading">
+    <section id="fraud-readiness" className="clarity-readiness scroll-mt-20 bg-[#0b2631] text-white" aria-labelledby="home-fraud-readiness-heading">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-16 lg:px-8 lg:py-28">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Flagship assessment</p>
@@ -20,7 +20,7 @@ export default function FraudReadinessSection() {
             id="home-fraud-readiness-heading"
             className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-4xl lg:text-[2.6rem]"
           >
-            Fraud Readiness
+            Fraud Readiness<span className="readiness-tagline">Your first clear view.</span>
           </h2>
           <p className="mt-4 max-w-xl text-base leading-7 text-white/78">
             Fraud Readiness is MK&apos;s structured way of making organisational fraud exposure visible, measurable and

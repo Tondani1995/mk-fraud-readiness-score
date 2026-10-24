@@ -21,7 +21,7 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
   const target = score === null ? 0 : Math.max(0, Math.min(100, score));
   const [progress, setProgress] = useState(() => target);
   const isDark = theme === 'dark';
-  const displayed = score === null ? null : Math.round(progress);
+  const displayed = score === null ? null : Math.round(score);
   const label = score === null
     ? 'Readiness score not issued. The assessment did not provide enough visibility to place a position.'
     : `Readiness score ${Math.round(score)} out of 100${band ? `. Maturity band: ${band}.` : '.'}`;

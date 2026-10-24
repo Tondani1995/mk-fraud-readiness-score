@@ -33,7 +33,8 @@ global.window = {
   location: { search: '' },
 };
 
-const start = Date.parse('2026-09-23T10:00:00.000Z');
+// Stay inside the real retention window when getCampaignAttribution reads Date.now().
+const start = Date.now() - 120_000;
 const captured = captureAcquisitionContext(
   '?utm_source=google&utm_medium=cpc&utm_campaign=service_search&utm_term=fraud%20consultant&gclid=not-permitted',
   start,

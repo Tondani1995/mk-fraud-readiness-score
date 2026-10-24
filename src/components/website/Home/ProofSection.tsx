@@ -32,7 +32,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
   const recent = insights.filter((insight) => insight.slug?.trim()).slice(0, 3);
 
   return (
-    <section className="bg-white" aria-labelledby="home-proof-heading">
+    <section className="clarity-proof bg-white" aria-labelledby="home-proof-heading">
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
         <div className="max-w-2xl">
           <Eyebrow>Why MK</Eyebrow>

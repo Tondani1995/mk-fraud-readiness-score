@@ -28,32 +28,32 @@ const styles: Record<ProductTier, {
   badge?: string;
 }> = {
   essential: {
-    card: 'border-[#d8cbbb] bg-[#f4efe7] text-[#001030]',
-    phase: 'text-[#6f5537]',
+    card: 'border-[#bdc9b8] bg-[#f4f7ef] text-[#001030]',
+    phase: 'text-[#526c4c]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
-    bullet: 'bg-[#8a6d4b]',
-    featureBorder: 'border-[#d8cbbb]'
+    bullet: 'bg-[#5d7c54]',
+    featureBorder: 'border-[#bdc9b8]'
   },
   comprehensive: {
-    card: 'border-[#31565e] bg-[#12333c] text-white shadow-[0_22px_50px_rgba(0,16,48,0.18)]',
-    phase: 'text-[#a9d4ce]',
+    card: 'border-[#2e4666] bg-[#001030] text-white',
+    phase: 'text-[#c8d9bf]',
     title: 'text-white',
     body: 'text-white/72',
     price: 'text-white',
-    bullet: 'bg-[#a9d4ce]',
+    bullet: 'bg-[#c8d9bf]',
     featureBorder: 'border-white/15',
-    badge: 'bg-[#a9d4ce] text-[#12333c]'
+    badge: 'bg-[#c8d9bf] text-[#001030]'
   },
   advisory: {
-    card: 'border-[#cbbd9f] bg-[#e8decc] text-[#001030]',
-    phase: 'text-[#64491f]',
+    card: 'border-[#bdc9b8] bg-white text-[#001030]',
+    phase: 'text-[#526c4c]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
-    bullet: 'bg-[#80613b]',
-    featureBorder: 'border-[#cbbd9f]'
+    bullet: 'bg-[#5d7c54]',
+    featureBorder: 'border-[#bdc9b8]'
   }
 };
 
@@ -81,7 +81,7 @@ export function ProductTierCard({
       data-tier-visual={tier}
       data-earlier-selection={earlierSelected ? 'true' : undefined}
       aria-labelledby={headingId}
-      className={`flex h-full flex-col rounded-[1.65rem] border p-6 ${compact ? 'md:p-7' : 'md:p-8'} ${style.card}`}
+      className={`flex h-full flex-col rounded-[3px] border p-6 ${compact ? 'md:p-7' : 'md:p-8'} ${style.card}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -89,7 +89,7 @@ export function ProductTierCard({
           <p className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] ${style.body}`}>{label}</p>
           <h3 id={headingId} className={`mt-3 text-2xl font-semibold tracking-tight ${style.title}`}>{tagline}</h3>
         </div>
-        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#80613b]/25 bg-white/50 text-[#64491f]'}`}>{featuredLabel}</span> : null}
+        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#80613b]/25 bg-white/50 text-[#526c4c]'}`}>{featuredLabel}</span> : null}
       </div>
       {priceLabel ? <p className={`mt-6 text-lg font-semibold ${style.price}`}>{priceLabel}</p> : null}
       {description ? <p className={`mt-3 text-sm leading-6 ${style.body}`}>{description}</p> : null}

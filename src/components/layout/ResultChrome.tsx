@@ -75,7 +75,7 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
   }, [sheetOpen]);
 
   return (
-    <div className="min-h-[100dvh] overflow-x-hidden bg-mk-paper">
+    <div className="mk-product mk-result min-h-[100dvh] overflow-x-hidden bg-mk-paper">
       <a href="#main-content" className="sr-only z-50 rounded-xl bg-white px-4 py-3 font-semibold text-mk-navy focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">Skip to content</a>
 
       <header className="sticky top-0 z-40 border-b border-mk-line bg-mk-paper pt-[env(safe-area-inset-top)] md:static">

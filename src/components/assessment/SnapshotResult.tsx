@@ -1,5 +1,6 @@
 'use client';
 
+import { DomainReadinessMap } from '@/components/clarity/DomainReadinessMap';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ScoreGauge } from '@/components/assessment/ScoreGauge';
@@ -103,6 +104,7 @@ export function SnapshotResult({
       </section>
 
       <SectionRail />
+      <DomainReadinessMap snapshot={snapshot} />
 
       <TrackedSection
         snapshot={snapshot}

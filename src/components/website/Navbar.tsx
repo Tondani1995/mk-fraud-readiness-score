@@ -4,7 +4,7 @@ import { ArrowRight, Menu, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { trackEvent } from "@/lib/website/gtag";
 
 // One `links` array drives both the desktop row and the mobile sheet. Home is reached through the
@@ -26,6 +26,8 @@ function isActive(pathname: string | null, href: string) {
 export default function Navbar() {
   const pathname = usePathname();
   const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -46,8 +48,31 @@ export default function Navbar() {
     if (!mobileOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    menuRef.current?.querySelector<HTMLAnchorElement>("a[href]")?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        menuTriggerRef.current?.focus();
+      }
+      if (event.key === "Tab") {
+        const items = [
+          menuTriggerRef.current,
+          ...Array.from(
+            menuRef.current?.querySelectorAll<HTMLElement>(
+              "a[href],button:not([disabled])",
+            ) ?? [],
+          ),
+        ].filter((item): item is HTMLElement => Boolean(item));
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -57,10 +82,26 @@ export default function Navbar() {
   }, [mobileOpen]);
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-200 ${isScrolled ? "border-b border-slate-200 shadow-sm" : "border-b border-transparent"}`}>
-      <nav aria-label="Primary" className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6 md:h-20 lg:px-8">
-        <Link href="/" className="flex shrink-0 items-center" aria-label="MK Fraud Insights home">
-          <Image src="/logo.png" width={944} height={264} alt="MK Fraud Insights" priority className="h-9 w-auto md:h-11" />
+    <header
+      className={`clarity-nav fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-200 ${isScrolled ? "border-b border-slate-200 shadow-sm" : "border-b border-transparent"}`}
+    >
+      <nav
+        aria-label="Primary"
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6 md:h-20 lg:px-8"
+      >
+        <Link
+          href="/"
+          className="flex shrink-0 items-center"
+          aria-label="MK Fraud Insights home"
+        >
+          <Image
+            src="/logo.png"
+            width={944}
+            height={264}
+            alt="MK Fraud Insights"
+            priority
+            className="h-9 w-auto md:h-11"
+          />
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
@@ -73,13 +114,22 @@ export default function Navbar() {
                 aria-current={active ? "page" : undefined}
                 className={`rounded-lg px-4 py-3 text-[15px] font-medium transition-colors hover:text-[#001030] ${active ? "text-[#001030]" : "text-slate-600"}`}
               >
-                <span className={active ? "border-b-2 border-[#1d3658] pb-1" : ""}>{link.name}</span>
+                <span
+                  className={active ? "border-b-2 border-[#1d3658] pb-1" : ""}
+                >
+                  {link.name}
+                </span>
               </Link>
             );
           })}
           <Link
             href="/contact"
-            onClick={() => trackEvent("cta_click", { cta_name: "speak_to_mk", placement: "navbar" })}
+            onClick={() =>
+              trackEvent("cta_click", {
+                cta_name: "speak_to_mk",
+                placement: "navbar",
+              })
+            }
             className="ml-4 inline-flex min-h-11 items-center rounded-xl bg-[#001030] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#1d3658]"
           >
             Speak to MK
@@ -87,6 +137,7 @@ export default function Navbar() {
         </div>
 
         <button
+          ref={menuTriggerRef}
           type="button"
           className="-mr-2 flex h-12 w-12 items-center justify-center rounded-xl text-[#001030] hover:bg-slate-100 lg:hidden"
           onClick={() => setMobileOpen((open) => !open)}
@@ -94,12 +145,17 @@ export default function Navbar() {
           aria-controls={menuId}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
         >
-          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {mobileOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
         </button>
       </nav>
 
       {mobileOpen ? (
         <div
+          ref={menuRef}
           id={menuId}
           className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col overflow-y-auto border-t border-slate-200 bg-white md:top-20 lg:hidden"
         >
@@ -115,7 +171,10 @@ export default function Navbar() {
                     className="flex min-h-14 items-center justify-between py-3 text-xl font-semibold text-[#001030]"
                   >
                     {link.name}
-                    <ArrowRight aria-hidden="true" className={`h-5 w-5 ${active ? "text-[#1d3658]" : "text-slate-300"}`} />
+                    <ArrowRight
+                      aria-hidden="true"
+                      className={`h-5 w-5 ${active ? "text-[#1d3658]" : "text-slate-300"}`}
+                    />
                   </Link>
                 </li>
               );
@@ -125,24 +184,36 @@ export default function Navbar() {
             <Link
               href="/score/start"
               onClick={() => {
-                trackEvent("cta_click", { cta_name: "assess_your_organisation", placement: "navbar_mobile" });
+                trackEvent("cta_click", {
+                  cta_name: "assess_your_organisation",
+                  placement: "navbar_mobile",
+                });
                 setMobileOpen(false);
               }}
               className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#001030] px-6 text-base font-semibold text-white"
             >
-              Assess your organisation <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              Assess your organisation{" "}
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
             <Link
               href="/contact"
               onClick={() => {
-                trackEvent("cta_click", { cta_name: "speak_to_mk", placement: "navbar_mobile" });
+                trackEvent("cta_click", {
+                  cta_name: "speak_to_mk",
+                  placement: "navbar_mobile",
+                });
                 setMobileOpen(false);
               }}
               className="flex min-h-12 items-center justify-center rounded-xl border border-[#001030]/20 bg-white px-6 text-base font-semibold text-[#001030]"
             >
               Speak to MK
             </Link>
-            <a href="mailto:hello@mkfraud.co.za" className="pt-1 text-center text-sm text-slate-500">hello@mkfraud.co.za</a>
+            <a
+              href="mailto:hello@mkfraud.co.za"
+              className="pt-1 text-center text-sm text-slate-500"
+            >
+              hello@mkfraud.co.za
+            </a>
           </div>
         </div>
       ) : null}

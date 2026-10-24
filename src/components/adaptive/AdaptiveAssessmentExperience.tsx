@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CompletionMap } from '@/components/clarity/CompletionMap';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
@@ -412,7 +413,8 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
             {saving ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save needs attention' : 'Ready'}
           </p>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-mk-line" role="progressbar" aria-label="Assessment completion" aria-valuetext={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+        <CompletionMap progress={progress} />
+        <div className="sr-only" role="progressbar" aria-label="Assessment completion" aria-valuetext={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
           <div className="h-full bg-mk-charcoal" style={{ width: `${progress}%` }} />
         </div>
       </div>

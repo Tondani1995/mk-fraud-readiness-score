@@ -306,7 +306,7 @@ function AdvisoryCard({ isNavigating, onChoose }: { isNavigating: boolean; onCho
       label="MK Advisory"
       phase="Implement"
       tagline="Move with a partner"
-      description="Work with MK directly to investigate, design or implement it with us."
+      description="Work with MK to clarify the problem, design controls or support implementation."
       features={[
         'For: An organisation that needs a partner for a more involved fraud-readiness question.',
         'You receive: A conversation to define the work, scope, deliverables and fees with MK.'

@@ -20,7 +20,7 @@ export function FraudReadinessStorefront() {
     : 'Scoped with MK';
 
   return (
-    <main className="w-full overflow-hidden bg-[#f7f5f0] text-[#001030]" data-storefront>
+    <main className="clarity-storefront w-full overflow-hidden bg-[#f7f5f0] text-[#001030]" data-storefront>
       <section className="relative overflow-hidden bg-[#001030] text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(169,212,206,0.16),transparent_34%),linear-gradient(115deg,rgba(255,255,255,0.05),transparent_48%)]" />
         <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-5 pb-12 pt-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,0.88fr)_minmax(440px,1.12fr)] lg:items-center lg:gap-16 lg:px-8 lg:py-20">

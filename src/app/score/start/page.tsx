@@ -25,7 +25,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
   return (
     <FraudReadinessTermsGate>
       <SectionShell className="w-full py-10 md:py-14">
-        <div className="mb-8 grid gap-8 rounded-[2rem] border border-mk-line bg-mk-cream px-6 py-9 md:px-10 md:py-12 lg:grid-cols-[1fr_0.7fr] lg:items-end">
+        <div className="clarity-start-intro mb-8 grid gap-8 rounded-[2rem] border border-mk-line bg-mk-cream px-6 py-9 md:px-10 md:py-12 lg:grid-cols-[1fr_0.7fr] lg:items-end">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-mk-brassDark">Fraud Readiness Assessment</p>
             <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-tight text-mk-ink md:text-5xl">Assess your organisation&rsquo;s fraud readiness.</h1>
@@ -44,7 +44,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
           </div>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
+        <div className="clarity-start-layout grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
           <Card className="bg-mk-charcoal text-white" data-assessment-start="true">
             <CardHeader className="border-white/10">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">What to expect</p>

@@ -95,24 +95,26 @@ check('4: plain public pages, attribution and in-page anchors are unchanged', ()
   assert.equal(sanitiseAnalyticsUrl('not a url'), undefined, 'unparseable input is dropped, never sent raw');
 });
 
-check('5: the Contact conversion events are sent with their existing payload', () => {
+check('5: the persisted Contact conversion uses the current payload without duplicate legacy events', () => {
   const calls = setBrowser({ href: `${SITE}/contact?utm_source=google&utm_medium=cpc` });
-  const leadParams = { form_name: 'contact_form', service_interest: 'fraud-health-check', page_location: '/contact' };
-  assert.equal(gtag.trackEvent('generate_lead', leadParams), true);
-  assert.equal(gtag.trackEvent('website_contact_submitted', { service_interest: 'fraud-health-check' }), true);
+  const leadParams = { form_name: 'contact_form', page_path: '/contact', enquiry_type: 'fraud-health-check' };
+  assert.equal(gtag.trackEvent('service_enquiry_submitted', leadParams), true);
   assert.deepEqual(calls, [
-    ['event', 'generate_lead', leadParams],
-    ['event', 'website_contact_submitted', { service_interest: 'fraud-health-check' }]
-  ], 'exactly the existing calls, byte-for-byte');
+    ['event', 'service_enquiry_submitted', leadParams]
+  ], 'one current Contact conversion, without duplicate legacy events');
   const contact = read('src/app/(website)/contact/page.tsx');
-  assert.match(contact, /trackEvent\("generate_lead", \{\s*form_name: "contact_form",/);
+  assert.match(contact, /trackEvent\("service_enquiry_submitted", \{\s*form_name: "contact_form",/);
+  assert.ok(contact.indexOf('if (body.persisted === true)') < contact.indexOf('trackEvent("service_enquiry_submitted"'));
+  assert.doesNotMatch(contact, /trackEvent\("(?:generate_lead|website_contact_submitted)"/);
 });
 
 check('6: Calendly attribution is unaffected — the embed URL carries no sensitive parameter and is not rewritten', () => {
-  const contact = read('src/app/(website)/contact/page.tsx');
-  const embed = contact.match(/const CALENDLY_URL = "([^"]+)"/)[1];
+  const booking = read('src/components/website/CalendlyBooking.tsx');
+  const origin = booking.match(/const CALENDLY_ORIGIN = '([^']+)'/)[1];
+  const suffix = booking.match(/const CALENDLY_URL = `\$\{CALENDLY_ORIGIN\}([^`]+)`/)[1];
+  const embed = origin + suffix;
   assert.equal(sanitiseAnalyticsUrl(embed), new URL(embed).toString());
-  assert.doesNotMatch(contact, /sanitiseAnalyticsUrl|analytics-url/);
+  assert.doesNotMatch(booking, /sanitiseAnalyticsUrl|analytics-url/);
 });
 
 check('7: declined analytics consent still sends no event, page view or page context', () => {

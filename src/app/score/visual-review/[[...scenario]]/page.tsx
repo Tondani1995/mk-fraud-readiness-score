@@ -125,11 +125,7 @@ function AdaptiveReview({ variant }: { variant: AdaptiveVisualReviewVariant }) {
   return (
     <ReviewFrame kind={`adaptive-${variant}`} title={title}>
       <SectionShell className="w-full py-8 md:py-12">
-        <PageHeader
-          eyebrow="FRAUD READINESS ASSESSMENT"
-          title="Complete your tailored readiness assessment"
-          description="Preview fixture state only. Scope, applicability, progress and completion are rendered by the candidate adaptive engine and customer component."
-        />
+        <div className="assessment-context"><p className="clarity-eyebrow">FRAUD READINESS / QUESTIONNAIRE</p><p>Synthetic review state. No assessment data is saved or submitted.</p></div>
         <AdaptiveAssessmentExperience
           assessmentReference={VISUAL_REVIEW_ASSESSMENT_REFERENCE}
           token="visual-review-token"

@@ -16,6 +16,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setErrors([]);
+    try {
     const response = await fetch('/score/api/adaptive/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,6 +44,10 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
       { flow: 'adaptive' },
       () => window.location.assign(body.data.resumeUrl)
     );
+    } catch {
+      setErrors(['We could not connect to save your organisation profile. Your details are still here. Check your connection and try again.']);
+      setBusy(false);
+    }
   }
 
   return <form data-adaptive-assessment-start="true" onSubmit={submit} className="space-y-5">
