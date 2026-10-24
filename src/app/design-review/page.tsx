@@ -85,10 +85,10 @@ export default function DesignReview() {
         <h1>
           From fragmented exposure
           <br />
-          <em>to management clarity.</em>
+          <span className="headline-emphasis">to management clarity.</span>
         </h1>
         <p>
-          A working design in the existing MK application. Explore the public
+          A revised institutional typography and legibility direction in the existing MK application. Explore the public
           experience and isolated product states below.
         </p>
         <aside>

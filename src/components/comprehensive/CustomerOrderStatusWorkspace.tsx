@@ -81,7 +81,7 @@ export function CustomerOrderStatusWorkspace({
           <ol className="grid gap-4">
             {copy.nextSteps.map((step, index) => (
               <li key={step} className="border-t border-mk-accent/40 pt-3">
-                <span className="text-[10px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
+                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
                 <p className="mt-1.5">{step}</p>
               </li>
             ))}

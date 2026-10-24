@@ -145,7 +145,7 @@ function ContactUsForm() {
 
         <div className="mx-auto max-w-7xl px-5 pb-14 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1d3658]">Speak to MK</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#1d3658]">Speak to MK</p>
             <h1 className="mt-4 text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-[#001030] sm:text-5xl">
               Tell us what you need to understand or fix.
             </h1>
@@ -178,7 +178,7 @@ function ContactUsForm() {
                       </p>
                       {enquiryReference ? (
                         <div className="mt-6 border-t border-slate-200 pt-6">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Your enquiry reference
                           </p>
                           <p className="mt-1.5 text-lg font-semibold tabular-nums tracking-tight text-[#001030]">

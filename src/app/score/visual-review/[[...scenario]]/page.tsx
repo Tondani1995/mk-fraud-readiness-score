@@ -69,8 +69,8 @@ function ReviewFrame({ kind, title, children }: { kind: string; title: string; c
     <div data-visual-review="true" data-visual-review-kind={kind} data-visual-review-no-supabase="true">
       <aside aria-label="Private visual review fixture" className="border-b border-mk-accent/25 bg-mk-accent/[.07]">
         <div className="mx-auto flex max-w-[1120px] flex-wrap items-baseline justify-between gap-2 px-[18px] py-2.5 md:px-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Private visual review fixture</p>
-          <p className="text-[11px] text-mk-muted">{title} · Preview/local only · no customer data is read or written</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Private visual review fixture</p>
+          <p className="text-[12px] text-mk-muted">{title} · Preview/local only · no customer data is read or written</p>
         </div>
       </aside>
       {children}

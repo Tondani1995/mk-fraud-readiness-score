@@ -1,3 +1,5 @@
+> Historical first direction: typography and palette were not approved. See `mk-authority-correction-2026-10-24.md` for the current refinement.
+
 # MK Clarity: design direction
 24 October 2026 · Local development review
 

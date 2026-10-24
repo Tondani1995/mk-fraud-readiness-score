@@ -55,7 +55,7 @@ const config: Config = {
         xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
       },
       fontFamily: {
-        sans: ['var(--font-poppins)', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       borderRadius: {
         xl2: '1.25rem',

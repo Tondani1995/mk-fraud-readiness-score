@@ -5,7 +5,7 @@ export default function ServicesHero() {
   return (
     <section className="clarity-services-hero bg-[#001030] text-white" aria-labelledby="services-heading">
       <div className="mx-auto w-full max-w-7xl px-5 pb-8 pt-10 sm:px-6 sm:pb-14 sm:pt-14 lg:px-8 lg:pb-20 lg:pt-20">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Services</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Services</p>
         <h1 id="services-heading" className="mt-4 max-w-[20ch] text-[2.1rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.5rem]">
           Start from the question your organisation needs answered.
         </h1>

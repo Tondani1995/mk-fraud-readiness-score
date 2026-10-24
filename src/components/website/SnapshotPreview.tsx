@@ -19,7 +19,7 @@ export function SnapshotPreview({ compact = false }: { compact?: boolean }) {
       <h2>
         A result built
         <br />
-        <em>for a decision.</em>
+        <span className="headline-emphasis">for a decision.</span>
       </h2>
       <div className="specimen-position">
         <span className="position-mark" aria-hidden="true">

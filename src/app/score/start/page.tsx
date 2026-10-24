@@ -27,7 +27,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
       <SectionShell className="w-full py-10 md:py-14">
         <div className="clarity-start-intro mb-8 grid gap-8 rounded-[2rem] border border-mk-line bg-mk-cream px-6 py-9 md:px-10 md:py-12 lg:grid-cols-[1fr_0.7fr] lg:items-end">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-mk-brassDark">Fraud Readiness Assessment</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-mk-brassDark">Fraud Readiness Assessment</p>
             <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-tight text-mk-ink md:text-5xl">Assess your organisation&rsquo;s fraud readiness.</h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-mk-muted">A short organisation profile shapes the assessment path, so your Snapshot reflects the control areas that matter to your operating environment.</p>
           </div>

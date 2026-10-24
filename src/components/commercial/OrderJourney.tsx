@@ -274,7 +274,7 @@ export function OrderJourney({
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   const steps = ['Confirm', 'Billing', 'Payment'];
   return (
-    <ol className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.14em]">
+    <ol className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.14em]">
       {steps.map((label, index) => {
         const position = index + 1;
         const state = position === step ? 'current' : position < step ? 'done' : 'todo';
@@ -417,7 +417,7 @@ function StepPayment({ order, copiedAll, onCopyAll, snapshotToken, visualReview 
         {copy.productLabel} · <span className="tabular-nums">{order.amountDisplay}</span> · Invoice requested: {order.invoiceRequested ? 'Yes' : 'No'}
       </p>
 
-      <p className="mt-6 text-[10px] uppercase tracking-[0.16em] text-mk-muted">Order reference</p>
+      <p className="mt-6 text-[12px] uppercase tracking-[0.16em] text-mk-muted">Order reference</p>
       <p className="mt-1 font-mono text-[22px] font-semibold tracking-tight text-mk-navy">{order.orderReference}</p>
       <p className="mt-3 max-w-[60ch] text-[15px] leading-7 text-mk-slate">
         Use {order.paymentReference} as your payment reference. It is how MK matches your payment to this assessment.
@@ -461,7 +461,7 @@ function StepPayment({ order, copiedAll, onCopyAll, snapshotToken, visualReview 
       <ol className="mt-9 grid gap-5 md:grid-cols-2">
         {copy.nextSteps.map((stepText, index) => (
           <li key={stepText} className="border-t border-mk-accent/40 pt-3">
-            <span className="text-[10px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
+            <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
             <p className="mt-1.5 text-sm leading-6 text-mk-slate">{stepText}</p>
           </li>
         ))}
@@ -484,7 +484,7 @@ function Field({
 }) {
   return (
     <label htmlFor={id} className="block">
-      <span className="text-[10px] uppercase tracking-[0.14em] text-mk-muted">{label}{required ? '' : ' (optional)'}</span>
+      <span className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}{required ? '' : ' (optional)'}</span>
       <input
         id={id}
         name={id}
@@ -505,7 +505,7 @@ function Field({
 function DetailRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
   return (
     <div className={`flex flex-wrap items-baseline justify-between gap-3 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}>
-      <dt className="text-[10px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold text-mk-navy">{value}</dd>
     </div>
   );
@@ -514,7 +514,7 @@ function DetailRow({ label, value, last = false }: { label: string; value: strin
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <dt className="text-[10px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
       <dd className="text-[13px] font-semibold text-mk-navy">{value}</dd>
     </div>
   );

@@ -75,15 +75,15 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
           />
         )}
         {displayed === null ? (
-          <text x="120" y="127" textAnchor="middle" fill={valueText} fontFamily="var(--font-poppins), sans-serif" fontWeight="600" fontSize="24">
+          <text x="120" y="127" textAnchor="middle" fill={valueText} fontFamily="var(--font-sans), sans-serif" fontWeight="600" fontSize="24">
             Not issued
           </text>
         ) : (
           <>
-            <text x="120" y="116" textAnchor="middle" fill={valueText} fontFamily="var(--font-poppins), sans-serif" fontWeight="600" fontSize="58" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <text x="120" y="116" textAnchor="middle" fill={valueText} fontFamily="var(--font-sans), sans-serif" fontWeight="600" fontSize="58" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {displayed}
             </text>
-            <text x="120" y="147" textAnchor="middle" fill={mutedText} fontFamily="var(--font-poppins), sans-serif" fontWeight="500" fontSize="16">
+            <text x="120" y="147" textAnchor="middle" fill={mutedText} fontFamily="var(--font-sans), sans-serif" fontWeight="500" fontSize="16">
               /100
             </text>
           </>

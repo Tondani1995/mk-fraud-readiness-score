@@ -20,7 +20,7 @@ export default function PublicAdvisoryEnquiryPage() {
         <section className="bg-[#001030]">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
             <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white/60">
                 MK Advisory
               </p>
               <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">

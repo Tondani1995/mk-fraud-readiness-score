@@ -109,13 +109,13 @@ export function AdvisoryEnquiryForm({
   if (success) {
     return (
       <section className="mx-auto max-w-[760px] px-[18px] py-12 md:px-6 md:py-16">
-        <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
+        <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
         <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[40px]">
           Thanks. MK has your request.
         </h1>
         <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate">{success.message}</p>
         <div className="mt-7 rounded-2xl border border-mk-line bg-mk-surface p-5">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-mk-muted">Your enquiry reference</p>
+          <p className="text-[12px] uppercase tracking-[0.16em] text-mk-muted">Your enquiry reference</p>
           <p className="mt-1.5 text-lg font-semibold tracking-wide text-mk-navy">{success.requestReference}</p>
         </div>
         <div className="mt-7 flex flex-wrap gap-3">
@@ -133,7 +133,7 @@ export function AdvisoryEnquiryForm({
   return (
     <section className="mx-auto max-w-[920px] px-[18px] py-10 md:px-6 md:py-16">
       <div className="max-w-[68ch]">
-        <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
+        <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
         <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[40px]">
           Talk to MK about your result
         </h1>
@@ -237,7 +237,7 @@ export function AdvisoryEnquiryForm({
 function ContextItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">{label}</p>
+      <p className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</p>
       <p className="mt-1 text-sm font-semibold text-mk-navy">{value}</p>
     </div>
   );

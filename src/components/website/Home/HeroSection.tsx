@@ -15,23 +15,13 @@ export default function HeroSection() {
         </div>
         <div className="hero-composition">
           <div className="hero-copy">
-            <p className="hero-index">01 / SEE WHAT MATTERS</p>
+            <p className="hero-index">01 / EXPOSURE. READINESS. DECISIONS.</p>
             <h1 id="home-hero-heading">
-              See the whole
-              <br />
-              <em>fraud picture.</em>
+              <span>Turn fraud readiness</span>
+              <span className="headline-emphasis">into a management decision.</span>
             </h1>
-            <p className="hero-description">
-              Where are you exposed?
-              <br />
-              Do your controls cover it?
-              <br />
-              <strong>What should you fix first?</strong>
-            </p>
-            <p className="hero-support">
-              MK brings your organisation’s fraud exposure into one clear
-              management view.
-            </p>
+            <p className="hero-description">Understand your fraud exposure. Evaluate whether your controls cover it. Decide what management should prioritise.</p>
+            <p className="hero-support">Specialist fraud risk advisory for South African organisations.</p>
             <div className="hero-actions">
               <CtaLink
                 href="/score/start"

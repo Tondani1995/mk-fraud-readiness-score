@@ -18,7 +18,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
           <p className="mt-3 text-lg font-medium leading-snug text-[#1d3658]">{capability.question}</p>
           <p className="mt-4 text-base leading-7 text-slate-600">{capability.summary}</p>
 
-          <h3 className="mt-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:mt-8">Typical situations</h3>
+          <h3 className="mt-6 text-[12px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:mt-8">Typical situations</h3>
           <ul className="mt-3 space-y-2.5">
             {capability.situations.map((situation) => (
               <li key={situation} className="flex gap-3 text-[15px] leading-6 text-[#001030]">
@@ -63,7 +63,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
           )}
 
           <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">What an engagement can produce</h3>
+            <h3 className="text-[12px] font-semibold uppercase tracking-[0.2em] text-slate-500">What an engagement can produce</h3>
             <ul className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
               {capability.outputs.map((output) => (
                 <li key={output} className="flex gap-3 text-[15px] leading-6 text-slate-700">

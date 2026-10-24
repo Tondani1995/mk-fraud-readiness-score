@@ -20,12 +20,12 @@ export function FraudReadinessStorefront() {
     : 'Scoped with MK';
 
   return (
-    <main className="clarity-storefront w-full overflow-hidden bg-[#f7f5f0] text-[#001030]" data-storefront>
+    <main className="clarity-storefront w-full overflow-hidden bg-[#f5f7fa] text-[#001030]" data-storefront>
       <section className="relative overflow-hidden bg-[#001030] text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_16%,rgba(169,212,206,0.16),transparent_34%),linear-gradient(115deg,rgba(255,255,255,0.05),transparent_48%)]" />
         <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-5 pb-12 pt-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,0.88fr)_minmax(440px,1.12fr)] lg:items-center lg:gap-16 lg:px-8 lg:py-20">
           <div className="min-w-0 max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">
               MK&apos;s flagship assessment
             </p>
             <h1 className="mt-4 max-w-[13ch] text-[2.15rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[4rem]">
@@ -55,7 +55,7 @@ export function FraudReadinessStorefront() {
         </div>
       </section>
 
-      <section className="border-b border-[#dfd8cb] bg-[#fbfaf7]">
+      <section className="border-b border-[#cbd5e1] bg-[#ffffff]">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-6 sm:py-12 md:grid-cols-3 lg:px-8 lg:py-16" data-assessment-journey>
           {[
             ['01', 'Diagnose', 'Start with a tailored assessment that asks only what is relevant to your organisation.'],
@@ -71,10 +71,10 @@ export function FraudReadinessStorefront() {
         </div>
       </section>
 
-      <section id="products" className="scroll-mt-24 bg-[#f7f5f0]">
+      <section id="products" className="scroll-mt-24 bg-[#f5f7fa]">
         <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Support ladder</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Support ladder</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">One result. Three ways to use it.</h2>
             <p className="mt-4 text-base leading-7 text-[#4f5d66]">The Snapshot is the starting point. The next product is chosen by the work you need the result to do.</p>
           </div>
@@ -98,7 +98,7 @@ export function FraudReadinessStorefront() {
               description={comprehensive.summary}
               features={[...comprehensive.includes].slice(0, 5)}
               featuredLabel="Deeper analysis"
-              action={<Button asChild size="lg" className="w-full rounded-xl bg-white text-[#001030] hover:bg-[#f4efe7]"><Link href="/score/start">Start with Comprehensive <ArrowRight className="h-4 w-4" /></Link></Button>}
+              action={<Button asChild size="lg" className="w-full rounded-xl bg-white text-[#001030] hover:bg-[#eef2f6]"><Link href="/score/start">Start with Comprehensive <ArrowRight className="h-4 w-4" /></Link></Button>}
             />
             <ProductTierCard
               tier="advisory"
@@ -117,10 +117,10 @@ export function FraudReadinessStorefront() {
 
       <MethodologyTrust />
 
-      <section id="start-score" className="border-t border-[#dfd8cb] bg-white" data-adaptive-assessment-entry="true">
+      <section id="start-score" className="border-t border-[#cbd5e1] bg-white" data-adaptive-assessment-entry="true">
         <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8 lg:py-20">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Start with the result</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Start with the result</p>
             <h2 className="mt-3 max-w-md text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-3xl">A tailored assessment before any report decision.</h2>
             <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
               <Button asChild size="lg" className="h-auto min-h-12 rounded-xl bg-[#001030] px-7 text-white hover:bg-[#12333c]"><Link href="/score/start">Start the assessment <ArrowRight className="h-4 w-4" /></Link></Button>
@@ -128,13 +128,13 @@ export function FraudReadinessStorefront() {
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[#dfd8cb] bg-[#f7f5f0] p-5">
+            <div className="rounded-2xl border border-[#cbd5e1] bg-[#f5f7fa] p-5">
               <LockKeyhole className="h-5 w-5 text-[#6f5537]" />
               <h3 className="mt-5 font-semibold">Private and practical</h3>
               <p className="mt-2 text-sm leading-6 text-[#4f5d66]">No account is required. Your result is available through a private link after submission.</p>
             </div>
-            <div className="rounded-2xl border border-[#dfd8cb] bg-[#f7f5f0] p-5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#001030] text-[10px] font-bold text-white">i</span>
+            <div className="rounded-2xl border border-[#cbd5e1] bg-[#f5f7fa] p-5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#001030] text-[12px] font-bold text-white">i</span>
               <h3 className="mt-5 font-semibold">Read the scope properly</h3>
               <p className="mt-2 text-sm leading-6 text-[#4f5d66]">The assessment analyses what was reported. It does not independently test evidence or provide an assurance opinion.</p>
             </div>

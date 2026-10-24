@@ -209,11 +209,11 @@ export function ProductChoice({
     <>
       <section ref={optionSectionRef} id="next-step" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">Your next step</p>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Your next step</p>
           <h2 className="mt-2.5 text-[22px] font-semibold tracking-tight text-mk-navy md:text-[28px]">How far do you want to take this?</h2>
 
           <div className="mt-5 border border-mk-accent/25 bg-mk-accent/[.06] px-4 py-3.5">
-            <p className="text-[9.5px] uppercase tracking-[0.14em] text-mk-accent">
+            <p className="text-[12px] uppercase tracking-[0.14em] text-mk-accent">
               {recommendation.speakToMkFirst ? 'Best next step for your result' : 'Best fit for your result'}
             </p>
             <p className="mt-1.5 max-w-[72ch] text-[13.5px] leading-6 text-mk-navy">

@@ -46,7 +46,7 @@ export default function AiFraudReadinessPage() {
             className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(169,212,206,0.14),transparent_42%)]"
           />
           <div className="relative mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-24">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">AI-enabled fraud</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">AI-enabled fraud</p>
             <h1
               id="ai-fraud-heading"
               className="mt-4 max-w-[19ch] text-[2.1rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.6rem]"
@@ -299,7 +299,7 @@ export default function AiFraudReadinessPage() {
 
         <section className="border-t border-slate-200 bg-white" aria-labelledby="ai-sources-heading">
           <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
-            <h2 id="ai-sources-heading" className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <h2 id="ai-sources-heading" className="text-[12px] font-semibold uppercase tracking-[0.2em] text-slate-500">
               Sources
             </h2>
             <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">

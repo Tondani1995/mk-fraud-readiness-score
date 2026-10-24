@@ -22,7 +22,7 @@ const readinessLinks = [
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50 sm:tracking-[0.2em]">{title}</h2>
+      <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50 sm:tracking-[0.2em]">{title}</h2>
       <ul className="mt-4 space-y-1">{children}</ul>
     </div>
   );

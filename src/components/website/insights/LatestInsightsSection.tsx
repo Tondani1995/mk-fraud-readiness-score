@@ -151,7 +151,7 @@ export default function LatestInsightsSection({
                                         className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-[#1d3658]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1d3658] sm:p-6"
                                     >
                                         {tag ? (
-                                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1d3658]">{tag}</span>
+                                            <span className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#1d3658]">{tag}</span>
                                         ) : null}
                                         <h3 className="mt-2 text-lg font-semibold leading-snug text-[#001030] group-hover:text-[#1d3658]">
                                             {insight.title.replace(/:\s*$/, "")}

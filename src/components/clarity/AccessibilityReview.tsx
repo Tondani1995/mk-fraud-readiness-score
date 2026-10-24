@@ -60,6 +60,54 @@ export function AccessibilityReview() {
       setResult({
         route,
         width,
+        layout: {
+          viewportWidth: doc.defaultView?.innerWidth,
+          scrollWidth: doc.documentElement.scrollWidth,
+          overflow: [...doc.querySelectorAll("main *")]
+            .filter((element) => {
+              const rect = element.getBoundingClientRect();
+              const style = doc.defaultView!.getComputedStyle(element);
+              return (
+                rect.width > 2 &&
+                rect.height > 2 &&
+                style.visibility !== "hidden" &&
+                !element.closest('[aria-hidden="true"],.sr-only') &&
+                (rect.right > doc.defaultView!.innerWidth + 2 || rect.left < -2)
+              );
+            })
+            .slice(0, 10)
+            .map((element) => ({
+              tag: element.tagName,
+              text: element.textContent?.slice(0, 70),
+            })),
+        },
+        typography: {
+          headingFont: doc.querySelector("h1")
+            ? doc.defaultView?.getComputedStyle(doc.querySelector("h1")!)
+                .fontFamily
+            : null,
+          smallVisibleText: [...doc.querySelectorAll("body *")]
+            .filter((element) => {
+              const style = doc.defaultView!.getComputedStyle(element);
+              const rect = element.getBoundingClientRect();
+              return (
+                rect.width > 2 &&
+                rect.height > 2 &&
+                style.visibility !== "hidden" &&
+                style.display !== "none" &&
+                !element.closest('[aria-hidden="true"],.sr-only') &&
+                [...element.childNodes].some(
+                  (node) => node.nodeType === 3 && node.textContent?.trim(),
+                ) &&
+                parseFloat(style.fontSize) < 12
+              );
+            })
+            .map((element) => ({
+              tag: element.tagName,
+              text: element.textContent?.slice(0, 80),
+              fontSize: doc.defaultView!.getComputedStyle(element).fontSize,
+            })),
+        },
         violations: report.violations.map((v) => ({
           id: v.id,
           impact: v.impact,
@@ -129,6 +177,7 @@ export function AccessibilityReview() {
         title="Page under review"
         style={{
           width: Number(width),
+          boxSizing: "content-box",
           height: 900,
           border: "1px solid #aaa",
           maxWidth: "none",

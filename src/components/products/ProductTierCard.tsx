@@ -28,13 +28,13 @@ const styles: Record<ProductTier, {
   badge?: string;
 }> = {
   essential: {
-    card: 'border-[#bdc9b8] bg-[#f4f7ef] text-[#001030]',
-    phase: 'text-[#526c4c]',
+    card: 'border-[#cbd5e1] bg-[#ffffff] text-[#001030]',
+    phase: 'text-[#475569]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
-    bullet: 'bg-[#5d7c54]',
-    featureBorder: 'border-[#bdc9b8]'
+    bullet: 'bg-[#1d3658]',
+    featureBorder: 'border-[#cbd5e1]'
   },
   comprehensive: {
     card: 'border-[#2e4666] bg-[#001030] text-white',
@@ -47,13 +47,13 @@ const styles: Record<ProductTier, {
     badge: 'bg-[#c8d9bf] text-[#001030]'
   },
   advisory: {
-    card: 'border-[#bdc9b8] bg-white text-[#001030]',
-    phase: 'text-[#526c4c]',
+    card: 'border-[#cbd5e1] bg-white text-[#001030]',
+    phase: 'text-[#475569]',
     title: 'text-[#001030]',
     body: 'text-[#4f5d66]',
     price: 'text-[#001030]',
-    bullet: 'bg-[#5d7c54]',
-    featureBorder: 'border-[#bdc9b8]'
+    bullet: 'bg-[#1d3658]',
+    featureBorder: 'border-[#cbd5e1]'
   }
 };
 
@@ -85,11 +85,11 @@ export function ProductTierCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${style.phase}`}>{phase}</p>
+          <p className={`text-[12px] font-bold uppercase tracking-[0.2em] ${style.phase}`}>{phase}</p>
           <p className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] ${style.body}`}>{label}</p>
           <h3 id={headingId} className={`mt-3 text-2xl font-semibold tracking-tight ${style.title}`}>{tagline}</h3>
         </div>
-        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#80613b]/25 bg-white/50 text-[#526c4c]'}`}>{featuredLabel}</span> : null}
+        {featuredLabel ? <span className={`rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.14em] ${style.badge ?? 'border border-[#475569]/25 bg-white/50 text-[#475569]'}`}>{featuredLabel}</span> : null}
       </div>
       {priceLabel ? <p className={`mt-6 text-lg font-semibold ${style.price}`}>{priceLabel}</p> : null}
       {description ? <p className={`mt-3 text-sm leading-6 ${style.body}`}>{description}</p> : null}

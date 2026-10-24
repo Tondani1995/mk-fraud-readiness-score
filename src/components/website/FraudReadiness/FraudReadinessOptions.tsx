@@ -35,17 +35,17 @@ export function FraudReadinessOptions() {
 
               <dl className="mt-6 space-y-4 border-t border-slate-200 pt-6">
                 <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">For</dt>
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">For</dt>
                   <dd className="mt-1.5 text-sm leading-6 text-slate-700">{card.forWho}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Outcome</dt>
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Outcome</dt>
                   <dd className="mt-1.5 text-sm leading-6 text-slate-700">{card.outcome}</dd>
                 </div>
               </dl>
 
               <div className="mt-6 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Included</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Included</p>
                 <ul className="mt-2.5 space-y-2">
                   {card.includes.map((item) => (
                     <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700">

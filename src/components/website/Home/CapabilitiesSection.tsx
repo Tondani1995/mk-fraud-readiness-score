@@ -15,7 +15,7 @@ export default function CapabilitiesSection() {
             <h2 id="home-capabilities-heading">
               The question comes first.
               <br />
-              <em>The right support follows.</em>
+              <span className="headline-emphasis">The right support follows.</span>
             </h2>
             <p>
               Four points of entry into a specialist advisory practice. Start

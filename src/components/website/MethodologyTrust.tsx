@@ -20,7 +20,7 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
           <div>
-            <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${dark ? 'text-[#a9d4ce]' : 'text-[#1d3658]'}`}>
+            <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${dark ? 'text-[#a9d4ce]' : 'text-[#1d3658]'}`}>
               How your result is produced
             </p>
             <h2 id="methodology-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-4xl">

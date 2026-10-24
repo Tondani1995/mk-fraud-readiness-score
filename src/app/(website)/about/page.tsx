@@ -29,7 +29,7 @@ export default function About() {
       <main className="bg-white">
         <section className="bg-[#001030] text-white" aria-labelledby="about-heading">
           <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-24">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">About MK Fraud Insights</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">About MK Fraud Insights</p>
             <h1 id="about-heading" className="mt-4 max-w-[18ch] text-[2.1rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.5rem]">
               Specialist fraud risk advice for organisations beyond the banks.
             </h1>

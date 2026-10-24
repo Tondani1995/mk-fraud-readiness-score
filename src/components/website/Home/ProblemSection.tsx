@@ -7,7 +7,7 @@ export default function ProblemSection() {
           <h2 id="home-problem-heading">
             A control can exist.
             <br />
-            <em>And a gap can remain.</em>
+            <span className="headline-emphasis">And a gap can remain.</span>
           </h2>
           <div className="problem-text">
             <p>

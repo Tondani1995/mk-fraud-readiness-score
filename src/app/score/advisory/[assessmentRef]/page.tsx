@@ -36,10 +36,10 @@ function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason:
   return (
     <ResultChrome assessmentReference={assessmentRef}>
       <section className="mx-auto max-w-[920px] px-[18px] py-16 md:px-6">
-        <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
+        <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
         <h1 className="mt-2.5 max-w-[20ch] text-[26px] font-semibold tracking-tight text-mk-navy md:text-[36px]">Private Snapshot link required</h1>
         <p className="mt-4 max-w-[60ch] text-base leading-7 text-mk-slate">{accessMessage(reason)}</p>
-        <p className="mt-6 text-[11px] uppercase tracking-[0.14em] text-mk-muted">Assessment reference · {assessmentRef}</p>
+        <p className="mt-6 text-[12px] uppercase tracking-[0.14em] text-mk-muted">Assessment reference · {assessmentRef}</p>
       </section>
       <ResultFooter assessmentReference={assessmentRef} />
     </ResultChrome>

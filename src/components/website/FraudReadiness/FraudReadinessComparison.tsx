@@ -39,7 +39,7 @@ export function FraudReadinessComparison() {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="w-[22%] border-b border-slate-300 pb-3 pr-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <th scope="col" className="w-[22%] border-b border-slate-300 pb-3 pr-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <span className="sr-only">Dimension</span>
               </th>
               {COLUMNS.map((column) => (
@@ -84,7 +84,7 @@ export function FraudReadinessComparison() {
             <dl className="mt-3 space-y-3">
               {COLUMNS.map((column) => (
                 <div key={column.key}>
-                  <dt className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {column.label}
                   </dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-700">{row[column.key]}</dd>

@@ -15,7 +15,7 @@ export default function FraudReadinessSection() {
     <section id="fraud-readiness" className="clarity-readiness scroll-mt-20 bg-[#0b2631] text-white" aria-labelledby="home-fraud-readiness-heading">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-16 lg:px-8 lg:py-28">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Flagship assessment</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Flagship assessment</p>
           <h2
             id="home-fraud-readiness-heading"
             className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-4xl lg:text-[2.6rem]"

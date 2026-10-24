@@ -30,9 +30,9 @@ export default function ReportIdentity() {
         <div className="report-cover-title">
           <p>FRAUD READINESS</p>
           <h1>
-            A clearer view.
+            Fraud readiness.
             <br />
-            <em>A considered response.</em>
+            <span className="headline-emphasis">A management perspective.</span>
           </h1>
           <p>Representative report identity</p>
         </div>
@@ -63,7 +63,7 @@ export default function ReportIdentity() {
         <h2>
           Read the position.
           <br />
-          <em>Understand the implication.</em>
+          <span className="headline-emphasis">Understand the implication.</span>
         </h2>
         <div className="report-summary-grid">
           <div>

@@ -96,7 +96,7 @@ export function SnapshotResult({
               key={fact.label}
               className={`px-[18px] py-3 md:px-5 ${index % 2 === 1 ? '' : 'border-r border-mk-line'} ${index < 2 ? 'border-b md:border-b-0' : ''} border-mk-line md:border-r md:last:border-r-0`}
             >
-              <p className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">{fact.label}</p>
+              <p className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{fact.label}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums text-mk-navy">{fact.value}</p>
             </div>
           ))}
@@ -116,7 +116,7 @@ export function SnapshotResult({
       >
         <div className="mx-auto grid max-w-[1120px] gap-8 px-[18px] py-12 md:grid-cols-12 md:px-6 md:py-16">
           <div className="md:col-span-7">
-            <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">What this means</p>
+            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this means</p>
             <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
               {meaningHeading(snapshot)}
             </h2>
@@ -125,7 +125,7 @@ export function SnapshotResult({
             {fairness ? <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p> : null}
             {limitationReasons.length > 0 ? (
               <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
-                <p className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Why this result is provisional</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Why this result is provisional</p>
                 <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
                   {limitationReasons.map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
@@ -152,7 +152,7 @@ export function SnapshotResult({
 
       <section id="attention" className="scroll-mt-28 border-b border-mk-line bg-mk-surface">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">What needs attention</p>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What needs attention</p>
           <h2 className="mt-2.5 text-[22px] font-semibold tracking-tight text-mk-navy md:text-[28px]">What stood out in your responses.</h2>
           <div className="mt-8 grid gap-8 md:grid-cols-3 md:gap-0">
             <AttentionColumn label="Your clearest foundation">
@@ -177,7 +177,7 @@ export function SnapshotResult({
 
       <section id="covers" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">What this Snapshot covers</p>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this Snapshot covers</p>
           <h2 className="mt-2.5 max-w-[26ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
             {INVENTORY_HEADING}
           </h2>
@@ -189,10 +189,10 @@ export function SnapshotResult({
                 <caption className="sr-only">{INVENTORY_TABLE_LABEL}</caption>
                 <thead>
                   <tr>
-                    <th scope="col" className="border-y border-mk-line py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
+                    <th scope="col" className="border-y border-mk-line py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
                       {INVENTORY_TABLE_LABEL}
                     </th>
-                    <th scope="col" className="border-y border-mk-line py-2.5 text-right text-[9.5px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
+                    <th scope="col" className="border-y border-mk-line py-2.5 text-right text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
                       Gaps
                     </th>
                   </tr>
@@ -215,7 +215,7 @@ export function SnapshotResult({
       {pairing ? (
         <section aria-label="Worth noting" className="border-b border-mk-line bg-mk-surface">
           <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6 md:py-12">
-            <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
+            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
             <p className="mt-3 max-w-[64ch] text-base leading-8 text-mk-navy">
               Your strongest recorded area, <strong className="font-semibold">{pairing.strongestDomainName}</strong>, sits directly against your weakest,{' '}
               <strong className="font-semibold">{pairing.weakestDomainName}</strong>. Fraud rarely tests a control in isolation; it operates where a strong
@@ -234,11 +234,11 @@ export function SnapshotResult({
 
       <section aria-label="What happens after you order" className="border-b border-mk-line bg-mk-surface">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-14">
-          <p className="text-[9.5px] uppercase tracking-[0.2em] text-mk-accent">What happens after you order</p>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What happens after you order</p>
           <ol className="mt-6 grid gap-6 md:grid-cols-4">
             {WHAT_HAPPENS_NEXT.map((step, index) => (
               <li key={step} className="border-t border-mk-accent/40 pt-3">
-                <span className="text-[10px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
+                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
                 <p className="mt-1.5 text-sm leading-6 text-mk-slate">{step}</p>
               </li>
             ))}
@@ -250,7 +250,7 @@ export function SnapshotResult({
       <section id="methodology" className="scroll-mt-28 bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6">
           <details className="border border-mk-line">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
               Methodology, scope and privacy
             </summary>
             <div className="flex flex-col gap-3 border-t border-mk-line px-4 py-4">
@@ -285,7 +285,7 @@ function VerdictHero({
           {/* Mobile puts the gauge first: on a small screen the number is the hook, and there
               is no F-pattern to respect. Desktop reads the headline first. */}
           <div className="md:order-2 md:col-span-5">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-white/[.72] md:hidden">Your result: {snapshot.organisationName}</p>
+            <p className="text-[12px] uppercase tracking-[0.2em] text-white/[.72] md:hidden">Your result: {snapshot.organisationName}</p>
             <div className="mt-3 md:mt-0">
               <ScoreGauge score={snapshot.overallScore} band={snapshot.finalMaturity} size="mobile" />
             </div>
@@ -293,7 +293,7 @@ function VerdictHero({
           </div>
 
           <div className="md:order-1 md:col-span-7">
-            <p className="hidden text-[10px] uppercase tracking-[0.2em] text-white/[.72] md:block">Your result: {snapshot.organisationName}</p>
+            <p className="hidden text-[12px] uppercase tracking-[0.2em] text-white/[.72] md:block">Your result: {snapshot.organisationName}</p>
             <h1 className="mt-3 max-w-[22ch] text-[25px] font-semibold leading-[1.16] tracking-tight text-white md:mt-3 md:text-[40px] md:leading-[1.14]">
               {narrative.headline}
             </h1>
@@ -301,7 +301,7 @@ function VerdictHero({
               {narrative.executiveDiagnosis}
             </p>
             <div aria-hidden="true" className="mt-5 h-px w-[120px] bg-white/[.22] md:mt-6" />
-            <p className="mt-3 text-[11px] leading-[1.65] text-white/[.62]">
+            <p className="mt-3 text-[12px] leading-[1.65] text-white/[.62]">
               MK Fraud Readiness Score{methodologyLabel ? ` · ${methodologyLabel}` : ''}
               <br />
               Self-assessment{scoredAt ? ` · completed ${scoredAt}` : ''}
@@ -330,7 +330,7 @@ function VerdictHero({
 function CountRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-4 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}>
-      <dt className="text-[10px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold tabular-nums text-mk-navy">{value}</dd>
     </div>
   );
@@ -339,7 +339,7 @@ function CountRow({ label, value, last = false }: { label: string; value: string
 function AttentionColumn({ label, children, divided = false }: { label: string; children: ReactNode; divided?: boolean }) {
   return (
     <div className={divided ? 'md:border-l md:border-mk-line md:pl-8' : 'md:pr-8'}>
-      <h3 className="text-[9px] uppercase tracking-[0.14em] text-mk-muted">{label}</h3>
+      <h3 className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</h3>
       <div className="mt-3">{children}</div>
     </div>
   );
@@ -382,7 +382,7 @@ function SectionRail() {
       className={`sticky top-0 z-30 hidden border-b border-mk-line bg-mk-paper transition-opacity md:block ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
     >
       <div className="mx-auto flex h-11 max-w-[1120px] items-center justify-between gap-4 px-6">
-        <ul className="flex gap-5 text-[11.5px] font-medium">
+        <ul className="flex gap-5 text-[12px] font-medium">
           {SECTIONS.map((section) => (
             <li key={section.id}>
               <a
@@ -399,7 +399,7 @@ function SectionRail() {
             </li>
           ))}
         </ul>
-        <a href="#next-step" className="whitespace-nowrap text-[11.5px] font-semibold text-mk-accent hover:underline">
+        <a href="#next-step" className="whitespace-nowrap text-[12px] font-semibold text-mk-accent hover:underline">
           Compare next steps →
         </a>
       </div>
