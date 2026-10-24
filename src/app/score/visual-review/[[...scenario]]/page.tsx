@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { buildDeterministicSnapshotNarrative } from '@/lib/snapshot/narrative';
+import { buildCalculatedSnapshotFixture, CALCULATED_VARIANTS, type CalculatedVariant } from '@/lib/visual-review/calculated-fixtures';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { AdaptiveAssessmentExperience } from '@/components/adaptive/AdaptiveAssessmentExperience';
@@ -23,6 +26,7 @@ export const revalidate = 0;
 
 type VisualReviewScenario =
   | { kind: 'index' }
+  | { kind: 'calculated'; variant: CalculatedVariant }
   | { kind: 'adaptive'; variant: AdaptiveVisualReviewVariant }
   | { kind: 'snapshot'; variant: SnapshotVisualReviewVariant }
   | { kind: 'order'; tier: 'essential' | 'comprehensive'; step: 1 | 2 | 3; invoiceRequested: boolean | null };
@@ -40,6 +44,7 @@ function visualReviewAllowed() {
 
 function parseScenario(parts: string[] | undefined): VisualReviewScenario | null {
   if (!parts?.length) return { kind: 'index' };
+  if (parts[0] === 'calculated' && parts.length === 2 && CALCULATED_VARIANTS.includes(parts[1] as CalculatedVariant)) return { kind: 'calculated', variant: parts[1] as CalculatedVariant };
 
   if (parts[0] === 'adaptive' && parts.length === 2 && ['early', 'mid', 'late', 'review', 'submitted'].includes(parts[1])) {
     return { kind: 'adaptive', variant: parts[1] as AdaptiveVisualReviewVariant };
@@ -80,6 +85,7 @@ function ReviewFrame({ kind, title, children }: { kind: string; title: string; c
 
 function IndexPage() {
   const links = [
+    ...CALCULATED_VARIANTS.map((variant) => [`Engine calculated · ${variant}`, `/score/visual-review/calculated/${variant}`]),
     ['Adaptive · early', '/score/visual-review/adaptive/early'],
     ['Adaptive · mid', '/score/visual-review/adaptive/mid'],
     ['Adaptive · late', '/score/visual-review/adaptive/late'],
@@ -137,17 +143,19 @@ function AdaptiveReview({ variant }: { variant: AdaptiveVisualReviewVariant }) {
   );
 }
 
-function SnapshotReview({ variant }: { variant: SnapshotVisualReviewVariant }) {
-  const snapshot = buildSnapshotVisualReviewFixture(variant);
-  const title = snapshotVisualReviewTitle(variant);
+function SnapshotReview({ variant, calculated = false }: { variant: SnapshotVisualReviewVariant | CalculatedVariant; calculated?: boolean }) {
+  const snapshot = calculated ? buildCalculatedSnapshotFixture(variant as CalculatedVariant) : buildSnapshotVisualReviewFixture(variant as SnapshotVisualReviewVariant);
+  const title = calculated ? `Engine calculated · ${variant} · existing V1.2 candidate graph / G27 test adapter` : `${snapshotVisualReviewTitle(variant as SnapshotVisualReviewVariant)} · hand-composed layout sample, not engine reconciled`;
   const insights = buildCommercialSnapshotInsights(snapshot);
   return (
     <ReviewFrame kind={`snapshot-${variant}`} title={title}>
+      {!calculated && <p className="mx-auto max-w-[1120px] px-[18px] py-4 text-sm leading-6 text-mk-slate">Layout sample only: totals, bands and percentages were composed independently and must not be used as scoring evidence. <Link className="underline" href="/score/visual-review/calculated/partial-coverage">Compare an engine-calculated coverage example</Link>.</p>}
       <ResultChrome assessmentReference={snapshot.assessmentReference} resultUrl={null}>
         <SnapshotResult
           snapshot={snapshot}
           snapshotUrl={null}
           commercialInsights={insights}
+          snapshotNarrative={buildDeterministicSnapshotNarrative({ snapshot, insights })}
           methodologyLabel="MK Fraud Readiness Methodology"
           visualReview
         />
@@ -196,6 +204,7 @@ export default async function VisualReviewPage({ params }: VisualReviewPageProps
   if (!scenario) notFound();
   if (scenario.kind === 'index') return <IndexPage />;
   if (scenario.kind === 'adaptive') return <AdaptiveReview variant={scenario.variant} />;
+  if (scenario.kind === 'calculated') return <SnapshotReview variant={scenario.variant} calculated />;
   if (scenario.kind === 'snapshot') return <SnapshotReview variant={scenario.variant} />;
   return <OrderReview tier={scenario.tier} step={scenario.step} invoiceRequested={scenario.invoiceRequested} />;
 }

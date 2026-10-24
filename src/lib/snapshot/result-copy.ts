@@ -40,8 +40,8 @@ export function tensionLine(snapshot: FreeSnapshot): string {
   if (snapshot.capApplied) {
     const calculated = snapshot.calculatedMaturity;
     return calculated
-      ? `Calculated as ${calculated}, capped at ${snapshot.finalMaturity} by a critical-control gap.`
-      : `Capped at ${Math.round(snapshot.overallScore)} by a critical-control gap.`;
+      ? `Calculated as ${calculated}, capped at ${snapshot.finalMaturity} by the recorded maturity rules.`
+      : 'The recorded maturity rules lowered the maturity band.';
   }
   if (snapshot.criticalGapCount > 0) {
     return `${snapshot.criticalGapCount} critical-control ${plural(snapshot.criticalGapCount, 'gap')} and ${snapshot.majorGapCount} major ${plural(snapshot.majorGapCount, 'gap')} recorded.`;
@@ -57,7 +57,7 @@ export function meaningHeading(snapshot: FreeSnapshot): string {
   if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
     return 'Too much of this assessment is unconfirmed to read as a position.';
   }
-  if (snapshot.capApplied) return 'One weakness is holding your result down.';
+  if (snapshot.capApplied) return 'Maturity rules have lowered the recorded band.';
   if (snapshot.criticalGapCount >= 3) {
     return `${snapshot.criticalGapCount} recorded critical-control gaps need management attention.`;
   }

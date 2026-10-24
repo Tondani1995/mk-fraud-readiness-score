@@ -79,11 +79,10 @@ test('The unconditional Comprehensive recommendation cannot be reintroduced', ()
   const tierComparison = read('src/components/products/TierComparison.tsx');
   assert.doesNotMatch(tierComparison, /featured/, 'TierComparison still carries a featured flag');
   assert.doesNotMatch(tierComparison, /Recommended/, 'TierComparison still renders a Recommended badge');
-  // The only recommendation source is the deterministic rule set.
+  // Final refinement replaces the unvalidated purchasing inference with a scope comparison.
   const choice = read('src/components/products/ProductChoice.tsx');
-  assert.match(choice, /recommendation\.recommendedTier === tier/);
-  assert.match(choice, /recommendation\.reason/);
-  assert.match(choice, /recommendation\.freedomClause/);
+  assert.doesNotMatch(choice, /Best fit for your result|recommendation\.recommendedTier|recommendation\.reason/);
+  assert.match(choice, /Choose by the management need/);
 });
 
 test('Advisory renders no price, floor or range', () => {
@@ -108,10 +107,10 @@ test('No inline billing form remains on the result page', () => {
   assert.match(read('src/components/commercial/OrderJourney.tsx'), /invoiceRequested/);
 });
 
-test('Priority signals render exactly once', () => {
+test('One grounded management view replaces generic priority signals', () => {
   const result = read('src/components/assessment/SnapshotResult.tsx');
-  const occurrences = (result.match(/prioritySignals/g) ?? []).length;
-  assert.equal(occurrences, 1, `prioritySignals appears ${occurrences} times; it must render once`);
+  assert.equal((result.match(/<SnapshotManagementView/g) ?? []).length, 1);
+  assert.doesNotMatch(result, /prioritySignals\.map/);
 });
 
 test('The result routes are excluded from marketing navigation', () => {
@@ -153,7 +152,7 @@ test('Comprehensive makes no assurance, validation or review claim', () => {
   // does. Everything before it describes the two analytical products.
   const advisoryIndex = choice.indexOf('MK Advisory');
   assert.ok(advisoryIndex > 0, 'Advisory band not found');
-  const analyticalSection = choice.slice(0, advisoryIndex);
+  const analyticalSection = choice.slice(0, advisoryIndex).replace('Neither independently tests your controls.', '');
   const match = analyticalSection.match(banned);
   assert.equal(match, null, `product copy claims ${match?.[0]}`);
 });

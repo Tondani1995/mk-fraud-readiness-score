@@ -62,7 +62,8 @@ function SubmissionProcessingCard({ assessmentReference }: { assessmentReference
   );
 }
 
-export function AdaptiveAssessmentExperience({ assessmentReference, token, initialState, visualReview = false }: { assessmentReference: string; token: string; initialState: AdaptiveState; visualReview?: boolean }) {
+export function AdaptiveAssessmentExperience({ assessmentReference, token, initialState, visualReview = false, reviewTransport }: { assessmentReference: string; token: string; initialState: AdaptiveState; visualReview?: boolean; /** Only honoured in visual review; normal routes always use fetch. */ reviewTransport?: typeof fetch }) {
+  const request = visualReview && reviewTransport ? reviewTransport : fetch;
   const [state, setState] = useState<AdaptiveState>(initialState);
   const [gatewayAnswers, setGatewayAnswers] = useState<Record<string, string>>(initialState.gatewayAnswers ?? {});
   const [controlResponses, setControlResponses] = useState<Record<string, any>>(initialState.controlResponses ?? {});
@@ -114,12 +115,12 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const progressLabel = assessmentProgressLabel(completedApplicableCount, activePathCount, applicabilityResolved);
 
   const reload = useCallback(async () => {
-    if (visualReview) {
+    if (visualReview && !reviewTransport) {
       setMessage('This is a deterministic visual-review fixture. No assessment data is saved.');
       return;
     }
     try {
-      const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state?token=${encodeURIComponent(token)}`);
+      const response = await request(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state?token=${encodeURIComponent(token)}`);
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.ok) throw new Error('reload_failed');
       setState(body.state);
@@ -130,11 +131,13 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       setVisited(body.state.navigation?.visited_question_ids ?? []);
       setSaveState('saved');
       setMessage(null);
+      return true;
     } catch {
       setSaveState('error');
       setMessage('The saved assessment could not be reloaded. Please try again.');
+      return false;
     }
-  }, [assessmentReference, token, visualReview]);
+  }, [assessmentReference, token, visualReview, reviewTransport, request]);
 
   useEffect(() => { headingRef.current?.focus(); }, [currentId, screen]);
 
@@ -197,7 +200,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     confirmGatewayChange = false
   ) {
     if (savingRef.current) return false;
-    if (visualReview) {
+    if (visualReview && !reviewTransport) {
       setMessage('This is a deterministic visual-review fixture. No assessment data is saved.');
       return false;
     }
@@ -215,7 +218,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     setMessage(null);
 
     try {
-      const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state`, {
+      const response = await request(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +244,8 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
         setSaveState('error');
         setMessage('This assessment was updated in another tab. Reloading the current saved state.');
         pendingWriteRef.current = null;
-        await reload();
+        const reloaded = await reload();
+        if (reloaded) setMessage('Another tab updated this assessment. The current saved answers have been reloaded; your unsaved selection was not applied. Review the answer before continuing.');
         return false;
       }
       if (!response.ok || !body.ok) {
@@ -306,7 +310,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     setSaveState('saving');
     setMessage(null);
     try {
-      const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/submit`, {
+      const response = await request(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, expectedSaveSequence: Number(state.navigation.save_sequence) })
@@ -371,6 +375,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-sm leading-6 text-mk-muted">Your responses have been recorded. Review the areas included below, edit an answer if needed, and submit when you are ready.</p>
+        {visualReview && message ? <p role="status" className="text-sm leading-6 text-mk-muted">{message}</p> : null}
         {submissionState === 'error' && message ? (
           <div role="alert" className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
             <p>{message}</p>
@@ -432,6 +437,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
         </CardHeader>
         <CardContent className="space-y-5">
           {currentNode.guidance ? <details className="rounded-xl border border-mk-line bg-mk-paper p-4"><summary className="cursor-pointer text-sm font-semibold text-mk-ink">Examples of evidence that may support your answer</summary><p className="mt-3 text-sm leading-6 text-mk-muted">{currentNode.guidance.goodEvidenceLooksLike}</p><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-mk-muted">{currentNode.guidance.exampleArtifacts.map((item: string) => <li key={item}>{item}</li>)}</ul>{currentNode.guidance.likelyEvidenceOwner ? <p className="mt-3 text-xs text-mk-muted">Who may hold this evidence: {currentNode.guidance.likelyEvidenceOwner}</p> : null}</details> : null}
+          <p className="text-sm leading-6 text-mk-muted">Selecting an answer saves it and moves to the next question. Use Back to revise a saved answer.</p>
           {gateway ? <fieldset><legend className="sr-only">Choose an answer for {label(currentNode.prompt)}</legend><div className="grid gap-3 sm:grid-cols-2">{gateway.responseOptions.map((option: any) => <label key={option.value} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-4 text-sm transition-colors ${gatewayAnswers[gateway.questionId] === option.value ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={gateway.questionId} value={option.value} checked={gatewayAnswers[gateway.questionId] === option.value} onChange={() => void chooseGateway(currentNode, option.value)} disabled={saving} /><span>{label(option.label)}</span></label>)}</div></fieldset> : <fieldset><legend className="sr-only">Choose a maturity response for {label(currentNode.prompt)}</legend><div className="grid gap-3 sm:grid-cols-2">{state.responseScale.map((option: any) => <label key={option.responseValue} className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition-colors ${response?.responseState === 'maturity' && response.responseValue === option.responseValue ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={currentNode.nodeId} checked={response?.responseState === 'maturity' && response.responseValue === option.responseValue} onChange={() => void chooseControl(currentNode, { responseState: 'maturity', responseValue: option.responseValue })} disabled={saving} /><span><span className="block">{label(option.label)}</span><span className="mt-1 block text-xs font-normal text-mk-muted">{label(option.operationalMeaning ?? '')}</span></span></label>)}<label className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition-colors ${response?.responseState === 'unknown' ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={currentNode.nodeId} checked={response?.responseState === 'unknown'} onChange={() => void chooseControl(currentNode, { responseState: 'unknown', responseValue: null })} disabled={saving} /><span><span className="block">I do not know</span><span className="mt-1 block text-xs font-normal text-mk-muted">This remains an applicable response and is recorded as uncertainty.</span></span></label></div></fieldset>}
           <div className="flex items-center justify-start border-t border-mk-line pt-5">
             <Button type="button" variant="secondary" disabled={!previousNode || saving} onClick={() => { if (previousNode) { setCurrentId(previousNode.nodeId); setScreen(previousNode.kind === 'gateway' ? 'gateway' : 'question'); setMessage(null); } }}>Back</Button>

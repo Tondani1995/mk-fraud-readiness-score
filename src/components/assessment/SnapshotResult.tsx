@@ -1,5 +1,6 @@
 'use client';
 
+import { SnapshotManagementView } from '@/components/clarity/SnapshotManagementView';
 import { DomainReadinessMap } from '@/components/clarity/DomainReadinessMap';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -29,8 +30,8 @@ const SCORE_BASE_PATH = '/score';
 
 const SECTIONS = [
   { id: 'position', label: 'Your position' },
-  { id: 'meaning', label: 'What this means' },
   { id: 'attention', label: 'What needs attention' },
+  { id: 'meaning', label: 'What this means' },
   { id: 'next-step', label: 'Your next step' }
 ] as const;
 
@@ -103,7 +104,9 @@ export function SnapshotResult({
         </div>
       </section>
 
+      {snapshot.adaptiveMetrics && <div className="mx-auto max-w-[1120px] px-[18px] py-4 text-sm leading-6 text-mk-slate md:px-6">Assessment coverage counts answered applicable controls. Control visibility measures known responses by weight. Domain scoring-base coverage below uses a different denominator; 100% there does not mean every control was answered or verified. <a className="underline" href="#coverage-definitions">Read coverage definitions</a>.</div>}
       <SectionRail />
+      <SnapshotManagementView snapshot={snapshot} insights={commercialInsights} />
       <DomainReadinessMap snapshot={snapshot} />
 
       <TrackedSection
@@ -120,12 +123,12 @@ export function SnapshotResult({
             <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
               {meaningHeading(snapshot)}
             </h2>
-            <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">{commercialInsights.riskImplication}</p>
+            <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">{snapshot.capApplied ? `The recorded score corresponds to ${snapshot.calculatedMaturity}; maturity rules lowered the band to ${snapshot.finalMaturity}. The cap changes the maturity band, not the numeric score. Review the recorded critical-control gaps and domain results before relying on the overall position.` : commercialInsights.riskImplication}</p>
             <div aria-hidden="true" className="mt-6 h-px w-[120px] bg-mk-accent/40" />
             {fairness ? <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p> : null}
             {limitationReasons.length > 0 ? (
               <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Why this result is provisional</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Limits on this result</p>
                 <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
                   {limitationReasons.map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
@@ -146,34 +149,10 @@ export function SnapshotResult({
               <CountRow label="Critical-control gaps" value={String(snapshot.criticalGapCount)} />
               <CountRow label="Major gaps" value={String(snapshot.majorGapCount)} last />
             </dl>
+            <p className="mt-3 text-xs leading-6 text-mk-muted">A control can carry both gap classifications. These counts must not be added into a unique total.</p>
           </div>
         </div>
       </TrackedSection>
-
-      <section id="attention" className="scroll-mt-28 border-b border-mk-line bg-mk-surface">
-        <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What needs attention</p>
-          <h2 className="mt-2.5 text-[22px] font-semibold tracking-tight text-mk-navy md:text-[28px]">What stood out in your responses.</h2>
-          <div className="mt-8 grid gap-8 md:grid-cols-3 md:gap-0">
-            <AttentionColumn label="Your clearest foundation">
-              <p className="text-[15px] leading-7 text-mk-slate">{narrative.strength}</p>
-            </AttentionColumn>
-            <AttentionColumn label="Needs attention first" divided>
-              <ul className="flex flex-col gap-3">
-                {narrative.prioritySignals.map((signal) => (
-                  <li key={signal} className="flex gap-3 text-[15px] leading-7 text-mk-slate">
-                    <span aria-hidden="true" className="mt-3 h-px w-2 shrink-0 bg-mk-accent" />
-                    <span>{signal}</span>
-                  </li>
-                ))}
-              </ul>
-            </AttentionColumn>
-            <AttentionColumn label="For leadership" divided>
-              <p className="text-[15px] leading-7 text-mk-slate">{narrative.managementImplication}</p>
-            </AttentionColumn>
-          </div>
-        </div>
-      </section>
 
       <section id="covers" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
@@ -217,9 +196,8 @@ export function SnapshotResult({
           <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6 md:py-12">
             <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
             <p className="mt-3 max-w-[64ch] text-base leading-8 text-mk-navy">
-              Your strongest recorded area, <strong className="font-semibold">{pairing.strongestDomainName}</strong>, sits directly against your weakest,{' '}
-              <strong className="font-semibold">{pairing.weakestDomainName}</strong>. Fraud rarely tests a control in isolation; it operates where a strong
-              control hands over to a weak one. Both detailed reports analyse that pairing.
+              Your strongest recorded area, <strong className="font-semibold">{pairing.strongestDomainName}</strong>, has a higher recorded score than your weakest,{' '}
+              <strong className="font-semibold">{pairing.weakestDomainName}</strong>. This is a comparison of recorded scores. The assessment does not establish that these areas are operationally adjacent or that one control depends on the other.
             </p>
           </div>
         </section>
@@ -308,7 +286,7 @@ function VerdictHero({
             </p>
             <div className="mt-5 flex flex-wrap gap-2.5 md:mt-6">
               <a
-                href="#meaning"
+                href="#attention"
                 className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-mk-navy sm:w-auto"
               >
                 See what needs attention
@@ -332,15 +310,6 @@ function CountRow({ label, value, last = false }: { label: string; value: string
     <div className={`flex items-baseline justify-between gap-4 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}>
       <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold tabular-nums text-mk-navy">{value}</dd>
-    </div>
-  );
-}
-
-function AttentionColumn({ label, children, divided = false }: { label: string; children: ReactNode; divided?: boolean }) {
-  return (
-    <div className={divided ? 'md:border-l md:border-mk-line md:pl-8' : 'md:pr-8'}>
-      <h3 className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</h3>
-      <div className="mt-3">{children}</div>
     </div>
   );
 }
@@ -441,7 +410,7 @@ function MobileActionBar() {
   if (state === 'hidden') return null;
 
   return (
-    <div className="sticky bottom-0 z-30 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] md:hidden">
       <a
         href="#next-step"
         className="flex min-h-14 items-center justify-center bg-mk-navy px-4 text-[13.5px] font-semibold text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"

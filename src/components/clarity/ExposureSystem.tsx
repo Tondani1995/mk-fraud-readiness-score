@@ -72,7 +72,7 @@ export function ExposureSystem() {
           <p>{stages[stage].body}</p>
         </div>
       </div>
-      <div className="system-selector" aria-label="Explore the MK method">
+      <div className="system-selector" role="group" aria-label="Explore the MK method">
         {stages.map((s, i) => (
           <button
             key={s.name}

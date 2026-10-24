@@ -324,7 +324,9 @@ function defensiveDomainContent(domain: FreeSnapshotDomain): DomainContent {
 }
 
 function contentFor(domain: FreeSnapshotDomain) {
-  return DOMAIN_CONTENT_BY_CODE[domain.domainCode] ?? defensiveDomainContent(domain);
+  const content = DOMAIN_CONTENT_BY_CODE[domain.domainCode];
+  // Historical methodologies can reuse a code for a different domain. Never transfer its interpretation.
+  return content && content.name === domain.domainName ? content : defensiveDomainContent(domain);
 }
 
 function toInsight(domain: FreeSnapshotDomain): CommercialDomainInsight {

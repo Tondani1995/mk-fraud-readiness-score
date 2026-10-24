@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MATURITY_BANDS, MATURITY_BAND_SHORT } from '@/lib/snapshot/result-copy';
 
 type ScoreGaugeProps = {
   score: number | null;
@@ -49,10 +48,10 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
   }, [score, target]);
 
   const sizeClass = size === 'mobile' ? 'max-w-[220px]' : 'max-w-[270px]';
-  const track = isDark ? 'rgba(255,255,255,.16)' : '#d8d0c2';
+  const track = isDark ? 'rgba(255,255,255,.16)' : '#e2e8f0';
   const valueStroke = isDark ? '#ffffff' : '#001030';
   const valueText = isDark ? '#ffffff' : '#001030';
-  const mutedText = isDark ? 'rgba(255,255,255,.62)' : '#667085';
+  const mutedText = isDark ? 'rgba(255,255,255,.62)' : '#47515a';
 
   return (
     <div className="text-center" data-score-gauge data-score-gauge-value={score === null ? 'not-issued' : Math.round(score)}>
@@ -90,7 +89,7 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
         )}
       </svg>
       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: mutedText }}>
-        {band ?? 'Result status'}
+        {band ?? 'Not issued'}
       </p>
     </div>
   );

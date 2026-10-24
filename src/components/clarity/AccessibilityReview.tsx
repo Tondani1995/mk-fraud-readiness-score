@@ -7,7 +7,9 @@ const routes = [
   "/fraud-readiness/advisory",
   "/score/start",
   "/score/visual-review/adaptive/mid",
+  "/design-review/interaction",
   "/score/visual-review/snapshot/score-60",
+  ...["mixed-controls", "critical-controls", "strong-controls", "partial-coverage", "visibility-limited"].map((variant) => `/score/visual-review/calculated/${variant}`),
   "/score/visual-review/snapshot/insufficient-visibility",
   "/score/visual-review/order/essential/billing-invoice",
   "/design-review/states",
@@ -51,6 +53,19 @@ export function AccessibilityReview() {
           axe: typeof import("axe-core");
         }
       ).axe;
+      function contrastEvidence(target: unknown[]) {
+        try {
+          if (target.some((part) => typeof part !== 'string')) return null;
+          const element = doc!.querySelector(target.join(' '));
+          const ancestors = [];
+          for (let node = element, depth = 0; node && depth < 8; node = node.parentElement, depth++) {
+            const style = doc!.defaultView!.getComputedStyle(node);
+            const before = doc!.defaultView!.getComputedStyle(node, '::before');
+            ancestors.push({ tag: node.tagName, class: node.getAttribute('class'), color: style.color, fill: style.fill, background: style.backgroundColor, opacity: style.opacity, beforeContent: before.content, beforeBackground: before.backgroundImage });
+          }
+          return ancestors;
+        } catch { return null; }
+      }
       const report = await engine.run(doc, {
         runOnly: {
           type: "tag",
@@ -118,7 +133,7 @@ export function AccessibilityReview() {
           })),
         })),
         passes: report.passes.length,
-        incomplete: report.incomplete.map((v) => v.id),
+        incomplete: report.incomplete.map((v) => ({ id: v.id, description: v.description, nodes: v.nodes.map((n) => ({ target: n.target, contrastEvidence: contrastEvidence(n.target), html: n.html, summary: n.failureSummary, checks: [...n.any, ...n.all, ...n.none].map((check) => ({id: check.id, message: check.message, data: check.data})) })) })),
       });
     } catch (e) {
       setResult({ error: String(e) });

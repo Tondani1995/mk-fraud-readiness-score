@@ -35,6 +35,7 @@ export default function DesignReview() {
         ["Terms & organisation profile", "/score/start"],
         ["Early questionnaire", "/score/visual-review/adaptive/early"],
         ["Mid questionnaire", "/score/visual-review/adaptive/mid"],
+        ["Local progression & recovery laboratory (dev only)", "/design-review/interaction"],
         ["Late questionnaire", "/score/visual-review/adaptive/late"],
         ["Review before submission", "/score/visual-review/adaptive/review"],
         ["Submitted state", "/score/visual-review/adaptive/submitted"],
@@ -43,6 +44,11 @@ export default function DesignReview() {
     [
       "The management result",
       [
+        ["Engine calculated · mixed controls", "/score/visual-review/calculated/mixed-controls"],
+        ["Engine calculated · critical controls", "/score/visual-review/calculated/critical-controls"],
+        ["Engine calculated · strong controls", "/score/visual-review/calculated/strong-controls"],
+        ["Engine calculated · 87% coverage", "/score/visual-review/calculated/partial-coverage"],
+        ["Engine calculated · limited visibility", "/score/visual-review/calculated/visibility-limited"],
         ["Snapshot · 60", "/score/visual-review/snapshot/score-60"],
         ["Snapshot · 20", "/score/visual-review/snapshot/score-20"],
         ["Snapshot · 100", "/score/visual-review/snapshot/score-100"],
@@ -88,12 +94,12 @@ export default function DesignReview() {
           <span className="headline-emphasis">to management clarity.</span>
         </h1>
         <p>
-          A revised institutional typography and legibility direction in the existing MK application. Explore the public
+          Management intelligence refinement within the approved institutional design. Explore the public
           experience and isolated product states below.
         </p>
         <aside>
           Assessment, Snapshot and order review routes use labelled synthetic
-          fixtures. They cannot save answers, submit assessments, create orders
+          fixtures. The dev-only interaction laboratory simulates acknowledgements in memory. These routes cannot persist customer answers, submit assessments, create orders
           or take payment. The production APIs and business rules remain
           unchanged. No service credentials are configured in this checkout.
         </aside>

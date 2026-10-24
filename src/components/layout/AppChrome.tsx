@@ -8,7 +8,8 @@ import { Footer } from '@/components/layout/Footer';
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const assessmentActive = pathname === '/score/start'
+  const assessmentActive = pathname === '/design-review/interaction'
+    || pathname === '/score/start'
     || pathname.startsWith('/score/assessment/')
     || pathname === '/score/adaptive'
     || pathname.startsWith('/score/adaptive/')
@@ -20,6 +21,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const resultActive = pathname.startsWith('/score/snapshot/')
     || pathname.startsWith('/score/order/')
     || pathname.startsWith('/score/visual-review/snapshot/')
+    || pathname.startsWith('/score/visual-review/calculated/')
     || pathname.startsWith('/score/visual-review/order/');
 
   if (resultActive) return <div className="mk-product">{children}</div>;

@@ -3227,3 +3227,53 @@ body {
     flex-basis: 22px;
   }
 }
+
+/* Recorded signal → interpretation → management implication. No new score or dependency model. */
+.management-view { background: var(--mk-paper, #fff); border-bottom: 1px solid #d8e0e5; }
+.management-inner { max-width:1120px; margin:auto; padding:64px 24px; }
+.management-inner h2 { font-size:28px; font-weight:600; line-height:1.25; letter-spacing:-.025em; color:#142c43; margin:12px 0 18px; max-width:28ch; }
+.management-intro { max-width:76ch; font-size:15px; line-height:1.8; color:#435568; }
+.management-order,.management-note { font-size:12px; line-height:1.8; color:#526273; max-width:100ch; margin:18px 0; }
+.management-column-labels,.management-path { display:grid; grid-template-columns:1fr 1.1fr 1.1fr; gap:32px; }
+.management-column-labels { margin-top:32px; padding-bottom:12px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#526273; }
+.management-paths { padding:0; margin:0; list-style:none; }
+.management-path { border-top:1px solid #c5d3de; padding:28px 0; position:relative; }
+.management-signal { display:flex; gap:16px; }
+.management-index { font-size:12px; padding-top:2px; color:#306184; font-weight:600; }
+.management-signal h3 { font-size:16px; color:#142c43; font-weight:600; line-height:1.5; }
+.management-signal p { font-size:12px; color:#435568; line-height:1.8; margin-top:8px; }
+.management-signal strong { font-size:20px; color:#142c43; }
+.management-status { display:block; margin-top:8px; font-size:12px; color:#435568; }
+.management-interpretation,.management-implication { font-size:14px; line-height:1.8; color:#435568; border-left:2px solid #a3bdce; padding-left:18px; }
+.management-implication { border-color:#306184; }
+.management-interpretation details { margin-top:16px; font-size:12px; }
+.management-interpretation summary { cursor:pointer; font-weight:600; color:#214a68; min-height:32px; }
+.management-interpretation ul { padding-left:16px; }
+.management-interpretation li { margin:12px 0; }
+.management-interpretation small { display:block; line-height:1.8; margin-top:4px; }
+.management-foundations { display:grid; grid-template-columns:1.2fr 1fr; gap:40px; background:#f1f5f7; border-top:1px solid #c5d3de; padding:28px; }
+.management-foundations p:not(.clarity-eyebrow) { margin-top:12px; font-size:14px; line-height:1.8; color:#435568; }
+.management-foundations small { display:block; font-size:12px; line-height:1.8; color:#526273; margin-top:16px; }
+.management-boundary { border-left:2px solid #306184; padding-left:18px; margin-top:32px; }
+.management-boundary p:last-child { font-size:13px; line-height:1.8; color:#435568; max-width:100ch; margin-top:10px; }
+.management-mobile-label { display:none; }
+.management-visibility article { border-top:1px solid #c5d3de; padding:20px 0; font-size:14px; line-height:1.8; }
+.management-visibility h3 { font-weight:600; color:#142c43; }
+.coverage-definitions { margin-top:24px; border-top:1px solid #c5d3de; padding-top:20px; font-size:13px; line-height:1.8; color:#435568; }
+.coverage-definitions summary { cursor:pointer; font-weight:600; color:#214a68; min-height:40px; }
+.coverage-definitions p { margin:12px 0; max-width:95ch; }
+@media(max-width:767px) {
+ .management-inner { padding:40px 18px; }
+ .management-inner h2 { font-size:24px; }
+ .management-column-labels { display:none; }
+ .management-path { grid-template-columns:1fr; gap:18px; padding:24px 0; }
+ .management-interpretation,.management-implication { margin-left:28px; padding-left:16px; }
+ .management-mobile-label { display:block; text-transform:uppercase; font-size:10px; letter-spacing:.1em; font-weight:600; margin-bottom:6px; color:#306184; }
+ .management-foundations { grid-template-columns:1fr; gap:24px; padding:22px 18px; }
+}
+/* Remove the near-invisible result grid overlay so text has a determinate solid contrast base. */
+.mk-result #position:before { content:none; }
+.management-column-labels { font-size:12px; }
+.management-interpretation small { font-size:12px; }
+.management-mobile-label { font-size:12px; }
+@media(max-width:767px) { .mk-result footer { padding-bottom:calc(72px + env(safe-area-inset-bottom)); } }

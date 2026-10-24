@@ -1,0 +1,13 @@
+{
+  "environment": "preview",
+  "baseUrl": "https://REPLACE-WITH-ISOLATED-STAGING-HOST",
+  "projectRef": "",
+  "deploymentSha": "",
+  "isolationConfirmed": false,
+  "productionExcluded": false,
+  "nonChargeablePayments": false,
+  "nonChargeableGeneration": false,
+  "customerCommunicationBlocked": false,
+  "methodologyPolicyReconciled": false,
+  "cases": {}
+}

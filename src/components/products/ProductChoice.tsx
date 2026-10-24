@@ -9,7 +9,7 @@ import { readProductIntent, type ProductIntent } from '@/lib/commercial/product-
 import { trackEvent } from '@/lib/website/gtag';
 import { ProductTierCard } from '@/components/products/ProductTierCard';
 
-/** The conversion moment: three equally visible choices with a deterministic recommendation. */
+/** Product scope comparison. A score alone cannot establish a purchasing need. */
 
 const SCORE_BASE_PATH = '/score';
 
@@ -75,12 +75,7 @@ export function ProductChoice({
   const navigatingTierRef = useRef<SelfServicePaidTier | 'advisory' | null>(null);
   const [navigatingOption, setNavigatingOption] = useState<SelfServicePaidTier | 'advisory' | null>(null);
   const [earlierIntent, setEarlierIntent] = useState<ProductIntent | null>(null);
-  // The recommendation is the first mobile card in the DOM and therefore the first card a
-  // stacked layout and keyboard traversal encounter. Desktop keeps the established three-column
-  // composition through explicit responsive order classes.
-  const paidTiers: SelfServicePaidTier[] = recommendation.recommendedTier === 'comprehensive'
-    ? ['comprehensive', 'essential']
-    : ['essential', 'comprehensive'];
+  const paidTiers: SelfServicePaidTier[] = ['essential', 'comprehensive'];
   const desktopOrderClass: Record<SelfServicePaidTier | 'advisory', string> = {
     essential: 'md:order-1',
     comprehensive: 'md:order-2',
@@ -90,7 +85,7 @@ export function ProductChoice({
   /**
    * A tier the customer chose on the storefront before starting the assessment. It is read after
    * mount because it lives in browser storage, and it only ever marks a card; the deterministic
-   * best-fit recommendation is unaffected, and every option stays freely choosable.
+   * product scope stays unchanged, and every option stays freely choosable.
    */
   useEffect(() => {
     if (visualReview) return;
@@ -214,11 +209,11 @@ export function ProductChoice({
 
           <div className="mt-5 border border-mk-accent/25 bg-mk-accent/[.06] px-4 py-3.5">
             <p className="text-[12px] uppercase tracking-[0.14em] text-mk-accent">
-              {recommendation.speakToMkFirst ? 'Best next step for your result' : 'Best fit for your result'}
+              {recommendation.speakToMkFirst ? 'Before choosing a report' : 'Choose by the management need'}
             </p>
             <p className="mt-1.5 max-w-[72ch] text-[13.5px] leading-6 text-mk-navy">
-              {recommendation.reason}{' '}
-              <span className="font-semibold">{recommendation.freedomClause}</span>
+              {recommendation.speakToMkFirst ? 'Visibility is insufficient to issue a readiness position. Clarify uncertain responses before commissioning detailed analysis.' : 'Essential supports diagnosis and immediate management priorities. Comprehensive adds target-state control design and an implementation programme. The recorded score alone does not establish that a higher-priced report is necessary.'}{' '}
+              <span className="font-semibold">You can choose either report. Neither independently tests your controls.</span>
             </p>
             {/* The certified MK Advisory route, not the generic contact form. This customer has a
                 Snapshot and a private token, so their assessment context travels with the enquiry
@@ -242,7 +237,6 @@ export function ProductChoice({
               <div key={tier} className={`min-w-0 ${desktopOrderClass[tier]}`}>
                 <ProductCard
                   tier={tier}
-                  isBestFit={recommendation.recommendedTier === tier}
                   isEarlierSelection={earlierIntent === tier}
                   isNavigating={Boolean(navigatingOption)}
                   onChoose={() => chooseTier(tier)}
@@ -259,11 +253,11 @@ export function ProductChoice({
   );
 }
 
-function ProductCard({ tier, isBestFit, isEarlierSelection, isNavigating, onChoose }: { tier: SelfServicePaidTier; isBestFit: boolean; isEarlierSelection: boolean; isNavigating: boolean; onChoose: () => void }) {
+function ProductCard({ tier, isEarlierSelection, isNavigating, onChoose }: { tier: SelfServicePaidTier; isEarlierSelection: boolean; isNavigating: boolean; onChoose: () => void }) {
   const product = COMMERCIAL_CATALOGUE[tier];
   const card = CARDS[tier];
   const price = formatCataloguePrice(product.priceCents);
-  const featuredLabel = isBestFit ? 'Best fit for your result' : isEarlierSelection ? 'You selected this earlier' : undefined;
+  const featuredLabel = isEarlierSelection ? 'You selected this earlier' : undefined;
   const actionClass = tier === 'comprehensive'
     ? 'bg-white text-mk-navy hover:bg-white/90'
     : 'bg-mk-navy text-white hover:bg-mk-slate';

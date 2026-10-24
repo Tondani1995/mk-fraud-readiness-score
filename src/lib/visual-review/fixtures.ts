@@ -283,9 +283,9 @@ export function buildSnapshotVisualReviewFixture(variant: SnapshotVisualReviewVa
 
 export function snapshotVisualReviewTitle(variant: SnapshotVisualReviewVariant) {
   return {
-    'score-100': 'Snapshot · score 100 · Strategic / Essential recommendation',
-    'score-60': 'Snapshot · score 60 · Developing / Comprehensive recommendation',
-    'score-20': 'Snapshot · score 20 · Reactive / Comprehensive recommendation',
+    'score-100': 'Snapshot · score 100 · Strategic layout sample',
+    'score-60': 'Snapshot · score 60 · Developing layout sample',
+    'score-20': 'Snapshot · score 20 · Reactive layout sample',
     'insufficient-visibility': 'Snapshot · Not issued · insufficient visibility'
   }[variant];
 }

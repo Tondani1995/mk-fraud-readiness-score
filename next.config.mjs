@@ -6,6 +6,7 @@ const { withWorkflow } = workflowNext;
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   poweredByHeader: false,
   async rewrites() {
     return [
