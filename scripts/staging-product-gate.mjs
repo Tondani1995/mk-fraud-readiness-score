@@ -2,7 +2,7 @@
 /** Read-only evidence gate. Never creates records, orders, payments, reports or messages. */
 import fs from 'node:fs';
 import path from 'node:path';
-const cases = ['identity','creation','branching','save-resume','completion','private-result','essential-order','comprehensive-order','payment-negative','payment-confirmation','report-generation','private-delivery','recovery','mobile-assistive'];
+const cases = ['identity','creation','branching','save-resume','completion','private-result','essential-order','comprehensive-order','payment-negative','payment-confirmation','report-generation','private-delivery','recovery','mobile-assistive','committed-start','state-transfer','pending-recovery','scope-recalculation','completed-resume','performance-device','assistive-motion'];
 const manifestPath=process.argv[2];
 const report={kind:'staging-product-verification-gate',mode:'read-only evidence validation',passed:[],blocked:[]};
 if(!manifestPath) report.blocked.push('Supply a completed staging-evidence.json manifest. No application/provider credentials are configured for this checkout.');

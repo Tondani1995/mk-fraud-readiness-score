@@ -361,7 +361,8 @@ await checkAsync('advertising consent is opt-in and separate from the analytics 
   const src = await readSource('src/components/website/CookieConsent.tsx');
   // Unticked by default: marketing is never granted by inaction.
   assert.match(src, /useState\(false\)/);
-  assert.match(src, /record\(true, allowMarketing\)/);
+  assert.match(src, /record\(true, true\)/, 'Accept all explicitly opts into marketing');
+  assert.match(src, /record\(true, false\)/, 'Analytics only does not grant marketing consent');
   assert.match(src, /record\(false, false\)/);
   // The GA4 consent key is still written exactly as before.
   assert.match(src, /window\.localStorage\.setItem\(CONSENT_KEY, analyticsAccepted \? "accepted" : "declined"\)/);

@@ -19,16 +19,46 @@ function roundPct(value: number) {
 }
 
 const SMALL_NUMBER_WORDS = [
-  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
-  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
-  'eighteen', 'nineteen'
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
+  'thirteen',
+  'fourteen',
+  'fifteen',
+  'sixteen',
+  'seventeen',
+  'eighteen',
+  'nineteen'
 ];
-const TENS_NUMBER_WORDS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const TENS_NUMBER_WORDS = [
+  '',
+  '',
+  'twenty',
+  'thirty',
+  'forty',
+  'fifty',
+  'sixty',
+  'seventy',
+  'eighty',
+  'ninety'
+];
 
 function numberWords(value: number): string {
   if (value < 20) return SMALL_NUMBER_WORDS[value];
-  if (value < 100) return `${TENS_NUMBER_WORDS[Math.floor(value / 10)]}${value % 10 ? `-${SMALL_NUMBER_WORDS[value % 10]}` : ''}`;
-  if (value < 1000) return `${SMALL_NUMBER_WORDS[Math.floor(value / 100)]} hundred${value % 100 ? ` ${numberWords(value % 100)}` : ''}`;
+  if (value < 100)
+    return `${TENS_NUMBER_WORDS[Math.floor(value / 10)]}${value % 10 ? `-${SMALL_NUMBER_WORDS[value % 10]}` : ''}`;
+  if (value < 1000)
+    return `${SMALL_NUMBER_WORDS[Math.floor(value / 100)]} hundred${value % 100 ? ` ${numberWords(value % 100)}` : ''}`;
   return String(value);
 }
 
@@ -109,22 +139,27 @@ export function inventoryBody(inventory: GapInventory): string {
  * inventory transparent rather than a concealment pattern, so it is not optional.
  */
 export function inventoryDefinition(inventory: GapInventory): string {
-  const base = 'A critical control is one the methodology expects to hold on its own. A gap is recorded where it scored 2 or below out of 5.';
+  const base =
+    'A critical control is one the methodology expects to hold on its own. A gap is recorded where it scored 2 or below out of 5.';
   return inventory.includesMajorGapNote
     ? `${base} Major gaps are counted across the assessment as a whole and are not attributed to an individual area.`
     : base;
 }
 
-export const INVENTORY_HEADING = 'This Snapshot shows you where to look. The detailed analysis explains why, and what to do.';
+export const INVENTORY_HEADING =
+  'This Snapshot shows you where to look. The detailed analysis explains why, and what to do.';
 export const INVENTORY_TABLE_LABEL = 'Critical-control gaps by area';
 
 /** Fact-strip cells. Two paths, because the adaptive and legacy runs persist different metrics. */
-export function factStrip(snapshot: FreeSnapshot, areaCount: number): Array<{ label: string; value: string }> {
+export function factStrip(
+  snapshot: FreeSnapshot,
+  areaCount: number
+): Array<{ label: string; value: string }> {
   if (snapshot.adaptiveMetrics) {
     return [
       { label: 'Assessment coverage', value: `${roundPct(snapshot.adaptiveMetrics.assessmentCoveragePct)}%` },
       { label: 'Control visibility', value: `${roundPct(snapshot.adaptiveMetrics.controlVisibilityPct)}%` },
-      { label: 'Unknown responses', value: `${roundPct(snapshot.adaptiveMetrics.unknownSharePct)}%` },
+      { label: 'Unknown weight share', value: `${roundPct(snapshot.adaptiveMetrics.unknownSharePct)}%` },
       { label: 'Areas assessed', value: String(areaCount) }
     ];
   }
@@ -151,9 +186,11 @@ export const MATURITY_BAND_SHORT: Record<(typeof MATURITY_BANDS)[number], string
   Strategic: 'Strat.'
 };
 
-export const ASSURANCE_BOUNDARY = 'Essential and Comprehensive are analytical products prepared from what you reported. Advisory is where MK works with you directly: investigating, designing, implementing or strengthening the environment alongside your team, including the evidence examination and independent review the analytical reports do not provide.';
+export const ASSURANCE_BOUNDARY =
+  'Essential and Comprehensive are analytical products prepared from what you reported. Advisory is where MK works with you directly: investigating, designing, implementing or strengthening the environment alongside your team, including the evidence examination and independent review the analytical reports do not provide.';
 
-export const ORDER_RELEASE_NOTE = 'Your report is prepared once payment is confirmed. No report is generated or released against an unconfirmed order.';
+export const ORDER_RELEASE_NOTE =
+  'Your report is prepared once payment is confirmed. No report is generated or released against an unconfirmed order.';
 
 export const WHAT_HAPPENS_NEXT = [
   'You pay by EFT using your order reference.',

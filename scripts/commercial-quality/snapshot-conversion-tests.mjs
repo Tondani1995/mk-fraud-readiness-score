@@ -384,7 +384,7 @@ test('Fact strip renders both the adaptive and legacy paths', () => {
   const adaptive = factStrip(snapshotFixture({
     adaptiveMetrics: { assessmentCoveragePct: 87.4, controlVisibilityPct: 91.2, unknownSharePct: 4.1 }
   }), 9);
-  assert.deepEqual(adaptive.map((f) => f.label), ['Assessment coverage', 'Control visibility', 'Unknown responses', 'Areas assessed']);
+  assert.deepEqual(adaptive.map((f) => f.label), ['Assessment coverage', 'Control visibility', 'Unknown weight share', 'Areas assessed']);
   assert.equal(adaptive[0].value, '87%');
 });
 

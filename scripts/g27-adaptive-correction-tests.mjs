@@ -105,11 +105,12 @@ const ordinaryEvidence = buildPremiumReportEvidencePack(ordinaryData, ordinaryMo
 assert.equal(ordinaryEvidence.items.some((item) => item.kind === 'visibility_gap'), false, 'ordinary exposure-assessed reports remain free of visibility-gap items');
 
 const ui = readFileSync(new URL('../src/components/adaptive/AdaptiveAssessmentExperience.tsx', import.meta.url), 'utf8');
-assert.match(ui, /onChange=\{\(\) => void chooseControl/);
+assert.match(ui, /AdaptiveResponseCanvas/);
+assert.match(readFileSync(new URL('../src/components/adaptive/AdaptiveResponseCanvas.tsx', import.meta.url),'utf8'), /onChange=\{\(\) => onChoose\(choice.value\)\}/);
 assert.doesNotMatch(ui, />Continue<\/Button>/, 'routine continuation control is removed');
 assert.match(ui, /chooseGateway[\s\S]*persist\(next, controlResponses, 'gateway', node\.nodeId, false\)/);
 assert.match(ui, /chooseControl[\s\S]*persist\(gatewayAnswers, next, 'question', node\.nodeId, false\)/);
-assert.match(ui, /setCurrentId\(body\.state\.path\?\.currentNextNode \?\? null\)/, 'the authoritative returned path drives the next question');
+assert.match(ui, /setCurrentId\(confirmed\.path\?\.currentNextNode \?\? null\)/, 'the authoritative returned path drives the next question');
 assert.match(ui, /savingRef\.current = true/, 'a save guard prevents conflicting writes');
 assert.match(ui, /pendingWriteRef\.current = write/, 'the intended write is retained for retry');
 assert.match(ui, /Try saving again/, 'failed saves expose a retry state');

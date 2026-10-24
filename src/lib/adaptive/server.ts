@@ -55,7 +55,10 @@ type AdaptiveLoadedState = {
   graph: AdaptiveGraph;
   gatewayAnswers: AdaptiveGatewayAnswers;
   controlResponses: AdaptiveControlResponses;
-  guidanceByQuestion: Record<string, { goodEvidenceLooksLike: string; exampleArtifacts: string[]; likelyEvidenceOwner: string }>;
+  guidanceByQuestion: Record<
+    string,
+    { goodEvidenceLooksLike: string; exampleArtifacts: string[]; likelyEvidenceOwner: string }
+  >;
   navigation: AdaptiveNavigation;
   path: ReturnType<typeof resolveAdaptivePath>;
   signals: ReturnType<typeof deriveAdaptiveIntegritySignals>;
@@ -75,12 +78,22 @@ type AdaptiveSaveInput = {
 
 export type AdaptiveAnswerDelta = {
   gatewayAnswers: Array<{ question_id: string; response_value: string }>;
-  controlResponses: Array<{ question_id: string; response_state: 'maturity' | 'unknown'; response_value: number | null }>;
+  controlResponses: Array<{
+    question_id: string;
+    response_state: 'maturity' | 'unknown';
+    response_value: number | null;
+  }>;
 };
 
 export type AdaptiveAnswerDeltaResult =
   | { ok: true; delta: AdaptiveAnswerDelta }
-  | { ok: false; reason: 'adaptive_answer_delta_invalid' | 'adaptive_multiple_answer_deltas' | 'adaptive_answer_delta_missing' };
+  | {
+      ok: false;
+      reason:
+        | 'adaptive_answer_delta_invalid'
+        | 'adaptive_multiple_answer_deltas'
+        | 'adaptive_answer_delta_missing';
+    };
 
 /**
  * Return the gateways that are currently required by the resolved customer path.
@@ -96,7 +109,9 @@ export function missingAdaptiveGatewayIds(
   path: ReturnType<typeof resolveAdaptivePath>,
   gatewayAnswers: AdaptiveGatewayAnswers
 ) {
-  return requiredAdaptiveGatewayIds(path).filter((questionId) => !effectiveGatewayAnswer(gatewayAnswers[questionId]));
+  return requiredAdaptiveGatewayIds(path).filter(
+    (questionId) => !effectiveGatewayAnswer(gatewayAnswers[questionId])
+  );
 }
 
 const SUPABASE_PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
@@ -124,7 +139,9 @@ export function configuredAdaptiveDeploymentSha(env: NodeJS.ProcessEnv = process
   return DEPLOYMENT_SHA_PATTERN.test(deploymentSha) ? deploymentSha : '';
 }
 
-export function assertAdaptiveRuntimeEnvironment(env: NodeJS.ProcessEnv = process.env): AdaptiveRuntimeIdentity {
+export function assertAdaptiveRuntimeEnvironment(
+  env: NodeJS.ProcessEnv = process.env
+): AdaptiveRuntimeIdentity {
   const environment = env.VERCEL_ENV?.trim().toLowerCase();
   if (environment !== 'preview' && environment !== 'production') {
     throw new Error('adaptive_runtime_environment_invalid');
@@ -138,7 +155,8 @@ export function assertAdaptiveRuntimeEnvironment(env: NodeJS.ProcessEnv = proces
 
 async function loadAdaptiveActivationPolicy(db: any, env: NodeJS.ProcessEnv = process.env) {
   const runtime = assertAdaptiveRuntimeEnvironment(env);
-  const { data, error } = await db.from('adaptive_activation_policies')
+  const { data, error } = await db
+    .from('adaptive_activation_policies')
     .select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha')
     .eq('policy_key', 'customer_start')
     .eq('environment', runtime.environment)
@@ -171,14 +189,19 @@ function asGraph(value: unknown): AdaptiveGraph {
   return value as AdaptiveGraph;
 }
 
-function assertGraphIdentity(graph: AdaptiveGraph, row: {
-  graph_version: string;
-  methodology_version: string;
-  graph_fingerprint: string;
-}) {
-  if (graph.graphVersion !== row.graph_version
-    || graph.methodologyVersion !== row.methodology_version
-    || graph.graphFingerprint !== row.graph_fingerprint) {
+function assertGraphIdentity(
+  graph: AdaptiveGraph,
+  row: {
+    graph_version: string;
+    methodology_version: string;
+    graph_fingerprint: string;
+  }
+) {
+  if (
+    graph.graphVersion !== row.graph_version ||
+    graph.methodologyVersion !== row.methodology_version ||
+    graph.graphFingerprint !== row.graph_fingerprint
+  ) {
     throw new Error('adaptive_graph_identity_mismatch');
   }
 }
@@ -191,24 +214,34 @@ export async function loadConfiguredAdaptiveGraph(
   const configuredVersion = env.MK_ADAPTIVE_GRAPH_VERSION?.trim() || activation.graph_version;
   const { data, error } = await db
     .from('adaptive_graph_versions')
-    .select('id,graph_version,methodology_version_id,methodology_version,status,compiled_graph_json,graph_fingerprint')
+    .select(
+      'id,graph_version,methodology_version_id,methodology_version,status,compiled_graph_json,graph_fingerprint'
+    )
     .eq('graph_version', configuredVersion)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('adaptive_graph_not_found');
   if (data.status === 'retired') throw new Error('adaptive_graph_retired');
   if (data.status !== 'published') throw new Error('adaptive_graph_not_published');
-  if (data.graph_fingerprint !== activation.graph_fingerprint) throw new Error('adaptive_graph_fingerprint_mismatch');
+  if (data.graph_fingerprint !== activation.graph_fingerprint)
+    throw new Error('adaptive_graph_fingerprint_mismatch');
   const graph = asGraph(data.compiled_graph_json);
   assertGraphIdentity(graph, data);
   const validationErrors = validateAdaptiveGraph(graph, data.graph_fingerprint);
   if (validationErrors.length) throw new Error(`adaptive_graph_invalid:${validationErrors.join(',')}`);
-  if (activation.graph_version !== data.graph_version || activation.graph_fingerprint !== data.graph_fingerprint) throw new Error('adaptive_activation_graph_mismatch');
+  if (
+    activation.graph_version !== data.graph_version ||
+    activation.graph_fingerprint !== data.graph_fingerprint
+  )
+    throw new Error('adaptive_activation_graph_mismatch');
   return { graph, graphRow: data, activation };
 }
 
 export function assertAdaptiveAssessmentBinding(
-  assessment: Pick<AdaptiveAssessment, 'methodology_version_id' | 'graph_version_snapshot' | 'graph_fingerprint_snapshot'>,
+  assessment: Pick<
+    AdaptiveAssessment,
+    'methodology_version_id' | 'graph_version_snapshot' | 'graph_fingerprint_snapshot'
+  >,
   graphRow: {
     status: string;
     graph_version: string;
@@ -217,12 +250,14 @@ export function assertAdaptiveAssessmentBinding(
   },
   activation: { graph_version: string; graph_fingerprint: string }
 ) {
-  if (graphRow.status !== 'published'
-    || graphRow.graph_version !== activation.graph_version
-    || graphRow.graph_fingerprint !== activation.graph_fingerprint
-    || graphRow.graph_version !== assessment.graph_version_snapshot
-    || graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot
-    || graphRow.methodology_version_id !== assessment.methodology_version_id) {
+  if (
+    graphRow.status !== 'published' ||
+    graphRow.graph_version !== activation.graph_version ||
+    graphRow.graph_fingerprint !== activation.graph_fingerprint ||
+    graphRow.graph_version !== assessment.graph_version_snapshot ||
+    graphRow.graph_fingerprint !== assessment.graph_fingerprint_snapshot ||
+    graphRow.methodology_version_id !== assessment.methodology_version_id
+  ) {
     throw new Error('adaptive_graph_binding_invalid');
   }
 }
@@ -234,9 +269,12 @@ async function loadAdaptiveByToken(
 ) {
   const db = options.db ?? (createSupabaseServiceClient() as any);
   const tokenHash = hashAssessmentToken(rawToken);
-  const { data: token, error: tokenError } = await db.from('assessment_tokens')
+  const { data: token, error: tokenError } = await db
+    .from('assessment_tokens')
     .select('id,assessment_id,token_type,expires_at,max_uses,use_count,revoked_at')
-    .eq('token_hash', tokenHash).eq('token_type', 'resume').maybeSingle();
+    .eq('token_hash', tokenHash)
+    .eq('token_type', 'resume')
+    .maybeSingle();
   if (tokenError || !token) throw new Error('adaptive_invalid_token');
   if (token.revoked_at) throw new Error('adaptive_revoked_token');
   if (new Date(token.expires_at).getTime() <= Date.now()) throw new Error('adaptive_expired_token');
@@ -244,32 +282,86 @@ async function loadAdaptiveByToken(
 
   const activation = await loadAdaptiveActivationPolicy(db);
 
-  const { data: assessment, error: assessmentError } = await db.from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,monitoring_synthetic,monitoring_run_id')
-    .eq('id', token.assessment_id).eq('assessment_reference', assessmentReference).maybeSingle();
+  const { data: assessment, error: assessmentError } = await db
+    .from('assessments')
+    .select(
+      'id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,monitoring_synthetic,monitoring_run_id'
+    )
+    .eq('id', token.assessment_id)
+    .eq('assessment_reference', assessmentReference)
+    .maybeSingle();
   if (assessmentError || !assessment) throw new Error('adaptive_assessment_not_found');
   if (assessment.assessment_mode !== 'adaptive') throw new Error('adaptive_mode_required');
-  if (!assessment.graph_version_id
-    || assessment.graph_version_snapshot !== activation.graph_version
-    || assessment.graph_fingerprint_snapshot !== activation.graph_fingerprint) throw new Error('adaptive_graph_pin_invalid');
+  if (
+    !assessment.graph_version_id ||
+    assessment.graph_version_snapshot !== activation.graph_version ||
+    assessment.graph_fingerprint_snapshot !== activation.graph_fingerprint
+  )
+    throw new Error('adaptive_graph_pin_invalid');
   let organisation = null;
   let respondent = null;
   if (options.includeIdentity !== false) {
     [{ data: organisation }, { data: respondent }] = await Promise.all([
-      db.from('organisations').select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band').eq('id', assessment.organisation_id).maybeSingle(),
-      assessment.primary_respondent_id ? db.from('respondents').select('id,full_name,email,role_title').eq('id', assessment.primary_respondent_id).maybeSingle() : Promise.resolve({ data: null })
+      db
+        .from('organisations')
+        .select(
+          'id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band'
+        )
+        .eq('id', assessment.organisation_id)
+        .maybeSingle(),
+      assessment.primary_respondent_id
+        ? db
+            .from('respondents')
+            .select('id,full_name,email,role_title')
+            .eq('id', assessment.primary_respondent_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null })
     ]);
   }
   return { db, assessment: assessment as AdaptiveAssessment, organisation, respondent, activation };
 }
 
-async function loadState(db: any, assessment: AdaptiveAssessment, activation: any): Promise<AdaptiveLoadedState> {
-  const [{ data: graphRow, error: graphError }, { data: navigation, error: navigationError }, { data: gatewayRows, error: gatewayError }, { data: controlRows, error: controlError }, { data: guidanceRows, error: guidanceError }] = await Promise.all([
-    db.from('adaptive_graph_versions').select('compiled_graph_json,graph_version,graph_fingerprint,methodology_version_id,methodology_version,status').eq('id', assessment.graph_version_id).single(),
-    db.from('assessment_navigation_states').select('graph_version_id,current_question_id,visited_question_ids,current_screen,save_sequence,last_saved_at,submitted_at').eq('assessment_id', assessment.id).single(),
-    db.from('adaptive_gateway_answers').select('question_id,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
-    db.from('adaptive_control_responses').select('question_id,response_state,response_value').eq('assessment_id', assessment.id).eq('graph_version_id', assessment.graph_version_id),
-    db.from('assessment_evidence_guidance').select('question_code,good_evidence_looks_like,example_artifacts,likely_evidence_owner').eq('graph_version_id', assessment.graph_version_id).eq('status', 'draft')
+async function loadState(
+  db: any,
+  assessment: AdaptiveAssessment,
+  activation: any
+): Promise<AdaptiveLoadedState> {
+  const [
+    { data: graphRow, error: graphError },
+    { data: navigation, error: navigationError },
+    { data: gatewayRows, error: gatewayError },
+    { data: controlRows, error: controlError },
+    { data: guidanceRows, error: guidanceError }
+  ] = await Promise.all([
+    db
+      .from('adaptive_graph_versions')
+      .select(
+        'compiled_graph_json,graph_version,graph_fingerprint,methodology_version_id,methodology_version,status'
+      )
+      .eq('id', assessment.graph_version_id)
+      .single(),
+    db
+      .from('assessment_navigation_states')
+      .select(
+        'graph_version_id,current_question_id,visited_question_ids,current_screen,save_sequence,last_saved_at,submitted_at'
+      )
+      .eq('assessment_id', assessment.id)
+      .single(),
+    db
+      .from('adaptive_gateway_answers')
+      .select('question_id,response_value')
+      .eq('assessment_id', assessment.id)
+      .eq('graph_version_id', assessment.graph_version_id),
+    db
+      .from('adaptive_control_responses')
+      .select('question_id,response_state,response_value')
+      .eq('assessment_id', assessment.id)
+      .eq('graph_version_id', assessment.graph_version_id),
+    db
+      .from('assessment_evidence_guidance')
+      .select('question_code,good_evidence_looks_like,example_artifacts,likely_evidence_owner')
+      .eq('graph_version_id', assessment.graph_version_id)
+      .eq('status', 'draft')
   ]);
   if (graphError) throw graphError;
   if (navigationError) throw navigationError;
@@ -280,16 +372,37 @@ async function loadState(db: any, assessment: AdaptiveAssessment, activation: an
   const graph = asGraph(graphRow.compiled_graph_json);
   assertGraphIdentity(graph, graphRow);
   const graphValidationErrors = validateAdaptiveGraph(graph, graphRow.graph_fingerprint);
-  if (graphValidationErrors.length) throw new Error(`adaptive_graph_invalid:${graphValidationErrors.join(',')}`);
-  const gatewayAnswers: AdaptiveGatewayAnswers = Object.fromEntries((gatewayRows ?? []).map((row: any) => [row.question_id, row.response_value]));
-  const controlResponses: AdaptiveControlResponses = Object.fromEntries((controlRows ?? []).map((row: any) => [row.question_id, { responseState: row.response_state, responseValue: row.response_value }]));
-  const guidanceByQuestion = Object.fromEntries((guidanceRows ?? []).map((row: any) => [row.question_code, {
-    goodEvidenceLooksLike: row.good_evidence_looks_like,
-    exampleArtifacts: Array.isArray(row.example_artifacts) ? row.example_artifacts : [],
-    likelyEvidenceOwner: row.likely_evidence_owner
-  }]));
+  if (graphValidationErrors.length)
+    throw new Error(`adaptive_graph_invalid:${graphValidationErrors.join(',')}`);
+  const gatewayAnswers: AdaptiveGatewayAnswers = Object.fromEntries(
+    (gatewayRows ?? []).map((row: any) => [row.question_id, row.response_value])
+  );
+  const controlResponses: AdaptiveControlResponses = Object.fromEntries(
+    (controlRows ?? []).map((row: any) => [
+      row.question_id,
+      { responseState: row.response_state, responseValue: row.response_value }
+    ])
+  );
+  const guidanceByQuestion = Object.fromEntries(
+    (guidanceRows ?? []).map((row: any) => [
+      row.question_code,
+      {
+        goodEvidenceLooksLike: row.good_evidence_looks_like,
+        exampleArtifacts: Array.isArray(row.example_artifacts) ? row.example_artifacts : [],
+        likelyEvidenceOwner: row.likely_evidence_owner
+      }
+    ])
+  );
   const path = resolveAdaptivePath({ graph, gatewayAnswers, controlResponses, guidanceByQuestion });
-  const signals = deriveAdaptiveIntegritySignals({ graph, path, navigation: { currentQuestionId: navigation.current_question_id, currentScreen: navigation.current_screen }, gatewayAnswers });
+  const signals = deriveAdaptiveIntegritySignals({
+    graph,
+    path,
+    navigation: {
+      currentQuestionId: navigation.current_question_id,
+      currentScreen: navigation.current_screen
+    },
+    gatewayAnswers
+  });
   return { graph, gatewayAnswers, controlResponses, guidanceByQuestion, navigation, path, signals };
 }
 
@@ -298,15 +411,24 @@ function effectiveGatewayAnswer(value: unknown) {
 }
 
 function gatewayAnswerKeys(answers: AdaptiveGatewayAnswers) {
-  return new Set(Object.entries(answers).filter(([, value]) => effectiveGatewayAnswer(value) !== undefined).map(([questionId]) => questionId));
+  return new Set(
+    Object.entries(answers)
+      .filter(([, value]) => effectiveGatewayAnswer(value) !== undefined)
+      .map(([questionId]) => questionId)
+  );
 }
 
 function gatewayAnswerDiff(current: AdaptiveGatewayAnswers, next: AdaptiveGatewayAnswers) {
   const keys = new Set([...gatewayAnswerKeys(current), ...gatewayAnswerKeys(next)]);
-  return [...keys].filter((questionId) => effectiveGatewayAnswer(current[questionId]) !== effectiveGatewayAnswer(next[questionId]));
+  return [...keys].filter(
+    (questionId) => effectiveGatewayAnswer(current[questionId]) !== effectiveGatewayAnswer(next[questionId])
+  );
 }
 
-function controlResponsesEqual(left: AdaptiveControlResponses[string] | undefined, right: AdaptiveControlResponses[string] | undefined) {
+function controlResponsesEqual(
+  left: AdaptiveControlResponses[string] | undefined,
+  right: AdaptiveControlResponses[string] | undefined
+) {
   if (!left || !right) return left === right;
   return left.responseState === right.responseState && left.responseValue === right.responseValue;
 }
@@ -320,7 +442,12 @@ export function deriveAdaptiveAnswerDelta(input: {
 }): AdaptiveAnswerDeltaResult {
   const invalidated = new Set(input.invalidatedQuestionIds ?? []);
   const changedGatewayIds = gatewayAnswerDiff(input.currentGatewayAnswers, input.nextGatewayAnswers);
-  if (changedGatewayIds.some((questionId) => effectiveGatewayAnswer(input.nextGatewayAnswers[questionId]) === undefined)) return { ok: false, reason: 'adaptive_answer_delta_invalid' };
+  if (
+    changedGatewayIds.some(
+      (questionId) => effectiveGatewayAnswer(input.nextGatewayAnswers[questionId]) === undefined
+    )
+  )
+    return { ok: false, reason: 'adaptive_answer_delta_invalid' };
   const currentControlIds = Object.keys(input.currentControlResponses);
   const nextControlIds = Object.keys(input.nextControlResponses);
   const controlIds = new Set([...currentControlIds, ...nextControlIds]);
@@ -330,13 +457,29 @@ export function deriveAdaptiveAnswerDelta(input: {
     const currentHas = Object.prototype.hasOwnProperty.call(input.currentControlResponses, questionId);
     const nextHas = Object.prototype.hasOwnProperty.call(input.nextControlResponses, questionId);
     if (invalidated.has(questionId)) {
-      if (currentHas && nextHas && !controlResponsesEqual(input.currentControlResponses[questionId], input.nextControlResponses[questionId])) changedControlIds.push(questionId);
+      if (
+        currentHas &&
+        nextHas &&
+        !controlResponsesEqual(
+          input.currentControlResponses[questionId],
+          input.nextControlResponses[questionId]
+        )
+      )
+        changedControlIds.push(questionId);
       else if (!currentHas && nextHas) changedControlIds.push(questionId);
       continue;
     }
     if (currentHas && !nextHas) return { ok: false, reason: 'adaptive_answer_delta_invalid' };
     if (!currentHas && nextHas) changedControlIds.push(questionId);
-    else if (currentHas && nextHas && !controlResponsesEqual(input.currentControlResponses[questionId], input.nextControlResponses[questionId])) changedControlIds.push(questionId);
+    else if (
+      currentHas &&
+      nextHas &&
+      !controlResponsesEqual(
+        input.currentControlResponses[questionId],
+        input.nextControlResponses[questionId]
+      )
+    )
+      changedControlIds.push(questionId);
   }
 
   const changedCount = changedGatewayIds.length + changedControlIds.length;
@@ -346,11 +489,20 @@ export function deriveAdaptiveAnswerDelta(input: {
   return {
     ok: true,
     delta: {
-      gatewayAnswers: changedGatewayIds.map((questionId) => ({ question_id: questionId, response_value: effectiveGatewayAnswer(input.nextGatewayAnswers[questionId])! })),
-      controlResponses: changedControlIds.filter((questionId) => !invalidated.has(questionId)).map((questionId) => {
-        const response = input.nextControlResponses[questionId];
-        return { question_id: questionId, response_state: response.responseState, response_value: response.responseValue };
-      })
+      gatewayAnswers: changedGatewayIds.map((questionId) => ({
+        question_id: questionId,
+        response_value: effectiveGatewayAnswer(input.nextGatewayAnswers[questionId])!
+      })),
+      controlResponses: changedControlIds
+        .filter((questionId) => !invalidated.has(questionId))
+        .map((questionId) => {
+          const response = input.nextControlResponses[questionId];
+          return {
+            question_id: questionId,
+            response_state: response.responseState,
+            response_value: response.responseValue
+          };
+        })
     }
   };
 }
@@ -366,10 +518,11 @@ export function buildAdaptivePostSaveState(input: {
   const gatewayAnswers = { ...input.current.gatewayAnswers };
   for (const answer of input.delta.gatewayAnswers) gatewayAnswers[answer.question_id] = answer.response_value;
   const controlResponses = { ...input.current.controlResponses };
-  for (const response of input.delta.controlResponses) controlResponses[response.question_id] = {
-    responseState: response.response_state,
-    responseValue: response.response_value
-  };
+  for (const response of input.delta.controlResponses)
+    controlResponses[response.question_id] = {
+      responseState: response.response_state,
+      responseValue: response.response_value
+    };
   for (const questionId of input.invalidatedQuestionIds) delete controlResponses[questionId];
 
   const navigation = {
@@ -389,7 +542,10 @@ export function buildAdaptivePostSaveState(input: {
   const signals = deriveAdaptiveIntegritySignals({
     graph: input.current.graph,
     path,
-    navigation: { currentQuestionId: navigation.current_question_id, currentScreen: navigation.current_screen },
+    navigation: {
+      currentQuestionId: navigation.current_question_id,
+      currentScreen: navigation.current_screen
+    },
     gatewayAnswers
   });
   return { ...input.current, gatewayAnswers, controlResponses, navigation, path, signals };
@@ -414,7 +570,7 @@ function publicState(input: Awaited<ReturnType<typeof loadState>>) {
 export async function startAdaptiveAssessment(
   input: AdaptiveStartAssessmentInput,
   appBaseUrl: string,
-  options: { monitoringRunId?: string | null } = {}
+  options: { monitoringRunId?: string | null; deferEventTracking?: (work: () => Promise<void>) => void } = {}
 ) {
   /**
    * Re-checked here rather than trusted from the route. This function is the only way an adaptive
@@ -427,49 +583,101 @@ export async function startAdaptiveAssessment(
   const db = createSupabaseServiceClient() as any;
   const created: { organisationId?: string; respondentId?: string; assessmentId?: string } = {};
   try {
-    const { data: organisation, error: organisationError } = await db.from('organisations').insert({
-      legal_name: input.organisationName, trading_name: input.tradingName ?? null, industry: input.industry ?? null,
-      sector: input.sector ?? null, country: 'South Africa', province: input.province ?? null,
-      employee_band: input.employeeBand ?? null, annual_revenue_band: input.annualRevenueBand ?? null
-    }).select('id,legal_name').single();
+    const { data: organisation, error: organisationError } = await db
+      .from('organisations')
+      .insert({
+        legal_name: input.organisationName,
+        trading_name: input.tradingName ?? null,
+        industry: input.industry ?? null,
+        sector: input.sector ?? null,
+        country: 'South Africa',
+        province: input.province ?? null,
+        employee_band: input.employeeBand ?? null,
+        annual_revenue_band: input.annualRevenueBand ?? null
+      })
+      .select('id,legal_name')
+      .single();
     if (organisationError) throw organisationError;
     created.organisationId = organisation.id;
-    const { data: respondent, error: respondentError } = await db.from('respondents').insert({
-      organisation_id: organisation.id, full_name: input.fullName, email: input.email, role_title: input.roleTitle ?? null,
-      phone: input.phone ?? null, consent_privacy: input.consentPrivacy, consent_research: input.consentResearch
-    }).select('id,email,full_name').single();
+    const { data: respondent, error: respondentError } = await db
+      .from('respondents')
+      .insert({
+        organisation_id: organisation.id,
+        full_name: input.fullName,
+        email: input.email,
+        role_title: input.roleTitle ?? null,
+        phone: input.phone ?? null,
+        consent_privacy: input.consentPrivacy,
+        consent_research: input.consentResearch
+      })
+      .select('id,email,full_name')
+      .single();
     if (respondentError) throw respondentError;
     created.respondentId = respondent.id;
-    const { data: assessment, error: assessmentError } = await db.from('assessments').insert({
-      assessment_reference: createAssessmentReference(), organisation_id: organisation.id, primary_respondent_id: respondent.id,
-      methodology_version_id: graphRow.methodology_version_id, status: 'draft', assessment_mode: 'adaptive', graph_version_id: graphRow.id,
-      graph_version_snapshot: graphRow.graph_version, graph_fingerprint_snapshot: graphRow.graph_fingerprint,
-      monitoring_synthetic: Boolean(options.monitoringRunId), monitoring_run_id: options.monitoringRunId ?? null,
-      terms_version: legalAcceptance.termsVersion, terms_accepted_at: legalAcceptance.termsAcceptedAt,
-      privacy_notice_version: legalAcceptance.privacyNoticeVersion, privacy_acknowledged_at: legalAcceptance.privacyAcknowledgedAt
-    }).select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,terms_version,terms_accepted_at,privacy_notice_version,privacy_acknowledged_at').single();
+    const { data: assessment, error: assessmentError } = await db
+      .from('assessments')
+      .insert({
+        assessment_reference: createAssessmentReference(),
+        organisation_id: organisation.id,
+        primary_respondent_id: respondent.id,
+        methodology_version_id: graphRow.methodology_version_id,
+        status: 'draft',
+        assessment_mode: 'adaptive',
+        graph_version_id: graphRow.id,
+        graph_version_snapshot: graphRow.graph_version,
+        graph_fingerprint_snapshot: graphRow.graph_fingerprint,
+        monitoring_synthetic: Boolean(options.monitoringRunId),
+        monitoring_run_id: options.monitoringRunId ?? null,
+        terms_version: legalAcceptance.termsVersion,
+        terms_accepted_at: legalAcceptance.termsAcceptedAt,
+        privacy_notice_version: legalAcceptance.privacyNoticeVersion,
+        privacy_acknowledged_at: legalAcceptance.privacyAcknowledgedAt
+      })
+      .select(
+        'id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at,terms_version,terms_accepted_at,privacy_notice_version,privacy_acknowledged_at'
+      )
+      .single();
     if (assessmentError) throw assessmentError;
     created.assessmentId = assessment.id;
-    const { error: navigationError } = await db.from('assessment_navigation_states').insert({ assessment_id: assessment.id, graph_version_id: graphRow.id, current_screen: 'gateway', current_question_id: graph.gateways[0]?.questionId ?? null });
+    const { error: navigationError } = await db
+      .from('assessment_navigation_states')
+      .insert({
+        assessment_id: assessment.id,
+        graph_version_id: graphRow.id,
+        current_screen: 'gateway',
+        current_question_id: graph.gateways[0]?.questionId ?? null
+      });
     if (navigationError) throw navigationError;
     const token = createResumeTokenPayload();
-    const { error: tokenError } = await db.from('assessment_tokens').insert({ assessment_id: assessment.id, token_hash: token.tokenHash, token_type: 'resume', expires_at: token.expiresAt, max_uses: 25 });
-    if (tokenError) throw tokenError;
-    try {
-      await trackAssessmentEvent({
-        eventType: 'assessment_started',
-        assessmentId: assessment.id,
-        organisationId: organisation.id,
-        respondentId: respondent.id,
-        metadata: {
-          flow: 'adaptive',
-          monitoring_synthetic: Boolean(options.monitoringRunId),
-          release_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
-        }
+    const { error: tokenError } = await db
+      .from('assessment_tokens')
+      .insert({
+        assessment_id: assessment.id,
+        token_hash: token.tokenHash,
+        token_type: 'resume',
+        expires_at: token.expiresAt,
+        max_uses: 25
       });
-    } catch {
-      // Event instrumentation is deliberately non-blocking. The authoritative start already committed.
-    }
+    if (tokenError) throw tokenError;
+    const recordStart = async () => {
+      try {
+        await trackAssessmentEvent({
+          eventType: 'assessment_started',
+          assessmentId: assessment.id,
+          organisationId: organisation.id,
+          respondentId: respondent.id,
+          metadata: {
+            flow: 'adaptive',
+            monitoring_synthetic: Boolean(options.monitoringRunId),
+            release_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
+          }
+        });
+      } catch {
+        // Event instrumentation cannot affect the committed start.
+      }
+    };
+    if (options.deferEventTracking) options.deferEventTracking(recordStart);
+    else await recordStart();
     const resumeUrl = new URL(`/score/adaptive/${assessment.assessment_reference}`, appBaseUrl);
     resumeUrl.searchParams.set('token', token.rawToken);
     return {
@@ -477,6 +685,24 @@ export async function startAdaptiveAssessment(
       assessmentReference: assessment.assessment_reference,
       resumeUrl: resumeUrl.toString(),
       resumeTokenExpiresAt: token.expiresAt,
+      // Created rows and token are committed. Reuse the already validated graph for the first screen.
+      initialState: publicState({
+        graph,
+        gatewayAnswers: {},
+        controlResponses: {},
+        guidanceByQuestion: {},
+        navigation: {
+          graph_version_id: graphRow.id,
+          current_screen: 'gateway',
+          current_question_id: graph.gateways[0]?.questionId ?? null,
+          visited_question_ids: [],
+          save_sequence: 0,
+          last_saved_at: null,
+          submitted_at: null
+        },
+        path: resolveAdaptivePath({ graph, gatewayAnswers: {}, controlResponses: {} }),
+        signals: []
+      }),
       graphVersion: graph.graphVersion,
       graphFingerprint: graph.graphFingerprint,
       monitoringSynthetic: Boolean(options.monitoringRunId),
@@ -500,30 +726,98 @@ export async function startAdaptiveAssessment(
 export async function getAdaptiveAssessmentState(assessmentReference: string, token: string) {
   const access = await loadAdaptiveByToken(assessmentReference, token);
   const state = await loadState(access.db, access.assessment, access.activation);
-  return { ...state, assessment: access.assessment, organisation: access.organisation, respondent: access.respondent, publicState: { ...publicState(state), organisation: access.organisation, respondent: access.respondent } };
+  return {
+    ...state,
+    assessment: access.assessment,
+    organisation: access.organisation,
+    respondent: access.respondent,
+    publicState: { ...publicState(state), organisation: access.organisation, respondent: access.respondent }
+  };
 }
 
-export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, dependencies: { db?: any; trackEventImpl?: typeof trackAssessmentEvent } = {}) {
-  const access = await loadAdaptiveByToken(input.assessmentReference, input.token, { db: dependencies.db, includeIdentity: false });
-  if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
+export async function saveAdaptiveAssessmentState(
+  input: AdaptiveSaveInput,
+  dependencies: {
+    db?: any;
+    trackEventImpl?: typeof trackAssessmentEvent;
+    deferEventTracking?: (work: () => Promise<void>) => void;
+    onTiming?: (phase: 'access' | 'load' | 'commit' | 'projection', ms: number) => void;
+  } = {}
+) {
+  let phaseStarted = performance.now();
+  const access = await loadAdaptiveByToken(input.assessmentReference, input.token, {
+    db: dependencies.db,
+    includeIdentity: false
+  });
+  dependencies.onTiming?.('access', performance.now() - phaseStarted);
+  phaseStarted = performance.now();
+  if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at)
+    return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
   const current = await loadState(access.db, access.assessment, access.activation);
+  dependencies.onTiming?.('load', performance.now() - phaseStarted);
   const graph = current.graph;
   for (const [questionId, value] of Object.entries(input.gatewayAnswers)) {
     if (value === undefined || value === null || value === '') continue;
     const gateway = graph.gateways.find((item) => item.questionId === questionId);
-    if (typeof value !== 'string' || !gateway || !gateway.responseOptions.some((option) => option.value === value)) return { ok: false as const, status: 400, errors: [`Invalid response for ${questionId}.`] };
+    if (
+      typeof value !== 'string' ||
+      !gateway ||
+      !gateway.responseOptions.some((option) => option.value === value)
+    )
+      return { ok: false as const, status: 400, errors: [`Invalid response for ${questionId}.`] };
   }
   for (const [questionId, response] of Object.entries(input.controlResponses)) {
-    if (!response || typeof response !== 'object') return { ok: false as const, status: 400, errors: [`Invalid response for ${questionId}.`] };
-    if (response.responseState === 'unknown' && response.responseValue !== null) return { ok: false as const, status: 400, errors: [`Unknown response for ${questionId} must not include a maturity value.`] };
-    if (response.responseState === 'maturity' && (!Number.isInteger(response.responseValue) || response.responseValue! < 0 || response.responseValue! > 5)) return { ok: false as const, status: 400, errors: [`Invalid maturity response for ${questionId}.`] };
+    if (!response || typeof response !== 'object')
+      return { ok: false as const, status: 400, errors: [`Invalid response for ${questionId}.`] };
+    if (response.responseState === 'unknown' && response.responseValue !== null)
+      return {
+        ok: false as const,
+        status: 400,
+        errors: [`Unknown response for ${questionId} must not include a maturity value.`]
+      };
+    if (
+      response.responseState === 'maturity' &&
+      (!Number.isInteger(response.responseValue) ||
+        response.responseValue! < 0 ||
+        response.responseValue! > 5)
+    )
+      return { ok: false as const, status: 400, errors: [`Invalid maturity response for ${questionId}.`] };
   }
   const gatewayChangeCount = gatewayAnswerDiff(current.gatewayAnswers, input.gatewayAnswers).length;
-  if (gatewayChangeCount > 1) return { ok: false as const, status: 400, reason: 'adaptive_multiple_answer_deltas' as const, errors: ['adaptive_multiple_answer_deltas'] };
+  if (gatewayChangeCount > 1)
+    return {
+      ok: false as const,
+      status: 400,
+      reason: 'adaptive_multiple_answer_deltas' as const,
+      errors: ['adaptive_multiple_answer_deltas']
+    };
   const gatewayChanged = gatewayChangeCount === 1;
-  const change = gatewayChanged ? previewGatewayChange({ graph, currentAnswers: current.gatewayAnswers, nextAnswers: input.gatewayAnswers, controlResponses: current.controlResponses }) : null;
-  if (change?.requiresConfirmation && !input.confirmGatewayChange) return { ok: false as const, status: 409, reason: 'gateway_change_confirmation_required' as const, affectedQuestionIds: change.affectedQuestionIds, pathAfter: change.after };
-  const history = (change?.affectedQuestionIds ?? []).map((questionId) => ({ question_id: questionId, event_type: 'invalidation', previous_answer: current.controlResponses[questionId] ?? null, upstream_cause_question_id: graph.gateways.find((gateway) => current.gatewayAnswers[gateway.questionId] !== input.gatewayAnswers[gateway.questionId])?.questionId ?? null, reason_code: 'gateway_scope_changed' }));
+  const change = gatewayChanged
+    ? previewGatewayChange({
+        graph,
+        currentAnswers: current.gatewayAnswers,
+        nextAnswers: input.gatewayAnswers,
+        controlResponses: current.controlResponses
+      })
+    : null;
+  if (change?.requiresConfirmation && !input.confirmGatewayChange)
+    return {
+      ok: false as const,
+      status: 409,
+      reason: 'gateway_change_confirmation_required' as const,
+      affectedQuestionIds: change.affectedQuestionIds,
+      pathAfter: change.after
+    };
+  const history = (change?.affectedQuestionIds ?? []).map((questionId) => ({
+    question_id: questionId,
+    event_type: 'invalidation',
+    previous_answer: current.controlResponses[questionId] ?? null,
+    upstream_cause_question_id:
+      graph.gateways.find(
+        (gateway) => current.gatewayAnswers[gateway.questionId] !== input.gatewayAnswers[gateway.questionId]
+      )?.questionId ?? null,
+    reason_code: 'gateway_scope_changed'
+  }));
   const invalidateQuestionIds = input.confirmGatewayChange ? (change?.affectedQuestionIds ?? []) : [];
   const delta = deriveAdaptiveAnswerDelta({
     currentGatewayAnswers: current.gatewayAnswers,
@@ -533,18 +827,27 @@ export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, depe
     invalidatedQuestionIds: invalidateQuestionIds
   });
   if (!delta.ok) return { ok: false as const, status: 400, reason: delta.reason, errors: [delta.reason] };
+  phaseStarted = performance.now();
   const { data, error } = await access.db.rpc('adaptive_save_state', {
-    p_assessment_id: access.assessment.id, p_expected_save_sequence: input.expectedSaveSequence, p_current_screen: input.currentScreen,
-    p_current_question_id: input.currentQuestionId, p_visited_question_ids: input.visitedQuestionIds,
+    p_assessment_id: access.assessment.id,
+    p_expected_save_sequence: input.expectedSaveSequence,
+    p_current_screen: input.currentScreen,
+    p_current_question_id: input.currentQuestionId,
+    p_visited_question_ids: input.visitedQuestionIds,
     p_gateway_answers: delta.delta.gatewayAnswers,
     p_control_responses: delta.delta.controlResponses,
-    p_invalidate_question_ids: invalidateQuestionIds, p_history: history
+    p_invalidate_question_ids: invalidateQuestionIds,
+    p_history: history
   });
+  dependencies.onTiming?.('commit', performance.now() - phaseStarted);
+  phaseStarted = performance.now();
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
   const saveResult = Array.isArray(data) ? data[0] : data;
-  if (saveResult?.conflict) return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: saveResult };
+  if (saveResult?.conflict)
+    return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: saveResult };
   const saveSequence = Number(saveResult?.save_sequence);
-  if (!Number.isSafeInteger(saveSequence) || saveSequence <= current.navigation.save_sequence) return { ok: false as const, status: 500, errors: ['adaptive_save_result_invalid'] };
+  if (!Number.isSafeInteger(saveSequence) || saveSequence <= current.navigation.save_sequence)
+    return { ok: false as const, status: 500, errors: ['adaptive_save_result_invalid'] };
   const updated = buildAdaptivePostSaveState({
     current,
     saveInput: input,
@@ -553,8 +856,11 @@ export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, depe
     saveSequence,
     savedAt: typeof saveResult?.saved_at === 'string' ? saveResult.saved_at : null
   });
-  const hadAnswer = Object.keys(current.gatewayAnswers).length + Object.keys(current.controlResponses).length > 0;
-  const hasAnswer = Object.keys(updated.gatewayAnswers).length + Object.keys(updated.controlResponses).length > 0;
+  dependencies.onTiming?.('projection', performance.now() - phaseStarted);
+  const hadAnswer =
+    Object.keys(current.gatewayAnswers).length + Object.keys(current.controlResponses).length > 0;
+  const hasAnswer =
+    Object.keys(updated.gatewayAnswers).length + Object.keys(updated.controlResponses).length > 0;
   const trackEvent = dependencies.trackEventImpl ?? trackAssessmentEvent;
   const eventMetadata = {
     flow: 'adaptive',
@@ -562,30 +868,42 @@ export async function saveAdaptiveAssessmentState(input: AdaptiveSaveInput, depe
     save_sequence: saveSequence,
     monitoring_synthetic: access.assessment.monitoring_synthetic
   };
-  try {
-    if (!hadAnswer && hasAnswer) {
+  const recordProgress = async () => {
+    try {
+      if (!hadAnswer && hasAnswer) {
+        await trackEvent({
+          eventType: 'first_answer_saved',
+          assessmentId: access.assessment.id,
+          organisationId: access.assessment.organisation_id,
+          respondentId: access.assessment.primary_respondent_id,
+          metadata: eventMetadata
+        });
+      }
       await trackEvent({
-        eventType: 'first_answer_saved',
+        eventType: 'assessment_progress_activity',
         assessmentId: access.assessment.id,
         organisationId: access.assessment.organisation_id,
         respondentId: access.assessment.primary_respondent_id,
         metadata: eventMetadata
       });
+    } catch {
+      // Event instrumentation cannot affect the authoritative committed save.
     }
-    await trackEvent({
-      eventType: 'assessment_progress_activity',
-      assessmentId: access.assessment.id,
-      organisationId: access.assessment.organisation_id,
-      respondentId: access.assessment.primary_respondent_id,
-      metadata: eventMetadata
-    });
-  } catch {
-    // Event instrumentation is deliberately non-blocking. The authoritative save already committed.
-  }
-  return { ok: true as const, state: { ...publicState(updated), organisation: access.organisation, respondent: access.respondent }, invalidatedQuestionIds: invalidateQuestionIds };
+  };
+  if (dependencies.deferEventTracking) dependencies.deferEventTracking(recordProgress);
+  else await recordProgress();
+  return {
+    ok: true as const,
+    state: { ...publicState(updated), organisation: access.organisation, respondent: access.respondent },
+    invalidatedQuestionIds: invalidateQuestionIds
+  };
 }
 
-export async function submitAdaptiveAssessment(assessmentReference: string, token: string, expectedSaveSequence: number) {
+export async function submitAdaptiveAssessment(
+  assessmentReference: string,
+  token: string,
+  expectedSaveSequence: number
+) {
   const access = await loadAdaptiveByToken(assessmentReference, token);
   if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) {
     if (access.assessment.status === 'submitted' && !access.assessment.current_score_run_id) {
@@ -604,18 +922,41 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
   }
   const current = await loadState(access.db, access.assessment, access.activation);
   const missingGateways = missingAdaptiveGatewayIds(current.path, current.gatewayAnswers);
-  const signals = deriveAdaptiveIntegritySignals({ graph: current.graph, path: current.path, navigation: { currentQuestionId: current.navigation.current_question_id, currentScreen: current.navigation.current_screen }, gatewayAnswers: current.gatewayAnswers });
-  const errors = missingGateways.length ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`] : [];
-  if (current.path.unansweredApplicableCount > 0) errors.push(`Complete the remaining applicable controls (${current.path.unansweredApplicableCount}).`);
-  if (errors.length || signals.some((signal) => signal.blocking)) return { ok: false as const, status: 400, errors: [...errors, ...signals.filter((signal) => signal.blocking).map((signal) => signal.signalId)], state: { ...publicState(current), organisation: access.organisation, respondent: access.respondent } };
+  const signals = deriveAdaptiveIntegritySignals({
+    graph: current.graph,
+    path: current.path,
+    navigation: {
+      currentQuestionId: current.navigation.current_question_id,
+      currentScreen: current.navigation.current_screen
+    },
+    gatewayAnswers: current.gatewayAnswers
+  });
+  const errors = missingGateways.length
+    ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`]
+    : [];
+  if (current.path.unansweredApplicableCount > 0)
+    errors.push(`Complete the remaining applicable controls (${current.path.unansweredApplicableCount}).`);
+  if (errors.length || signals.some((signal) => signal.blocking))
+    return {
+      ok: false as const,
+      status: 400,
+      errors: [...errors, ...signals.filter((signal) => signal.blocking).map((signal) => signal.signalId)],
+      state: { ...publicState(current), organisation: access.organisation, respondent: access.respondent }
+    };
   const rpcSignals = signals.map((signal) => ({
     signal_id: signal.signalId,
     detail: signal.detail,
     blocking: signal.blocking
   }));
-  const { data, error } = await access.db.rpc('adaptive_submit_assessment', { p_assessment_id: access.assessment.id, p_expected_save_sequence: expectedSaveSequence, p_profile: profileRowsForPath(current.path), p_signals: rpcSignals });
+  const { data, error } = await access.db.rpc('adaptive_submit_assessment', {
+    p_assessment_id: access.assessment.id,
+    p_expected_save_sequence: expectedSaveSequence,
+    p_profile: profileRowsForPath(current.path),
+    p_signals: rpcSignals
+  });
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
-  if (data?.conflict) return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: data };
+  if (data?.conflict)
+    return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: data };
   try {
     await trackAssessmentEvent({
       eventType: 'assessment_submitted',

@@ -1,10 +1,9 @@
 'use client';
 
 import { SnapshotManagementView } from '@/components/clarity/SnapshotManagementView';
-import { DomainReadinessMap } from '@/components/clarity/DomainReadinessMap';
+import { SnapshotExecutive } from '@/components/clarity/SnapshotExecutive';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ScoreGauge } from '@/components/assessment/ScoreGauge';
 import { ProductChoice } from '@/components/products/ProductChoice';
 import type { CommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
@@ -22,8 +21,7 @@ import {
   fairnessLine,
   inventoryBody,
   inventoryDefinition,
-  meaningHeading,
-  tensionLine
+  meaningHeading
 } from '@/lib/snapshot/result-copy';
 
 const SCORE_BASE_PATH = '/score';
@@ -88,7 +86,13 @@ export function SnapshotResult({
 
   return (
     <>
-      <VerdictHero snapshot={snapshot} narrative={narrative} methodologyLabel={methodologyLabel} scoredAt={scoredAt} />
+      <VerdictHero
+        snapshot={snapshot}
+        narrative={narrative}
+        methodologyLabel={methodologyLabel}
+        scoredAt={scoredAt}
+        insights={commercialInsights}
+      />
 
       <section aria-label="Assessment coverage figures" className="border-b border-mk-line bg-mk-surface">
         <div className="mx-auto grid max-w-[1120px] grid-cols-2 md:grid-cols-4">
@@ -104,100 +108,147 @@ export function SnapshotResult({
         </div>
       </section>
 
-      {snapshot.adaptiveMetrics && <div className="mx-auto max-w-[1120px] px-[18px] py-4 text-sm leading-6 text-mk-slate md:px-6">Assessment coverage counts answered applicable controls. Control visibility measures known responses by weight. Domain scoring-base coverage below uses a different denominator; 100% there does not mean every control was answered or verified. <a className="underline" href="#coverage-definitions">Read coverage definitions</a>.</div>}
+      {snapshot.adaptiveMetrics && (
+        <div className="mx-auto max-w-[1120px] px-[18px] py-4 text-sm leading-6 text-mk-slate md:px-6">
+          Assessment coverage counts answered applicable controls. Control visibility measures known responses
+          by weight. Domain scoring-base coverage below uses a different denominator; 100% there does not mean
+          every control was answered or verified.{' '}
+          <a className="underline" href="#coverage-definitions">
+            Read coverage definitions
+          </a>
+          .
+        </div>
+      )}
       <SectionRail />
       <SnapshotManagementView snapshot={snapshot} insights={commercialInsights} />
-      <DomainReadinessMap snapshot={snapshot} />
 
-      <TrackedSection
-        snapshot={snapshot}
-        snapshotUrl={snapshotUrl}
-        eventType="executive_summary_viewed"
-        sourceSection="result_meaning"
-        id="meaning"
-        className="scroll-mt-28 border-b border-mk-line bg-mk-paper"
-      >
-        <div className="mx-auto grid max-w-[1120px] gap-8 px-[18px] py-12 md:grid-cols-12 md:px-6 md:py-16">
-          <div className="md:col-span-7">
-            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this means</p>
-            <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
-              {meaningHeading(snapshot)}
+      <details className="snapshot-explainers">
+        <summary>Read the full interpretation and assessment scope</summary>
+        <TrackedSection
+          snapshot={snapshot}
+          snapshotUrl={snapshotUrl}
+          eventType="executive_summary_viewed"
+          sourceSection="result_meaning"
+          id="meaning"
+          className="scroll-mt-28 border-b border-mk-line bg-mk-paper"
+        >
+          <div className="mx-auto grid max-w-[1120px] gap-8 px-[18px] py-12 md:grid-cols-12 md:px-6 md:py-16">
+            <div className="md:col-span-7">
+              <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this means</p>
+              <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
+                {meaningHeading(snapshot)}
+              </h2>
+              <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">
+                {snapshot.capApplied
+                  ? `The recorded score corresponds to ${snapshot.calculatedMaturity}; maturity rules lowered the band to ${snapshot.finalMaturity}. The cap changes the maturity band, not the numeric score. Review the recorded critical-control gaps and domain results before relying on the overall position.`
+                  : commercialInsights.riskImplication}
+              </p>
+              <div aria-hidden="true" className="mt-6 h-px w-[120px] bg-mk-accent/40" />
+              {fairness ? (
+                <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p>
+              ) : null}
+              {limitationReasons.length > 0 ? (
+                <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">
+                    Limits on this result
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
+                    {limitationReasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {snapshot.capReason && capEffect === 'no_band_change' ? (
+                <p className="mt-4 max-w-[62ch] text-sm leading-6 text-mk-muted">
+                  A maturity rule was evaluated but did not lower the recorded band: {snapshot.capReason}
+                </p>
+              ) : null}
+            </div>
+            <div className="md:col-span-5 md:col-start-9">
+              <dl className="border border-mk-line">
+                {snapshot.capApplied && snapshot.calculatedMaturity ? (
+                  <>
+                    <CountRow label="Calculated" value={snapshot.calculatedMaturity} />
+                    <CountRow label="Recorded" value={snapshot.finalMaturity ?? 'Not recorded'} />
+                  </>
+                ) : null}
+                <CountRow label="Critical-control gaps" value={String(snapshot.criticalGapCount)} />
+                <CountRow label="Major gaps" value={String(snapshot.majorGapCount)} last />
+              </dl>
+              <p className="mt-3 text-xs leading-6 text-mk-muted">
+                A control can carry both gap classifications. These counts must not be added into a unique
+                total.
+              </p>
+            </div>
+          </div>
+        </TrackedSection>
+
+        <section id="covers" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
+          <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
+            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this Snapshot covers</p>
+            <h2 className="mt-2.5 max-w-[26ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
+              {INVENTORY_HEADING}
             </h2>
-            <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">{snapshot.capApplied ? `The recorded score corresponds to ${snapshot.calculatedMaturity}; maturity rules lowered the band to ${snapshot.finalMaturity}. The cap changes the maturity band, not the numeric score. Review the recorded critical-control gaps and domain results before relying on the overall position.` : commercialInsights.riskImplication}</p>
-            <div aria-hidden="true" className="mt-6 h-px w-[120px] bg-mk-accent/40" />
-            {fairness ? <p className="mt-3 max-w-[62ch] text-sm leading-6 text-mk-muted">{fairness}</p> : null}
-            {limitationReasons.length > 0 ? (
-              <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">Limits on this result</p>
-                <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
-                  {limitationReasons.map((reason) => <li key={reason}>{reason}</li>)}
-                </ul>
+            <p className="mt-4 max-w-[64ch] text-[15px] leading-7 text-mk-slate">
+              {inventoryBody(inventory)}
+            </p>
+
+            {inventory.showsAreaTable ? (
+              <div className="mt-8 max-w-[640px] overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <caption className="sr-only">{INVENTORY_TABLE_LABEL}</caption>
+                  <thead>
+                    <tr>
+                      <th
+                        scope="col"
+                        className="border-y border-mk-line py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted"
+                      >
+                        {INVENTORY_TABLE_LABEL}
+                      </th>
+                      <th
+                        scope="col"
+                        className="border-y border-mk-line py-2.5 text-right text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted"
+                      >
+                        Gaps
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.rows.map((row) => (
+                      <tr key={row.domainCode}>
+                        <th
+                          scope="row"
+                          className="border-b border-mk-line py-2.5 pr-4 text-[13px] font-semibold text-mk-navy"
+                        >
+                          {row.domainName}
+                        </th>
+                        <td className="border-b border-mk-line py-2.5 text-right text-[13px] font-semibold tabular-nums text-mk-accent">
+                          {row.criticalGapCount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 max-w-[62ch] text-xs leading-6 text-mk-muted">
+                  {inventoryDefinition(inventory)}
+                </p>
               </div>
             ) : null}
-            {snapshot.capReason && capEffect === 'no_band_change' ? (
-              <p className="mt-4 max-w-[62ch] text-sm leading-6 text-mk-muted">A maturity rule was evaluated but did not lower the recorded band: {snapshot.capReason}</p>
-            ) : null}
           </div>
-          <div className="md:col-span-5 md:col-start-9">
-            <dl className="border border-mk-line">
-              {snapshot.capApplied && snapshot.calculatedMaturity ? (
-                <>
-                  <CountRow label="Calculated" value={snapshot.calculatedMaturity} />
-                  <CountRow label="Recorded" value={snapshot.finalMaturity ?? 'Not recorded'} />
-                </>
-              ) : null}
-              <CountRow label="Critical-control gaps" value={String(snapshot.criticalGapCount)} />
-              <CountRow label="Major gaps" value={String(snapshot.majorGapCount)} last />
-            </dl>
-            <p className="mt-3 text-xs leading-6 text-mk-muted">A control can carry both gap classifications. These counts must not be added into a unique total.</p>
-          </div>
-        </div>
-      </TrackedSection>
-
-      <section id="covers" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
-        <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this Snapshot covers</p>
-          <h2 className="mt-2.5 max-w-[26ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
-            {INVENTORY_HEADING}
-          </h2>
-          <p className="mt-4 max-w-[64ch] text-[15px] leading-7 text-mk-slate">{inventoryBody(inventory)}</p>
-
-          {inventory.showsAreaTable ? (
-            <div className="mt-8 max-w-[640px] overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <caption className="sr-only">{INVENTORY_TABLE_LABEL}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="border-y border-mk-line py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
-                      {INVENTORY_TABLE_LABEL}
-                    </th>
-                    <th scope="col" className="border-y border-mk-line py-2.5 text-right text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted">
-                      Gaps
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory.rows.map((row) => (
-                    <tr key={row.domainCode}>
-                      <th scope="row" className="border-b border-mk-line py-2.5 pr-4 text-[13px] font-semibold text-mk-navy">{row.domainName}</th>
-                      <td className="border-b border-mk-line py-2.5 text-right text-[13px] font-semibold tabular-nums text-mk-accent">{row.criticalGapCount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-3 max-w-[62ch] text-xs leading-6 text-mk-muted">{inventoryDefinition(inventory)}</p>
-            </div>
-          ) : null}
-        </div>
-      </section>
+        </section>
+      </details>
 
       {pairing ? (
         <section aria-label="Worth noting" className="border-b border-mk-line bg-mk-surface">
           <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6 md:py-12">
             <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
             <p className="mt-3 max-w-[64ch] text-base leading-8 text-mk-navy">
-              Your strongest recorded area, <strong className="font-semibold">{pairing.strongestDomainName}</strong>, has a higher recorded score than your weakest,{' '}
-              <strong className="font-semibold">{pairing.weakestDomainName}</strong>. This is a comparison of recorded scores. The assessment does not establish that these areas are operationally adjacent or that one control depends on the other.
+              Your strongest recorded area,{' '}
+              <strong className="font-semibold">{pairing.strongestDomainName}</strong>, has a higher recorded
+              score than your weakest, <strong className="font-semibold">{pairing.weakestDomainName}</strong>.
+              This is a comparison of recorded scores. The assessment does not establish that these areas are
+              operationally adjacent or that one control depends on the other.
             </p>
           </div>
         </section>
@@ -212,11 +263,15 @@ export function SnapshotResult({
 
       <section aria-label="What happens after you order" className="border-b border-mk-line bg-mk-surface">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-14">
-          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What happens after you order</p>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">
+            What happens after you order
+          </p>
           <ol className="mt-6 grid gap-6 md:grid-cols-4">
             {WHAT_HAPPENS_NEXT.map((step, index) => (
               <li key={step} className="border-t border-mk-accent/40 pt-3">
-                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
+                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
                 <p className="mt-1.5 text-sm leading-6 text-mk-slate">{step}</p>
               </li>
             ))}
@@ -233,7 +288,9 @@ export function SnapshotResult({
             </summary>
             <div className="flex flex-col gap-3 border-t border-mk-line px-4 py-4">
               {METHODOLOGY_DISCLOSURE.map((paragraph) => (
-                <p key={paragraph} className="max-w-[68ch] text-sm leading-6 text-mk-muted">{paragraph}</p>
+                <p key={paragraph} className="max-w-[68ch] text-sm leading-6 text-mk-muted">
+                  {paragraph}
+                </p>
               ))}
             </div>
           </details>
@@ -249,65 +306,31 @@ function VerdictHero({
   snapshot,
   narrative,
   methodologyLabel,
-  scoredAt
+  scoredAt,
+  insights
 }: {
   snapshot: FreeSnapshot;
   narrative: { headline: string; executiveDiagnosis: string };
   methodologyLabel?: string | null;
   scoredAt: string | null;
+  insights: CommercialSnapshotInsights;
 }) {
   return (
-    <section id="position" className="scroll-mt-28 bg-mk-navy text-white">
-      <div className="mx-auto max-w-[1120px] px-[18px] py-6 md:px-6 md:py-[88px]">
-        <div className="grid items-center gap-7 md:grid-cols-12 md:gap-12">
-          {/* Mobile puts the gauge first: on a small screen the number is the hook, and there
-              is no F-pattern to respect. Desktop reads the headline first. */}
-          <div className="md:order-2 md:col-span-5">
-            <p className="text-[12px] uppercase tracking-[0.2em] text-white/[.72] md:hidden">Your result: {snapshot.organisationName}</p>
-            <div className="mt-3 md:mt-0">
-              <ScoreGauge score={snapshot.overallScore} band={snapshot.finalMaturity} size="mobile" />
-            </div>
-            <p className="mx-auto mt-3.5 max-w-[31ch] text-[12.5px] leading-6 text-white/[.82] md:text-center">{tensionLine(snapshot)}</p>
-          </div>
-
-          <div className="md:order-1 md:col-span-7">
-            <p className="hidden text-[12px] uppercase tracking-[0.2em] text-white/[.72] md:block">Your result: {snapshot.organisationName}</p>
-            <h1 className="mt-3 max-w-[22ch] text-[25px] font-semibold leading-[1.16] tracking-tight text-white md:mt-3 md:text-[40px] md:leading-[1.14]">
-              {narrative.headline}
-            </h1>
-            <p className="mt-3 max-w-[46ch] text-[14.5px] leading-[1.62] text-white/[.82] md:mt-3.5 md:text-lg md:leading-8">
-              {narrative.executiveDiagnosis}
-            </p>
-            <div aria-hidden="true" className="mt-5 h-px w-[120px] bg-white/[.22] md:mt-6" />
-            <p className="mt-3 text-[12px] leading-[1.65] text-white/[.62]">
-              MK Fraud Readiness Score{methodologyLabel ? ` · ${methodologyLabel}` : ''}
-              <br />
-              Self-assessment{scoredAt ? ` · completed ${scoredAt}` : ''}
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2.5 md:mt-6">
-              <a
-                href="#attention"
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-mk-navy sm:w-auto"
-              >
-                See what needs attention
-              </a>
-              <a
-                href="#next-step"
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border-2 border-white/[.28] px-5 py-3 text-[13px] font-semibold text-white transition hover:border-white/50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-mk-navy sm:w-auto"
-              >
-                Compare next steps
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <SnapshotExecutive
+      snapshot={snapshot}
+      narrative={narrative}
+      insights={insights}
+      methodologyLabel={methodologyLabel}
+      scoredAt={scoredAt}
+    />
   );
 }
 
 function CountRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-4 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}>
+    <div
+      className={`flex items-baseline justify-between gap-4 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}
+    >
       <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold tabular-nums text-mk-navy">{value}</dd>
     </div>
@@ -330,7 +353,9 @@ function SectionRail() {
 
     const sectionObserver = new IntersectionObserver(
       (entries) => {
-        const shown = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const shown = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
         if (shown?.target.id) setActive(shown.target.id);
       },
       { rootMargin: '-45% 0px -45% 0px' }
@@ -368,7 +393,10 @@ function SectionRail() {
             </li>
           ))}
         </ul>
-        <a href="#next-step" className="whitespace-nowrap text-[12px] font-semibold text-mk-accent hover:underline">
+        <a
+          href="#next-step"
+          className="whitespace-nowrap text-[12px] font-semibold text-mk-accent hover:underline"
+        >
           Compare next steps →
         </a>
       </div>

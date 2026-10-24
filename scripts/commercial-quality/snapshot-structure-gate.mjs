@@ -158,7 +158,7 @@ test('Comprehensive makes no assurance, validation or review claim', () => {
 });
 
 test('One h1, and it is the organisation-specific headline', () => {
-  const result = read('src/components/assessment/SnapshotResult.tsx');
+  const result = read('src/components/clarity/SnapshotExecutive.tsx');
   assert.equal((result.match(/<h1/g) ?? []).length, 1);
   assert.match(result, /<h1[^>]*>\s*\{narrative\.headline\}/s);
 });

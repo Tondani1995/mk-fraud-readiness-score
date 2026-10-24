@@ -10,7 +10,7 @@ const compiled = buildSync({
     import { renderToStaticMarkup } from 'react-dom/server';
     import { DomainReadinessMap } from './src/components/clarity/DomainReadinessMap';
     import { CompletionMap } from './src/components/clarity/CompletionMap';
-    export const domains = (value) => renderToStaticMarkup(React.createElement(DomainReadinessMap, {snapshot:value}));
+    export const domains = (value, selectedCode) => renderToStaticMarkup(React.createElement(DomainReadinessMap, {snapshot:value,selectedCode}));
     export const completion = (value) => renderToStaticMarkup(React.createElement(CompletionMap, {progress:value}));
   `, resolveDir: process.cwd(), loader: 'tsx' },
   bundle: true, platform: 'node', format: 'cjs', write: false,
@@ -19,14 +19,17 @@ const compiled = buildSync({
 const module = { exports: {} };
 vm.runInNewContext(compiled, { module, exports: module.exports, require });
 const {domains,completion} = module.exports;
-const domain = (id,score,coverage,gaps) => ({domainId:id,domainName:id,rawScore:score,coveragePct:coverage,criticalGapCount:gaps});
+const domain = (id,score,coverage,gaps) => ({domainId:id,domainCode:id,domainName:id,weightPct:10,rawScore:score,coveragePct:coverage,criticalGapCount:gaps});
 const rendered = domains({domains:[domain('Recorded zero',0,82,3),domain('Unscored applicable area',null,0,0),domain('Recorded fractional score',49.75,67,1)]});
 assert.match(rendered, /Recorded zero/);
 assert.match(rendered, /<strong>0<small>\/100<\/small><\/strong>/);
 assert.match(rendered, /Not scored/);
 assert.match(rendered, /49\.75<small>\/100/);
-assert.match(rendered, /82% coverage · 3 critical-control gaps/);
-assert.match(rendered, /67% coverage · 1 critical-control gap<\/p>/);
+assert.match(rendered, /82% coverage/);
+assert.match(rendered, /3 critical-control gaps/);
+const fractional=domains({domains:[domain('Recorded fractional score',49.75,67,1)]});
+assert.match(fractional, /67% coverage/);
+assert.match(fractional, /1 critical-control gaps/);
 assert.ok(rendered.indexOf('Recorded zero') < rendered.indexOf('Unscored applicable area'));
 assert.ok(rendered.indexOf('Unscored applicable area') < rendered.indexOf('Recorded fractional score'));
 assert.equal(domains({domains:[]}), '');

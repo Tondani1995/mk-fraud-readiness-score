@@ -301,7 +301,7 @@ assertIncludes(files.freeSnapshot, 'respondentEmail: respondent?.email ?? null',
 assertIncludes(files.snapshot, 'What this means', 'Snapshot leads with the organisation-specific interpretation');
 assertIncludes(files.snapshot, 'What needs attention', 'Snapshot shows the attention section');
 assertIncludes(files.snapshot, '<SnapshotManagementView', 'Snapshot renders the grounded management-priority view');
-assertIncludes('src/components/clarity/SnapshotManagementView.tsx', 'MANAGEMENT FOCUS', 'Snapshot renders the existing management implication');
+assertIncludes('src/components/clarity/SnapshotManagementView.tsx', 'insights.leadershipPriority', 'Snapshot renders the existing management implication');
 assertIncludes(files.snapshot, 'What this Snapshot covers', 'Snapshot explains the scope of the result');
 assertNotIncludes(files.snapshot, 'personalised interpretation is temporarily unavailable', 'Snapshot must not expose an AI-availability failure message');
 assertNotIncludes(files.snapshot, 'paidReportValue', 'Snapshot must not render the deterministic paid-detail giveaway');

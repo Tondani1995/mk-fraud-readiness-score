@@ -296,7 +296,7 @@ const snapshotCopy = read('src/lib/snapshot/result-copy.ts');
 const snapshotSurface = `${snapshotResult}\n${productChoice}\n${snapshotCopy}`;
 assert(snapshotResult.includes('Assessment coverage figures'), 'Snapshot must display the current coverage figures surface.');
 assert(snapshotResult.includes('fairnessLine(snapshot)'), 'Snapshot must display the customer-safe coverage/uncertainty note where relevant.');
-assert(read('src/components/clarity/SnapshotManagementView.tsx').includes('Where management attention should go first.'), 'Snapshot must display grounded priorities using customer-facing language.');
+assert(read('src/components/clarity/SnapshotManagementView.tsx').includes('Your management priorities, in view.'), 'Snapshot must display grounded priorities using customer-facing language.');
 assert(snapshotResult.includes('<SnapshotManagementView'), 'Snapshot must render the structured recorded-result projection.');
 assert(productChoice.includes('COMMERCIAL_CATALOGUE[tier]'), 'Essential value claims must resolve through the authoritative catalogue.');
 assert(read('src/lib/commercial/product-catalogue.ts').includes('30/60/90-day roadmap'), 'Essential catalogue must state the approved 30/60/90 direction.');

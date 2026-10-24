@@ -1,0 +1,56 @@
+{
+  "environment": "preview",
+  "baseUrl": "https://REPLACE-WITH-ISOLATED-STAGING-HOST",
+  "projectRef": "",
+  "deploymentSha": "",
+  "isolationConfirmed": false,
+  "productionExcluded": false,
+  "nonChargeablePayments": false,
+  "nonChargeableGeneration": false,
+  "customerCommunicationBlocked": false,
+  "methodologyPolicyReconciled": false,
+  "cases": {
+    "committed-start": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "state-transfer": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "pending-recovery": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "scope-recalculation": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "completed-resume": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "performance-device": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    },
+    "assistive-motion": {
+      "status": "pending",
+      "deploymentSha": "",
+      "observation": "",
+      "evidenceFiles": []
+    }
+  }
+}
