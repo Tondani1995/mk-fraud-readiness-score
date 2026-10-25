@@ -741,7 +741,7 @@ body {
   max-width: 720px;
 }
 .clarity-services-hero nav ul {
-  border-radius: 0;
+  border-radius: var(--mk-radius-panel);
   border-color: var(--mk-line);
   background: var(--mk-line);
 }
@@ -836,7 +836,7 @@ body {
   letter-spacing: -0.01em;
 }
 .clarity-card {
-  border-radius: 4px !important;
+  border-radius: var(--mk-radius-panel) !important;
   box-shadow: var(--mk-shadow-soft);
   border-color: var(--mk-line) !important;
 }
@@ -912,7 +912,7 @@ body {
   padding: 0 0 24px;
 }
 .mk-product [data-adaptive-assessment] details {
-  border-radius: 2px;
+  border-radius: var(--mk-radius-card);
   background: var(--mk-surface);
 }
 .completion-map {
@@ -946,7 +946,7 @@ body {
   text-transform: uppercase;
 }
 .mk-product dialog[data-fraud-readiness-terms-gate] {
-  border-radius: 4px;
+  border-radius: var(--mk-radius-panel);
   border-top: 5px solid var(--mk-surface);
   box-shadow: var(--mk-shadow-soft);
 }
@@ -2108,7 +2108,7 @@ body {
   max-width: 650px;
 }
 .mk-site [data-product-tier] {
-  border-radius: 3px;
+  border-radius: var(--mk-radius-panel);
   border-color: var(--mk-line);
   box-shadow: var(--mk-shadow-soft);
 }
@@ -3500,11 +3500,11 @@ body {
 
 /* Shared geometry: one product-wide radius vocabulary. Full-bleed page canvases stay full-bleed. */
 :root {
-  --mk-radius-page: 8px;
-  --mk-radius-panel: 8px;
-  --mk-radius-card: 6px;
-  --mk-radius-control: 6px;
-  --mk-radius-small: 4px;
+  --mk-radius-page: 24px;
+  --mk-radius-panel: 22px;
+  --mk-radius-card: 16px;
+  --mk-radius-control: 16px;
+  --mk-radius-small: 10px;
   --mk-radius-track: 999px;
   --radius: var(--mk-radius-control);
   --mk-motion-enter: 240ms;
@@ -3858,8 +3858,8 @@ body {
 }
 .answer-label {
   display: grid !important;
-  grid-template-columns: 24px 1fr;
-  column-gap: 12px;
+  grid-template-columns: 36px 1fr;
+  column-gap: 14px;
   row-gap: 6px;
   align-items: start;
   position: relative;
@@ -3878,12 +3878,12 @@ body {
   margin: 0 !important;
 }
 .answer-selector {
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border: 1px solid var(--mk-muted);
-  border-radius: 50%;
+  border-radius: 12px;
   font-size: 12px;
   color: var(--mk-accent);
   margin-top: 1px;
@@ -3921,7 +3921,7 @@ body {
 }
 .answer-unknown .answer-label {
   min-height: 74px !important;
-  grid-template-columns: 24px 1fr;
+  grid-template-columns: 36px 1fr;
   align-items: center;
 }
 .answer-unknown .answer-meaning-inline {
@@ -4910,8 +4910,8 @@ body {
   .mk-product .assessment-instrument[data-adaptive-assessment] label.answer-label {
     padding: 13px 14px !important;
     min-height: 54px !important;
-    grid-template-columns: 22px 1fr;
-    align-items: center;
+    grid-template-columns: 32px 1fr;
+    align-items: start;
     column-gap: 10px;
   }
   .answer-title {
@@ -4919,8 +4919,8 @@ body {
     line-height: 1.5;
   }
   .answer-selector {
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     margin-top: 0;
     font-size: 12px;
   }
@@ -4939,7 +4939,7 @@ body {
     line-height: 1.65;
   }
   .answer-unknown .answer-label {
-    grid-template-columns: 22px 1fr !important;
+    grid-template-columns: 32px 1fr !important;
   }
   .selection-instruction {
     font-size: 12px;

@@ -58,9 +58,9 @@ const config: Config = {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       borderRadius: {
-        brand: '6px',
-        panel: '8px',
-        xl2: '8px',
+        brand: '16px',
+        panel: '22px',
+        xl2: '22px',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'

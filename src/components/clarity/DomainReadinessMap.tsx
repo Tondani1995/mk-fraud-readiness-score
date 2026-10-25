@@ -6,6 +6,7 @@ import {
   buildDomainSnapshotInsight,
   type CommercialSnapshotInsights,
 } from "@/lib/snapshot/commercial-insights";
+import { DomainScoreRail } from "@/components/clarity/DomainScoreRail";
 import type { FreeSnapshot } from "@/lib/snapshot/free-snapshot";
 
 /** Comparative recorded scores + separate gap signals. Selection reveals the existing interpretation. */
@@ -67,9 +68,9 @@ export function DomainReadinessMap({
           <h2 id="domain-map-heading">Readiness, gaps and visibility.</h2>
         </div>
         <p>
-          Select an area to inspect the recorded signals and their existing
-          management interpretation. Scores compare readiness; gap counts are
-          shown separately.
+          Each marker places the recorded area score on the same 0–100 scale.
+          Critical gaps are counted separately. Select an area to inspect its
+          findings and existing management interpretation.
         </p>
       </div>
       {view.insufficient && (
@@ -80,10 +81,19 @@ export function DomainReadinessMap({
         </p>
       )}
       <div className="domain-explorer-body">
-        <div className="domain-axis" aria-hidden="true">
-          <span>APPLICABLE AREA</span>
-          <span>READINESS / 100</span>
-          <span>CRITICAL GAPS</span>
+        <div
+          className="grid grid-cols-[minmax(0,1fr)_52px] gap-4 px-4 pb-4 text-xs text-mk-muted"
+          aria-hidden="true"
+        >
+          <div>
+            <span>RECORDED READINESS / 100</span>
+            <div className="mx-2 mt-2 flex justify-between">
+              <span>0</span>
+              <span>50</span>
+              <span>100</span>
+            </div>
+          </div>
+          <span className="text-center leading-relaxed">CRITICAL GAPS</span>
         </div>
         <ul
           className="domain-score-list"
@@ -119,7 +129,7 @@ export function DomainReadinessMap({
               >
                 <button
                   type="button"
-                  className="domain-score-button"
+                  className="domain-score-button !grid-cols-[minmax(0,1fr)_52px] !gap-4 !px-4 !py-3"
                   aria-pressed={active}
                   aria-controls={active ? detailId : undefined}
                   onClick={(event) =>
@@ -127,38 +137,12 @@ export function DomainReadinessMap({
                   }
                   aria-label={`${domain.domainName}: ${domain.rawScore === null ? "not scored" : `${domain.rawScore} out of 100`}, ${domain.criticalGapCount} critical-control gaps. Explore area.`}
                 >
-                  <span className="domain-row-name">
-                    <i aria-hidden="true">
-                      {String(index + 1).padStart(2, "0")}
-                    </i>
-                    {domain.domainName}
-                  </span>
-                  <span className="domain-row-score">
-                    <span
-                      className="domain-comparison-track"
-                      aria-hidden="true"
-                    >
-                      {domain.rawScore !== null && (
-                        <i
-                          style={{
-                            width: `${Math.max(0, Math.min(100, domain.rawScore))}%`,
-                          }}
-                        />
-                      )}
-                    </span>
-                    <strong>
-                      {domain.rawScore === null
-                        ? "Not scored"
-                        : domain.rawScore}
-                      <small>{domain.rawScore === null ? "" : "/100"}</small>
-                    </strong>
-                  </span>
-                  <span className="domain-gap-count">
-                    <b>{domain.criticalGapCount}</b>
-                    <small>
-                      critical {domain.criticalGapCount === 1 ? "gap" : "gaps"}
-                    </small>
-                  </span>
+                  <DomainScoreRail
+                    name={domain.domainName}
+                    score={domain.rawScore}
+                    criticalGaps={domain.criticalGapCount}
+                    priority={priorityIndex < 0 ? null : priorityIndex + 1}
+                  />
                 </button>
                 {active && (
                   <section
@@ -199,7 +183,7 @@ export function DomainReadinessMap({
                     <div className="domain-detail-metrics">
                       <div>
                         <strong>
-                          {domain.rawScore ?? ", "}
+                          {domain.rawScore ?? "Not scored"}
                           <small>
                             {domain.rawScore === null ? "" : "/100"}
                           </small>
