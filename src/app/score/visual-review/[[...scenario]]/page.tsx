@@ -115,7 +115,7 @@ function IndexPage() {
         />
         <nav aria-label="Visual review states" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {links.map(([label, href]) => (
-            <a key={href} href={href} className="flex min-h-14 items-center rounded-xl border border-mk-line bg-white px-4 py-3 text-sm font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+            <a key={href} href={href} className="flex min-h-14 items-center rounded-brand border border-mk-line bg-white px-4 py-3 text-sm font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
               {label}
             </a>
           ))}

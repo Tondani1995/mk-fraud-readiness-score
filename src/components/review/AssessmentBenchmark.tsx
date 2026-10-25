@@ -5,13 +5,20 @@ import { AdaptiveAssessmentExperience } from '@/components/adaptive/AdaptiveAsse
 
 type Sample = {
   selectionFeedbackMs?: number;
+  phases?: { phase: string; atMs: number }[];
   nextUsableMs?: number;
   networkMs?: number;
   responseBytes?: number;
   fixtureComputeMs?: number;
   simulatedTransportMs?: number;
   frameIntervalsMs: number[];
-  motionFrames?: { atMs: number; visibleOptions: number; enabledRadios: number; stageOpacity: number }[];
+  motionFrames?: {
+    atMs: number;
+    visibleOptions: number;
+    enabledRadios: number;
+    stageOpacity: number;
+    transitionPhase: string;
+  }[];
 };
 /** Browser-native performance probe around the real component and a synthetic HTTP transport. */
 export function AssessmentBenchmark() {
@@ -81,6 +88,11 @@ export function AssessmentBenchmark() {
       const pending = active.current;
       const root = stage.current;
       if (pending && root) {
+        const transitionPhase =
+          root.querySelector<HTMLElement>('[data-transition-phase]')?.dataset.transitionPhase ?? 'baseline';
+        const phases = (pending.sample.phases ??= []);
+        if (phases.at(-1)?.phase !== transitionPhase)
+          phases.push({ phase: transitionPhase, atMs: now - pending.began });
         if (motionCapture.current) {
           const slots = [...root.querySelectorAll<HTMLElement>('.answer-slot')];
           const visible = slots.filter(
@@ -91,7 +103,8 @@ export function AssessmentBenchmark() {
             atMs: now - pending.began,
             visibleOptions: visible.length,
             enabledRadios: root.querySelectorAll('input[type="radio"]:not(:disabled)').length,
-            stageOpacity: phase ? Number(getComputedStyle(phase).opacity) : 1
+            stageOpacity: phase ? Number(getComputedStyle(phase).opacity) : 1,
+            transitionPhase
           });
         }
         if (pending.lastFrame) pending.sample.frameIntervalsMs.push(now - pending.lastFrame);
@@ -256,6 +269,7 @@ export function AssessmentBenchmark() {
               setProfile(e.target.value);
             }}
           >
+            <option value="instant">Immediate · 0ms / 100Mbps</option>
             <option value="desktop">Desktop · 30ms / 10Mbps</option>
             <option value="mobile">Mobile network proxy · 150ms / 1.6Mbps</option>
             <option value="slow">Slow · 600ms / 0.75Mbps</option>

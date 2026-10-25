@@ -20,7 +20,11 @@ const routes = [
   '/score/visual-review/order/comprehensive/billing-invoice',
   '/score/visual-review/order/essential/payment',
   '/design-review/states',
-  '/design-review/report'
+  '/design-review/report',
+  '/design-review/recovery',
+  '/design-review/flow?stage=orientation',
+  '/design-review/flow?stage=area',
+  '/design-review/flow?stage=completion'
 ];
 /** Local/preview rendered WCAG scan. No records, forms or external services are touched. */
 export function AccessibilityReview() {
@@ -38,7 +42,7 @@ export function AccessibilityReview() {
       // Poll bounded DOM readiness so the audit cannot hang on a missed event.
       const deadline = performance.now() + 8000;
       while (frame.current?.contentDocument?.readyState !== 'complete' ||
-        new URL(frame.current?.contentDocument?.URL ?? 'about:blank').pathname !== route) {
+        (new URL(frame.current?.contentDocument?.URL ?? 'about:blank').pathname + new URL(frame.current?.contentDocument?.URL ?? 'about:blank').search) !== route) {
         if (performance.now() > deadline) throw Error('Page under review did not finish loading');
         await new Promise(resolve => setTimeout(resolve, 50));
       }

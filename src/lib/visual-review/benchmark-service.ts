@@ -7,6 +7,7 @@ import { previewGatewayChange } from '@/lib/adaptive/engine';
 import { deriveAdaptiveAnswerDelta, buildAdaptivePostSaveState } from '@/lib/adaptive/server';
 
 export const BENCHMARK_PROFILES = {
+  instant: { latencyMs: 0, megabitsPerSecond: 100 },
   desktop: { latencyMs: 30, megabitsPerSecond: 10 },
   mobile: { latencyMs: 150, megabitsPerSecond: 1.6 },
   slow: { latencyMs: 600, megabitsPerSecond: 0.75 }

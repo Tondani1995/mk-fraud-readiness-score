@@ -29,23 +29,8 @@ export default function ReportIdentity() {
         </header>
         <div className="report-cover-title">
           <p>FRAUD READINESS</p>
-          <h1>
-            Fraud readiness.
-            <br />
-            <span className="headline-emphasis">A management perspective.</span>
-          </h1>
+          <h1>Fraud Readiness Report</h1><p>Prepared for {snapshot.organisationName}</p>
           <p>Representative report identity</p>
-        </div>
-        <div className="report-cover-system" aria-hidden="true">
-          {["EXPOSURE", "CONTROL REALITY", "MANAGEMENT CLARITY"].map(
-            (label, i) => (
-              <div key={label}>
-                <span>0{i + 1}</span>
-                <i />
-                <strong>{label}</strong>
-              </div>
-            ),
-          )}
         </div>
         <footer>
           <div>
@@ -59,12 +44,8 @@ export default function ReportIdentity() {
         </footer>
       </article>
       <article className="report-summary">
-        <p className="clarity-eyebrow">01 / THE MANAGEMENT VIEW</p>
-        <h2>
-          Read the position.
-          <br />
-          <span className="headline-emphasis">Understand the implication.</span>
-        </h2>
+        <p className="clarity-eyebrow">Management review</p>
+        <h2>The management view</h2>
         <div className="report-summary-grid">
           <div>
             <span>RECORDED READINESS</span>
