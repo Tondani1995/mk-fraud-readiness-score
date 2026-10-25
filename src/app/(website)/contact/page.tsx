@@ -225,7 +225,7 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("name")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "name" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "name" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                             placeholder="John Doe"
                           />
                         </div>
@@ -243,7 +243,7 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("email")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "email" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "email" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                             placeholder="john@company.com"
                           />
                         </div>
@@ -262,7 +262,7 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("company")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "company" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "company" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                             placeholder="Your Company Ltd"
                           />
                         </div>
@@ -279,7 +279,7 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("phone")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "phone" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "phone" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                             placeholder="+27 82 301 4351"
                           />
                         </div>
@@ -297,7 +297,7 @@ function ContactUsForm() {
                           onChange={handleChange}
                           onFocus={() => setFocusedField("service")}
                           onBlur={() => setFocusedField(null)}
-                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                         >
                           <option value="">Select a service</option>
                           <option value="mk-advisory">Assess, Advisory &amp; Risk Review</option>
@@ -321,7 +321,7 @@ function ContactUsForm() {
                           onChange={handleChange}
                           onFocus={() => setFocusedField("message")}
                           onBlur={() => setFocusedField(null)}
-                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "message" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
+                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "message" ? "border-mk-accent/45 shadow-soft" : "border-slate-200"}`}
                           placeholder="Tell us about your fraud challenges and what you want to achieve..."
                         />
                       </div>

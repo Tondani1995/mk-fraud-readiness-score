@@ -44,7 +44,7 @@ export async function AdminShell({ admin, children }: { admin: AdminSession; chi
     <div className="min-h-[calc(100vh-5rem)] border-t border-mk-line bg-gradient-to-br from-mk-cream via-white to-mk-cream">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-8 lg:flex-row">
         <aside className="lg:w-80">
-          <div className="overflow-hidden rounded-[1.6rem] border border-mk-line bg-white shadow-[0_24px_70px_rgba(0,16,48,0.10)]">
+          <div className="overflow-hidden rounded-panel border border-mk-line bg-white shadow-soft">
             <div className="bg-mk-ink px-5 py-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">MK Fraud Insights</p>
               <h2 className="mt-3 text-xl font-semibold">Readiness Control Room</h2>

@@ -63,7 +63,7 @@ export default function CookieConsent() {
             ref={bannerRef}
             role="region"
             aria-label="Cookie preferences"
-            className="fixed inset-x-2 bottom-2 z-[100] rounded-brand border border-slate-200 bg-white px-4 py-3 xl:py-2.5 shadow-[0_8px_30px_rgba(0,16,48,0.14)] sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-[min(72rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:px-5"
+            className="fixed inset-x-2 bottom-2 z-[100] rounded-brand border border-slate-200 bg-white px-4 py-3 xl:py-2.5 shadow-soft sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-[min(72rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:px-5"
         >
             <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-6">
                 <div className="min-w-0 flex-1 xl:flex xl:flex-wrap xl:items-center xl:gap-x-5">

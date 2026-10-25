@@ -8,7 +8,7 @@ const files=[];function walk(dir){for(const entry of fs.readdirSync(dir,{withFil
 roots.forEach(walk);files.push('src/app/clarity.css');
 const retired=/#(?:c8d9bf|a9bf9c|a9d4ce|6f5537|80613b|64491f|8a6d4b|dfd8cb|f4efe7|cbbd9f|d8cbbb|12333c|0b2631|31565e)/i;
 const banned=/Support ladder|One result\. Three ways to use it\.|Deeper analysis|THE MK LENS|MANAGEMENT INTELLIGENCE|AREA INTELLIGENCE|THE CONNECTED VIEW|scoring-base coverage|Tell me what is wrong|Your first clear view\.|Exposure \+ Control reality|EXPOSURE\. READINESS\. DECISIONS\./i;
-const issues=[];for(const file of files){const src=fs.readFileSync(file,'utf8');if(retired.test(src))issues.push(`${file}: retired colour`);if(banned.test(src))issues.push(`${file}: retired presentation phrase`);if(src.includes('—')||src.includes('&mdash;'))issues.push(`${file}: em dash`);}
+const issues=[];for(const file of files){const src=fs.readFileSync(file,'utf8');if(/shadow-\[[^\]]+\]/.test(src))issues.push(`${file}: use the single named shadow level`);if(retired.test(src))issues.push(`${file}: retired colour`);if(banned.test(src))issues.push(`${file}: retired presentation phrase`);if(src.includes('—')||src.includes('&mdash;'))issues.push(`${file}: em dash`);}
 assert.deepEqual(issues,[],'Customer-source brand guardrails');
 const layout=fs.readFileSync('src/app/layout.tsx','utf8');assert.match(layout,/font-poppins/);assert.doesNotMatch(layout,/font-inter|manrope/i);
 assert.ok(!fs.readdirSync('public/fonts').some(f=>/inter|manrope/i.test(f)));

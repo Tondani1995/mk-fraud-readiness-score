@@ -6,7 +6,7 @@ export function Card({ children, className, ...props }: ComponentPropsWithoutRef
     <section
       {...props}
       className={cn(
-        'clarity-card overflow-hidden rounded-[var(--mk-radius-panel)] border border-mk-line/90 bg-mk-paper/92 shadow-[0_18px_50px_rgba(18,16,13,0.07)]',
+        'clarity-card overflow-hidden rounded-[var(--mk-radius-panel)] border border-mk-line/90 bg-white shadow-soft',
         className
       )}
     >

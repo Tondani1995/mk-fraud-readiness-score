@@ -90,7 +90,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
         aria-labelledby={headingId}
         aria-describedby={descriptionId}
         data-fraud-readiness-terms-gate="true"
-        className="w-[min(46rem,calc(100vw-2rem))] rounded-brand border border-mk-line bg-white p-0 text-mk-navy shadow-[0_24px_70px_rgba(0,16,48,0.22)] focus:outline-none backdrop:bg-mk-navy/60 backdrop:"
+        className="w-[min(46rem,calc(100vw-2rem))] rounded-brand border border-mk-line bg-white p-0 text-mk-navy shadow-soft focus:outline-none backdrop:bg-mk-navy/60"
       >
         {/* The acknowledgements and the actions stay out of the scroll area: on a phone the summary
             is taller than the viewport, and a click-wrap gate whose accept control is off-screen

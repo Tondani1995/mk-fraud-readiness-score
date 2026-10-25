@@ -1504,7 +1504,7 @@ body {
     padding: 18px;
   }
   .mk-product dialog[data-fraud-readiness-terms-gate] :is(p, li, label) {
-    font-size: 12px;
+    font-size: 16px;
     line-height: 1.7;
   }
   .mk-product dialog[data-fraud-readiness-terms-gate] > div {
@@ -3894,7 +3894,7 @@ body {
   border-color: white;
 }
 .answer-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -3909,7 +3909,7 @@ body {
   clip-path: none;
   white-space: normal;
   color: var(--mk-muted);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.65;
 }
 .answer-option[data-selected='true'] .answer-meaning-inline {
@@ -4915,7 +4915,7 @@ body {
     column-gap: 10px;
   }
   .answer-title {
-    font-size: 13px;
+    font-size: 16px;
     line-height: 1.5;
   }
   .answer-selector {
@@ -4935,7 +4935,7 @@ body {
     clip-path: none;
     white-space: normal;
     color: var(--mk-muted);
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.65;
   }
   .answer-unknown .answer-label {
