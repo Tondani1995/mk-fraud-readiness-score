@@ -97,7 +97,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
             reads as a dead end. Only the summary scrolls. */}
         <div className="flex max-h-[min(88vh,48rem)] flex-col">
           <div ref={headingRef} tabIndex={-1} className="shrink-0 border-b border-mk-line px-6 py-6 focus:outline-none sm:px-8">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">
+            <p className="!text-xs font-semibold uppercase tracking-[0.12em] text-mk-accent">
               Before you begin
             </p>
             <h2 id={headingId} className="mt-2 text-xl font-semibold tracking-normal sm:text-2xl">
@@ -199,7 +199,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
               </Link>
             </div>
 
-            <p className="mt-4 text-[12px] leading-5 text-mk-muted">
+            <p className="mt-4 !text-xs leading-5 text-mk-muted">
               Terms version {FRAUD_READINESS_TERMS_VERSION} · Privacy Notice version{' '}
               {PRIVACY_NOTICE_VERSION}
             </p>
