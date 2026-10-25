@@ -1,5 +1,9 @@
 import { createAssessmentReference } from '@/lib/respondent/reference';
-import { createResumeTokenPayload } from '@/lib/respondent/tokens';
+import {
+  createResumeTokenPayload,
+  createSnapshotTokenForAssessment,
+  consumeAssessmentTokenAtomically
+} from '@/lib/respondent/tokens';
 import { hashAssessmentToken } from '@/lib/security/hash';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
@@ -639,25 +643,21 @@ export async function startAdaptiveAssessment(
       .single();
     if (assessmentError) throw assessmentError;
     created.assessmentId = assessment.id;
-    const { error: navigationError } = await db
-      .from('assessment_navigation_states')
-      .insert({
-        assessment_id: assessment.id,
-        graph_version_id: graphRow.id,
-        current_screen: 'gateway',
-        current_question_id: graph.gateways[0]?.questionId ?? null
-      });
+    const { error: navigationError } = await db.from('assessment_navigation_states').insert({
+      assessment_id: assessment.id,
+      graph_version_id: graphRow.id,
+      current_screen: 'gateway',
+      current_question_id: graph.gateways[0]?.questionId ?? null
+    });
     if (navigationError) throw navigationError;
     const token = createResumeTokenPayload();
-    const { error: tokenError } = await db
-      .from('assessment_tokens')
-      .insert({
-        assessment_id: assessment.id,
-        token_hash: token.tokenHash,
-        token_type: 'resume',
-        expires_at: token.expiresAt,
-        max_uses: 25
-      });
+    const { error: tokenError } = await db.from('assessment_tokens').insert({
+      assessment_id: assessment.id,
+      token_hash: token.tokenHash,
+      token_type: 'resume',
+      expires_at: token.expiresAt,
+      max_uses: 25
+    });
     if (tokenError) throw tokenError;
     const recordStart = async () => {
       try {
@@ -988,4 +988,57 @@ export async function submitAdaptiveAssessment(
 
 export function parseAdaptiveStartInput(body: unknown) {
   return parseAdaptiveStartAssessmentInput(body);
+}
+
+/** Authenticated result-link recovery only. No scoring, submission, reports, messages or prior-token revocation. */
+export async function recoverAdaptiveResultAccess(
+  assessmentReference: string,
+  rawToken: string,
+  options: { db?: any; ipAddress?: string | null; issueToken?: typeof createSnapshotTokenForAssessment } = {}
+) {
+  const access = await loadAdaptiveByToken(assessmentReference, rawToken, {
+    db: options.db,
+    includeIdentity: false
+  });
+  const assessment = access.assessment;
+  if (assessment.status === 'submitted' && !assessment.current_score_run_id)
+    return { ok: false as const, status: 202, reason: 'snapshot_pending' };
+  if (
+    !['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'].includes(
+      assessment.status
+    ) ||
+    !assessment.current_score_run_id ||
+    !assessment.submitted_at ||
+    !assessment.locked_at
+  )
+    return { ok: false as const, status: 409, reason: 'recorded_result_unavailable' };
+  const { data: score, error } = await access.db
+    .from('score_runs')
+    .select('id,assessment_id,methodology_version_id,status,locked_at')
+    .eq('id', assessment.current_score_run_id)
+    .eq('assessment_id', assessment.id)
+    .eq('methodology_version_id', assessment.methodology_version_id)
+    .maybeSingle();
+  if (error) throw new Error('result_recovery_read_unavailable');
+  if (!score || score.status !== 'completed' || !score.locked_at)
+    return { ok: false as const, status: 409, reason: 'recorded_result_unavailable' };
+  // The existing atomic database RPC is the authority for expiry, revocation and remaining uses.
+  const consumed = await consumeAssessmentTokenAtomically(
+    access.db,
+    hashAssessmentToken(rawToken),
+    'resume',
+    options.ipAddress
+  );
+  if (!consumed.ok) return { ok: false as const, status: 403, reason: 'private_access_required' };
+  const snapshotToken = await (options.issueToken ?? createSnapshotTokenForAssessment)({
+    assessmentId: assessment.id,
+    assessmentReference,
+    ipAddress: options.ipAddress,
+    revokeExisting: false
+  });
+  return {
+    ok: true as const,
+    snapshotUrl: `/score/snapshot/${encodeURIComponent(assessmentReference)}?token=${encodeURIComponent(snapshotToken.rawToken)}`,
+    snapshotTokenExpiresAt: snapshotToken.expiresAt
+  };
 }

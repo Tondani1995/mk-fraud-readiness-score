@@ -121,6 +121,7 @@ export function AdaptiveAssessmentExperience({
   const [invalidation, setInvalidation] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [recoveringResult, setRecoveringResult] = useState(false);
   const [submissionState, setSubmissionState] = useState<'idle' | 'processing' | 'error'>('idle');
   const savingRef = useRef(false);
   const pendingWriteRef = useRef<PendingWrite | null>(null);
@@ -455,6 +456,54 @@ export function AdaptiveAssessmentExperience({
     await persist(gatewayAnswers, next, 'question', node.nodeId, false);
   }
 
+  async function recoverResult() {
+    if (savingRef.current) return;
+    if (visualReview && !reviewTransport) {
+      setMessage('This preview cannot recover a private result.');
+      return;
+    }
+    savingRef.current = true;
+    setRecoveringResult(true);
+    setMessage(null);
+    try {
+      const response = await request(
+        `/score/api/adaptive/${encodeURIComponent(assessmentReference)}/result`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        }
+      );
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 202) {
+        setMessage(
+          'Your responses are submitted, but the recorded result is not ready yet. Check again shortly. If it remains unavailable, contact MK with your assessment reference.'
+        );
+        return;
+      }
+      if (!response.ok || !body.ok || typeof body.snapshotUrl !== 'string')
+        throw new Error('recovery_unavailable');
+      const destination = new URL(body.snapshotUrl, window.location.origin);
+      if (
+        destination.origin !== window.location.origin ||
+        destination.pathname !== `/score/snapshot/${encodeURIComponent(assessmentReference)}` ||
+        !destination.searchParams.get('token')
+      )
+        throw new Error('invalid_result_destination');
+      setSnapshotUrl(destination.pathname + destination.search);
+      setSubmitted(true);
+      // Recovery exchanges a valid private resume credential for result access. It never submits again.
+      if (!visualReview) window.location.replace(destination.pathname + destination.search);
+    } catch {
+      setMessage(
+        'Your private result could not be opened. Try again using the original resume link. If it has expired, contact MK with your assessment reference.'
+      );
+    } finally {
+      savingRef.current = false;
+      setRecoveringResult(false);
+    }
+  }
+
   async function submit() {
     if (savingRef.current || submissionState === 'processing') return;
     if (visualReview) {
@@ -544,7 +593,14 @@ export function AdaptiveAssessmentExperience({
               <Link href={snapshotUrl}>View your Fraud Readiness Result</Link>
             </Button>
           ) : (
-            <p>We are preparing your private result link. Refresh this page to check again.</p>
+            <Button type="button" disabled={recoveringResult} onClick={() => void recoverResult()}>
+              {recoveringResult ? 'Checking your recorded result…' : 'Open your private Snapshot'}
+            </Button>
+          )}
+          {message && (
+            <p role="status" aria-live="polite">
+              {message}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -579,7 +635,15 @@ export function AdaptiveAssessmentExperience({
               className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger"
             >
               <p>{message}</p>
-              <Button type="button" variant="secondary" className="mt-3" onClick={() => void submit()}>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={recoveringResult}
+                onClick={() => void recoverResult()}
+              >
+                {recoveringResult ? 'Checking your recorded result…' : 'Check for a saved result'}
+              </Button>
+              <Button type="button" variant="secondary" className="mt-3" disabled={recoveringResult} onClick={() => void submit()}>
                 Try submission again
               </Button>
             </div>
@@ -600,6 +664,7 @@ export function AdaptiveAssessmentExperience({
             <Button
               type="button"
               variant="secondary"
+              disabled={recoveringResult}
               onClick={() => {
                 setScreen('question');
                 setCurrentId(state.path?.currentPreviousNode ?? state.path?.currentNextNode ?? null);
@@ -607,7 +672,11 @@ export function AdaptiveAssessmentExperience({
             >
               Edit answers
             </Button>
-            <Button type="button" disabled={saveState === 'saving'} onClick={() => void submit()}>
+            <Button
+              type="button"
+              disabled={saveState === 'saving' || recoveringResult}
+              onClick={() => void submit()}
+            >
               Submit assessment
             </Button>
           </div>

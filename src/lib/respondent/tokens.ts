@@ -12,7 +12,11 @@ export type AssessmentTokenRecord = {
 export type ResumeTokenRecord = AssessmentTokenRecord;
 export type SnapshotTokenRecord = AssessmentTokenRecord;
 
-function createAssessmentTokenPayload(ttlEnvName: string, fallbackHours: number, now = new Date()): AssessmentTokenRecord {
+function createAssessmentTokenPayload(
+  ttlEnvName: string,
+  fallbackHours: number,
+  now = new Date()
+): AssessmentTokenRecord {
   const ttlHours = getNumberEnv(ttlEnvName, fallbackHours);
   const rawToken = createUrlSafeToken(32);
   const tokenHash = hashAssessmentToken(rawToken);
@@ -85,7 +89,7 @@ export async function createSnapshotTokenForAssessment(input: {
  * allowance in JS, and there is no fallback to the old read-then-write UPDATE -- an unavailable or
  * failing RPC must deny access, never grant it.
  */
-async function consumeAssessmentTokenAtomically(
+export async function consumeAssessmentTokenAtomically(
   service: any,
   tokenHash: string,
   tokenType: 'resume' | 'snapshot',
@@ -123,34 +127,46 @@ export async function validateResumeToken(input: {
   }
 
   if (tokenRow.revoked_at) return { ok: false as const, reason: 'revoked_token' };
-  if (new Date(tokenRow.expires_at).getTime() <= Date.now()) return { ok: false as const, reason: 'expired_token' };
+  if (new Date(tokenRow.expires_at).getTime() <= Date.now())
+    return { ok: false as const, reason: 'expired_token' };
   // Non-consuming validation only. For a consuming request the remaining allowance is decided
   // atomically in the database below -- a JS comparison here could independently grant access.
-  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
+  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses)
+    return { ok: false as const, reason: 'token_use_limit_reached' };
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,started_at,submitted_at,locked_at')
+    .select(
+      'id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,started_at,submitted_at,locked_at'
+    )
     .eq('id', tokenRow.assessment_id)
     .eq('assessment_reference', input.assessmentReference)
     .maybeSingle();
 
   if (assessmentError || !assessment) return { ok: false as const, reason: 'assessment_not_found' };
   if (assessment.status !== 'draft') return { ok: false as const, reason: 'assessment_locked' };
-  if (assessment.locked_at || assessment.submitted_at) return { ok: false as const, reason: 'assessment_locked' };
+  if (assessment.locked_at || assessment.submitted_at)
+    return { ok: false as const, reason: 'assessment_locked' };
 
   const [{ data: organisation }, { data: respondent }] = await Promise.all([
-    service.from('organisations').select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band').eq('id', assessment.organisation_id).maybeSingle(),
+    service
+      .from('organisations')
+      .select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band')
+      .eq('id', assessment.organisation_id)
+      .maybeSingle(),
     assessment.primary_respondent_id
-      ? service.from('respondents').select('id,full_name,email,role_title,phone').eq('id', assessment.primary_respondent_id).maybeSingle()
+      ? service
+          .from('respondents')
+          .select('id,full_name,email,role_title,phone')
+          .eq('id', assessment.primary_respondent_id)
+          .maybeSingle()
       : Promise.resolve({ data: null })
   ]);
 
   if (input.consume !== false) {
     // Authoritative: the database decides whether an allowance remains and consumes it in the same
     // statement. Protected data below is returned only if this succeeded.
-    const consumed = await consumeAssessmentTokenAtomically(
-      service, tokenHash, 'resume', input.ipAddress);
+    const consumed = await consumeAssessmentTokenAtomically(service, tokenHash, 'resume', input.ipAddress);
     if (!consumed.ok) return { ok: false as const, reason: consumed.reason };
 
     await service.from('audit_logs').insert({
@@ -184,36 +200,51 @@ export async function validateSnapshotToken(input: {
 
   if (tokenError || !tokenRow) return { ok: false as const, reason: 'invalid_token' };
   if (tokenRow.revoked_at) return { ok: false as const, reason: 'revoked_token' };
-  if (new Date(tokenRow.expires_at).getTime() <= Date.now()) return { ok: false as const, reason: 'expired_token' };
+  if (new Date(tokenRow.expires_at).getTime() <= Date.now())
+    return { ok: false as const, reason: 'expired_token' };
   // Non-consuming validation only. For a consuming request the remaining allowance is decided
   // atomically in the database below -- a JS comparison here could independently grant access.
-  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
+  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses)
+    return { ok: false as const, reason: 'token_use_limit_reached' };
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,current_score_run_id,started_at,submitted_at,locked_at')
+    .select(
+      'id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,current_score_run_id,started_at,submitted_at,locked_at'
+    )
     .eq('id', tokenRow.assessment_id)
     .eq('assessment_reference', input.assessmentReference)
     .maybeSingle();
 
   if (assessmentError || !assessment) return { ok: false as const, reason: 'assessment_not_found' };
-  if (!['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'].includes(assessment.status)) {
+  if (
+    !['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'].includes(
+      assessment.status
+    )
+  ) {
     return { ok: false as const, reason: 'snapshot_not_available' };
   }
   if (!assessment.current_score_run_id) return { ok: false as const, reason: 'score_not_available' };
 
   const [{ data: organisation }, { data: respondent }] = await Promise.all([
-    service.from('organisations').select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band').eq('id', assessment.organisation_id).maybeSingle(),
+    service
+      .from('organisations')
+      .select('id,legal_name,trading_name,industry,sector,country,province,employee_band,annual_revenue_band')
+      .eq('id', assessment.organisation_id)
+      .maybeSingle(),
     assessment.primary_respondent_id
-      ? service.from('respondents').select('id,full_name,email,role_title,phone').eq('id', assessment.primary_respondent_id).maybeSingle()
+      ? service
+          .from('respondents')
+          .select('id,full_name,email,role_title,phone')
+          .eq('id', assessment.primary_respondent_id)
+          .maybeSingle()
       : Promise.resolve({ data: null })
   ]);
 
   if (input.consume !== false) {
     // Authoritative: the database decides whether an allowance remains and consumes it in the same
     // statement. Protected data below is returned only if this succeeded.
-    const consumed = await consumeAssessmentTokenAtomically(
-      service, tokenHash, 'snapshot', input.ipAddress);
+    const consumed = await consumeAssessmentTokenAtomically(service, tokenHash, 'snapshot', input.ipAddress);
     if (!consumed.ok) return { ok: false as const, reason: consumed.reason };
 
     await service.from('audit_logs').insert({
