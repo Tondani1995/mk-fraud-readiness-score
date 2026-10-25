@@ -84,3 +84,13 @@ button {
   .mk-site a, .mk-site button { transition-property: color, background-color, border-color; }
   .mk-site h1, .mk-site h2, .mk-site h3, .mk-product h1, .mk-product h2, .mk-product h3 { font-weight: 500; letter-spacing: 0; }
 }
+
+/* Native, content-driven expansion; unsupported engines retain ordinary usable details. */
+@supports (interpolate-size: allow-keywords) {
+  .mk-site details, .mk-product details { interpolate-size: allow-keywords; }
+  .mk-site details::details-content, .mk-product details::details-content { height: 0; overflow: clip; transition: height 160ms ease, content-visibility 160ms allow-discrete; }
+  .mk-site details[open]::details-content, .mk-product details[open]::details-content { height: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-site details::details-content, .mk-product details::details-content { transition: none; }
+}

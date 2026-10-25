@@ -80,7 +80,10 @@ export function DomainReadinessMap({
           strength conclusion.
         </p>
       )}
-      <div className="domain-explorer-body">
+      <div
+        className="domain-explorer-body max-md:!block"
+        data-explored={explored ? "true" : "false"}
+      >
         <div
           className="grid grid-cols-[minmax(0,1fr)_52px] gap-4 px-4 pb-4 text-xs text-mk-muted"
           aria-hidden="true"
@@ -96,32 +99,15 @@ export function DomainReadinessMap({
           <span className="text-center leading-relaxed">CRITICAL GAPS</span>
         </div>
         <ul
-          className="domain-score-list"
+          className="domain-score-list col-start-1 row-start-2"
           data-explored={explored ? "true" : "false"}
           aria-label="Recorded domain results"
         >
           {view.domains.map((domain, index) => {
             const active = domain.domainCode === selected;
-            const insight = buildDomainSnapshotInsight(domain);
-            const controls =
-              view.reconciled && !view.insufficient
-                ? snapshot.adaptiveMetrics!.questionTraces.filter(
-                    (trace) =>
-                      trace.applicable &&
-                      trace.domainCode === domain.domainCode &&
-                      (trace.isCriticalGap || trace.isMajorGap),
-                  )
-                : [];
             const priorityIndex = view.priorities.findIndex(
               (area) => area.domainCode === domain.domainCode,
             );
-            const foundation = view.strengths.some(
-              (area) => area.domainCode === domain.domainCode,
-            );
-            const gaps =
-              snapshot.adaptiveMetrics?.visibilityGaps.filter(
-                (gap) => gap.domainCode === domain.domainCode,
-              ) ?? [];
             return (
               <li
                 key={domain.domainId}
@@ -129,7 +115,7 @@ export function DomainReadinessMap({
               >
                 <button
                   type="button"
-                  className="domain-score-button !grid-cols-[minmax(0,1fr)_52px] !gap-4 !px-4 !py-3"
+                  className="domain-score-button !grid-cols-[minmax(0,1fr)_40px] !gap-3 !px-3 !py-2"
                   aria-pressed={active}
                   aria-controls={active ? detailId : undefined}
                   onClick={(event) =>
@@ -144,175 +130,32 @@ export function DomainReadinessMap({
                     priority={priorityIndex < 0 ? null : priorityIndex + 1}
                   />
                 </button>
-                {active && (
-                  <section
-                    id={detailId}
-                    tabIndex={0}
-                    className="domain-detail"
-                    aria-labelledby={`${detailId}-title`}
-                  >
-                    <button
-                      className="domain-back"
-                      onClick={() => {
-                        setExplored(false);
-                        (
-                          lastTrigger.current ??
-                          document.querySelector<HTMLButtonElement>(
-                            `button[aria-controls="${detailId}"]`,
-                          )
-                        )?.focus();
-                      }}
-                    >
-                      ← Back to the areas
-                    </button>
-                    <div className="domain-detail-heading">
-                      <p className="clarity-eyebrow">AREA DETAIL</p>
-                      <h3 id={`${detailId}-title`} tabIndex={-1}>
-                        {domain.domainName}
-                      </h3>
-                      <div className="domain-detail-tags">
-                        {priorityIndex >= 0 && (
-                          <span>Management focus {priorityIndex + 1}</span>
-                        )}
-                        {foundation && <span>Supported foundation</span>}
-                        {domain.responses && domain.responses.unknown > 0 && (
-                          <span>{domain.responses.unknown} unconfirmed</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="domain-detail-metrics">
-                      <div>
-                        <strong>
-                          {domain.rawScore ?? "Not scored"}
-                          <small>
-                            {domain.rawScore === null ? "" : "/100"}
-                          </small>
-                        </strong>
-                        <span>recorded domain score</span>
-                      </div>
-                      <div>
-                        <strong>{domain.criticalGapCount}</strong>
-                        <span>critical-control gaps</span>
-                      </div>
-                    </div>
-
-                    {domain.responses ? (
-                      <div className="domain-visibility">
-                        <div className="visibility-track" aria-hidden="true">
-                          <i
-                            className="visibility-known"
-                            style={{ flex: domain.responses.known }}
-                          />
-                          <i
-                            className="visibility-unknown"
-                            style={{ flex: domain.responses.unknown }}
-                          />
-                          <i
-                            className="visibility-unanswered"
-                            style={{ flex: domain.responses.unanswered }}
-                          />
-                        </div>
-                        <p>
-                          <span>{domain.responses.known} known</span>
-                          <span>{domain.responses.unknown} unknown</span>
-                          <span>{domain.responses.unanswered} unanswered</span>
-                        </p>
-                        <small>
-                          {domain.responses.applicable} applicable controls ·
-                          recorded responses
-                        </small>
-                      </div>
-                    ) : (
-                      <details className="domain-detail-note">
-                        <summary>How to read this area</summary>
-                        <p>
-                          Individual response counts are unavailable in this
-                          view. This area summarises the recorded domain result,
-                          without attributing a finding to an individual
-                          control.
-                        </p>
-                      </details>
-                    )}
-                    {!view.insufficient && domain.rawScore !== null ? (
-                      <>
-                        <div className="domain-finding">
-                          <span>RECORDED RESPONSE INTERPRETATION</span>
-                          <p>{insight.finding}</p>
-                        </div>
-                        <div className="domain-implication">
-                          <span>WHY MANAGEMENT SHOULD CARE</span>
-                          <p>{insight.implication}</p>
-                        </div>
-                        {controls.length > 0 && (
-                          <details className="domain-control-findings">
-                            <summary>
-                              {controls.length} flagged control{" "}
-                              {controls.length === 1
-                                ? "statement"
-                                : "statements"}
-                            </summary>
-                            <ul>
-                              {controls.map((control) => (
-                                <li key={control.questionCode}>
-                                  <p>{control.prompt}</p>
-                                  <small>
-                                    Recorded response {control.responseValue}/5
-                                    ·{" "}
-                                    {[
-                                      control.isCriticalGap
-                                        ? "critical-control gap"
-                                        : null,
-                                      control.isMajorGap ? "major gap" : null,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" · ")}
-                                  </small>
-                                </li>
-                              ))}
-                            </ul>
-                            <p>
-                              Classifications of self-reported responses.
-                              Statements are assessment questions, without
-                              independent confirmation.
-                            </p>
-                          </details>
-                        )}
-                      </>
-                    ) : (
-                      <p className="domain-detail-note">
-                        A readiness interpretation is withheld for this view.
-                        Confirm uncertain or incomplete responses with the
-                        relevant owners before drawing conclusions.
-                      </p>
-                    )}
-                    {gaps.length > 0 && (
-                      <details className="domain-visibility-gaps">
-                        <summary>
-                          {gaps.length}{" "}
-                          {gaps.length === 1
-                            ? "response requires"
-                            : "responses require"}{" "}
-                          verification
-                        </summary>
-                        {gaps.map((gap) => (
-                          <div key={gap.id}>
-                            <p>{gap.prompt}</p>
-                            <small>{gap.whyVisibilityMatters}</small>
-                            <p>{gap.recommendedVerificationAction}</p>
-                          </div>
-                        ))}
-                      </details>
-                    )}
-                    <p className="domain-detail-boundary">
-                      Self-reported. No independently tested operating
-                      effectiveness, fraud incidence or loss conclusion.
-                    </p>
-                  </section>
-                )}
               </li>
             );
           })}
         </ul>
+        {view.domains
+          .filter((domain) => domain.domainCode === selected)
+          .map((domain) => (
+            <DomainInterpretation
+              key={domain.domainId}
+              domain={domain}
+              view={view}
+              snapshot={snapshot}
+              detailId={detailId}
+              onBack={() => {
+                setExplored(false);
+                requestAnimationFrame(() =>
+                  (
+                    lastTrigger.current ??
+                    document.querySelector<HTMLButtonElement>(
+                      `button[aria-controls="${detailId}"]`,
+                    )
+                  )?.focus(),
+                );
+              }}
+            />
+          ))}
       </div>
       <p className="sr-only" role="status">
         Showing{" "}
@@ -372,5 +215,183 @@ export function DomainReadinessMap({
         )}
       </details>
     </div>
+  );
+}
+
+function DomainInterpretation({
+  domain,
+  view,
+  snapshot,
+  detailId,
+  onBack,
+}: {
+  domain: ReturnType<typeof buildManagementView>["domains"][number];
+  view: ReturnType<typeof buildManagementView>;
+  snapshot: FreeSnapshot;
+  detailId: string;
+  onBack: () => void;
+}) {
+  const insight = buildDomainSnapshotInsight(domain);
+  const controls =
+    view.reconciled && !view.insufficient
+      ? snapshot.adaptiveMetrics!.questionTraces.filter(
+          (trace) =>
+            trace.applicable &&
+            trace.domainCode === domain.domainCode &&
+            (trace.isCriticalGap || trace.isMajorGap),
+        )
+      : [];
+  const priorityIndex = view.priorities.findIndex(
+    (area) => area.domainCode === domain.domainCode,
+  );
+  const foundation = view.strengths.some(
+    (area) => area.domainCode === domain.domainCode,
+  );
+  const gaps =
+    snapshot.adaptiveMetrics?.visibilityGaps.filter(
+      (gap) => gap.domainCode === domain.domainCode,
+    ) ?? [];
+  return (
+    <section
+      id={detailId}
+      tabIndex={0}
+      className="domain-detail col-start-2 row-start-1 row-span-2 self-start"
+      aria-labelledby={`${detailId}-title`}
+    >
+      <button className="domain-back" onClick={onBack}>
+        ← Back to the areas
+      </button>
+      <div className="domain-detail-heading">
+        <p className="clarity-eyebrow">AREA DETAIL</p>
+        <h3 id={`${detailId}-title`} tabIndex={-1}>
+          {domain.domainName}
+        </h3>
+        <div className="domain-detail-tags">
+          {priorityIndex >= 0 && (
+            <span>Management focus {priorityIndex + 1}</span>
+          )}
+          {foundation && <span>Supported foundation</span>}
+          {domain.responses && domain.responses.unknown > 0 && (
+            <span>{domain.responses.unknown} unconfirmed</span>
+          )}
+        </div>
+      </div>
+      <div className="domain-detail-metrics">
+        <div>
+          <strong>
+            {domain.rawScore ?? "Not scored"}
+            <small>{domain.rawScore === null ? "" : "/100"}</small>
+          </strong>
+          <span>recorded domain score</span>
+        </div>
+        <div>
+          <strong>{domain.criticalGapCount}</strong>
+          <span>critical-control gaps</span>
+        </div>
+      </div>
+
+      {domain.responses ? (
+        <div className="domain-visibility">
+          <div className="visibility-track" aria-hidden="true">
+            <i
+              className="visibility-known"
+              style={{ flex: domain.responses.known }}
+            />
+            <i
+              className="visibility-unknown"
+              style={{ flex: domain.responses.unknown }}
+            />
+            <i
+              className="visibility-unanswered"
+              style={{ flex: domain.responses.unanswered }}
+            />
+          </div>
+          <p>
+            <span>{domain.responses.known} known</span>
+            <span>{domain.responses.unknown} unknown</span>
+            <span>{domain.responses.unanswered} unanswered</span>
+          </p>
+          <small>
+            {domain.responses.applicable} applicable controls · recorded
+            responses
+          </small>
+        </div>
+      ) : (
+        <details className="domain-detail-note">
+          <summary>How to read this area</summary>
+          <p>
+            Individual response counts are unavailable in this view. This area
+            summarises the recorded domain result, without attributing a finding
+            to an individual control.
+          </p>
+        </details>
+      )}
+      {!view.insufficient && domain.rawScore !== null ? (
+        <>
+          <div className="domain-finding">
+            <span>RECORDED RESPONSE INTERPRETATION</span>
+            <p>{insight.finding}</p>
+          </div>
+          <div className="domain-implication">
+            <span>WHY MANAGEMENT SHOULD CARE</span>
+            <p>{insight.implication}</p>
+          </div>
+          {controls.length > 0 && (
+            <details className="domain-control-findings">
+              <summary>
+                {controls.length} flagged control{" "}
+                {controls.length === 1 ? "statement" : "statements"}
+              </summary>
+              <ul>
+                {controls.map((control) => (
+                  <li key={control.questionCode}>
+                    <p>{control.prompt}</p>
+                    <small>
+                      Recorded response {control.responseValue}/5 ·{" "}
+                      {[
+                        control.isCriticalGap ? "critical-control gap" : null,
+                        control.isMajorGap ? "major gap" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Classifications of self-reported responses. Statements are
+                assessment questions, without independent confirmation.
+              </p>
+            </details>
+          )}
+        </>
+      ) : (
+        <p className="domain-detail-note">
+          A readiness interpretation is withheld for this view. Confirm
+          uncertain or incomplete responses with the relevant owners before
+          drawing conclusions.
+        </p>
+      )}
+      {gaps.length > 0 && (
+        <details className="domain-visibility-gaps">
+          <summary>
+            {gaps.length}{" "}
+            {gaps.length === 1 ? "response requires" : "responses require"}{" "}
+            verification
+          </summary>
+          {gaps.map((gap) => (
+            <div key={gap.id}>
+              <p>{gap.prompt}</p>
+              <small>{gap.whyVisibilityMatters}</small>
+              <p>{gap.recommendedVerificationAction}</p>
+            </div>
+          ))}
+        </details>
+      )}
+      <p className="domain-detail-boundary">
+        Self-reported. No independently tested operating effectiveness, fraud
+        incidence or loss conclusion.
+      </p>
+    </section>
   );
 }

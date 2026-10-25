@@ -60,7 +60,7 @@ body {
   background: var(--mk-paper) !important;
 }
 .clarity-nav nav {
-  max-width: 1424px;
+  max-width: 1600px;
   height: 88px;
   padding-inline: 48px;
 }
@@ -523,7 +523,7 @@ body {
   position: relative;
 }
 .clarity-readiness > div {
-  max-width: 1424px;
+  max-width: 1600px;
   padding: 100px 48px;
   gap: 90px;
   align-items: center;
@@ -688,7 +688,7 @@ body {
 }
 .clarity-proof > div,
 .clarity-triggers > div {
-  max-width: 1424px;
+  max-width: 1600px;
   padding-inline: 48px;
 }
 .clarity-proof h2,
@@ -710,7 +710,7 @@ body {
   border-top: 1px solid #ffffff20;
 }
 .clarity-footer > div {
-  max-width: 1424px;
+  max-width: 1600px;
   padding-inline: 48px;
 }
 .clarity-footer li a {
@@ -726,8 +726,8 @@ body {
   color: var(--mk-navy) !important;
 }
 .clarity-services-hero > div {
-  max-width: 1424px;
-  padding: 75px 48px 50px;
+  max-width: 1600px;
+  padding: 40px 32px 32px;
 }
 .clarity-services-hero h1 {
   font-size: clamp(34px, 4.4vw, 62px);
@@ -749,7 +749,7 @@ body {
   background: var(--mk-paper);
 }
 .clarity-services-hero nav a {
-  min-height: 150px;
+  min-height: 110px;
 }
 .clarity-services-hero nav span span:last-child {
   color: var(--mk-accent) !important;
@@ -765,9 +765,9 @@ body {
   display: none;
 }
 .clarity-storefront > section:first-child > div:last-child {
-  max-width: 1424px;
-  padding: 72px 48px;
-  gap: 85px;
+  max-width: 1600px;
+  padding: 40px 32px;
+  gap: 40px;
   grid-template-columns: 1fr 1fr;
 }
 .clarity-storefront > section:first-child h1 {
@@ -3585,12 +3585,12 @@ body {
 
 /* Guided assessment instrument: a domain rail and a single native response canvas. */
 .assessment-session-entry {
-  max-width: 1180px;
+  max-width: 1600px;
   margin: auto;
   padding: 24px 24px 48px;
 }
 .mk-product .assessment-instrument[data-adaptive-assessment] {
-  max-width: 1120px;
+  max-width: 1560px;
   width: 100%;
   margin: auto;
   scroll-margin-top: 20px;
@@ -3642,8 +3642,8 @@ body {
 }
 .instrument-layout {
   display: grid;
-  grid-template-columns: 225px minmax(0, 1fr);
-  gap: 42px;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 20px; align-items: start;
   margin-top: 28px;
 }
 .domain-completion {
@@ -3716,7 +3716,7 @@ body {
 }
 .question-instrument {
   min-width: 0;
-  min-height: 730px;
+  min-height: 0;
   background: var(--mk-paper);
   border-radius: var(--mk-radius-page);
   padding: 28px 30px;
@@ -3799,7 +3799,7 @@ body {
 .response-grid {
   transition: gap var(--mk-motion-collapse) var(--mk-motion-ease);
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px !important;
   align-content: start;
 }
@@ -3824,8 +3824,8 @@ body {
   transform: translateY(-12px) scale(0.96);
   pointer-events: none;
 }
-.answer-slot:last-child {
-  grid-column: auto;
+.answer-slot[data-uncertain='true'] {
+  grid-column: 1/-1;
 }
 .answer-option {
   border: 1px solid var(--mk-line);
@@ -3900,7 +3900,7 @@ body {
 }
 .answer-meaning-inline {
   display: block;
-  grid-column: 2;
+  grid-column: 1/-1;
   position: static;
   width: auto;
   height: auto;
@@ -3986,7 +3986,7 @@ body {
   border-bottom: 0 !important;
 }
 .snapshot-executive-inner {
-  max-width: 1120px;
+  max-width: 1560px;
   margin: auto;
   padding: 32px 24px 26px;
 }
@@ -4002,8 +4002,8 @@ body {
 .executive-composition {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr);
-  gap: 64px;
-  padding: 32px 0;
+  gap: 36px;
+  padding: 20px 0;
 }
 .executive-position > p:first-child {
   font-size: 12px;
@@ -4186,7 +4186,7 @@ body {
   border-bottom: 1px solid var(--mk-line);
 }
 .intelligence-inner {
-  max-width: 1120px;
+  max-width: 1560px;
   margin: auto;
   padding: 42px 24px;
 }
@@ -4227,7 +4227,7 @@ body {
   width: 100%;
   height: 100%;
   text-align: left;
-  padding: 18px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--mk-line);
   background: var(--mk-paper);
   border-radius: var(--mk-radius-card);
@@ -4287,14 +4287,14 @@ body {
   background: white;
   border: 1px solid var(--mk-line);
   border-radius: var(--mk-radius-panel);
-  padding: 28px;
+  padding: 20px;
 }
 .domain-explorer-header {
   display: flex;
   justify-content: space-between;
-  gap: 30px;
+  gap: 24px;
   align-items: end;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 .domain-explorer-header h2 {
   font-size: 24px;
@@ -4304,8 +4304,8 @@ body {
 }
 .domain-explorer-body {
   position: relative;
-  padding-right: calc(43% + 26px);
-  min-height: 740px;
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 20px;
+  min-height: 0;
 }
 .domain-axis {
   display: grid;
@@ -4403,15 +4403,15 @@ body {
   display: none;
 }
 .domain-detail {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 43%;
+  position: sticky;
+  grid-column: 2;
+  top: 120px;
+  width: 100%;
   border: 1px solid var(--mk-line);
   border-radius: var(--mk-radius-card);
   background: var(--mk-surface);
   padding: 24px;
-  max-height: 740px;
+  max-height: calc(100dvh - 160px);
   overflow-y: auto;
   animation: detail-enter 150ms ease-out;
 }
@@ -4778,7 +4778,7 @@ body {
     padding: 22px;
   }
   .domain-explorer-body {
-    padding-right: calc(43% + 18px);
+    gap: 0 18px;
   }
   .domain-score-button,
   .domain-axis {
@@ -4871,7 +4871,7 @@ body {
   .question-instrument {
     padding: 20px 16px;
     border-radius: var(--mk-radius-panel);
-    min-height: 660px;
+    min-height: 0;
   }
   .question-topline {
     min-height: 30px;
@@ -4904,7 +4904,7 @@ body {
     grid-template-columns: 1fr;
     gap: 8px !important;
   }
-  .answer-slot:last-child {
+  .answer-slot[data-uncertain='true'] {
     grid-column: auto;
   }
   .mk-product .assessment-instrument[data-adaptive-assessment] label.answer-label {
@@ -4926,7 +4926,7 @@ body {
   }
   .answer-meaning-inline {
     display: block;
-    grid-column: 2;
+    grid-column: 1/-1;
     position: static;
     width: auto;
     height: auto;
@@ -5358,7 +5358,7 @@ body {
   outline: none;
 }
 @media (max-width: 767px) {
-  .domain-score-list[data-explored='false'] .domain-detail {
+  .domain-explorer-body[data-explored='false'] > .domain-detail {
     display: none;
   }
   .domain-back {

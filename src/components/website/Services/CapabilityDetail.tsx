@@ -10,7 +10,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
       aria-labelledby={`${capability.id}-heading`}
       className={`scroll-mt-16 border-t border-slate-200 md:scroll-mt-20 ${tone === 'grey' ? 'bg-mk-paper' : 'bg-white'}`}
     >
-      <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:gap-8 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-24">
+      <div className="mx-auto grid w-full max-w-[1600px] gap-6 px-5 py-8 sm:gap-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)] lg:gap-10 lg:px-8 lg:py-12">
         <div className="min-w-0">
           <h2 id={`${capability.id}-heading`} className="text-3xl font-semibold tracking-normal text-mk-navy sm:text-4xl">
             {capability.name}
@@ -18,7 +18,8 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
           <p className="mt-3 text-lg font-medium leading-snug text-mk-accent">{capability.question}</p>
           <p className="mt-4 text-base leading-7 text-slate-600">{capability.summary}</p>
 
-          <h3 className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:mt-8">Typical situations</h3>
+          <details className="mt-5 border-y border-mk-line py-2">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-mk-accent">Typical situations</summary>
           <ul className="mt-3 space-y-2.5">
             {capability.situations.map((situation) => (
               <li key={situation} className="flex gap-3 text-[15px] leading-6 text-mk-navy">
@@ -27,6 +28,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
               </li>
             ))}
           </ul>
+          </details>
         </div>
 
         <div className="min-w-0 space-y-5 sm:space-y-6">
@@ -43,7 +45,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
               </p>
             ))
           ) : (
-          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {capability.services.map((service) => (
               <article
                 key={service.name}

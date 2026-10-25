@@ -46,19 +46,25 @@ export function ProductTierCard({
       >
         {tagline}
       </h3>
-      {description && (
+      {description && description !== tagline && (
         <p className="mt-5 text-base leading-relaxed text-mk-muted">
           {description}
         </p>
       )}
-      <ul
-        className="mt-6 space-y-4 border-t border-mk-line pt-5 text-base leading-relaxed text-mk-muted"
-        aria-label={`${label} includes`}
-      >
-        {features.slice(0, 4).map((feature) => (
-          <li key={feature}>{feature}</li>
-        ))}
-      </ul>
+      {features[0] && <p className="mt-4 text-sm leading-relaxed text-mk-muted">{features[0]}</p>}
+      <details className="mt-4 border-y border-mk-line py-2 text-mk-muted">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+          Included in {label}
+        </summary>
+        <ul
+          className="space-y-3 py-3 text-base leading-relaxed text-mk-muted"
+          aria-label={`${label} includes`}
+        >
+          {features.slice(1, 4).map((feature) => (
+            <li key={feature}>{feature}</li>
+          ))}
+        </ul>
+      </details>
       {priceLabel && <p className="mt-6 text-base font-normal">{priceLabel}</p>}
       {earlierSelected && (
         <p className="mt-3 text-sm text-mk-muted">

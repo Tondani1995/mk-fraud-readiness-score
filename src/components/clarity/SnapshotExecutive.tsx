@@ -72,9 +72,6 @@ export function SnapshotExecutive({
             </p>
           </div>
           <div className="executive-diagnosis">
-            <p className="executive-organisation">{snapshot.organisationName}</p>
-            <h1>{narrative.headline}</h1>
-            <p>{narrative.executiveDiagnosis}</p>
             <div className="executive-gap-signals">
               <div>
                 <strong>{snapshot.criticalGapCount}</strong>
@@ -90,11 +87,16 @@ export function SnapshotExecutive({
               <p className="executive-focus">
                 <span>FIRST MANAGEMENT FOCUS</span>
                 {insights.priorityAreas
-                  .slice(0, 2)
+                  .slice(0, 1)
                   .map((area) => area.domainName)
                   .join(' · ')}
               </p>
             )}
+            <h1>{narrative.headline}</h1>
+            <details className="mt-3 text-sm leading-relaxed text-mk-line">
+              <summary className="min-h-11 cursor-pointer py-2">Read the recorded interpretation</summary>
+              <p className="mt-2">{narrative.executiveDiagnosis}</p>
+            </details>
             <div className="executive-actions">
               <a href="#attention">
                 Explore the organisational view <span aria-hidden="true">↘</span>

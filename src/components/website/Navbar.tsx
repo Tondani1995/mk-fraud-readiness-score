@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { trackEvent } from "@/lib/website/gtag";
+import motion from '@/components/ui/motion.module.css';
 
 // One `links` array drives both the desktop row and the mobile sheet. Home is reached through the
 // logo; Industries and Contact remain live routes, reached from the footer and from Speak to MK.
@@ -157,7 +158,7 @@ export default function Navbar() {
         <div
           ref={menuRef}
           id={menuId}
-          className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col overflow-y-auto border-t border-slate-200 bg-white md:top-20 lg:hidden"
+          className={`${motion.arrive} fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col overflow-y-auto border-t border-slate-200 bg-white md:top-20 lg:hidden`}
         >
           <ul className="px-5 pt-2 sm:px-6">
             {links.map((link) => {

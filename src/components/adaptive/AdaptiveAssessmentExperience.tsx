@@ -812,11 +812,22 @@ export function AdaptiveAssessmentExperience({
             <i style={{ width: `${progress}%` }} />
           </div>
         </header>
-        <div className="instrument-layout">
+        <div className="instrument-layout xl:[&:has(>.assessment-contextual)]:grid-cols-[160px_minmax(0,1fr)_220px]">
           <DomainCompletionRail
             domains={state.path?.domainBoundaries ?? []}
             currentDomain={currentNode.domainCode}
             resolved={applicabilityResolved}
+            navigationDisabled={saving || Boolean(pendingWriteRef.current)}
+            onNavigate={(code) => {
+              if (saving || pendingWriteRef.current) return;
+              const target = nodes.find((node: any) => node.domainCode === code && node.state === 'active' && node.kind !== 'gateway');
+              if (!target) return;
+              prepareQuestionTransition();
+              setCurrentId(target.nodeId);
+              setScreen('question');
+              setMessage(null);
+              setLastResponse(null);
+            }}
           />
           <section
             className="question-instrument"
@@ -824,7 +835,7 @@ export function AdaptiveAssessmentExperience({
             aria-label="Current assessment question"
           >
             <div className="question-topline">
-              <p className="clarity-eyebrow">{areaName}</p>
+              <p className="clarity-eyebrow max-md:sr-only">{areaName}</p>
               <span className="question-confirmation">
                 {lastResponse && saveState === 'saved' ? (
                   <>

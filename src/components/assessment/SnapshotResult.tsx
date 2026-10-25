@@ -2,6 +2,7 @@
 
 import { SnapshotManagementView } from '@/components/clarity/SnapshotManagementView';
 import { SnapshotExecutive } from '@/components/clarity/SnapshotExecutive';
+import workspace from '@/components/clarity/SnapshotWorkspace.module.css';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ProductChoice } from '@/components/products/ProductChoice';
@@ -86,6 +87,9 @@ export function SnapshotResult({
 
   return (
     <>
+      <SectionRail />
+      <div className={workspace.workspace} data-snapshot-workspace>
+      <div className={workspace.positionColumn}>
       <VerdictHero
         snapshot={snapshot}
         narrative={narrative}
@@ -107,9 +111,9 @@ export function SnapshotResult({
           ))}
         </div>
       </section>
-
-      <SectionRail />
+      </div>
       <SnapshotManagementView snapshot={snapshot} insights={commercialInsights} />
+      </div>
 
       <details className="snapshot-explainers">
         <summary>How to read the result and assessment scope</summary>

@@ -39,6 +39,7 @@ function ResponseSlot({
   return (
     <div
       className="answer-slot"
+      data-uncertain={choice.uncertain ? 'true' : undefined}
       data-exiting={exiting ? "true" : undefined}
       aria-hidden={exiting ? true : undefined}
       onTransitionEnd={(event) => {

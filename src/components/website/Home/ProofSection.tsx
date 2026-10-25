@@ -33,7 +33,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
 
   return (
     <section className="clarity-proof bg-white" aria-labelledby="home-proof-heading">
-      <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
+      <div className="mx-auto w-full max-w-7xl px-5 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-10">
         <div className="max-w-2xl">
           <Eyebrow>Why MK</Eyebrow>
           <h2
@@ -57,7 +57,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-8 sm:mt-10 sm:gap-10 lg:mt-14 lg:grid-cols-3 lg:gap-12">
+        <div className="mt-8 grid gap-8 sm:mt-10 sm:gap-10 lg:mt-8 lg:grid-cols-3 lg:gap-12">
           {evidence.map((item) => (
             <article key={item.title} className="border-t-2 border-mk-accent pt-5">
               <h3 className="text-lg font-semibold text-mk-navy">{item.title}</h3>

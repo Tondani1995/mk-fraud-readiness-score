@@ -13,7 +13,12 @@ assert.deepEqual(issues,[],'Customer-source brand guardrails');
 const layout=fs.readFileSync('src/app/layout.tsx','utf8');assert.match(layout,/font-poppins/);assert.doesNotMatch(layout,/font-inter|manrope/i);
 assert.ok(!fs.readdirSync('public/fonts').some(f=>/inter|manrope/i.test(f)));
 assert.ok(fs.readFileSync('src/app/clarity.css','utf8').split('\n').length<=5538,'Do not grow clarity.css');
-// The 25 October visual-coherence request restores the signature illustration.
+// The spatial narrative now owns the actual homepage opening; guard the live composition too.
+assert.match(fs.readFileSync('src/app/(website)/home/page.tsx','utf8'), /<HomeStory/);
+const story=fs.readFileSync('src/components/website/Home/HomeStory.tsx','utf8');
+assert.match(story,/Turn fraud readiness into a management decision/);
+assert.match(story,/Method illustration using example processes and controls/);
+// Retained component remains available for historical visual review.
 assert.match(fs.readFileSync('src/components/website/Home/HeroSection.tsx','utf8'),/<ExposureSystem/);
 assert.doesNotMatch(fs.readFileSync('src/components/website/Home/HeroSection.tsx','utf8'),/hero-index|hero-bottom/);
 const baseline='1184d955';for(const file of ['src/lib/scoring/adaptive-scoring.ts','src/lib/adaptive/candidates/adaptive-graph-v1-2-candidate.json','src/lib/commercial/product-catalogue.ts','src/lib/legal/fraud-readiness-terms.ts'])assert.equal(fs.readFileSync(file,'utf8'),execFileSync('git',['show',`${baseline}:${file}`],{encoding:'utf8'}),`${file} must retain its protected logic/content`);

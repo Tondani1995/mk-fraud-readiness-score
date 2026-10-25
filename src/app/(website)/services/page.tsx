@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import Wrapper from '@/components/website/Wrapper';
 import CapabilityDetail from '@/components/website/Services/CapabilityDetail';
+import { CapabilityDirectory } from '@/components/website/Services/CapabilityDirectory';
 import ServicesHero from '@/components/website/Services/ServicesHero';
 import { CtaLink } from '@/components/website/primitives/CtaLink';
 import { Eyebrow } from '@/components/website/primitives/Eyebrow';
@@ -12,9 +13,9 @@ export default function ServicesPage() {
     <Wrapper>
       <main className="bg-white">
         <ServicesHero />
-        {CAPABILITIES.map((capability, index) => (
+        <CapabilityDirectory>{CAPABILITIES.map((capability, index) => (
           <CapabilityDetail key={capability.id} capability={capability} tone={index % 2 === 1 ? 'grey' : 'white'} />
-        ))}
+        ))}</CapabilityDirectory>
 
         <section id="investigation-support" className="border-t border-slate-200 bg-mk-paper" aria-labelledby="investigation-support-heading">
           <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-20">

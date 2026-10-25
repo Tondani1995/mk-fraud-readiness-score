@@ -12,8 +12,8 @@ export function DomainScoreRail({
 }) {
   return (
     <>
-      <span className="grid min-w-0 gap-2" data-domain-score-rail>
-        <span className="flex items-start justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-1">
+      <span className="grid min-w-0 gap-1" data-domain-score-rail>
+        <span className="flex items-start justify-between gap-3">
           <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm font-medium leading-relaxed">
             <span>{name}</span>
             {priority !== null && (
@@ -56,7 +56,7 @@ export function DomainScoreRail({
         </span>
       </span>
       <span
-        className={`flex h-12 items-center justify-center self-center rounded-[12px] border px-1 py-2 text-center ${criticalGaps > 0 ? "border-mk-danger/30 bg-white text-mk-danger" : "border-mk-line text-mk-muted"}`}
+        className={`flex h-10 items-center justify-center self-center rounded-[12px] border px-1 py-2 text-center ${criticalGaps > 0 ? "border-mk-danger/30 bg-white text-mk-danger" : "border-mk-line text-mk-muted"}`}
       >
         <b className="text-base font-semibold tabular-nums">{criticalGaps}</b>
       </span>
