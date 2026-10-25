@@ -48,8 +48,14 @@ export async function waitForQuestionMotion(
     return;
   }
   await frame(signal);
-  await frame(signal);
-  const stage = root();
+  // One committed frame is sufficient when React has applied the phase. An unconditional
+  // second frame adds 33ms twice on 30Hz browsers without making the CSS more visible.
+  let stage = root();
+  const expectedPhase = kind === 'exit' ? 'collapsing' : 'entering';
+  if (stage?.dataset.transitionPhase !== expectedPhase) {
+    await frame(signal);
+    stage = root();
+  }
   const selector = kind === 'exit' ? '.answer-slot[data-exiting="true"]' : '.question-stage';
   const elements = stage ? [...stage.querySelectorAll<HTMLElement>(selector)] : [];
   const animations = elements.flatMap((element) =>
