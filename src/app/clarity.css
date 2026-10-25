@@ -4345,7 +4345,7 @@ body {
   background: var(--mk-surface);
 }
 .domain-score-button[aria-pressed='true'] {
-  border-color: var(--mk-line);
+  border-color: var(--mk-accent);
   background: var(--mk-surface);
 }
 .domain-row-name {

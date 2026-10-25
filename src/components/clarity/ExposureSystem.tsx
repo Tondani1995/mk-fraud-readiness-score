@@ -85,7 +85,7 @@ export function ExposureSystem() {
             type="button"
             aria-pressed={stage === index}
             onClick={() => setStage(index)}
-            className={`min-h-11 rounded-brand border px-2 py-3 text-xs font-medium focus-visible:outline-white ${stage === index ? "border-white bg-white text-mk-navy" : "border-white/25 text-white hover:border-white/60"}`}
+            className={`min-h-11 rounded-brand border px-2 py-3 text-xs font-medium focus-visible:!outline-white ${stage === index ? "border-white bg-white text-mk-navy" : "border-white/25 text-white hover:border-white/60"}`}
           >
             {item.name}
           </button>
