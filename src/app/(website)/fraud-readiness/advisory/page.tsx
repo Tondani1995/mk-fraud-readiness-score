@@ -17,13 +17,13 @@ export default function PublicAdvisoryEnquiryPage() {
   return (
     <Wrapper>
       <main className="bg-white">
-        <section className="bg-[#001030]">
+        <section className="bg-mk-navy">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
             <div className="max-w-3xl">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white/60">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/60">
                 MK Advisory
               </p>
-              <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+              <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl">
                 Discuss an Advisory engagement
               </h1>
               <p className="mt-6 text-lg leading-8 text-white/75">
@@ -41,26 +41,26 @@ export default function PublicAdvisoryEnquiryPage() {
             <PublicAdvisoryEnquiryForm />
 
             <aside>
-              <h2 className="text-lg font-semibold tracking-tight text-[#001030]">
+              <h2 className="text-lg font-semibold tracking-normal text-mk-navy">
                 What happens next
               </h2>
               <dl className="mt-5 space-y-5">
                 <div>
-                  <dt className="text-sm font-semibold text-[#001030]">We read it properly</dt>
+                  <dt className="text-sm font-semibold text-mk-navy">We read it properly</dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-700">
                     Your enquiry goes to MK directly with the context you provide, and you get a
                     reference for it.
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-semibold text-[#001030]">A scoping conversation</dt>
+                  <dt className="text-sm font-semibold text-mk-navy">A scoping conversation</dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-700">
                     We contact you the way you asked, to understand the work and whether MK is the
                     right fit for it.
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-semibold text-[#001030]">Scope, then a proposal</dt>
+                  <dt className="text-sm font-semibold text-mk-navy">Scope, then a proposal</dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-700">
                     Deliverables, timing and fees are agreed in writing before any engagement
                     begins. Nothing is charged for this enquiry.
@@ -74,7 +74,7 @@ export default function PublicAdvisoryEnquiryPage() {
                 </p>
                 <Link
                   href="/score/start"
-                  className="mt-3 inline-flex text-sm font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 transition hover:text-[#1D3658]"
+                  className="mt-3 inline-flex text-sm font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 transition hover:text-mk-accent"
                 >
                   Start the Fraud Readiness Assessment
                 </Link>

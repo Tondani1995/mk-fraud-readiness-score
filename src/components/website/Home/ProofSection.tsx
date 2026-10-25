@@ -38,7 +38,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
           <Eyebrow>Why MK</Eyebrow>
           <h2
             id="home-proof-heading"
-            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl lg:text-[2.6rem]"
+            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl lg:text-[2.6rem]"
           >
             What stands behind MK’s advice.
           </h2>
@@ -46,7 +46,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
 
         {APPROVED_CLIENT_LOGOS.length > 0 ? (
           <div className="mt-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Organisations MK has worked with</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Organisations MK has worked with</p>
             <ul className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-6">
               {APPROVED_CLIENT_LOGOS.map((logo) => (
                 <li key={logo.name}>
@@ -59,11 +59,11 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
 
         <div className="mt-8 grid gap-8 sm:mt-10 sm:gap-10 lg:mt-14 lg:grid-cols-3 lg:gap-12">
           {evidence.map((item) => (
-            <article key={item.title} className="border-t-2 border-[#001030] pt-5">
-              <h3 className="text-lg font-semibold text-[#001030]">{item.title}</h3>
+            <article key={item.title} className="border-t-2 border-mk-accent pt-5">
+              <h3 className="text-lg font-semibold text-mk-navy">{item.title}</h3>
               <p className="mt-2 text-[15px] leading-7 text-slate-600 sm:mt-3">{item.body}</p>
               {item.link ? (
-                <Link href={item.link.href} className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#1d3658] hover:text-[#001030]">
+                <Link href={item.link.href} className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-accent hover:text-mk-navy">
                   {item.link.label} <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
               ) : null}
@@ -73,10 +73,10 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
                     <li key={insight.slug}>
                       <Link
                         href={`/insights/${insight.slug.trim()}`}
-                        className="group flex min-h-12 items-start justify-between gap-3 py-3 text-sm font-medium leading-6 text-[#001030] hover:text-[#1d3658]"
+                        className="group flex min-h-12 items-start justify-between gap-3 py-3 text-sm font-medium leading-6 text-mk-navy hover:text-mk-accent"
                       >
                         <span>{insight.title.replace(/:\s*$/, '')}</span>
-                        <ArrowUpRight aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-[#1d3658]" />
+                        <ArrowUpRight aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-mk-accent" />
                       </Link>
                     </li>
                   ))}
@@ -88,15 +88,15 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
 
         {ENGAGEMENT_EXAMPLES.length > 0 ? (
           <div className="mt-14">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected engagements</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Selected engagements</h3>
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               {ENGAGEMENT_EXAMPLES.map((example) => (
-                <article key={`${example.client}-${example.challenge}`} className="rounded-2xl border border-slate-200 p-6">
-                  <p className="text-sm font-semibold text-[#1d3658]">{example.client}</p>
+                <article key={`${example.client}-${example.challenge}`} className="rounded-brand border border-slate-200 p-6">
+                  <p className="text-sm font-semibold text-mk-accent">{example.client}</p>
                   <dl className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                    <div><dt className="font-semibold text-[#001030]">Challenge</dt><dd>{example.challenge}</dd></div>
-                    <div><dt className="font-semibold text-[#001030]">What MK did</dt><dd>{example.work}</dd></div>
-                    <div><dt className="font-semibold text-[#001030]">Outcome</dt><dd>{example.outcome}</dd></div>
+                    <div><dt className="font-semibold text-mk-navy">Challenge</dt><dd>{example.challenge}</dd></div>
+                    <div><dt className="font-semibold text-mk-navy">What MK did</dt><dd>{example.work}</dd></div>
+                    <div><dt className="font-semibold text-mk-navy">Outcome</dt><dd>{example.outcome}</dd></div>
                   </dl>
                 </article>
               ))}
@@ -107,8 +107,8 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
         {APPROVED_ASSOCIATIONS.length > 0 ? (
           <ul className="mt-12 flex flex-wrap gap-3">
             {APPROVED_ASSOCIATIONS.map((association) => (
-              <li key={association.name} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600">
-                <span className="font-semibold text-[#001030]">{association.name}</span> {association.description}
+              <li key={association.name} className="rounded-brand border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                <span className="font-semibold text-mk-navy">{association.name}</span> {association.description}
               </li>
             ))}
           </ul>

@@ -55,33 +55,33 @@ export default async function BacklogReconciliationPage(
         />
 
         {!result.ok ? (
-          <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
+          <div className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
             {result.message}
           </div>
         ) : null}
         {searchParams?.error ? (
-          <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
+          <div className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
             {searchParams.message ?? 'The classification could not be recorded.'}
           </div>
         ) : null}
         {searchParams?.classified ? (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <div className="rounded-brand border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
             {searchParams.message ?? 'Classification recorded.'}
           </div>
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm">
+          <div className="rounded-brand border border-mk-line bg-white p-5 shadow-soft">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Paid orders in scope</p>
             <p className="mt-3 text-3xl font-semibold text-mk-ink">{items.length}</p>
           </div>
-          <div className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm">
+          <div className="rounded-brand border border-mk-line bg-white p-5 shadow-soft">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Unresolved / unclassified</p>
             <p className="mt-3 text-3xl font-semibold text-mk-ink">{unresolvedCount}</p>
           </div>
           <a
             href="/score/api/admin/backlog-reconciliation/export"
-            className="flex flex-col justify-center rounded-2xl border border-mk-line bg-white p-5 shadow-sm transition hover:border-mk-brass"
+            className="flex flex-col justify-center rounded-brand border border-mk-line bg-white p-5 shadow-soft transition hover:border-mk-brass"
           >
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Export</p>
             <p className="mt-2 text-sm font-semibold text-mk-brassDark">Download non-PII CSV</p>
@@ -141,7 +141,7 @@ export default async function BacklogReconciliationPage(
               <div className="space-y-4 border-t border-mk-line pt-6">
                 <p className="text-sm font-semibold text-mk-ink">Classify an order</p>
                 {items.map((item) => (
-                  <details key={`classify-${item.orderId}`} className="rounded-2xl border border-mk-line bg-white p-4">
+                  <details key={`classify-${item.orderId}`} className="rounded-brand border border-mk-line bg-white p-4">
                     <summary className="cursor-pointer text-sm font-semibold text-mk-ink">
                       {item.orderReference} — {item.classification ? CLASSIFICATION_LABELS[item.classification] : 'Not classified'}
                     </summary>
@@ -158,7 +158,7 @@ export default async function BacklogReconciliationPage(
                           name="classification"
                           defaultValue={item.classification ?? ''}
                           required
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         >
                           <option value="" disabled>Select a classification</option>
                           {BACKLOG_CLASSIFICATIONS.map((option) => (
@@ -174,7 +174,7 @@ export default async function BacklogReconciliationPage(
                           required
                           minLength={5}
                           rows={2}
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         />
                       </label>
                       <label className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
@@ -183,7 +183,7 @@ export default async function BacklogReconciliationPage(
                           name="assignedOwner"
                           defaultValue={item.assignedOwner ?? ''}
                           placeholder="Optional"
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         />
                       </label>
                       <label className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
@@ -192,7 +192,7 @@ export default async function BacklogReconciliationPage(
                           type="date"
                           name="completionDate"
                           defaultValue={item.completionDate ?? ''}
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         />
                       </label>
                       <label className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted md:col-span-2">
@@ -201,7 +201,7 @@ export default async function BacklogReconciliationPage(
                           name="nextAction"
                           defaultValue={item.nextAction ?? ''}
                           placeholder="Optional"
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         />
                       </label>
                       <label className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted md:col-span-2">
@@ -209,7 +209,7 @@ export default async function BacklogReconciliationPage(
                         <input
                           name="evidenceReference"
                           placeholder="Optional — ticket id, internal note reference, etc."
-                          className="mt-1 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
+                          className="mt-1 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink"
                         />
                       </label>
                       <div className="md:col-span-2">

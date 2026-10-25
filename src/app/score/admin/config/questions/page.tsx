@@ -74,7 +74,7 @@ export default async function AdminQuestionConfigPage() {
           <CardHeader><CardTitle>Exposure factors</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
             {config.exposureFactors.map((factor: any) => (
-              <div key={factor.factor_code} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm">
+              <div key={factor.factor_code} className="rounded-brand border border-mk-line bg-mk-cream/40 p-4 text-sm">
                 <p className="font-semibold text-mk-ink">{factor.factor_code} · {factor.name}</p>
                 <p className="mt-1 text-mk-muted">Max points: {Number(factor.max_points).toFixed(0)} · Input: {factor.input_type}</p>
               </div>

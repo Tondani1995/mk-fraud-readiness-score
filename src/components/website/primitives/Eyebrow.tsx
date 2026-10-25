@@ -4,7 +4,7 @@ type Props = { children: React.ReactNode; tone?: 'light' | 'dark'; className?: s
 export function Eyebrow({ children, tone = 'light', className = '' }: Props) {
   return (
     <p
-      className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${tone === 'dark' ? 'text-[#a9d4ce]' : 'text-[#1d3658]'} ${className}`}
+      className={`text-[12px] font-semibold uppercase tracking-[0.12em] ${tone === 'dark' ? 'text-mk-paper' : 'text-mk-muted'} ${className}`}
     >
       {children}
     </p>

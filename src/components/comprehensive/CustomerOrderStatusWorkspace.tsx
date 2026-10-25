@@ -68,7 +68,7 @@ export function CustomerOrderStatusWorkspace({
             <p><strong className="text-mk-ink">Branch code:</strong> {eft.branchCode}</p>
             <p><strong className="text-mk-ink">Currency:</strong> {eft.currency}</p>
             {eft.accountType ? <p><strong className="text-mk-ink">Account type:</strong> {eft.accountType}</p> : null}
-          </div> : <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-mk-danger">EFT instructions are not available for this order. Do not make payment; contact MK Fraud Insights.</p>}
+          </div> : <p className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-mk-danger">EFT instructions are not available for this order. Do not make payment; contact MK Fraud Insights.</p>}
           <p><strong className="text-mk-ink">Payment reference:</strong> {order.paymentReference}</p>
           {eft?.paymentReferenceInstruction ? <p>{eft.paymentReferenceInstruction}</p> : null}
           <p>{eft?.customerInstruction ?? copy.paymentSummary}</p>
@@ -81,7 +81,7 @@ export function CustomerOrderStatusWorkspace({
           <ol className="grid gap-4">
             {copy.nextSteps.map((step, index) => (
               <li key={step} className="border-t border-mk-accent/40 pt-3">
-                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
+                <span className="text-[12px] font-semibold tabular-nums tracking-[0.12em] text-mk-accent">{String(index + 1).padStart(2, '0')}</span>
                 <p className="mt-1.5">{step}</p>
               </li>
             ))}
@@ -99,7 +99,7 @@ export function CustomerOrderStatusWorkspace({
       </Card>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => void refresh()} disabled={refreshing} className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 disabled:opacity-60">
+        <button type="button" onClick={() => void refresh()} disabled={refreshing} className="inline-flex min-h-12 items-center justify-center rounded-brand border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 disabled:opacity-60">
           {refreshing ? 'Refreshing…' : 'Refresh order status'}
         </button>
         {refreshMessage ? <p role="status" className="text-sm text-mk-danger">{refreshMessage}</p> : null}

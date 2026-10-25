@@ -63,19 +63,19 @@ export default async function AdminOrdersPage(
         />
 
         {phase1.capability.status !== 'available' ? (
-          <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
+          <div className="rounded-brand border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
             {phase1.capability.message}
           </div>
         ) : null}
-        {payment.capability.status !== 'available' ? <div className="rounded-xl border border-mk-line bg-white p-4 text-sm text-mk-muted">{payment.capability.message}</div> : null}
+        {payment.capability.status !== 'available' ? <div className="rounded-brand border border-mk-line bg-white p-4 text-sm text-mk-muted">{payment.capability.message}</div> : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {(Object.keys(PAYMENT_QUEUE_LABELS) as PaymentQueueKey[]).map((queue) => <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm transition hover:border-mk-brass"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{PAYMENT_QUEUE_LABELS[queue]}</p><p className="mt-3 text-3xl font-semibold text-mk-ink">{paymentCounts[queue]}</p></Link>)}
+          {(Object.keys(PAYMENT_QUEUE_LABELS) as PaymentQueueKey[]).map((queue) => <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className="rounded-brand border border-mk-line bg-white p-5 shadow-soft transition hover:border-mk-brass"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{PAYMENT_QUEUE_LABELS[queue]}</p><p className="mt-3 text-3xl font-semibold text-mk-ink">{paymentCounts[queue]}</p></Link>)}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {priorityQueues.map((queue) => (
-            <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm transition hover:border-mk-brass">
+            <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className="rounded-brand border border-mk-line bg-white p-5 shadow-soft transition hover:border-mk-brass">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{PHASE1_QUEUE_LABELS[queue]}</p>
               <p className="mt-3 text-3xl font-semibold text-mk-ink">{counts[queue]}</p>
             </Link>
@@ -87,17 +87,17 @@ export default async function AdminOrdersPage(
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {(Object.keys(PHASE1_QUEUE_LABELS) as Phase1QueueKey[]).map((queue) => (
-                <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className={`rounded-full border px-3 py-2 text-xs font-semibold ${selectedQueue === queue ? 'border-mk-brass bg-mk-cream text-mk-ink' : 'border-mk-line bg-white text-mk-muted'}`}>
+                <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className={`rounded-brand border px-3 py-2 text-xs font-semibold ${selectedQueue === queue ? 'border-mk-brass bg-mk-cream text-mk-ink' : 'border-mk-line bg-white text-mk-muted'}`}>
                   {PHASE1_QUEUE_LABELS[queue]} ({counts[queue]})
                 </Link>
               ))}
-              <Link href="/score/admin/orders" className="rounded-full border border-mk-line bg-white px-3 py-2 text-xs font-semibold text-mk-muted">All orders ({annotated.length})</Link>
+              <Link href="/score/admin/orders" className="rounded-brand border border-mk-line bg-white px-3 py-2 text-xs font-semibold text-mk-muted">All orders ({annotated.length})</Link>
             </div>
             <form action="/score/admin/orders" className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
-              <select name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
+              <select name="status" defaultValue={status} className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{cleanStatus(option)}</option>)}
               </select>
-              <input name="search" defaultValue={search} placeholder="Search order or organisation" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="search" defaultValue={search} placeholder="Search order or organisation" className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <Button type="submit">Filter</Button>
             </form>
           </CardContent>

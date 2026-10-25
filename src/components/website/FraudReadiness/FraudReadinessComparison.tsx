@@ -20,7 +20,7 @@ export function FraudReadinessComparison() {
       <div className="max-w-2xl">
         <h2
           id="fraud-readiness-comparison-heading"
-          className="text-2xl font-semibold tracking-tight text-[#001030] sm:text-3xl"
+          className="text-2xl font-semibold tracking-normal text-mk-navy sm:text-3xl"
         >
           How the three options differ
         </h2>
@@ -39,14 +39,14 @@ export function FraudReadinessComparison() {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="w-[22%] border-b border-slate-300 pb-3 pr-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <th scope="col" className="w-[22%] border-b border-slate-300 pb-3 pr-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                 <span className="sr-only">Dimension</span>
               </th>
               {COLUMNS.map((column) => (
                 <th
                   key={column.key}
                   scope="col"
-                  className="border-b border-slate-300 pb-3 pr-6 text-base font-semibold text-[#001030] last:pr-0"
+                  className="border-b border-slate-300 pb-3 pr-6 text-base font-semibold text-mk-navy last:pr-0"
                 >
                   {column.label}
                 </th>
@@ -58,7 +58,7 @@ export function FraudReadinessComparison() {
               <tr key={row.dimension} className="align-top">
                 <th
                   scope="row"
-                  className="border-b border-slate-200 py-5 pr-6 text-sm font-semibold text-[#001030]"
+                  className="border-b border-slate-200 py-5 pr-6 text-sm font-semibold text-mk-navy"
                 >
                   {row.dimension}
                 </th>
@@ -80,11 +80,11 @@ export function FraudReadinessComparison() {
       <div className="mt-10 space-y-8 md:hidden">
         {STOREFRONT_COMPARISON.map((row) => (
           <div key={row.dimension} className="border-t border-slate-300 pt-5">
-            <h3 className="text-sm font-semibold text-[#001030]">{row.dimension}</h3>
+            <h3 className="text-sm font-semibold text-mk-navy">{row.dimension}</h3>
             <dl className="mt-3 space-y-3">
               {COLUMNS.map((column) => (
                 <div key={column.key}>
-                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                     {column.label}
                   </dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-700">{row[column.key]}</dd>

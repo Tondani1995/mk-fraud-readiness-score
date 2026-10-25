@@ -3,12 +3,13 @@ import { ClientErrorCapture } from "@/components/monitoring/ClientErrorCapture";
 import "./globals.css";
 import "./clarity.css";
 
-const inter = localFont({
-  src: "../../public/fonts/inter-latin-variable.woff2",
-  weight: "100 900",
-  style: "normal",
-  variable: "--font-inter",
-  display: "swap",
+const poppins = localFont({
+  src: [
+    { path: "../../public/fonts/poppins-regular.ttf", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-medium.ttf", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-semibold.ttf", weight: "600", style: "normal" },
+  ],
+  variable: "--font-poppins", display: "swap",
 });
 export default function RootLayout({
   children,
@@ -16,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-ZA" className={inter.variable}>
+    <html lang="en-ZA" className={poppins.variable}>
       <body className="antialiased">
         {children}
         <ClientErrorCapture />

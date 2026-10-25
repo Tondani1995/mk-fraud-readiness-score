@@ -23,7 +23,7 @@ export default async function CustomerOrderStatusPage(props: {
   return (
     <SectionShell className="py-12">
       <PageHeader eyebrow="Private order status" title={`${order.productName} order`} description="Your order, its payment status and what happens next." />
-      <div className="mb-5 rounded-xl border border-mk-line bg-white p-4 text-sm text-mk-muted"><strong className="text-mk-ink">Order {order.orderReference}</strong> · {order.amountDisplay} · {order.paymentVerified ? 'Payment verified by MK' : 'Awaiting manual payment verification'}</div>
+      <div className="mb-5 rounded-brand border border-mk-line bg-white p-4 text-sm text-mk-muted"><strong className="text-mk-ink">Order {order.orderReference}</strong> · {order.amountDisplay} · {order.paymentVerified ? 'Payment verified by MK' : 'Awaiting manual payment verification'}</div>
       <CustomerOrderStatusWorkspace assessmentReference={params.assessmentRef} snapshotToken={search.token} initialOrder={order} />
     </SectionShell>
   );

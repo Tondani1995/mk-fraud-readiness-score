@@ -15,22 +15,22 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
     <section
       id="how-your-result-is-produced"
       aria-labelledby="methodology-heading"
-      className={`scroll-mt-16 md:scroll-mt-20 ${dark ? 'bg-[#0b2631] text-white' : 'border-t border-[#dfd8cb] bg-white text-[#001030]'}`}
+      className={`scroll-mt-16 md:scroll-mt-20 ${dark ? 'bg-mk-navy text-white' : 'border-t border-mk-line bg-white text-mk-navy'}`}
     >
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
           <div>
-            <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${dark ? 'text-[#a9d4ce]' : 'text-[#1d3658]'}`}>
+            <p className={`text-[12px] font-semibold uppercase tracking-[0.12em] ${dark ? 'text-mk-paper' : 'text-mk-accent'}`}>
               How your result is produced
             </p>
-            <h2 id="methodology-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-4xl">
+            <h2 id="methodology-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal sm:text-4xl">
               {METHODOLOGY_HEADLINE}
             </h2>
-            <p className={`mt-4 text-base leading-7 ${dark ? 'text-white/78' : 'text-[#4f5d66]'}`}>{METHODOLOGY_SUMMARY}</p>
+            <p className={`mt-4 text-base leading-7 ${dark ? 'text-white/78' : 'text-mk-accent'}`}>{METHODOLOGY_SUMMARY}</p>
             <p
-              className={`mt-6 inline-flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm leading-6 ${dark ? 'border-white/15 bg-white/[0.04] text-white/75' : 'border-[#dfd8cb] bg-[#f8fafc] text-[#4f5d66]'}`}
+              className={`mt-6 inline-flex items-start gap-3 rounded-brand border px-4 py-3 text-sm leading-6 ${dark ? 'border-white/15 bg-white/[0.04] text-white/75' : 'border-mk-line bg-mk-paper text-mk-accent'}`}
             >
-              <ShieldCheck aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${dark ? 'text-[#a9d4ce]' : 'text-[#1d3658]'}`} />
+              <ShieldCheck aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${dark ? 'text-mk-paper' : 'text-mk-accent'}`} />
               <span>AI does not determine your assessment result. Where it is used, it operates downstream of the validated assessment logic.</span>
             </p>
           </div>

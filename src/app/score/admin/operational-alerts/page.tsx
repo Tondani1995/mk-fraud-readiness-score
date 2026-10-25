@@ -149,27 +149,27 @@ export default async function OperationalAlertsPage(
         />
 
         {!capability && (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <div className="mb-6 rounded-brand border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
             Lifecycle actions (acknowledge / resolve / reopen) require the integrated Release D migration,
             which this environment does not currently have. Alerts below are shown read-only.
           </div>
         )}
 
         {dateRange.invalid.length > 0 && (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <div className="mb-6 rounded-brand border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
             Ignored invalid date filter{dateRange.invalid.length > 1 ? 's' : ''}: {dateRange.invalid.join(', ')}.
             Use the YYYY-MM-DD format shown in the date pickers below.
           </div>
         )}
 
         {dateRange.rangeOrderInvalid && (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <div className="mb-6 rounded-brand border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
             From date must not be after to date. Both filters were ignored -- adjust the dates below and reapply.
           </div>
         )}
 
         {countsUnavailable && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-900">
+          <div className="mb-6 rounded-brand border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-900">
             One or more status counts could not be loaded. The badges below marked “—” are unavailable, not zero -- reload to retry.
           </div>
         )}
@@ -188,30 +188,30 @@ export default async function OperationalAlertsPage(
             <form method="get" className="grid gap-3 sm:grid-cols-5">
               <label className="text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">Status</span>
-                <select name="status" defaultValue={statusFilter} className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm">
+                <select name="status" defaultValue={statusFilter} className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm">
                   {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
               <label className="text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">Severity</span>
-                <select name="severity" defaultValue={severityFilter} className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm">
+                <select name="severity" defaultValue={severityFilter} className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm">
                   {SEVERITY_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
               <label className="text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">Category</span>
-                <input type="text" name="category" defaultValue={categoryFilter ?? ''} placeholder="exact category key" className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm" />
+                <input type="text" name="category" defaultValue={categoryFilter ?? ''} placeholder="exact category key" className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">From</span>
-                <input type="date" name="from" defaultValue={fromDate ?? ''} className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm" />
+                <input type="date" name="from" defaultValue={fromDate ?? ''} className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">To</span>
-                <input type="date" name="to" defaultValue={toDate ?? ''} className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm" />
+                <input type="date" name="to" defaultValue={toDate ?? ''} className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm" />
               </label>
               <div className="sm:col-span-5">
-                <button type="submit" className="rounded-full bg-mk-ink px-5 py-2 text-sm font-semibold text-mk-cream">Apply filters</button>
+                <button type="submit" className="rounded-brand bg-mk-ink px-5 py-2 text-sm font-semibold text-mk-cream">Apply filters</button>
                 <Link href="/score/admin/operational-alerts" className="ml-3 text-sm text-mk-muted underline">Clear</Link>
               </div>
             </form>
@@ -268,9 +268,9 @@ export default async function OperationalAlertsPage(
 
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 pt-2">
-            {page > 1 && <Link href={filterHref({ page: String(page - 1) })} className="rounded-full border border-mk-line px-4 py-2 text-sm">Previous</Link>}
+            {page > 1 && <Link href={filterHref({ page: String(page - 1) })} className="rounded-brand border border-mk-line px-4 py-2 text-sm">Previous</Link>}
             <span className="px-4 py-2 text-sm text-mk-muted">Page {page} of {totalPages}</span>
-            {page < totalPages && <Link href={filterHref({ page: String(page + 1) })} className="rounded-full border border-mk-line px-4 py-2 text-sm">Next</Link>}
+            {page < totalPages && <Link href={filterHref({ page: String(page + 1) })} className="rounded-brand border border-mk-line px-4 py-2 text-sm">Next</Link>}
           </div>
         )}
       </div>

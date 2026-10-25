@@ -145,8 +145,8 @@ function ContactUsForm() {
 
         <div className="mx-auto max-w-7xl px-5 pb-14 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="max-w-3xl">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#1d3658]">Speak to MK</p>
-            <h1 className="mt-4 text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-[#001030] sm:text-5xl">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">Speak to MK</p>
+            <h1 className="mt-4 text-[2.1rem] font-semibold leading-[1.08] tracking-normal text-mk-navy sm:text-5xl">
               Tell us what you need to understand or fix.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
@@ -157,9 +157,9 @@ function ContactUsForm() {
 
           <div className="mt-10 grid grid-cols-1 gap-8 lg:mt-14 lg:grid-cols-12 lg:gap-10">
             <div className="lg:col-span-7">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft">
                 <div className="border-b border-slate-200 bg-white px-8 py-7 lg:px-10">
-                  <h2 className="text-3xl font-bold leading-tight text-[#001030]">Send us a message</h2>
+                  <h2 className="text-3xl font-semibold leading-tight text-mk-navy">Send us a message</h2>
                   <p className="mt-2 text-slate-600">
                     Fill out the form and we&apos;ll get back to you within 24 hours.
                   </p>
@@ -167,21 +167,21 @@ function ContactUsForm() {
 
                 <div className="p-8 lg:p-10">
                   {isSubmitted ? (
-                    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-                      <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#001030]">
+                    <div className="rounded-brand border border-slate-200 bg-white p-8 text-center shadow-soft">
+                      <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-brand bg-mk-navy">
                         <CheckCircle2 className="h-7 w-7 text-white" strokeWidth={3} />
                       </div>
-                      <h3 className="text-2xl font-bold leading-tight text-[#001030]">Message received</h3>
+                      <h3 className="text-2xl font-semibold leading-tight text-mk-navy">Message received</h3>
                       <p className="mt-2 text-slate-600">
                         Thanks. We&apos;ll review your message and reply within 24 hours during business
                         days.
                       </p>
                       {enquiryReference ? (
                         <div className="mt-6 border-t border-slate-200 pt-6">
-                          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                             Your enquiry reference
                           </p>
-                          <p className="mt-1.5 text-lg font-semibold tabular-nums tracking-tight text-[#001030]">
+                          <p className="mt-1.5 text-lg font-semibold tabular-nums tracking-normal text-mk-navy">
                             {enquiryReference}
                           </p>
                           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -195,7 +195,7 @@ function ContactUsForm() {
                       {submitErrors.length ? (
                         <div
                           role="alert"
-                          className="rounded-2xl border border-[#9B2C2C]/30 bg-[#9B2C2C]/[0.06] p-4 text-sm leading-6 text-[#9B2C2C]"
+                          className="rounded-brand border border-mk-danger/30 bg-mk-danger/[0.06] p-4 text-sm leading-6 text-mk-danger"
                         >
                           {submitErrors.map((error) => (
                             <p key={error}>{error}</p>
@@ -213,8 +213,8 @@ function ContactUsForm() {
 
                       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                          <label htmlFor="name" className="mb-2 block text-sm font-semibold text-[#001030]">
-                            Full name <span className="text-[#1d3658]">*</span>
+                          <label htmlFor="name" className="mb-2 block text-sm font-semibold text-mk-navy">
+                            Full name <span className="text-mk-accent">*</span>
                           </label>
                           <input
                             id="name"
@@ -225,14 +225,14 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("name")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "name" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "name" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                             placeholder="John Doe"
                           />
                         </div>
 
                         <div>
-                          <label htmlFor="email" className="mb-2 block text-sm font-semibold text-[#001030]">
-                            Email <span className="text-[#1d3658]">*</span>
+                          <label htmlFor="email" className="mb-2 block text-sm font-semibold text-mk-navy">
+                            Email <span className="text-mk-accent">*</span>
                           </label>
                           <input
                             id="email"
@@ -243,7 +243,7 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("email")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "email" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "email" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                             placeholder="john@company.com"
                           />
                         </div>
@@ -251,7 +251,7 @@ function ContactUsForm() {
 
                       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                          <label htmlFor="company" className="mb-2 block text-sm font-semibold text-[#001030]">
+                          <label htmlFor="company" className="mb-2 block text-sm font-semibold text-mk-navy">
                             Company
                           </label>
                           <input
@@ -262,13 +262,13 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("company")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "company" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "company" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                             placeholder="Your Company Ltd"
                           />
                         </div>
 
                         <div>
-                          <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-[#001030]">
+                          <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-mk-navy">
                             Phone
                           </label>
                           <input
@@ -279,15 +279,15 @@ function ContactUsForm() {
                             onChange={handleChange}
                             onFocus={() => setFocusedField("phone")}
                             onBlur={() => setFocusedField(null)}
-                            className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "phone" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                            className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "phone" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                             placeholder="+27 82 301 4351"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label htmlFor="service" className="mb-2 block text-sm font-semibold text-[#001030]">
-                          Service interested in <span className="text-[#1d3658]">*</span>
+                        <label htmlFor="service" className="mb-2 block text-sm font-semibold text-mk-navy">
+                          Service interested in <span className="text-mk-accent">*</span>
                         </label>
                         <select
                           id="service"
@@ -297,20 +297,20 @@ function ContactUsForm() {
                           onChange={handleChange}
                           onFocus={() => setFocusedField("service")}
                           onBlur={() => setFocusedField(null)}
-                          className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "service" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                         >
                           <option value="">Select a service</option>
-                          <option value="mk-advisory">Assess — Advisory &amp; Risk Review</option>
-                          <option value="programme-design">Build — Programmes, Governance &amp; Controls</option>
-                          <option value="awareness">Enable — Awareness, Training &amp; Playbooks</option>
-                          <option value="threat-intelligence">Monitor — Detection, Intelligence &amp; Reporting</option>
+                          <option value="mk-advisory">Assess, Advisory &amp; Risk Review</option>
+                          <option value="programme-design">Build, Programmes, Governance &amp; Controls</option>
+                          <option value="awareness">Enable, Awareness, Training &amp; Playbooks</option>
+                          <option value="threat-intelligence">Monitor, Detection, Intelligence &amp; Reporting</option>
                           <option value="other">Other / Not Sure</option>
                         </select>
                       </div>
 
                       <div>
-                        <label htmlFor="message" className="mb-2 block text-sm font-semibold text-[#001030]">
-                          Message <span className="text-[#1d3658]">*</span>
+                        <label htmlFor="message" className="mb-2 block text-sm font-semibold text-mk-navy">
+                          Message <span className="text-mk-accent">*</span>
                         </label>
                         <textarea
                           id="message"
@@ -321,7 +321,7 @@ function ContactUsForm() {
                           onChange={handleChange}
                           onFocus={() => setFocusedField("message")}
                           onBlur={() => setFocusedField(null)}
-                          className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "message" ? "border-[#1d3658]/45 shadow-lg shadow-[#1d3658]/10" : "border-slate-200"}`}
+                          className={`w-full rounded-brand border bg-white px-4 py-3 text-slate-900 transition-all duration-300 focus:outline-none ${focusedField === "message" ? "border-mk-accent/45 shadow-soft shadow-[#1d3658]/10" : "border-slate-200"}`}
                           placeholder="Tell us about your fraud challenges and what you want to achieve..."
                         />
                       </div>
@@ -329,7 +329,7 @@ function ContactUsForm() {
                       <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className="group w-full rounded-xl bg-[#001030] py-6 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-[#0b1b44] disabled:opacity-60 disabled:hover:scale-100"
+                        className="group w-full rounded-brand bg-mk-navy py-6 text-lg font-semibold text-white shadow-soft transition-all duration-300 hover:scale-[1.02] hover:bg-mk-navy disabled:opacity-60 disabled:"
                       >
                         <span className="flex items-center justify-center gap-2">
                           {isSubmitting ? "Sending..." : "Send message"}
@@ -338,7 +338,7 @@ function ContactUsForm() {
                       </Button>
 
                       <p className="flex items-center gap-2 text-sm text-slate-500">
-                        <CheckCircle2 className="h-4 w-4 text-[#1d3658]" />
+                        <CheckCircle2 className="h-4 w-4 text-mk-accent" />
                         No commitment required • Free consultation
                       </p>
                     </form>
@@ -347,8 +347,8 @@ function ContactUsForm() {
               </div>
 
               <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#001030]">
+                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
                     <Mail className="h-6 w-6 text-white" />
                   </div>
                   <p className="text-sm font-semibold text-slate-500">Email</p>
@@ -360,14 +360,14 @@ function ContactUsForm() {
                         placement: "contact_card",
                       })
                     }
-                    className="mt-1 block font-bold text-[#001030] hover:text-[#1d3658]"
+                    className="mt-1 block font-semibold text-mk-navy hover:text-mk-accent"
                   >
                     hello@mkfraud.co.za
                   </a>
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#001030]">
+                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
                     <Linkedin className="h-6 w-6 text-white" />
                   </div>
                   <p className="text-sm font-semibold text-slate-500">LinkedIn</p>
@@ -381,19 +381,19 @@ function ContactUsForm() {
                         placement: "contact_card",
                       })
                     }
-                    className="mt-1 block font-bold text-[#001030] hover:text-[#1d3658]"
+                    className="mt-1 block font-semibold text-mk-navy hover:text-mk-accent"
                   >
                     MK Fraud Insights
                   </a>
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:col-span-2">
+                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft sm:col-span-2">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#001030]">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
                       <MapPin className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <p className="font-bold text-[#001030]">South Africa</p>
+                      <p className="font-semibold text-mk-navy">South Africa</p>
                       <p className="mt-1 text-sm text-slate-600">
                         Serving clients across Africa and internationally.
                       </p>
@@ -404,48 +404,48 @@ function ContactUsForm() {
             </div>
 
             <div className="lg:col-span-5">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft">
                 <div className="border-b border-slate-200 bg-white px-8 py-7">
                   <div className="flex items-start justify-between gap-6">
                     <div>
-                      <h3 className="text-2xl font-bold leading-tight text-[#001030]">Book a consultation</h3>
+                      <h3 className="text-2xl font-semibold leading-tight text-mk-navy">Book a consultation</h3>
                       <p className="mt-2 text-slate-600">Schedule a time that works for you.</p>
                     </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#001030]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
                       <Shield className="h-6 w-6 text-white" />
                     </div>
                   </div>
                 </div>
 
                 <div className="p-6">
-                  <div className="h-[520px] overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white">
+                  <div className="h-[520px] overflow-hidden rounded-brand border border-dashed border-slate-300 bg-white">
                     <CalendlyBooking />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+              <div className="mt-8 overflow-hidden rounded-brand border border-slate-200 bg-white p-8 shadow-soft">
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold leading-tight text-[#001030]">What to expect</h3>
+                    <h3 className="text-2xl font-semibold leading-tight text-mk-navy">What to expect</h3>
                     <div className="mt-5 grid grid-cols-1 gap-3">
                       {benefits.map((b) => (
-                        <div key={b} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1d3658]/10">
-                            <CheckCircle2 className="h-5 w-5 text-[#1d3658]" strokeWidth={2.5} />
+                        <div key={b} className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-brand bg-mk-accent/10">
+                            <CheckCircle2 className="h-5 w-5 text-mk-accent" strokeWidth={2.5} />
                           </div>
-                          <span className="text-sm font-semibold text-[#001030]">{b}</span>
+                          <span className="text-sm font-semibold text-mk-navy">{b}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                    <div className="mt-5 rounded-brand border border-slate-200 bg-white p-5">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[#001030]">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
                           <Clock className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-[#001030]">Response time</p>
+                          <p className="text-sm font-semibold text-mk-navy">Response time</p>
                           <p className="mt-1 text-sm leading-relaxed text-slate-600">
                             We typically respond within 24 hours during business days.
                           </p>
@@ -462,27 +462,27 @@ function ContactUsForm() {
                             placement: "contact_card",
                           })
                         }
-                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                        className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4 transition-all duration-300  hover:shadow-soft"
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#001030]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-brand bg-mk-navy">
                           <Phone className="h-5 w-5 text-white" />
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-500">Phone</p>
-                          <p className="text-sm font-bold text-[#001030]">+27 82 301 4351</p>
+                          <p className="text-sm font-semibold text-mk-navy">+27 82 301 4351</p>
                         </div>
                       </a>
 
                       <Link
                         href="/services"
-                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                        className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4 transition-all duration-300  hover:shadow-soft"
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#001030]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-brand bg-mk-navy">
                           <Shield className="h-5 w-5 text-white" />
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-500">Explore</p>
-                          <p className="text-sm font-bold text-[#001030]">View services</p>
+                          <p className="text-sm font-semibold text-mk-navy">View services</p>
                         </div>
                       </Link>
                     </div>

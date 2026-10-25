@@ -63,48 +63,48 @@ export default function CookieConsent() {
             ref={bannerRef}
             role="region"
             aria-label="Cookie preferences"
-            className="fixed inset-x-2 bottom-2 z-[100] rounded-2xl border border-slate-200 bg-white px-4 py-3 xl:py-2.5 shadow-[0_8px_30px_rgba(0,16,48,0.14)] sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-[min(72rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:px-5"
+            className="fixed inset-x-2 bottom-2 z-[100] rounded-brand border border-slate-200 bg-white px-4 py-3 xl:py-2.5 shadow-[0_8px_30px_rgba(0,16,48,0.14)] sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-[min(72rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:px-5"
         >
             <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-6">
                 <div className="min-w-0 flex-1 xl:flex xl:flex-wrap xl:items-center xl:gap-x-5">
                     <p className="text-[13px] leading-5 text-slate-700">
-                        <span className="font-semibold text-[#001030]">Optional cookies.</span>{" "}
+                        <span className="font-semibold text-mk-navy">Optional cookies.</span>{" "}
                         We use analytics to improve this website.{" "}
                         <button
                             type="button"
                             aria-expanded={showDetails}
                             aria-controls={detailsId}
                             onClick={() => setShowDetails((value) => !value)}
-                            className="font-medium text-[#1d3658] underline underline-offset-2"
+                            className="font-medium text-mk-accent underline underline-offset-2"
                         >
                             {showDetails ? "Hide details" : "Details"}
                         </button>
                         <span aria-hidden="true" className="px-1.5 text-slate-300">|</span>
-                        <Link href="/privacy-policy" className="font-medium text-[#1d3658] underline underline-offset-2">Privacy policy</Link>
+                        <Link href="/privacy-policy" className="font-medium text-mk-accent underline underline-offset-2">Privacy policy</Link>
                     </p>
                     <p id={detailsId} hidden={!showDetails} className="mt-1 text-xs leading-5 text-slate-600 xl:basis-full">
-                        Also allow advertising measurement &mdash; this is the only thing &ldquo;Accept all&rdquo; adds. Advertising measurement cookies let us see which campaigns bring organisations to the Fraud Readiness assessment. They stay off if you choose &ldquo;Analytics only&rdquo; or &ldquo;Decline&rdquo;. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
+                        Also allow advertising measurement ,  this is the only thing &ldquo;Accept all&rdquo; adds. Advertising measurement cookies let us see which campaigns bring organisations to the Fraud Readiness assessment. They stay off if you choose &ldquo;Analytics only&rdquo; or &ldquo;Decline&rdquo;. We never share your answers, your score or your organisation&rsquo;s details with advertising platforms.
                     </p>
                 </div>
                 <div className="grid shrink-0 grid-cols-2 gap-2 md:flex">
                     <button
                         type="button"
                         onClick={() => record(false, false)}
-                        className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="min-h-11 rounded-brand border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                         Decline
                     </button>
                     <button
                         type="button"
                         onClick={() => record(true, false)}
-                        className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="min-h-11 rounded-brand border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                         Analytics only
                     </button>
                     <button
                         type="button"
                         onClick={() => record(true, true)}
-                        className="col-span-2 min-h-11 rounded-xl bg-[#001030] px-5 text-sm font-semibold text-white transition hover:bg-[#1d3658] md:col-span-1"
+                        className="col-span-2 min-h-11 rounded-brand bg-mk-navy px-5 text-sm font-semibold text-white transition hover:bg-mk-accent md:col-span-1"
                     >
                         Accept all
                     </button>

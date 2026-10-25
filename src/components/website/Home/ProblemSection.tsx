@@ -1,35 +1,3 @@
 export default function ProblemSection() {
-  return (
-    <section className="clarity-problem" aria-labelledby="home-problem-heading">
-      <div className="clarity-container problem-layout">
-        <p className="clarity-eyebrow">02 / THE MISSING VIEW</p>
-        <div>
-          <h2 id="home-problem-heading">
-            A control can exist.
-            <br />
-            <span className="headline-emphasis">And a gap can remain.</span>
-          </h2>
-          <div className="problem-text">
-            <p>
-              Payment approvals. Supplier checks. Access permissions. Most
-              organisations already have fraud-relevant controls. They sit in
-              different teams, designed for different purposes.
-            </p>
-            <p>
-              MK examines how those parts fit together, so leadership can
-              understand the exposure, challenge false comfort and decide what
-              needs attention.
-            </p>
-          </div>
-          <div className="clarity-equation">
-            <span>EXPOSURE</span>
-            <b>+</b>
-            <span>CONTROL REALITY</span>
-            <b>→</b>
-            <strong>MANAGEMENT CLARITY</strong>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  return <section className="bg-mk-surface" aria-labelledby="home-problem-heading"><div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20 lg:py-20"><h2 id="home-problem-heading" className="max-w-xl text-3xl font-medium leading-snug text-mk-navy sm:text-4xl">Controls are not the same as readiness.</h2><div className="space-y-5 text-base leading-relaxed text-mk-muted"><p>Most organisations already have fraud-relevant controls spread across finance, operations, digital channels, risk and their third parties. Each one was designed for a local purpose, owned by a different team and reported in a different place.</p><p>What is usually missing is the assembled view. Without it, leadership can say that controls exist but cannot say whether the organisation is ready.</p></div></div></section>;
 }

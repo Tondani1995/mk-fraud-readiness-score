@@ -21,7 +21,7 @@ export function SnapshotExecutive({
     <section id="position" className="snapshot-executive scroll-mt-28">
       <div className="snapshot-executive-inner">
         <div className="executive-topline">
-          <p className="clarity-eyebrow">FRAUD READINESS / MANAGEMENT INTELLIGENCE</p>
+          <p className="clarity-eyebrow">Fraud Readiness Snapshot</p>
           <span>
             {insufficient
               ? 'Insufficient visibility'
@@ -68,7 +68,7 @@ export function SnapshotExecutive({
               )}
             </div>
             <p className="executive-scale-note">
-              Numeric readiness scale · classification follows recorded maturity rules.
+              Readiness is classified using the recorded methodology.
             </p>
           </div>
           <div className="executive-diagnosis">

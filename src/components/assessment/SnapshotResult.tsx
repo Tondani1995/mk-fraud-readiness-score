@@ -101,29 +101,19 @@ export function SnapshotResult({
               key={fact.label}
               className={`px-[18px] py-3 md:px-5 ${index % 2 === 1 ? '' : 'border-r border-mk-line'} ${index < 2 ? 'border-b md:border-b-0' : ''} border-mk-line md:border-r md:last:border-r-0`}
             >
-              <p className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{fact.label}</p>
+              <p className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">{fact.label}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums text-mk-navy">{fact.value}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {snapshot.adaptiveMetrics && (
-        <div className="mx-auto max-w-[1120px] px-[18px] py-4 text-sm leading-6 text-mk-slate md:px-6">
-          Assessment coverage counts answered applicable controls. Control visibility measures known responses
-          by weight. Domain scoring-base coverage below uses a different denominator; 100% there does not mean
-          every control was answered or verified.{' '}
-          <a className="underline" href="#coverage-definitions">
-            Read coverage definitions
-          </a>
-          .
-        </div>
-      )}
       <SectionRail />
       <SnapshotManagementView snapshot={snapshot} insights={commercialInsights} />
 
       <details className="snapshot-explainers">
-        <summary>Read the full interpretation and assessment scope</summary>
+        <summary>How to read the result and assessment scope</summary>
+        {snapshot.adaptiveMetrics && <p>Assessment coverage counts answered applicable controls. Known responses and responses answered “I do not know” are measured by their share of applicable control weight. The recorded domain percentage has a different denominator, explained in the coverage definitions.</p>}
         <TrackedSection
           snapshot={snapshot}
           snapshotUrl={snapshotUrl}
@@ -134,8 +124,8 @@ export function SnapshotResult({
         >
           <div className="mx-auto grid max-w-[1120px] gap-8 px-[18px] py-12 md:grid-cols-12 md:px-6 md:py-16">
             <div className="md:col-span-7">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this means</p>
-              <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
+              <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">What this means</p>
+              <h2 className="mt-2.5 max-w-[22ch] text-[22px] font-semibold leading-tight tracking-normal text-mk-navy md:text-[28px]">
                 {meaningHeading(snapshot)}
               </h2>
               <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate md:text-base">
@@ -149,7 +139,7 @@ export function SnapshotResult({
               ) : null}
               {limitationReasons.length > 0 ? (
                 <div className="mt-5 border-l-2 border-mk-accent/60 pl-4">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-mk-accent">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">
                     Limits on this result
                   </p>
                   <ul className="mt-2 flex flex-col gap-1 text-sm leading-6 text-mk-muted">
@@ -186,8 +176,8 @@ export function SnapshotResult({
 
         <section id="covers" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
           <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">What this Snapshot covers</p>
-            <h2 className="mt-2.5 max-w-[26ch] text-[22px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[28px]">
+            <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">What this Snapshot covers</p>
+            <h2 className="mt-2.5 max-w-[26ch] text-[22px] font-semibold leading-tight tracking-normal text-mk-navy md:text-[28px]">
               {INVENTORY_HEADING}
             </h2>
             <p className="mt-4 max-w-[64ch] text-[15px] leading-7 text-mk-slate">
@@ -202,13 +192,13 @@ export function SnapshotResult({
                     <tr>
                       <th
                         scope="col"
-                        className="border-y border-mk-line py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted"
+                        className="border-y border-mk-line py-2.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-muted"
                       >
                         {INVENTORY_TABLE_LABEL}
                       </th>
                       <th
                         scope="col"
-                        className="border-y border-mk-line py-2.5 text-right text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-muted"
+                        className="border-y border-mk-line py-2.5 text-right text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-muted"
                       >
                         Gaps
                       </th>
@@ -242,7 +232,7 @@ export function SnapshotResult({
       {pairing ? (
         <section aria-label="Worth noting" className="border-b border-mk-line bg-mk-surface">
           <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6 md:py-12">
-            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Worth noting</p>
+            <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">Worth noting</p>
             <p className="mt-3 max-w-[64ch] text-base leading-8 text-mk-navy">
               Your strongest recorded area,{' '}
               <strong className="font-semibold">{pairing.strongestDomainName}</strong>, has a higher recorded
@@ -263,13 +253,13 @@ export function SnapshotResult({
 
       <section aria-label="What happens after you order" className="border-b border-mk-line bg-mk-surface">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-14">
-          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">
+          <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">
             What happens after you order
           </p>
           <ol className="mt-6 grid gap-6 md:grid-cols-4">
             {WHAT_HAPPENS_NEXT.map((step, index) => (
               <li key={step} className="border-t border-mk-accent/40 pt-3">
-                <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">
+                <span className="text-[12px] font-semibold tabular-nums tracking-[0.12em] text-mk-accent">
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <p className="mt-1.5 text-sm leading-6 text-mk-slate">{step}</p>
@@ -283,7 +273,7 @@ export function SnapshotResult({
       <section id="methodology" className="scroll-mt-28 bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-10 md:px-6">
           <details className="border border-mk-line">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
               Methodology, scope and privacy
             </summary>
             <div className="flex flex-col gap-3 border-t border-mk-line px-4 py-4">
@@ -331,7 +321,7 @@ function CountRow({ label, value, last = false }: { label: string; value: string
     <div
       className={`flex items-baseline justify-between gap-4 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}
     >
-      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold tabular-nums text-mk-navy">{value}</dd>
     </div>
   );

@@ -17,11 +17,11 @@ export default function Loading() {
         aria-live="polite"
         className="relative w-full max-w-md text-white"
       >
-        <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white/85">
+        <div className="inline-flex items-center rounded-brand border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/85">
           MK Fraud Insights
         </div>
 
-        <h1 className="mt-6 text-3xl font-semibold leading-tight tracking-tight">
+        <h1 className="mt-6 text-3xl font-semibold leading-tight tracking-normal">
           Loading your experience
         </h1>
 
@@ -30,21 +30,21 @@ export default function Loading() {
         </p>
 
         <div className="mt-8 flex items-end gap-2">
-          <span className="h-10 w-3 animate-pulse rounded-full bg-white/90 [animation-delay:0ms]" />
-          <span className="h-16 w-3 animate-pulse rounded-full bg-[#9fb8cf] [animation-delay:150ms]" />
-          <span className="h-12 w-3 animate-pulse rounded-full bg-white/80 [animation-delay:300ms]" />
-          <span className="h-20 w-3 animate-pulse rounded-full bg-[#7ca2c4] [animation-delay:450ms]" />
-          <span className="h-14 w-3 animate-pulse rounded-full bg-white/85 [animation-delay:600ms]" />
+          <span className="h-10 w-3 animate-pulse rounded-brand bg-white/90 [animation-delay:0ms]" />
+          <span className="h-16 w-3 animate-pulse rounded-brand bg-mk-surface [animation-delay:150ms]" />
+          <span className="h-12 w-3 animate-pulse rounded-brand bg-white/80 [animation-delay:300ms]" />
+          <span className="h-20 w-3 animate-pulse rounded-brand bg-mk-surface [animation-delay:450ms]" />
+          <span className="h-14 w-3 animate-pulse rounded-brand bg-white/85 [animation-delay:600ms]" />
         </div>
 
-        <div className="mt-8 h-1.5 overflow-hidden rounded-full bg-white/15">
+        <div className="mt-8 h-1.5 overflow-hidden rounded-brand bg-white/15">
           <div
-            className="h-full rounded-full bg-white"
+            className="h-full rounded-brand bg-white"
             style={{ animation: "loading-progress 1.6s ease-in-out infinite" }}
           />
         </div>
 
-        <p className="mt-4 text-xs font-medium uppercase tracking-[0.2em] text-white/60">
+        <p className="mt-4 text-xs font-medium uppercase tracking-[0.12em] text-white/60">
           Please wait
         </p>
       </div>

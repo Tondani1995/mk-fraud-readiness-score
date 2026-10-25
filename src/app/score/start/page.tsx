@@ -29,12 +29,12 @@ export default async function StartAssessmentPage(props: {
     <FraudReadinessTermsGate>
       <AdaptiveStartExperience>
         <SectionShell className="w-full py-10 md:py-14">
-          <div className="clarity-start-intro mb-8 grid gap-8 rounded-[2rem] border border-mk-line bg-mk-cream px-6 py-9 md:px-10 md:py-12 lg:grid-cols-[1fr_0.7fr] lg:items-end">
+          <div className="clarity-start-intro mb-8 grid gap-8 rounded-panel border border-mk-line bg-mk-cream px-6 py-9 md:px-10 md:py-12 lg:grid-cols-[1fr_0.7fr] lg:items-end">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-mk-brassDark">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-mk-brassDark">
                 Fraud Readiness Assessment
               </p>
-              <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-tight text-mk-ink md:text-5xl">
+              <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-normal text-mk-ink md:text-5xl">
                 Assess your organisation&rsquo;s fraud readiness.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-mk-muted">
@@ -42,7 +42,7 @@ export default async function StartAssessmentPage(props: {
                 areas that matter to your operating environment.
               </p>
             </div>
-            <div className="rounded-2xl border border-mk-line bg-white/75 p-5 text-sm leading-6 text-mk-muted">
+            <div className="rounded-brand border border-mk-line bg-white/75 p-5 text-sm leading-6 text-mk-muted">
               <p className="font-semibold text-mk-ink">A private, practical journey</p>
               <p className="mt-2">
                 No account is required. Your answers are saved after server confirmation and your private

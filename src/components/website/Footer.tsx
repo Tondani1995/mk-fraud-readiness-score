@@ -22,7 +22,7 @@ const readinessLinks = [
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50 sm:tracking-[0.2em]">{title}</h2>
+      <h2 className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 sm:tracking-[0.12em]">{title}</h2>
       <ul className="mt-4 space-y-1">{children}</ul>
     </div>
   );
@@ -34,11 +34,11 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="clarity-footer bg-[#001030] text-white">
+    <footer className="clarity-footer bg-mk-navy text-white">
       <div className="mx-auto max-w-7xl px-5 pb-8 pt-14 sm:px-6 lg:px-8 lg:pt-20">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] lg:gap-12">
           <div className="max-w-sm">
-            <Link href="/" aria-label="MK Fraud Insights home" className="inline-flex rounded-xl bg-white p-2.5">
+            <Link href="/" aria-label="MK Fraud Insights home" className="inline-flex rounded-brand bg-white p-2.5">
               <Image src="/logoicon.png" width={47} height={40} alt="MK Fraud Insights" loading="eager" className="h-10 w-auto" />
             </Link>
             <p className="mt-5 text-[15px] leading-7 text-white/70">
@@ -52,7 +52,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 eventName="social_click"
                 eventParams={{ platform: "linkedin", placement: "footer_social" }}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-brand border border-white/15 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="MK Fraud Insights on LinkedIn"
               >
                 <Linkedin className="h-5 w-5" />
@@ -61,7 +61,7 @@ export default function Footer() {
                 href="mailto:hello@mkfraud.co.za"
                 eventName="contact_click"
                 eventParams={{ contact_type: "email", placement: "footer_social" }}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-brand border border-white/15 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Email MK Fraud Insights"
               >
                 <Mail className="h-5 w-5" />
@@ -103,7 +103,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-white/55 lg:flex-row lg:items-center lg:justify-between">
-          <p>&copy; {year} Stonda (Pty) Ltd. MK Fraud Insights is a product of Stonda (Pty) Ltd.</p>
+          <p>&copy; {year} Stonda (Pty) Ltd. MK Fraud Insights is a trading name of Stonda (Pty) Ltd.</p>
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             <TrackedLink href="mailto:hello@mkfraud.co.za" eventName="contact_click" eventParams={{ contact_type: "email", placement: "footer_contact_card" }} className="inline-flex min-h-10 items-center hover:text-white">hello@mkfraud.co.za</TrackedLink>
             <Link href="/privacy-policy" className="inline-flex min-h-10 items-center hover:text-white">Privacy Policy</Link>

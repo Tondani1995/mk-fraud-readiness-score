@@ -28,28 +28,28 @@ export function FraudReadinessOptions() {
               aria-labelledby={`${card.tier}-heading`}
               className="flex w-full flex-col border border-slate-200 bg-white p-7 lg:p-8"
             >
-              <h3 id={`${card.tier}-heading`} className="text-xl font-semibold tracking-tight text-[#001030]">
+              <h3 id={`${card.tier}-heading`} className="text-xl font-semibold tracking-normal text-mk-navy">
                 {card.label}
               </h3>
-              <p className="mt-2 text-sm font-medium tabular-nums text-[#1D3658]">{card.priceLabel}</p>
+              <p className="mt-2 text-sm font-medium tabular-nums text-mk-accent">{card.priceLabel}</p>
 
               <dl className="mt-6 space-y-4 border-t border-slate-200 pt-6">
                 <div>
-                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">For</dt>
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">For</dt>
                   <dd className="mt-1.5 text-sm leading-6 text-slate-700">{card.forWho}</dd>
                 </div>
                 <div>
-                  <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Outcome</dt>
+                  <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">Outcome</dt>
                   <dd className="mt-1.5 text-sm leading-6 text-slate-700">{card.outcome}</dd>
                 </div>
               </dl>
 
               <div className="mt-6 flex-1">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Included</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">Included</p>
                 <ul className="mt-2.5 space-y-2">
                   {card.includes.map((item) => (
                     <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700">
-                      <span aria-hidden="true" className="mt-[0.7rem] h-px w-2.5 shrink-0 bg-[#1D3658]" />
+                      <span aria-hidden="true" className="mt-[0.7rem] h-px w-2.5 shrink-0 bg-mk-accent" />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -58,7 +58,7 @@ export function FraudReadinessOptions() {
 
               <Link
                 href={card.ctaHref}
-                className="mt-8 inline-flex min-h-12 w-full items-center justify-center bg-[#001030] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3658] focus:outline-none focus:ring-2 focus:ring-[#1D3658] focus:ring-offset-2"
+                className="mt-8 inline-flex min-h-12 w-full items-center justify-center bg-mk-navy px-6 py-3 text-sm font-semibold text-white transition hover:bg-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
               >
                 {card.ctaLabel}
               </Link>
@@ -73,7 +73,7 @@ export function FraudReadinessOptions() {
         Not ready to choose?{' '}
         <Link
           href="/score/start"
-          className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 transition hover:text-[#1D3658] focus:outline-none focus:ring-2 focus:ring-[#1D3658] focus:ring-offset-2"
+          className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 transition hover:text-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
         >
           Start with the free Snapshot
         </Link>{' '}

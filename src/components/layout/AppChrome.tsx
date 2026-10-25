@@ -42,14 +42,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
             <Link
               href="/"
-              className="font-semibold tracking-tight text-mk-ink"
+              className="font-semibold tracking-normal text-mk-ink"
               aria-label="MK Fraud Insights home"
             >
               <Image src="/logo.png" alt="MK Fraud Insights" width={160} height={45} className="h-7 w-auto" />
             </Link>
             <Link
               href="/fraud-readiness"
-              className="min-h-11 rounded-xl border border-mk-line px-4 py-3 text-sm font-semibold text-mk-ink"
+              className="min-h-11 rounded-brand border border-mk-line px-4 py-3 text-sm font-semibold text-mk-ink"
             >
               Exit assessment
             </Link>

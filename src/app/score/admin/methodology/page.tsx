@@ -21,7 +21,7 @@ export default async function AdminMethodologyPage() {
           <CardHeader><CardTitle>Methodology versions</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {methodologyVersions?.length ? methodologyVersions.map((version) => (
-              <div key={version.version_code} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm">
+              <div key={version.version_code} className="rounded-brand border border-mk-line bg-mk-cream/40 p-4 text-sm">
                 <p className="font-semibold text-mk-ink">{version.version_code} · {version.title}</p>
                 <p className="mt-1 text-mk-muted">Status: {version.status}</p>
               </div>

@@ -38,14 +38,14 @@ export default async function AdminAnalyticsPage() {
                     <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8">
                         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                             <div>
-                                <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
+                                <p className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
                                     {isLiveReporting
                                         ? "GA4 Reporting Live"
                                         : isGaConnected
                                             ? "GA4 Tracking Live"
                                             : "Analytics Setup Needed"}
                                 </p>
-                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl">
                                     Analytics Dashboard
                                 </h1>
                                 <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/80">
@@ -68,7 +68,7 @@ export default async function AdminAnalyticsPage() {
                                     </Button>
                                 </Link>
 
-                                <Button className="h-12 rounded-lg bg-white px-6 text-[#1d3658] hover:bg-slate-100">
+                                <Button className="h-12 rounded-lg bg-white px-6 text-mk-accent hover:bg-slate-100">
                                     <BarChart3 className="mr-2 h-5 w-5" />
                                     {isLiveReporting
                                         ? "Live Reporting"
@@ -87,10 +87,10 @@ export default async function AdminAnalyticsPage() {
                     </div>
 
                     <div className="mx-auto max-w-7xl px-6 lg:px-8">
-                        <div className="mb-8 rounded-3xl border border-[#1d3658]/15 bg-white/80 p-5 shadow-sm backdrop-blur">
+                        <div className="mb-8 rounded-brand border border-mk-accent/15 bg-white/80 p-5 shadow-soft ">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-[#001030]">
+                                    <p className="text-sm font-semibold text-mk-navy">
                                         {isLiveReporting
                                             ? "GA4 is collecting and reporting live data"
                                             : isGaConnected
@@ -103,7 +103,7 @@ export default async function AdminAnalyticsPage() {
                                             : dashboard.error || "Tracking is on, but live reporting is not available yet."}
                                     </p>
                                 </div>
-                                <div className="inline-flex items-center gap-2 rounded-full bg-[#1d3658]/8 px-4 py-2 text-xs font-semibold text-[#1d3658]">
+                                <div className="inline-flex items-center gap-2 rounded-brand bg-mk-accent/8 px-4 py-2 text-xs font-semibold text-mk-accent">
                                     <Sparkles className="h-4 w-4" />
                                     {isGaConnected
                                         ? `Measurement ID: ${measurementId}`
@@ -121,19 +121,19 @@ export default async function AdminAnalyticsPage() {
                                     return (
                                         <div
                                             key={metric.label}
-                                            className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-xl"
+                                            className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft"
                                         >
                                             <div className="flex items-start justify-between gap-4">
                                                 <div>
                                                     <p className="text-sm font-semibold text-slate-500">
                                                         {metric.label}
                                                     </p>
-                                                    <p className="mt-3 text-3xl font-semibold tracking-tight text-[#001030]">
+                                                    <p className="mt-3 text-3xl font-semibold tracking-normal text-mk-navy">
                                                         {metric.value}
                                                     </p>
                                                 </div>
-                                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1d3658]/10">
-                                                    <Icon className="h-6 w-6 text-[#1d3658]" />
+                                                <div className="flex h-12 w-12 items-center justify-center rounded-brand bg-mk-accent/10">
+                                                    <Icon className="h-6 w-6 text-mk-accent" />
                                                 </div>
                                             </div>
 
@@ -162,8 +162,8 @@ export default async function AdminAnalyticsPage() {
                                     );
                                 })
                             ) : (
-                                <div className="md:col-span-2 xl:col-span-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-                                    <p className="text-lg font-semibold text-[#001030]">
+                                <div className="md:col-span-2 xl:col-span-4 rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                                    <p className="text-lg font-semibold text-mk-navy">
                                         Live metrics are not available yet
                                     </p>
                                     <p className="mt-2 text-sm leading-relaxed text-slate-600">
@@ -175,11 +175,11 @@ export default async function AdminAnalyticsPage() {
 
                         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
                             <div className="lg:col-span-5">
-                                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                <div className="rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                         Traffic Channels
                                     </p>
-                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-[#001030]">
+                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-mk-navy">
                                         Acquisition mix
                                     </h2>
 
@@ -188,19 +188,19 @@ export default async function AdminAnalyticsPage() {
                                             dashboard.channels.map((channel) => (
                                                 <div key={channel.label}>
                                                     <div className="mb-2 flex items-center justify-between gap-4">
-                                                        <p className="text-sm font-semibold text-[#001030]">
+                                                        <p className="text-sm font-semibold text-mk-navy">
                                                             {channel.label}
                                                         </p>
                                                         <div className="flex items-center gap-3 text-sm">
                                                             <span className="text-slate-500">{channel.share}%</span>
-                                                            <span className="font-semibold text-[#1d3658]">
+                                                            <span className="font-semibold text-mk-accent">
                                                                 {channel.sessions}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="h-3 rounded-full bg-slate-100">
+                                                    <div className="h-3 rounded-brand bg-slate-100">
                                                         <div
-                                                            className={`h-3 rounded-full ${channel.tone}`}
+                                                            className={`h-3 rounded-brand ${channel.tone}`}
                                                             style={{ width: `${channel.share}%` }}
                                                         />
                                                     </div>
@@ -216,22 +216,22 @@ export default async function AdminAnalyticsPage() {
                             </div>
 
                             <div className="lg:col-span-7">
-                                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+                                <div className="rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
                                     <div className="flex items-center justify-between gap-4">
                                         <div>
-                                            <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                            <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                                 Top Pages
                                             </p>
-                                            <h2 className="mt-2 text-2xl font-semibold leading-tight text-[#001030]">
+                                            <h2 className="mt-2 text-2xl font-semibold leading-tight text-mk-navy">
                                                 Most visited pages
                                             </h2>
                                         </div>
-                                        <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
+                                        <div className="rounded-brand bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
                                             Last 30 days
                                         </div>
                                     </div>
 
-                                    <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+                                    <div className="mt-6 overflow-hidden rounded-brand border border-slate-200">
                                         <div className="grid grid-cols-[1.4fr_0.8fr_0.8fr] gap-4 bg-slate-50 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                             <span>Page</span>
                                             <span>Views</span>
@@ -245,13 +245,13 @@ export default async function AdminAnalyticsPage() {
                                                     className="grid grid-cols-[1.4fr_0.8fr_0.8fr] gap-4 border-t border-slate-200 px-5 py-4 text-sm"
                                                 >
                                                     <div>
-                                                        <p className="font-semibold text-[#001030]">{page.label}</p>
+                                                        <p className="font-semibold text-mk-navy">{page.label}</p>
                                                         <p className="mt-1 font-mono text-xs text-slate-500">
                                                             {page.page}
                                                         </p>
                                                     </div>
                                                     <p className="font-semibold text-slate-700">{page.views}</p>
-                                                    <p className="font-semibold text-[#1d3658]">{page.users}</p>
+                                                    <p className="font-semibold text-mk-accent">{page.users}</p>
                                                 </div>
                                             ))
                                         ) : (
@@ -266,25 +266,25 @@ export default async function AdminAnalyticsPage() {
 
                         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
                             <div className="lg:col-span-7">
-                                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                <div className="rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                         Conversion Events
                                     </p>
-                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-[#001030]">
+                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-mk-navy">
                                         Contact form performance
                                     </h2>
 
                                     <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                                        <div className="rounded-brand border border-slate-200 bg-slate-50/70 p-5">
                                             <div className="flex items-start justify-between gap-4">
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1d3658]/10">
-                                                    <Mail className="h-5 w-5 text-[#1d3658]" />
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-brand bg-mk-accent/10">
+                                                    <Mail className="h-5 w-5 text-mk-accent" />
                                                 </div>
-                                                <p className="text-2xl font-semibold text-[#001030]">
+                                                <p className="text-2xl font-semibold text-mk-navy">
                                                     {dashboard.contactForms}
                                                 </p>
                                             </div>
-                                            <p className="mt-4 font-semibold text-[#001030]">
+                                            <p className="mt-4 font-semibold text-mk-navy">
                                                 Contact Form Submissions
                                             </p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-600">
@@ -292,16 +292,16 @@ export default async function AdminAnalyticsPage() {
                                             </p>
                                         </div>
 
-                                        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                                        <div className="rounded-brand border border-slate-200 bg-slate-50/70 p-5">
                                             <div className="flex items-start justify-between gap-4">
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1d3658]/10">
-                                                    <ChartColumnIncreasing className="h-5 w-5 text-[#1d3658]" />
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-brand bg-mk-accent/10">
+                                                    <ChartColumnIncreasing className="h-5 w-5 text-mk-accent" />
                                                 </div>
-                                                <p className="text-2xl font-semibold text-[#001030]">
+                                                <p className="text-2xl font-semibold text-mk-navy">
                                                     {dashboard.contactFormsChange}
                                                 </p>
                                             </div>
-                                            <p className="mt-4 font-semibold text-[#001030]">
+                                            <p className="mt-4 font-semibold text-mk-navy">
                                                 Submission Trend
                                             </p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-600">
@@ -313,11 +313,11 @@ export default async function AdminAnalyticsPage() {
                             </div>
 
                             <div className="lg:col-span-5">
-                                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                <div className="rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                         Live Analytics Setup
                                     </p>
-                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-[#001030]">
+                                    <h2 className="mt-2 text-2xl font-semibold leading-tight text-mk-navy">
                                         Connected property details
                                     </h2>
 
@@ -336,9 +336,9 @@ export default async function AdminAnalyticsPage() {
                                         ].map((item) => (
                                             <div
                                                 key={item}
-                                                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4"
+                                                className="flex items-center gap-3 rounded-brand border border-slate-200 bg-slate-50/70 px-4 py-4"
                                             >
-                                                <span className="h-2.5 w-2.5 rounded-full bg-[#1d3658]" />
+                                                <span className="h-2.5 w-2.5 rounded-brand bg-mk-accent" />
                                                 <span className="font-medium text-slate-700">{item}</span>
                                             </div>
                                         ))}

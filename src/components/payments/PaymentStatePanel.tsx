@@ -53,10 +53,10 @@ export function PaymentStatePanel({
   return (
     <div
       data-payment-state={state}
-      className="clarity-payment rounded-3xl border border-mk-line bg-white p-6 shadow-sm"
+      className="clarity-payment rounded-brand border border-mk-line bg-white p-6 shadow-soft"
       aria-live="polite"
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-brassDark">
         Verified payment state
       </p>
       <h1 className="mt-3 text-2xl font-semibold text-mk-ink">

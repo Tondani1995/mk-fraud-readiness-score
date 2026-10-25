@@ -65,14 +65,7 @@ function ResponseSlot({
                 </span>
               )}
             </label>
-            {choice.meaning && (
-              <details className="answer-definition">
-                <summary tabIndex={saving ? -1 : 0}>
-                  Meaning<span className="sr-only"> of {choice.label}</span>
-                </summary>
-                <p>{choice.meaning}</p>
-              </details>
-            )}
+
           </div>
         </div>
       )}
@@ -120,7 +113,7 @@ export function AdaptiveResponseCanvas({
         ))}
       </div>
       <p className="selection-instruction">
-        Choose a response to save and continue automatically. Meanings are available before selection.
+        Choose a response to save and continue.
       </p>
     </fieldset>
   );

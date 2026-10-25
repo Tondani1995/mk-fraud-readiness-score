@@ -46,19 +46,19 @@ export async function AdminShell({ admin, children }: { admin: AdminSession; chi
         <aside className="lg:w-80">
           <div className="overflow-hidden rounded-[1.6rem] border border-mk-line bg-white shadow-[0_24px_70px_rgba(0,16,48,0.10)]">
             <div className="bg-mk-ink px-5 py-5 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">MK Fraud Insights</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">MK Fraud Insights</p>
               <h2 className="mt-3 text-xl font-semibold">Readiness Control Room</h2>
               <p className="mt-2 text-sm leading-6 text-white/70">Internal workspace for assessment review and evidence trace.</p>
             </div>
             <div className="p-5">
-              <div className="rounded-2xl border border-mk-line bg-mk-cream p-4 text-sm">
+              <div className="rounded-brand border border-mk-line bg-mk-cream p-4 text-sm">
                 <p className="font-semibold text-mk-ink">{admin.fullName ?? 'MK Platform Admin'}</p>
                 <p className="mt-1 text-xs text-mk-muted">{admin.email}</p>
                 <Badge className="mt-3 bg-white">{admin.role.replace(/_/g, ' ')}</Badge>
               </div>
               <nav className="mt-5 grid gap-2">
                 {adminLinks.map((link) => (
-                  <Link key={link.href} href={scorePath(link.href)} className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
+                  <Link key={link.href} href={scorePath(link.href)} className="flex items-center justify-between rounded-brand px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
                     <span>{link.label}</span>
                     {link.href === '/admin/operational-alerts' && Boolean(criticalAlertCount) && (
                       <Badge className="bg-red-100 text-red-800">{criticalAlertCount}</Badge>

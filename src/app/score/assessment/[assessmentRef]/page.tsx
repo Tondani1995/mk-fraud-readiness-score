@@ -100,7 +100,7 @@ export default async function AssessmentShellPage(
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
+            <div className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
               <p className="font-semibold">Assessment cannot be opened.</p>
               <p className="mt-2">Reason: {validation.reason}. Use the private resume link created when the assessment was started.</p>
             </div>

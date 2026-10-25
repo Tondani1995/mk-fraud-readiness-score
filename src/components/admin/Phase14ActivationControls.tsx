@@ -14,9 +14,9 @@ function NoticeBanner({ notice }: { notice: Notice }) {
   if (!notice) return null;
   return (
     <p className={
-      notice.tone === 'error' ? 'mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700'
-      : notice.tone === 'success' ? 'mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700'
-      : 'mb-4 rounded-xl bg-mk-cream px-4 py-3 text-sm text-mk-ink'
+      notice.tone === 'error' ? 'mb-4 rounded-brand bg-red-50 px-4 py-3 text-sm text-red-700'
+      : notice.tone === 'success' ? 'mb-4 rounded-brand bg-emerald-50 px-4 py-3 text-sm text-emerald-700'
+      : 'mb-4 rounded-brand bg-mk-cream px-4 py-3 text-sm text-mk-ink'
     }>{notice.text}</p>
   );
 }
@@ -70,29 +70,29 @@ function Phase14GateControl({ gate }: { gate: Gate }) {
           {gate?.status ?? 'unknown'}
         </Badge>
         <span className="text-sm text-mk-muted">
-          satisfied_version {gate?.satisfied_version ?? '—'} / required_version {gate?.required_version ?? '—'}
+          satisfied_version {gate?.satisfied_version ?? ', '} / required_version {gate?.required_version ?? ', '}
         </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
         <div>
-          <label htmlFor="gate-version" className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">Version</label>
+          <label htmlFor="gate-version" className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">Version</label>
           <input
             id="gate-version"
             type="number"
             min={0}
             value={targetVersion}
             onChange={(event) => setTargetVersion(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-brand border border-mk-line px-3 py-2 text-sm"
           />
         </div>
         <div>
-          <label htmlFor="gate-reason" className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">Reason (required, audited)</label>
+          <label htmlFor="gate-reason" className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">Reason (required, audited)</label>
           <input
             id="gate-reason"
             type="text"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-brand border border-mk-line px-3 py-2 text-sm"
             placeholder="e.g. Security closure independently reviewed and approved 2026-07-17"
           />
         </div>
@@ -152,12 +152,12 @@ function Phase14PoliciesControl({ policies, labels }: { policies: Policy[]; labe
       <NoticeBanner notice={notice} />
       <ul className="space-y-3">
         {policies.map((policy) => (
-          <li key={policy.policy_key} className="rounded-2xl border border-mk-line bg-white p-4">
+          <li key={policy.policy_key} className="rounded-brand border border-mk-line bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-mk-ink">{labels[policy.policy_key] ?? policy.policy_key}</p>
                 <p className="text-xs text-mk-muted">
-                  approved_gate_version {policy.approved_gate_version ?? '—'} / required_gate_version {policy.required_gate_version ?? '—'}
+                  approved_gate_version {policy.approved_gate_version ?? ', '} / required_gate_version {policy.required_gate_version ?? ', '}
                 </p>
               </div>
               <Badge className={policy.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-mk-cream text-mk-muted'}>
@@ -170,7 +170,7 @@ function Phase14PoliciesControl({ policies, labels }: { policies: Policy[]; labe
                 value={reasons[policy.policy_key] ?? ''}
                 onChange={(event) => setReasons((prev) => ({ ...prev, [policy.policy_key]: event.target.value }))}
                 placeholder="Reason (required, audited)"
-                className="min-w-[240px] flex-1 rounded-xl border border-mk-line px-3 py-2 text-sm"
+                className="min-w-[240px] flex-1 rounded-brand border border-mk-line px-3 py-2 text-sm"
               />
               <Button
                 type="button"
@@ -219,10 +219,10 @@ function Phase14AiRoutesControl({ routes }: { routes: AiRoute[] }) {
       <NoticeBanner notice={notice} />
       <ul className="space-y-3">
         {routes.map((route) => (
-          <li key={route.requested_provider} className="flex items-center justify-between rounded-2xl border border-mk-line bg-white p-4">
+          <li key={route.requested_provider} className="flex items-center justify-between rounded-brand border border-mk-line bg-white p-4">
             <div>
               <p className="text-sm font-semibold text-mk-ink">{route.requested_provider}</p>
-              <p className="text-xs text-mk-muted">approved_gate_version {route.approved_gate_version ?? '—'}</p>
+              <p className="text-xs text-mk-muted">approved_gate_version {route.approved_gate_version ?? ', '}</p>
             </div>
             <div className="flex items-center gap-3">
               <Badge className={route.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-mk-cream text-mk-muted'}>
@@ -280,7 +280,7 @@ function Phase14SettingsControl({
       <NoticeBanner notice={notice} />
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-mk-muted">phase14_autonomous_report_engine</h3>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-mk-muted">phase14_autonomous_report_engine</h3>
         <div className="space-y-2 text-sm">
           {(['premium_report_auto_fulfilment_enabled', 'premium_report_ai_narrative_enabled', 'premium_report_auto_email_enabled'] as const).map((key) => (
             <label key={key} className="flex items-center gap-2">
@@ -299,7 +299,7 @@ function Phase14SettingsControl({
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-mk-muted">phase14_delivery_policy</h3>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-mk-muted">phase14_delivery_policy</h3>
         <div className="space-y-2 text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -324,7 +324,7 @@ function Phase14SettingsControl({
               value={typeof reportEngine.premium_report_test_recipient_override === 'string' ? reportEngine.premium_report_test_recipient_override : ''}
               onChange={(event) => setReportEngine((prev) => ({ ...prev, premium_report_test_recipient_override: event.target.value || null }))}
               placeholder="internal-test@mkfraud.co.za"
-              className="rounded-xl border border-mk-line px-3 py-2 text-sm"
+              className="rounded-brand border border-mk-line px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -441,7 +441,7 @@ function Phase14RuntimeSecretControl({
   const fingerprintsMatch = result && clientFingerprint ? result.fingerprint === clientFingerprint : null;
 
   return (
-    <div className="rounded-2xl border border-mk-line bg-white p-4">
+    <div className="rounded-brand border border-mk-line bg-white p-4">
       <div className="mb-3">
         <p className="text-sm font-semibold text-mk-ink">Supabase secret <code>{secretKey}</code></p>
         <p className="text-xs text-mk-muted">Paired Vercel Preview variable: <code>{vercelVarName}</code> · {description}</p>
@@ -463,12 +463,12 @@ function Phase14RuntimeSecretControl({
         <li>Generate here, or paste an equally high-entropy value of your own.</li>
         <li>Copy the exact value into Vercel → Project Settings → Environment Variables → <code>{vercelVarName}</code>, scoped to <strong>Preview</strong> on <code>release-c/email-secure-delivery</code> only.</li>
         <li>Submit the identical value below to provision the matching Supabase secret.</li>
-        <li>Compare the fingerprint shown after submission against the client-computed one above — they must match, since both are SHA-256 of the one value you just pasted in both places.</li>
+        <li>Compare the fingerprint shown after submission against the client-computed one above, they must match, since both are SHA-256 of the one value you just pasted in both places.</li>
       </ol>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor={`${secretKey}-value`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+          <label htmlFor={`${secretKey}-value`} className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
             Secret value
           </label>
           <div className="mt-1 flex gap-2">
@@ -478,7 +478,7 @@ function Phase14RuntimeSecretControl({
               autoComplete="off"
               value={secretValue}
               onChange={(event) => handleSecretValueChange(event.target.value)}
-              className="w-full rounded-xl border border-mk-line px-3 py-2 text-sm font-mono"
+              className="w-full rounded-brand border border-mk-line px-3 py-2 text-sm font-mono"
               placeholder="At least 32 random characters"
             />
             <Button type="button" variant="ghost" onClick={() => setReveal((v) => !v)}>
@@ -487,7 +487,7 @@ function Phase14RuntimeSecretControl({
           </div>
         </div>
         <div>
-          <label htmlFor={`${secretKey}-confirm`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+          <label htmlFor={`${secretKey}-confirm`} className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
             Confirm secret value
           </label>
           <input
@@ -496,13 +496,13 @@ function Phase14RuntimeSecretControl({
             autoComplete="off"
             value={confirmValue}
             onChange={(event) => setConfirmValue(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm font-mono"
+            className="mt-1 w-full rounded-brand border border-mk-line px-3 py-2 text-sm font-mono"
           />
         </div>
       </div>
 
       <div className="mt-3">
-        <label htmlFor={`${secretKey}-reason`} className="text-xs font-semibold uppercase tracking-[0.14em] text-mk-muted">
+        <label htmlFor={`${secretKey}-reason`} className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
           Reason (required, audited)
         </label>
         <input
@@ -510,7 +510,7 @@ function Phase14RuntimeSecretControl({
           type="text"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="mt-1 w-full rounded-xl border border-mk-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-brand border border-mk-line px-3 py-2 text-sm"
           placeholder="e.g. Initial provisioning for Release C controlled Preview verification, 2026-07-25"
         />
       </div>
@@ -522,7 +522,7 @@ function Phase14RuntimeSecretControl({
       </div>
 
       {result && (
-        <div className="mt-4 rounded-xl bg-mk-cream px-4 py-3 text-xs text-mk-ink">
+        <div className="mt-4 rounded-brand bg-mk-cream px-4 py-3 text-xs text-mk-ink">
           <p><strong>Secret key:</strong> {result.secret_key}</p>
           <p><strong>Rotated at:</strong> {result.rotated_at}</p>
           <p><strong>Fingerprint (SHA-256, not the secret):</strong> <code>{result.fingerprint}</code></p>
@@ -530,7 +530,7 @@ function Phase14RuntimeSecretControl({
             <p className={fingerprintsMatch ? 'text-emerald-700' : 'text-red-700'}>
               {fingerprintsMatch
                 ? 'Matches the client-computed fingerprint of the value you generated above.'
-                : 'Does NOT match the client-computed fingerprint — do not assume Vercel has the same value.'}
+                : 'Does NOT match the client-computed fingerprint, do not assume Vercel has the same value.'}
             </p>
           )}
         </div>

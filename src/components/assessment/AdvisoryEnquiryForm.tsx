@@ -109,20 +109,20 @@ export function AdvisoryEnquiryForm({
   if (success) {
     return (
       <section className="mx-auto max-w-[760px] px-[18px] py-12 md:px-6 md:py-16">
-        <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
-        <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[40px]">
+        <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">MK Advisory</p>
+        <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-normal text-mk-navy md:text-[40px]">
           Thanks. MK has your request.
         </h1>
         <p className="mt-4 max-w-[62ch] text-[15px] leading-7 text-mk-slate">{success.message}</p>
-        <div className="mt-7 rounded-2xl border border-mk-line bg-mk-surface p-5">
-          <p className="text-[12px] uppercase tracking-[0.16em] text-mk-muted">Your enquiry reference</p>
+        <div className="mt-7 rounded-brand border border-mk-line bg-mk-surface p-5">
+          <p className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">Your enquiry reference</p>
           <p className="mt-1.5 text-lg font-semibold tracking-wide text-mk-navy">{success.requestReference}</p>
         </div>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Link href={snapshotPath} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+          <Link href={snapshotPath} className="inline-flex min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
             Back to your Snapshot
           </Link>
-          <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+          <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-brand border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
             Book a 30-minute conversation
           </Link>
         </div>
@@ -133,8 +133,8 @@ export function AdvisoryEnquiryForm({
   return (
     <section className="mx-auto max-w-[920px] px-[18px] py-10 md:px-6 md:py-16">
       <div className="max-w-[68ch]">
-        <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">MK Advisory</p>
-        <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-tight text-mk-navy md:text-[40px]">
+        <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">MK Advisory</p>
+        <h1 className="mt-2.5 max-w-[18ch] text-[28px] font-semibold leading-tight tracking-normal text-mk-navy md:text-[40px]">
           Talk to MK about your result
         </h1>
         <p className="mt-4 text-[15px] leading-7 text-mk-slate">
@@ -142,7 +142,7 @@ export function AdvisoryEnquiryForm({
         </p>
       </div>
 
-      <div className="mt-8 grid gap-4 rounded-2xl border border-mk-line bg-mk-surface p-5 sm:grid-cols-3">
+      <div className="mt-8 grid gap-4 rounded-brand border border-mk-line bg-mk-surface p-5 sm:grid-cols-3">
         <ContextItem label="Organisation" value={organisationName} />
         <ContextItem label="Assessment" value={assessmentReference} />
         <ContextItem label="Maturity" value={maturity ?? 'Not recorded'} />
@@ -158,7 +158,7 @@ export function AdvisoryEnquiryForm({
             value={primaryReason}
             onChange={(event) => setPrimaryReason(event.target.value)}
             required
-            className="mt-3 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-navy focus:border-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent/30"
+            className="mt-3 min-h-12 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-navy focus:border-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent/30"
           >
             <option value="">Choose one</option>
             {REASONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -169,7 +169,7 @@ export function AdvisoryEnquiryForm({
           <legend className="text-sm font-semibold text-mk-navy">Which areas would you like to discuss?</legend>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {FOCUS_AREAS.map(([value, label]) => (
-              <label key={value} className="flex min-h-12 items-start gap-3 rounded-xl border border-mk-line bg-white px-3.5 py-3 text-sm leading-6 text-mk-slate">
+              <label key={value} className="flex min-h-12 items-start gap-3 rounded-brand border border-mk-line bg-white px-3.5 py-3 text-sm leading-6 text-mk-slate">
                 <input
                   type="checkbox"
                   name="areasOfFocus"
@@ -190,7 +190,7 @@ export function AdvisoryEnquiryForm({
             <legend className="text-sm font-semibold text-mk-navy">Preferred contact</legend>
             <div className="mt-3 grid gap-2">
               {CONTACT_METHODS.map(([value, label]) => (
-                <label key={value} className="flex min-h-12 items-center gap-3 rounded-xl border border-mk-line bg-white px-3.5 py-3 text-sm text-mk-slate">
+                <label key={value} className="flex min-h-12 items-center gap-3 rounded-brand border border-mk-line bg-white px-3.5 py-3 text-sm text-mk-slate">
                   <input type="radio" name="preferredContactMethod" value={value} checked={preferredContactMethod === value} onChange={(event) => setPreferredContactMethod(event.target.value)} required className="h-4 w-4 accent-mk-accent" />
                   <span>{label}</span>
                 </label>
@@ -202,7 +202,7 @@ export function AdvisoryEnquiryForm({
             <legend className="text-sm font-semibold text-mk-navy">When would you like to talk?</legend>
             <div className="mt-3 grid gap-2">
               {TIMEFRAMES.map(([value, label]) => (
-                <label key={value} className="flex min-h-12 items-center gap-3 rounded-xl border border-mk-line bg-white px-3.5 py-3 text-sm text-mk-slate">
+                <label key={value} className="flex min-h-12 items-center gap-3 rounded-brand border border-mk-line bg-white px-3.5 py-3 text-sm text-mk-slate">
                   <input type="radio" name="preferredConsultationTimeframe" value={value} checked={preferredConsultationTimeframe === value} onChange={(event) => setPreferredConsultationTimeframe(event.target.value)} required className="h-4 w-4 accent-mk-accent" />
                   <span>{label}</span>
                 </label>
@@ -213,18 +213,18 @@ export function AdvisoryEnquiryForm({
 
         <label htmlFor="advisory-notes" className="block">
           <span className="text-sm font-semibold text-mk-navy">Anything else you would like us to know? <span className="font-normal text-mk-muted">Optional</span></span>
-          <textarea id="advisory-notes" name="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={800} rows={5} className="mt-3 w-full rounded-xl border border-mk-line bg-white px-4 py-3 text-sm leading-6 text-mk-navy focus:border-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent/30" />
+          <textarea id="advisory-notes" name="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={800} rows={5} className="mt-3 w-full rounded-brand border border-mk-line bg-white px-4 py-3 text-sm leading-6 text-mk-navy focus:border-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent/30" />
         </label>
 
-        <label className="flex items-start gap-3 rounded-xl border border-mk-line bg-mk-surface px-4 py-3.5 text-sm leading-6 text-mk-slate">
+        <label className="flex items-start gap-3 rounded-brand border border-mk-line bg-mk-surface px-4 py-3.5 text-sm leading-6 text-mk-slate">
           <input type="checkbox" name="consentContact" checked={consentContact} onChange={(event) => setConsentContact(event.target.checked)} required className="mt-1 h-4 w-4 accent-mk-accent" />
           <span>I agree that MK may use these details to contact me about this Advisory request.</span>
         </label>
 
-        {error ? <p role="alert" className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 px-4 py-3 text-sm leading-6 text-mk-danger">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 px-4 py-3 text-sm leading-6 text-mk-danger">{error}</p> : null}
 
         <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate disabled:cursor-wait disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
+          <button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate disabled:cursor-wait disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">
             {submitting ? 'Sending request…' : 'Send request to MK'}
           </button>
           <Link href={snapshotPath} className="text-sm font-semibold text-mk-accent hover:underline">Back to your Snapshot</Link>
@@ -237,7 +237,7 @@ export function AdvisoryEnquiryForm({
 function ContextItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</p>
+      <p className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">{label}</p>
       <p className="mt-1 text-sm font-semibold text-mk-navy">{value}</p>
     </div>
   );

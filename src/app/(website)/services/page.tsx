@@ -16,11 +16,11 @@ export default function ServicesPage() {
           <CapabilityDetail key={capability.id} capability={capability} tone={index % 2 === 1 ? 'grey' : 'white'} />
         ))}
 
-        <section id="investigation-support" className="border-t border-slate-200 bg-[#f8fafc]" aria-labelledby="investigation-support-heading">
+        <section id="investigation-support" className="border-t border-slate-200 bg-mk-paper" aria-labelledby="investigation-support-heading">
           <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-20">
             <div>
               <Eyebrow>Investigation support</Eyebrow>
-              <h2 id="investigation-support-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl">
+              <h2 id="investigation-support-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
                 When the work moves beyond advisory.
               </h2>
             </div>
@@ -37,9 +37,9 @@ export default function ServicesPage() {
 
         <section className="border-t border-slate-200 bg-white" aria-labelledby="services-next-heading">
           <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
-            <div className="rounded-[1.5rem] bg-[#001030] px-4 py-8 text-white min-[360px]:px-5 sm:px-10 sm:py-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-12">
+            <div className="rounded-panel bg-mk-navy px-4 py-8 text-white min-[360px]:px-5 sm:px-10 sm:py-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-12">
               <div className="max-w-xl">
-                <h2 id="services-next-heading" className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+                <h2 id="services-next-heading" className="text-2xl font-semibold leading-tight tracking-normal sm:text-3xl">
                   Not sure which capability fits?
                 </h2>
                 <p className="mt-3 text-base leading-7 text-white/75">
@@ -57,10 +57,10 @@ export default function ServicesPage() {
             </div>
             <p className="mt-6 text-[15px] leading-7 text-slate-600">
               Looking for sector context?{' '}
-              <Link href="/industries" className="font-semibold text-[#1d3658] underline underline-offset-4 hover:text-[#001030]">
+              <Link href="/industries" className="font-semibold text-mk-accent underline underline-offset-4 hover:text-mk-navy">
                 See how fraud exposure differs by industry
               </Link>
-              <ArrowRight aria-hidden="true" className="ml-1 inline h-4 w-4 align-[-2px] text-[#1d3658]" />
+              <ArrowRight aria-hidden="true" className="ml-1 inline h-4 w-4 align-[-2px] text-mk-accent" />
             </p>
           </div>
         </section>

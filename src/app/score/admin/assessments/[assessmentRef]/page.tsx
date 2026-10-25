@@ -41,7 +41,7 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
             title={assessment.assessment_reference}
             description="Admin-only trace view for respondent details, organisation profile, answer trail and persisted score calculation."
           />
-          <Link className="rounded-xl border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-cream" href="/score/admin/assessments">Back to list</Link>
+          <Link className="rounded-brand border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-cream" href="/score/admin/assessments">Back to list</Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -143,7 +143,7 @@ export default async function AdminAssessmentDetailPage(props: { params: Promise
           <CardHeader><CardTitle>Exposure answers</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
             {exposureAnswers.length ? exposureAnswers.map((answer: any, index: number) => (
-              <div key={`${answer.exposure_factors?.factor_code ?? 'exposure'}-${index}`} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm">
+              <div key={`${answer.exposure_factors?.factor_code ?? 'exposure'}-${index}`} className="rounded-brand border border-mk-line bg-mk-cream/40 p-4 text-sm">
                 <p className="font-semibold text-mk-ink">{answer.exposure_factors?.factor_code} · {answer.exposure_factors?.name}</p>
                 <p className="mt-1 text-mk-muted">Points: {formatScore(answer.points_awarded)} / {formatScore(answer.exposure_factors?.max_points)}</p>
               </div>

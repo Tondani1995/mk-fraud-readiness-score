@@ -18,13 +18,13 @@ export default function FraudReadinessAssessmentTermsPage() {
   return (
     <Wrapper>
       <main className="bg-white">
-        <section className="bg-[#001030]">
+        <section className="bg-mk-navy">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
             <div className="max-w-3xl">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white/60">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/60">
                 Legal
               </p>
-              <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+              <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl">
                 Fraud Readiness Assessment Terms
               </h1>
               <p className="mt-6 text-base leading-7 text-white/75">
@@ -63,14 +63,14 @@ export default function FraudReadinessAssessmentTermsPage() {
                 >
                   <h2
                     id={`${section.id}-heading`}
-                    className="border-b border-slate-300 pb-3 text-xl font-semibold tracking-tight text-[#001030] sm:text-2xl"
+                    className="border-b border-slate-300 pb-3 text-xl font-semibold tracking-normal text-mk-navy sm:text-2xl"
                   >
                     {section.title}
                   </h2>
                   <div className="mt-6 space-y-7">
                     {section.clauses.map((clause) => (
                       <div key={clause.heading}>
-                        <h3 className="text-base font-semibold text-[#001030]">
+                        <h3 className="text-base font-semibold text-mk-navy">
                           {clause.heading}
                         </h3>
                         {clause.paragraphs.map((paragraph) => (
@@ -93,7 +93,7 @@ export default function FraudReadinessAssessmentTermsPage() {
                 Questions about these terms:{" "}
                 <a
                   href="mailto:hello@mkfraud.co.za"
-                  className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]"
+                  className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent"
                 >
                   hello@mkfraud.co.za
                 </a>
@@ -101,19 +101,19 @@ export default function FraudReadinessAssessmentTermsPage() {
               <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3 text-sm">
                 <Link
                   href="/fraud-readiness"
-                  className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]"
+                  className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent"
                 >
                   Compare Fraud Readiness options
                 </Link>
                 <Link
                   href="/terms-of-use"
-                  className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]"
+                  className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent"
                 >
                   General Terms of Use
                 </Link>
                 <Link
                   href={PRIVACY_NOTICE_PATH}
-                  className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]"
+                  className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent"
                 >
                   Privacy Notice
                 </Link>

@@ -4,7 +4,7 @@ export function PageHeader({ eyebrow, title, description }: { eyebrow?: string; 
   return (
     <div className="clarity-page-header mb-8 max-w-3xl">
       {eyebrow ? <Badge>{eyebrow}</Badge> : null}
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-mk-ink md:text-4xl">{title}</h1>
+      <h1 className="mt-4 text-3xl font-semibold tracking-normal text-mk-ink md:text-4xl">{title}</h1>
       {description ? <p className="mt-4 text-base leading-7 text-mk-muted">{description}</p> : null}
     </div>
   );

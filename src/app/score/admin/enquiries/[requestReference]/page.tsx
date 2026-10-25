@@ -116,7 +116,7 @@ export default async function AdminPersonalisedEnquiryDetailPage(props: { params
         <Card>
           <CardHeader><CardTitle>{isWebsiteContact ? 'Message' : 'Enquirer note'}</CardTitle></CardHeader>
           <CardContent>
-            <div className="whitespace-pre-line rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
+            <div className="whitespace-pre-line rounded-brand border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
               {enquiry.notes || 'No additional note was supplied.'}
             </div>
           </CardContent>

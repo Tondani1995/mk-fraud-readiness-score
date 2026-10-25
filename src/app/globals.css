@@ -3,9 +3,19 @@
 @tailwind utilities;
 
 :root {
+  --mk-navy: #001030;
+  --mk-accent: #1d3658;
+  --mk-muted: #475569;
+  --mk-line: #e2e8f0;
+  --mk-surface: #f8fafc;
+  --mk-paper: #ffffff;
+  --mk-danger: #9b2c2c;
+  --mk-success: #2f6b4f;
+
   color-scheme: light;
   background: #ffffff;
-  --radius: 0.625rem;
+  --radius: 6px;
+  --mk-shadow-soft: 0 1px 3px rgb(0 16 48 / 0.08);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -42,7 +52,7 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   background: #ffffff;
-  color: #111827;
+  color: #001030;
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-rendering: geometricPrecision;
 }
@@ -67,4 +77,10 @@ button {
 
 ::selection {
   background: rgba(70, 82, 94, 0.18);
+}
+
+@layer base {
+  .mk-site * { animation: none !important; }
+  .mk-site a, .mk-site button { transition-property: color, background-color, border-color; }
+  .mk-site h1, .mk-site h2, .mk-site h3, .mk-product h1, .mk-product h2, .mk-product h3 { font-weight: 500; letter-spacing: 0; }
 }

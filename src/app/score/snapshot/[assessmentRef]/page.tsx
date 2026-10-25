@@ -48,7 +48,7 @@ function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason:
     <ResultChrome assessmentReference={assessmentRef}>
       <section className="mx-auto max-w-[1120px] px-[18px] py-16 md:px-6">
         <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Private result</p>
-        <h1 className="mt-2.5 max-w-[20ch] text-[26px] font-semibold tracking-tight text-mk-navy md:text-[36px]">
+        <h1 className="mt-2.5 max-w-[20ch] text-[26px] font-semibold tracking-normal text-mk-navy md:text-[36px]">
           Private result link required
         </h1>
         <p className="mt-4 max-w-[60ch] text-base leading-7 text-mk-slate">{accessMessage(reason)}</p>

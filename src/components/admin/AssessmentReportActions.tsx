@@ -115,10 +115,10 @@ export function AssessmentReportActions(props: {
       : null;
 
   return (
-    <section className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm">
+    <section className="rounded-brand border border-mk-line bg-white p-5 shadow-soft">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Assessment reports</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-brassDark">Assessment reports</p>
           <h2 className="mt-1 text-xl font-semibold text-mk-ink">Report actions</h2>
           <p className="mt-1 max-w-2xl text-sm text-mk-muted">Generate from the locked V1.2 score, then access the verified private report file.</p>
         </div>
@@ -128,7 +128,7 @@ export function AssessmentReportActions(props: {
               type="button"
               disabled={Boolean(busyAction) || Boolean(activeAttempt)}
               onClick={() => run('assessment_admin_generate')}
-              className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-mk-cream disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-brand bg-mk-ink px-4 py-2 text-sm font-semibold text-mk-cream disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busyAction === 'assessment_admin_generate' ? 'Generating…' : activeAttempt ? 'Generation in progress…' : 'Generate assessment report'}
             </button>
@@ -137,7 +137,7 @@ export function AssessmentReportActions(props: {
                 type="button"
                 disabled={Boolean(busyAction) || Boolean(activeAttempt)}
                 onClick={() => run('assessment_admin_retry')}
-                className="rounded-xl border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-brand border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Retry generation
               </button>
@@ -147,7 +147,7 @@ export function AssessmentReportActions(props: {
                 type="button"
                 disabled={Boolean(busyAction) || Boolean(activeAttempt)}
                 onClick={() => run('assessment_admin_regenerate')}
-                className="rounded-xl border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-brand border border-mk-line px-4 py-2 text-sm font-semibold text-mk-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Regenerate version
               </button>
@@ -156,10 +156,10 @@ export function AssessmentReportActions(props: {
         ) : <p className="text-sm text-mk-muted">Read-only role: report generation is unavailable.</p>}
       </div>
 
-      {message ? <p className="mt-4 rounded-xl bg-mk-cream px-3 py-2 text-sm text-mk-ink">{message}</p> : null}
+      {message ? <p className="mt-4 rounded-brand bg-mk-cream px-3 py-2 text-sm text-mk-ink">{message}</p> : null}
 
       {currentReport ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-mk-line bg-mk-cream/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 rounded-brand border border-mk-line bg-mk-cream/40 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-mk-ink">{currentReport.report_reference}</p>
             <p className="text-xs text-mk-muted">{productLabel(currentReport)} · Version {currentReport.version_number} · {currentReport.status} · private report verified</p>
@@ -167,7 +167,7 @@ export function AssessmentReportActions(props: {
           {props.canDownload && downloadHref ? (
             <a
               href={downloadHref}
-              className="inline-flex rounded-xl bg-mk-brass px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-brass/80"
+              className="inline-flex rounded-brand bg-mk-brass px-4 py-2 text-sm font-semibold text-mk-ink hover:bg-mk-brass/80"
             >
               Download report
             </a>

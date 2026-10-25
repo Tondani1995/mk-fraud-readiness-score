@@ -101,7 +101,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
       {errors.length ? (
         <div
           role="alert"
-          className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger"
+          className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger"
         >
           {errors.map((error) => (
             <p key={error}>{error}</p>
@@ -117,7 +117,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
             required
             value={form.fullName}
             onChange={(event) => update('fullName', event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4"
+            className="mt-2 min-h-12 w-full rounded-brand border border-mk-line bg-white px-4"
           />
         </label>
         <label className="block text-sm font-medium text-mk-ink">
@@ -129,7 +129,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
             type="email"
             value={form.email}
             onChange={(event) => update('email', event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4"
+            className="mt-2 min-h-12 w-full rounded-brand border border-mk-line bg-white px-4"
           />
         </label>
       </div>
@@ -141,7 +141,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
           required
           value={form.organisationName}
           onChange={(event) => update('organisationName', event.target.value)}
-          className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4"
+          className="mt-2 min-h-12 w-full rounded-brand border border-mk-line bg-white px-4"
         />
       </label>
       <label className="block text-sm font-medium text-mk-ink">
@@ -151,7 +151,7 @@ export function AdaptiveStartForm({ productIntent = null }: { productIntent?: Pr
           autoComplete="organization-title"
           value={form.roleTitle}
           onChange={(event) => update('roleTitle', event.target.value)}
-          className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4"
+          className="mt-2 min-h-12 w-full rounded-brand border border-mk-line bg-white px-4"
         />
       </label>
       <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted">

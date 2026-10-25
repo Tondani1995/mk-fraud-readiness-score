@@ -37,7 +37,7 @@ const config: Config = {
           accent: '#1D3658',
           surface: '#F8FAFC',
           ink: '#001030',
-          slate: '#47515A',
+          slate: '#475569',
           paper: '#FFFFFF',
           line: '#E2E8F0',
           muted: '#475569',
@@ -51,14 +51,16 @@ const config: Config = {
         }
       },
       boxShadow: {
-        soft: '0 18px 45px rgba(0, 16, 48, 0.10)',
+        soft: '0 1px 3px rgba(0, 16, 48, 0.08)',
         xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       borderRadius: {
-        xl2: '1.25rem',
+        brand: '6px',
+        panel: '8px',
+        xl2: '8px',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'

@@ -1,4 +1,3 @@
-import Link from "next/link";
 const previewDomains = [
   { name: "Governance", value: 74 },
   { name: "Detection", value: 58 },
@@ -16,11 +15,7 @@ export function SnapshotPreview({ compact = false }: { compact?: boolean }) {
         <span className="specimen-example">ILLUSTRATIVE EXAMPLE</span>
       </div>
       <p className="specimen-kicker">YOUR MANAGEMENT VIEW</p>
-      <h2>
-        A result built
-        <br />
-        <span className="headline-emphasis">for a decision.</span>
-      </h2>
+      <h2>Your Fraud Readiness Snapshot</h2>
       <div className="specimen-position">
         <span className="position-mark" aria-hidden="true">
           ↗
@@ -29,7 +24,7 @@ export function SnapshotPreview({ compact = false }: { compact?: boolean }) {
           <span className="clarity-eyebrow">EXAMPLE POSITION</span>
           <strong>Structured</strong>
           <p>
-            Foundations are present. Evidence and response ownership are uneven.
+            The example shows established foundations with uneven evidence and response ownership.
           </p>
         </div>
       </div>
@@ -57,11 +52,7 @@ export function SnapshotPreview({ compact = false }: { compact?: boolean }) {
         Illustration only. Your private Snapshot is based on your submitted
         responses.
       </p>
-      {!compact && (
-        <Link className="specimen-link" href="/score/start">
-          Start your assessment <span>↗</span>
-        </Link>
-      )}
+
     </section>
   );
 }

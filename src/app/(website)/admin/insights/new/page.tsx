@@ -181,10 +181,10 @@ export default function NewInsightPage() {
                     <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8">
                         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                             <div>
-                                <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
+                                <p className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
                                     Admin
                                 </p>
-                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl">
                                     Add New Insight
                                 </h1>
                                 <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/80">
@@ -195,7 +195,7 @@ export default function NewInsightPage() {
 
                             <Link
                                 href="/admin/insights"
-                                className="inline-flex h-12 items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 text-sm font-semibold text-white hover:bg-white/15"
+                                className="inline-flex h-12 items-center justify-center rounded-brand border border-white/25 bg-white/10 px-5 text-sm font-semibold text-white hover:bg-white/15"
                             >
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back
@@ -211,15 +211,15 @@ export default function NewInsightPage() {
 
                     <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8 lg:py-12">
                         {error ? (
-                            <div className="mb-6 overflow-hidden rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-sm">
+                            <div className="mb-6 overflow-hidden rounded-brand border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-soft">
                                 <p className="font-semibold">{error}</p>
                             </div>
                         ) : null}
 
                         <div className="py-16">
-                            <Card className="rounded-3xl border-2 border-slate-200 shadow-2xl">
+                            <Card className="rounded-brand border-2 border-slate-200 shadow-soft">
                                 <CardHeader>
-                                    <CardTitle className="text-xl font-semibold text-[#001030]">
+                                    <CardTitle className="text-xl font-semibold text-mk-navy">
                                         Content
                                     </CardTitle>
                                     <CardDescription>
@@ -239,7 +239,7 @@ export default function NewInsightPage() {
                                                 setTitle(nextTitle);
                                                 if (autoSlug) setSlug(slugify(nextTitle));
                                             }}
-                                            className="h-12 rounded-2xl"
+                                            className="h-12 rounded-brand"
                                             placeholder="e.g. Control Gaps & Early Warning Signals"
                                         />
                                     </div>
@@ -268,7 +268,7 @@ export default function NewInsightPage() {
                                                 setSlug(e.target.value);
                                                 setAutoSlug(false);
                                             }}
-                                            className="h-12 rounded-2xl font-mono"
+                                            className="h-12 rounded-brand font-mono"
                                             placeholder="e.g. control-gaps-early-warning"
                                         />
                                         <p className="text-xs text-slate-500">
@@ -287,7 +287,7 @@ export default function NewInsightPage() {
                                             id="excerpt"
                                             value={excerpt}
                                             onChange={(e) => setExcerpt(e.target.value)}
-                                            className="min-h-[110px] rounded-2xl"
+                                            className="min-h-[110px] rounded-brand"
                                             placeholder="Short summary shown on cards and list pages..."
                                         />
                                     </div>
@@ -313,7 +313,7 @@ export default function NewInsightPage() {
                                                 size="sm"
                                                 onClick={onGenerateTags}
                                                 disabled={generatingTags}
-                                                className="h-9 rounded-xl border-[#1d3658]/20 bg-[#1d3658]/5 px-3 text-[#1d3658] hover:bg-[#1d3658]/10"
+                                                className="h-9 rounded-brand border-mk-accent/20 bg-mk-accent/5 px-3 text-mk-accent hover:bg-mk-accent/10"
                                             >
                                                 {generatingTags ? (
                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -327,7 +327,7 @@ export default function NewInsightPage() {
                                             id="tags"
                                             value={tagsRaw}
                                             onChange={(e) => setTagsRaw(e.target.value)}
-                                            className="h-12 rounded-2xl"
+                                            className="h-12 rounded-brand"
                                             placeholder="e.g. Readiness, Controls, Operations"
                                         />
                                         <p className="text-xs text-slate-500">
@@ -335,10 +335,10 @@ export default function NewInsightPage() {
                                         </p>
                                     </div>
 
-                                    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
+                                    <div className="rounded-brand border border-slate-200 bg-slate-50/70 p-5">
                                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
-                                                <p className="text-sm font-semibold text-[#001030]">
+                                                <p className="text-sm font-semibold text-mk-navy">
                                                     Save this insight
                                                 </p>
                                                 <p className="mt-1 text-sm text-slate-600">
@@ -351,7 +351,7 @@ export default function NewInsightPage() {
                                                     variant="outline"
                                                     onClick={() => void onSubmit("draft")}
                                                     disabled={submitting || !canSubmit}
-                                                    className="h-12 rounded-2xl px-6"
+                                                    className="h-12 rounded-brand px-6"
                                                 >
                                                     {submitting && submitTarget === "draft" ? (
                                                         <>
@@ -366,7 +366,7 @@ export default function NewInsightPage() {
                                                     type="button"
                                                     onClick={() => void onSubmit("published")}
                                                     disabled={submitting || !canSubmit}
-                                                    className="h-12 rounded-2xl bg-[#001030] px-6 text-white hover:opacity-95"
+                                                    className="h-12 rounded-brand bg-mk-navy px-6 text-white hover:opacity-95"
                                                 >
                                                     {submitting && submitTarget === "published" ? (
                                                         <>

@@ -39,10 +39,10 @@ export default async function AdminAssessmentsPage(props: { searchParams?: Promi
           <CardContent className="space-y-4">
             <form className="flex flex-wrap items-center gap-3" action="/score/admin/assessments">
               <label className="text-sm font-semibold text-mk-ink" htmlFor="status">Status</label>
-              <select id="status" name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-mk-paper px-3 py-2 text-sm text-mk-ink">
+              <select id="status" name="status" defaultValue={status} className="rounded-brand border border-mk-line bg-mk-paper px-3 py-2 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
-              <button className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-white" type="submit">Filter queue</button>
+              <button className="rounded-brand bg-mk-ink px-4 py-2 text-sm font-semibold text-white" type="submit">Filter queue</button>
             </form>
 
             {assessments.length ? (

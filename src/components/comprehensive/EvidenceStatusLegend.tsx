@@ -17,8 +17,8 @@ export function EvidenceStatusLegend({ statuses = Object.keys(LABELS) as Evidenc
   return (
     <div aria-label="Evidence status legend" className="flex flex-wrap gap-2 text-xs text-slate-600">
       {statuses.map((status) => (
-        <span key={status} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${status === 'VALIDATED_SUPPORTED' ? 'bg-emerald-600' : status === 'NOT_VALIDATED_INSUFFICIENT' ? 'bg-red-600' : status === 'REVIEWER_JUDGEMENT' ? 'bg-violet-600' : status === 'EVIDENCE_REVIEWED' ? 'bg-sky-700' : 'bg-slate-500'}`} />
+        <span key={status} className="inline-flex items-center gap-1.5 rounded-brand border border-slate-200 bg-white px-2.5 py-1">
+          <span aria-hidden="true" className={`h-2 w-2 rounded-brand ${status === 'VALIDATED_SUPPORTED' ? 'bg-emerald-600' : status === 'NOT_VALIDATED_INSUFFICIENT' ? 'bg-red-600' : status === 'REVIEWER_JUDGEMENT' ? 'bg-violet-600' : status === 'EVIDENCE_REVIEWED' ? 'bg-sky-700' : 'bg-slate-500'}`} />
           {LABELS[status]}
         </span>
       ))}

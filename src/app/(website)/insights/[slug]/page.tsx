@@ -151,7 +151,7 @@ export default async function InsightDetailPage(
                         <div className="mb-6 flex items-center justify-between gap-4">
                             <Link
                                 href="/insights"
-                                className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
+                                className="inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white  transition hover:bg-white/15"
                             >
                                 <ArrowLeft className="h-4 w-4" />
                                 Back to Insights
@@ -159,11 +159,11 @@ export default async function InsightDetailPage(
                         </div>
 
                         <div className="max-w-3xl">
-                            <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
+                            <p className="inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
                                 Insights
                             </p>
 
-                            <h1 className="mt-5 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+                            <h1 className="mt-5 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl lg:text-5xl">
                                 {post.title}
                             </h1>
 
@@ -172,19 +172,19 @@ export default async function InsightDetailPage(
                             </p>
 
                             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-white/80">
-                                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                                <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
                                     <User className="h-4 w-4" />
                                     {author}
                                 </span>
 
                                 {date ? (
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                                    <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
                                         <Calendar className="h-4 w-4" />
                                         {date}
                                     </span>
                                 ) : null}
 
-                                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                                <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
                                     <Clock className="h-4 w-4" />
                                     {readTime}
                                 </span>
@@ -195,7 +195,7 @@ export default async function InsightDetailPage(
                                     {tags.map((tag) => (
                                         <span
                                             key={tag}
-                                            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90"
+                                            className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90"
                                         >
                                             <Tag className="h-3.5 w-3.5" />
                                             {tag}
@@ -215,7 +215,7 @@ export default async function InsightDetailPage(
                     <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
                         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
                             <article className="lg:col-span-8">
-                                <div className="overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-2xl">
+                                <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                                     <div className="p-7 sm:p-10">
                                         {renderInsightRichText(post.content || "")}
                                     </div>
@@ -223,7 +223,7 @@ export default async function InsightDetailPage(
 
                                 <div className="mt-8">
                                     <Link href="/insights">
-                                        <Button className="h-12 rounded-2xl bg-[#001030] px-6 text-base font-semibold text-white shadow-lg transition hover:opacity-95">
+                                        <Button className="h-12 rounded-brand bg-mk-navy px-6 text-base font-semibold text-white shadow-soft transition hover:opacity-95">
                                             <span className="flex items-center gap-2">
                                                 <ArrowLeft className="h-5 w-5" />
                                                 Back to Insights
@@ -235,9 +235,9 @@ export default async function InsightDetailPage(
 
                             <aside className="lg:col-span-4">
                                 <div className="sticky top-8 space-y-6">
-                                    <div className="overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-xl">
+                                    <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                                         <div className="border-b border-slate-200 bg-slate-50/60 px-7 py-6">
-                                            <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                            <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                                 More insights
                                             </p>
                                             <p className="mt-1 text-sm text-slate-600">
@@ -247,8 +247,8 @@ export default async function InsightDetailPage(
 
                                         <div className="space-y-4 p-6">
                                             {moreInsights.length === 0 ? (
-                                                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                                    <p className="text-sm font-semibold text-[#001030]">
+                                                <div className="rounded-brand border border-slate-200 bg-white p-5 shadow-soft">
+                                                    <p className="text-sm font-semibold text-mk-navy">
                                                         No other insights yet.
                                                     </p>
                                                     <p className="mt-1 text-sm text-slate-600">
@@ -266,10 +266,10 @@ export default async function InsightDetailPage(
                                                         <Link
                                                             key={item._id || item.slug}
                                                             href={`/insights/${item.slug}`}
-                                                            className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-[#1d3658]/30 hover:shadow-md"
+                                                            className="block rounded-brand border border-slate-200 bg-white p-5 shadow-soft transition hover:border-mk-accent/30 hover:shadow-soft"
                                                         >
                                                             <div className="flex items-start justify-between gap-3">
-                                                                <p className="font-semibold leading-snug text-[#001030]">
+                                                                <p className="font-semibold leading-snug text-mk-navy">
                                                                     {item.title}
                                                                 </p>
                                                                 <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -290,7 +290,7 @@ export default async function InsightDetailPage(
                                                                 ) : null}
 
                                                                 {firstTag ? (
-                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-[#1d3658]/10 px-2 py-1 font-semibold text-[#1d3658]">
+                                                                    <span className="inline-flex items-center gap-1 rounded-brand bg-mk-accent/10 px-2 py-1 font-semibold text-mk-accent">
                                                                         <Tag className="h-3 w-3" />
                                                                         {firstTag}
                                                                     </span>
@@ -304,7 +304,7 @@ export default async function InsightDetailPage(
 
                                         <div className="border-t border-slate-200 bg-white p-6">
                                             <Link href="/insights">
-                                                <Button className="w-full rounded-2xl bg-[#001030] py-6 text-sm font-semibold text-white shadow-md transition hover:opacity-95">
+                                                <Button className="w-full rounded-brand bg-mk-navy py-6 text-sm font-semibold text-white shadow-soft transition hover:opacity-95">
                                                     Browse all insights
                                                     <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Button>

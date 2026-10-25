@@ -29,7 +29,7 @@ function snapshotTokenFromUrl(snapshotUrl?: string | null) {
 
 const CARDS: Record<SelfServicePaidTier, { answers: string; forWho: string; receive: string[]; leavesYouWith: string }> = {
   essential: {
-    answers: 'Tell me what is wrong and what management should do first.',
+    answers: 'Know where you stand.',
     forWho: 'A management team that needs to act on this result now.',
     receive: [
       'Diagnosis across every applicable area',
@@ -41,7 +41,7 @@ const CARDS: Record<SelfServicePaidTier, { answers: string; forWho: string; rece
     leavesYouWith: 'A management team that knows its priorities and can defend them.'
   },
   comprehensive: {
-    answers: 'Tell me what is wrong, then design the fraud-control environment we should build.',
+    answers: 'Design what needs to change.',
     forWho: 'An organisation that has decided to rebuild its fraud-control environment.',
     receive: [
       'Everything in Essential',
@@ -204,11 +204,11 @@ export function ProductChoice({
     <>
       <section ref={optionSectionRef} id="next-step" className="scroll-mt-28 border-b border-mk-line bg-mk-paper">
         <div className="mx-auto max-w-[1120px] px-[18px] py-12 md:px-6 md:py-16">
-          <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Your next step</p>
-          <h2 className="mt-2.5 text-[22px] font-semibold tracking-tight text-mk-navy md:text-[28px]">How far do you want to take this?</h2>
+          <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">Your next step</p>
+          <h2 className="mt-2.5 text-[22px] font-semibold tracking-normal text-mk-navy md:text-[28px]">How far do you want to take this?</h2>
 
           <div className="mt-5 border border-mk-accent/25 bg-mk-accent/[.06] px-4 py-3.5">
-            <p className="text-[12px] uppercase tracking-[0.14em] text-mk-accent">
+            <p className="text-[12px] uppercase tracking-[0.12em] text-mk-accent">
               {recommendation.speakToMkFirst ? 'Before choosing a report' : 'Choose by the management need'}
             </p>
             <p className="mt-1.5 max-w-[72ch] text-[13.5px] leading-6 text-mk-navy">
@@ -225,7 +225,7 @@ export function ProductChoice({
                 type="button"
                 onClick={chooseAdvisory}
                 disabled={Boolean(navigatingOption)}
-                className="mt-3.5 inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
+                className="mt-3.5 inline-flex min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
               >
                 {navigatingOption === 'advisory' ? 'Opening…' : 'Talk to MK first'}
               </button>
@@ -258,16 +258,14 @@ function ProductCard({ tier, isEarlierSelection, isNavigating, onChoose }: { tie
   const card = CARDS[tier];
   const price = formatCataloguePrice(product.priceCents);
   const featuredLabel = isEarlierSelection ? 'You selected this earlier' : undefined;
-  const actionClass = tier === 'comprehensive'
-    ? 'bg-white text-mk-navy hover:bg-white/90'
-    : 'bg-mk-navy text-white hover:bg-mk-slate';
+  const actionClass = 'bg-mk-navy text-white hover:bg-mk-accent';
 
   return (
     <ProductTierCard
       tier={tier}
       label={product.label}
       phase={tier === 'essential' ? 'Diagnose' : 'Design'}
-      tagline={tier === 'essential' ? 'Clarify the position' : 'Build the response'}
+      tagline={tier === 'essential' ? 'Know where you stand.' : 'Design what needs to change.'}
       priceLabel={price ? `${price} incl. VAT` : undefined}
       description={card.answers}
       features={[
@@ -283,7 +281,7 @@ function ProductCard({ tier, isEarlierSelection, isNavigating, onChoose }: { tie
           type="button"
           onClick={onChoose}
           disabled={isNavigating}
-          className={`flex min-h-12 w-full items-center justify-center rounded-xl px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 ${actionClass} disabled:cursor-wait disabled:opacity-70`}
+          className={`flex min-h-12 w-full items-center justify-center rounded-brand px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 ${actionClass} disabled:cursor-wait disabled:opacity-70`}
         >
           {isNavigating ? 'Opening…' : `Choose ${product.label}`}
         </button>
@@ -299,7 +297,8 @@ function AdvisoryCard({ isNavigating, onChoose }: { isNavigating: boolean; onCho
       tier="advisory"
       label="MK Advisory"
       phase="Implement"
-      tagline="Move with a partner"
+      tagline="Work with MK to implement it."
+      priceLabel={COMMERCIAL_CATALOGUE.advisory.tier === 'advisory' ? `From ${formatCataloguePrice(COMMERCIAL_CATALOGUE.advisory.priceFromCents)} per engagement` : undefined}
       description="Work with MK to clarify the problem, design controls or support implementation."
       features={[
         'For: An organisation that needs a partner for a more involved fraud-readiness question.',
@@ -310,7 +309,7 @@ function AdvisoryCard({ isNavigating, onChoose }: { isNavigating: boolean; onCho
           type="button"
           onClick={onChoose}
           disabled={isNavigating}
-          className="flex min-h-12 w-full items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-navy focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
+          className="flex min-h-12 w-full items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-navy focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
         >
           {isNavigating ? 'Opening…' : 'Talk to MK'}
         </button>

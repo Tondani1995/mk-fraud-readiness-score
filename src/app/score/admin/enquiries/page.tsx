@@ -48,10 +48,10 @@ export default async function AdminPersonalisedEnquiriesPage(props: { searchPara
           <CardHeader><CardTitle>Enquiry queue</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <form action="/score/admin/enquiries" className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
-              <select name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
+              <select name="status" defaultValue={status} className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{cleanEnquiryStatus(option)}</option>)}
               </select>
-              <input name="search" defaultValue={search} placeholder="Search reference, email, name or company" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="search" defaultValue={search} placeholder="Search reference, email, name or company" className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <Button type="submit">Filter</Button>
             </form>
 

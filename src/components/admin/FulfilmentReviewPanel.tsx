@@ -57,11 +57,11 @@ export function FulfilmentReviewPanel(props: Props) {
 
   if (props.status === 'AWAITING_QUALITY_REVIEW' && props.canReview) {
     return (
-      <div className="space-y-3 rounded-xl border border-mk-brass/40 bg-mk-cream p-4">
+      <div className="space-y-3 rounded-brand border border-mk-brass/40 bg-mk-cream p-4">
         <p className="text-sm font-semibold text-mk-ink">Awaiting MK quality review before delivery.</p>
         <textarea
           className="w-full rounded-lg border border-mk-line p-2 text-sm"
-          placeholder="Reason (minimum 5 characters) — required for both approve and reject"
+          placeholder="Reason (minimum 5 characters), required for both approve and reject"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           rows={2}
@@ -81,7 +81,7 @@ export function FulfilmentReviewPanel(props: Props) {
 
   if (props.status === 'MANUAL_REVIEW_REQUIRED' && props.canRecover) {
     return (
-      <div className="space-y-3 rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4">
+      <div className="space-y-3 rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4">
         <p className="text-sm font-semibold text-mk-danger">
           Generation failed {props.retryCount} time(s) (max {props.maxAttempts}) and needs a human decision.
         </p>
@@ -96,7 +96,7 @@ export function FulfilmentReviewPanel(props: Props) {
   if (props.status === 'REPORT_GENERATING' && props.canRecover) {
     const leaseExpired = props.leaseExpiresAt ? new Date(props.leaseExpiresAt).getTime() < Date.now() : false;
     return (
-      <div className="space-y-3 rounded-xl border border-mk-brass/40 bg-mk-cream p-4">
+      <div className="space-y-3 rounded-brand border border-mk-brass/40 bg-mk-cream p-4">
         <p className="text-sm text-mk-ink">
           Generating (worker lease {leaseExpired ? 'expired' : `active until ${props.leaseExpiresAt ? new Date(props.leaseExpiresAt).toLocaleTimeString('en-ZA') : 'unknown'}`}).
         </p>
@@ -112,7 +112,7 @@ export function FulfilmentReviewPanel(props: Props) {
 
   if (props.status === 'RETRY_SCHEDULED') {
     return (
-      <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
+      <div className="rounded-brand border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
         Retry {props.retryCount}/{props.maxAttempts} scheduled for {props.nextAttemptAt ? new Date(props.nextAttemptAt).toLocaleString('en-ZA') : 'the next worker run'}.
       </div>
     );
@@ -120,7 +120,7 @@ export function FulfilmentReviewPanel(props: Props) {
 
   if (props.status === 'DELIVERY_QUEUED') {
     return (
-      <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+      <div className="rounded-brand border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
         Approved and queued for delivery. Real email delivery is implemented in Release C.
       </div>
     );
@@ -131,7 +131,7 @@ export function FulfilmentReviewPanel(props: Props) {
 
 function Notice({ notice }: { notice: NonNullable<Notice> }) {
   return (
-    <p role="status" className={`rounded-xl border p-3 text-sm ${
+    <p role="status" className={`rounded-brand border p-3 text-sm ${
       notice.tone === 'error'
         ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger'
         : notice.tone === 'success'

@@ -28,11 +28,11 @@ export function SnapshotManagementView({
       <div className="intelligence-inner">
         <div className="intelligence-heading">
           <div>
-            <p className="clarity-eyebrow">FROM RESPONSES TO MANAGEMENT ATTENTION</p>
+            <p className="clarity-eyebrow">Management attention</p>
             <h2 id="management-heading">
               {view.insufficient
                 ? 'Establish visibility before drawing conclusions.'
-                : 'Your management priorities, in view.'}
+                : 'Management priorities'}
             </h2>
           </div>
           <p>
@@ -77,10 +77,7 @@ export function SnapshotManagementView({
                 </li>
               ))}
             </ol>
-            <p className="priority-rule">
-              Existing order: critical-control gap count first, lower domain score next, then methodology
-              weight and original order. Relative focus does not itself establish a control failure.
-            </p>
+
           </>
         )}
         <DomainReadinessMap
@@ -104,7 +101,8 @@ export function SnapshotManagementView({
             </p>
           </div>
           <details>
-            <summary>Interpretation, strength rules and assessment limits</summary>
+            <summary>How to read this Snapshot</summary>
+            <p>Priorities are ordered by critical-control gap count, lower domain score, methodology weight and original order. Relative focus does not itself establish a control failure.</p>
             {!view.insufficient && (
               <>
                 <p>{insights.leadershipPriority}</p>

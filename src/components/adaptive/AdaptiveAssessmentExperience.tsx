@@ -56,35 +56,34 @@ export function assessmentProgressLabel(
   return `${Math.min(100, Math.max(0, Math.round((completed / applicable) * 100)))}% complete.`;
 }
 
-function SubmissionProcessingCard({ assessmentReference }: { assessmentReference: string }) {
+export function SubmissionProcessingCard({ assessmentReference, confirmed = false }: { assessmentReference: string; confirmed?: boolean }) {
   return (
     <div aria-busy="true">
       <Card>
         <CardHeader>
-          <Badge>Submission received</Badge>
+          <Badge>{confirmed ? 'Responses recorded' : 'Submitting assessment'}</Badge>
           <h1
             tabIndex={-1}
-            className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink focus:outline-none"
+            className="mt-3 text-2xl font-semibold tracking-normal text-mk-ink focus:outline-none"
           >
-            Preparing your Fraud Readiness Snapshot
+            {confirmed ? 'Your responses are recorded' : 'Submitting your assessment'}
           </h1>
         </CardHeader>
         <CardContent className="space-y-5 text-sm leading-6 text-mk-muted">
           <p>
-            Your assessment has been submitted. We are calculating your result and preparing your personalised
-            Snapshot.
+            {confirmed ? 'Your Fraud Readiness Snapshot is ready and will open shortly.' : 'Your responses are being submitted. Your Snapshot will open when the recorded result is ready.'}
           </p>
           <p className="font-medium text-mk-ink">Reference: {assessmentReference}</p>
           <div
             role="progressbar"
             aria-label="Preparing your Fraud Readiness Snapshot"
             aria-busy="true"
-            className="h-2 overflow-hidden rounded-full bg-mk-line"
+            className="h-2 overflow-hidden rounded-brand bg-mk-line"
           >
             <div className="h-full w-1/3 animate-pulse bg-mk-accent" />
           </div>
           <p role="status" aria-live="polite">
-            Preparing your personalised Snapshot
+            {confirmed ? 'Opening your private Snapshot' : 'Submitting your responses'}
           </p>
         </CardContent>
       </Card>
@@ -127,7 +126,7 @@ export function AdaptiveAssessmentExperience({
   const [submitted, setSubmitted] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [recoveringResult, setRecoveringResult] = useState(false);
-  const [submissionState, setSubmissionState] = useState<'idle' | 'processing' | 'error'>('idle');
+  const [submissionState, setSubmissionState] = useState<'idle' | 'processing' | 'complete' | 'error'>('idle');
   const [transitionPhase, setTransitionPhase] = useState<QuestionTransitionPhase>('idle');
   const transitionRef = useRef<ReturnType<typeof createQuestionTransition> | null>(null);
   const savingRef = useRef(false);
@@ -584,7 +583,7 @@ export function AdaptiveAssessmentExperience({
       setSnapshotUrl(body.snapshotUrl);
       setSubmitted(true);
       setSaveState('saved');
-      setSubmissionState('idle');
+      setSubmissionState('complete');
       // A completed assessment is the primary Meta conversion. It fires only after the
       // server persisted the completion and returned the private result link. No score,
       // Snapshot ID, assessment ID or answer is included.
@@ -594,6 +593,7 @@ export function AdaptiveAssessmentExperience({
       } catch {
         /* Analytics cannot block the private result transition. */
       }
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) await new Promise(resolve => setTimeout(resolve, 180));
       window.location.replace(body.snapshotUrl);
     } catch {
       setSubmissionState('error');
@@ -604,8 +604,8 @@ export function AdaptiveAssessmentExperience({
     }
   }
 
-  if (submissionState === 'processing')
-    return <SubmissionProcessingCard assessmentReference={assessmentReference} />;
+  if (submissionState === 'processing' || submissionState === 'complete')
+    return <SubmissionProcessingCard assessmentReference={assessmentReference} confirmed={submissionState === 'complete'} />;
 
   if (submitted || state.navigation?.current_screen === 'complete')
     return (
@@ -615,7 +615,7 @@ export function AdaptiveAssessmentExperience({
           <h1
             ref={completionHeadingRef}
             tabIndex={-1}
-            className="mt-3 text-2xl font-semibold tracking-tight text-mk-ink focus:outline-none"
+            className="mt-3 text-2xl font-semibold tracking-normal text-mk-ink focus:outline-none"
           >
             Your assessment is complete
           </h1>
@@ -670,7 +670,7 @@ export function AdaptiveAssessmentExperience({
           {submissionState === 'error' && message ? (
             <div
               role="alert"
-              className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger"
+              className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger"
             >
               <p>{message}</p>
               <Button
@@ -687,7 +687,7 @@ export function AdaptiveAssessmentExperience({
             </div>
           ) : null}
           {customerAreas.length ? (
-            <div className="rounded-xl bg-mk-paper p-4">
+            <div className="rounded-brand bg-mk-paper p-4">
               <h2 className="font-semibold text-mk-ink">Areas included in your review</h2>
               <ul className="mt-3 grid gap-2 text-sm text-mk-muted sm:grid-cols-2">
                 {customerAreas.map((area) => (
@@ -780,6 +780,7 @@ export function AdaptiveAssessmentExperience({
           <div>
             <p className="clarity-eyebrow">FRAUD READINESS / ASSESSMENT</p>
             <span>{progressLabel}</span>
+            <p className="mt-1 text-sm text-mk-muted md:hidden">{areaName}</p>
           </div>
           <p
             role="status"
@@ -833,6 +834,7 @@ export function AdaptiveAssessmentExperience({
                 )}
               </span>
             </div>
+            {currentNode.kind !== 'gateway' && nodes.find((node: any) => node.kind !== 'gateway' && node.state === 'active' && node.domainCode === currentNode.domainCode)?.nodeId === currentNode.nodeId && <div data-area-introduction className="mb-5 border-b border-mk-line pb-4"><p className="font-medium text-mk-navy">{areaName}</p>{visualReview && <p className="mt-2 text-sm text-mk-muted" data-owner-copy-required>Area introduction wording is awaiting MK approval.</p>}</div>}
             <div className="question-stage" key={currentNode.nodeId} data-question-stage>
               <h1 ref={headingRef} tabIndex={-1}>
                 {label(currentNode.prompt)}
@@ -916,7 +918,7 @@ export function AdaptiveAssessmentExperience({
                   Continue with saved response →
                 </Button>
               )}
-              <span>Changes are saved after server confirmation.</span>
+              <span>Your answers are saved as you go.</span>
             </footer>
           </section>
         </div>
@@ -932,7 +934,7 @@ export function AdaptiveAssessmentExperience({
               ref={dialogRef}
             >
               <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-0">
-                <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+                <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-brand bg-white p-5 shadow-soft sm:p-6">
                   <h2 id="adaptive-invalidation-title" className="text-xl font-semibold text-mk-ink">
                     This change affects saved answers
                   </h2>

@@ -88,7 +88,7 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
           </>
         )}
       </svg>
-      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: mutedText }}>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: mutedText }}>
         {band ?? 'Not issued'}
       </p>
     </div>

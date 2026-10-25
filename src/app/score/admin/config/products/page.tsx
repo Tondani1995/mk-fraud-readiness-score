@@ -52,7 +52,7 @@ export default async function AdminProductConfigPage() {
           <CardHeader><CardTitle>Manual EFT settings</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {eftSettings.length ? eftSettings.map((setting: any) => (
-              <div key={`${setting.bank_name}-${setting.updated_at}`} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm">
+              <div key={`${setting.bank_name}-${setting.updated_at}`} className="rounded-brand border border-mk-line bg-mk-cream/40 p-4 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="font-semibold text-mk-ink">{setting.bank_name} · {setting.account_holder}</p>
                   {setting.is_active ? <Badge>active</Badge> : <Badge>inactive</Badge>}
@@ -73,7 +73,7 @@ export default async function AdminProductConfigPage() {
           <CardHeader><CardTitle>Payment and order settings</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {paymentSettings.length ? paymentSettings.map((setting: any) => (
-              <div key={setting.setting_key} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm">
+              <div key={setting.setting_key} className="rounded-brand border border-mk-line bg-mk-cream/40 p-4 text-sm">
                 <p className="font-semibold text-mk-ink">{setting.setting_key}</p>
                 <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-mk-paper p-3 text-xs text-mk-muted">{JSON.stringify(setting.value_json, null, 2)}</pre>
               </div>

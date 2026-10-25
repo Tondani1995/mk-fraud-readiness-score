@@ -189,13 +189,13 @@ export default async function AdminOrderDetailPage(
         />
 
         {(searchParams?.message || searchParams?.report_error || searchParams?.error) ? (
-          <div role="status" className={`rounded-xl border p-4 text-sm ${searchParams?.report_error || searchParams?.error ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
+          <div role="status" className={`rounded-brand border p-4 text-sm ${searchParams?.report_error || searchParams?.error ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
             {searchParams.message ?? cleanStatus(searchParams.report_error ?? searchParams.error)}
           </div>
         ) : null}
 
         {!operationalAvailable ? (
-          <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
+          <div className="rounded-brand border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
             <p>{capability.status === 'available' ? PHASE1_SCHEMA_ERROR_MESSAGE : capability.message}</p>
             {failedDependencies.length ? (
               <ul className="mt-2 space-y-1 text-xs text-mk-muted">
@@ -224,7 +224,7 @@ export default async function AdminOrderDetailPage(
               <SnapshotValue label="Generation retry count" value={String(operations.latestGeneration?.retry_count ?? 0)} />
             </div>
             {operations.latestGeneration?.safe_operational_error ? (
-              <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
+              <div className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
                 {operations.latestGeneration.safe_operational_error}
               </div>
             ) : null}
@@ -244,7 +244,7 @@ export default async function AdminOrderDetailPage(
               capabilityAvailable={operationalAvailable}
             />
             {canDeliver && storageReady && !isComprehensive ? (
-              <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
+              <div className="rounded-brand border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
                 <span className="font-semibold text-mk-ink">Legacy/manual delivery.</span> The button above (and the retry
                 state it reacts to, currently <span className="font-semibold">{cleanStatus(legacyDeliveryState)}</span>)
                 operates the older provider-double delivery mechanism, not real customer email. It does not reflect and
@@ -328,8 +328,8 @@ export default async function AdminOrderDetailPage(
               <SnapshotValue label="Fulfilment trigger" value={cleanStatus(payment.record.fulfilment_trigger_result)} />
               <SnapshotValue label="Review reason" value={payment.record.review_reason ?? 'None'} />
             </div>
-            {payment.capability.status !== 'available' ? <p className="rounded-xl border border-mk-line bg-mk-cream p-4 text-sm">{payment.capability.message}</p> : null}
-            <div className="space-y-3">{payment.events.map((event: any) => <div key={event.id} className="rounded-xl border border-mk-line p-4 text-sm"><div className="flex flex-wrap gap-2"><Badge>{cleanStatus(event.new_state)}</Badge><span className="text-mk-muted">{dateTime(event.created_at)}</span></div><p className="mt-2">{cleanStatus(event.old_state)} → {cleanStatus(event.new_state)} · {cleanStatus(event.source)}</p><p className="mt-1 text-xs text-mk-muted">Verification: {cleanStatus(event.verification_result)} · Reference: {event.technical_reference}</p>{event.safe_note ? <p className="mt-2">{event.safe_note}</p> : null}</div>)}</div>
+            {payment.capability.status !== 'available' ? <p className="rounded-brand border border-mk-line bg-mk-cream p-4 text-sm">{payment.capability.message}</p> : null}
+            <div className="space-y-3">{payment.events.map((event: any) => <div key={event.id} className="rounded-brand border border-mk-line p-4 text-sm"><div className="flex flex-wrap gap-2"><Badge>{cleanStatus(event.new_state)}</Badge><span className="text-mk-muted">{dateTime(event.created_at)}</span></div><p className="mt-2">{cleanStatus(event.old_state)} → {cleanStatus(event.new_state)} · {cleanStatus(event.source)}</p><p className="mt-1 text-xs text-mk-muted">Verification: {cleanStatus(event.verification_result)} · Reference: {event.technical_reference}</p>{event.safe_note ? <p className="mt-2">{event.safe_note}</p> : null}</div>)}</div>
           </CardContent>
         </Card>
 
@@ -352,7 +352,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Report versions</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {reportVersions.map((report: any) => (
-              <div key={report.id} className="grid gap-3 rounded-xl border border-mk-line bg-white p-4 text-sm md:grid-cols-[1fr_auto]">
+              <div key={report.id} className="grid gap-3 rounded-brand border border-mk-line bg-white p-4 text-sm md:grid-cols-[1fr_auto]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(report.status)}</Badge><span className="font-semibold text-mk-ink">{report.report_reference}</span></div>
                   <p className="mt-2 text-mk-muted">Version {report.version_number} · Storage {cleanStatus(report.storage_status)} · {dateTime(report.generated_at)}</p>
@@ -369,7 +369,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Order notifications</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {operations.notifications.map((event: any) => (
-              <div key={event.id} className="grid gap-2 rounded-xl border border-mk-line bg-white p-4 text-sm md:grid-cols-3">
+              <div key={event.id} className="grid gap-2 rounded-brand border border-mk-line bg-white p-4 text-sm md:grid-cols-3">
                 <SnapshotValue label="Notification" value={cleanStatus(event.notification_type)} />
                 <SnapshotValue label="State" value={`${cleanStatus(event.status)} · ${cleanStatus(event.provider_mode)}`} />
                 <SnapshotValue label="Recorded" value={dateTime(event.created_at)} />
@@ -384,7 +384,7 @@ export default async function AdminOrderDetailPage(
         <Card>
           <CardHeader><CardTitle>Payment status update</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
+            <div className="rounded-brand border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
               Manual and verified-provider confirmation share one payment state machine. Once final payment is recorded, MK prepares the selected report through the authorised fulfilment workflow; customer delivery is then completed and recorded by an MK operator.
             </div>
             {/* One key per rendered form. Re-submitting this same form stays duplicate-safe in
@@ -392,12 +392,12 @@ export default async function AdminOrderDetailPage(
                 confirmation attempt. A single order-level key permanently consumed the
                 idempotency slot on the first attempt, so a corrected amount could never apply. */}
             <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_160px_100px_1fr_auto]">
-              <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
+              <select name="status" defaultValue={order.status} className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{cleanStatus(option)}</option>)}
               </select>
-              <input name="amountZar" type="text" inputMode="decimal" defaultValue={formatCentsAsZarInput(order.amount_cents)} aria-label="Received amount in ZAR" placeholder="Received amount in ZAR" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
-              <input name="currency" defaultValue={order.currency} aria-label="Payment currency" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
-              <input name="note" placeholder="Admin note for activity timeline" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="amountZar" type="text" inputMode="decimal" defaultValue={formatCentsAsZarInput(order.amount_cents)} aria-label="Received amount in ZAR" placeholder="Received amount in ZAR" className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="currency" defaultValue={order.currency} aria-label="Payment currency" className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="note" placeholder="Admin note for activity timeline" className="rounded-brand border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <input name="idempotencyKey" type="hidden" value={manualPaymentRequestKey} />
               <Button type="submit">Update status</Button>
             </form>
@@ -409,7 +409,7 @@ export default async function AdminOrderDetailPage(
             <CardHeader><CardTitle>Generation history</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {operations.generationHistory.map((attempt: any) => (
-                <div key={attempt.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+                <div key={attempt.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(attempt.status)}</Badge><span>Version {attempt.report_version}</span></div>
                   <p className="mt-2 text-mk-muted">Requested {dateTime(attempt.requested_at)} · Retry {attempt.retry_count}</p>
                   <p className="mt-1 text-xs text-mk-muted">Reference: {attempt.technical_reference}</p>
@@ -430,7 +430,7 @@ export default async function AdminOrderDetailPage(
             </CardHeader>
             <CardContent className="space-y-3">
               {operations.deliveryHistory.map((attempt: any) => (
-                <div key={attempt.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+                <div key={attempt.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(attempt.status)}</Badge><span>{cleanStatus(attempt.provider_mode)}</span></div>
                   <p className="mt-2 text-mk-muted">Requested {dateTime(attempt.requested_at)} · Retry {attempt.retry_count}</p>
                   <p className="mt-1 text-xs text-mk-muted">Reference: {attempt.technical_reference}</p>
@@ -446,7 +446,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Order activity timeline</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {events.map((event: any) => (
-              <div key={event.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+              <div key={event.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
                 <div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(event.event_type)}</Badge><span className="text-mk-muted">{dateTime(event.created_at)}</span></div>
                 {(event.previous_status || event.new_status) ? <p className="mt-2 text-mk-muted">{cleanStatus(event.previous_status)} → {cleanStatus(event.new_status)}</p> : null}
                 <p className="mt-2 text-xs text-mk-muted">Actor: {event.actor_admin_user_id ? `admin ${event.actor_admin_user_id}` : cleanStatus(event.metadata_json?.actor_type ?? 'system')}</p>
@@ -462,7 +462,7 @@ export default async function AdminOrderDetailPage(
           <CardHeader><CardTitle>Audit trail</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {auditEvents.map((event: any) => (
-              <div key={event.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+              <div key={event.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
                 <div className="flex flex-wrap items-center gap-2"><Badge>{event.actor_type}</Badge><span className="font-semibold text-mk-ink">{cleanStatus(event.action)}</span></div>
                 <p className="mt-2 text-mk-muted">{dateTime(event.created_at)}</p>
               </div>

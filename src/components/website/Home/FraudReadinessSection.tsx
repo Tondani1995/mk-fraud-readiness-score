@@ -12,15 +12,15 @@ const journey = [
 
 export default function FraudReadinessSection() {
   return (
-    <section id="fraud-readiness" className="clarity-readiness scroll-mt-20 bg-[#0b2631] text-white" aria-labelledby="home-fraud-readiness-heading">
+    <section id="fraud-readiness" className="clarity-readiness scroll-mt-20 bg-mk-navy text-white" aria-labelledby="home-fraud-readiness-heading">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-16 lg:px-8 lg:py-28">
         <div className="min-w-0">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#a9d4ce]">Flagship assessment</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">Flagship assessment</p>
           <h2
             id="home-fraud-readiness-heading"
-            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-4xl lg:text-[2.6rem]"
+            className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal sm:text-4xl lg:text-[2.6rem]"
           >
-            Fraud Readiness<span className="readiness-tagline">Your first clear view.</span>
+            Fraud Readiness
           </h2>
           <p className="mt-4 max-w-xl text-base leading-7 text-white/78">
             Fraud Readiness is MK&apos;s structured way of making organisational fraud exposure visible, measurable and
@@ -34,7 +34,7 @@ export default function FraudReadinessSection() {
                 {index < journey.length - 1 ? (
                   <span aria-hidden="true" className="absolute left-[0.9rem] top-8 h-[calc(100%-2rem)] w-px bg-white/15" />
                 ) : null}
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#a9d4ce]/50 text-xs font-semibold text-[#a9d4ce]">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-brand border border-mk-line/50 text-xs font-semibold text-mk-paper">
                   {index + 1}
                 </span>
                 <div className="min-w-0 pt-0.5">
@@ -49,7 +49,7 @@ export default function FraudReadinessSection() {
             <CtaLink href="/score/start" variant="primaryOnDark" arrow ctaName="start_fraud_readiness_assessment" placement="home_fraud_readiness">
               Start the Fraud Readiness Assessment
             </CtaLink>
-            <Link href="/fraud-readiness" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#d6eeea] underline-offset-4 hover:text-white hover:underline">
+            <Link href="/fraud-readiness" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-line underline-offset-4 hover:text-white hover:underline">
               Reports and options <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>

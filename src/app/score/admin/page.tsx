@@ -29,9 +29,9 @@ export default async function AdminHomePage() {
                 <CardTitle>{title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-4xl font-semibold tracking-tight text-mk-ink">{value}</p>
+                <p className="text-4xl font-semibold tracking-normal text-mk-ink">{value}</p>
                 <p className="mt-3 min-h-24 text-sm leading-6 text-mk-muted">{text}</p>
-                <Link href={href as string} className="mt-5 inline-flex rounded-full border border-mk-line bg-mk-cream px-4 py-2 text-sm font-semibold text-mk-ink transition hover:border-mk-brass hover:bg-white">
+                <Link href={href as string} className="mt-5 inline-flex rounded-brand border border-mk-line bg-mk-cream px-4 py-2 text-sm font-semibold text-mk-ink transition hover:border-mk-brass hover:bg-white">
                   {cta}
                 </Link>
               </CardContent>

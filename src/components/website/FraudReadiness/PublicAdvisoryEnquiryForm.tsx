@@ -23,10 +23,10 @@ import { trackEvent } from '@/lib/website/gtag';
  */
 
 const FIELD =
-  'mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-[#001030] transition focus:border-[#1D3658] focus:outline-none focus:ring-2 focus:ring-[#1D3658]/25';
-const LABEL = 'block text-sm font-semibold text-[#001030]';
+  'mt-2 min-h-12 w-full rounded-brand border border-slate-200 bg-white px-4 py-3 text-sm text-mk-navy transition focus:border-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent/25';
+const LABEL = 'block text-sm font-semibold text-mk-navy';
 const CHOICE =
-  'flex min-h-12 items-start gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm leading-6 text-slate-700 transition hover:border-[#1D3658]/40';
+  'flex min-h-12 items-start gap-3 rounded-brand border border-slate-200 bg-white px-3.5 py-3 text-sm leading-6 text-slate-700 transition hover:border-mk-accent/40';
 
 export function PublicAdvisoryEnquiryForm() {
   const [form, setForm] = useState({
@@ -85,16 +85,16 @@ export function PublicAdvisoryEnquiryForm() {
   if (success) {
     return (
       <section aria-labelledby="advisory-success" className="border border-slate-200 bg-white p-8 lg:p-10">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#1D3658]">Enquiry received</p>
-        <h2 id="advisory-success" className="mt-3 text-2xl font-semibold tracking-tight text-[#001030]">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">Enquiry received</p>
+        <h2 id="advisory-success" className="mt-3 text-2xl font-semibold tracking-normal text-mk-navy">
           Thank you, we have your enquiry.
         </h2>
         <p className="mt-4 text-base leading-7 text-slate-700">{success.message}</p>
         <dl className="mt-6 border-t border-slate-200 pt-6">
-          <dt className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             Your enquiry reference
           </dt>
-          <dd className="mt-1.5 text-lg font-semibold tabular-nums tracking-tight text-[#001030]">
+          <dd className="mt-1.5 text-lg font-semibold tabular-nums tracking-normal text-mk-navy">
             {success.requestReference}
           </dd>
         </dl>
@@ -103,10 +103,10 @@ export function PublicAdvisoryEnquiryForm() {
           payment is due.
         </p>
         <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm">
-          <Link href="/fraud-readiness" className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]">
+          <Link href="/fraud-readiness" className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent">
             Back to Fraud Readiness options
           </Link>
-          <Link href="/score/start" className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]">
+          <Link href="/score/start" className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent">
             Start the Fraud Readiness Assessment
           </Link>
         </div>
@@ -117,7 +117,7 @@ export function PublicAdvisoryEnquiryForm() {
   return (
     <form onSubmit={submit} data-public-advisory-enquiry="true" className="border border-slate-200 bg-white p-7 lg:p-9">
       {errors.length ? (
-        <div role="alert" className="mb-7 rounded-xl border border-[#9B2C2C]/30 bg-[#9B2C2C]/[0.06] p-4 text-sm leading-6 text-[#9B2C2C]">
+        <div role="alert" className="mb-7 rounded-brand border border-mk-danger/30 bg-mk-danger/[0.06] p-4 text-sm leading-6 text-mk-danger">
           {errors.map((error) => (
             <p key={error}>{error}</p>
           ))}
@@ -125,7 +125,7 @@ export function PublicAdvisoryEnquiryForm() {
       ) : null}
 
       <fieldset className="border-0 p-0">
-        <legend className="text-lg font-semibold tracking-tight text-[#001030]">Your details</legend>
+        <legend className="text-lg font-semibold tracking-normal text-mk-navy">Your details</legend>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <label className={LABEL}>
             Full name
@@ -147,7 +147,7 @@ export function PublicAdvisoryEnquiryForm() {
       </fieldset>
 
       <fieldset className="mt-9 border-0 p-0">
-        <legend className="text-lg font-semibold tracking-tight text-[#001030]">What you need</legend>
+        <legend className="text-lg font-semibold tracking-normal text-mk-navy">What you need</legend>
 
         <label className={`${LABEL} mt-5`}>
           Primary reason for the conversation
@@ -215,7 +215,7 @@ export function PublicAdvisoryEnquiryForm() {
         <input type="checkbox" required checked={consentContact} onChange={(event) => setConsentContact(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#1D3658]" />
         <span>
           I agree that MK Fraud Insights may contact me about this enquiry, and I have read the{' '}
-          <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 hover:text-[#1D3658]">
+          <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent">
             Privacy Notice
           </Link>
           .
@@ -225,7 +225,7 @@ export function PublicAdvisoryEnquiryForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-7 inline-flex min-h-12 w-full items-center justify-center bg-[#001030] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[#1D3658] focus:outline-none focus:ring-2 focus:ring-[#1D3658] focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 sm:w-auto"
+        className="mt-7 inline-flex min-h-12 w-full items-center justify-center bg-mk-navy px-7 py-3 text-sm font-semibold text-white transition hover:bg-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 sm:w-auto"
       >
         {submitting ? 'Sending…' : 'Send Advisory enquiry'}
       </button>

@@ -285,7 +285,7 @@ export function OrderJourney({
             type="button"
             onClick={() => (step === 1 ? setStep(2) : void submitOrder())}
             disabled={submitting}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:opacity-60"
+            className="inline-flex min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:opacity-60"
           >
             {step === 1 ? 'Continue to billing' : submitting ? 'Recording…' : 'Confirm order'}
           </button>
@@ -298,7 +298,7 @@ export function OrderJourney({
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   const steps = ['Confirm', 'Billing', 'Payment'];
   return (
-    <ol className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.14em]">
+    <ol className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.12em]">
       {steps.map((label, index) => {
         const position = index + 1;
         const state = position === step ? 'current' : position < step ? 'done' : 'todo';
@@ -339,15 +339,15 @@ function StepConfirm({
     <section aria-labelledby="confirm-heading">
       <h1
         id="confirm-heading"
-        className="text-[26px] font-semibold tracking-tight text-mk-navy md:text-[32px]"
+        className="text-[26px] font-semibold tracking-normal text-mk-navy md:text-[32px]"
       >
         {productLabel}
       </h1>
       <p className="mt-2 text-lg font-semibold tabular-nums text-mk-navy">{amountDisplay}</p>
       <p className="mt-4 max-w-[60ch] text-[15px] leading-7 text-mk-slate">
         {tier === 'comprehensive'
-          ? 'Tell me what is wrong, then design the fraud-control environment we should build.'
-          : 'Tell me what is wrong and what management should do first.'}
+          ? 'Design what needs to change.'
+          : 'Know where you stand.'}
       </p>
       <dl className="mt-7 border border-mk-line">
         <DetailRow label="Organisation" value={organisationName} />
@@ -358,7 +358,7 @@ function StepConfirm({
         <button
           type="button"
           onClick={onContinue}
-          className="hidden min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:inline-flex"
+          className="hidden min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:inline-flex"
         >
           Continue to billing
         </button>
@@ -398,7 +398,7 @@ function StepBilling({
     <section aria-labelledby="billing-heading">
       <h1
         id="billing-heading"
-        className="max-w-[24ch] text-[26px] font-semibold tracking-tight text-mk-navy md:text-[32px]"
+        className="max-w-[24ch] text-[26px] font-semibold tracking-normal text-mk-navy md:text-[32px]"
       >
         Do you need a tax invoice for this order?
       </h1>
@@ -414,7 +414,7 @@ function StepBilling({
             role="radio"
             aria-checked={invoiceRequested === option.value}
             onClick={() => onInvoiceRequested(option.value)}
-            className={`min-h-12 flex-1 rounded-xl px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:flex-none md:w-[120px] ${
+            className={`min-h-12 flex-1 rounded-brand px-5 py-3 text-[13px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:flex-none md:w-[120px] ${
               invoiceRequested === option.value
                 ? 'bg-mk-navy text-white'
                 : 'border-2 border-mk-accent/25 text-mk-navy hover:border-mk-accent/50'
@@ -503,7 +503,7 @@ function StepBilling({
           type="button"
           onClick={onSubmit}
           disabled={submitting}
-          className="hidden min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:opacity-60 md:inline-flex"
+          className="hidden min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 disabled:opacity-60 md:inline-flex"
         >
           {submitting ? 'Recording…' : 'Confirm order'}
         </button>
@@ -539,7 +539,7 @@ function StepPayment({
     <section aria-labelledby="payment-heading">
       <h1
         id="payment-heading"
-        className="text-[26px] font-semibold tracking-tight text-mk-navy md:text-[32px]"
+        className="text-[26px] font-semibold tracking-normal text-mk-navy md:text-[32px]"
       >
         Your order is recorded. Payment details are below.
       </h1>
@@ -548,8 +548,8 @@ function StepPayment({
         {order.invoiceRequested ? 'Yes' : 'No'}
       </p>
 
-      <p className="mt-6 text-[12px] uppercase tracking-[0.16em] text-mk-muted">Order reference</p>
-      <p className="mt-1 font-mono text-[22px] font-semibold tracking-tight text-mk-navy">
+      <p className="mt-6 text-[12px] uppercase tracking-[0.12em] text-mk-muted">Order reference</p>
+      <p className="mt-1 font-mono text-[22px] font-semibold tracking-normal text-mk-navy">
         {order.orderReference}
       </p>
       <p className="mt-3 max-w-[60ch] text-[15px] leading-7 text-mk-slate">
@@ -578,14 +578,14 @@ function StepPayment({
         <button
           type="button"
           onClick={onCopyAll}
-          className="inline-flex min-h-12 items-center justify-center rounded-xl bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
+          className="inline-flex min-h-12 items-center justify-center rounded-brand bg-mk-navy px-5 py-3 text-[13px] font-semibold text-white transition hover:bg-mk-slate focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
         >
           {copiedAll ? 'Payment details copied' : 'Copy all payment details'}
         </button>
         {order.assessmentReference && !visualReview ? (
           <Link
             href={`/score/order/${encodeURIComponent(order.assessmentReference)}?token=${encodeURIComponent(snapshotToken)}&orderReference=${encodeURIComponent(order.orderReference)}`}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
+            className="inline-flex min-h-12 items-center justify-center rounded-brand border-2 border-mk-accent/25 px-5 py-3 text-[13px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
           >
             View order status
           </Link>
@@ -598,7 +598,7 @@ function StepPayment({
       <ol className="mt-9 grid gap-5 md:grid-cols-2">
         {copy.nextSteps.map((stepText, index) => (
           <li key={stepText} className="border-t border-mk-accent/40 pt-3">
-            <span className="text-[12px] font-semibold tabular-nums tracking-[0.16em] text-mk-accent">
+            <span className="text-[12px] font-semibold tabular-nums tracking-[0.12em] text-mk-accent">
               {String(index + 1).padStart(2, '0')}
             </span>
             <p className="mt-1.5 text-sm leading-6 text-mk-slate">{stepText}</p>
@@ -636,7 +636,7 @@ function Field({
 }) {
   return (
     <label htmlFor={id} className="block">
-      <span className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">
+      <span className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">
         {label}
         {required ? '' : ' (optional)'}
       </span>
@@ -659,7 +659,7 @@ function Field({
                 : 200
         }
         // 16px prevents iOS zoom on focus; 48px is the minimum comfortable target.
-        className="mt-1.5 block min-h-12 w-full rounded-xl border border-mk-line bg-mk-paper px-3 py-2.5 text-base text-mk-navy outline-none focus:border-mk-accent focus:ring-2 focus:ring-mk-accent focus:ring-offset-1"
+        className="mt-1.5 block min-h-12 w-full rounded-brand border border-mk-line bg-mk-paper px-3 py-2.5 text-base text-mk-navy outline-none focus:border-mk-accent focus:ring-2 focus:ring-mk-accent focus:ring-offset-1"
       />
     </label>
   );
@@ -670,7 +670,7 @@ function DetailRow({ label, value, last = false }: { label: string; value: strin
     <div
       className={`flex flex-wrap items-baseline justify-between gap-3 px-4 py-3 ${last ? '' : 'border-b border-mk-line'}`}
     >
-      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">{label}</dt>
       <dd className="text-sm font-semibold text-mk-navy">{value}</dd>
     </div>
   );
@@ -679,7 +679,7 @@ function DetailRow({ label, value, last = false }: { label: string; value: strin
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <dt className="text-[12px] uppercase tracking-[0.14em] text-mk-muted">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.12em] text-mk-muted">{label}</dt>
       <dd className="text-[13px] font-semibold text-mk-navy">{value}</dd>
     </div>
   );

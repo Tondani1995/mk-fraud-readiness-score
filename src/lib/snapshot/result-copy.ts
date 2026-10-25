@@ -158,8 +158,8 @@ export function factStrip(
   if (snapshot.adaptiveMetrics) {
     return [
       { label: 'Assessment coverage', value: `${roundPct(snapshot.adaptiveMetrics.assessmentCoveragePct)}%` },
-      { label: 'Control visibility', value: `${roundPct(snapshot.adaptiveMetrics.controlVisibilityPct)}%` },
-      { label: 'Unknown weight share', value: `${roundPct(snapshot.adaptiveMetrics.unknownSharePct)}%` },
+      { label: 'Known responses', value: `${roundPct(snapshot.adaptiveMetrics.controlVisibilityPct)}%` },
+      { label: `Answered 'I do not know'`, value: `${roundPct(snapshot.adaptiveMetrics.unknownSharePct)}%` },
       { label: 'Areas assessed', value: String(areaCount) }
     ];
   }

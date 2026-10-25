@@ -109,7 +109,7 @@ export default function LatestInsightsSection({
         <section id="latest" className="scroll-mt-16 bg-white md:scroll-mt-20" aria-labelledby="latest-insights-heading">
             <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
                 <div className="max-w-2xl">
-                    <h2 id="latest-insights-heading" className="text-[1.75rem] font-semibold leading-tight tracking-tight text-[#001030] sm:text-4xl">
+                    <h2 id="latest-insights-heading" className="text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
                         {title}
                     </h2>
                     <p className="mt-3 text-base leading-7 text-slate-600">{subtitle}</p>
@@ -127,16 +127,16 @@ export default function LatestInsightsSection({
                 {loading ? (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
                         {Array.from({ length: 6 }).map((_, i) => (
-                            <div key={i} className="h-48 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" />
+                            <div key={i} className="h-48 animate-pulse rounded-brand border border-slate-200 bg-slate-50" />
                         ))}
                     </div>
                 ) : error ? (
-                    <div className="max-w-2xl rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                    <div className="max-w-2xl rounded-brand border border-red-200 bg-red-50 p-5 text-sm text-red-700">
                         Insights could not be loaded just now. Please refresh the page.
                     </div>
                 ) : filteredInsights.length === 0 ? (
-                    <div className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6">
-                        <p className="text-sm font-semibold text-[#001030]">No insights in this topic yet.</p>
+                    <div className="max-w-2xl rounded-brand border border-slate-200 bg-white p-6">
+                        <p className="text-sm font-semibold text-mk-navy">No insights in this topic yet.</p>
                     </div>
                 ) : (
                     <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -148,18 +148,18 @@ export default function LatestInsightsSection({
                                 <li key={insight._id || insight.slug}>
                                     <Link
                                         href={`/insights/${insight.slug}`}
-                                        className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-[#1d3658]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1d3658] sm:p-6"
+                                        className="group flex h-full flex-col rounded-brand border border-slate-200 bg-white p-5 transition-colors hover:border-mk-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent sm:p-6"
                                     >
                                         {tag ? (
-                                            <span className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#1d3658]">{tag}</span>
+                                            <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">{tag}</span>
                                         ) : null}
-                                        <h3 className="mt-2 text-lg font-semibold leading-snug text-[#001030] group-hover:text-[#1d3658]">
+                                        <h3 className="mt-2 text-lg font-semibold leading-snug text-mk-navy group-hover:text-mk-accent">
                                             {insight.title.replace(/:\s*$/, "")}
                                         </h3>
                                         <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-slate-600">{insight.excerpt}</p>
                                         <span className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
                                             <span>{date}</span>
-                                            <span className="inline-flex items-center gap-1 font-semibold text-[#001030]">
+                                            <span className="inline-flex items-center gap-1 font-semibold text-mk-navy">
                                                 Read <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
                                             </span>
                                         </span>
@@ -228,9 +228,9 @@ function TopicFilter({
                                     type="button"
                                     aria-pressed={isActive}
                                     onClick={() => onSelect(category.id)}
-                                    className={`min-h-11 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors ${isActive
-                                            ? "border-[#001030] bg-[#001030] text-white"
-                                            : "border-slate-200 bg-white text-slate-700 hover:border-[#1d3658]/40"
+                                    className={`min-h-11 whitespace-nowrap rounded-brand border px-4 text-sm font-medium transition-colors ${isActive
+                                            ? "border-mk-accent bg-mk-navy text-white"
+                                            : "border-slate-200 bg-white text-slate-700 hover:border-mk-accent/40"
                                         }`}
                                 >
                                     {category.label}
@@ -247,7 +247,7 @@ function TopicFilter({
                     aria-hidden="true"
                     className={`pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-white via-white/90 to-transparent pr-3 transition-opacity sm:hidden ${edges.end ? "opacity-100" : "opacity-0"}`}
                 >
-                    <ChevronRight className="h-5 w-5 text-[#1d3658]" />
+                    <ChevronRight className="h-5 w-5 text-mk-accent" />
                 </div>
             </div>
             <p className={`mt-2 text-xs text-slate-500 sm:hidden ${edges.end || edges.start ? "" : "invisible"}`}>

@@ -38,7 +38,7 @@ export function ExposureSystem() {
     >
       <div className="system-meta">
         <span>
-          <i /> THE MK LENS
+          <i /> FRAUD RISK FRAMEWORK
         </span>
         <span>METHOD ILLUSTRATION</span>
       </div>

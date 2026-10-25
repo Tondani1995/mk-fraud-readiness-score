@@ -83,7 +83,7 @@ export default function Navbar() {
 
   return (
     <header
-      className={`clarity-nav fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-200 ${isScrolled ? "border-b border-slate-200 shadow-sm" : "border-b border-transparent"}`}
+      className={`clarity-nav fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-200 ${isScrolled ? "border-b border-slate-200 shadow-soft" : "border-b border-transparent"}`}
     >
       <nav
         aria-label="Primary"
@@ -112,10 +112,10 @@ export default function Navbar() {
                 key={link.name}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-lg px-4 py-3 text-[15px] font-medium transition-colors hover:text-[#001030] ${active ? "text-[#001030]" : "text-slate-600"}`}
+                className={`rounded-lg px-4 py-3 text-[15px] font-medium transition-colors hover:text-mk-navy ${active ? "text-mk-navy" : "text-slate-600"}`}
               >
                 <span
-                  className={active ? "border-b-2 border-[#1d3658] pb-1" : ""}
+                  className={active ? "border-b-2 border-mk-accent pb-1" : ""}
                 >
                   {link.name}
                 </span>
@@ -130,7 +130,7 @@ export default function Navbar() {
                 placement: "navbar",
               })
             }
-            className="ml-4 inline-flex min-h-11 items-center rounded-xl bg-[#001030] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#1d3658]"
+            className="ml-4 inline-flex min-h-11 items-center rounded-brand bg-mk-navy px-6 text-[15px] font-semibold text-white transition-colors hover:bg-mk-accent"
           >
             Speak to MK
           </Link>
@@ -139,7 +139,7 @@ export default function Navbar() {
         <button
           ref={menuTriggerRef}
           type="button"
-          className="-mr-2 flex h-12 w-12 items-center justify-center rounded-xl text-[#001030] hover:bg-slate-100 lg:hidden"
+          className="-mr-2 flex h-12 w-12 items-center justify-center rounded-brand text-mk-navy hover:bg-slate-100 lg:hidden"
           onClick={() => setMobileOpen((open) => !open)}
           aria-expanded={mobileOpen}
           aria-controls={menuId}
@@ -168,19 +168,19 @@ export default function Navbar() {
                     href={link.href}
                     onClick={() => setMobileOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className="flex min-h-14 items-center justify-between py-3 text-xl font-semibold text-[#001030]"
+                    className="flex min-h-14 items-center justify-between py-3 text-xl font-semibold text-mk-navy"
                   >
                     {link.name}
                     <ArrowRight
                       aria-hidden="true"
-                      className={`h-5 w-5 ${active ? "text-[#1d3658]" : "text-slate-300"}`}
+                      className={`h-5 w-5 ${active ? "text-mk-accent" : "text-slate-300"}`}
                     />
                   </Link>
                 </li>
               );
             })}
           </ul>
-          <div className="mt-auto grid gap-3 border-t border-slate-200 bg-[#f8fafc] px-5 pb-8 pt-6 sm:px-6">
+          <div className="mt-auto grid gap-3 border-t border-slate-200 bg-mk-paper px-5 pb-8 pt-6 sm:px-6">
             <Link
               href="/score/start"
               onClick={() => {
@@ -190,7 +190,7 @@ export default function Navbar() {
                 });
                 setMobileOpen(false);
               }}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#001030] px-6 text-base font-semibold text-white"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-brand bg-mk-navy px-6 text-base font-semibold text-white"
             >
               Assess your organisation{" "}
               <ArrowRight aria-hidden="true" className="h-4 w-4" />
@@ -204,7 +204,7 @@ export default function Navbar() {
                 });
                 setMobileOpen(false);
               }}
-              className="flex min-h-12 items-center justify-center rounded-xl border border-[#001030]/20 bg-white px-6 text-base font-semibold text-[#001030]"
+              className="flex min-h-12 items-center justify-center rounded-brand border border-mk-accent/20 bg-white px-6 text-base font-semibold text-mk-navy"
             >
               Speak to MK
             </Link>

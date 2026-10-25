@@ -170,14 +170,14 @@ export default function PrivacyPolicy() {
 
                     <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         <div className="text-center">
-                            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 shadow-lg backdrop-blur">
+                            <div className="mb-6 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-5 py-2.5 shadow-soft ">
                                 <Shield className="h-4 w-4 text-white" />
-                                <span className="text-sm font-bold uppercase tracking-wide text-white">
+                                <span className="text-sm font-semibold uppercase tracking-wide text-white">
                                     Privacy & Data Protection
                                 </span>
                             </div>
 
-                            <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-5xl">
+                            <h1 className="mb-6 text-4xl font-semibold leading-tight tracking-normal text-white sm:text-5xl lg:text-5xl">
                                 Privacy{" "}
                                 <span className="relative inline-block">
                                     <span className="relative z-10 bg-gradient-to-r from-white via-white to-white bg-clip-text text-transparent">
@@ -192,7 +192,7 @@ export default function PrivacyPolicy() {
                                 of Personal Information Act (POPIA).
                             </p>
 
-                            <div className="mt-8 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-6 py-3 backdrop-blur">
+                            <div className="mt-8 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-6 py-3 ">
                                 <CheckCircle2 className="h-5 w-5 text-white" />
                                 <span className="text-sm font-semibold text-white">
                                     Last Updated: January 2026
@@ -208,14 +208,14 @@ export default function PrivacyPolicy() {
 
                     <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         {/* commitment card */}
-                        <div className="mb-10 overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-xl">
+                        <div className="mb-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                             <div className="p-8 sm:p-10">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#1d3658] shadow-lg">
+                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
                                         <Lock className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
-                                        <h2 className="mb-2 text-xl font-bold leading-tight text-[#001030]">
+                                        <h2 className="mb-2 text-xl font-semibold leading-tight text-mk-navy">
                                             Our Commitment to Your Privacy
                                         </h2>
                                         <p className="leading-relaxed text-slate-700">
@@ -231,9 +231,9 @@ export default function PrivacyPolicy() {
                         </div>
 
                         {/* accordion */}
-                        <div className="overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-2xl">
+                        <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                             <div className="border-b border-slate-200 bg-slate-50/60 px-7 py-6">
-                                <p className="text-sm font-bold uppercase tracking-wide text-[#1d3658]">
+                                <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                     Policy sections
                                 </p>
                                 <p className="mt-1 text-sm text-slate-600">
@@ -248,25 +248,25 @@ export default function PrivacyPolicy() {
                                         <AccordionItem
                                             key={section.id}
                                             value={section.id}
-                                            className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white last:mb-0"
+                                            className="mb-3 overflow-hidden rounded-brand border border-slate-200 bg-white last:mb-0"
                                         >
                                             <AccordionTrigger className="px-5 py-5 text-left no-underline hover:no-underline">
                                                 <div className="flex w-full items-center gap-4">
-                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#1d3658] shadow-md">
+                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
                                                         <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
                                                     </div>
-                                                    <span className="text-base font-bold text-[#001030] sm:text-lg">
+                                                    <span className="text-base font-semibold text-mk-navy sm:text-lg">
                                                         {section.title}
                                                     </span>
                                                 </div>
                                             </AccordionTrigger>
 
                                             <AccordionContent className="px-5 pb-6">
-                                                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+                                                <div className="rounded-brand border border-slate-200 bg-slate-50/60 p-5">
                                                     <div className="space-y-6">
                                                         {section.content.map((item, idx) => (
                                                             <div key={idx}>
-                                                                <h4 className="mb-2 text-base font-bold leading-tight text-[#001030]">
+                                                                <h4 className="mb-2 text-base font-semibold leading-tight text-mk-navy">
                                                                     {item.subtitle}
                                                                 </h4>
                                                                 <p className="leading-relaxed text-slate-700">
@@ -284,9 +284,9 @@ export default function PrivacyPolicy() {
                         </div>
 
                         {/* changes + contact */}
-                        <div className="mt-10 overflow-hidden rounded-3xl border-2 border-slate-200 bg-white p-8 shadow-xl lg:p-12">
+                        <div className="mt-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white p-8 shadow-soft lg:p-12">
                             <div className="mb-8">
-                                <h2 className="mb-3 text-2xl font-bold leading-tight text-[#001030]">
+                                <h2 className="mb-3 text-2xl font-semibold leading-tight text-mk-navy">
                                     Changes to This Privacy Policy
                                 </h2>
                                 <p className="leading-relaxed text-slate-700">
@@ -298,11 +298,11 @@ export default function PrivacyPolicy() {
                                 </p>
                             </div>
 
-                            <div className="rounded-3xl border-2 border-[#1d3658]/15 bg-[#1d3658]/5 p-6 sm:p-8">
+                            <div className="rounded-brand border-2 border-mk-accent/15 bg-mk-accent/5 p-6 sm:p-8">
                                 <div className="flex items-start gap-4">
-                                    <Mail className="h-6 w-6 flex-shrink-0 text-[#1d3658]" />
+                                    <Mail className="h-6 w-6 flex-shrink-0 text-mk-accent" />
                                     <div>
-                                        <p className="mb-2 font-bold text-[#001030]">
+                                        <p className="mb-2 font-semibold text-mk-navy">
                                             Questions or Concerns?
                                         </p>
                                         <p className="mb-4 text-sm leading-relaxed text-slate-700">
@@ -311,7 +311,7 @@ export default function PrivacyPolicy() {
                                         </p>
                                         <a
                                             href="mailto:hello@mkfraud.co.za"
-                                            className="inline-flex items-center gap-2 rounded-2xl bg-[#001030] px-5 py-3 font-bold text-white transition-all hover:opacity-95"
+                                            className="inline-flex items-center gap-2 rounded-brand bg-mk-navy px-5 py-3 font-semibold text-white transition-all hover:opacity-95"
                                         >
                                             <Mail className="h-4 w-4" />
                                             hello@mkfraud.co.za

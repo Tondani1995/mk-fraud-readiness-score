@@ -168,7 +168,7 @@ export default function EditInsightPage() {
     if (loading) {
         return (
             <div className="flex h-[60vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-[#1d3658]" />
+                <Loader2 className="h-8 w-8 animate-spin text-mk-accent" />
             </div>
         );
     }
@@ -177,20 +177,20 @@ export default function EditInsightPage() {
         <main className="bg-white py-20">
             <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
                 <div className="mb-6 flex items-center justify-between">
-                    <h1 className="text-3xl font-semibold leading-tight text-[#001030]">Edit Insight</h1>
-                    <Link href="/admin/insights" className="inline-flex items-center gap-2 text-sm font-semibold text-[#1d3658]">
+                    <h1 className="text-3xl font-semibold leading-tight text-mk-navy">Edit Insight</h1>
+                    <Link href="/admin/insights" className="inline-flex items-center gap-2 text-sm font-semibold text-mk-accent">
                         <ArrowLeft className="h-4 w-4" />
                         Back
                     </Link>
                 </div>
 
                 {error ? (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <div className="mb-4 rounded-brand border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         {error}
                     </div>
                 ) : null}
 
-                <Card className="rounded-3xl border-2">
+                <Card className="rounded-brand border-2">
                     <CardHeader>
                         <CardTitle>Content</CardTitle>
                         <CardDescription>
@@ -244,7 +244,7 @@ export default function EditInsightPage() {
                                     size="sm"
                                     onClick={onGenerateTags}
                                     disabled={generatingTags}
-                                    className="h-9 rounded-xl border-[#1d3658]/20 bg-[#1d3658]/5 px-3 text-[#1d3658] hover:bg-[#1d3658]/10"
+                                    className="h-9 rounded-brand border-mk-accent/20 bg-mk-accent/5 px-3 text-mk-accent hover:bg-mk-accent/10"
                                 >
                                     {generatingTags ? (
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -264,10 +264,10 @@ export default function EditInsightPage() {
                             </p>
                         </div>
 
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
+                        <div className="rounded-brand border border-slate-200 bg-slate-50/70 p-5">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-[#001030]">
+                                    <p className="text-sm font-semibold text-mk-navy">
                                         Save this insight
                                     </p>
                                     <p className="mt-1 text-sm text-slate-600">
@@ -280,7 +280,7 @@ export default function EditInsightPage() {
                                         variant="outline"
                                         onClick={() => void onSave("draft")}
                                         disabled={saving}
-                                        className="h-12 rounded-2xl px-6"
+                                        className="h-12 rounded-brand px-6"
                                     >
                                         {saving && submitTarget === "draft" ? (
                                             <>
@@ -295,7 +295,7 @@ export default function EditInsightPage() {
                                         type="button"
                                         onClick={() => void onSave("published")}
                                         disabled={saving}
-                                        className="h-12 rounded-2xl bg-[#001030] px-6 text-white"
+                                        className="h-12 rounded-brand bg-mk-navy px-6 text-white"
                                     >
                                         {saving && submitTarget === "published" ? (
                                             <>

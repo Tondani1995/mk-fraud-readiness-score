@@ -161,7 +161,7 @@ export default function RichTextEditor({
                 {label}
             </Label>
 
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft">
                 <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap gap-2">
@@ -169,7 +169,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => prefixSelectedLines("## ", "Heading")}
                                 aria-label="H2"
                                 title="H2"
@@ -182,7 +182,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => prefixSelectedLines("### ", "Subheading")}
                                 aria-label="H3"
                                 title="H3"
@@ -195,7 +195,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => wrapSelection("**", "**", "Bold text")}
                                 aria-label="Bold"
                                 title="Bold"
@@ -208,7 +208,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => wrapSelection("*", "*", "Italic text")}
                                 aria-label="Italic"
                                 title="Italic"
@@ -221,7 +221,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => wrapSelection("==", "==", "Highlighted text")}
                                 aria-label="Highlight"
                                 title="Highlight"
@@ -234,7 +234,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => wrapSelection("<u>", "</u>", "Underlined text")}
                                 aria-label="Underline"
                                 title="Underline"
@@ -247,7 +247,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={insertLink}
                                 aria-label="Link"
                                 title="Link"
@@ -260,7 +260,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => prefixSelectedLines("- ", "List item")}
                                 aria-label="Bullets"
                                 title="Bullets"
@@ -273,7 +273,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => prefixSelectedNumberedLines("List item")}
                                 aria-label="Numbered list"
                                 title="Numbered list"
@@ -286,7 +286,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
+                                className="h-9 rounded-brand border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-100"
                                 onClick={() => prefixSelectedLines("> ", "Quoted text")}
                                 aria-label="Quote"
                                 title="Quote"
@@ -299,7 +299,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-9 rounded-xl border-[#1d3658]/20 bg-[#1d3658]/5 px-3 text-[#1d3658] hover:bg-[#1d3658]/10"
+                                className="h-9 rounded-brand border-mk-accent/20 bg-mk-accent/5 px-3 text-mk-accent hover:bg-mk-accent/10"
                                 onClick={() => void onGenerateAi?.()}
                                 aria-label="Generate with AI"
                                 title="Generate with AI"
@@ -314,12 +314,12 @@ export default function RichTextEditor({
                             </Button>
                         </div>
 
-                        <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                        <div className="inline-flex items-center rounded-brand border border-slate-200 bg-white p-1 shadow-soft">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className={`h-8 rounded-lg px-3 text-xs ${previewMode === "split" ? "bg-slate-100 text-[#001030]" : "text-slate-600 hover:text-[#001030]"}`}
+                                className={`h-8 rounded-lg px-3 text-xs ${previewMode === "split" ? "bg-slate-100 text-mk-navy" : "text-slate-600 hover:text-mk-navy"}`}
                                 onClick={() => setPreviewMode("split")}
                             >
                                 Editor + Preview
@@ -328,7 +328,7 @@ export default function RichTextEditor({
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className={`h-8 rounded-lg px-3 text-xs ${previewMode === "preview" ? "bg-slate-100 text-[#001030]" : "text-slate-600 hover:text-[#001030]"}`}
+                                className={`h-8 rounded-lg px-3 text-xs ${previewMode === "preview" ? "bg-slate-100 text-mk-navy" : "text-slate-600 hover:text-mk-navy"}`}
                                 onClick={() => setPreviewMode("preview")}
                             >
                                 <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -356,8 +356,8 @@ export default function RichTextEditor({
                     ) : null}
 
                     <div className={`${previewMode === "preview" ? "block" : "border-t border-slate-200 lg:border-t-0"} bg-white`}>
-                        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-[#001030]">
-                            <Eye className="h-4 w-4 text-[#1d3658]" />
+                        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-mk-navy">
+                            <Eye className="h-4 w-4 text-mk-accent" />
                             Live Preview
                         </div>
                         <div className={`px-5 py-5 ${minHeightClassName}`}>

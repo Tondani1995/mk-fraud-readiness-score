@@ -73,7 +73,7 @@ export function TierComparison({
   return (
     <section aria-labelledby="tier-comparison-heading" className="mx-auto max-w-[1120px]">
       <div className="max-w-3xl">
-        <h2 id="tier-comparison-heading" className="text-3xl font-semibold tracking-tight text-mk-navy sm:text-4xl">{heading}</h2>
+        <h2 id="tier-comparison-heading" className="text-3xl font-semibold tracking-normal text-mk-navy sm:text-4xl">{heading}</h2>
         <p className="mt-4 text-base leading-7 text-mk-slate">{intro}</p>
       </div>
       <div className="mt-8 grid gap-6 md:grid-cols-3" role="list" aria-label="Product tier comparison">

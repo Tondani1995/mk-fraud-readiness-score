@@ -90,17 +90,17 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
         aria-labelledby={headingId}
         aria-describedby={descriptionId}
         data-fraud-readiness-terms-gate="true"
-        className="w-[min(46rem,calc(100vw-2rem))] rounded-2xl border border-mk-line bg-white p-0 text-mk-navy shadow-[0_24px_70px_rgba(0,16,48,0.22)] focus:outline-none backdrop:bg-mk-navy/60 backdrop:backdrop-blur-sm"
+        className="w-[min(46rem,calc(100vw-2rem))] rounded-brand border border-mk-line bg-white p-0 text-mk-navy shadow-[0_24px_70px_rgba(0,16,48,0.22)] focus:outline-none backdrop:bg-mk-navy/60 backdrop:"
       >
         {/* The acknowledgements and the actions stay out of the scroll area: on a phone the summary
             is taller than the viewport, and a click-wrap gate whose accept control is off-screen
             reads as a dead end. Only the summary scrolls. */}
         <div className="flex max-h-[min(88vh,48rem)] flex-col">
           <div ref={headingRef} tabIndex={-1} className="shrink-0 border-b border-mk-line px-6 py-6 focus:outline-none sm:px-8">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-mk-accent">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">
               Before you begin
             </p>
-            <h2 id={headingId} className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
+            <h2 id={headingId} className="mt-2 text-xl font-semibold tracking-normal sm:text-2xl">
               Fraud Readiness Terms
             </h2>
             <p id={descriptionId} className="mt-3 text-sm leading-6 text-mk-slate">
@@ -121,7 +121,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
             <ul className="space-y-3">
               {TERMS_SUMMARY_POINTS.map((point) => (
                 <li key={point} className="flex gap-3 text-sm leading-6 text-mk-slate">
-                  <span aria-hidden="true" className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-mk-accent" />
+                  <span aria-hidden="true" className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-brand bg-mk-accent" />
                   <span>{point}</span>
                 </li>
               ))}
@@ -187,13 +187,13 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={acceptAndContinue}
                 aria-disabled={!bothChecked}
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-mk-navy px-6 py-3 text-sm font-semibold text-white transition hover:bg-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-mk-navy sm:w-auto"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-brand bg-mk-navy px-6 py-3 text-sm font-semibold text-white transition hover:bg-mk-accent focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-mk-navy sm:w-auto"
               >
                 Accept and continue
               </button>
               <Link
                 href="/"
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-mk-slate transition hover:text-mk-navy focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 sm:w-auto"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-brand px-6 py-3 text-sm font-semibold text-mk-slate transition hover:text-mk-navy focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 sm:w-auto"
               >
                 Return to MK Fraud Insights
               </Link>
