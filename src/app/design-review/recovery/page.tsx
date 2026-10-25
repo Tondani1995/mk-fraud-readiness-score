@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ResultRecoveryReview } from '@/components/review/ResultRecoveryReview';
+export const metadata={title:'Completed result recovery review',robots:{index:false,follow:false}};
 export const dynamic = 'force-dynamic';
 export default function RecoveryReview() {
   if (

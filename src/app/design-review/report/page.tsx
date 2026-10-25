@@ -34,11 +34,11 @@ export default function ReportIdentity() {
         </div>
         <footer>
           <div>
-            <span>PREPARED FOR</span>
+            <span className="!text-mk-line">PREPARED FOR</span>
             <strong>{snapshot.organisationName}</strong>
           </div>
           <div>
-            <span>STATUS</span>
+            <span className="!text-mk-line">STATUS</span>
             <strong>Synthetic design specimen</strong>
           </div>
         </footer>
