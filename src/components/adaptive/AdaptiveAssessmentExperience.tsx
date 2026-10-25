@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AdaptiveResponseCanvas, type ResponseChoice } from '@/components/adaptive/AdaptiveResponseCanvas';
 import { DomainCompletionRail } from '@/components/adaptive/DomainCompletionRail';
+import { AssessmentContext } from '@/components/adaptive/AssessmentContext';
 import { mergeAdaptiveState } from '@/lib/adaptive/state-transfer';
 import {
   createQuestionTransition,
@@ -921,6 +922,7 @@ export function AdaptiveAssessmentExperience({
               <span>Your answers are saved as you go.</span>
             </footer>
           </section>
+          <AssessmentContext domains={state.path?.domainBoundaries ?? []} currentDomain={currentNode.domainCode} resolved={applicabilityResolved} />
         </div>
       </div>
       {invalidation && typeof document !== 'undefined'
