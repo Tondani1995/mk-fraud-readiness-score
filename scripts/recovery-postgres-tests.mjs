@@ -47,5 +47,14 @@ try {
  assert.equal((await pool.query("select revoked_at from assessment_tokens where token_hash='existing-snapshot'")).rows[0].revoked_at,null);
  assert.equal(JSON.stringify((await pool.query('select * from score_runs')).rows),original);
  const denied=await pool.query("select public.consume_assessment_token('existing-snapshot','resume',null) as result");assert.equal(denied.rows[0].result.ok,false);
- console.log(JSON.stringify({ok:true,checks:6,concurrentRequests:5,granted:1,scope:'Actual recovery service + disposable local Postgres + exact existing token-consumption SQL. Thin query/issuance adapters; not hosted PostgREST, RLS or staging certification.'}));
+ const restricted=await pool.connect();
+ try {
+  for(const role of ['anon','authenticated']) {
+   await restricted.query(`set role ${role}`);
+   await assert.rejects(restricted.query("select public.consume_assessment_token('existing-snapshot','snapshot',null)"),error=>error.code==='42501');
+   await restricted.query('reset role');
+  }
+ } finally {await restricted.query('reset role');restricted.release();}
+ assert.equal((await pool.query("select use_count from assessment_tokens where token_hash='existing-snapshot'")).rows[0].use_count,0);
+ console.log(JSON.stringify({ok:true,checks:9,concurrentRequests:5,granted:1,restrictedRolesDenied:['anon','authenticated'],scope:'Actual recovery service + disposable local Postgres + exact existing token-consumption SQL, including role-denial execution. Thin query/issuance adapters; not hosted PostgREST, RLS or staging certification.'}));
 } finally {if(pool)await pool.end();await postgres.stop();fs.rmSync(directory,{recursive:true,force:true});}

@@ -10,6 +10,7 @@ export type RateLimitCheck = {
 export type RateLimitResult = {
   allowed: boolean;
   key: string;
+  unavailable?: true;
 };
 
 /**
@@ -18,16 +19,35 @@ export type RateLimitResult = {
  * Blueprint's requirement to rate limit by IP hash, reference and email independently -
  * each dimension has its own budget rather than sharing one counter.
  */
-export async function checkRateLimits(checks: RateLimitCheck[]): Promise<RateLimitResult> {
+export async function checkRateLimits(
+  checks: RateLimitCheck[],
+  options: { failureMode?: 'open' | 'closed' } = {}
+): Promise<RateLimitResult> {
+  const failClosed = options.failureMode === 'closed';
+  if (failClosed && checks.length === 0) return { allowed: false, key: '', unavailable: true };
   const service = createSupabaseServiceClient();
 
   const results = await Promise.all(
     checks.map(async (check) => {
-      const { data, error } = await service.rpc('check_rate_limit', {
-        p_key: check.key,
-        p_max_hits: check.maxHits,
-        p_window_seconds: check.windowSeconds
-      });
+      let data: unknown;
+      let error: unknown;
+      try {
+        ({ data, error } = await service.rpc('check_rate_limit', {
+          p_key: check.key,
+          p_max_hits: check.maxHits,
+          p_window_seconds: check.windowSeconds
+        }));
+      } catch (cause) {
+        if (!failClosed) throw cause;
+        error = cause;
+      }
+
+      // Credential exchange must not run without an authoritative limiter decision.
+      // Existing callers retain their current policy unless they opt into this mode.
+      if (failClosed && (error || typeof data !== 'boolean')) {
+        console.error('Strict rate-limit decision unavailable');
+        return { allowed: false, key: check.key, unavailable: true as const };
+      }
 
       if (error) {
         // Fail closed on unexpected errors would risk taking the whole app down if the
@@ -41,6 +61,8 @@ export async function checkRateLimits(checks: RateLimitCheck[]): Promise<RateLim
     })
   );
 
+  const unavailable = results.find((result) => result.unavailable);
+  if (unavailable) return unavailable;
   const blocked = results.find((result) => !result.allowed);
   return blocked ?? { allowed: true, key: checks[0]?.key ?? '' };
 }

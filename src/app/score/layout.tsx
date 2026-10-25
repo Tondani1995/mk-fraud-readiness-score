@@ -3,6 +3,7 @@ import ScoreAnalyticsRuntime from './ScoreAnalyticsRuntime';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
+  referrer: 'no-referrer',
   title: {
     default: 'Fraud Readiness Assessment | MK Fraud Insights',
     template: '%s | MK Fraud Insights'
