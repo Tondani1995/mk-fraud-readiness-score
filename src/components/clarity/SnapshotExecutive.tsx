@@ -78,11 +78,11 @@ export function SnapshotExecutive({
             <div className="executive-gap-signals">
               <div>
                 <strong>{snapshot.criticalGapCount}</strong>
-                <span>critical-control gaps</span>
+                <span>{snapshot.criticalGapCount === 1 ? 'critical-control gap' : 'critical-control gaps'}</span>
               </div>
               <div>
                 <strong>{snapshot.majorGapCount}</strong>
-                <span>major gaps</span>
+                <span>{snapshot.majorGapCount === 1 ? 'major gap' : 'major gaps'}</span>
               </div>
               <p>A control can appear in both classifications. Counts are not additive.</p>
             </div>
