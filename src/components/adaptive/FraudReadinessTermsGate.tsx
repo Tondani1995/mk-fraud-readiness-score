@@ -103,10 +103,7 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
             <h2 id={headingId} className="mt-2 text-xl font-semibold tracking-normal sm:text-2xl">
               Fraud Readiness Terms
             </h2>
-            <p id={descriptionId} className="mt-3 text-sm leading-6 text-mk-slate">
-              These terms govern the Fraud Readiness Assessment and any report prepared from it.
-              This is a summary. Please read the full documents before accepting.
-            </p>
+
           </div>
 
           {/* Focusable so the summary can be scrolled from the keyboard. The default UA outline is
@@ -118,6 +115,10 @@ export function FraudReadinessTermsGate({ children }: { children: ReactNode }) {
             aria-label="Summary of the Fraud Readiness Terms"
             className="min-h-0 flex-1 overflow-y-auto px-6 py-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mk-accent/60 sm:px-8"
           >
+            <p id={descriptionId} className="mb-5 text-base leading-relaxed text-mk-slate">
+              These terms govern the Fraud Readiness Assessment and any report prepared from it.
+              This is a summary. Please read the full documents before accepting.
+            </p>
             <ul className="space-y-3">
               {TERMS_SUMMARY_POINTS.map((point) => (
                 <li key={point} className="flex gap-3 text-sm leading-6 text-mk-slate">
