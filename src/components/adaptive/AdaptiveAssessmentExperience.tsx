@@ -4,6 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { AdaptiveResponseCanvas, type ResponseChoice } from '@/components/adaptive/AdaptiveResponseCanvas';
 import { DomainCompletionRail } from '@/components/adaptive/DomainCompletionRail';
 import { mergeAdaptiveState } from '@/lib/adaptive/state-transfer';
+import {
+  createQuestionTransition,
+  waitForQuestionMotion,
+  type QuestionTransitionPhase
+} from '@/lib/adaptive/question-transition';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
@@ -123,6 +128,8 @@ export function AdaptiveAssessmentExperience({
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [recoveringResult, setRecoveringResult] = useState(false);
   const [submissionState, setSubmissionState] = useState<'idle' | 'processing' | 'error'>('idle');
+  const [transitionPhase, setTransitionPhase] = useState<QuestionTransitionPhase>('idle');
+  const transitionRef = useRef<ReturnType<typeof createQuestionTransition> | null>(null);
   const savingRef = useRef(false);
   const pendingWriteRef = useRef<PendingWrite | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -130,6 +137,13 @@ export function AdaptiveAssessmentExperience({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const completionHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(
+    () => () => {
+      transitionRef.current?.cancel();
+    },
+    []
+  );
 
   const nodes = state.path?.nodes ?? [];
   const activeNodes = state.path?.activeNodes ?? [];
@@ -332,6 +346,16 @@ export function AdaptiveAssessmentExperience({
     };
     pendingWriteRef.current = write;
     savingRef.current = true;
+    const reduced =
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      Boolean(rootRef.current?.closest('[data-review-reduced-motion="true"]'));
+    const transition = createQuestionTransition({
+      reduced,
+      phase: setTransitionPhase,
+      exit: (signal) => waitForQuestionMotion(() => rootRef.current, 'exit', signal, reduced),
+      entry: (signal) => waitForQuestionMotion(() => rootRef.current, 'entry', signal, reduced)
+    });
+    transitionRef.current = transition;
     setSaveState('saving');
     setMessage(null);
 
@@ -359,8 +383,10 @@ export function AdaptiveAssessmentExperience({
         })
       });
       const body = await response.json().catch(() => ({}));
+      if (transition.signal.aborted) return false;
 
       if (body.reason === 'gateway_change_confirmation_required') {
+        transition.cancel();
         if (!previousFocusRef.current?.isConnected)
           previousFocusRef.current =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -369,6 +395,7 @@ export function AdaptiveAssessmentExperience({
         return false;
       }
       if (body.reason === 'save_conflict') {
+        transition.cancel();
         setSaveState('error');
         setMessage('This assessment was updated in another tab. Reloading the current saved state.');
         pendingWriteRef.current = null;
@@ -380,6 +407,7 @@ export function AdaptiveAssessmentExperience({
         return false;
       }
       if (!response.ok || !body.ok) {
+        transition.cancel();
         setSaveState('error');
         setMessage(
           Array.isArray(body.errors) && body.errors.length
@@ -390,6 +418,10 @@ export function AdaptiveAssessmentExperience({
       }
 
       const confirmed = mergeAdaptiveState(state, body.state);
+      // Commit is acknowledged now; keep the chosen response visible until exit and confirmation finish.
+      pendingWriteRef.current = null;
+      setSaveState('saved');
+      await transition.confirm();
       setState(confirmed);
       setGatewayAnswers(confirmed.gatewayAnswers ?? nextGatewayAnswers);
       setControlResponses(confirmed.controlResponses ?? nextControlResponses);
@@ -411,13 +443,19 @@ export function AdaptiveAssessmentExperience({
       setSaveState('saved');
       setMessage(null);
       pendingWriteRef.current = null;
+      await transition.enter();
       return true;
     } catch {
+      if (transition.signal.aborted) return false;
+      transition.cancel();
       setSaveState('error');
       setMessage('The answer could not be saved. Check your connection and try again.');
       return false;
     } finally {
-      savingRef.current = false;
+      if (transitionRef.current === transition) {
+        transitionRef.current = null;
+        savingRef.current = false;
+      }
     }
   }
 
@@ -674,7 +712,7 @@ export function AdaptiveAssessmentExperience({
             </Button>
             <Button
               type="button"
-              disabled={saveState === 'saving' || recoveringResult}
+              disabled={saveState === 'saving' || transitionPhase !== 'idle' || recoveringResult}
               onClick={() => void submit()}
             >
               Submit assessment
@@ -694,7 +732,7 @@ export function AdaptiveAssessmentExperience({
       ? 'About your organisation'
       : label(String(domainNameByCode.get(currentNode.domainCode) ?? 'Current assessment area'));
   const customerExplanation = customerExplanationForNode(String(currentNode.nodeId));
-  const saving = saveState === 'saving' || saveState === 'reloading';
+  const saving = saveState === 'saving' || saveState === 'reloading' || transitionPhase !== 'idle';
 
   const choices: ResponseChoice[] = gateway
     ? gateway.responseOptions.map((option: any) => ({
@@ -735,6 +773,7 @@ export function AdaptiveAssessmentExperience({
         ref={rootRef}
         className="assessment-instrument"
         data-adaptive-assessment="true"
+        data-transition-phase={transitionPhase}
         data-visual-review={visualReview ? 'true' : undefined}
       >
         <header className="instrument-progress">
@@ -751,10 +790,10 @@ export function AdaptiveAssessmentExperience({
           >
             {saveState === 'reloading'
               ? 'Reloading saved answers…'
-              : saving
-                ? 'Selected · Saving…'
-                : saveState === 'saved'
-                  ? 'Saved'
+              : saveState === 'saved'
+                ? 'Saved'
+                : saving
+                  ? 'Selected · Saving…'
                   : saveState === 'error'
                     ? 'Save needs attention'
                     : 'Ready'}
@@ -817,6 +856,8 @@ export function AdaptiveAssessmentExperience({
                 choices={choices}
                 selected={selectedValue}
                 saving={saving}
+                collapsing={transitionPhase === 'collapsing' || transitionPhase === 'confirmed'}
+                confirmed={transitionPhase === 'confirmed'}
                 name={currentNode.nodeId}
                 legend={`Choose ${gateway ? 'an answer' : 'a maturity response'} for ${label(currentNode.prompt)}`}
                 onChoose={(value) => {

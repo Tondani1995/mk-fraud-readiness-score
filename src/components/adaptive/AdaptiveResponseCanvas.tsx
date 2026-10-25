@@ -6,18 +6,22 @@ function ResponseSlot({
   choice,
   selected,
   saving,
+  collapsing,
+  confirmed,
   name,
   onChoose
 }: {
   choice: ResponseChoice;
   selected: boolean;
   saving: boolean;
+  collapsing: boolean;
+  confirmed: boolean;
   name: string;
   onChoose: (value: string) => void;
 }) {
   const [removed, setRemoved] = useState(false);
   const id = useId();
-  const exiting = saving && !selected;
+  const exiting = collapsing && !selected;
   useEffect(() => {
     if (!exiting) setRemoved(false);
     else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setRemoved(true);
@@ -51,7 +55,10 @@ function ResponseSlot({
               <span className="answer-selector" aria-hidden="true">
                 {selected ? '✓' : choice.uncertain ? '?' : ''}
               </span>
-              <span className="answer-title">{choice.label}</span>
+              <span className="answer-title">
+                {choice.label}
+                {selected && confirmed && <small className="answer-saved-confirmation">Saved</small>}
+              </span>
               {choice.meaning && (
                 <span className="answer-meaning-inline" id={id}>
                   {choice.meaning}
@@ -80,6 +87,8 @@ export function AdaptiveResponseCanvas({
   choices,
   selected,
   saving,
+  collapsing = saving,
+  confirmed = false,
   onChoose,
   name,
   legend
@@ -87,6 +96,8 @@ export function AdaptiveResponseCanvas({
   choices: ResponseChoice[];
   selected: string | null;
   saving: boolean;
+  collapsing?: boolean;
+  confirmed?: boolean;
   onChoose: (value: string) => void;
   name: string;
   legend: string;
@@ -101,6 +112,8 @@ export function AdaptiveResponseCanvas({
             choice={choice}
             selected={selected === choice.value}
             saving={saving}
+            collapsing={collapsing}
+            confirmed={confirmed}
             onChoose={onChoose}
             name={name}
           />

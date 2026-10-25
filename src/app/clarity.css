@@ -3508,7 +3508,7 @@ body {
   --mk-radius-track: 999px;
   --radius: var(--mk-radius-control);
   --mk-motion-enter: 240ms;
-  --mk-motion-collapse: 180ms;
+  --mk-motion-collapse: 140ms;
   --mk-motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .mk-site :is(a, button)[class*='rounded'],
@@ -5517,4 +5517,22 @@ body {
   color: #d2deec !important;
 }
 
-.domain-detail:focus-visible { outline: 2px solid #1d3658; outline-offset: 3px; }
+.domain-detail:focus-visible {
+  outline: 2px solid #1d3658;
+  outline-offset: 3px;
+}
+
+/* One continuous transition, with input locked through actual entry completion. */
+.assessment-instrument[data-transition-phase='entering'] .question-stage {
+  animation-duration: 60ms;
+}
+.answer-saved-confirmation {
+  display: inline-block;
+  margin-left: 12px;
+  border: 1px solid #a6bbd0;
+  border-radius: var(--mk-radius-small);
+  padding: 2px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
