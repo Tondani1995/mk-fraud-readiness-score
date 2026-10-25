@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createQuestionTransition, QUESTION_MOTION } from '../src/lib/adaptive/question-transition.ts';
+import { createQuestionTransition, waitForQuestionMotion, QUESTION_MOTION } from '../src/lib/adaptive/question-transition.ts';
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve=r; }); return {promise, resolve}; };
 let checks=0;
 for (const responseOrder of ['instant','ordinary','slow']) {
@@ -33,4 +33,23 @@ for (const cancelAt of ['during-save','after-reply','during-entry']) {
 let called=0;const phases=[];
 const reduced=createQuestionTransition({reduced:true,phase:p=>phases.push(p),exit:async()=>{called++;},entry:async()=>{called++;},delay:async()=>{called++;}});
 await reduced.confirm();await reduced.enter();assert.equal(called,0);assert.deepEqual(phases,['collapsing','confirmed','entering','idle']);checks+=2;
+// Actual DOM-commit coordinator with a minimal observer double; CSS remains browser-verified.
+const previousObserver=globalThis.MutationObserver;
+let mutationCallback;
+globalThis.MutationObserver=class { constructor(callback){mutationCallback=callback;} observe(){} disconnect(){} };
+try {
+  const animation=deferred();let inspected=0,finished=false;
+  const stage={dataset:{transitionPhase:'idle'},querySelectorAll:()=>[{getAnimations:()=>{inspected++;return [{finished:animation.promise}];}}]};
+  const controller=new AbortController();
+  const waiting=waitForQuestionMotion(()=>stage,'exit',controller.signal,false).then(()=>{finished=true;});
+  await Promise.resolve();assert.equal(inspected,0,'no animation inspection before React commits the phase');
+  stage.dataset.transitionPhase='collapsing';mutationCallback();
+  await Promise.resolve();assert.equal(inspected,1);assert.equal(finished,false,'actual animation must finish');
+  animation.resolve();await waiting;assert.equal(finished,true);checks+=4;
+  stage.dataset.transitionPhase='idle';const cancelled=new AbortController();
+  const interrupted=waitForQuestionMotion(()=>stage,'entry',cancelled.signal,false);
+  const rejection=assert.rejects(interrupted,{name:'AbortError'});cancelled.abort();await rejection;checks++;
+  let touched=false;await waitForQuestionMotion(()=>{touched=true;return stage;},'entry',new AbortController().signal,true);
+  assert.equal(touched,false,'reduced motion has no DOM/frame wait');checks++;
+} finally {if(previousObserver)globalThis.MutationObserver=previousObserver;else delete globalThis.MutationObserver;}
 console.log(JSON.stringify({ok:true,checks,scope:'Actual transition coordinator: fast/ordinary/slow acknowledgements, cancellation and reduced motion; browser CSS separately verified.'}));

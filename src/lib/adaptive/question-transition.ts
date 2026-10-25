@@ -1,5 +1,5 @@
 export type QuestionTransitionPhase = 'idle' | 'collapsing' | 'confirmed' | 'entering';
-export const QUESTION_MOTION = { collapseMs: 140, confirmationMs: 40, entryMs: 60 } as const;
+export const QUESTION_MOTION = { collapseMs: 100, confirmationMs: 40, entryMs: 40 } as const;
 
 function aborted() {
   return new DOMException('Transition cancelled', 'AbortError');
@@ -47,15 +47,33 @@ export async function waitForQuestionMotion(
     assertActive(signal);
     return;
   }
-  await frame(signal);
-  // One committed frame is sufficient when React has applied the phase. An unconditional
-  // second frame adds 33ms twice on 30Hz browsers without making the CSS more visible.
-  let stage = root();
   const expectedPhase = kind === 'exit' ? 'collapsing' : 'entering';
-  if (stage?.dataset.transitionPhase !== expectedPhase) {
+  let stage = root();
+  if (stage && stage.dataset.transitionPhase !== expectedPhase && typeof MutationObserver !== 'undefined') {
+    // React's DOM commit is the barrier. Waiting for display frames here unnecessarily
+    // stretches both ends of the sequence on 30Hz browsers. Reading getAnimations below
+    // resolves the committed style and observes its real completion before unlocking input.
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
+        observer.disconnect();
+        clearTimeout(timer);
+        signal.removeEventListener('abort', cancel);
+        error ? reject(error) : resolve();
+      };
+      const cancel = () => finish(aborted());
+      const observer = new MutationObserver(() => {
+        if (stage?.dataset.transitionPhase === expectedPhase) finish();
+      });
+      const timer = setTimeout(() => finish(new Error('Question phase did not commit')), 500);
+      observer.observe(stage!, { attributes: true, attributeFilter: ['data-transition-phase'] });
+      signal.addEventListener('abort', cancel, { once: true });
+      if (signal.aborted) cancel();
+    });
+  } else if (!stage || typeof MutationObserver === 'undefined') {
     await frame(signal);
-    stage = root();
+    await frame(signal);
   }
+  stage = root();
   const selector = kind === 'exit' ? '.answer-slot[data-exiting="true"]' : '.question-stage';
   const elements = stage ? [...stage.querySelectorAll<HTMLElement>(selector)] : [];
   const animations = elements.flatMap((element) =>

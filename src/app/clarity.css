@@ -3508,7 +3508,7 @@ body {
   --mk-radius-track: 999px;
   --radius: var(--mk-radius-control);
   --mk-motion-enter: 240ms;
-  --mk-motion-collapse: 140ms;
+  --mk-motion-collapse: 100ms;
   --mk-motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .mk-site :is(a, button)[class*='rounded'],
@@ -3824,7 +3824,7 @@ body {
   transform: translateY(0) scale(1);
   transition:
     grid-template-rows var(--mk-motion-collapse) var(--mk-motion-ease),
-    opacity 130ms ease,
+    opacity 100ms ease,
     transform var(--mk-motion-collapse) var(--mk-motion-ease);
   min-width: 0;
 }
@@ -5524,7 +5524,7 @@ body {
 
 /* One continuous transition, with input locked through actual entry completion. */
 .assessment-instrument[data-transition-phase='entering'] .question-stage {
-  animation-duration: 60ms;
+  animation-duration: 40ms;
 }
 .answer-saved-confirmation {
   display: inline-block;
