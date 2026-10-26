@@ -9,7 +9,7 @@ export default function ServicesHero() {
         <h1 id="services-heading" className="mt-4 max-w-[20ch] text-[2.1rem] font-semibold leading-[1.08] tracking-normal sm:text-5xl lg:text-[3.5rem]">
           Start from the question your organisation needs answered.
         </h1>
-        <details className="mt-4 max-w-3xl text-mk-accent">
+        <details className="mt-4 max-w-3xl text-white/80">
         <summary className="min-h-11 cursor-pointer py-2 text-base font-medium">Explore the scope of MK&apos;s four capabilities</summary>
         <p className="mt-3 text-base leading-7 sm:text-lg sm:leading-8">
           MK&apos;s work is organised into four capabilities, but the capability names are only the entry points. The named service lines underneath them include fraud readiness, strategy and programme design, fraud awareness and training, internal and employee fraud controls, supplier and third-party fraud risk, digital and cyber-enabled fraud risk, AI-enabled fraud readiness, detection and threat intelligence.

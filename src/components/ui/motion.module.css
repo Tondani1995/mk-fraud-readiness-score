@@ -4,11 +4,9 @@
 @keyframes surface-arrive {
   from {
     transform: translateY(7px);
-    opacity: 0.65;
   }
   to {
     transform: none;
-    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
