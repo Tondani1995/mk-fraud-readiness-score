@@ -236,7 +236,7 @@ export function AdaptiveAssessmentExperience({
     heading.focus({ preventScroll: true });
     const root = rootRef.current;
     const headerHeight = root?.querySelector('.instrument-progress')?.getBoundingClientRect().height ?? 80;
-    const anchor = nextHeadingAnchor.current ?? headerHeight + 38;
+    const anchor = nextHeadingAnchor.current ?? headerHeight + 58;
     const rect = heading.getBoundingClientRect();
     if (
       nextHeadingAnchor.current !== null ||
@@ -251,7 +251,7 @@ export function AdaptiveAssessmentExperience({
     const root = rootRef.current;
     const headerHeight = root?.querySelector('.instrument-progress')?.getBoundingClientRect().height ?? 80;
     nextHeadingAnchor.current = Math.max(
-      headerHeight + 28,
+      headerHeight + 48,
       Math.min(headerHeight + 70, headingRef.current?.getBoundingClientRect().top ?? headerHeight + 38)
     );
     setLockedStageHeight(root?.querySelector('.question-instrument')?.getBoundingClientRect().height ?? null);

@@ -11,7 +11,12 @@ const instrumentPath='src/components/adaptive/AdaptiveAssessmentExperience.tsx';
 const oldInstrument=execFileSync('git',['show',`${baseline}:${instrumentPath}`],{encoding:'utf8'});
 const instrument=fs.readFileSync(instrumentPath,'utf8');
 const logic=text=>{const start=text.indexOf('export function AdaptiveAssessmentExperience(');const end=text.indexOf('  return (\n    <>\n      <div\n        ref={rootRef}',start);assert.ok(start>=0&&end>start);return text.slice(start,end);};
-assert.equal(logic(instrument),logic(oldInstrument),'State, effects, save, recovery and transition handlers must remain unchanged');
+// Only these two presentation offsets may differ: keep the previous-answer confirmation
+// below the now-functional sticky progress header. Freeze every other handler/effect byte.
+const expectedLogic=logic(oldInstrument)
+ .replace('const anchor = nextHeadingAnchor.current ?? headerHeight + 38;', 'const anchor = nextHeadingAnchor.current ?? headerHeight + 58;')
+ .replace('      headerHeight + 28,', '      headerHeight + 48,');
+assert.equal(logic(instrument),expectedLogic,'Only the reviewed 20px scroll-clearance offsets may differ; all state, save, recovery and transition handlers remain protected');
 assert.ok(fs.readFileSync('src/app/clarity.css','utf8').split('\n').length<=5444,'Do not grow the legacy stylesheet');
 const css=fs.readFileSync('src/app/clarity.css','utf8');
 const oldCss=execFileSync('git',['show',`${baseline}:src/app/clarity.css`],{encoding:'utf8'});
@@ -49,4 +54,4 @@ for(const score of [0,49.75,100,null]){
  if(score===null){assert.match(markup,/Not scored/);assert.doesNotMatch(markup,/data-readiness-marker/);}
  else {assert.ok(markup.includes(`left:${score}%`));assert.ok(markup.includes(`width:${score}%`));}
 }
-console.log(JSON.stringify({ok:true,protectedFilesUnchanged:files.length,calculatedCases:cases.length,railBoundaries:[0,49.75,100,null],scope:'Spatial presentation preserves five calculated cases, exact values/null/gaps/order/withholding. All library/API/font/package files and assessment state/persistence/transition handlers are unchanged from the reviewed security checkpoint.'},null,2));
+console.log(JSON.stringify({ok:true,protectedFilesUnchanged:files.length,calculatedCases:cases.length,railBoundaries:[0,49.75,100,null],scrollClearanceException:'Two offsets increased by 20px; every other handler/effect byte is protected.',scope:'Spatial presentation preserves five calculated cases, exact values/null/gaps/order/withholding. All library/API/font/package files and assessment state/persistence/transition handlers are unchanged from the reviewed security checkpoint.'},null,2));
