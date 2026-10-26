@@ -35,8 +35,9 @@ export function AssessmentContext({
           responses recorded in this area
         </p>
       </div>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-[.1em] text-mk-muted">Assessment areas</p>
       <ul
-        className="mt-4 grid grid-cols-5 gap-2"
+        className="mt-2 grid grid-cols-5 gap-2"
         aria-label="Recorded area completion"
       >
         {domains
@@ -57,6 +58,7 @@ export function AssessmentContext({
             </li>
           ))}
       </ul>
+      <p className="mt-2 text-xs leading-relaxed text-mk-muted">Each node is an area. A tick means all its applicable responses are recorded. The highlighted number is your current area.</p>
       <p className="mt-5 text-sm leading-relaxed text-mk-muted">
         This shows completion, not readiness. Your result follows submission.
       </p>

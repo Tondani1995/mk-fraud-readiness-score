@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CAPABILITIES } from "@/lib/website/capabilities";
 import { CtaLink } from "@/components/website/primitives/CtaLink";
+import { SnapshotPreview } from "@/components/website/SnapshotPreview";
 import styles from "./HomeStory.module.css";
 import motion from "@/components/ui/motion.module.css";
 
@@ -37,26 +38,28 @@ export function HomeStory({
   const root = useRef<HTMLDivElement>(null);
   const panelId = useId();
   useEffect(() => {
-    if (composition !== "story" || !("IntersectionObserver" in window)) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!window.matchMedia("(min-width:1100px)").matches) return;
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-          )[0];
-        if (visible) {
-          const index = anchors.indexOf(visible.target.id);
-          if (index >= 0) setActive(index);
-        }
-      },
-      { rootMargin: "-18% 0px -46% 0px", threshold: 0 },
-    );
-    root.current
-      ?.querySelectorAll("[data-story-heading]")
-      .forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
+    if (composition !== "story") return;
+    const desktop = window.matchMedia("(min-width:1100px) and (min-height:800px)");
+    const headings = [...(root.current?.querySelectorAll<HTMLElement>("[data-story-heading]") ?? [])];
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (!desktop.matches) return;
+      let next = 0;
+      headings.forEach((heading, index) => {
+        if (heading.getBoundingClientRect().top <= window.innerHeight * 0.4) next = index;
+      });
+      setActive(next);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
   }, [composition]);
   const panel = (
     <figure
@@ -144,47 +147,11 @@ export function HomeStory({
             ))}
           </ul>
         ) : (
-          <div className="rounded-brand bg-white p-4 text-mk-navy">
-            <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">
-              Illustrative example
-            </p>
-            <h3 className="mt-2 text-xl font-semibold">
-              Your Fraud Readiness Snapshot
-            </h3>
-            <p className="mt-3 text-sm text-mk-muted">
-              Example position: Structured
-            </p>
-            <div className="mt-4 space-y-3">
-              {[
-                ["Governance", 74],
-                ["Detection", 58],
-                ["Response", 42],
-              ].map(([name, score]) => (
-                <div key={name} className="text-sm">
-                  <div className="flex justify-between gap-2">
-                    <span>{name}</span>
-                    <strong>{score}/100</strong>
-                  </div>
-                  <div
-                    className="mt-2 h-1 rounded bg-mk-line"
-                    aria-hidden="true"
-                  >
-                    <i
-                      className="block h-full rounded bg-mk-accent"
-                      style={{ width: `${score}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 border-t border-mk-line pt-3 text-sm">
-              <b>Priority action:</b> Clarify response ownership
-            </p>
-          </div>
+          <SnapshotPreview story />
         )}
-        <p className="mt-4 text-sm leading-relaxed text-white/90">
+        {active !== 3 && <p className="mt-4 text-sm leading-relaxed text-white/90">
           {captions[active]}
-        </p>
+        </p>}
       </div>
       <figcaption className="mt-4 border-t border-white/25 pt-3 text-xs leading-relaxed text-white/80">
         Method illustration using example processes and controls. This is not an
@@ -333,6 +300,7 @@ export function HomeStory({
         It starts with a free assessment, and the organisation decides how far
         to take it.
       </p>
+      <div className={styles.inlineProof}><SnapshotPreview story /></div>
       <ol className="mt-5 grid gap-3 sm:grid-cols-2">
         {[
           [
@@ -395,26 +363,26 @@ export function HomeStory({
   return (
     <div
       ref={root}
-      className="mx-auto grid max-w-[1600px] gap-8 px-5 py-8 sm:px-8 lg:gap-10 min-[1100px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] min-[1600px]:gap-16"
+      className={`${styles.story} mx-auto max-w-[1600px] gap-8 px-5 py-8 sm:px-8 lg:gap-10 min-[1600px]:gap-16`}
     >
-      <div className="min-w-0 min-[1100px]:col-start-1 min-[1100px]:row-start-1">
+      <div className="min-w-0">
         {opening}
       </div>
       <aside
-        className="min-w-0 min-[1100px]:col-start-2 min-[1100px]:row-span-4 min-[1100px]:row-start-1"
+        className={styles.companion}
         aria-label="Conceptual management view"
       >
-        <div className="min-[1100px]:sticky min-[1100px]:top-[104px]">
+        <div className={styles.stickyCompanion}>
           {panel}
-          <p className="mt-3 hidden text-xs leading-relaxed text-mk-muted min-[1100px]:block">
+          <p className={`${styles.companionHint} mt-3 text-xs leading-relaxed text-mk-muted`}>
             The companion follows the narrative. You can also explore each view
             directly.
           </p>
         </div>
       </aside>
-      <div className="min-w-0 min-[1100px]:col-start-1">{problem}</div>
-      <div className="min-w-0 min-[1100px]:col-start-1">{capabilities}</div>
-      <div className="min-w-0 min-[1100px]:col-start-1">{product}</div>
+      <div className="min-w-0">{problem}</div>
+      <div className="min-w-0">{capabilities}</div>
+      <div className="min-w-0">{product}</div>
     </div>
   );
 }

@@ -86,10 +86,10 @@ export function SnapshotExecutive({
             {!insufficient && insights.priorityAreas.length > 0 && (
               <p className="executive-focus">
                 <span>FIRST MANAGEMENT FOCUS</span>
-                {insights.priorityAreas
+                <a className="inline-flex min-h-11 items-center gap-2 underline underline-offset-4" href="#attention">{insights.priorityAreas
                   .slice(0, 1)
                   .map((area) => area.domainName)
-                  .join(' · ')}
+                  .join(' · ')} <span aria-hidden="true">↘</span></a>
               </p>
             )}
             <h1>{narrative.headline}</h1>
@@ -99,7 +99,7 @@ export function SnapshotExecutive({
             </details>
             <div className="executive-actions">
               <a href="#attention">
-                Explore the organisational view <span aria-hidden="true">↘</span>
+                {insufficient ? 'View visibility priorities' : 'View management priorities'} <span aria-hidden="true">↘</span>
               </a>
               <a href="#next-step">Compare next steps</a>
             </div>
