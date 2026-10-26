@@ -367,7 +367,7 @@ function SectionRail() {
   return (
     <nav
       aria-label="Result sections"
-      className={`sticky top-0 z-30 hidden border-b border-mk-line bg-mk-paper transition-opacity md:block ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      className={`sticky top-0 z-30 hidden border-b border-mk-line bg-mk-paper md:block ${visible ? 'visible' : 'pointer-events-none invisible'}`}
     >
       <div className="mx-auto flex h-11 max-w-[1120px] items-center justify-between gap-4 px-6">
         <ul className="flex gap-5 text-[12px] font-medium">
