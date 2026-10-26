@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { AdaptiveResponseCanvas, type ResponseChoice } from '@/components/adaptive/AdaptiveResponseCanvas';
 import { DomainCompletionRail } from '@/components/adaptive/DomainCompletionRail';
 import { AssessmentContext } from '@/components/adaptive/AssessmentContext';
+import { questionScrollDelta } from '@/components/adaptive/question-scroll';
 import { mergeAdaptiveState } from '@/lib/adaptive/state-transfer';
 import {
   createQuestionTransition,
@@ -243,7 +244,17 @@ export function AdaptiveAssessmentExperience({
       rect.top < anchor - 10 ||
       rect.bottom > window.innerHeight * 0.7
     )
-      window.scrollBy({ top: rect.top - anchor, behavior: 'instant' });
+      window.scrollBy({
+        top: questionScrollDelta({
+          headingTop: rect.top,
+          headingBottom: rect.bottom,
+          contextTop: root?.querySelector('.question-topline')?.getBoundingClientRect().top ?? rect.top,
+          headerHeight,
+          viewportHeight: window.innerHeight,
+          preferredAnchor: anchor
+        }),
+        behavior: 'instant'
+      });
     nextHeadingAnchor.current = null;
   }, [currentId, screen]);
 
