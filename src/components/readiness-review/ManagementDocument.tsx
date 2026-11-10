@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { managementView } from '@/lib/readiness-review/view-model';
-import { ControlList, CountCards, StatusPanel, WorkingWithMk } from './SnapshotDocument';
+import { ControlList, CountCards, OwnerPackagesNote, StatusPanel, WorkingWithMk } from './SnapshotDocument';
 import { SendToOwners } from './SendToOwners';
 
 type Management = ReturnType<typeof managementView>;
@@ -29,6 +29,8 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
           <h2 id="m-answer" className="text-lg font-semibold text-mk-ink">Needs an answer ({answerTotal})</h2>
           <p className="mt-1 text-sm leading-6 text-mk-muted">Questions and scenarios waiting for the function that would know.</p>
           {view.status.interview === 'ended' && !view.status.followUpSent && answerTotal > 0 && <div className="mt-3"><SendToOwners token={token} seq={view.seq} /></div>}
+          {/* Once sent, the result of the action stays visible where it was taken. */}
+          {view.ownerPackages.length > 0 && <div className="mt-3 text-sm leading-6 text-mk-ink"><OwnerPackagesNote packages={view.ownerPackages} columns={1} /></div>}
           <ul className="mt-4 space-y-3">
             {view.needsAnswer.map((g) => (
               <li key={g.slug}>

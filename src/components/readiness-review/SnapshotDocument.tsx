@@ -129,6 +129,18 @@ export function WorkingWithMk() {
   );
 }
 
+/** Which accountable functions hold questions once the open questions have been sent. Shown wherever sending is offered. */
+export function OwnerPackagesNote({ packages, columns = 2 }: { packages: Snapshot['ownerPackages']; columns?: 1 | 2 }) {
+  if (packages.length === 0) return null;
+  return (
+    <div className="rounded-md border border-mk-line bg-white p-4" data-review-packages>
+      <p className="font-medium">Questions with accountable functions</p>
+      <ul className={`mt-2 grid gap-1 ${columns === 2 ? 'sm:grid-cols-2' : ''}`}>{packages.map((p) => <li key={p.slug}>{p.fn}: {p.count} waiting</li>)}</ul>
+      <p className="mt-2 text-mk-muted">In this fictional harness each function opens its package from the session links page, which stands in for an invitation and sign-in.</p>
+    </div>
+  );
+}
+
 export function StatusPanel({ status }: { status: Snapshot['status'] }) {
   return (
     <dl className="grid gap-4 rounded-md border border-mk-line bg-white p-5 text-sm leading-6 md:grid-cols-3" data-review-status>
@@ -242,13 +254,7 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
               <div className="mt-3"><SendToOwners token={token} seq={view.seq} /></div>
             </div>
           )}
-          {view.ownerPackages.length > 0 && (
-            <div className="rounded-md border border-mk-line bg-white p-4" data-review-packages>
-              <p className="font-medium">Questions with accountable functions</p>
-              <ul className="mt-2 grid gap-1 sm:grid-cols-2">{view.ownerPackages.map((p) => <li key={p.slug}>{p.fn}: {p.count} waiting</li>)}</ul>
-              <p className="mt-2 text-mk-muted">In this fictional harness each function opens its package from the session links page, which stands in for an invitation and sign-in.</p>
-            </div>
-          )}
+          <OwnerPackagesNote packages={view.ownerPackages} />
           <div className="flex flex-wrap gap-4">
             {managementToken && <Link className="min-h-11 py-2 font-medium text-mk-navy underline underline-offset-4" href={`/review/s/${managementToken}`}>Open the management view</Link>}
             <a className="min-h-11 py-2 font-medium text-mk-navy underline underline-offset-4" href={`/review/api/s/${token}/export`}>Download the full record (JSON)</a>
