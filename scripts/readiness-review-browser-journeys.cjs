@@ -64,6 +64,18 @@ async function multiValues(page) {
   return null;
 }
 
+// After an answer is chosen, waits until the optional detail panel opens or the save has visibly finished (the question
+// changed, or `doneSelector` appeared), then saves the panel without detail if it opened. No fixed wait: a busy machine
+// can take longer than any short timeout to open the panel.
+async function saveDetailIfOffered(page, prevQ, doneSelector = '[data-review-complete]') {
+  await page.waitForFunction(([prev, done]) => {
+    if (document.querySelector('[data-review-detail]') || document.querySelector(done) || document.querySelector('[data-review-message][role=alert]')) return true;
+    const s = document.querySelector('[data-question-stage]');
+    return !s || (prev !== null && s.getAttribute('data-question-id') !== prev);
+  }, [prevQ, doneSelector], { timeout: 20000, polling: 'raf' });
+  if (await page.$('[data-review-detail]')) await page.click('[data-review-detail] button:has-text("Save answer")');
+}
+
 async function answer(page, token, overrides = {}, pick) {
   const q = await currentQuestion(page);
   if (!q) return null;
@@ -229,7 +241,7 @@ let layoutPhone = null;
       } else {
         const v = qid === 'PR-06' ? 'yes' : choose(qid, values, false);
         await page.click(`[data-question-stage] label:has(input[type=radio][value="${v}"])`);
-        if (await page.waitForSelector('[data-review-detail]', { timeout: 700 }).catch(() => null)) await page.click('[data-review-detail] button:has-text("Save answer")');
+        await saveDetailIfOffered(page, qid);
       }
       await page.waitForFunction((prev) => {
         const s = document.querySelector('[data-question-stage]');
@@ -330,8 +342,9 @@ let layoutPhone = null;
     const current = values.find((x) => x.c)?.v;
     const other = values.find((x) => !x.c && x.v !== 'unknown')?.v;
     await page.click(`[data-question-stage] label:has(input[type=radio][value="${other}"])`);
-    // Some answers open the optional detail panel; saving it without detail is the respondent's choice.
-    if (await page.waitForSelector('[data-review-detail]', { timeout: 1500 }).catch(() => null)) await page.click('[data-review-detail] button:has-text("Save answer")');
+    // Some answers open the optional detail panel; saving it without detail is the respondent's choice. The journey
+    // waits for whichever comes first rather than for a fixed time, which a busy machine can exceed.
+    await saveDetailIfOffered(page, null, '[data-review-complete]');
     await page.waitForSelector('[data-review-complete]', { timeout: 20000 });
     await page.goto(`${BASE}/review/s/${main.links.reviewer}`, { waitUntil: 'networkidle' });
     await page.click('[role=tab]:has-text("Needs re-review")');
@@ -423,7 +436,7 @@ let layoutPhone = null;
     const vals = await other.$$eval('[data-question-stage] input[type=radio]', (els) => els.map((e) => ({ v: e.value, c: e.checked })));
     const changeTo = vals.find((x) => !x.c && x.v !== 'unknown')?.v;
     await other.click(`[data-question-stage] label:has(input[type=radio][value="${changeTo}"])`);
-    if (await other.waitForSelector('[data-review-detail]', { timeout: 700 }).catch(() => null)) await other.click('[data-review-detail] button:has-text("Save answer")');
+    await saveDetailIfOffered(other, null, '[data-review-complete]');
     await other.waitForSelector('[data-review-complete]', { timeout: 20000 });
     await other.close();
     // The reviewer's next save meets a conflict; the page reloads the session and keeps D's draft for a retry.

@@ -11,6 +11,18 @@ const [BASE, OUT, BASELINE] = process.argv.slice(2);
 fs.mkdirSync(OUT, { recursive: true });
 const pause = (p, ms) => p.waitForTimeout(ms);
 
+// After an answer is chosen, waits until the optional detail panel opens or the save has visibly finished (the question
+// changed, or `doneSelector` appeared), then saves the panel without detail if it opened. No fixed wait: a busy machine
+// can take longer than any short timeout to open the panel.
+async function saveDetailIfOffered(page, prevQ, doneSelector = '[data-review-complete]') {
+  await page.waitForFunction(([prev, done]) => {
+    if (document.querySelector('[data-review-detail]') || document.querySelector(done) || document.querySelector('[data-review-message][role=alert]')) return true;
+    const s = document.querySelector('[data-question-stage]');
+    return !s || (prev !== null && s.getAttribute('data-question-id') !== prev);
+  }, [prevQ, doneSelector], { timeout: 20000, polling: 'raf' });
+  if (await page.$('[data-review-detail]')) await page.click('[data-review-detail] button:has-text("Save answer")');
+}
+
 async function call(method, url, body) {
   const res = await fetch(BASE + url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const json = await res.json();
@@ -62,7 +74,12 @@ async function answerOnPage(p, token, mode = 'plain') {
     else if (mode === 'detail') v = values.find((x) => detail.has(x)) ?? values[0];
     else v = values.find((x) => !detail.has(x) && x !== 'unknown') ?? values[0];
     await p.click(`[data-question-stage] label:has(input[type=radio][value="${v}"])`);
-    if (await p.waitForSelector('[data-review-detail]', { timeout: 500 }).catch(() => null)) {
+    await p.waitForFunction((prev) => {
+      if (document.querySelector('[data-review-detail]') || document.querySelector('[data-review-complete]') || document.querySelector('[data-review-area-handoff]') || document.querySelector('[data-review-message][role=alert]')) return true;
+      const s = document.querySelector('[data-question-stage]');
+      return !s || s.getAttribute('data-question-id') !== prev;
+    }, step.q, { timeout: 20000, polling: 'raf' });
+    if (await p.$('[data-review-detail]')) {
       await pause(p, 1400);
       await p.click('[data-review-detail] button:has-text("Save answer")');
     }
@@ -165,7 +182,8 @@ async function record(browser, name, viewport, fn, extra = {}) {
     const change = radios.find((r) => !r.c && r.v !== 'unknown')?.v;
     if (change) {
       await p.click(`[data-question-stage] label:has(input[type=radio][value="${change}"])`);
-      if (await p.waitForSelector('[data-review-detail]', { timeout: 500 }).catch(() => null)) await p.click('[data-review-detail] button:has-text("Save answer")');
+      await p.waitForFunction(() => document.querySelector('[data-review-detail]') || /Your change is saved/.test(document.querySelector('[data-review-message]')?.textContent ?? '') || document.querySelector('[data-review-message][role=alert]'), null, { timeout: 20000, polling: 'raf' });
+      if (await p.$('[data-review-detail]')) await p.click('[data-review-detail] button:has-text("Save answer")');
       await p.waitForSelector('[data-review-message]:has-text("Your change is saved")');
       p.step('earlier answer changed through Back');
       await pause(p, 2500);
@@ -256,7 +274,7 @@ async function record(browser, name, viewport, fn, extra = {}) {
           const values = await p.$$eval('[data-question-stage] input[type=radio]', (els) => els.map((e) => e.value));
           await pause(p, 1200);
           await p.click(`[data-question-stage] label:has(input[type=radio][value="${qid === 'PR-06' ? 'yes' : values.find((v) => v !== 'unknown')}"])`);
-          if (await p.waitForSelector('[data-review-detail]', { timeout: 500 }).catch(() => null)) await p.click('[data-review-detail] button:has-text("Save answer")');
+          await saveDetailIfOffered(p, qid);
         }
         await p.waitForFunction((prev) => { const s = document.querySelector('[data-question-stage]'); return !s || s.getAttribute('data-question-id') !== prev; }, qid, { timeout: 20000 });
         await pause(p, 1500);

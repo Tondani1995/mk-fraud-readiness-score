@@ -72,7 +72,13 @@ async function stateScans(browser, width, height) {
     if (practice && !detailSeen && detailValues.length) value = detailValues[0];
     else if (practice && detailSeen && !handoffSeen) value = 'unknown';
     await page.click(`[data-question-stage] label:has(input[type=radio][value="${value}"])`);
-    if (await page.waitForSelector('[data-review-detail]', { timeout: 600 }).catch(() => null)) {
+    // Wait for the panel or for the save to finish, whichever comes first; never a fixed time.
+    await page.waitForFunction((prev) => {
+      if (document.querySelector('[data-review-detail]') || document.querySelector('[data-review-complete]') || document.querySelector('[data-review-area-handoff]') || document.querySelector('[data-review-message][role=alert]')) return true;
+      const st = document.querySelector('[data-question-stage]');
+      return !st || st.getAttribute('data-question-id') !== prev;
+    }, step.q, { timeout: 20000, polling: 'raf' });
+    if (await page.$('[data-review-detail]')) {
       if (!detailSeen) await record('interview optional detail panel');
       detailSeen = true;
       await page.click('[data-review-detail] button:has-text("Save answer")');
@@ -109,7 +115,7 @@ async function stateScans(browser, width, height) {
   const send = await page.$('[data-review-send-owners] button');
   if (send) {
     await send.click();
-    await page.waitForSelector('[data-review-packages]', { timeout: 15000 }).catch(() => null);
+    await page.waitForSelector('[data-review-packages]', { timeout: 15000 });
     await record('management after sending to owners');
   }
   const fns = (await api(`/review/api/s/${s.links}`)).view.functions;
