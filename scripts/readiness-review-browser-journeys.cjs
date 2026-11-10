@@ -137,15 +137,19 @@ let layoutPhone = null;
   const expectedHttpErrors = [];
   const desk = await browser.newContext({ viewport: { width: 1280, height: 900 }, recordVideo: { dir: path.join(OUT, 'video'), size: { width: 1280, height: 900 } } });
   const page = await desk.newPage();
-  page.on('pageerror', (e) => errors.push(String(e)));
+  // Every captured error names the page it happened on (with role links replaced) and the journey running at the time.
+  let journey = 'J-01';
+  const where = (pg) => pg.url().replace(BASE, '').replace(/\/s\/[^/?#]+/, '/s/:token');
+  page.on('pageerror', (e) => errors.push(`${journey} ${where(page)}: ${String(e)}`));
   // J-21 provokes a 503 and a 409 on purpose; the browser logs those responses, and only those are set aside.
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     if (expectingHttpErrors && /Failed to load resource: the server responded with a status of (503|409)/.test(m.text())) return expectedHttpErrors.push(m.text());
-    errors.push(m.text());
+    errors.push(`${journey} ${where(page)}: ${m.text()}`);
   });
 
   // ------------------------------------------------------------------ J-01 main respondent journey to the cap
+  journey = 'J-01';
   let main;
   try {
     main = await createSession(page, 'Fictional Retail Group');
@@ -174,6 +178,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-03 Snapshot: unknown route, sections, parity
+  journey = 'J-03';
   try {
     await page.click('a:has-text("Open the Snapshot")');
     await page.waitForSelector('[data-review-snapshot]');
@@ -197,6 +202,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-06 owner continuation after the cap
+  journey = 'J-06';
   try {
     await page.click('[data-review-send-owners] button');
     await page.waitForSelector('[data-review-packages]', { timeout: 15000 });
@@ -242,6 +248,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-20 why each question is waiting, on the page, against the log
+  journey = 'J-20';
   try {
     await page.goto(`${BASE}/review/s/${main.links.respondent}/snapshot`, { waitUntil: 'networkidle' });
     const items = await page.$$eval('#waiting [data-control]', (els) => els.map((e) => ({ id: e.getAttribute('data-control'), kind: e.getAttribute('data-waiting-kind'), text: e.textContent })));
@@ -273,6 +280,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-08 reviewer: follow-up, standalone follow-up, validation
+  journey = 'J-08';
   let reviewedId = null;
   try {
     await page.goto(`${BASE}/review/s/${main.links.reviewer}`, { waitUntil: 'networkidle' });
@@ -312,6 +320,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-10 correction after review: stale record and history
+  journey = 'J-10';
   try {
     const rvBefore = (await api(`/review/api/s/${main.links.reviewer}`)).view.controls.find((c) => c.id === reviewedId);
     await page.goto(`${BASE}/review/s/${main.links.respondent}`, { waitUntil: 'networkidle' });
@@ -321,6 +330,8 @@ let layoutPhone = null;
     const current = values.find((x) => x.c)?.v;
     const other = values.find((x) => !x.c && x.v !== 'unknown')?.v;
     await page.click(`[data-question-stage] label:has(input[type=radio][value="${other}"])`);
+    // Some answers open the optional detail panel; saving it without detail is the respondent's choice.
+    if (await page.waitForSelector('[data-review-detail]', { timeout: 1500 }).catch(() => null)) await page.click('[data-review-detail] button:has-text("Save answer")');
     await page.waitForSelector('[data-review-complete]', { timeout: 20000 });
     await page.goto(`${BASE}/review/s/${main.links.reviewer}`, { waitUntil: 'networkidle' });
     await page.click('[role=tab]:has-text("Needs re-review")');
@@ -349,6 +360,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-21 reviewer drafts survive switching, failure and conflict
+  journey = 'J-21';
   try {
     await page.goto(`${BASE}/review/s/${main.links.reviewer}`, { waitUntil: 'networkidle' });
     await page.click('[role=tab]:has-text("All reported answers")');
@@ -441,9 +453,10 @@ let layoutPhone = null;
   await desk.close();
 
   // ------------------------------------------------------------------ J-12 save failure and retry, Back and correction, stop and resume (mobile)
+  journey = 'J-12';
   const mob = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, recordVideo: { dir: path.join(OUT, 'video'), size: { width: 390, height: 844 } } });
   const mp = await mob.newPage();
-  mp.on('pageerror', (e) => errors.push(String(e)));
+  mp.on('pageerror', (e) => errors.push(`${journey} ${where(mp)}: ${String(e)}`));
   try {
     const s2 = await createSession(mp, 'Fictional Logistics Co');
     await mp.goto(`${BASE}/review/s/${s2.links.respondent}?fault=save`, { waitUntil: 'networkidle' });
@@ -503,6 +516,7 @@ let layoutPhone = null;
   await mob.close();
 
   // ------------------------------------------------------------------ J-16 keyboard, reduced motion and zoom
+  journey = 'J-16';
   try {
     const ctx = await browser.newContext({ viewport: { width: 640, height: 800 }, reducedMotion: 'reduce' });
     const p = await ctx.newPage();
@@ -523,6 +537,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-17 error states
+  journey = 'J-17';
   try {
     const p = await browser.newPage();
     const r = await p.goto(`${BASE}/review/s/notarealtokenAAAAAAAAAAAA`);
@@ -535,6 +550,7 @@ let layoutPhone = null;
   }
 
   // ------------------------------------------------------------------ J-22 telemetry from review pages, captured by a local sink
+  journey = 'J-22';
   try {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const p = await ctx.newPage();
@@ -570,7 +586,8 @@ let layoutPhone = null;
   rec('J-18', 'No script errors during the journeys (the 503 and 409 that J-21 provokes on purpose are set aside)', errors.length === 0, `${errors.slice(0, 3).join(' | ')}${expectedHttpErrors.length ? `; set aside ${expectedHttpErrors.length} deliberate responses` : ''}`);
   await browser.close();
   const sum = results.reduce((a, r) => ((a[r.status] = (a[r.status] || 0) + 1), a), {});
-  const median = (k) => { const xs = timings.filter((t) => t.kind === k).map((t) => t.ms).sort((a, b) => a - b); return xs.length ? { n: xs.length, median: xs[Math.floor(xs.length / 2)], p90: xs[Math.floor(xs.length * 0.9)], max: xs.at(-1) } : null; };
+  const median = (k) => { const xs = timings.filter((t) => t.kind === k).map((t) => t.ms).sort((a, b) => a - b); const rank = (q) => xs[Math.min(xs.length - 1, Math.ceil(q * xs.length) - 1)]; return xs.length ? { n: xs.length, median: rank(0.5), p90: rank(0.9), p95: rank(0.95), max: xs.at(-1) } : null; };
   fs.writeFileSync(path.join(OUT, 'journey-results.json'), JSON.stringify({ base: BASE, summary: sum, results, timing: { answerToNextQuestion: median('answer-to-next-question') } }, null, 1));
   console.log(sum, median('answer-to-next-question'));
+  if (sum.fail) process.exitCode = 1;
 })();

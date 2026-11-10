@@ -27,7 +27,9 @@ async function viewOf(token) {
 const stats = (xs) => {
   const a = xs.filter((x) => typeof x === 'number').sort((x, y) => x - y);
   if (!a.length) return null;
-  return { n: a.length, median: Math.round(a[Math.floor(a.length / 2)]), p90: Math.round(a[Math.floor(a.length * 0.9)]), max: Math.round(a.at(-1)) };
+  // Nearest-rank percentiles: the smallest sample with at least that share of samples at or below it.
+  const rank = (q) => Math.round(a[Math.min(a.length - 1, Math.ceil(q * a.length) - 1)]);
+  return { n: a.length, median: rank(0.5), p90: rank(0.9), p95: rank(0.95), max: Math.round(a.at(-1)) };
 };
 
 async function run(browser, reduced) {
