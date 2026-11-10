@@ -124,7 +124,13 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
       reduced,
       phase: setPhase,
       exit: (signal) => waitForQuestionMotion(() => rootRef.current, 'exit', signal, reduced),
-      entry: (signal) => waitForQuestionMotion(() => rootRef.current, 'entry', signal, reduced)
+      entry: async (signal) => {
+        await waitForQuestionMotion(() => rootRef.current, 'entry', signal, reduced);
+        // The stage's entry runs at 40ms only while the phase is 'entering'. Leaving that phase would otherwise resume
+        // the same animation at the default 240ms and move the prompt about 2px after input unlocks. The entry has
+        // completed or used its budget by now, so it is ended here; the resting position is the animation's end state.
+        rootRef.current?.querySelectorAll<HTMLElement>('.question-stage').forEach((stage) => stage.getAnimations().forEach((animation) => animation.cancel()));
+      }
     });
     setSaveState('saving');
     setMessage(null);
