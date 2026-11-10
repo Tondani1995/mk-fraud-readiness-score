@@ -77,12 +77,10 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
   const changeable = view.history.map((h, i) => ({ h, i })).filter((x) => x.h.changeable);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  // Same positioning rule as the approved assessment flow: focus the new prompt without the browser's own jump, then
-  // bring the prompt (and its confirmation line when both fit) clear of the sticky progress header.
-  useStageLayoutEffect(() => {
-    const heading = headingRef.current;
-    if (!heading) return;
-    heading.focus({ preventScroll: true });
+  const promptPlacedRef = useRef(false);
+  // Same positioning rule as the approved assessment flow: bring the prompt (and its confirmation line when both fit)
+  // clear of the sticky progress header. Does nothing when the prompt is already there.
+  function placePrompt(heading: HTMLHeadingElement) {
     const root = rootRef.current;
     if (!root) {
       heading.scrollIntoView({ block: 'start' });
@@ -103,7 +101,25 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
         }),
         behavior: 'instant' as ScrollBehavior
       });
+  }
+  // A new prompt is focused without the browser's own jump, then placed.
+  useStageLayoutEffect(() => {
+    const heading = headingRef.current;
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    placePrompt(heading);
+    promptPlacedRef.current = true;
   }, [view.step?.q, reviewIndex, screen]);
+  // The browser can move the page after the new prompt has been placed. When the other answers collapse, the page gets
+  // shorter and the scroll position is clamped; on phones, after scrolling down to save the optional detail, Chromium
+  // was seen to return the position to the bottom of the regrown page during the entry, with no script involved. The
+  // prompt is therefore placed again as the transition ends, before input unlocks. A failed save changes no question
+  // and leaves the page where the respondent is.
+  useStageLayoutEffect(() => {
+    if (phase !== 'idle' || !promptPlacedRef.current) return;
+    promptPlacedRef.current = false;
+    if (headingRef.current) placePrompt(headingRef.current);
+  }, [phase]);
 
   async function run(action: ReviewActionInput, after?: () => void) {
     setSaveState('saving');
