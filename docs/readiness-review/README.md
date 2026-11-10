@@ -1,0 +1,84 @@
+# MK Fraud Readiness: integrated review track
+
+Candidate integration of the parked MK digital experience with the rebuilt readiness method. Isolated branch, fictional local harness, not merged, not deployed.
+
+| | |
+|---|---|
+| Parked source baseline | `75451fc69149cf2a5a08a0a0bfa3161ce84ffcf2` (`design/mk-spatial-experience`) |
+| Readiness baseline | build 1.4 (engine `6d374561…`), extended additively as engine build 1.5 (`7f8ca08f…`) |
+| Candidate branch | `review/mk-integrated-readiness` |
+| Candidate source commit | see `SOURCE-COMMIT.txt` in the package |
+| Data contract | `mk-readiness-review` 1.2.0 |
+| Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness. See `RELEASE-DECISION.md`. |
+
+## Documents
+
+| Document | Contents |
+|---|---|
+| `CRITIQUE-AND-DISPOSITION.md` | Evidence-backed critique of the parked work and retain, improve, replace or retire for each part |
+| `INTEGRATION-MAP.md` | Each method concept traced to engine, route, component, API, record and output |
+| `DATA-CONTRACT.md` | Versioned adapter contract: ruleset hashes, record, actions, errors, routes, views, export, version history |
+| `COMMERCIAL-RECONCILIATION.md` | Nine specific conflicts with the catalogue and site, each with a proposed change for MK |
+| `LEGACY-UNKNOWN-SCORING.md` | The unknown-response scoring discrepancy, every output path it reaches, and the decisions needed |
+| `CHANGE-LOG.md` | Material product decisions and the defects found and fixed during integration |
+| `VERIFICATION.md` | Results by layer, with conditions and what was not tested |
+| `RELEASE-DECISION.md` | Decision, blocking items, decisions MK must take, limitations |
+
+## Commits
+
+The branch is layered so each concern can be reviewed on its own. Every commit type-checks on its own.
+
+| Commit subject prefix | Contents |
+|---|---|
+| Docs | `AGENTS.md`, the owner brand direction that was untracked in the parked worktree |
+| Engine | vendored engine, bank, coverage map, contract, replay, views (no I/O) |
+| Security and persistence | fictional file store, harness switch, role-scoped links, review API |
+| Presentation | review pages and components; public site behind the track switch; later presentation fixes |
+| Verification | contract tests and browser, layout, timing, accessibility and recording scripts |
+| Docs | these documents |
+
+The commit-by-commit working history, including the defect fixes in the order they were found, is kept on `review/mk-integrated-readiness-worklog`. Its final tree is identical to the layered branch at the first Verification commit; the later presentation fixes, verification scripts and these documents were added on the layered branch only.
+
+## Running it
+
+Requirements: Node 24 (as `package.json` `engines`), npm 11, a Chromium for the browser scripts (Playwright 1.63 used here). No `.env` file, Supabase project or credential is needed for the review track.
+
+```bash
+git clone mk-integrated-readiness.bundle mk && cd mk
+git checkout review/mk-integrated-readiness
+npm ci --ignore-scripts --no-audit --no-fund
+
+# Review-track build
+NEXT_PUBLIC_MK_READINESS_TRACK=review npx next build
+
+# Start with the fictional local harness (sessions are written to ./.readiness-review-harness)
+MK_READINESS_REVIEW_HARNESS=fictional-local \
+NEXT_PUBLIC_MK_READINESS_TRACK=review \
+npx next start -p 3200
+# Open http://localhost:3200/review and start a fictional review.
+# Add MK_READINESS_REVIEW_FAULTS=enabled to allow ?fault=save on a respondent link (save-failure test only).
+```
+
+A build without `NEXT_PUBLIC_MK_READINESS_TRACK` is the unchanged legacy site, and `/review` returns not found.
+
+### Checks
+
+```bash
+# Contract tests (no server)
+node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs \
+  scripts/readiness-review-contract-tests.mjs
+
+# Against a running review build with the harness and faults enabled
+node scripts/readiness-review-browser-journeys.cjs   http://localhost:3200 out/journeys
+node scripts/readiness-review-viewport-journeys.cjs  http://localhost:3200 out/viewports
+node scripts/readiness-review-transition-timing.cjs  http://localhost:3200 out/timing.json 24
+node scripts/readiness-review-settle-probe.cjs       http://localhost:3200 6
+node scripts/readiness-review-seed.cjs               http://localhost:3200 out/seed.json
+node scripts/readiness-review-layout-sweep.cjs       http://localhost:3200 out/sweep after '<pages json>' --companion --perf
+node scripts/readiness-review-axe-scan.cjs           http://localhost:3200 out/axe.json '<pages json>'
+node scripts/readiness-review-record.cjs             http://localhost:3200 out/recordings [baseline url]
+```
+
+`<pages json>` maps page names to paths, for example `{"home":"/","start":"/review","snapshot":"/review/s/<management link>/snapshot"}`; the seed script prints the links it creates.
+
+All organisations and answers used by these scripts are fictional.
