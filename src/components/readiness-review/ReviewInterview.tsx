@@ -38,7 +38,7 @@ function Orientation({ onBegin }: { onBegin: () => void }) {
           until an MK reviewer has examined evidence.
         </p>
       </div>
-      <div className="mt-8 rounded-md border border-mk-line bg-white p-5" aria-label="Worked example, not saved">
+      <div className="mt-8 rounded-md border border-mk-line bg-white p-5" role="group" aria-label="Worked example, not saved">
         <p className="text-sm font-semibold uppercase tracking-[.12em] text-mk-muted">Worked example, not saved</p>
         <p className="mt-3 font-medium text-mk-ink">Are supplier bank account changes confirmed with the supplier through contact details you already hold, before the change takes effect?</p>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-mk-ink">

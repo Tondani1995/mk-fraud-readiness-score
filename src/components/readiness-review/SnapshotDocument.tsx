@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { snapshotView, ControlItem, CountView } from '@/lib/readiness-review/view-model';
+import type { snapshotView, ControlItem, CountView, WaitingProvenance } from '@/lib/readiness-review/view-model';
 import { storefrontPriceLabel } from '@/lib/commercial/storefront-presentation';
 import { SendToOwners } from './SendToOwners';
 
@@ -40,7 +40,7 @@ function groupByArea<T extends { area: string }>(items: T[]) {
   return [...map.entries()];
 }
 
-export function ControlList({ items, empty, showOwner = false }: { items: (ControlItem & { via?: string })[]; empty: string; showOwner?: boolean }) {
+export function ControlList({ items, empty, showOwner = false }: { items: (ControlItem & { provenance?: WaitingProvenance })[]; empty: string; showOwner?: boolean }) {
   if (!items.length) return <p className="mt-3 text-sm text-mk-muted">{empty}</p>;
   return (
     <div className="mt-4 space-y-5">
@@ -49,13 +49,14 @@ export function ControlList({ items, empty, showOwner = false }: { items: (Contr
           <h3 className="text-sm font-semibold uppercase tracking-[.12em] text-mk-muted">{area} ({group.length})</h3>
           <ul className="mt-2 divide-y divide-mk-line rounded-md border border-mk-line bg-white">
             {group.map((c) => (
-              <li key={c.id} className="p-4 text-sm leading-6" data-control={c.id}>
+              <li key={c.id} className="p-4 text-sm leading-6" data-control={c.id} data-waiting-kind={c.provenance?.kind}>
                 <p className="font-medium text-mk-ink">{c.title}</p>
                 <p className="text-mk-ink">
                   <span className="font-medium">{c.stateLabel}.</span> {c.answer && c.answer !== c.stateLabel ? <span className="text-mk-muted">Answer: {c.answer}</span> : null}
                 </p>
                 {c.detail.map((d) => <p key={d} className="text-mk-muted">{d}</p>)}
-                {showOwner && c.ownerFunction && <p className="text-mk-muted">With: {c.ownerFunction}{c.via ? `. ${c.via}` : ''}</p>}
+                {c.provenance && <p className="text-mk-muted">Why it is waiting: {c.provenance.label}.</p>}
+                {showOwner && c.ownerFunction && <p className="text-mk-muted">With: {c.ownerFunction}</p>}
                 {c.scenario && <p className="text-mk-muted">Scenario: {c.scenario.name} ({tierLabel(c.scenario.tier)})</p>}
                 {c.evidence && <p className="text-mk-muted">{c.evidence.label}{c.evidence.current ? '' : ` (earlier answer, version ${c.evidence.forVer}; not current)`}</p>}
               </li>
@@ -181,6 +182,15 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
         <ControlList items={view.reportedGaps} empty="No gaps were reported among the controls that were asked. This does not mean controls that were not asked are in place." />
       </Section>
       <Section id="waiting" title={`Waiting for an owner (${view.waiting.length})`} intro="Questions that now sit with the accountable function that would know. Nothing is assumed about them in the meantime.">
+        {view.waitingBySource.length > 0 && (
+          <ul className="mt-3 max-w-3xl space-y-1 text-sm leading-6 text-mk-ink" aria-label="Why questions are waiting" data-waiting-sources>
+            {view.waitingBySource.map((x) => (
+              <li key={x.kind} data-waiting-source={x.kind}>
+                <span className="font-medium tabular-nums">{x.count}</span> <span className="text-mk-muted">{x.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <ControlList items={view.waiting} empty="No question is waiting for an owner." showOwner />
       </Section>
       <Section id="open" title={`Material scenarios still open (${view.openScenarios.length})`} intro="Failure scenarios that apply or may apply where the deciding fact or control is not yet established. Tiers set the order in which the interview asks; they are a proposal awaiting MK approval and are not a risk rating.">
