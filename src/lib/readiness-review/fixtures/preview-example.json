@@ -1,0 +1,38 @@
+{
+  "purpose": "Fictional example for the public Snapshot preview. Produced by scripts/readiness-review-preview-fixture.mjs through the review engine; not a real organisation.",
+  "engineSha256": "7f8ca08f2626108919ef97d664d6b752fe91ae686fdd44639d1e79be5d9395ba",
+  "bankVersion": "1.3-review",
+  "organisation": "Fictional Retail Group",
+  "screensUsed": 95,
+  "stop": "ceiling",
+  "counts": {
+    "reported-gaps": {
+      "value": 21,
+      "denominator": "of 51 controls with a reported answer"
+    },
+    "waiting": {
+      "value": 31,
+      "denominator": null
+    },
+    "open-scenarios": {
+      "value": 57,
+      "denominator": "of 90 material scenarios that apply or may apply"
+    },
+    "evidence": {
+      "value": 24,
+      "denominator": "31 essential confirmations have a reported answer"
+    }
+  },
+  "exampleGap": {
+    "title": "Executive accountable for fraud",
+    "state": "Reported not in place"
+  },
+  "exampleWaiting": {
+    "title": "Board receives fraud reporting",
+    "fn": "Executive and governance"
+  },
+  "exampleOpen": {
+    "name": "Fraud by owners or senior people goes unchallenged",
+    "why": "Waiting for an owner to answer"
+  }
+}

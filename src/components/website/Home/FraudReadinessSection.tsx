@@ -2,13 +2,17 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { SnapshotPreview } from '@/components/website/SnapshotPreview';
 import { CtaLink } from '@/components/website/primitives/CtaLink';
+import { readinessTrack } from '@/lib/website/readiness-track';
+import { REVIEW_JOURNEY } from '@/lib/website/review-track-copy';
 
-const journey = [
+const legacyJourney = [
   { title: 'Structured assessment', body: 'Leadership answers a tailored set of questions about how fraud risk is governed, prevented, detected and handled.' },
   { title: 'Private readiness Snapshot', body: 'An immediate, confidential view of where readiness appears stronger and where gaps may deserve attention.' },
   { title: 'Fuller analysis and formal reporting', body: 'Where the Snapshot raises questions, a detailed report sets out the position in a form management can act on.' },
   { title: 'Prioritisation and remediation', body: 'MK can help decide what to fix first and support the work through an advisory engagement.' }
 ];
+
+const journey = readinessTrack() === 'review' ? REVIEW_JOURNEY.map(([title, body]) => ({ title, body })) : legacyJourney;
 
 export default function FraudReadinessSection() {
   return (

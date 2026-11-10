@@ -1,9 +1,13 @@
+import example from "@/lib/readiness-review/fixtures/preview-example.json";
+import { readinessTrack } from "@/lib/website/readiness-track";
+
 const previewDomains = [
   { name: "Governance", value: 74 },
   { name: "Detection", value: 58 },
   { name: "Response", value: 42 },
 ];
 export function SnapshotPreview({ compact = false, story = false }: { compact?: boolean; story?: boolean }) {
+  if (readinessTrack() === "review") return <ReviewSnapshotPreview story={story} compact={compact} />;
   if (story) return (
     <section data-snapshot-preview className="rounded-brand bg-white p-4 text-mk-navy" aria-label="Illustrative Fraud Readiness Snapshot preview">
       <p className="text-xs font-semibold uppercase tracking-[.1em] text-mk-muted">Illustrative product preview</p>
@@ -80,6 +84,54 @@ export function SnapshotPreview({ compact = false, story = false }: { compact?: 
         responses.
       </p>
 
+    </section>
+  );
+}
+
+/**
+ * Unscored preview for the review track. Every figure comes from a fictional organisation run through the review
+ * engine (src/lib/readiness-review/fixtures/preview-example.json); no score, position or bar is shown because the
+ * service produces none.
+ */
+const REVIEW_ROWS: { key: keyof typeof example.counts; label: string; note: string }[] = [
+  { key: "reported-gaps", label: "Reported gaps", note: "self-reported, not verified" },
+  { key: "waiting", label: "Waiting for an owner", note: "with the function that would know" },
+  { key: "open-scenarios", label: "Material scenarios still open", note: "not established either way" },
+  { key: "evidence", label: "Evidence still to review", note: "for an MK reviewer" },
+];
+
+function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: boolean }) {
+  return (
+    <section
+      data-snapshot-preview
+      data-preview-track="review"
+      className={story ? "rounded-brand bg-white p-4 text-mk-navy" : `snapshot-specimen ${compact ? "compact" : ""}`}
+      aria-label="Fictional example of a Fraud Readiness Snapshot"
+    >
+      <p className="text-xs font-semibold uppercase tracking-[.1em] text-mk-muted">Fictional example</p>
+      <h3 className="mt-2 text-[22px] font-semibold leading-snug">Your Fraud Readiness Snapshot</h3>
+      <p className="mt-1 text-xs text-mk-muted">{example.organisation} · interview stopped at its 95-screen limit</p>
+      <dl className="mt-3 divide-y divide-mk-line border-y border-mk-line">
+        {REVIEW_ROWS.map((row) => (
+          <div key={row.key} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+            <dt>
+              {row.label}
+              <span className="block text-xs text-mk-muted">{row.note}</span>
+            </dt>
+            <dd className="text-lg font-semibold tabular-nums">{example.counts[row.key].value}</dd>
+          </div>
+        ))}
+      </dl>
+      {example.exampleWaiting && (
+        <div className="mt-3">
+          <p className="text-xs text-mk-muted">Example question waiting for an owner</p>
+          <p className="mt-1 text-sm font-semibold">{example.exampleWaiting.title}</p>
+          <p className="text-xs text-mk-muted">With {example.exampleWaiting.fn}</p>
+        </div>
+      )}
+      <p className="mt-3 text-xs leading-relaxed text-mk-muted">
+        Fictional example produced by the review method. No score is calculated; your private Snapshot reflects only your own answers.
+      </p>
     </section>
   );
 }

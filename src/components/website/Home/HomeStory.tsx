@@ -4,6 +4,8 @@ import Link from "next/link";
 import { CAPABILITIES } from "@/lib/website/capabilities";
 import { CtaLink } from "@/components/website/primitives/CtaLink";
 import { SnapshotPreview } from "@/components/website/SnapshotPreview";
+import { readinessTrack } from "@/lib/website/readiness-track";
+import { REVIEW_JOURNEY, REVIEW_PREVIEW_CAPTION } from "@/lib/website/review-track-copy";
 import styles from "./HomeStory.module.css";
 import motion from "@/components/ui/motion.module.css";
 
@@ -27,6 +29,8 @@ const captions = [
   "Assess, Build, Enable and Monitor are independent points of entry. The management question determines the support required.",
   "A private Snapshot presents the recorded readiness position, findings and management priorities. The values shown here are illustrative.",
 ];
+const reviewTrack = readinessTrack() === "review";
+if (reviewTrack) captions[3] = REVIEW_PREVIEW_CAPTION;
 
 /** Server-readable narrative, enhanced by a single optional sticky conceptual companion. */
 export function HomeStory({
@@ -302,7 +306,7 @@ export function HomeStory({
       </p>
       <div className={styles.inlineProof}><SnapshotPreview story /></div>
       <ol className="mt-5 grid gap-3 sm:grid-cols-2">
-        {[
+        {(reviewTrack ? REVIEW_JOURNEY : [
           [
             "Structured assessment",
             "Leadership answers a tailored set of questions about how fraud risk is governed, prevented, detected and handled.",
@@ -319,7 +323,7 @@ export function HomeStory({
             "Prioritisation and remediation",
             "MK can help decide what to fix first and support the work through an advisory engagement.",
           ],
-        ].map(([title, body], index) => (
+        ]).map(([title, body], index) => (
           <li key={title} className="border-l-2 border-mk-accent pl-4">
             <p className="text-xs text-mk-muted">{index + 1}</p>
             <h3 className="mt-1 text-base font-semibold text-mk-navy">

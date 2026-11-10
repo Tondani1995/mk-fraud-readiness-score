@@ -5,6 +5,8 @@ import MethodologyTrust from '@/components/website/MethodologyTrust';
 import { SnapshotPreview } from '@/components/website/SnapshotPreview';
 import { Button } from '@/components/website/ui/button';
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
+import { readinessTrack } from '@/lib/website/readiness-track';
+import { REVIEW_STOREFRONT } from '@/lib/website/review-track-copy';
 
 function formatPrice(priceCents: number | null) {
   if (priceCents === null) return 'Scoped with MK';
@@ -12,6 +14,8 @@ function formatPrice(priceCents: number | null) {
 }
 
 export function FraudReadinessStorefront() {
+  // The review track changes only what is true of it: the hero description, the journey and the paid-tier notice.
+  const review = readinessTrack() === 'review';
   const essential = COMMERCIAL_CATALOGUE.essential;
   const comprehensive = COMMERCIAL_CATALOGUE.comprehensive;
   const advisory = COMMERCIAL_CATALOGUE.advisory;
@@ -33,8 +37,9 @@ export function FraudReadinessStorefront() {
               How fraud-ready is your organisation?
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-              Complete the free MK Fraud Readiness Assessment and receive a private, self-reported Snapshot of
-              your organisation&apos;s readiness and areas requiring management attention.
+              {review
+                ? REVIEW_STOREFRONT.heroBody
+                : 'Complete the free MK Fraud Readiness Assessment and receive a private, self-reported Snapshot of your organisation\'s readiness and areas requiring management attention.'}
             </p>
             <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-mk-paper">
               No evidence uploads, customer records or transaction-level data are required to take part.
@@ -79,7 +84,7 @@ export function FraudReadinessStorefront() {
           className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-6 sm:py-12 md:grid-cols-3 lg:px-8 lg:py-16"
           data-assessment-journey
         >
-          {[
+          {(review ? REVIEW_STOREFRONT.steps : [
             [
               'Diagnose',
               'Start with a tailored assessment that asks only what is relevant to your organisation.'
@@ -92,7 +97,7 @@ export function FraudReadinessStorefront() {
               'Implement',
               'Choose a detailed report or a scoped Advisory engagement when you are ready to move.'
             ]
-          ].map(([title, body]) => (
+          ]).map(([title, body]) => (
             <article key={title} className="border-t-2 border-mk-accent pt-5">
               <h2 className="mt-3 text-xl font-semibold">{title}</h2>
               <p className="mt-3 text-sm leading-6 text-mk-accent">{body}</p>
@@ -108,9 +113,10 @@ export function FraudReadinessStorefront() {
             <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
               What your organisation can do with its result
             </h2>
-            <p className="mt-4 text-base leading-7 text-mk-accent">
-              The Snapshot is the starting point. The next product is chosen by the work you need the result
-              to do.
+            <p className="mt-4 text-base leading-7 text-mk-accent" data-storefront-products-intro>
+              {review
+                ? REVIEW_STOREFRONT.productsIntro
+                : 'The Snapshot is the starting point. The next product is chosen by the work you need the result to do.'}
             </p>
           </div>
           <div
@@ -127,7 +133,9 @@ export function FraudReadinessStorefront() {
               description={essential.summary}
               features={[...essential.includes].slice(0, 4)}
               action={
-                <Button
+                review ? (
+                  <p className="text-sm leading-6 text-mk-muted" data-paid-unavailable>{REVIEW_STOREFRONT.paidUnavailable}</p>
+                ) : (<Button
                   asChild
                   size="lg"
                   className="w-full rounded-brand bg-mk-navy text-white hover:bg-mk-navy"
@@ -135,7 +143,7 @@ export function FraudReadinessStorefront() {
                   <Link href="/score/start">
                     Start with Essential <ArrowRight className="h-4 w-4" />
                   </Link>
-                </Button>
+                </Button>)
               }
             />
             <ProductTierCard
@@ -148,7 +156,9 @@ export function FraudReadinessStorefront() {
               features={[...comprehensive.includes].slice(0, 5)}
               
               action={
-                <Button
+                review ? (
+                  <p className="text-sm leading-6 text-mk-muted" data-paid-unavailable>{REVIEW_STOREFRONT.paidUnavailable}</p>
+                ) : (<Button
                   asChild
                   size="lg"
                   className="w-full rounded-brand bg-white text-mk-navy hover:bg-mk-surface"
@@ -156,7 +166,7 @@ export function FraudReadinessStorefront() {
                   <Link href="/score/start">
                     Start with Comprehensive <ArrowRight className="h-4 w-4" />
                   </Link>
-                </Button>
+                </Button>)
               }
             />
             <ProductTierCard

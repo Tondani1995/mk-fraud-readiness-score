@@ -1,5 +1,11 @@
 import { ShieldCheck } from 'lucide-react';
-import { METHODOLOGY_AI_DISCLOSURE, METHODOLOGY_HEADLINE, METHODOLOGY_POINTS, METHODOLOGY_SUMMARY } from '@/lib/website/methodology';
+import { METHODOLOGY_AI_DISCLOSURE, METHODOLOGY_HEADLINE, METHODOLOGY_POINTS as LEGACY_POINTS, METHODOLOGY_SUMMARY as LEGACY_SUMMARY } from '@/lib/website/methodology';
+import { readinessTrack } from '@/lib/website/readiness-track';
+import { REVIEW_METHODOLOGY } from '@/lib/website/review-track-copy';
+
+const REVIEW = readinessTrack() === 'review';
+const METHODOLOGY_SUMMARY = REVIEW ? REVIEW_METHODOLOGY.summary : LEGACY_SUMMARY;
+const METHODOLOGY_POINTS = REVIEW ? REVIEW_METHODOLOGY.points : LEGACY_POINTS;
 
 /**
  * "How your result is produced": the public methodology statement for Fraud Readiness.
@@ -44,7 +50,7 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
                 </div>
               ))}
             </dl>
-            <p className={`mt-5 text-sm leading-6 ${dark ? 'text-white/60' : 'text-slate-500'}`}>{METHODOLOGY_AI_DISCLOSURE}</p>
+            <p className={`mt-5 text-sm leading-6 ${dark ? 'text-white/60' : 'text-slate-500'}`}>{REVIEW ? REVIEW_METHODOLOGY.aiDisclosure : METHODOLOGY_AI_DISCLOSURE}</p>
           </div>
         </div>
       </div>
