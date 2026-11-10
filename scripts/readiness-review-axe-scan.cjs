@@ -1,8 +1,9 @@
 // Automated accessibility scan (axe-core, WCAG 2.0/2.1/2.2 A and AA rules) of a running build at 1440 and 390px.
 // node scripts/readiness-review-axe-scan.cjs <baseUrl> <out.json> <pagesJson> [--states]
 // Records every outcome axe reports: violations in full, incomplete results (checks axe could not decide, such as
-// contrast over images) in full, and pass and inapplicable counts. With --states it also drives and scans the
-// interactive and error states of the review track on fictional sessions it creates itself.
+// contrast over images) in full, and pass and inapplicable counts. Every state is scanned at rest (see atRest). With
+// --states it also drives and scans the interactive and error states of the review track on fictional sessions it
+// creates itself.
 // Automated rules find only part of what a manual audit and screen-reader testing would find; both remain outstanding.
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -22,6 +23,21 @@ async function scan(page) {
   }, TAGS);
 }
 
+/**
+ * Waits until the state is at rest: no answer transition in progress and no CSS transition or animation running. A
+ * control re-enabled at the end of a transition fades from 60% opacity over 200ms; scanned inside that fade its colour
+ * is blended and reads as a contrast failure that the settled page does not have. Returns false if something was still
+ * moving after five seconds, and the row records it.
+ */
+async function atRest(page) {
+  return page
+    .waitForFunction(() => {
+      const phase = document.querySelector('[data-review-interview]')?.getAttribute('data-transition-phase');
+      return (!phase || phase === 'idle') && document.getAnimations().every((a) => a.playState !== 'running');
+    }, null, { timeout: 5000, polling: 'raf' })
+    .then(() => true, () => false);
+}
+
 async function settle(page) {
   const decline = await page.$('button:has-text("Decline"), button:has-text("Reject"), button:has-text("Necessary only")');
   if (decline) await decline.click().catch(() => {});
@@ -38,7 +54,7 @@ async function stateScans(browser, width, height) {
   const out = [];
   const ctx = await browser.newContext({ viewport: { width, height }, isMobile: width < 500, hasTouch: width < 500 });
   const page = await ctx.newPage();
-  const record = async (name) => out.push({ name, url: page.url().replace(/\/s\/[^/?#]+/, '/s/:token'), width, state: true, ...(await scan(page)) });
+  const record = async (name) => { const rest = await atRest(page); out.push({ name, url: page.url().replace(/\/s\/[^/?#]+/, '/s/:token'), width, state: true, atRest: rest, ...(await scan(page)) }); };
   const s = await api('/review/api/sessions', { organisationLabel: 'Fictional Accessibility Co', fictionalConfirmed: true });
   const links = (await api(`/review/api/s/${s.links}`)).view;
 
@@ -142,7 +158,8 @@ async function stateScans(browser, width, height) {
     for (const [name, url] of Object.entries(PAGES)) {
       await page.goto(BASE + url, { waitUntil: 'networkidle' });
       await settle(page);
-      rows.push({ name, url: url.replace(/\/s\/[^/?#]+/, '/s/:token'), width: w, state: false, ...(await scan(page)) });
+      const rest = await atRest(page);
+      rows.push({ name, url: url.replace(/\/s\/[^/?#]+/, '/s/:token'), width: w, state: false, atRest: rest, ...(await scan(page)) });
     }
     await ctx.close();
     if (STATES) rows.push(...(await stateScans(browser, w, h)));
@@ -152,7 +169,7 @@ async function stateScans(browser, width, height) {
   const total = rows.reduce((s, r) => s + r.violations.length, 0);
   const incomplete = rows.reduce((s, r) => s + r.incomplete.length, 0);
   const ids = [...new Set(rows.flatMap((r) => r.incomplete.map((i) => i.id)))];
-  console.log(`${rows.length} scans (${rows.filter((r) => r.state).length} interactive or error states); ${total} rule violations; ${incomplete} incomplete results (${ids.join(', ') || 'none'})`);
+  console.log(`${rows.length} scans (${rows.filter((r) => r.state).length} interactive or error states; ${rows.filter((r) => !r.atRest).length} not at rest when scanned); ${total} rule violations; ${incomplete} incomplete results (${ids.join(', ') || 'none'})`);
   rows.filter((r) => r.violations.length).forEach((r) => console.log('  ', r.name, r.width, r.violations.map((v) => `${v.id}(${v.impact},${v.nodes})`).join(' ')));
   process.exit(total ? 1 : 0);
 })().catch((e) => {
