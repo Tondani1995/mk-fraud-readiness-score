@@ -287,6 +287,60 @@ function controlItem(e: EngineInstance, report: any, row: Row): ControlItem {
   };
 }
 
+export type WaitingSource = 'respondent-unknown' | 'owner-unknown' | 'area' | 'not-reached' | 'owner-opened' | 'scope-waiting' | 'assigned';
+export type WaitingProvenance = { kind: WaitingSource; label: string };
+
+export const WAITING_SOURCE_LABEL: Record<WaitingSource, string> = {
+  'respondent-unknown': 'The respondent answered “I don’t know”',
+  'owner-unknown': 'An accountable function answered “I don’t know”',
+  area: 'Sent with the rest of its area by the respondent',
+  'not-reached': 'Not reached in the interview; sent as a second-stage follow-up',
+  'owner-opened': 'Opened by an accountable function’s answer',
+  'scope-waiting': 'Whether it applies depends on a fact that is waiting for an owner',
+  assigned: 'Sent to an accountable function'
+};
+
+/** Count lines under the Snapshot's waiting section: "<n> <summary>". */
+export const WAITING_SOURCE_SUMMARY: Record<WaitingSource, string> = {
+  'respondent-unknown': 'answered “I don’t know” by the respondent',
+  'owner-unknown': 'answered “I don’t know” by an accountable function',
+  area: 'sent with the rest of their area by the respondent',
+  'not-reached': 'not reached in the interview and sent as second-stage follow-up',
+  'owner-opened': 'opened by an accountable function’s answer',
+  'scope-waiting': 'apply only if a fact still with an owner holds',
+  assigned: 'sent to an accountable function for another recorded reason'
+};
+
+const isUnknownValue = (v: unknown) => v === 'unknown' || (Array.isArray(v) && v.length === 1 && v[0] === 'unknown');
+
+/**
+ * Why a question is waiting, taken from what was recorded rather than assumed (contract 1.3.0). The order follows the
+ * engine's own row logic: a live "I don't know" answer, then a scope fact waiting for an owner, then a confirmation an
+ * owner's answer opened, then a second-stage follow-up the interview did not reach, then an area the respondent sent.
+ * Anything else that was assigned says only that it was sent, with the engine's recorded reason.
+ */
+export function waitingProvenance(e: EngineInstance, report: any, row: Row): WaitingProvenance {
+  const rec = e.S.ans[row.id];
+  if (rec && !rec.stale && isUnknownValue(rec.v)) {
+    if (rec.via === 'owner' || rec.via === 'owner-followup') return { kind: 'owner-unknown', label: `${rec.by && rec.by !== 'Respondent' ? rec.by : 'An accountable function'} answered “I don’t know”` };
+    return { kind: 'respondent-unknown', label: rec.via === 'correction' ? 'The respondent changed the answer to “I don’t know”' : WAITING_SOURCE_LABEL['respondent-unknown'] };
+  }
+  if (row.state === 'waiting-scope') {
+    const by = row.by ? e.QI[row.by]?.key ?? row.by : null;
+    return { kind: 'scope-waiting', label: by ? `Whether it applies depends on “${by}”, which is waiting for an owner` : WAITING_SOURCE_LABEL['scope-waiting'] };
+  }
+  if (row.ownerFollowup) {
+    const from = row.ownerFollowup.from;
+    return { kind: 'owner-opened', label: `Opened by the accountable function’s answer on “${e.QI[from]?.key ?? from}”` };
+  }
+  if (row.assignment?.origin === 'follow-up') {
+    // The scenario it follows up is shown on its own line beside the reason.
+    return { kind: 'not-reached', label: WAITING_SOURCE_LABEL['not-reached'] };
+  }
+  if (row.bulk) return { kind: 'area', label: WAITING_SOURCE_LABEL.area };
+  return { kind: 'assigned', label: row.assignment?.why ? `Sent to an accountable function (${plain(String(row.assignment.why))})` : WAITING_SOURCE_LABEL.assigned };
+}
+
 function allRows(report: any): Row[] {
   return report.domains.flatMap((d: any) => d.rows);
 }
@@ -333,9 +387,16 @@ export function snapshotView(live: LiveSession) {
   const material = report.scenarios.filter((s: any) => s.tier <= 2 && !['outofscope'].includes(s.status));
   const tier1Confirmations = new Set<string>(report.scenarios.filter((s: any) => s.tier === 1 && s.status !== 'outofscope').flatMap((s: any) => s.confirmations.filter((c: any) => c.state === 'reported').map((c: any) => c.id)));
   const evidence = evidenceToReview(report);
+  const waitingItems = report.waiting.map((r: Row) => {
+    const provenance = waitingProvenance(e, report, r);
+    return { ...controlItem(e, report, r), provenance, via: provenance.label };
+  });
+  const waitingBySource = (Object.keys(WAITING_SOURCE_LABEL) as WaitingSource[])
+    .map((kind) => ({ kind, label: WAITING_SOURCE_SUMMARY[kind], count: waitingItems.filter((w: { provenance: WaitingProvenance }) => w.provenance.kind === kind).length }))
+    .filter((x) => x.count > 0);
   const counts: CountView[] = [
     { key: 'reported-gaps', label: 'Reported gaps', value: report.issues.length, definition: 'Controls the respondent reported as not in place, partly in place, or set out but not yet working. These are self-reported and have not been verified.', denominator: `of ${reported.length} controls with a reported answer` },
-    { key: 'waiting', label: 'Waiting for an owner', value: report.waiting.length, definition: 'Questions answered "I don\'t know", or opened by an owner\'s answer, that now sit with the accountable function.', denominator: null },
+    { key: 'waiting', label: 'Waiting for an owner', value: report.waiting.length, definition: 'Questions that now sit with an accountable function: answered “I don’t know”, sent with the rest of an area, not reached in the interview and sent as second-stage follow-up, opened by an owner’s answer, or applicable only if a fact still with an owner holds. Each item says which.', denominator: null },
     { key: 'open-scenarios', label: 'Material scenarios still open', value: report.unresolvedMaterial.length, definition: 'Tier 1 and tier 2 failure scenarios that apply or may apply, where the deciding fact or control is not yet established. Tiers are a proposed priority for asking, not a risk rating.', denominator: `of ${material.length} material scenarios that apply or may apply` },
     { key: 'evidence', label: 'Evidence still to review', value: evidence.length, definition: 'Controls reported in place or partly in place on an essential confirmation, or where the respondent said a record could be shown, that MK has not yet reviewed against evidence.', denominator: `${tier1Confirmations.size} essential confirmations have a reported answer` }
   ];
@@ -345,7 +406,8 @@ export function snapshotView(live: LiveSession) {
     status: statusView(report),
     counts,
     reportedGaps: report.issues.map((r: Row) => controlItem(e, report, r)),
-    waiting: report.waiting.map((r: Row) => ({ ...controlItem(e, report, r), via: r.ownerFollowup ? `Opened by the answer on ${r.ownerFollowup.from}` : r.bulk ? 'Assigned with its area' : 'Answered "I don\'t know"' })),
+    waiting: waitingItems,
+    waitingBySource,
     openScenarios: report.unresolvedMaterial.map((s: any) => scenarioItem(e, report, s)),
     evidenceToReview: evidence.map((r: Row) => controlItem(e, report, r)),
     reportedInPlace: inPlace.map((r: Row) => controlItem(e, report, r)),
