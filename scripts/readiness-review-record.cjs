@@ -75,20 +75,32 @@ async function answerOnPage(p, token, mode = 'plain') {
   return step;
 }
 
+/**
+ * Records one clip. A walkthrough error fails the clip: its video is kept for diagnosis, its record says it failed and
+ * at which step, and the script exits non-zero. Each clip writes <name>.json with its provenance and completed steps.
+ */
 async function record(browser, name, viewport, fn, extra = {}) {
+  const startedAt = new Date().toISOString();
+  const steps = [];
   const ctx = await browser.newContext({ viewport, recordVideo: { dir: OUT, size: viewport }, ...extra });
   const p = await ctx.newPage();
+  p.step = (label) => steps.push({ at: new Date().toISOString(), label });
+  let error = null;
   try {
     await fn(p);
   } catch (e) {
-    console.error(name, e);
+    error = String(e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e);
+    console.error('FAILED', name, error);
+    process.exitCode = 1;
   }
   const video = p.video();
   await p.close();
   await ctx.close();
   await video.saveAs(path.join(OUT, `${name}.webm`));
   await video.delete();
-  console.log('recorded', name);
+  const endedAt = new Date().toISOString();
+  fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify({ name, status: error ? 'failed' : 'complete', error, base: BASE, viewport, sourceCommit: process.env.MK_SOURCE_COMMIT || null, startedAt, endedAt, durationMs: Date.parse(endedAt) - Date.parse(startedAt), steps }, null, 1));
+  console.log(error ? 'recorded with failure' : 'recorded', name, `${steps.length} steps`);
 }
 
 (async () => {
@@ -97,7 +109,9 @@ async function record(browser, name, viewport, fn, extra = {}) {
   if (BASELINE) {
     await record(browser, 'before-site-and-assessment-1440', { width: 1440, height: 900 }, async (p) => {
       for (const url of ['/', '/fraud-readiness', '/score/start', '/score/visual-review/adaptive/mid', '/score/visual-review/calculated/mixed-controls']) {
-        await p.goto(BASELINE + url, { waitUntil: 'networkidle' });
+        const r = await p.goto(BASELINE + url, { waitUntil: 'networkidle' });
+        if (!r || r.status() !== 200) throw new Error(`${url} returned ${r && r.status()}`);
+        p.step(`${url} loaded`);
         await settleCookies(p);
         await pause(p, 1200);
         await slowScroll(p, 300, 220);
@@ -107,7 +121,9 @@ async function record(browser, name, viewport, fn, extra = {}) {
 
   await record(browser, 'after-site-1440', { width: 1440, height: 900 }, async (p) => {
     for (const url of ['/', '/fraud-readiness', '/review']) {
-      await p.goto(BASE + url, { waitUntil: 'networkidle' });
+      const r = await p.goto(BASE + url, { waitUntil: 'networkidle' });
+      if (!r || r.status() !== 200) throw new Error(`${url} returned ${r && r.status()}`);
+      p.step(`${url} loaded`);
       await settleCookies(p);
       await pause(p, 1200);
       await slowScroll(p, 300, 220);
@@ -122,7 +138,9 @@ async function record(browser, name, viewport, fn, extra = {}) {
     await pause(p, 2500);
     await slowScroll(p, 200, 300);
     await p.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    p.step('orientation shown');
     await p.click('button:has-text("Begin the interview")');
+    p.step('interview begun');
     let practice = 0;
     for (let i = 0; i < 40; i++) {
       const view = (await call('GET', `/review/api/s/${s.respondent}`)).view;
@@ -132,6 +150,8 @@ async function record(browser, name, viewport, fn, extra = {}) {
       const mode = isPractice && practice === 2 ? 'detail' : isPractice && practice === 5 ? 'unknown' : 'plain';
       await answerOnPage(p, s.respondent, mode);
       if (mode === 'unknown') {
+        await p.waitForSelector('[data-review-area-handoff]', { timeout: 10000 });
+        p.step('"I don\'t know" answered; area handoff offer shown');
         await pause(p, 3500);
         break;
       }
@@ -146,16 +166,19 @@ async function record(browser, name, viewport, fn, extra = {}) {
     if (change) {
       await p.click(`[data-question-stage] label:has(input[type=radio][value="${change}"])`);
       if (await p.waitForSelector('[data-review-detail]', { timeout: 500 }).catch(() => null)) await p.click('[data-review-detail] button:has-text("Save answer")');
-      await p.waitForSelector('[data-review-message]:has-text("Your change is saved")').catch(() => {});
+      await p.waitForSelector('[data-review-message]:has-text("Your change is saved")');
+      p.step('earlier answer changed through Back');
       await pause(p, 2500);
     }
     await p.click('[data-review-stop] button');
     await pause(p, 1500);
     await p.click('button:has-text("Stop the interview")');
     await p.waitForSelector('[data-review-complete]');
+    p.step('interview stopped');
     await pause(p, 2500);
     await p.click('a:has-text("Open the Snapshot")');
     await p.waitForSelector('[data-review-snapshot]');
+    p.step('Snapshot opened');
     await pause(p, 1500);
     await slowScroll(p, 240, 320);
   });
@@ -171,9 +194,12 @@ async function record(browser, name, viewport, fn, extra = {}) {
     const v = PROFILE[view.step.q] ?? view.step.choices[0].value;
     await p.click(`[data-question-stage] label:has(input[type=radio][value="${v}"])`);
     await p.waitForSelector('[data-review-message]');
+    p.step('save failure explained');
     await pause(p, 3500);
     await p.click('button:has-text("Try saving again")');
+    p.step('retry sent');
     for (let i = 0; i < 6; i++) await answerOnPage(p, s.respondent);
+    p.step('six further answers saved');
     await pause(p, 1500);
   }, { isMobile: true, hasTouch: true });
 
@@ -204,7 +230,8 @@ async function record(browser, name, viewport, fn, extra = {}) {
       await send.scrollIntoViewIfNeeded();
       await pause(p, 1000);
       await send.click();
-      await p.waitForSelector('[data-review-packages]', { timeout: 15000 }).catch(() => {});
+      await p.waitForSelector('[data-review-packages]', { timeout: 15000 });
+      p.step('sent to owners');
       await pause(p, 2000);
     }
     const linksView = (await call('GET', `/review/api/s/${s.links}`)).view;
@@ -213,6 +240,7 @@ async function record(browser, name, viewport, fn, extra = {}) {
       const v = (await call('GET', `/review/api/s/${f.token}`)).view;
       if (v.items.some((i) => i.id === 'PR-06')) ownerToken = f.token;
     }
+    if (!ownerToken) throw new Error('No owner package held PR-06');
     if (ownerToken) {
       await p.goto(`${BASE}/review/s/${ownerToken}`, { waitUntil: 'networkidle' });
       await pause(p, 2500);
@@ -234,6 +262,7 @@ async function record(browser, name, viewport, fn, extra = {}) {
         await pause(p, 1500);
       }
     }
+    p.step('owner answered three questions');
     await p.goto(`${BASE}/review/s/${s.reviewer}`, { waitUntil: 'networkidle' });
     await pause(p, 2000);
     await p.click('[role=tab]:has-text("Evidence to review")');
@@ -253,7 +282,8 @@ async function record(browser, name, viewport, fn, extra = {}) {
     await p.fill('[data-review-form] input[name=fu]', 'Obtain the branch sample');
     await pause(p, 800);
     await p.click('[data-review-form] button[type=submit]');
-    await p.waitForSelector('[data-review-form] [role=status]').catch(() => {});
+    await p.waitForSelector('[data-review-form] [role=status]');
+    p.step('reviewer evidence, conclusion and follow-up saved');
     await pause(p, 2500);
     await p.click('[role=tab]:has-text("Follow-ups")');
     await pause(p, 2000);

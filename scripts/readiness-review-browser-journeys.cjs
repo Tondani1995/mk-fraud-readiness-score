@@ -133,10 +133,17 @@ let layoutPhone = null;
 (async () => {
   const browser = await chromium.launch();
   const errors = [];
+  let expectingHttpErrors = false;
+  const expectedHttpErrors = [];
   const desk = await browser.newContext({ viewport: { width: 1280, height: 900 }, recordVideo: { dir: path.join(OUT, 'video'), size: { width: 1280, height: 900 } } });
   const page = await desk.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  // J-21 provokes a 503 and a 409 on purpose; the browser logs those responses, and only those are set aside.
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    if (expectingHttpErrors && /Failed to load resource: the server responded with a status of (503|409)/.test(m.text())) return expectedHttpErrors.push(m.text());
+    errors.push(m.text());
+  });
 
   // ------------------------------------------------------------------ J-01 main respondent journey to the cap
   let main;
@@ -234,6 +241,37 @@ let layoutPhone = null;
     rec('J-06', 'Owner continuation after the cap', false, String(e).slice(0, 300));
   }
 
+  // ------------------------------------------------------------------ J-20 why each question is waiting, on the page, against the log
+  try {
+    await page.goto(`${BASE}/review/s/${main.links.respondent}/snapshot`, { waitUntil: 'networkidle' });
+    const items = await page.$$eval('#waiting [data-control]', (els) => els.map((e) => ({ id: e.getAttribute('data-control'), kind: e.getAttribute('data-waiting-kind'), text: e.textContent })));
+    const sources = await page.$$eval('[data-waiting-source]', (els) => els.map((e) => [e.getAttribute('data-waiting-source'), Number(e.querySelector('span').textContent)]));
+    const exp = await api(`/review/api/s/${main.links.respondent}/export`);
+    const last = new Map();
+    for (const l of exp.report.log) if (l.q && !String(l.q).startsWith('__')) last.set(l.q, l);
+    const rows = new Map(exp.report.waiting.map((r) => [r.id, r]));
+    const isUnknown = (v) => v === 'unknown' || (Array.isArray(v) && v.length === 1 && v[0] === 'unknown');
+    const wrong = items.filter((it) => {
+      const l = last.get(it.id);
+      const row = rows.get(it.id);
+      if (!row) return true;
+      if (it.kind === 'respondent-unknown') return !(l && l.via !== 'owner' && isUnknown(l.v));
+      if (it.kind === 'owner-unknown') return !(l && l.via === 'owner' && isUnknown(l.v));
+      if (it.kind === 'not-reached') return Boolean(l && !isUnknown(l.v)) || row.assignment?.origin !== 'follow-up';
+      if (it.kind === 'owner-opened') return !row.ownerFollowup;
+      if (it.kind === 'scope-waiting') return row.state !== 'waiting-scope';
+      if (it.kind === 'area') return !row.bulk;
+      return true;
+    });
+    const falseUnknown = items.filter((it) => /I don.t know/.test(it.text) && !isUnknown(last.get(it.id)?.v));
+    const sum = sources.reduce((n, [, c]) => n + c, 0);
+    rec('J-20', 'Every waiting item on the Snapshot page states why it is waiting, and each reason matches the recorded answers and assignments',
+      items.length === exp.report.waiting.length && wrong.length === 0 && falseUnknown.length === 0 && sum === items.length && items.some((i) => i.kind === 'not-reached'),
+      `${items.length} items; by source ${JSON.stringify(Object.fromEntries(sources))}; mismatched ${wrong.map((w) => `${w.id}:${w.kind}`).slice(0, 4).join(',') || 'none'}; unknown claimed without an unknown answer ${falseUnknown.length}`);
+  } catch (e) {
+    rec('J-20', 'Waiting provenance', false, String(e).slice(0, 300));
+  }
+
   // ------------------------------------------------------------------ J-08 reviewer: follow-up, standalone follow-up, validation
   let reviewedId = null;
   try {
@@ -308,6 +346,96 @@ let layoutPhone = null;
     rec('J-11', 'Reviewer history keeps the earlier answer version, value and follow-up', /answer version 1/.test(history) && /Obtain the branch sample/.test(history), history.replace(/\s+/g, ' ').slice(0, 240));
   } catch (e) {
     rec('J-10', 'Correction after review', false, String(e).slice(0, 300));
+  }
+
+  // ------------------------------------------------------------------ J-21 reviewer drafts survive switching, failure and conflict
+  try {
+    await page.goto(`${BASE}/review/s/${main.links.reviewer}`, { waitUntil: 'networkidle' });
+    await page.click('[role=tab]:has-text("All reported answers")');
+    const all = await api(`/review/api/s/${main.links.reviewer}`);
+    const respondentAnswered = all.view.controls.filter((c) => c.answeredBy === 'Respondent' && !c.reviewRecord && !c.evidenceRecord && c.id !== reviewedId).map((c) => c.id);
+    const [a, b, c, d] = respondentAnswered;
+    const fu = '[data-review-form] input[name=fu]';
+    await page.click(`[data-review-pick="${a}"]`);
+    await page.fill(fu, 'Draft follow-up for A');
+    await page.click(`[data-review-pick="${b}"]`);
+    const bEmpty = (await page.inputValue(fu)) === '';
+    const aIndicator = await page.getAttribute(`[data-review-pick="${a}"] [data-review-draft-indicator]`, 'data-review-draft-indicator').catch(() => null);
+    await page.click('[role=tab]:has-text("Follow-ups")');
+    await page.click('[role=tab]:has-text("All reported answers")');
+    await page.click(`[data-review-pick="${a}"]`);
+    const afterSwitch = await page.inputValue(fu);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('[role=tab]:has-text("All reported answers")');
+    await page.click(`[data-review-pick="${a}"]`);
+    const afterReload = await page.inputValue(fu);
+    // Discarding asks first; "Keep it" keeps the draft, "Discard" removes it.
+    await page.click('[data-review-discard="current"]');
+    const asked = Boolean(await page.$('[data-review-discard-confirm="current"]'));
+    await page.click('[data-review-discard-confirm="current"] button:has-text("Keep it")');
+    const kept = await page.inputValue(fu);
+    await page.click('[data-review-discard="current"]');
+    await page.click('[data-review-discard-confirm="current"] button:has-text("Discard")');
+    const discarded = (await page.inputValue(fu)) === '' && !(await page.$(`[data-review-pick="${a}"] [data-review-draft-indicator]`));
+    // A failed save keeps the draft; the retry saves it once and clears it.
+    await page.click(`[data-review-pick="${b}"]`);
+    await page.fill(fu, 'Draft follow-up for B');
+    expectingHttpErrors = true;
+    let failNext = true;
+    await page.route(`**/review/api/s/${main.links.reviewer}`, (route) => {
+      if (route.request().method() === 'POST' && failNext) {
+        failNext = false;
+        return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'save_failed', message: 'Your answer could not be saved. Nothing was recorded; you can try again.' }) });
+      }
+      return route.continue();
+    });
+    await page.click('[data-review-form] button[type=submit]');
+    await page.waitForSelector('[data-review-form-error]');
+    const failMsg = await page.textContent('[data-review-form-error]');
+    const keptAfterFailure = await page.inputValue(fu);
+    await page.click('[data-review-form] button[type=submit]');
+    await page.waitForSelector('[data-review-form] [role=status]');
+    await page.unroute(`**/review/api/s/${main.links.reviewer}`);
+    const bSaved = (await api(`/review/api/s/${main.links.reviewer}`)).view.tasks.filter((t) => t.id === b && /Draft follow-up for B/.test(t.followUp ?? t.text ?? JSON.stringify(t))).length;
+    const clearedAfterSave = (await page.inputValue(fu)) === '';
+    // A draft written for one answer version is not attached to a changed answer after a conflict reload.
+    await page.click(`[data-review-pick="${c}"]`);
+    const versionBefore = Number(await page.textContent('[data-review-form] p').then((t) => (t.match(/version (\d+)/) || [])[1]));
+    await page.fill(fu, 'Draft follow-up for C, written against the first answer');
+    await page.click(`[data-review-pick="${d}"]`);
+    await page.fill(fu, 'Draft follow-up for D');
+    const other = await desk.newPage();
+    await other.goto(`${BASE}/review/s/${main.links.respondent}`, { waitUntil: 'networkidle' });
+    await other.click('[data-review-answers] summary');
+    await other.click(`[data-review-change="${c}"]`);
+    const vals = await other.$$eval('[data-question-stage] input[type=radio]', (els) => els.map((e) => ({ v: e.value, c: e.checked })));
+    const changeTo = vals.find((x) => !x.c && x.v !== 'unknown')?.v;
+    await other.click(`[data-question-stage] label:has(input[type=radio][value="${changeTo}"])`);
+    if (await other.waitForSelector('[data-review-detail]', { timeout: 700 }).catch(() => null)) await other.click('[data-review-detail] button:has-text("Save answer")');
+    await other.waitForSelector('[data-review-complete]', { timeout: 20000 });
+    await other.close();
+    // The reviewer's next save meets a conflict; the page reloads the session and keeps D's draft for a retry.
+    await page.click('[data-review-form] button[type=submit]');
+    await page.waitForSelector('[data-review-form-error]');
+    const conflictMsg = await page.textContent('[data-review-form-error]');
+    const dKept = await page.inputValue(fu);
+    await page.click('[data-review-form] button[type=submit]');
+    await page.waitForSelector('[data-review-form] [role=status]');
+    await page.click(`[data-review-pick="${c}"]`);
+    const earlierPanel = await page.getAttribute('[data-review-earlier-draft]', 'data-review-earlier-draft').catch(() => null);
+    const cFormEmpty = (await page.inputValue(fu)) === '';
+    const cIndicator = await page.getAttribute(`[data-review-pick="${c}"] [data-review-draft-indicator]`, 'data-review-draft-indicator').catch(() => null);
+    await page.screenshot({ path: path.join(OUT, 'shots', 'after-reviewer-earlier-draft-1280.png'), fullPage: true });
+    await page.click('[data-review-adopt-earlier]');
+    const adopted = await page.inputValue(fu);
+    expectingHttpErrors = false;
+    rec('J-21', 'Reviewer drafts are kept across control and queue switches and a reload, survive a failed save and a conflict, are never attached to a changed answer, and are discarded only after confirmation',
+      bEmpty && aIndicator === 'current' && afterSwitch === 'Draft follow-up for A' && afterReload === 'Draft follow-up for A' && asked && kept === 'Draft follow-up for A' && discarded &&
+      /Your draft is kept/.test(failMsg) && keptAfterFailure === 'Draft follow-up for B' && bSaved === 1 && clearedAfterSave &&
+      /changed in another window/.test(conflictMsg) && dKept === 'Draft follow-up for D' && Number(earlierPanel) === versionBefore && cFormEmpty && cIndicator === 'earlier' && /first answer/.test(adopted),
+      `switch kept ${afterSwitch === 'Draft follow-up for A'}, reload kept ${afterReload === 'Draft follow-up for A'}, discard asked ${asked} and removed ${discarded}; failed save "${failMsg.trim().slice(0, 60)}…" kept ${keptAfterFailure === 'Draft follow-up for B'}, retry saved ${bSaved}; conflict kept D ${dKept === 'Draft follow-up for D'}; C draft for version ${earlierPanel} shown apart from version ${versionBefore + 1}, form empty ${cFormEmpty}, adopted on request ${/first answer/.test(adopted)}`);
+  } catch (e) {
+    rec('J-21', 'Reviewer drafts', false, String(e).slice(0, 300));
   }
   await page.close();
   await desk.close();
@@ -406,10 +534,40 @@ let layoutPhone = null;
     rec('J-17', 'Error states', false, String(e).slice(0, 300));
   }
 
+  // ------------------------------------------------------------------ J-22 telemetry from review pages, captured by a local sink
+  try {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    const sink = [];
+    const external = [];
+    await p.route('**/score/api/internal/client-error**', async (route) => {
+      sink.push({ url: route.request().url(), body: route.request().postData() });
+      await route.fulfill({ status: 204, body: '' });
+    });
+    p.on('request', (r) => { if (!r.url().startsWith(BASE)) external.push(r.url()); });
+    await p.goto(`${BASE}/review/s/${main.links.respondent}`, { waitUntil: 'networkidle' });
+    await p.evaluate(() => { setTimeout(() => { throw new TypeError('Synthetic review-page error for the local telemetry sink'); }, 0); });
+    await p.waitForTimeout(800);
+    await p.goto(`${BASE}/review/s/${main.links.respondent}/snapshot`, { waitUntil: 'networkidle' });
+    await p.evaluate(() => { Promise.reject(new Error('Synthetic rejection')); });
+    await p.waitForTimeout(800);
+    const referrer = await p.getAttribute('meta[name=referrer]', 'content');
+    const exitIsDocumentLink = await p.$eval('header a[href="/fraud-readiness"]', (a) => a.tagName === 'A');
+    await ctx.close();
+    const tokens = Object.values(main.links);
+    const leaked = sink.filter((x) => tokens.some((t) => (x.body ?? '').includes(t) || x.url.includes(t)));
+    const routes = sink.map((x) => { try { return JSON.parse(x.body).route; } catch { return null; } });
+    rec('J-22', 'Client errors on review pages reach the monitoring sink with the route template only; no request leaves the site; review pages send no referrer',
+      sink.length >= 2 && leaked.length === 0 && routes.includes('/review/s/:token') && routes.includes('/review/s/:token/snapshot') && external.length === 0 && referrer === 'no-referrer' && exitIsDocumentLink,
+      `${sink.length} monitoring posts with routes ${JSON.stringify(routes)}; carrying a role link ${leaked.length}; requests to other hosts ${external.length}; referrer policy ${referrer}`);
+  } catch (e) {
+    rec('J-22', 'Telemetry sink', false, String(e).slice(0, 300));
+  }
+
   rec('J-19', 'The question uses the approved instrument layout: area rail, question card and context panel at 1280px; a full-width card on a 390px phone',
     !!layoutDesk && layoutDesk.rail?.shown && layoutDesk.context?.shown && layoutDesk.card.w >= 600 && layoutDesk.prompt.w >= 400 && !!layoutPhone && !layoutPhone.rail?.shown && layoutPhone.card.w >= layoutPhone.vw - 64 && layoutPhone.prompt.w >= 260,
     `1280: rail ${layoutDesk?.rail?.w}, card ${layoutDesk?.card?.w}, context ${layoutDesk?.context?.w}, prompt ${layoutDesk?.prompt?.w}; 390: rail shown ${layoutPhone?.rail?.shown}, card ${layoutPhone?.card?.w}, prompt ${layoutPhone?.prompt?.w}`);
-  rec('J-18', 'No script errors during the journeys', errors.length === 0, errors.slice(0, 3).join(' | '));
+  rec('J-18', 'No script errors during the journeys (the 503 and 409 that J-21 provokes on purpose are set aside)', errors.length === 0, `${errors.slice(0, 3).join(' | ')}${expectedHttpErrors.length ? `; set aside ${expectedHttpErrors.length} deliberate responses` : ''}`);
   await browser.close();
   const sum = results.reduce((a, r) => ((a[r.status] = (a[r.status] || 0) + 1), a), {});
   const median = (k) => { const xs = timings.filter((t) => t.kind === k).map((t) => t.ms).sort((a, b) => a - b); return xs.length ? { n: xs.length, median: xs[Math.floor(xs.length / 2)], p90: xs[Math.floor(xs.length * 0.9)], max: xs.at(-1) } : null; };

@@ -4,13 +4,13 @@
 // the same state, that every output is derived from the one engine report, that the respondent and owner channels stay
 // separate, and that the V13 recheck defects stay fixed when driven through the adapter rather than the engine alone.
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { READINESS_REVIEW_CONTRACT } from '../src/lib/readiness-review/contract.ts';
-import { replay, commit, initialActions, ensureOwnerServed, ActionRejected, ReplayError } from '../src/lib/readiness-review/session.ts';
-import { reportFor, snapshotView, managementView, reviewerView, respondentView, ownerView, exportView } from '../src/lib/readiness-review/view-model.ts';
+import { replay, commit, initialActions, ensureOwnerServed, newSessionRecord, currentRuleset, ActionRejected, ReplayError } from '../src/lib/readiness-review/session.ts';
+import { reportFor, snapshotView, managementView, reviewerView, respondentView, ownerView, exportView, waitingProvenance } from '../src/lib/readiness-review/view-model.ts';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LIB = path.join(ROOT, 'src/lib/readiness-review');
@@ -30,7 +30,7 @@ let clock = Date.parse('2026-11-02T08:00:00Z');
 const tick = () => new Date((clock += 1000)).toISOString();
 const PROFILE = { 'PR-01': '50to250', 'PR-12': '50to250m', 'PR-02': 'private', 'PR-13': 'retail', 'PR-04': 'board', 'PR-03': 'no', 'PR-05': 'no', 'PR-06': 'no', 'PR-07': 'no', 'PR-08': 'yes', 'PR-09': 'no', 'PR-10': 'no', 'PR-11': 'yes' };
 function newSession(label = 'Fictional Test Co') {
-  const record = { sessionId: randomUUID().replace(/-/g, ''), createdAt: tick(), contractVersion: READINESS_REVIEW_CONTRACT.version, engineSha256: READINESS_REVIEW_CONTRACT.engine.sha256, bankVersion: READINESS_REVIEW_CONTRACT.bank.version, organisationLabel: label, fictional: true, tokens: { respondent: 'r', management: 'm', reviewer: 'v', links: 'l', owners: {} }, actions: [] };
+  const record = newSessionRecord({ sessionId: randomUUID().replace(/-/g, ''), createdAt: tick(), organisationLabel: label, tokens: { respondent: 'r', management: 'm', reviewer: 'v', links: 'l', owners: {} } });
   const live = replay(record);
   const first = initialActions(live, tick(), () => randomUUID());
   live.record = { ...record, actions: first };
@@ -229,7 +229,7 @@ await T('C-13', 'An owner who does not know ends that question without it being 
 
 await T('C-14', 'A session recorded by another engine build is refused rather than reinterpreted', async () => {
   const live = newSession();
-  const forged = { ...live.record, engineSha256: '0'.repeat(64) };
+  const forged = { ...live.record, engineSha256: '0'.repeat(64), ruleset: { ...live.record.ruleset, engine: { ...live.record.ruleset.engine, sha256: '0'.repeat(64) } } };
   try { replay(forged); return [false, 'replayed']; } catch (error) { return [error instanceof ReplayError, error.message]; }
 });
 
@@ -289,6 +289,188 @@ await T('C-18', 'The public Snapshot preview example is what the engine produces
   const banned = [...keysDeep(fixture)].filter((k) => /score|maturity|band|confidence|predict/i.test(k));
   const sameEngine = fixture.engineSha256 === READINESS_REVIEW_CONTRACT.engine.sha256;
   return [run.status === 0 && banned.length === 0 && sameEngine, `${(run.stdout || run.stderr).trim().split('\n').pop()}; engine matches contract: ${sameEngine}; scored fields: ${banned.length}`];
+});
+
+// ------------------------------------------------------------------------------------------------ independent review corrections
+// F1. Every waiting item's stated reason must match the action log and the engine's recorded assignment.
+function provenanceAudit(live) {
+  const report = reportFor(live);
+  const snap = snapshotView(live);
+  const lastAnswer = new Map();
+  const ownerAnswered = new Set();
+  const areas = new Set();
+  for (const a of live.record.actions) {
+    if (['respondent.answer', 'respondent.correct'].includes(a.type)) lastAnswer.set(a.q, { by: 'respondent', value: a.value });
+    if (a.type === 'owner.answer') { lastAnswer.set(a.q, { by: 'owner', value: a.value }); ownerAnswered.add(a.q); }
+    if (a.type === 'respondent.assignArea') areas.add(a.domain);
+  }
+  const isUnknown = (v) => v === 'unknown' || (Array.isArray(v) && v.length === 1 && v[0] === 'unknown');
+  const wrong = [];
+  const byKind = {};
+  for (const w of snap.waiting) {
+    const k = w.provenance.kind;
+    byKind[k] = (byKind[k] ?? 0) + 1;
+    const ans = lastAnswer.get(w.id);
+    const row = report.waiting.find((r) => r.id === w.id);
+    const ok =
+      k === 'respondent-unknown' ? ans?.by === 'respondent' && isUnknown(ans.value) :
+      k === 'owner-unknown' ? ans?.by === 'owner' && isUnknown(ans.value) :
+      k === 'area' ? !ans && areas.has(live.engine.DOM[w.id]) :
+      k === 'not-reached' ? !ans && row.assignment?.origin === 'follow-up' :
+      k === 'owner-opened' ? !ans && ownerAnswered.has(row.ownerFollowup?.from) :
+      k === 'scope-waiting' ? row.state === 'waiting-scope' :
+      false;
+    if (!ok) wrong.push(`${w.id}:${k}`);
+  }
+  // Nothing may claim an unknown answer without one in the log.
+  const falseUnknown = snap.waiting.filter((w) => /I don.t know/.test(w.via) && !isUnknown(lastAnswer.get(w.id)?.value)).map((w) => w.id);
+  const sumOk = snap.waitingBySource.reduce((n, x) => n + x.count, 0) === report.waiting.length && snap.counts.find((c) => c.key === 'waiting').value === report.waiting.length;
+  return { wrong, falseUnknown, byKind, sumOk, total: report.waiting.length };
+}
+
+await T('C-19', 'Waiting items state why they are waiting, matched to the action log, before and after owner dispatch', async () => {
+  const live = newSession();
+  let areaSent = false;
+  runInterview(live, (step) => {
+    const q = step.q;
+    if (q.id.startsWith('D2-') && q.type === 'practice') return 'unknown';
+    if (q.id.startsWith('D4-') && q.type === 'practice' && !areaSent) {
+      areaSent = true;
+      return 'unknown';
+    }
+    return strong(step);
+  });
+  // The respondent sends the rest of one area after its first unknown, as the interview offers.
+  const d4 = live.engine.DOMS.find((d) => d.startsWith('D4'));
+  if (d4 && !live.engine.S.domainAssign[d4]) act(live, { type: 'respondent.assignArea', domain: d4, owner: 'Head of procurement' });
+  const before = provenanceAudit(live);
+  act(live, { type: 'organisation.sendToOwners' }, 'organisation');
+  const after = provenanceAudit(live);
+  // An owner answer that opens a confirmation, and an owner who does not know.
+  const fns = Object.keys(reportFor(live).ownerPackages);
+  let ownerUnknown = false;
+  for (const fn of fns) {
+    for (let i = 0; i < 3; i++) {
+      live.record = { ...live.record, actions: live.record.actions.concat(ensureOwnerServed(live, fn, tick(), () => randomUUID())) };
+      const st = live.ownerSteps[fn];
+      if (!st) break;
+      const value = !ownerUnknown && st.q.type === 'practice' && st.q.format !== 'multi' ? 'unknown' : strong(st);
+      if (value === 'unknown') ownerUnknown = true;
+      act(live, { type: 'owner.answer', fn, q: st.q.id, value }, 'owner');
+    }
+  }
+  const final = provenanceAudit(live);
+  const ok = before.wrong.length === 0 && after.wrong.length === 0 && final.wrong.length === 0 && before.falseUnknown.length + after.falseUnknown.length + final.falseUnknown.length === 0 &&
+    before.sumOk && after.sumOk && final.sumOk && !before.byKind['not-reached'] && after.byKind['not-reached'] > 0 && (before.byKind.area ?? 0) > 0 && (before.byKind['respondent-unknown'] ?? 0) > 0;
+  return [ok, `before dispatch ${JSON.stringify(before.byKind)}; after ${JSON.stringify(after.byKind)}; after owner answers ${JSON.stringify(final.byKind)}; mismatches ${[...before.wrong, ...after.wrong, ...final.wrong].slice(0, 5).join(',') || 'none'}; false unknown claims ${before.falseUnknown.length + after.falseUnknown.length + final.falseUnknown.length}`];
+});
+
+// F2. Concurrent creation, restart, and truthful failure in the fictional file store.
+await T('C-20', 'Store: concurrent starts all get resolvable links that survive a restart; damaged or failing storage stores nothing and says so', async () => {
+  const { FileReviewStore, StoreUnavailable, StoreConflict } = await import('../src/lib/readiness-review/store.ts');
+  const created = await Promise.allSettled(Array.from({ length: 24 }, (_, i) => service.createSession(`Concurrent fictional ${i}`)));
+  const fulfilled = created.filter((x) => x.status === 'fulfilled').map((x) => x.value);
+  const restarted = new FileReviewStore(dir);
+  let resolvable = 0;
+  for (const s of fulfilled) {
+    const roles = [s.tokens.respondent, s.tokens.management, s.tokens.reviewer, s.tokens.links, ...Object.values(s.tokens.owners)];
+    const found = await Promise.all(roles.map((t) => restarted.findToken(t)));
+    if (found.every((f) => f && f.sessionId === s.sessionId) && (await restarted.load(s.sessionId))) resolvable++;
+  }
+  const leftovers = readdirSync(dir).concat(readdirSync(path.join(dir, 'sessions'))).filter((f) => f.endsWith('.tmp') || f.endsWith('.lock'));
+  // Injected index failure: nothing is created, no session file is left behind, earlier links still resolve.
+  const faultDir = mkdtempSync(path.join(tmpdir(), 'mk-review-fault-'));
+  const good = new FileReviewStore(faultDir);
+  const rec = (id) => newSessionRecord({ sessionId: id, createdAt: tick(), organisationLabel: 'Fictional fault test', tokens: { respondent: 'R' + id, management: 'M' + id, reviewer: 'V' + id, links: 'L' + id, owners: { Finance: 'F' + id } } });
+  await good.create(rec('aaaaaaaaaaaaaaaaaaaa'));
+  let indexFailure = null;
+  try { await new FileReviewStore(faultDir, { failIndexWrite: true }).create(rec('bbbbbbbbbbbbbbbbbbbb')); } catch (e) { indexFailure = e; }
+  const orphan = existsSync(path.join(faultDir, 'sessions', 'bbbbbbbbbbbbbbbbbbbb.json'));
+  const earlierStill = (await good.findToken('Raaaaaaaaaaaaaaaaaaaa'))?.sessionId === 'aaaaaaaaaaaaaaaaaaaa';
+  // A damaged index is reported, never treated as empty or overwritten.
+  writeFileSync(path.join(faultDir, 'tokens.json'), '{"damaged":');
+  let damagedCreate = null, damagedLookup = null;
+  try { await good.create(rec('cccccccccccccccccccc')); } catch (e) { damagedCreate = e; }
+  try { await good.findToken('Raaaaaaaaaaaaaaaaaaaa'); } catch (e) { damagedLookup = e; }
+  const indexUntouched = readFileSync(path.join(faultDir, 'tokens.json'), 'utf8') === '{"damaged":';
+  // Per-session appends: two saves against the same sequence, one wins and one is a conflict.
+  writeFileSync(path.join(faultDir, 'tokens.json'), '{}');
+  const appendRace = await Promise.allSettled([good.append('aaaaaaaaaaaaaaaaaaaa', 0, [{ id: 'x1', seq: 0, at: tick(), actor: 'respondent', type: 'respondent.stop' }]), good.append('aaaaaaaaaaaaaaaaaaaa', 0, [{ id: 'x2', seq: 0, at: tick(), actor: 'respondent', type: 'respondent.stop' }])]);
+  const appendOk = appendRace.filter((x) => x.status === 'fulfilled').length === 1 && appendRace.some((x) => x.status === 'rejected' && x.reason instanceof StoreConflict) && (await good.load('aaaaaaaaaaaaaaaaaaaa')).actions.length === 1;
+  rmSync(faultDir, { recursive: true, force: true });
+  const ok = fulfilled.length === 24 && resolvable === 24 && leftovers.length === 0 && indexFailure instanceof StoreUnavailable && /Nothing was created/.test(indexFailure.message) && !orphan && earlierStill &&
+    damagedCreate instanceof StoreUnavailable && damagedLookup instanceof StoreUnavailable && indexUntouched && appendOk;
+  return [ok, `concurrent starts ${fulfilled.length}/24, resolvable after restart ${resolvable}; temp or lock files left ${leftovers.length}; injected index failure: ${indexFailure?.constructor.name} "${indexFailure?.message}", orphan file ${orphan}, earlier links resolve ${earlierStill}; damaged index: create ${damagedCreate?.constructor.name}, lookup ${damagedLookup?.constructor.name}, untouched ${indexUntouched}; append race one winner and one conflict ${appendOk}`];
+});
+
+// F4. A record replays only under the complete ruleset it was recorded with.
+await T('C-21', 'Records bind the complete ruleset: mismatched bank, coverage, contract or schema is refused; a 1.2.0 record reproduces its original report', async () => {
+  const live = newSession();
+  runInterview(live, strong, 30);
+  const base = live.record;
+  const r = currentRuleset();
+  const variants = {
+    bankHash: { ...base, ruleset: { ...r, bank: { ...r.bank, sha256: '1'.repeat(64) } } },
+    bankDigest: { ...base, ruleset: { ...r, bank: { ...r.bank, digest: '2'.repeat(64) } } },
+    bankVersion: { ...base, bankVersion: 'different-bank', ruleset: { ...r, bank: { ...r.bank, version: 'different-bank' } } },
+    coverage: { ...base, ruleset: { ...r, coverage: { ...r.coverage, sha256: '3'.repeat(64) } } },
+    contract: { ...base, contractVersion: '0.0.0', ruleset: { ...r, contract: { ...r.contract, version: '0.0.0' } } },
+    newerContract: { ...base, contractVersion: '9.0.0', ruleset: { ...r, contract: { ...r.contract, version: '9.0.0' } } },
+    schema: { ...base, ruleset: { ...r, contract: { ...r.contract, actionSchema: 'mk-readiness-review/actions/2' } } },
+    engine: { ...base, engineSha256: 'a'.repeat(64), ruleset: { ...r, engine: { ...r.engine, sha256: 'a'.repeat(64) } } },
+    summaryDisagrees: { ...base, bankVersion: 'different-bank' },
+    legacyUnknownContract: (() => { const x = { ...base, contractVersion: '0.0.0' }; delete x.ruleset; return x; })(),
+    legacyOtherBank: (() => { const x = { ...base, contractVersion: '1.2.0', bankVersion: 'different-bank' }; delete x.ruleset; return x; })()
+  };
+  const accepted = [];
+  for (const [name, rec] of Object.entries(variants)) {
+    try { replay(rec); accepted.push(name); } catch (e) { if (!(e instanceof ReplayError)) accepted.push(`${name}:${e.constructor.name}`); }
+  }
+  const fixture = JSON.parse(readFileSync(path.join(ROOT, 'scripts/fixtures/readiness-review-session-1.2.0.json'), 'utf8'));
+  const old = replay(fixture.record);
+  const json = JSON.stringify(reportFor(old));
+  const reproduced = createHash('sha256').update(json).digest('hex') === fixture.expectedReport.sha256;
+  const exp = exportView(old);
+  const exportHonest = exp.ruleset.reader === 'historical-1.0-1.2' && exp.ruleset.recorded.contract.version === '1.2.0' && exp.bank.digest === null && exp.contract.version === READINESS_REVIEW_CONTRACT.version;
+  const current = exportView(live);
+  const currentRecorded = current.ruleset.reader === 'recorded' && current.bank.digest === READINESS_REVIEW_CONTRACT.bank.digest && current.coverage.digest === READINESS_REVIEW_CONTRACT.coverage.digest;
+  const ok = accepted.length === 0 && reproduced && exportHonest && currentRecorded;
+  return [ok, `refused ${Object.keys(variants).length - accepted.length}/${Object.keys(variants).length} altered records${accepted.length ? `; accepted ${accepted.join(',')}` : ''}; 1.2.0 record report sha matches the 1.2.0 build: ${reproduced}; export names the historical reader: ${exportHonest}; new records export their recorded ruleset: ${currentRecorded}`];
+});
+
+// F3. Review role credentials never survive a telemetry boundary. Pure functions with a synthetic marker; no network.
+await T('C-22', 'Telemetry: a review credential is removed by the analytics sanitiser and its inline twin, monitoring intake, client capture and the Sentry scrubber', async () => {
+  const { sanitiseAnalyticsUrl, analyticsPrivacyBootstrapScript } = await import('../src/lib/website/analytics-url.ts');
+  const { sanitiseMonitoringRoute, sanitiseClientErrorPayload } = await import('../src/lib/monitoring/privacy.ts');
+  const { scrubSentryEvent } = await import('../src/lib/monitoring/sentry.ts');
+  const { telemetryPathname } = await import('../src/lib/monitoring/credential-paths.ts');
+  const marker = 'SyntheticAuditMarker0123456789';
+  const paths = [`/review/s/${marker}`, `/review/s/${marker}/snapshot`, `/review/api/s/${marker}`, `/review/api/s/${marker}/snapshot`, `/review/api/s/${marker}/export`];
+  const urls = paths.flatMap((p) => [`https://www.mkfraudinsights.co.za${p}`, `https://www.mkfraudinsights.co.za${p}?utm_source=x#top`]);
+  // The inline bootstrap's sanitiser, run as the browser would run it, with a stub gtag that records page context.
+  const calls = [];
+  const sandbox = { window: { location: { href: urls[1] }, history: {}, addEventListener() {} }, document: { referrer: urls[0] }, gtag: (...a) => calls.push(a), URL, URLSearchParams };
+  new Function('window', 'document', 'gtag', 'URL', 'URLSearchParams', analyticsPrivacyBootstrapScript())(sandbox.window, sandbox.document, sandbox.gtag, URL, URLSearchParams);
+  const twin = sandbox.window.mkSanitiseAnalyticsUrl;
+  const leaks = [];
+  for (const u of urls) {
+    const ts = sanitiseAnalyticsUrl(u);
+    const js = twin(u);
+    if (ts.includes(marker)) leaks.push(`analytics ${u}`);
+    if (js !== ts) leaks.push(`twin differs ${u}`);
+  }
+  if (JSON.stringify(calls).includes(marker)) leaks.push('bootstrap page context');
+  for (const p of paths) {
+    if (sanitiseMonitoringRoute(p).includes(marker)) leaks.push(`monitoring ${p}`);
+    if (JSON.stringify(sanitiseClientErrorPayload({ name: 'Error', route: p, errorCategory: 'uncaught_client_exception' })).includes(marker)) leaks.push(`intake ${p}`);
+    if (telemetryPathname(p).includes(marker)) leaks.push(`client ${p}`);
+    const event = scrubSentryEvent({ message: `Failed to fetch https://x.test${p}`, transaction: p, tags: { route: p }, exception: { values: [{ type: 'TypeError', value: `GET ${p} failed` }] }, contexts: { page: { url: `https://x.test${p}` } }, fingerprint: [p], request: { url: p }, breadcrumbs: [{ data: { url: p } }] });
+    if (JSON.stringify(event).includes(marker)) leaks.push(`sentry ${p}`);
+  }
+  // Suffixes and unrelated paths are preserved, so the route stays diagnosable and public pages are unchanged.
+  const kept = sanitiseMonitoringRoute(`/review/s/${marker}/snapshot`) === '/review/s/:token/snapshot' && sanitiseAnalyticsUrl('https://www.mkfraudinsights.co.za/fraud-readiness?utm_source=x') === 'https://www.mkfraudinsights.co.za/fraud-readiness?utm_source=x' &&
+    sanitiseAnalyticsUrl(`https://www.mkfraudinsights.co.za/review/s/${marker}/snapshot`) === 'https://www.mkfraudinsights.co.za/review/s/[redacted]/snapshot' && sanitiseMonitoringRoute('/review') === '/review';
+  return [leaks.length === 0 && kept, `${urls.length} URLs and ${paths.length} paths through 6 boundaries; marker survived ${leaks.length} times${leaks.length ? `: ${leaks.slice(0, 4).join('; ')}` : ''}; suffixes and public pages preserved: ${kept}`];
 });
 
 rmSync(dir, { recursive: true, force: true });
