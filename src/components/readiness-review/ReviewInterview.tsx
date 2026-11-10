@@ -362,7 +362,7 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
                 <p>{message}</p>
                 {retryable && (
                   <>
-                    <p>Your selection is kept in this window. Nothing has been recorded yet.</p>
+                    <p>Your selection is kept in this window, so you can save it again or choose a different answer.</p>
                     <div className="mt-2 flex flex-wrap gap-3">
                       <Button
                         type="button"
