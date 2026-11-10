@@ -1,0 +1,206 @@
+import { randomBytes, randomUUID } from 'node:crypto';
+import { READINESS_REVIEW_CONTRACT } from './contract';
+import { reviewHarnessStatus } from './harness';
+import {
+  ActionRejected,
+  commit,
+  ensureOwnerServed,
+  ensureRespondentServed,
+  initialActions,
+  ownerFunctionSlug,
+  replay,
+  type LiveSession,
+  type ReviewAction,
+  type ReviewActor,
+  type SessionRecord,
+  type StoredAction
+} from './session';
+import { FileReviewStore, StoreConflict, type ReviewStore, type TokenEntry } from './store';
+import { exportView, managementView, ownerView, respondentView, reviewerView, snapshotView } from './view-model';
+import { createReviewEngine } from './engine';
+
+/**
+ * Server-side orchestration for the review track: one store, one cached live session per session, and a queue per
+ * session so that writes are applied one at a time. Every read and write goes through the same view-model functions.
+ */
+
+export class HarnessUnavailable extends Error {}
+export class TokenNotFound extends Error {}
+export class SaveConflict extends Error {
+  current: unknown;
+  constructor(current: unknown) {
+    super('The session was updated elsewhere.');
+    this.current = current;
+  }
+}
+export class SaveFailed extends Error {}
+
+type Globals = { store?: ReviewStore; cache: Map<string, LiveSession>; queues: Map<string, Promise<unknown>> };
+const globals: Globals = ((globalThis as any).__mkReadinessReview ??= { cache: new Map(), queues: new Map() });
+
+function store(): ReviewStore {
+  if (!reviewHarnessStatus().enabled) throw new HarnessUnavailable('The review track is not available in this environment.');
+  return (globals.store ??= new FileReviewStore());
+}
+
+function token() {
+  return randomBytes(18).toString('base64url');
+}
+
+async function serial<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+  const previous = globals.queues.get(sessionId) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(work);
+  globals.queues.set(sessionId, run.catch(() => undefined));
+  return run;
+}
+
+async function liveFor(sessionId: string): Promise<LiveSession> {
+  const cached = globals.cache.get(sessionId);
+  if (cached) return cached;
+  const record = await store().load(sessionId);
+  if (!record) throw new TokenNotFound('Session not found');
+  const live = replay(record);
+  globals.cache.set(sessionId, live);
+  return live;
+}
+
+async function resolve(tokenValue: string): Promise<TokenEntry> {
+  const entry = await store().findToken(tokenValue);
+  if (!entry) throw new TokenNotFound('This link is not recognised.');
+  return entry;
+}
+
+async function persist(live: LiveSession, actions: StoredAction[], expectedLength: number) {
+  if (!actions.length) return;
+  try {
+    live.record = await store().append(live.record.sessionId, expectedLength, actions);
+  } catch (error) {
+    // The cached engine already includes these actions; drop it so the next request rebuilds from the stored log.
+    globals.cache.delete(live.record.sessionId);
+    if (error instanceof StoreConflict) throw error;
+    throw new SaveFailed(error instanceof Error ? error.message : 'Save failed');
+  }
+}
+
+export type CreatedSession = { sessionId: string; tokens: SessionRecord['tokens'] };
+
+export async function createSession(organisationLabel: string): Promise<CreatedSession> {
+  const label = organisationLabel.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Fictional organisation';
+  const sessionId = randomUUID().replace(/-/g, '');
+  const at = new Date().toISOString();
+  const functions = createReviewEngine({ now: at }).FUNCTIONS;
+  const record: SessionRecord = {
+    sessionId,
+    createdAt: at,
+    contractVersion: READINESS_REVIEW_CONTRACT.version,
+    engineSha256: READINESS_REVIEW_CONTRACT.engine.sha256,
+    bankVersion: READINESS_REVIEW_CONTRACT.bank.version,
+    organisationLabel: label,
+    fictional: true,
+    tokens: { respondent: token(), management: token(), reviewer: token(), links: token(), owners: Object.fromEntries(functions.map((fn) => [fn, token()])) },
+    actions: []
+  };
+  const live = replay(record);
+  const first = initialActions(live, at, () => randomUUID());
+  record.actions = first;
+  live.record = record;
+  await store().create(record);
+  globals.cache.set(sessionId, live);
+  return { sessionId, tokens: record.tokens };
+}
+
+export type RoleView =
+  | { role: 'respondent'; view: ReturnType<typeof respondentView> }
+  | { role: 'owner'; view: ReturnType<typeof ownerView> }
+  | { role: 'reviewer'; view: ReturnType<typeof reviewerView> }
+  | { role: 'management'; view: ReturnType<typeof managementView> }
+  | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[] } };
+
+export async function viewFor(tokenValue: string): Promise<RoleView> {
+  const entry = await resolve(tokenValue);
+  return serial(entry.sessionId, async () => {
+    const live = await liveFor(entry.sessionId);
+    const at = new Date().toISOString();
+    if (entry.role === 'respondent') {
+      const expected = live.record.actions.length;
+      await persist(live, ensureRespondentServed(live, at, () => randomUUID()), expected);
+      return { role: 'respondent', view: respondentView(live) };
+    }
+    if (entry.role === 'owner') {
+      const expected = live.record.actions.length;
+      await persist(live, ensureOwnerServed(live, entry.fn!, at, () => randomUUID()), expected);
+      return { role: 'owner', view: ownerView(live, entry.fn!) };
+    }
+    if (entry.role === 'reviewer') return { role: 'reviewer', view: reviewerView(live) };
+    if (entry.role === 'management') return { role: 'management', view: managementView(live) };
+    return { role: 'links', view: { organisationLabel: live.record.organisationLabel, sessionId: live.record.sessionId, tokens: live.record.tokens, functions: Object.entries(live.record.tokens.owners).map(([fn, t]) => ({ fn, slug: ownerFunctionSlug(fn), token: t })) } };
+  });
+}
+
+/** The organisation-facing Snapshot, available to the respondent and to management. */
+export async function snapshotFor(tokenValue: string) {
+  const entry = await resolve(tokenValue);
+  if (!['respondent', 'management'].includes(entry.role)) throw new TokenNotFound('This link does not open a Snapshot.');
+  return serial(entry.sessionId, async () => {
+    const live = await liveFor(entry.sessionId);
+    return { role: entry.role, view: snapshotView(live), tokens: entry.role === 'respondent' ? { management: live.record.tokens.management } : null };
+  });
+}
+
+export async function exportFor(tokenValue: string) {
+  const entry = await resolve(tokenValue);
+  if (entry.role === 'owner' || entry.role === 'links') throw new TokenNotFound('This link does not include the export.');
+  return serial(entry.sessionId, async () => exportView(await liveFor(entry.sessionId)));
+}
+
+const ALLOWED: Record<TokenEntry['role'], ReviewAction['type'][]> = {
+  respondent: ['respondent.answer', 'respondent.assignArea', 'respondent.correct', 'respondent.stop', 'respondent.resume', 'organisation.sendToOwners'],
+  management: ['organisation.sendToOwners'],
+  owner: ['owner.answer'],
+  reviewer: ['reviewer.evidence', 'reviewer.review'],
+  links: []
+};
+
+const ACTOR: Record<TokenEntry['role'], ReviewActor> = { respondent: 'respondent', management: 'organisation', owner: 'owner', reviewer: 'reviewer', links: 'system' };
+
+export type Submission = { actionId: string; expectedSeq: number; action: ReviewAction; simulateFailure?: boolean };
+
+export async function submit(tokenValue: string, submission: Submission) {
+  const entry = await resolve(tokenValue);
+  if (!ALLOWED[entry.role].includes(submission.action.type)) throw new ActionRejected('not_allowed', 'This link cannot make that change.');
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(submission.actionId)) throw new ActionRejected('invalid_input', 'Invalid action reference');
+  const action = entry.role === 'owner' && submission.action.type === 'owner.answer' ? { ...submission.action, fn: entry.fn! } : submission.action;
+  return serial(entry.sessionId, async () => {
+    let live = await liveFor(entry.sessionId);
+    // A retried submission that was already stored returns the current state instead of applying twice.
+    if (live.record.actions.some((a) => a.id === submission.actionId)) return { duplicate: true, seq: live.record.actions.length };
+    if (submission.expectedSeq !== live.record.actions.length) throw new SaveConflict({ seq: live.record.actions.length });
+    if (submission.simulateFailure) throw new SaveFailed('Simulated save failure (fictional harness fault injection).');
+    const expected = live.record.actions.length;
+    let first = true;
+    let actions: StoredAction[];
+    try {
+      actions = commit(live, action, ACTOR[entry.role], new Date().toISOString(), () => {
+        if (first) {
+          first = false;
+          return submission.actionId;
+        }
+        return randomUUID();
+      });
+    } catch (error) {
+      // Validation rejects before anything is applied, but the cached engine is rebuilt from the stored log in any case.
+      globals.cache.delete(entry.sessionId);
+      throw error;
+    }
+    try {
+      await persist(live, actions, expected);
+    } catch (error) {
+      if (error instanceof StoreConflict) {
+        live = await liveFor(entry.sessionId);
+        throw new SaveConflict({ seq: live.record.actions.length });
+      }
+      throw error;
+    }
+    return { duplicate: false, seq: live.record.actions.length };
+  });
+}
