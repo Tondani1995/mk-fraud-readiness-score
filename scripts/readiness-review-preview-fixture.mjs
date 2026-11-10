@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { READINESS_REVIEW_CONTRACT } from '../src/lib/readiness-review/contract.ts';
-import { replay, commit, initialActions } from '../src/lib/readiness-review/session.ts';
+import { replay, commit, initialActions, newSessionRecord } from '../src/lib/readiness-review/session.ts';
 import { snapshotView } from '../src/lib/readiness-review/view-model.ts';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,7 +39,7 @@ function mixed(step) {
   return q.options[0][0];
 }
 
-const record = { sessionId: 'previewexample0001', createdAt: tick(), contractVersion: READINESS_REVIEW_CONTRACT.version, engineSha256: READINESS_REVIEW_CONTRACT.engine.sha256, bankVersion: READINESS_REVIEW_CONTRACT.bank.version, organisationLabel: 'Fictional Retail Group', fictional: true, tokens: { respondent: 'x', management: 'x', reviewer: 'x', links: 'x', owners: {} }, actions: [] };
+const record = newSessionRecord({ sessionId: 'previewexample0001', createdAt: tick(), organisationLabel: 'Fictional Retail Group', tokens: { respondent: 'x', management: 'x', reviewer: 'x', links: 'x', owners: {} } });
 const live = replay(record);
 live.record = { ...record, actions: initialActions(live, tick(), id) };
 let guard = 0;

@@ -7,6 +7,7 @@ import {
   ensureOwnerServed,
   ensureRespondentServed,
   initialActions,
+  newSessionRecord,
   ownerFunctionSlug,
   replay,
   type LiveSession,
@@ -89,21 +90,17 @@ export async function createSession(organisationLabel: string): Promise<CreatedS
   const sessionId = randomUUID().replace(/-/g, '');
   const at = new Date().toISOString();
   const functions = createReviewEngine({ now: at }).FUNCTIONS;
-  const record: SessionRecord = {
+  const record: SessionRecord = newSessionRecord({
     sessionId,
     createdAt: at,
-    contractVersion: READINESS_REVIEW_CONTRACT.version,
-    engineSha256: READINESS_REVIEW_CONTRACT.engine.sha256,
-    bankVersion: READINESS_REVIEW_CONTRACT.bank.version,
     organisationLabel: label,
-    fictional: true,
-    tokens: { respondent: token(), management: token(), reviewer: token(), links: token(), owners: Object.fromEntries(functions.map((fn) => [fn, token()])) },
-    actions: []
-  };
+    tokens: { respondent: token(), management: token(), reviewer: token(), links: token(), owners: Object.fromEntries(functions.map((fn) => [fn, token()])) }
+  });
   const live = replay(record);
   const first = initialActions(live, at, () => randomUUID());
   record.actions = first;
   live.record = record;
+  // Returns only once the record and every role link are stored; a failure stores nothing and is reported as such.
   await store().create(record);
   globals.cache.set(sessionId, live);
   return { sessionId, tokens: record.tokens };

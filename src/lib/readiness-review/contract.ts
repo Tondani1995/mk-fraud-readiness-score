@@ -14,7 +14,7 @@
 export const READINESS_REVIEW_CONTRACT = {
   name: 'mk-readiness-review',
   /** Data contract for actions, view models and the export. */
-  version: '1.2.0',
+  version: '1.3.0',
   actionSchema: 'mk-readiness-review/actions/1',
   engine: {
     build: '1.5',
@@ -26,11 +26,32 @@ export const READINESS_REVIEW_CONTRACT = {
   bank: {
     version: '1.3-review',
     file: 'data/bank-v1.3.json',
-    sha256: '95abc50e743f428e5829c042abc1823c517075b77204ffdf0e538aa5fe5f4419'
+    sha256: '95abc50e743f428e5829c042abc1823c517075b77204ffdf0e538aa5fe5f4419',
+    /** SHA-256 of the bank as loaded (JSON.stringify of the imported object); checked when the service starts. */
+    digest: '80eac8fc77fbc1e90e563c374e2d458918f55f24037eaaa588b4cbb8b8ef21c0'
   },
   coverage: {
+    version: '1.3-review',
     file: 'data/coverage-map-v1.3.json',
-    sha256: '9081b069f1f15dfea35afe001da69d8636345492810b36b56b30624a302c77a7'
+    sha256: '9081b069f1f15dfea35afe001da69d8636345492810b36b56b30624a302c77a7',
+    digest: 'c47f7b42cefa157c851f720273f156d419bf78da6f04a70b8542956c5e2d29e8'
+  },
+  /**
+   * Contract versions whose records carry their own ruleset identity and that this build can replay unchanged. A record
+   * from any other contract version is refused rather than reinterpreted.
+   */
+  recordContracts: ['1.3.0'],
+  /**
+   * Records written under contracts 1.0.0 to 1.2.0 did not store bank or coverage hashes. Each of those versions was only
+   * ever released with the ruleset below, so such a record is read as bound to it, and only while this build runs exactly
+   * that ruleset. The export says which reader was used.
+   */
+  historicalRecordContracts: {
+    versions: ['1.0.0', '1.1.0', '1.2.0'],
+    engineSha256: '7f8ca08f2626108919ef97d664d6b752fe91ae686fdd44639d1e79be5d9395ba',
+    bankVersion: '1.3-review',
+    bankSha256: '95abc50e743f428e5829c042abc1823c517075b77204ffdf0e538aa5fe5f4419',
+    coverageSha256: '9081b069f1f15dfea35afe001da69d8636345492810b36b56b30624a302c77a7'
   },
   /** Maximum respondent screens, including the profile. Owner answers and corrections do not count. */
   respondentScreenLimit: 95,

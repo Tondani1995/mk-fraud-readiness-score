@@ -7,7 +7,7 @@
  * recorded as explicit "serve" actions. That makes a rebuilt session identical to the live one, including its
  * timestamps, and lets every respondent or owner answer be checked against the exact question that was shown.
  */
-import { createReviewEngine, type EngineInstance, type EngineStep, type ReviewClock } from './engine';
+import { createReviewEngine, loadedRulesetProblem, type EngineInstance, type EngineStep, type ReviewClock } from './engine';
 import { READINESS_REVIEW_CONTRACT } from './contract';
 
 export const REVIEW_ACTORS = ['respondent', 'owner', 'organisation', 'reviewer', 'system'] as const;
@@ -44,12 +44,22 @@ export type SessionTokens = {
   owners: Record<string, string>;
 };
 
+/** The complete ruleset a session was recorded under (contract 1.3.0). Stored once, never changed. */
+export type RecordedRuleset = {
+  contract: { name: string; version: string; actionSchema: string };
+  engine: { build: string; sha256: string };
+  bank: { version: string; sha256: string; digest: string | null };
+  coverage: { version: string | null; sha256: string; digest: string | null };
+};
+
 export type SessionRecord = {
   sessionId: string;
   createdAt: string;
   contractVersion: string;
   engineSha256: string;
   bankVersion: string;
+  /** Absent only on records written under contracts 1.0.0 to 1.2.0; see validateRecordRuleset. */
+  ruleset?: RecordedRuleset;
   organisationLabel: string;
   /** Every session in this candidate is fictional; the harness refuses to store anything else. */
   fictional: true;
@@ -59,6 +69,9 @@ export type SessionRecord = {
 
 export type LiveSession = {
   record: SessionRecord;
+  /** The validated ruleset this session is bound to, and how it was established. */
+  ruleset: RecordedRuleset;
+  rulesetReader: 'recorded' | 'historical-1.0-1.2';
   engine: EngineInstance;
   clock: ReviewClock;
   /** undefined: not yet served; null: nothing left for the respondent; otherwise the question on screen. */
@@ -69,6 +82,73 @@ export type LiveSession = {
 };
 
 export class ReplayError extends Error {}
+/** The data this build loaded is not the data its contract declares; nothing should be replayed or written. */
+export class RulesetIntegrityError extends Error {}
+
+export function currentRuleset(): RecordedRuleset {
+  const c = READINESS_REVIEW_CONTRACT;
+  return {
+    contract: { name: c.name, version: c.version, actionSchema: c.actionSchema },
+    engine: { build: c.engine.build, sha256: c.engine.sha256 },
+    bank: { version: c.bank.version, sha256: c.bank.sha256, digest: c.bank.digest },
+    coverage: { version: c.coverage.version, sha256: c.coverage.sha256, digest: c.coverage.digest }
+  };
+}
+
+/** A new, empty session record bound to this build's complete ruleset. */
+export function newSessionRecord(input: { sessionId: string; createdAt: string; organisationLabel: string; tokens: SessionTokens }): SessionRecord {
+  const ruleset = currentRuleset();
+  return {
+    sessionId: input.sessionId,
+    createdAt: input.createdAt,
+    contractVersion: ruleset.contract.version,
+    engineSha256: ruleset.engine.sha256,
+    bankVersion: ruleset.bank.version,
+    ruleset,
+    organisationLabel: input.organisationLabel,
+    fictional: true,
+    tokens: input.tokens,
+    actions: []
+  };
+}
+
+/**
+ * Establishes the exact ruleset a stored record was made under and refuses it unless this build runs that ruleset.
+ * Nothing is migrated or relabelled: a record either replays under its own ruleset or is refused with the reason.
+ */
+export function validateRecordRuleset(record: SessionRecord): { ruleset: RecordedRuleset; reader: LiveSession['rulesetReader'] } {
+  const problem = loadedRulesetProblem();
+  if (problem) throw new RulesetIntegrityError(problem);
+  const now = currentRuleset();
+  const c = READINESS_REVIEW_CONTRACT;
+  const refuse = (why: string) => {
+    throw new ReplayError(`Session ${record.sessionId} cannot be replayed by this build: ${why}`);
+  };
+  if (record.ruleset) {
+    const r = record.ruleset;
+    if (r.contract?.name !== c.name) refuse(`it belongs to contract "${r.contract?.name}".`);
+    if (!(c.recordContracts as readonly string[]).includes(r.contract.version)) refuse(`it was recorded under contract ${r.contract.version}, which this build does not read.`);
+    if (r.contract.actionSchema !== c.actionSchema) refuse(`its actions use schema ${r.contract.actionSchema}.`);
+    if (r.engine?.sha256 !== now.engine.sha256) refuse(`it was recorded with engine ${String(r.engine?.sha256).slice(0, 12)}; this build runs ${now.engine.sha256.slice(0, 12)}.`);
+    if (r.bank?.sha256 !== now.bank.sha256 || r.bank?.digest !== now.bank.digest || r.bank?.version !== now.bank.version) refuse(`it was recorded with question bank ${r.bank?.version} (${String(r.bank?.sha256).slice(0, 12)}); this build runs ${now.bank.version} (${now.bank.sha256.slice(0, 12)}).`);
+    if (r.coverage?.sha256 !== now.coverage.sha256 || r.coverage?.digest !== now.coverage.digest) refuse(`it was recorded with coverage map ${String(r.coverage?.sha256).slice(0, 12)}; this build runs ${now.coverage.sha256.slice(0, 12)}.`);
+    if (record.contractVersion !== r.contract.version || record.engineSha256 !== r.engine.sha256 || record.bankVersion !== r.bank.version) refuse('its summary fields disagree with its recorded ruleset.');
+    return { ruleset: r, reader: 'recorded' };
+  }
+  const h = c.historicalRecordContracts;
+  if (!(h.versions as readonly string[]).includes(record.contractVersion)) refuse(`it was recorded under contract ${record.contractVersion} without a ruleset identity.`);
+  if (record.engineSha256 !== h.engineSha256 || record.bankVersion !== h.bankVersion) refuse(`it names engine ${String(record.engineSha256).slice(0, 12)} and bank ${record.bankVersion}, which contract ${record.contractVersion} was never released with.`);
+  if (now.engine.sha256 !== h.engineSha256 || now.bank.sha256 !== h.bankSha256 || now.coverage.sha256 !== h.coverageSha256) refuse(`contract ${record.contractVersion} records are bound to the 1.3-review bank and coverage map, which this build does not run.`);
+  return {
+    ruleset: {
+      contract: { name: c.name, version: record.contractVersion, actionSchema: c.actionSchema },
+      engine: { build: c.engine.build, sha256: h.engineSha256 },
+      bank: { version: h.bankVersion, sha256: h.bankSha256, digest: null },
+      coverage: { version: null, sha256: h.coverageSha256, digest: null }
+    },
+    reader: 'historical-1.0-1.2'
+  };
+}
 export type RejectionCode = 'stale_question' | 'invalid_value' | 'not_allowed' | 'unknown_question' | 'invalid_input';
 export class ActionRejected extends Error {
   code: RejectionCode;
@@ -150,12 +230,10 @@ function applyStored(live: LiveSession, a: StoredAction) {
 }
 
 export function replay(record: SessionRecord): LiveSession {
-  if (record.engineSha256 !== READINESS_REVIEW_CONTRACT.engine.sha256) {
-    // A session recorded by another engine build is never silently reinterpreted.
-    throw new ReplayError(`Session ${record.sessionId} was recorded with engine ${record.engineSha256.slice(0, 12)}; this build runs ${READINESS_REVIEW_CONTRACT.engine.sha256.slice(0, 12)}.`);
-  }
+  // A session is replayed only under the exact ruleset it was recorded with; it is never silently reinterpreted.
+  const { ruleset, reader } = validateRecordRuleset(record);
   const clock: ReviewClock = { now: record.createdAt };
-  const live: LiveSession = { record, engine: createReviewEngine(clock), clock, respondentStep: undefined, ownerSteps: {}, asOf: record.createdAt };
+  const live: LiveSession = { record, ruleset, rulesetReader: reader, engine: createReviewEngine(clock), clock, respondentStep: undefined, ownerSteps: {}, asOf: record.createdAt };
   for (const a of record.actions) applyStored(live, a);
   live.asOf = record.actions.at(-1)?.at ?? record.createdAt;
   return live;

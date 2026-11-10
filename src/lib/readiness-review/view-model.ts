@@ -502,10 +502,12 @@ export function managementView(live: LiveSession) {
 export function exportView(live: LiveSession) {
   const report = reportFor(live);
   return {
+    // The export format is this build's contract; the ruleset is the one the session was recorded under and validated against.
     contract: { name: READINESS_REVIEW_CONTRACT.name, version: READINESS_REVIEW_CONTRACT.version, actionSchema: READINESS_REVIEW_CONTRACT.actionSchema },
-    engine: READINESS_REVIEW_CONTRACT.engine,
-    bank: READINESS_REVIEW_CONTRACT.bank,
-    coverage: READINESS_REVIEW_CONTRACT.coverage,
+    ruleset: { recorded: live.ruleset, reader: live.rulesetReader },
+    engine: live.ruleset.engine,
+    bank: live.ruleset.bank,
+    coverage: live.ruleset.coverage,
     approval: READINESS_REVIEW_CONTRACT.approval,
     session: { sessionId: live.record.sessionId, organisationLabel: live.record.organisationLabel, fictional: live.record.fictional, createdAt: live.record.createdAt, asOf: live.asOf, actions: live.record.actions.length },
     report,

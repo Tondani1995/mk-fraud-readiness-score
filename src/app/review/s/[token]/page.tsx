@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { reviewHarnessFaultsEnabled, reviewHarnessStatus } from '@/lib/readiness-review/harness';
 import { HarnessUnavailable, TokenNotFound, viewFor } from '@/lib/readiness-review/service';
-import { ReplayError } from '@/lib/readiness-review/session';
+import { reviewProblem } from '@/components/readiness-review/ReviewProblem';
 import { ReviewInterview } from '@/components/readiness-review/ReviewInterview';
 import { OwnerPackage } from '@/components/readiness-review/OwnerPackage';
 import { ReviewerWorkspace } from '@/components/readiness-review/ReviewerWorkspace';
@@ -22,13 +22,8 @@ export default async function ReviewSessionPage({ params, searchParams }: Props)
     result = await viewFor(token);
   } catch (error) {
     if (error instanceof TokenNotFound || error instanceof HarnessUnavailable) notFound();
-    if (error instanceof ReplayError)
-      return (
-        <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-          <h1 className="text-2xl font-semibold text-mk-ink">This session was recorded with a different version of the method</h1>
-          <p className="mt-4 text-base leading-7 text-mk-ink">It is not reinterpreted with the current rules. {error.message}</p>
-        </article>
-      );
+    const problem = reviewProblem(error);
+    if (problem) return problem;
     throw error;
   }
   switch (result.role) {
