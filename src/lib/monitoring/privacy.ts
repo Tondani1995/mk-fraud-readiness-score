@@ -1,3 +1,5 @@
+import { redactCredentialPaths } from './credential-paths';
+
 const SENSITIVE_KEY_RE = /(?:name|email|phone|mobile|organisation|organization|company|answer|response|token|cookie|authorization|password|secret|invoice|customer|respondent|address|notes|free.?text|content|prompt|input|output)/i;
 const SAFE_ROUTE_RE = /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{0,240}$/;
 const SAFE_ERROR_NAME_RE = /^(?:Error|TypeError|ReferenceError|RangeError|SyntaxError|NetworkError|AbortError)$/;
@@ -5,6 +7,8 @@ const SAFE_ERROR_NAME_RE = /^(?:Error|TypeError|ReferenceError|RangeError|Syntax
 export function sanitiseMonitoringRoute(value: unknown) {
   if (typeof value !== 'string') return '/unknown';
   let route = value.split('?')[0].split('#')[0];
+  // Review role links carry their credential in the path; it never reaches monitoring.
+  route = redactCredentialPaths(route, ':token');
   // Use URL-safe route placeholders so sanitisation never falls back to /unknown for a valid
   // dynamic application path.
   route = route.replace(/MKFRS-[A-Z0-9-]+/gi, ':assessment');

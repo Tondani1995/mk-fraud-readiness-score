@@ -1,11 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
 export function ReviewStartForm() {
-  const router = useRouter();
   const [label, setLabel] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,7 +28,8 @@ export function ReviewStartForm() {
           });
           const json = await res.json();
           if (!res.ok) throw new Error(json.message ?? 'The session could not be created.');
-          router.push(`/review/s/${json.links}`);
+          // A full page load: the role link never enters a document that was running analytics.
+          window.location.assign(`/review/s/${json.links}`);
         } catch (e) {
           setBusy(false);
           setError(e instanceof Error ? e.message : 'The session could not be created.');

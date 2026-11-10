@@ -18,6 +18,8 @@
  * off); no tag parameter reaches it.
  */
 
+import { credentialPathRedactionScript, redactCredentialPaths } from '../monitoring/credential-paths';
+
 /** Query/fragment parameter names that carry a credential or a private record identifier. */
 export const SENSITIVE_ANALYTICS_PARAMETERS = [
   // Private Snapshot / assessment / result / Advisory / order / paid-order-status links.
@@ -40,7 +42,10 @@ export const SENSITIVE_ANALYTICS_PARAMETERS = [
 
 const SENSITIVE = new Set<string>(SENSITIVE_ANALYTICS_PARAMETERS);
 
-/** Path segments that are themselves credentials (the report access route is /score/report/access/<token>). */
+/**
+ * Path segments that are themselves credentials (the report access route is /score/report/access/<token>). Review role
+ * links are handled by credential-paths.ts, which keeps the path suffix.
+ */
 const SENSITIVE_PATH_PREFIXES = ['/score/report/access/'] as const;
 
 export const REDACTED_PATH_SEGMENT = '[redacted]';
@@ -75,6 +80,8 @@ export function sanitiseAnalyticsUrl(url: string | null | undefined, base?: stri
       parsed.pathname = `${prefix}${REDACTED_PATH_SEGMENT}`;
     }
   }
+  // Review role links (/review/s/<token>, /review/api/s/<token>) keep their suffix but lose the credential segment.
+  parsed.pathname = redactCredentialPaths(parsed.pathname, REDACTED_PATH_SEGMENT);
 
   if (parsed.search) {
     const kept = stripParams(parsed.search);
@@ -105,7 +112,7 @@ export function sanitiseAnalyticsUrl(url: string | null | undefined, base?: stri
 export function analyticsPrivacyBootstrapScript() {
   return `
                   var mkSensitiveAnalyticsParameters = ${JSON.stringify(SENSITIVE_ANALYTICS_PARAMETERS)};
-                  var mkSensitiveAnalyticsPathPrefixes = ${JSON.stringify(SENSITIVE_PATH_PREFIXES)};
+                  var mkSensitiveAnalyticsPathPrefixes = ${JSON.stringify(SENSITIVE_PATH_PREFIXES)};${credentialPathRedactionScript('mkRedactCredentialPaths')}
                   function mkStripAnalyticsParams(search) {
                     var params = new URLSearchParams(search);
                     Array.from(params.keys()).forEach(function (name) {
@@ -122,6 +129,7 @@ export function analyticsPrivacyBootstrapScript() {
                         parsed.pathname = prefix + ${JSON.stringify(REDACTED_PATH_SEGMENT)};
                       }
                     });
+                    parsed.pathname = mkRedactCredentialPaths(parsed.pathname, ${JSON.stringify(REDACTED_PATH_SEGMENT)});
                     if (parsed.search) {
                       var keptSearch = mkStripAnalyticsParams(parsed.search);
                       parsed.search = keptSearch ? '?' + keptSearch : '';

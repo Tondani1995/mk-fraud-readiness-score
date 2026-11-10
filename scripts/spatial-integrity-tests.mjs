@@ -3,10 +3,24 @@ import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {buildSync} from 'esbuild';
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 const baseline='897ead6d';
 const files=execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/lib','src/app/score/api','public/fonts','src/app/layout.tsx','package.json','package-lock.json'],{encoding:'utf8'}).trim().split('\n');
-for(const file of files)assert.ok(fs.readFileSync(file).equals(execFileSync('git',['show',`${baseline}:${file}`],{maxBuffer:20*1024*1024})),`Protected behaviour changed: ${file}`);
+// Reviewed security changes after the parked baseline: the independent review's F3 correction removes review role
+// credentials at the monitoring and analytics boundaries. Each listed file may differ from the baseline only by being
+// exactly the reviewed version, pinned by SHA-256; every other protected file must still match the baseline byte for byte.
+const REVIEWED_PROTECTED_CHANGES={
+ 'src/lib/monitoring/privacy.ts':'c4403750a6d3316e77a5358caa7463d2f98a5d5fdd39f5b1ec16f39d59ba226b',
+ 'src/lib/monitoring/sentry.ts':'6eeaeb5c5aed2dec727082a236332889c861d0a3217838d52f7d7536cbf3d3de',
+ 'src/lib/website/analytics-url.ts':'2caa7e676664024d1a66bbb4600043c5fecf1670872ad28f0ebc2f8122444e33'
+};
+const sha256=(buffer)=>createHash('sha256').update(buffer).digest('hex');
+for(const file of files){
+ const current=fs.readFileSync(file);
+ const original=execFileSync('git',['show',`${baseline}:${file}`],{maxBuffer:20*1024*1024});
+ assert.ok(current.equals(original)||REVIEWED_PROTECTED_CHANGES[file]===sha256(current),`Protected behaviour changed: ${file}`);
+}
 const instrumentPath='src/components/adaptive/AdaptiveAssessmentExperience.tsx';
 const oldInstrument=execFileSync('git',['show',`${baseline}:${instrumentPath}`],{encoding:'utf8'});
 const instrument=fs.readFileSync(instrumentPath,'utf8');
@@ -58,4 +72,4 @@ for(const score of [0,49.75,100,null]){
  if(score===null){assert.match(markup,/Not scored/);assert.doesNotMatch(markup,/data-readiness-marker/);}
  else {assert.ok(markup.includes(`left:${score}%`));assert.ok(markup.includes(`width:${score}%`));}
 }
-console.log(JSON.stringify({ok:true,protectedFilesUnchanged:files.length,calculatedCases:cases.length,railBoundaries:[0,49.75,100,null],scrollClearanceException:'Presentation-only scroll-layout effect and preferred-clearance offset; every other handler/effect byte is protected.',scope:'Spatial presentation preserves five calculated cases, exact values/null/gaps/order/withholding. All library/API/font/package files and assessment state/persistence/transition handlers are unchanged from the reviewed security checkpoint.'},null,2));
+console.log(JSON.stringify({ok:true,protectedFilesUnchanged:files.filter((f)=>!REVIEWED_PROTECTED_CHANGES[f]||sha256(fs.readFileSync(f))!==REVIEWED_PROTECTED_CHANGES[f]).length,reviewedProtectedChanges:Object.keys(REVIEWED_PROTECTED_CHANGES),calculatedCases:cases.length,railBoundaries:[0,49.75,100,null],scrollClearanceException:'Presentation-only scroll-layout effect and preferred-clearance offset; every other handler/effect byte is protected.',scope:'Spatial presentation preserves five calculated cases, exact values/null/gaps/order/withholding. All library/API/font/package files and assessment state/persistence/transition handlers are unchanged from the reviewed security checkpoint, except the three telemetry privacy files pinned by hash to the independent review F3 correction.'},null,2));
