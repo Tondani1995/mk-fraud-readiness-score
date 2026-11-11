@@ -10,8 +10,14 @@
 // missing secret key on its own blocks the tests that need it (exit 3) and is never reported as a pass. There is no
 // default project and no fallback: nothing here reads a saved file of settings or chooses a project on its own.
 import { randomBytes } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DatabaseConfigRefused, reviewDatabaseConfig } from '../../src/lib/readiness-review/database-config.ts';
+
+const REPOSITORY = realpathSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'));
+/** A legacy service_role key is accepted only if it expires within this time; otherwise use a dedicated secret key. */
+const MAX_LEGACY_KEY_LIFETIME_SECONDS = 24 * 60 * 60;
 
 export const AUTHORISED_HOSTED_TEST_PROJECT_REF = 'zuqegvsfhzgcydyivnqv';
 export const STORE_FUNCTIONS = [
@@ -40,20 +46,19 @@ const LOCAL_SETTINGS = {
 export function hostedConfigurationInstructions() {
   const ref = AUTHORISED_HOSTED_TEST_PROJECT_REF;
   return [
-    `The hosted suite needs the server-side secret key of the authorised temporary project ${ref} (mk-review-store-temp). It was not provided.`,
-    `1. In the Supabase dashboard, open mk-review-store-temp (${ref}), Project Settings, API Keys. Create a secret key for these tests (or use the legacy service_role key), and copy the publishable key. Never use the project that preview and production share.`,
-    '2. Save the secret key in a file only your user can read, outside the repository, and never in an environment file that is committed or packaged:',
-    '     umask 077 && mkdir -p ~/.config/mk-review && $EDITOR ~/.config/mk-review/temp-secret-key && chmod 600 ~/.config/mk-review/temp-secret-key',
+    `The hosted suite needs a short-lived secret key of the authorised temporary project ${ref} (mk-review-store-temp). It was not provided.`,
+    `1. In the Supabase dashboard, open mk-review-store-temp (${ref}), Project Settings, API Keys. Create a new secret key used only for this run (for example mk-review-tests-<date>). The long-lived legacy service_role key is refused. Never use the project that preview and production share.`,
+    '2. Put the secret key and the publishable key in a private folder outside the repository. Copy each value in the dashboard, then:',
+    '     umask 077 && mkdir -p ~/.config/mk-review',
+    '     pbpaste > ~/.config/mk-review/temp-secret-key        (with the secret key copied; on Linux use an editor)',
+    '     pbpaste > ~/.config/mk-review/publishable-key        (with the publishable key copied)',
+    '     chmod 600 ~/.config/mk-review/* && pbcopy < /dev/null (clears the clipboard)',
+    '   The harness refuses a key given in an environment variable, a key file inside the repository, owned by another user or readable by others.',
     '3. From the repository root, with dependencies installed:',
-    '     MK_REVIEW_TEST_BACKEND=hosted \\',
-    `     MK_READINESS_REVIEW_DB_URL=https://${ref}.supabase.co \\`,
-    `     MK_READINESS_REVIEW_DB_PROJECT_REF=${ref} \\`,
-    "     MK_REVIEW_TEST_PUBLIC_KEY='<publishable key>' \\",
-    '     MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE=~/.config/mk-review/temp-secret-key \\',
-    '     MK_REVIEW_DB_RESULTS=./database-tests-hosted.json \\',
-    '     node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/readiness-review-database-tests.mjs',
-    '4. Delete the secret key in the dashboard after the run, and delete the file.',
-    'The key is read only by this process, is never printed or written to the results, and is refused if the file can be read by other users.'
+    '     scripts/readiness-review-hosted-tests.sh',
+    '   It writes the results to ~/.config/mk-review/results/ and exits 0 only if every test passed and the cleanup of every record and temporary user was verified.',
+    '4. Delete the secret key in the dashboard straight after the run, then: rm ~/.config/mk-review/temp-secret-key',
+    'The key is read only by this process and is never printed or written to the results.'
   ].join('\n');
 }
 
@@ -102,20 +107,25 @@ export function hostedTestConfig(env = process.env, { needSecret = true } = {}) 
     throw new BackendRefused(`MK_REVIEW_TEST_PUBLIC_KEY is not the public key of project ${ref} (it is ${pub.kind}${pub.ref ? ` for ${pub.ref}` : ''}). Nothing was run.`);
   }
 
-  const inline = env.MK_READINESS_REVIEW_DB_SERVICE_KEY?.trim();
+  if (env.MK_READINESS_REVIEW_DB_SERVICE_KEY?.trim()) {
+    throw new BackendRefused('The hosted tests read the secret key only from a file (MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE), never from an environment variable. Nothing was run.');
+  }
   const file = env.MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE?.trim();
-  if (inline && file) throw new BackendRefused('Set the secret key either as MK_READINESS_REVIEW_DB_SERVICE_KEY or as MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE, not both. Nothing was run.');
-  let secretKey = inline || null;
+  let secretKey = null;
   if (file) {
     let st;
+    let real;
     try {
-      st = statSync(file);
+      real = realpathSync(file);
+      st = statSync(real);
     } catch {
       throw new BackendRefused('MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE does not name a readable file. Nothing was run.');
     }
     if (!st.isFile()) throw new BackendRefused('MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE is not a file. Nothing was run.');
+    if (real === REPOSITORY || real.startsWith(REPOSITORY + path.sep)) throw new BackendRefused('The secret key file is inside the repository. Keep it outside, for example in ~/.config/mk-review. Nothing was run.');
+    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) throw new BackendRefused('The secret key file belongs to another user. Nothing was run.');
     if (st.mode & 0o077) throw new BackendRefused('The secret key file can be read by other users. Run chmod 600 on it first. Nothing was run.');
-    secretKey = readFileSync(file, 'utf8').trim() || null;
+    secretKey = readFileSync(real, 'utf8').trim() || null;
     if (!secretKey) throw new BackendRefused('The secret key file is empty. Nothing was run.');
   }
   if (!secretKey) {
@@ -128,6 +138,13 @@ export function hostedTestConfig(env = process.env, { needSecret = true } = {}) 
   }
   if (!(sec.kind === 'secret' || sec.kind === 'jwt:service_role')) throw new BackendRefused(`The secret key is not a Supabase secret or service_role key (it is ${sec.kind}). Nothing was run.`);
   if (sec.kind === 'jwt:service_role' && sec.ref !== ref) throw new BackendRefused(`The service_role key belongs to project ${sec.ref}, not ${ref}. Nothing was run.`);
+  if (sec.kind === 'jwt:service_role') {
+    const exp = Number(jwtClaims(secretKey)?.exp);
+    const left = exp - Date.now() / 1000;
+    if (!Number.isFinite(exp) || left <= 0 || left > MAX_LEGACY_KEY_LIFETIME_SECONDS) {
+      throw new BackendRefused('The service_role key is long-lived or expired. Create a dedicated secret key for this run and delete it afterwards. Nothing was run.');
+    }
+  }
   if (secretKey === publicKey) throw new BackendRefused('The secret key and the public key are the same value. Nothing was run.');
   // The application's own rules for the same settings: the address must belong to the declared project, and the
   // shared preview and production project is refused.
@@ -219,7 +236,10 @@ async function openHosted(env, { needSecret }) {
     Object.assign(process.env, { MK_READINESS_REVIEW_DB_URL: cfg.url, MK_READINESS_REVIEW_DB_PROJECT_REF: cfg.ref, MK_READINESS_REVIEW_DB_SERVICE_KEY: cfg.secretKey });
   }
   const temporaryUsers = [];
+  const sensitive = [cfg.publicKey, cfg.secretKey].filter(Boolean);
   return {
+    /** Values that must never appear in any output: keys, the temporary user's credentials and token. */
+    sensitive: () => sensitive.slice(),
     mode: 'hosted',
     target: `hosted project ${cfg.ref} (mk-review-store-temp) through the Supabase API`,
     preflight,
@@ -238,13 +258,15 @@ async function openHosted(env, { needSecret }) {
       if (!serviceClient) return null;
       const email = `mk-review-test-${randomBytes(6).toString('hex')}@example.invalid`;
       const password = randomBytes(24).toString('base64url');
+      sensitive.push(email, password);
       const created = await serviceClient.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { fictional: true, purpose: 'review store denial test' } });
       if (created.error) throw new Error(`The temporary fictional user could not be created: ${created.error.message}`);
-      temporaryUsers.push(created.data.user.id);
+      temporaryUsers.push({ id: created.data.user.id, email });
       const client = createClient(cfg.url, cfg.publicKey, options);
       const signed = await client.auth.signInWithPassword({ email, password });
       if (signed.error || !signed.data.session) throw new Error(`The temporary fictional user could not sign in: ${signed.error?.message ?? 'no session'}`);
       const token = signed.data.session.access_token;
+      sensitive.push(token, signed.data.session.refresh_token);
       if (jwtClaims(token)?.role !== 'authenticated') throw new Error('The signed-in token does not carry the authenticated role.');
       return { role: 'authenticated', client, credential: { key: cfg.publicKey, token } };
     },
@@ -253,15 +275,28 @@ async function openHosted(env, { needSecret }) {
     },
     serviceCredential: cfg.secretKey ? { key: cfg.secretKey } : null,
     ownerSql: null,
-    /** Removes the temporary users and confirms they are gone. */
+    /**
+     * Removes every temporary user this run created, then confirms each is gone with a separate lookup, by id and by
+     * email. Never throws: failures are returned so that the caller can report them next to the test results.
+     */
     async cleanup() {
-      let removed = 0;
-      for (const id of temporaryUsers) {
-        await serviceClient.auth.admin.deleteUser(id);
-        const check = await serviceClient.auth.admin.getUserById(id);
-        if (!check.data?.user) removed++;
+      const out = { created: temporaryUsers.length, deleted: 0, confirmedAbsent: 0, errors: [] };
+      for (const user of temporaryUsers) {
+        try {
+          let del = await serviceClient.auth.admin.deleteUser(user.id);
+          if (del.error && !/not.?found/i.test(del.error.message)) del = await serviceClient.auth.admin.deleteUser(user.id);
+          if (!del.error || /not.?found/i.test(del.error.message)) out.deleted++;
+          else out.errors.push(`delete: ${del.error.message}`);
+          const byId = await serviceClient.auth.admin.getUserById(user.id);
+          const list = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const byEmail = (list.data?.users ?? []).some((u) => u.email === user.email);
+          if (!byId.data?.user && !byEmail && !list.error) out.confirmedAbsent++;
+          else out.errors.push(list.error ? `verify: ${list.error.message}` : 'a temporary user is still present');
+        } catch (error) {
+          out.errors.push(`cleanup: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-      return { temporaryUsers: temporaryUsers.length, removed };
+      return out;
     }
   };
 }
@@ -299,8 +334,9 @@ async function openLocal(env) {
     },
     serviceCredential: { role: 'service_role' },
     ownerSql: (sql) => pg.runOwnerSql(sql),
+    sensitive: () => [],
     async cleanup() {
-      return { temporaryUsers: 0, removed: 0 };
+      return { created: 0, deleted: 0, confirmedAbsent: 0, errors: [] };
     }
   };
 }
@@ -309,4 +345,19 @@ async function openLocal(env) {
 export async function openBackend(env = process.env, { needSecret = true } = {}) {
   const mode = testBackendMode(env);
   return mode === 'local' ? openLocal(env) : openHosted(env, { needSecret });
+}
+
+/**
+ * Removes credentials and personal details from text that may reach a log or a results file: JSON web tokens,
+ * Supabase keys, bearer tokens, API keys in addresses, email addresses, and any exact value given.
+ */
+export function redactText(text, values = []) {
+  let out = String(text ?? '');
+  for (const v of [...values].filter((x) => typeof x === 'string' && x.length >= 8).sort((a, b) => b.length - a.length)) out = out.split(v).join('[redacted]');
+  return out
+    .replace(/(apikey|api_key|access_token|refresh_token|password)(["']?\s*[:=]\s*["']?)[^"'&\s,}]+/gi, '$1$2[redacted]')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
+    .replace(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}/g, '[redacted token]')
+    .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, '[redacted key]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted email]');
 }

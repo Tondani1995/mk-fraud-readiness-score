@@ -6,9 +6,11 @@ The integrated review track works end to end through the real interface: intervi
 
 ## Blocking items
 
+**Open on 11 November 2026: every item below.** B1 is partly done: the hosted API suite (19 tests) is blocked until a short-lived secret key is provided. B2 (staging isolation), B3 (authenticated access), B11 (hydration error #418) and J-01 (an intermittent unregistered answer) are open and unchanged by the database and report input work; nothing in that work addresses them.
+
 | # | Item | Why it blocks | Owner |
 |---|---|---|---|
-| B1 | Durable persistence | A database store with the same append-only, sequence-checked, idempotent contract is implemented and verified at the database level on an isolated temporary project (`DATABASE-DESIGN.md`). Still open: the store, service and browser tests over the hosted API with a server-held service key; backup and retention decisions; and hosted use waits for B2 and B3. | Engineering, then MK for retention |
+| B1 | Durable persistence | A database store with the same append-only, sequence-checked, idempotent contract is implemented, verified at the database level on an isolated temporary project (42 owner-level checks) and through the store and service on the local backend (24 of 24 integration tests, cleanup verified) (`DATABASE-DESIGN.md`). Still open: the same 19 integration tests over the hosted API, blocked until a short-lived secret key is provided; the browser journeys on the database store; backup and retention decisions; and hosted use waits for B2 and B3. | Engineering, then MK for retention |
 | B2 | Staging isolation | Preview and production share one Supabase project; `customer_start` activation is enabled for both. No isolated target exists to test persistence or payments against. Owner-reserved. | MK |
 | B3 | Authenticated access | Links stand in for sign-in. Respondent, owner, management and MK reviewer access needs authentication, invitations for owners, and reviewer access only under an engagement. Credentials in URL paths also reach hosting request logs, which no code change can prevent. | MK and engineering |
 | B4 | Method approval | Scenario tiers, answer mappings, exclusions, owner functions, completion conditions and legal wording are proposals (`contract.ts` approval statement). | MK |
@@ -19,6 +21,7 @@ The integrated review track works end to end through the real interface: intervi
 | B9 | Respondent comprehension | No usability session has been run for either the parked or the candidate experience. | MK |
 | B10 | Governing presentation baseline | `AGENTS.md` rules out interactive illustrations and decorative motion and sets a 4 to 8px radius; inherited parked presentation (the homepage companion illustration and its geometry) does not meet that. Not changed here; MK must name which baseline governs before acceptance. | MK |
 | B11 | Intermittent hydration failure on large review pages | React reports error #418 on some loads of the management view and the Snapshot when the processor is busy (`VERIFICATION.md`, hydration). React then discards the server HTML and renders the page in the browser; the content is the same, but the error reaches monitoring and the page is rebuilt after it appears. Located, not resolved. | Engineering |
+| J-01 | Intermittent unregistered answer in the interview | In the final scripted run, one click on an answer at the 30th respondent screen of journey J-01 did not register and the page moved to the top; five other runs of the same path on the same build passed (`VERIFICATION.md`). A respondent whose answer silently does not register may answer again or leave. Cause not established. | Engineering |
 
 ## Decisions MK must take
 

@@ -53,24 +53,39 @@ Row level security is on for every table with no policies, and every table privi
 | Mode | What it runs against | Settings |
 |---|---|---|
 | `MK_REVIEW_TEST_BACKEND=local` | Embedded Postgres 17.5 (PGlite, `scripts/lib/readiness-review-pglite-client.mjs`, unchanged apart from two added helpers) with this migration and the Supabase API roles. Nothing is sent over the network; hosted settings in the environment are ignored. | `MK_PGLITE_DIR`, a folder where `@electric-sql/pglite@0.3` is installed outside the project |
-| `MK_REVIEW_TEST_BACKEND=hosted` | The authorised temporary project `zuqegvsfhzgcydyivnqv` only, through the existing RPC interface (`DatabaseReviewStore` over PostgREST) with the server-side secret key | `MK_READINESS_REVIEW_DB_URL`, `MK_READINESS_REVIEW_DB_PROJECT_REF`, `MK_REVIEW_TEST_PUBLIC_KEY`, and the secret key as `MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE` (a file readable only by its owner) or `MK_READINESS_REVIEW_DB_SERVICE_KEY` |
+| `MK_REVIEW_TEST_BACKEND=hosted` | The authorised temporary project `zuqegvsfhzgcydyivnqv` only, through the existing RPC interface (`DatabaseReviewStore` over PostgREST) with a short-lived secret key | `scripts/readiness-review-hosted-tests.sh`, which reads the secret key and the publishable key from a private folder outside the repository (default `~/.config/mk-review`) |
 
-The hosted mode fails closed (`scripts/lib/readiness-review-test-backends.mjs`). Before any test it refuses: a missing mode or setting; any project other than `zuqegvsfhzgcydyivnqv`, pinned in code, including the shared preview and production project; an address that is not `https://zuqegvsfhzgcydyivnqv.supabase.co`; a public key in the secret key setting; a key issued for another project; the same value for both keys; a key file other users can read; and both key settings at once. Over the network it then requires that every answer comes from the authorised project (the gateway's `sb-project-ref` header), that the public key is refused by the store (`42501`), that the secret key can execute the store functions, and that the interface lists all eight. A refusal stops the run with exit code 2. Without the secret key, the public-key checks run and every other test is reported as blocked, with exit code 3 and the configuration steps; a blocked test is never reported as a pass.
+**Hosted configuration fails closed** (`scripts/lib/readiness-review-test-backends.mjs`). Before any test it refuses: a missing mode or setting; any project other than `zuqegvsfhzgcydyivnqv`, pinned in code, including the shared preview and production project; an address that is not `https://zuqegvsfhzgcydyivnqv.supabase.co`; a secret key given in an environment variable rather than a file; a key file inside the repository, owned by another user or readable by others; a public key in the secret key setting; a key issued for another project; a legacy service_role key that is expired or lives longer than 24 hours (create a dedicated secret key and delete it after the run instead); and the same value for both keys. Over the network it then requires that every answer comes from the authorised project (the gateway's `sb-project-ref` header), that the public key is refused by the store (`42501`), that the secret key is accepted and can execute the store functions, and that the interface lists all eight. A refusal stops the run with exit code 2. Without the secret key, the public-key checks run and every other test is reported as blocked, with exit code 3 and the configuration steps; a blocked test is never reported as a pass.
 
-For the signed-in role the hosted mode creates a temporary fictional user (`mk-review-test-…@example.invalid`) with the secret key, signs it in with the public key, and deletes it at the end. Nothing is granted to any role for testing.
+**Cleanup is guaranteed and reported separately.** Every scenario runs inside one finalisation path. However the run ends (all tests done, a test failing, the harness failing, or SIGINT or SIGTERM), the cleanup step purges every session this run created, removes every temporary user, and then checks in a separate pass that each session, each of its role links and each user is gone. A session is purged only if the stored record carries this run's own creation time, label, first action and respondent link; anything else is left untouched and reported. The deterministic fixture is never deleted to make room: it is created if absent, reused only if the stored record is exactly the fixture, and otherwise the test fails and the record is left alone. The cleanup result is printed and written next to the test results and never changes them. `MK_REVIEW_TEST_INJECT=fail:<id>`, `crash:<id>` or `signal:<id>` injects a failure after a test has created its records, to show that cleanup still runs.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Every executed test passed, none is blocked, cleanup verified |
+| 1 | A test or the harness failed (cleanup verified) |
+| 2 | Configuration refused; nothing ran |
+| 3 | Tests blocked for want of the secret key (cleanup verified) |
+| 4 | Cleanup could not be verified: records or users may remain, whatever the tests did |
+| 130, 143 | Interrupted by SIGINT or SIGTERM, after cleanup |
+
+**Denial counts only with a recognised refusal.** A store function is denied only with `42501`. A table route is denied only with `406 PGRST106` (schema not exposed), `404 PGRST205` (not in an exposed schema) or `401`/`403 42501` on the hosted API, and `42501` locally. A server fault, a malformed request, a network failure or an unexpected code fails the test, because it proves nothing about access (H.3 checks these rules).
+
+**Output is redacted.** Every result detail, error and cleanup report passes through `redactText` before it is printed or written: keys, tokens, bearer values, key and password parameters, email addresses, the temporary user's credentials and the fictional role links are replaced (H.3).
+
+For the signed-in role the hosted mode creates a temporary fictional user (`mk-review-test-…@example.invalid`) with the secret key, signs it in with the public key, and removes it in the cleanup step. Nothing is granted to any role for testing.
 
 | Scenario | Tests |
 |---|---|
-| Harness | H.1 store configuration fails closed; H.2 test configuration fails closed (19 cases) |
-| 1 Creation, retrieval, ordered appends, corrections | S1.1 round trip identical to the file harness; S1.2 ordered appends; S1.3 correction history; S1.4 links by hash |
-| 2 Concurrency, stale saves, retries, ambiguous responses | S2.1 stale and repeated saves; S2.2 lost responses at the store; S2.3 24 concurrent starts and 12 concurrent saves; S2.4 retries through the service after a lost or unconfirmed save; S2.5 the service end to end, with a write from another process |
+| Harness | H.1 store configuration fails closed; H.2 test configuration fails closed (25 cases, 26 where a file of another user can be made); H.3 redaction and the denial rules |
+| 1 Creation, retrieval, ordered appends, corrections | S1.1 round trip identical to the file harness; S1.2 ordered appends; S1.3 provenance through the store: three corrections, the last back to the first value, and an owner answer replacing "I don't know"; S1.4 links by hash; S1.5 provenance of a 1.2.0 record stored and read through the historical reader, of a log prefix, and of a log with a missing and a stray entry |
+| 2 Concurrency, stale saves, retries, ambiguous responses | S2.1 stale and repeated saves; S2.2 lost responses at the store; S2.3 24 concurrent starts and 12 concurrent saves; S2.4 retries through the service after a lost or unconfirmed save; S2.5 the service end to end on the store it opens itself, with a write from another process |
 | 3 Denial of unauthorised roles | S3.1 the public role (needs only the public key); S3.2 public and signed-in roles against a stored session, and no table route even with the secret key |
 | 4 The complete report input | S4.1 a stored session with owner answers, evidence and conclusions: all 902 controls, states kept distinct |
 | 5 Determinism and lineage | S5.1 a fixed fictional session gives the same input digest on every load, replay and backend (`cb2180f5…`); S5.2 report runs recorded exactly, rebuilt from the stored prefix, invalid runs refused |
 | 6 No unsupported conclusions | S6.1 gaps are reported practice only, conclusions only from recorded reviews; S6.2 a reviewer record written straight to the store for an unasked control |
-| 7 Immutability, purge, errors | S7.1 changes refused through the interface; S7.2 explicit, complete purge; S7.3 the owner-level SQL suite (local here; hosted through the management connection); S7.4 every stored record read back, screened for personal data, purged |
+| 7 Immutability, purge, errors | S7.1 changes refused through the interface; S7.2 explicit, complete purge; S7.3 the owner-level SQL suite (local here; hosted through the management connection); S7.4 every stored record read back and screened for personal data |
 
-Every record is fictional and labelled so, is screened for email addresses, phone, identity and account numbers before it is sent and again when read back (S7.4), and is purged before the script ends.
+Every record is fictional and labelled so, and is screened for email addresses, phone, identity and account numbers before it is sent and again when read back (S7.4).
 
 ## What was verified, and where
 
@@ -78,17 +93,18 @@ Every record is fictional and labelled so, is screened for email addresses, phon
 |---|---|---|
 | Migration applied; every function body identical to the file (MD5 of each `prosrc`) | temporary hosted project `mk-review-store-temp` (`zuqegvsfhzgcydyivnqv`), PostgreSQL 17.11 | identical, 10 of 10 |
 | Security model as deployed: the eight functions executable by `service_role` only, security definer, empty search path; RLS on all five tables with no policies; no table privilege and no schema usage for `anon`, `authenticated` or `service_role` | same, catalogue query as the owner | as designed |
-| Owner-level suite `scripts/readiness-review-database-sql-tests.sql` (sequence, immutability, all-or-nothing creation, fictional only, report runs, access by role, retention) | same, as the owner; and local (S7.3) | 42 of 42 on both (the first hosted record said 41 of 41; it listed 42 rows, all ok) |
-| The integration suite, local backend | embedded Postgres 17.5 | 22 of 22, twice; access mode 3 of 3 |
-| The integration suite, hosted backend, without the secret key | the temporary project over its API | H.1, H.2 and S3.1 pass (every function refused with `42501` for the public key; table routes refused with `PGRST106` and `PGRST205`); 18 tests blocked; S7.3 not applicable through the API |
-| Fail-closed refusals of the hosted mode | real runs | no mode, missing settings, a public key as the secret, the shared project: each refused with exit code 2 before any network call |
+| Owner-level suite `scripts/readiness-review-database-sql-tests.sql` | same, as the owner; and local (S7.3) | 42 of 42 on both (the first hosted record said 41 of 41; it listed 42 rows, all ok) |
+| The integration suite, local backend | embedded Postgres 17.5 | 24 of 24, twice, cleanup verified (44 sessions, 281 links); scenario 3 only: 3 of 3 |
+| Cleanup under failure, local backend | injected failure in S3.2, harness crash after S3.2, SIGTERM during S4.1 | exit 1, 1 and 143; cleanup verified in each (44, 35 and 36 sessions confirmed gone) |
+| The integration suite, hosted backend, without the secret key | the temporary project over its API | 4 pass (H.1, H.2, H.3, S3.1: every function refused with `42501` for the public key; table routes refused with `406 PGRST106` and `404 PGRST205`), 19 blocked, 1 not applicable (S7.3); cleanup verified with nothing created |
+| Fail-closed refusals of the hosted mode | real runs | no mode, missing settings, a key in an environment variable, a public key as the secret, the shared project, a key folder inside the repository, a secret key the project does not accept (HTTP 401): each exit code 2, nothing run |
 | Inventory of the hosted project | as the owner | sessions, links, actions, runs, users, public tables and storage objects all 0; one ruleset row |
 | Security advisor | same | one INFO lint, RLS on with no policies, which is the intended deny-all design |
 | Report input contract | contract tests | C-23 pass; 23 of 23 |
 
 ## Not yet verified
 
-- **The hosted integration suite with the secret key (18 tests, including S3.2 for the signed-in role).** The session has no secret key for the temporary project; the Supabase connection exposes only public keys, and granting the public role access for a test was refused by the session's permission checks and not worked around. The steps are in `scripts/lib/readiness-review-test-backends.mjs` (printed by any hosted run without the key): create a secret key for `zuqegvsfhzgcydyivnqv`, save it in a file readable only by its owner, run with `MK_REVIEW_TEST_BACKEND=hosted` and the settings above, then delete the key.
+- **The hosted integration suite with the secret key (19 tests, including S3.2 for the signed-in role).** No secret key for the temporary project has been made available; the Supabase connection exposes only public keys, and granting the public role access for a test was refused by the session's permission checks and not worked around. The steps are printed by any hosted run without the key: create a dedicated secret key for `zuqegvsfhzgcydyivnqv`, place it and the publishable key in `~/.config/mk-review` with `chmod 600`, run `scripts/readiness-review-hosted-tests.sh`, then delete the key.
 - **True parallel transactions.** On the embedded database calls run one after another. S2.3 decides the same contest by the same row lock and constraints, but parallel connections are exercised only by the hosted run.
 - **The browser journeys on the database store.** They need a server bound to a hosted project with the secret key.
 - **Backups, point-in-time recovery and retention periods.** None was configured or tested; the organisation is on the free plan. Retention periods are MK's decision.
@@ -113,4 +129,4 @@ B1 (durable persistence) is implemented and verified on an isolated project at t
 1. Create the project and confirm it is not `iszihmmbgsfefawqmnwo`.
 2. Apply `supabase/migrations/20261111100000_readiness_review_store.sql`.
 3. Run `scripts/readiness-review-database-sql-tests.sql` as the owner: all 42 rows must be `ok`.
-4. Add the project's reference to the pinned value in `scripts/lib/readiness-review-test-backends.mjs` only if MK authorises it as a test project, then run `scripts/readiness-review-database-tests.mjs` with `MK_REVIEW_TEST_BACKEND=hosted`, the public key and the secret key: the verdict must be `PASS` with nothing blocked.
+4. Change the pinned reference in `scripts/lib/readiness-review-test-backends.mjs` only if MK authorises the new project for testing, then run `scripts/readiness-review-hosted-tests.sh` with a dedicated secret key: the verdict must be `PASS` with nothing blocked, exit code 0, and the cleanup verified.
