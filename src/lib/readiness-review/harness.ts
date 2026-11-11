@@ -24,3 +24,9 @@ export function reviewHarnessFaultsEnabled() {
 }
 
 export const HARNESS_NOTICE = 'Fictional local harness: answers are stored as files on this computer, links stand in for sign-in and are not secure, and nothing here is suitable for a real organisation.';
+export const DATABASE_HARNESS_NOTICE = 'Fictional test harness: answers are stored in an isolated test database, links stand in for sign-in and are not secure, and nothing here is suitable for a real organisation.';
+
+/** The notice every review page shows, naming where answers are actually stored. */
+export function harnessNotice() {
+  return process.env.MK_READINESS_REVIEW_STORE === 'database' ? DATABASE_HARNESS_NOTICE : HARNESS_NOTICE;
+}

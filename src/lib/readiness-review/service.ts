@@ -16,7 +16,9 @@ import {
   type SessionRecord,
   type StoredAction
 } from './session';
-import { FileReviewStore, StoreConflict, type ReviewStore, type TokenEntry } from './store';
+import { FileReviewStore, StoreConflict, StoreOutcomeUnknown, type ReviewStore, type TokenEntry } from './store';
+import { reviewDatabaseConfig, reviewStoreKind } from './database-config';
+import { DatabaseReviewStore } from './database-store';
 import { exportView, managementView, ownerView, respondentView, reviewerView, snapshotView } from './view-model';
 import { createReviewEngine } from './engine';
 
@@ -41,7 +43,8 @@ const globals: Globals = ((globalThis as any).__mkReadinessReview ??= { cache: n
 
 function store(): ReviewStore {
   if (!reviewHarnessStatus().enabled) throw new HarnessUnavailable('The review track is not available in this environment.');
-  return (globals.store ??= new FileReviewStore());
+  if (!globals.store) globals.store = reviewStoreKind() === 'database' ? DatabaseReviewStore.connect(reviewDatabaseConfig()) : new FileReviewStore();
+  return globals.store;
 }
 
 function token() {
@@ -57,7 +60,14 @@ async function serial<T>(sessionId: string, work: () => Promise<T>): Promise<T> 
 
 async function liveFor(sessionId: string): Promise<LiveSession> {
   const cached = globals.cache.get(sessionId);
-  if (cached) return cached;
+  if (cached) {
+    // Another server process may have appended to a shared store since this one cached the session.
+    if (!store().shared) return cached;
+    const stored = await store().actionCount(sessionId);
+    if (stored === cached.record.actions.length) return cached;
+    globals.cache.delete(sessionId);
+    if (stored === null) throw new TokenNotFound('Session not found');
+  }
   const record = await store().load(sessionId);
   if (!record) throw new TokenNotFound('Session not found');
   const live = replay(record);
@@ -74,11 +84,13 @@ async function resolve(tokenValue: string): Promise<TokenEntry> {
 async function persist(live: LiveSession, actions: StoredAction[], expectedLength: number) {
   if (!actions.length) return;
   try {
-    live.record = await store().append(live.record.sessionId, expectedLength, actions);
+    await store().append(live.record.sessionId, expectedLength, actions);
+    live.record = { ...live.record, actions: live.record.actions.concat(actions) };
   } catch (error) {
     // The cached engine already includes these actions; drop it so the next request rebuilds from the stored log.
     globals.cache.delete(live.record.sessionId);
-    if (error instanceof StoreConflict) throw error;
+    // A conflict, and a save the store could not confirm either way, are reported as they are, never as "nothing saved".
+    if (error instanceof StoreConflict || error instanceof StoreOutcomeUnknown) throw error;
     throw new SaveFailed(error instanceof Error ? error.message : 'Save failed');
   }
 }

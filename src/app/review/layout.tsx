@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { ReviewAnalyticsGuard } from '@/components/readiness-review/ReviewAnalyticsGuard';
 import type { Metadata } from 'next';
-import { HARNESS_NOTICE, reviewHarnessStatus } from '@/lib/readiness-review/harness';
+import { harnessNotice, reviewHarnessStatus } from '@/lib/readiness-review/harness';
 
 export const metadata: Metadata = {
   title: { default: 'Fraud Readiness review | MK Fraud Insights', template: '%s | MK Fraud Insights' },
@@ -31,7 +31,7 @@ export default function ReviewLayout({ children }: { children: React.ReactNode }
         </div>
         {harness.enabled && (
           <p className="border-t border-mk-line bg-mk-cream px-4 py-2 text-center text-xs leading-5 text-mk-ink sm:text-sm" data-harness-notice>
-            {HARNESS_NOTICE}
+            {harnessNotice()}
           </p>
         )}
       </header>

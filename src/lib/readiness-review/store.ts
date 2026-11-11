@@ -5,17 +5,21 @@ import type { SessionRecord, StoredAction } from './session';
 import { reviewHarnessDirectory } from './harness';
 
 /**
- * Storage for review sessions. The only implementation in this candidate is the fictional local file harness. A
- * production implementation needs durable transactional storage, authenticated roles, tenancy, retention and audit,
- * none of which this provides. The interface is kept small so that replacement is a separate, reviewable change.
+ * Storage for review sessions. Two implementations: the fictional local file harness (this file) and the database
+ * store (database-store.ts), which keeps the same append-only, sequence-checked contract in transactional storage on
+ * an isolated project. Neither provides authenticated roles or tenancy; links stand in for sign-in (B3).
  */
 export interface ReviewStore {
+  /** True when other server processes may write to the same store, so a cached session must be checked before use. */
+  readonly shared: boolean;
   /** Stores the record and indexes every role link, or stores nothing and throws. */
   create(record: SessionRecord): Promise<void>;
   load(sessionId: string): Promise<SessionRecord | null>;
   findToken(token: string): Promise<TokenEntry | null>;
-  /** Appends actions only if the stored log still has `expectedLength` actions. */
-  append(sessionId: string, expectedLength: number, actions: StoredAction[]): Promise<SessionRecord>;
+  /** Appends actions only if the stored log still has `expectedLength` actions; returns the new length. */
+  append(sessionId: string, expectedLength: number, actions: StoredAction[]): Promise<number>;
+  /** The stored log length, or null if the session is not stored. */
+  actionCount(sessionId: string): Promise<number | null>;
 }
 
 export type TokenEntry = { sessionId: string; role: 'respondent' | 'management' | 'reviewer' | 'links' | 'owner'; fn?: string };
@@ -23,6 +27,8 @@ export type TokenEntry = { sessionId: string; role: 'respondent' | 'management' 
 export class StoreConflict extends Error {}
 /** Storage could not be read or written safely. The message says what was and was not changed. */
 export class StoreUnavailable extends Error {}
+/** The store did not confirm whether a write happened, and checking afterwards was not possible either. */
+export class StoreOutcomeUnknown extends StoreUnavailable {}
 
 /** Test-only fault injection for the file harness; never set by the service. */
 export type StoreFaults = { failIndexWrite?: boolean; failSessionWrite?: boolean };
@@ -95,6 +101,8 @@ function tokenEntries(record: SessionRecord): Record<string, TokenEntry> {
 }
 
 export class FileReviewStore implements ReviewStore {
+  /** One server process per harness directory is the supported set-up; the lock file guards against more. */
+  readonly shared = false;
   private root: string;
   private faults: StoreFaults;
   constructor(root = reviewHarnessDirectory(), faults: StoreFaults = {}) {
@@ -188,7 +196,11 @@ export class FileReviewStore implements ReviewStore {
       if (record.actions.length !== expectedLength) throw new StoreConflict('The session changed before this save.');
       const next = { ...record, actions: record.actions.concat(actions) };
       await writeAtomic(file, JSON.stringify(next));
-      return next;
+      return next.actions.length;
     });
+  }
+
+  async actionCount(sessionId: string) {
+    return (await this.load(sessionId))?.actions.length ?? null;
   }
 }
