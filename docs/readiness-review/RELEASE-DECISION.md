@@ -6,7 +6,7 @@ The integrated review track works end to end through the real interface: intervi
 
 ## Blocking items
 
-**Open on 11 November 2026: every item below.** B1 is partly done: the hosted API suite is blocked until a short-lived secret key is provided on MK's computer. B2 (staging isolation), B3 (authenticated access and verified reviewer identity), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (hydration error #418) and J-01 (an intermittent unregistered answer) are open. The report engine's Phase 1 (`REPORT-ENGINE-PHASE-1.md`) is internal and fictional-only: it produces no report, is connected to nothing, and depends on B2 to B7 before any use; it closes none of these items.
+**Open on 11 November 2026: every item below.** B1 is partly done: the hosted API suite is blocked until a short-lived secret key is provided on MK's computer. B2 (staging isolation), B3 (authenticated access and verified reviewer identity), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (hydration error #418) and J-01 (an intermittent unregistered answer) are open. The report engine (Phase 1, `REPORT-ENGINE-PHASE-1.md`, and Phase 2, `REPORT-ENGINE-PHASE-2.md`) is internal and fictional-only: it builds internal interim documents from fictional records, is connected to nothing, and depends on B2 to B7 before any use; it closes none of these items. Following MK's correction of 11 November 2026, the standard report rests only on the organisation's own responses and the method: evidence review, verification and specialist conclusions belong to the separately scoped Advisory package, and no release criterion of the standard report depends on evidence or reviewer records. For the standard report, B3 means authenticated access for the organisation; verified reviewer identity matters only to Advisory.
 
 | # | Item | Why it blocks | Owner |
 |---|---|---|---|
@@ -36,6 +36,7 @@ The integrated review track works end to end through the real interface: intervi
 9. Confirmation of the integrity-guard exception for the three telemetry privacy files changed by the F3 correction (`INDEPENDENT-REVIEW-RESPONSE.md`).
 10. Which presentation baseline governs where `AGENTS.md` and the inherited parked presentation disagree (B10).
 11. Whether the review laboratories and preview-only QA routes leave the production build before release, and who reviews the QA recovery routes that use the service-role client on preview deployments.
+12. The report engine's methodological, copy, presentation and commercial decisions (`REPORT-ENGINE-MK-DECISIONS.md`), including how the standard self-reported report relates to the Comprehensive Report and whether Advisory is ever mentioned in it.
 
 ## Limitations of this candidate
 

@@ -1,0 +1,64 @@
+{
+ "engine": "0.2.0-phase2",
+ "copy": "0.2.0-draft",
+ "ledger": "0.2.0",
+ "inputContract": "1.2.0",
+ "sessions": {
+  "supplied": {
+   "logDigest": "08f257f216f4afaf114cb3b150a54521383bf4e4dec4874c64c89cf1a0ca45d6",
+   "inputDigest": "77f4cbd12651d6b64f4bbf454508375ec6c8635a2ff302b4c2b910f5c8539af6",
+   "standardLedgerDigest": "ac27d36f7bb759076e58af5ed5b636839b61b2f4a4430b2359c428583175f125",
+   "documentDigest": "7f38af696fd539a8947ce5e870197a1f33c0007d50122e0b08de1619b80a0e67",
+   "advisoryDigest": "87fb1741a089f2eef95fee9f30bf9af98209404adc29d8a80accb025b2486245"
+  },
+  "earlyStop": {
+   "logDigest": "63a989f158b976176d60428cd087385a1ed9c9d789a42c5d2164b7a10c7a8b59",
+   "inputDigest": "559de5570caa5b6efa50e0094d68bca45186236922c8c405c36e17db4e2a8d96",
+   "standardLedgerDigest": "6b1a6ab30095861f0926c8a6185c98878fd377fa602faf30ac2c9ae096d5b7e3",
+   "documentDigest": "f4de5662f3456eb0c3adc2f72710fc5e8ef2682db0a8d5a5711f5619d011c447",
+   "advisoryDigest": "192e7dd14b3c1c968f1124683396c72125d04ae116ee773dfb99598d914588ee"
+  },
+  "fullInterview": {
+   "logDigest": "0f343a8ed1827ba3eb71aa1d30ddef381679124d744044f301b8b729c35b4a3c",
+   "inputDigest": "1a67e715531c9286cd12f34920cb252b351cd4db483721b3eedccbb7c0f040fc",
+   "standardLedgerDigest": "1e934c4910ddbcde662333465c55d0ca68c1f3c703d40c407bdf94d0db736360",
+   "documentDigest": "454b60fec4f2b45d0429a70dd4ecc806fe378a6f08d813ec3720030aa77291f9",
+   "advisoryDigest": "99be7199b84637435f07e8614c71e53aebe24bc378d7831ada5816a863c8173f"
+  },
+  "advisory": {
+   "logDigest": "ff019d933573c9b673676a4646ad6778bbef9e2818f7d7a19b3422e821118dfe",
+   "inputDigest": "d177f7e20119ec92487f4cdd3c553c91177569d618107cb8340dc2443367fd98",
+   "standardLedgerDigest": "04e04b4f4d797259b69d263cb661b0c33e21b947c53b15de5b3b07edd6bc9aca",
+   "documentDigest": "8bcd546488254adfd9cd77642aad7d7d133076da9ca8e997acdc3537fc328979",
+   "advisoryDigest": "189809e596a2d04c0f56106b4d4110e5c4601a2a488f805391346bf45b4a7aaf"
+  },
+  "corrections": {
+   "logDigest": "18d64096b9ca798c1b25046af324686e435a7e4046870759d093dbb6b574f345",
+   "inputDigest": "fdf004f5a1696420e3d0ddafcca9ba8f7f9f612f9a8672ce9864b77f0295a5b0",
+   "standardLedgerDigest": "cdfca90a9a8b717938fafb759c8ba8595f4504d482e19624d1968d995fd0df7e",
+   "documentDigest": "90f4cc46d38347dd4bb61d43cd046163cbe288d87b29e58ca9a186d21264761e",
+   "advisoryDigest": "2b5305977bce0c7a9fe7f863267ac226a7b9d22651cf9070bbce218c712c6d2a"
+  },
+  "routes": {
+   "logDigest": "8cac9c251f416035ce6685e574121c9afdcdeb5f5372915351b5e7a9f6ff8732",
+   "inputDigest": "6a2e9514da2c348c446633444092575def000345882b71c58b215961b07a81fb",
+   "standardLedgerDigest": "aac585d97a206368e6bb187e35f29666ea619970b7efeae8fe1781ca1bc988a5",
+   "documentDigest": "572713722b9e074ad2cc780d9ea8596928e0aa8cf020e35b5c050c22e0c2b2c7",
+   "advisoryDigest": "cc50cb92538f7d33d42e5f4bb43e3102ad8392be8c901f477eb2e487b50f6c27"
+  },
+  "strong": {
+   "logDigest": "664f1a38634d0ac24d25427bdb6e7fd198087df87a81b3c10b71927d04382eba",
+   "inputDigest": "b59b32f9596234f7e427fc54d0bba190a8f533254c739976147bacb28ef591bd",
+   "standardLedgerDigest": "084d9b0d153466c35584df789cea508bf89361deba82534492e13222c553b79f",
+   "documentDigest": "1d333bdea677d0885ecdc7807c2914b5dfd3229faa6840e0bb9ff32a433b4484",
+   "advisoryDigest": "f1cb00e655a1699208b19afa3427905a9b847be89ee70aa9af36b75bad61abcd"
+  },
+  "openInterview": {
+   "logDigest": "83fb2aed42abb4be79bca8ab7481b672387c8febdf65b85638f9555f4e767c67",
+   "inputDigest": "0c96b061b72687046f9993c5e4c587ed9d32ae0729caae9c2a08110261fa9ac4",
+   "standardLedgerDigest": "5befa23c409d76914c2bd447597ce7e73b654dd78a5ad39deb5bc6502d4f5a7f",
+   "documentDigest": "377d6ee3890a64c5cc2ebd4a87dd3fca39af6b3ab862a4c11381c9196b1ee95a",
+   "advisoryDigest": "fb0cf2b11c7c50df6b1a4a5742cae0fda5316fa9e00365f216de2a4d8fbc04e9"
+  }
+ }
+}

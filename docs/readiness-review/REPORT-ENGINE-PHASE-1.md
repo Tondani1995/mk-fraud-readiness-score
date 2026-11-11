@@ -1,5 +1,7 @@
 # Report engine, Phase 1: contract, gate, ledger and validation
 
+> Accepted by MK on 11 November 2026 as the technical foundation. Superseded in part by Phase 2 (`REPORT-ENGINE-PHASE-2.md`): the draft builder and draft copy below were replaced by the standard report engine, and the evidence and reviewer wording moved, corrected, to the separate Advisory record. The Phase 1 examples are kept in `examples/phase-1/`.
+
 Authorised by MK on 11 November 2026: the typed report document contract, the input gate, the claims ledger, the validation framework and automated mutation tests, with draft templates and fictional examples for MK review. Not authorised and not done: approving the methodology, generating customer reports, external delivery, and any connection to the commercial products. Design: `REPORT-ENGINE-DESIGN.md` (revision 2).
 
 ## What was built
@@ -14,7 +16,7 @@ Authorised by MK on 11 November 2026: the typed report document contract, the in
 | `src/lib/readiness-review/report/draft-copy.ts` | Draft templates, version `0.1.0-draft`, marked unapproved (B7); no template contains a number of its own |
 | `src/lib/readiness-review/report/draft-document.ts` | A draft builder for fictional examples only: it refuses any record not marked fictional and is imported by no route, page or service |
 | `scripts/readiness-review-report-engine-tests.mjs` | The Phase 1 tests below |
-| `docs/readiness-review/examples/` | The trace and the draft executive brief built from the supplied fictional session |
+| `docs/readiness-review/examples/phase-1/` | The trace and the draft executive brief built from the supplied fictional session |
 
 ## Tests
 
@@ -35,7 +37,7 @@ Two defects in the checks themselves were found by R-05 and corrected before thi
 
 ## The end-to-end trace
 
-`examples/fictional-trace-D1-B-01.md`, produced and checked by R-08 on the supplied fictional session ("Fictional Retail Group", contract 1.2.0 record):
+`examples/phase-1/fictional-trace-D1-B-01.md`, produced and checked by R-08 on the supplied fictional session ("Fictional Retail Group", contract 1.2.0 record):
 
 1. **The reported answer.** Action 15 in the stored log: `respondent.answer` for D1-B-01, value `2`.
 2. **In the report input.** `/domains/0/controls/9/answer`: version 1, "Some fraud information is reported, but not on a set schedule or in a set format.", class `partial`, source `respondent-answer`.

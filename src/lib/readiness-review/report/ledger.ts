@@ -1,44 +1,61 @@
 import { canonicalDigest, canonicalJson } from '../canonical';
 import type { ReportInput } from '../report-input';
-import type { Attribution, EvidenceLevel } from './document';
 
 /**
- * The claims ledger: every fact the report may use, taken from the report input and nothing else. Each claim has a
+ * The claims ledger: every fact a report may use, taken from the report input and nothing else. Each claim has a
  * stable id, the JSON pointer of the place in the input it comes from, the fields it copies, and the copied value, so
- * that any claim can be checked against the input at any time (claimHolds). Evidence claims carry their evidence level
- * and reviewer claims their attribution, both derived from the record itself and never strengthened.
+ * that any claim can be checked against the input at any time (claimHolds).
+ *
+ * Every claim belongs to a pathway. `standard` claims are the organisation's own responses, the engine's routing and
+ * the method's content: the only material the standard (self-reported) report may use. `advisory` claims are evidence
+ * records, reviewer records and the reviewer-based review status: they belong to the separately scoped Advisory
+ * capability, are kept in the ledger so that nothing is lost, and must never be cited by the standard report.
  */
-export const LEDGER_VERSION = '0.1.0';
+export const LEDGER_VERSION = '0.2.0';
+
+export type Pathway = 'standard' | 'advisory';
 
 export type ClaimType =
+  // standard: the record, the method and the organisation's own responses
   | 'contract'
   | 'lineage'
   | 'organisation'
   | 'interview'
   | 'method.approval'
-  | 'method.completeness'
   | 'method.scoring'
-  | 'method.evidence-states'
+  | 'method.content'
   | 'control'
   | 'answer'
-  | 'evidence-said'
-  | 'evidence'
-  | 'review'
-  | 'earlier-evidence'
-  | 'earlier-review'
+  | 'records-said'
   | 'waiting'
   | 'scope'
   | 'gap'
   | 'waiting-item'
   | 'action'
   | 'plan'
-  | 'unresolved-scenario'
   | 'scenario'
-  | 'assumption';
+  | 'assumption'
+  // advisory: evidence and reviewer records, and the reviewer-based review status
+  | 'advisory.review-status'
+  | 'advisory.evidence-states'
+  | 'evidence'
+  | 'review'
+  | 'earlier-evidence'
+  | 'earlier-review';
+
+export const ADVISORY_TYPES: readonly ClaimType[] = ['advisory.review-status', 'advisory.evidence-states', 'evidence', 'review', 'earlier-evidence', 'earlier-review'];
+
+/** Evidence levels, lowest first. Used only by the Advisory record; the standard report states none above "said to exist". */
+export const EVIDENCE_LEVELS = ['none-recorded', 'said-to-exist', 'requested', 'recorded', 'reviewed', 'independently-validated'] as const;
+export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
+
+/** Who recorded an Advisory evidence review or conclusion. Identity is unverified until reviewers sign in (B3). */
+export type Attribution = { by: string | null; at: string | null; forVersion: number | null; identityVerified: boolean; identityNote: string };
 
 export type Claim = {
   id: string;
   type: ClaimType;
+  pathway: Pathway;
   pointer: string;
   /** The fields of the object at the pointer that the claim copies; null copies the whole value. */
   fields: string[] | null;
@@ -53,7 +70,7 @@ export type Ledger = { version: string; claims: Claim[]; byId: Map<string, Claim
 
 const IDENTITY_NOTE = 'The report input carries no verified reviewer identity; reviewers do not yet sign in (B3).';
 
-/** Evidence level and outcome of an evidence record, from its state alone. */
+/** Evidence level and outcome of an Advisory evidence record, from its state alone. */
 export function evidenceLevelOf(state: string): { level: EvidenceLevel; outcome: string } {
   if (state === 'reviewed-sufficient' || state === 'insufficient' || state === 'contradicted') return { level: 'reviewed', outcome: state };
   if (state === 'supplied') return { level: 'recorded', outcome: state };
@@ -90,30 +107,34 @@ function attributionOf(record: any): Attribution {
 
 export function buildLedger(input: ReportInput): Ledger {
   const claims: Claim[] = [];
-  const add = (c: Omit<Claim, 'value'> & { value?: any }) => {
+  const add = (c: Omit<Claim, 'value' | 'pathway'> & { value?: any }) => {
     const value = c.value !== undefined ? c.value : project(resolvePointer(input, c.pointer), c.fields);
-    claims.push({ ...c, value } as Claim);
+    claims.push({ ...c, pathway: ADVISORY_TYPES.includes(c.type) ? 'advisory' : 'standard', value } as Claim);
   };
 
   add({ id: 'contract', type: 'contract', pointer: '/contract', fields: null, subject: {} });
   add({ id: 'lineage', type: 'lineage', pointer: '/lineage', fields: ['sessionId', 'asOf', 'actionCount', 'logDigest', 'recordContractVersion', 'rulesetReader'], subject: {} });
   add({ id: 'organisation', type: 'organisation', pointer: '/organisation', fields: null, subject: {} });
-  add({ id: 'interview', type: 'interview', pointer: '/interview', fields: ['status', 'stopReason', 'respondentScreens', 'respondentScreenLimit', 'ownerScreens', 'corrections', 'followUpSent', 'review'], subject: {} });
+  // The interview as the organisation experienced it. The reviewer-based review status is an Advisory claim.
+  add({ id: 'interview', type: 'interview', pointer: '/interview', fields: ['status', 'stopReason', 'respondentScreens', 'respondentScreenLimit', 'ownerScreens', 'corrections', 'followUpSent'], subject: {} });
   add({ id: 'method.approval', type: 'method.approval', pointer: '/method/approval', fields: null, subject: {} });
-  add({ id: 'method.completeness', type: 'method.completeness', pointer: '/method/completeness', fields: null, subject: {} });
   add({ id: 'method.scoring', type: 'method.scoring', pointer: '/method/scoring', fields: null, subject: {} });
-  add({ id: 'method.evidence-states', type: 'method.evidence-states', pointer: '/method/vocabulary/evidenceStates', fields: null, subject: {} });
+  add({ id: 'advisory.review-status', type: 'advisory.review-status', pointer: '/method/completeness', fields: null, subject: {} });
+  add({ id: 'advisory.interview-review', type: 'advisory.review-status', pointer: '/interview', fields: ['review'], subject: {} });
+  add({ id: 'advisory.evidence-states', type: 'advisory.evidence-states', pointer: '/method/vocabulary/evidenceStates', fields: null, subject: {} });
 
   input.domains.forEach((domain: any, d: number) => {
     domain.controls.forEach((control: any, c: number) => {
       const base = `/domains/${d}/controls/${c}`;
       const subject = { control: control.id, area: domain.id, ...(control.scenario ? { scenario: control.scenario.id } : {}) };
-      add({ id: `control:${control.id}`, type: 'control', pointer: base, fields: ['id', 'key', 'state', 'stateLabel', 'class', 'issue', 'domain', 'scenario'], subject });
+      add({ id: `control:${control.id}`, type: 'control', pointer: base, fields: ['id', 'key', 'text', 'state', 'stateLabel', 'class', 'issue', 'domain', 'scenario', 'format'], subject });
+      if (control.method) add({ id: `method:${control.id}`, type: 'method.content', pointer: `${base}/method`, fields: null, subject });
       control.history.forEach((h: any, k: number) => add({ id: `answer:${control.id}:v${h.version}`, type: 'answer', pointer: `${base}/history/${k}`, fields: null, subject }));
       if (control.answer) {
         add({ id: `answer:${control.id}:v${control.answer.version}`, type: 'answer', pointer: `${base}/answer`, fields: null, subject });
         const said = control.answer.detail?.evidenceAvailable;
-        if (said === 'yes' || said === 'partly') add({ id: `evidence-said:${control.id}`, type: 'evidence-said', pointer: `${base}/answer/detail/evidenceAvailable`, fields: null, subject, evidenceLevel: 'said-to-exist', outcome: said });
+        // The respondent's own statement that a record could be shown: self-reported, never seen by MK.
+        if (said === 'yes' || said === 'partly') add({ id: `records-said:${control.id}`, type: 'records-said', pointer: `${base}/answer/detail/evidenceAvailable`, fields: null, subject, outcome: said });
       }
       if (control.evidence) {
         const { level, outcome } = evidenceLevelOf(control.evidence.state);
@@ -136,11 +157,16 @@ export function buildLedger(input: ReportInput): Ledger {
   input.openWork.waiting.forEach((w: any, k: number) => add({ id: `waiting-item:${w.id}`, type: 'waiting-item', pointer: `/openWork/waiting/${k}`, fields: null, subject: { control: w.id } }));
   input.openWork.actions.forEach((a: any, k: number) => add({ id: `action:${a.type}:${a.id}:${k}`, type: 'action', pointer: `/openWork/actions/${k}`, fields: null, subject: { control: a.id } }));
   input.openWork.followUpPlan.forEach((p: any, k: number) => add({ id: `plan:${p.scenario}`, type: 'plan', pointer: `/openWork/followUpPlan/${k}`, fields: null, subject: { scenario: p.scenario } }));
-  input.openWork.unresolvedMaterialScenarios.forEach((s: string, k: number) => add({ id: `unresolved-scenario:${s}`, type: 'unresolved-scenario', pointer: `/openWork/unresolvedMaterialScenarios/${k}`, fields: null, subject: { scenario: s } }));
-  input.scenarios.forEach((s: any, k: number) => add({ id: `scenario:${s.id}`, type: 'scenario', pointer: `/scenarios/${k}`, fields: ['id', 'name', 'tier', 'domain', 'status', 'statusLabel'], subject: { scenario: s.id, area: s.domain } }));
+  input.scenarios.forEach((s: any, k: number) => add({ id: `scenario:${s.id}`, type: 'scenario', pointer: `/scenarios/${k}`, fields: ['id', 'name', 'tier', 'domain', 'status', 'statusLabel', 'established', 'undecided', 'confirmations'], subject: { scenario: s.id, area: s.domain } }));
   input.openWork.assumptions.forEach((a: any, k: number) => add({ id: `assumption:${a.id}`, type: 'assumption', pointer: `/openWork/assumptions/${k}`, fields: null, subject: { control: a.id } }));
 
   const byId = new Map(claims.map((c) => [c.id, c]));
   if (byId.size !== claims.length) throw new Error('The claims ledger has a repeated claim id.');
   return { version: LEDGER_VERSION, claims, byId, digest: canonicalDigest(claims) };
+}
+
+/** The ledger as the standard report sees it: the standard claims only. Used to prove the standard report never needs more. */
+export function standardLedger(ledger: Ledger): Ledger {
+  const claims = ledger.claims.filter((c) => c.pathway === 'standard');
+  return { version: ledger.version, claims, byId: new Map(claims.map((c) => [c.id, c])), digest: canonicalDigest(claims) };
 }

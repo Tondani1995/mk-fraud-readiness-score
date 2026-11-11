@@ -19,11 +19,11 @@ export async function gateInput(input: ReportInput, options: { expectedDigest?: 
   const check = (id: string, passed: boolean, detail: string) => checks.push({ id, passed, detail });
   const any = input as any;
 
-  check('contract', any?.contract?.name === SUPPORTED_INPUT.name && SUPPORTED_INPUT.versions.test(String(any?.contract?.version)), `contract ${any?.contract?.name} ${any?.contract?.version}; this engine reads ${SUPPORTED_INPUT.name} 1.1.x`);
+  check('contract', any?.contract?.name === SUPPORTED_INPUT.name && SUPPORTED_INPUT.versions.test(String(any?.contract?.version)), `contract ${any?.contract?.name} ${any?.contract?.version}; this engine reads ${SUPPORTED_INPUT.name} 1.2.x`);
   const missing = REQUIRED.filter((k) => any?.[k] === undefined);
   check('shape', missing.length === 0, missing.length ? `missing ${missing.join(', ')}` : 'every section present');
   check('scoring-withheld', any?.method?.scoring?.status === 'withheld', `method.scoring.status is ${any?.method?.scoring?.status}`);
-  check('fictional', any?.organisation?.fictional === true, any?.organisation?.fictional === true ? 'fictional record' : 'not marked fictional: Phase 1 reads fictional records only');
+  check('fictional', any?.organisation?.fictional === true, any?.organisation?.fictional === true ? 'fictional record' : 'not marked fictional: Phase 2 reads fictional records only');
 
   let digest = '';
   try {
