@@ -6,7 +6,7 @@ The integrated review track works end to end through the real interface: intervi
 
 ## Blocking items
 
-**Open on 11 November 2026: every item below.** B1 is partly done: the hosted API suite (19 tests) is blocked until a short-lived secret key is provided. B2 (staging isolation), B3 (authenticated access), B11 (hydration error #418) and J-01 (an intermittent unregistered answer) are open and unchanged by the database and report input work; nothing in that work addresses them.
+**Open on 11 November 2026: every item below.** B1 is partly done: the hosted API suite is blocked until a short-lived secret key is provided on MK's computer. B2 (staging isolation), B3 (authenticated access and verified reviewer identity), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (hydration error #418) and J-01 (an intermittent unregistered answer) are open. The report engine's Phase 1 (`REPORT-ENGINE-PHASE-1.md`) is internal and fictional-only: it produces no report, is connected to nothing, and depends on B2 to B7 before any use; it closes none of these items.
 
 | # | Item | Why it blocks | Owner |
 |---|---|---|---|
