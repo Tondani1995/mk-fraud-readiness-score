@@ -71,6 +71,28 @@ export async function createRpcClient({ role = 'service_role' } = {}) {
   };
 }
 
+/** Runs one statement under the given role and reports whether the database allowed it. */
+export async function runAsRole(role, sql) {
+  const pg = await db();
+  return serial(async () => {
+    try {
+      await pg.exec(`set role ${role}`);
+      await pg.query(sql);
+      return { ok: true, code: null };
+    } catch (error) {
+      return { ok: false, code: error.code ?? null };
+    } finally {
+      await pg.exec('reset role');
+    }
+  });
+}
+
+/** Runs SQL as the database owner (for scripts/readiness-review-database-sql-tests.sql); returns the last statement's rows. */
+export async function runOwnerSql(sql) {
+  const pg = await db();
+  return serial(async () => (await pg.exec(sql)).at(-1)?.rows ?? []);
+}
+
 /** Whether the given role can read a store table directly. */
 export async function tableReadable(role = 'anon') {
   const pg = await db();

@@ -46,26 +46,59 @@ Row level security is on for every table with no policies, and every table privi
 - **Several server processes.** The service caches replayed sessions. With the database store it checks the stored log length before using a cached session and rebuilds it if another process has written since.
 - **Notice.** Review pages name where answers are stored: files on this computer, or an isolated test database.
 
+## Running the tests
+
+`scripts/readiness-review-database-tests.mjs` runs the same scenarios against one backend, chosen explicitly. There is no default and no fallback.
+
+| Mode | What it runs against | Settings |
+|---|---|---|
+| `MK_REVIEW_TEST_BACKEND=local` | Embedded Postgres 17.5 (PGlite, `scripts/lib/readiness-review-pglite-client.mjs`, unchanged apart from two added helpers) with this migration and the Supabase API roles. Nothing is sent over the network; hosted settings in the environment are ignored. | `MK_PGLITE_DIR`, a folder where `@electric-sql/pglite@0.3` is installed outside the project |
+| `MK_REVIEW_TEST_BACKEND=hosted` | The authorised temporary project `zuqegvsfhzgcydyivnqv` only, through the existing RPC interface (`DatabaseReviewStore` over PostgREST) with the server-side secret key | `MK_READINESS_REVIEW_DB_URL`, `MK_READINESS_REVIEW_DB_PROJECT_REF`, `MK_REVIEW_TEST_PUBLIC_KEY`, and the secret key as `MK_READINESS_REVIEW_DB_SERVICE_KEY_FILE` (a file readable only by its owner) or `MK_READINESS_REVIEW_DB_SERVICE_KEY` |
+
+The hosted mode fails closed (`scripts/lib/readiness-review-test-backends.mjs`). Before any test it refuses: a missing mode or setting; any project other than `zuqegvsfhzgcydyivnqv`, pinned in code, including the shared preview and production project; an address that is not `https://zuqegvsfhzgcydyivnqv.supabase.co`; a public key in the secret key setting; a key issued for another project; the same value for both keys; a key file other users can read; and both key settings at once. Over the network it then requires that every answer comes from the authorised project (the gateway's `sb-project-ref` header), that the public key is refused by the store (`42501`), that the secret key can execute the store functions, and that the interface lists all eight. A refusal stops the run with exit code 2. Without the secret key, the public-key checks run and every other test is reported as blocked, with exit code 3 and the configuration steps; a blocked test is never reported as a pass.
+
+For the signed-in role the hosted mode creates a temporary fictional user (`mk-review-test-…@example.invalid`) with the secret key, signs it in with the public key, and deletes it at the end. Nothing is granted to any role for testing.
+
+| Scenario | Tests |
+|---|---|
+| Harness | H.1 store configuration fails closed; H.2 test configuration fails closed (19 cases) |
+| 1 Creation, retrieval, ordered appends, corrections | S1.1 round trip identical to the file harness; S1.2 ordered appends; S1.3 correction history; S1.4 links by hash |
+| 2 Concurrency, stale saves, retries, ambiguous responses | S2.1 stale and repeated saves; S2.2 lost responses at the store; S2.3 24 concurrent starts and 12 concurrent saves; S2.4 retries through the service after a lost or unconfirmed save; S2.5 the service end to end, with a write from another process |
+| 3 Denial of unauthorised roles | S3.1 the public role (needs only the public key); S3.2 public and signed-in roles against a stored session, and no table route even with the secret key |
+| 4 The complete report input | S4.1 a stored session with owner answers, evidence and conclusions: all 902 controls, states kept distinct |
+| 5 Determinism and lineage | S5.1 a fixed fictional session gives the same input digest on every load, replay and backend (`cb2180f5…`); S5.2 report runs recorded exactly, rebuilt from the stored prefix, invalid runs refused |
+| 6 No unsupported conclusions | S6.1 gaps are reported practice only, conclusions only from recorded reviews; S6.2 a reviewer record written straight to the store for an unasked control |
+| 7 Immutability, purge, errors | S7.1 changes refused through the interface; S7.2 explicit, complete purge; S7.3 the owner-level SQL suite (local here; hosted through the management connection); S7.4 every stored record read back, screened for personal data, purged |
+
+Every record is fictional and labelled so, is screened for email addresses, phone, identity and account numbers before it is sent and again when read back (S7.4), and is purged before the script ends.
+
 ## What was verified, and where
 
 | Check | Where | Result |
 |---|---|---|
 | Migration applied; every function body identical to the file (MD5 of each `prosrc`) | temporary hosted project `mk-review-store-temp` (`zuqegvsfhzgcydyivnqv`), PostgreSQL 17.11 | identical, 10 of 10 |
-| Grants: `anon` and `authenticated` cannot execute any store function; `service_role` can | same | as designed |
-| Database-level tests `scripts/readiness-review-database-sql-tests.sql` (sequence, immutability, all-or-nothing creation, fictional only, report runs, access by role, retention) | same | 41 of 41 |
+| Security model as deployed: the eight functions executable by `service_role` only, security definer, empty search path; RLS on all five tables with no policies; no table privilege and no schema usage for `anon`, `authenticated` or `service_role` | same, catalogue query as the owner | as designed |
+| Owner-level suite `scripts/readiness-review-database-sql-tests.sql` (sequence, immutability, all-or-nothing creation, fictional only, report runs, access by role, retention) | same, as the owner; and local (S7.3) | 42 of 42 on both (the first hosted record said 41 of 41; it listed 42 rows, all ok) |
+| The integration suite, local backend | embedded Postgres 17.5 | 22 of 22, twice; access mode 3 of 3 |
+| The integration suite, hosted backend, without the secret key | the temporary project over its API | H.1, H.2 and S3.1 pass (every function refused with `42501` for the public key; table routes refused with `PGRST106` and `PGRST205`); 18 tests blocked; S7.3 not applicable through the API |
+| Fail-closed refusals of the hosted mode | real runs | no mode, missing settings, a public key as the secret, the shared project: each refused with exit code 2 before any network call |
+| Inventory of the hosted project | as the owner | sessions, links, actions, runs, users, public tables and storage objects all 0; one ruleset row |
 | Security advisor | same | one INFO lint, RLS on with no policies, which is the intended deny-all design |
-| Performance advisor | same | two unindexed ruleset foreign keys, indexed; three indexes unused on an empty database |
-| The public key over the real API: every store function refused, the tables' schema not exposed | same, `scripts/readiness-review-database-tests.mjs --access-denied` | 8 of 8 refused (`42501`); tables `PGRST106` |
-| Store, service and lineage tests `scripts/readiness-review-database-tests.mjs` (round trip identical to the file harness, sequence checks, lost responses, concurrent starts and saves, the service end to end with a write from another process, report lineage, links by hash, purge) | local embedded Postgres 17.5 (PGlite) with the same migration and the Supabase roles | 9 of 9; access check 16 of 16 refused |
 | Report input contract | contract tests | C-23 pass; 23 of 23 |
 
 ## Not yet verified
 
-- **The store and service tests over the hosted API.** They need the temporary project's service-role key, which this session cannot obtain (the Supabase connection exposes only public keys). Granting the public role access to the store for a test was refused by the session's permission checks, and was not worked around. With the key set as `MK_READINESS_REVIEW_DB_SERVICE_KEY`, the same script runs unchanged against the hosted project.
-- **True parallel transactions.** On the embedded database calls run one after another. The outcome under parallel connections is decided by the same row lock and constraints, but it has only been exercised through the file harness and the embedded database.
-- **The browser journeys on the database store.** They need a server bound to a hosted project with the service key.
+- **The hosted integration suite with the secret key (18 tests, including S3.2 for the signed-in role).** The session has no secret key for the temporary project; the Supabase connection exposes only public keys, and granting the public role access for a test was refused by the session's permission checks and not worked around. The steps are in `scripts/lib/readiness-review-test-backends.mjs` (printed by any hosted run without the key): create a secret key for `zuqegvsfhzgcydyivnqv`, save it in a file readable only by its owner, run with `MK_REVIEW_TEST_BACKEND=hosted` and the settings above, then delete the key.
+- **True parallel transactions.** On the embedded database calls run one after another. S2.3 decides the same contest by the same row lock and constraints, but parallel connections are exercised only by the hosted run.
+- **The browser journeys on the database store.** They need a server bound to a hosted project with the secret key.
 - **Backups, point-in-time recovery and retention periods.** None was configured or tested; the organisation is on the free plan. Retention periods are MK's decision.
 - **Performance at scale.** Loading returns the whole log; a session has a few hundred actions at most, which is small.
+
+## Known limits that remain by design
+
+- **The store checks shape and sequence, not meaning.** It refuses malformed, out-of-order, repeated or non-fictional records, but it does not re-run the review rules. A caller holding the secret key can append an action the service would refuse, such as a reviewer conclusion on a control never asked (S6.2). Replay applies it, and the report input marks it as made against no answer (`forVersion: null`, not current) and keeps it out of gaps, findings and tasks. The service, which validates every action, is the only writer; the key stays on the server.
+- **The ruleset key is computed by the application.** The database refuses a different ruleset under a key it already holds, but it cannot recompute the canonical digest, so the first writer of a key is trusted. Only the secret key can write.
+- **Rulesets are never deleted.** Purge removes sessions, links, logs and runs; each test run on the hosted project leaves the ruleset it used, which holds only the contract, engine, bank and coverage identifiers.
 
 ## Release status
 
@@ -79,5 +112,5 @@ B1 (durable persistence) is implemented and verified on an isolated project at t
 
 1. Create the project and confirm it is not `iszihmmbgsfefawqmnwo`.
 2. Apply `supabase/migrations/20261111100000_readiness_review_store.sql`.
-3. Run `scripts/readiness-review-database-sql-tests.sql` as the owner: every row must be `ok`.
-4. Run `scripts/readiness-review-database-tests.mjs --access-denied` with the public key, then the full script with the service key.
+3. Run `scripts/readiness-review-database-sql-tests.sql` as the owner: all 42 rows must be `ok`.
+4. Add the project's reference to the pinned value in `scripts/lib/readiness-review-test-backends.mjs` only if MK authorises it as a test project, then run `scripts/readiness-review-database-tests.mjs` with `MK_REVIEW_TEST_BACKEND=hosted`, the public key and the secret key: the verdict must be `PASS` with nothing blocked.
