@@ -1,0 +1,2649 @@
+{
+ "label": "HYPOTHETICAL: research simulation, not an approved or production value",
+ "bank": "1.3-review",
+ "engine": "review-engine-build-1.5 with research hooks",
+ "tier1Applicable": {
+  "A": [
+   7,
+   3,
+   5,
+   7,
+   5,
+   5,
+   4,
+   2,
+   5,
+   4
+  ],
+  "B": [
+   8,
+   3,
+   3,
+   8,
+   5,
+   5,
+   3,
+   2,
+   5,
+   4
+  ],
+  "C": [
+   7,
+   3,
+   2,
+   7,
+   5,
+   5,
+   4,
+   2,
+   5,
+   4
+  ],
+  "D": [
+   8,
+   3,
+   4,
+   7,
+   5,
+   5,
+   4,
+   2,
+   5,
+   4
+  ],
+  "R": [
+   7,
+   3,
+   3,
+   7,
+   5,
+   5,
+   4,
+   2,
+   5,
+   4
+  ],
+  "S": [
+   7,
+   3,
+   2,
+   0,
+   0,
+   3,
+   0,
+   0,
+   4,
+   4
+  ]
+ },
+ "designs": {
+  "P1/D0": {
+   "respondentCore": 72,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 109,
+   "confirmationsKnown": 69,
+   "outstanding": 36.7,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 0,
+   "relatedKnown": 2,
+   "objectivesEvidenced": 52,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 45,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 88.4,
+     "hi": 91.3,
+     "point": 89.9,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 0,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 0,
+   "breadthDelegated": "4; 5",
+   "actions": 0,
+   "inPlaceParts": 0,
+   "blueprints": 0,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P1/D1": {
+   "respondentCore": 72,
+   "respondentTotal": 161,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 4,
+   "relatedKnown": 3,
+   "objectivesEvidenced": 84,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 45,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 2,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 84.1,
+     "hi": 91.3,
+     "point": 87.7,
+     "withheld": false,
+     "shown": 87.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 2,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 0,
+   "inPlaceParts": 4,
+   "blueprints": 2,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P1/D2": {
+   "respondentCore": 81,
+   "respondentTotal": 166,
+   "ownerTotal": 40,
+   "functions": 7,
+   "maxPerFunction": 14,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 15,
+   "relatedKnown": 37,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 10,
+   "inPlaceT1": 45,
+   "testedT1": 10,
+   "contradictions": 0,
+   "understated": 2,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 84.1,
+     "hi": 91.3,
+     "point": 87.7,
+     "withheld": false,
+     "shown": 87.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 1,
+   "inPlaceParts": 14,
+   "blueprints": 3,
+   "covFindings": 4,
+   "opModel": 3,
+   "deps": 6,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P1/D2+": {
+   "respondentCore": 81,
+   "respondentTotal": 166,
+   "ownerTotal": 95,
+   "functions": 7,
+   "maxPerFunction": 34,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 18,
+   "relatedKnown": 89,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 10,
+   "inPlaceT1": 45,
+   "testedT1": 12,
+   "contradictions": 0,
+   "understated": 2,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 84.1,
+     "hi": 91.3,
+     "point": 87.7,
+     "withheld": false,
+     "shown": 87.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 2,
+   "inPlaceParts": 19,
+   "blueprints": 3,
+   "covFindings": 10,
+   "opModel": 3,
+   "deps": 15,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P2/D0": {
+   "respondentCore": 95,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 107,
+   "confirmationsKnown": 46,
+   "outstanding": 57,
+   "tier1Known": 46,
+   "tier1Applicable": 46,
+   "followupsKnown": 21,
+   "relatedKnown": 1,
+   "objectivesEvidenced": 38,
+   "objectivesApplicable": 93,
+   "consistencyAsked": 0,
+   "inPlaceT1": 0,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 21.7,
+     "hi": 22.6,
+     "point": 22.2,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 21.7,
+     "hi": 22.6,
+     "point": 22.2,
+     "withheld": false,
+     "shown": 22.2
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 43,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 8,
+   "breadthDelegated": "n/a",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 1,
+   "opModel": 5,
+   "deps": 3,
+   "domainsA1": 9,
+   "domainsA": 9,
+   "domainsApplicable": 10
+  },
+  "P2/D1": {
+   "respondentCore": 133,
+   "respondentTotal": 264,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 106,
+   "confirmationsKnown": 106,
+   "outstanding": 0,
+   "tier1Known": 46,
+   "tier1Applicable": 46,
+   "followupsKnown": 106,
+   "relatedKnown": 3,
+   "objectivesEvidenced": 84,
+   "objectivesApplicable": 93,
+   "consistencyAsked": 0,
+   "inPlaceT1": 0,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 18.7,
+     "hi": 23.4,
+     "point": 21,
+     "withheld": false,
+     "shown": 21
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 21.7,
+     "hi": 22.6,
+     "point": 22.2,
+     "withheld": false,
+     "shown": 22.2
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 103,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 8,
+   "breadthDelegated": "8; 39",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 3,
+   "opModel": 12,
+   "deps": 5,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P2/D2": {
+   "respondentCore": 73,
+   "respondentTotal": 156,
+   "ownerTotal": 42,
+   "functions": 8,
+   "maxPerFunction": 13,
+   "confirmationsApplicable": 106,
+   "confirmationsKnown": 106,
+   "outstanding": 0,
+   "tier1Known": 46,
+   "tier1Applicable": 46,
+   "followupsKnown": 24,
+   "relatedKnown": 20,
+   "objectivesEvidenced": 92,
+   "objectivesApplicable": 93,
+   "consistencyAsked": 0,
+   "inPlaceT1": 0,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 18.7,
+     "hi": 23.4,
+     "point": 21,
+     "withheld": false,
+     "shown": 21
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 21.7,
+     "hi": 22.6,
+     "point": 22.2,
+     "withheld": false,
+     "shown": 22.2
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 103,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 8,
+   "breadthDelegated": "8; 21",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 12,
+   "opModel": 12,
+   "deps": 5,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P2/D2+": {
+   "respondentCore": 73,
+   "respondentTotal": 156,
+   "ownerTotal": 354,
+   "functions": 8,
+   "maxPerFunction": 90,
+   "confirmationsApplicable": 106,
+   "confirmationsKnown": 106,
+   "outstanding": 0,
+   "tier1Known": 46,
+   "tier1Applicable": 46,
+   "followupsKnown": 106,
+   "relatedKnown": 250,
+   "objectivesEvidenced": 92,
+   "objectivesApplicable": 93,
+   "consistencyAsked": 0,
+   "inPlaceT1": 0,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 18.7,
+     "hi": 23.4,
+     "point": 21,
+     "withheld": false,
+     "shown": 21
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 21.7,
+     "hi": 22.6,
+     "point": 22.2,
+     "withheld": false,
+     "shown": 22.2
+    },
+    "band": "Reactive",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 103,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 8,
+   "breadthDelegated": "8; 21",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 12,
+   "opModel": 13,
+   "deps": 21,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P3/D0": {
+   "respondentCore": 95,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 109,
+   "confirmationsKnown": 46,
+   "outstanding": 57.8,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 23,
+   "relatedKnown": 2,
+   "objectivesEvidenced": 39,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 22,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 55.7,
+     "hi": 57.4,
+     "point": 56.5,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 55.1,
+     "hi": 56.4,
+     "point": 55.8,
+     "withheld": false,
+     "shown": 55.8
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 22,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "n/a",
+   "actions": 11,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 1,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 9,
+   "domainsApplicable": 10
+  },
+  "P3/D1": {
+   "respondentCore": 108,
+   "respondentTotal": 219,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 61,
+   "relatedKnown": 4,
+   "objectivesEvidenced": 86,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 22,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 1,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 49.6,
+     "hi": 55.2,
+     "point": 52.4,
+     "withheld": false,
+     "shown": 52.4
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 55.1,
+     "hi": 56.4,
+     "point": 55.8,
+     "withheld": false,
+     "shown": 55.8
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 58,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "8; 28",
+   "actions": 13,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 2,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P3/D2": {
+   "respondentCore": 76,
+   "respondentTotal": 161,
+   "ownerTotal": 45,
+   "functions": 7,
+   "maxPerFunction": 15,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 19,
+   "relatedKnown": 33,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 5,
+   "inPlaceT1": 22,
+   "testedT1": 4,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 49.6,
+     "hi": 55.2,
+     "point": 52.4,
+     "withheld": false,
+     "shown": 52.4
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 55.1,
+     "hi": 56.4,
+     "point": 55.8,
+     "withheld": false,
+     "shown": 55.8
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 58,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "8; 21",
+   "actions": 20,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 12,
+   "opModel": 3,
+   "deps": 4,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P3/D2+": {
+   "respondentCore": 76,
+   "respondentTotal": 161,
+   "ownerTotal": 264,
+   "functions": 8,
+   "maxPerFunction": 65,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 68,
+   "relatedKnown": 203,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 5,
+   "inPlaceT1": 22,
+   "testedT1": 5,
+   "contradictions": 0,
+   "understated": 1,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 49.6,
+     "hi": 55.2,
+     "point": 52.4,
+     "withheld": false,
+     "shown": 52.4
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 55.1,
+     "hi": 56.4,
+     "point": 55.8,
+     "withheld": false,
+     "shown": 55.8
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 58,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "8; 21",
+   "actions": 31,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 13,
+   "opModel": 3,
+   "deps": 16,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P4/D0": {
+   "respondentCore": 51,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 52,
+   "confirmationsKnown": 49,
+   "outstanding": 5.8,
+   "tier1Known": 23,
+   "tier1Applicable": 23,
+   "followupsKnown": 6,
+   "relatedKnown": 2,
+   "objectivesEvidenced": 38,
+   "objectivesApplicable": 49,
+   "consistencyAsked": 0,
+   "inPlaceT1": 19,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 73.5,
+     "hi": 77.1,
+     "point": 75.3,
+     "withheld": false,
+     "shown": 75.3
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 73.9,
+     "hi": 76.5,
+     "point": 75.2,
+     "withheld": false,
+     "shown": 75.2
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 10,
+   "specific": 2,
+   "partialTop8": 4,
+   "absentTop8": 4,
+   "breadthDelegated": "7; 10",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 4,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 5,
+   "domainsA": 6,
+   "domainsApplicable": 6
+  },
+  "P4/D1": {
+   "respondentCore": 51,
+   "respondentTotal": 97,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 50,
+   "confirmationsKnown": 49,
+   "outstanding": 2,
+   "tier1Known": 23,
+   "tier1Applicable": 23,
+   "followupsKnown": 6,
+   "relatedKnown": 2,
+   "objectivesEvidenced": 38,
+   "objectivesApplicable": 47,
+   "consistencyAsked": 0,
+   "inPlaceT1": 19,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 73.5,
+     "hi": 77.1,
+     "point": 75.3,
+     "withheld": false,
+     "shown": 75.3
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 73.9,
+     "hi": 76.5,
+     "point": 75.2,
+     "withheld": false,
+     "shown": 75.2
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 10,
+   "specific": 2,
+   "partialTop8": 4,
+   "absentTop8": 4,
+   "breadthDelegated": "7; 10",
+   "actions": 6,
+   "inPlaceParts": 0,
+   "blueprints": 4,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 5,
+   "domainsA": 6,
+   "domainsApplicable": 6
+  },
+  "P4/D2": {
+   "respondentCore": 50,
+   "respondentTotal": 94,
+   "ownerTotal": 23,
+   "functions": 4,
+   "maxPerFunction": 9,
+   "confirmationsApplicable": 50,
+   "confirmationsKnown": 49,
+   "outstanding": 2,
+   "tier1Known": 23,
+   "tier1Applicable": 23,
+   "followupsKnown": 9,
+   "relatedKnown": 19,
+   "objectivesEvidenced": 43,
+   "objectivesApplicable": 47,
+   "consistencyAsked": 5,
+   "inPlaceT1": 19,
+   "testedT1": 3,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 73.5,
+     "hi": 77.1,
+     "point": 75.3,
+     "withheld": false,
+     "shown": 75.3
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 73.9,
+     "hi": 76.5,
+     "point": 75.2,
+     "withheld": false,
+     "shown": 75.2
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 10,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 4,
+   "breadthDelegated": "7; 8",
+   "actions": 13,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 1,
+   "opModel": 3,
+   "deps": 2,
+   "domainsA1": 5,
+   "domainsA": 6,
+   "domainsApplicable": 6
+  },
+  "P4/D2+": {
+   "respondentCore": 50,
+   "respondentTotal": 94,
+   "ownerTotal": 39,
+   "functions": 4,
+   "maxPerFunction": 19,
+   "confirmationsApplicable": 50,
+   "confirmationsKnown": 49,
+   "outstanding": 2,
+   "tier1Known": 23,
+   "tier1Applicable": 23,
+   "followupsKnown": 11,
+   "relatedKnown": 33,
+   "objectivesEvidenced": 43,
+   "objectivesApplicable": 47,
+   "consistencyAsked": 5,
+   "inPlaceT1": 19,
+   "testedT1": 4,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 73.5,
+     "hi": 77.1,
+     "point": 75.3,
+     "withheld": false,
+     "shown": 75.3
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 73.9,
+     "hi": 76.5,
+     "point": 75.2,
+     "withheld": false,
+     "shown": 75.2
+    },
+    "band": "Developing",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 10,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 4,
+   "breadthDelegated": "7; 8",
+   "actions": 13,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 3,
+   "opModel": 3,
+   "deps": 4,
+   "domainsA1": 5,
+   "domainsA": 6,
+   "domainsApplicable": 6
+  },
+  "P5/D0": {
+   "respondentCore": 95,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 110,
+   "confirmationsKnown": 34,
+   "outstanding": 69.1,
+   "tier1Known": 34,
+   "tier1Applicable": 46,
+   "followupsKnown": 14,
+   "relatedKnown": 0,
+   "objectivesEvidenced": 29,
+   "objectivesApplicable": 101,
+   "consistencyAsked": 0,
+   "inPlaceT1": 18,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 60.6,
+     "hi": 61.8,
+     "point": 61.2,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 60.6,
+     "hi": 61.8,
+     "point": 61.2,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "gapScenarios": 15,
+   "specific": 3,
+   "partialTop8": 5,
+   "absentTop8": 3,
+   "breadthDelegated": "n/a",
+   "actions": 7,
+   "inPlaceParts": 0,
+   "blueprints": 3,
+   "covFindings": 0,
+   "opModel": 0,
+   "deps": 0,
+   "domainsA1": 8,
+   "domainsA": 8,
+   "domainsApplicable": 10
+  },
+  "P5/D1": {
+   "respondentCore": 96,
+   "respondentTotal": 200,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 109,
+   "confirmationsKnown": 73,
+   "outstanding": 33,
+   "tier1Known": 34,
+   "tier1Applicable": 46,
+   "followupsKnown": 26,
+   "relatedKnown": 1,
+   "objectivesEvidenced": 65,
+   "objectivesApplicable": 101,
+   "consistencyAsked": 0,
+   "inPlaceT1": 18,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 1,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 53.2,
+     "hi": 58.6,
+     "point": 55.9,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 60.6,
+     "hi": 61.8,
+     "point": 61.2,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "gapScenarios": 37,
+   "specific": 3,
+   "partialTop8": 5,
+   "absentTop8": 3,
+   "breadthDelegated": "8; 24",
+   "actions": 7,
+   "inPlaceParts": 0,
+   "blueprints": 3,
+   "covFindings": 1,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 8,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P5/D2": {
+   "respondentCore": 72,
+   "respondentTotal": 158,
+   "ownerTotal": 80,
+   "functions": 8,
+   "maxPerFunction": 17,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 107,
+   "outstanding": 0.9,
+   "tier1Known": 44,
+   "tier1Applicable": 45,
+   "followupsKnown": 16,
+   "relatedKnown": 33,
+   "objectivesEvidenced": 98,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 2,
+   "inPlaceT1": 21,
+   "testedT1": 1,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 48.8,
+     "hi": 54.2,
+     "point": 51.5,
+     "withheld": false,
+     "shown": 51.5
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 54.5,
+     "hi": 55.9,
+     "point": 55.2,
+     "withheld": false,
+     "shown": 55.2
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "gapScenarios": 59,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "8; 21",
+   "actions": 20,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 12,
+   "opModel": 1,
+   "deps": 3,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P5/D2+": {
+   "respondentCore": 72,
+   "respondentTotal": 158,
+   "ownerTotal": 301,
+   "functions": 8,
+   "maxPerFunction": 68,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 107,
+   "outstanding": 0.9,
+   "tier1Known": 44,
+   "tier1Applicable": 45,
+   "followupsKnown": 66,
+   "relatedKnown": 204,
+   "objectivesEvidenced": 98,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 2,
+   "inPlaceT1": 21,
+   "testedT1": 2,
+   "contradictions": 0,
+   "understated": 1,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 48.8,
+     "hi": 54.2,
+     "point": 51.5,
+     "withheld": false,
+     "shown": 51.5
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 54.5,
+     "hi": 55.9,
+     "point": 55.2,
+     "withheld": false,
+     "shown": 55.2
+    },
+    "band": "Developing",
+    "status": "PROVISIONAL"
+   },
+   "gapScenarios": 59,
+   "specific": 2,
+   "partialTop8": 2,
+   "absentTop8": 6,
+   "breadthDelegated": "8; 21",
+   "actions": 31,
+   "inPlaceParts": 0,
+   "blueprints": 5,
+   "covFindings": 13,
+   "opModel": 1,
+   "deps": 15,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P6b/D0": {
+   "respondentCore": 72,
+   "respondentTotal": 95,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 109,
+   "confirmationsKnown": 69,
+   "outstanding": 36.7,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 0,
+   "relatedKnown": 2,
+   "objectivesEvidenced": 52,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 45,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 88.4,
+     "hi": 91.3,
+     "point": 89.9,
+     "withheld": true,
+     "shown": null
+    },
+    "band": null,
+    "status": "INSUFFICIENT"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 0,
+   "specific": 0,
+   "partialTop8": 0,
+   "absentTop8": 0,
+   "breadthDelegated": "4; 5",
+   "actions": 0,
+   "inPlaceParts": 0,
+   "blueprints": 0,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P6b/D1": {
+   "respondentCore": 72,
+   "respondentTotal": 161,
+   "ownerTotal": 0,
+   "functions": 0,
+   "maxPerFunction": 0,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 4,
+   "relatedKnown": 3,
+   "objectivesEvidenced": 84,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 0,
+   "inPlaceT1": 45,
+   "testedT1": 0,
+   "contradictions": 0,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 84.1,
+     "hi": 91.3,
+     "point": 87.7,
+     "withheld": false,
+     "shown": 87.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 88,
+     "hi": 89.3,
+     "point": 88.7,
+     "withheld": false,
+     "shown": 88.7
+    },
+    "band": "Strategic",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 2,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 4,
+   "inPlaceParts": 0,
+   "blueprints": 2,
+   "covFindings": 0,
+   "opModel": 1,
+   "deps": 0,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P6b/D2": {
+   "respondentCore": 80,
+   "respondentTotal": 165,
+   "ownerTotal": 39,
+   "functions": 7,
+   "maxPerFunction": 14,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 14,
+   "relatedKnown": 36,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 10,
+   "inPlaceT1": 45,
+   "testedT1": 9,
+   "contradictions": 10,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 81.3,
+     "hi": 88.7,
+     "point": 85,
+     "withheld": false,
+     "shown": 85
+    },
+    "band": "Structured",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 82.2,
+     "hi": 84,
+     "point": 83.1,
+     "withheld": false,
+     "shown": 83.1
+    },
+    "band": "Structured",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 15,
+   "inPlaceParts": 0,
+   "blueprints": 3,
+   "covFindings": 16,
+   "opModel": 2,
+   "deps": 3,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  },
+  "P6b/D2+": {
+   "respondentCore": 80,
+   "respondentTotal": 165,
+   "ownerTotal": 87,
+   "functions": 7,
+   "maxPerFunction": 32,
+   "confirmationsApplicable": 108,
+   "confirmationsKnown": 108,
+   "outstanding": 0,
+   "tier1Known": 45,
+   "tier1Applicable": 45,
+   "followupsKnown": 17,
+   "relatedKnown": 81,
+   "objectivesEvidenced": 99,
+   "objectivesApplicable": 100,
+   "consistencyAsked": 10,
+   "inPlaceT1": 45,
+   "testedT1": 11,
+   "contradictions": 13,
+   "understated": 0,
+   "notEstablished": 0,
+   "scoreA": {
+    "overall": {
+     "lo": 80.4,
+     "hi": 88,
+     "point": 84.2,
+     "withheld": false,
+     "shown": 84.2
+    },
+    "band": "Structured",
+    "status": "NORMAL"
+   },
+   "scoreA1": {
+    "overall": {
+     "lo": 81.3,
+     "hi": 83.1,
+     "point": 82.2,
+     "withheld": false,
+     "shown": 82.2
+    },
+    "band": "Structured",
+    "status": "NORMAL"
+   },
+   "gapScenarios": 4,
+   "specific": 4,
+   "partialTop8": 4,
+   "absentTop8": 0,
+   "breadthDelegated": "8; 21",
+   "actions": 19,
+   "inPlaceParts": 0,
+   "blueprints": 3,
+   "covFindings": 16,
+   "opModel": 2,
+   "deps": 7,
+   "domainsA1": 9,
+   "domainsA": 10,
+   "domainsApplicable": 10
+  }
+ },
+ "consistency": [
+  {
+   "profile": "P1",
+   "design": "D0",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 24,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 95
+  },
+  {
+   "profile": "P1",
+   "design": "D0",
+   "sample": "universal",
+   "asked": 6,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 19,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 95
+  },
+  {
+   "profile": "P1",
+   "design": "D0",
+   "sample": "perDomain",
+   "asked": 10,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 15,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 95
+  },
+  {
+   "profile": "P1",
+   "design": "D0",
+   "sample": "all",
+   "asked": 42,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 95
+  },
+  {
+   "profile": "P1",
+   "design": "D2",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 157
+  },
+  {
+   "profile": "P1",
+   "design": "D2",
+   "sample": "universal",
+   "asked": 6,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 162
+  },
+  {
+   "profile": "P1",
+   "design": "D2",
+   "sample": "perDomain",
+   "asked": 10,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 166
+  },
+  {
+   "profile": "P1",
+   "design": "D2",
+   "sample": "all",
+   "asked": 42,
+   "contradictions": 1,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 88.2,
+   "f24": 88.2,
+   "band": "Structured",
+   "screens": 197
+  },
+  {
+   "profile": "P3",
+   "design": "D0",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 95
+  },
+  {
+   "profile": "P3",
+   "design": "D0",
+   "sample": "universal",
+   "asked": 5,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 95
+  },
+  {
+   "profile": "P3",
+   "design": "D0",
+   "sample": "perDomain",
+   "asked": 5,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 95
+  },
+  {
+   "profile": "P3",
+   "design": "D0",
+   "sample": "all",
+   "asked": 21,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 95
+  },
+  {
+   "profile": "P3",
+   "design": "D2",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 157
+  },
+  {
+   "profile": "P3",
+   "design": "D2",
+   "sample": "universal",
+   "asked": 5,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 161
+  },
+  {
+   "profile": "P3",
+   "design": "D2",
+   "sample": "perDomain",
+   "asked": 5,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 161
+  },
+  {
+   "profile": "P3",
+   "design": "D2",
+   "sample": "all",
+   "asked": 21,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 55.8,
+   "f2": 55.8,
+   "f24": 55.8,
+   "band": "Developing",
+   "screens": 176
+  },
+  {
+   "profile": "P6b",
+   "design": "D0",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 24,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 95
+  },
+  {
+   "profile": "P6b",
+   "design": "D0",
+   "sample": "universal",
+   "asked": 6,
+   "contradictions": 4,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 20,
+   "f0": 88.7,
+   "f2": 86.2,
+   "f24": 86.2,
+   "band": "Structured",
+   "screens": 95
+  },
+  {
+   "profile": "P6b",
+   "design": "D0",
+   "sample": "perDomain",
+   "asked": 10,
+   "contradictions": 8,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 16,
+   "f0": 88.7,
+   "f2": 84,
+   "f24": 84,
+   "band": "Structured",
+   "screens": 95
+  },
+  {
+   "profile": "P6b",
+   "design": "D0",
+   "sample": "all",
+   "asked": 42,
+   "contradictions": 23,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 1,
+   "f0": 88.7,
+   "f2": 73.6,
+   "f24": 73.6,
+   "band": "Structured",
+   "screens": 95
+  },
+  {
+   "profile": "P6b",
+   "design": "D2",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 88.7,
+   "f24": 88.7,
+   "band": "Strategic",
+   "screens": 157
+  },
+  {
+   "profile": "P6b",
+   "design": "D2",
+   "sample": "universal",
+   "asked": 6,
+   "contradictions": 4,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 86.2,
+   "f24": 86.2,
+   "band": "Structured",
+   "screens": 161
+  },
+  {
+   "profile": "P6b",
+   "design": "D2",
+   "sample": "perDomain",
+   "asked": 10,
+   "contradictions": 8,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 84,
+   "f24": 84,
+   "band": "Structured",
+   "screens": 165
+  },
+  {
+   "profile": "P6b",
+   "design": "D2",
+   "sample": "all",
+   "asked": 42,
+   "contradictions": 40,
+   "notEstablished": 0,
+   "tier1": "45/45",
+   "t2t3": 63,
+   "f0": 88.7,
+   "f2": 64,
+   "f24": 64,
+   "band": "Structured",
+   "screens": 196
+  },
+  {
+   "profile": "P2",
+   "design": "D0",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 0,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 95
+  },
+  {
+   "profile": "P2",
+   "design": "D0",
+   "sample": "universal",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 0,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 95
+  },
+  {
+   "profile": "P2",
+   "design": "D0",
+   "sample": "perDomain",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 0,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 95
+  },
+  {
+   "profile": "P2",
+   "design": "D0",
+   "sample": "all",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 0,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 95
+  },
+  {
+   "profile": "P2",
+   "design": "D2",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 60,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 156
+  },
+  {
+   "profile": "P2",
+   "design": "D2",
+   "sample": "universal",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 60,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 156
+  },
+  {
+   "profile": "P2",
+   "design": "D2",
+   "sample": "perDomain",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 60,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 156
+  },
+  {
+   "profile": "P2",
+   "design": "D2",
+   "sample": "all",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "46/46",
+   "t2t3": 60,
+   "f0": 22.2,
+   "f2": 22.2,
+   "f24": 22.2,
+   "band": "Reactive",
+   "screens": 156
+  },
+  {
+   "profile": "P5",
+   "design": "D0",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 0,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 95
+  },
+  {
+   "profile": "P5",
+   "design": "D0",
+   "sample": "universal",
+   "asked": 2,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 0,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 95
+  },
+  {
+   "profile": "P5",
+   "design": "D0",
+   "sample": "perDomain",
+   "asked": 2,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 0,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 95
+  },
+  {
+   "profile": "P5",
+   "design": "D0",
+   "sample": "all",
+   "asked": 17,
+   "contradictions": 0,
+   "notEstablished": 2,
+   "tier1": "34/46",
+   "t2t3": 0,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 95
+  },
+  {
+   "profile": "P5",
+   "design": "D2",
+   "sample": "none",
+   "asked": 0,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 39,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 157
+  },
+  {
+   "profile": "P5",
+   "design": "D2",
+   "sample": "universal",
+   "asked": 2,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 39,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 158
+  },
+  {
+   "profile": "P5",
+   "design": "D2",
+   "sample": "perDomain",
+   "asked": 2,
+   "contradictions": 0,
+   "notEstablished": 0,
+   "tier1": "34/46",
+   "t2t3": 39,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 158
+  },
+  {
+   "profile": "P5",
+   "design": "D2",
+   "sample": "all",
+   "asked": 17,
+   "contradictions": 0,
+   "notEstablished": 4,
+   "tier1": "34/46",
+   "t2t3": 39,
+   "f0": 61.2,
+   "f2": 61.2,
+   "f24": 61.2,
+   "band": null,
+   "screens": 172
+  }
+ ],
+ "p6": [
+  [
+   "95 screens",
+   95,
+   21,
+   13,
+   "88.9",
+   "80.9 Structured"
+  ],
+  [
+   "no limit",
+   275,
+   113,
+   40,
+   "88.7",
+   "63.6 Structured"
+  ]
+ ],
+ "depthValue": {
+  "P1/D2": {
+   "follow-up": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 8,
+    "report": 8,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 28,
+    "report": 3,
+    "conclusion": 4
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P1/D2+": {
+   "follow-up": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 10,
+    "report": 10,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 81,
+    "report": 7,
+    "conclusion": 12
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P2/D2": {
+   "follow-up": {
+    "n": 22,
+    "report": 6,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 20,
+    "report": 0,
+    "conclusion": 20
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P2/D2+": {
+   "follow-up": {
+    "n": 106,
+    "report": 6,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 204,
+    "report": 0,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 44,
+    "report": 0,
+    "conclusion": 44
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P3/D2": {
+   "follow-up": {
+    "n": 13,
+    "report": 13,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 28,
+    "report": 3,
+    "conclusion": 18
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P3/D2+": {
+   "follow-up": {
+    "n": 62,
+    "report": 13,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 128,
+    "report": 13,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 74,
+    "report": 5,
+    "conclusion": 39
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P4/D2": {
+   "follow-up": {
+    "n": 6,
+    "report": 6,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 7,
+    "report": 7,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 10,
+    "report": 0,
+    "conclusion": 1
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P4/D2+": {
+   "follow-up": {
+    "n": 6,
+    "report": 6,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 7,
+    "report": 7,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 26,
+    "report": 0,
+    "conclusion": 3
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P5/D2": {
+   "follow-up": {
+    "n": 13,
+    "report": 13,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 28,
+    "report": 3,
+    "conclusion": 18
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P5/D2+": {
+   "follow-up": {
+    "n": 63,
+    "report": 13,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 129,
+    "report": 13,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 74,
+    "report": 5,
+    "conclusion": 39
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P6b/D2": {
+   "follow-up": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 8,
+    "report": 8,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 27,
+    "report": 3,
+    "conclusion": 27
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  },
+  "P6b/D2+": {
+   "follow-up": {
+    "n": 4,
+    "report": 4,
+    "conclusion": 0
+   },
+   "diagnostic": {
+    "n": 10,
+    "report": 10,
+    "conclusion": 0
+   },
+   "coverage": {
+    "n": 73,
+    "report": 5,
+    "conclusion": 73
+   },
+   "unknown returned": {
+    "n": 0,
+    "report": 0,
+    "conclusion": 0
+   }
+  }
+ },
+ "frames": {
+  "P1": {
+   "core1": {
+    "lo": 88,
+    "hi": 89.3,
+    "point": 88.7,
+    "withheld": false,
+    "shown": 88.7
+   },
+   "coreA": {
+    "lo": 87.8,
+    "hi": 89.6,
+    "point": 88.7,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 88,
+    "hi": 89.3,
+    "point": 88.7,
+    "withheld": false,
+    "shown": 88.7
+   },
+   "brA": {
+    "lo": 84.1,
+    "hi": 91.3,
+    "point": 87.7,
+    "withheld": false,
+    "shown": 87.7
+   },
+   "fin1": {
+    "lo": 88,
+    "hi": 89.3,
+    "point": 88.7,
+    "withheld": false,
+    "shown": 88.7
+   },
+   "finA": {
+    "lo": 84.1,
+    "hi": 91.3,
+    "point": 87.7,
+    "withheld": false,
+    "shown": 87.7
+   },
+   "depthIndex": 85,
+   "depthAsked": 40,
+   "aPlusC": 86.8,
+   "coverageScored": 28
+  },
+  "P2": {
+   "core1": {
+    "lo": 21.7,
+    "hi": 22.6,
+    "point": 22.2,
+    "withheld": false,
+    "shown": 22.2
+   },
+   "coreA": {
+    "lo": 21.7,
+    "hi": 22.6,
+    "point": 22.2,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 21.7,
+    "hi": 22.6,
+    "point": 22.2,
+    "withheld": false,
+    "shown": 22.2
+   },
+   "brA": {
+    "lo": 18.7,
+    "hi": 23.4,
+    "point": 21,
+    "withheld": false,
+    "shown": 21
+   },
+   "fin1": {
+    "lo": 21.7,
+    "hi": 22.6,
+    "point": 22.2,
+    "withheld": false,
+    "shown": 22.2
+   },
+   "finA": {
+    "lo": 18.7,
+    "hi": 23.4,
+    "point": 21,
+    "withheld": false,
+    "shown": 21
+   },
+   "depthIndex": 16.4,
+   "depthAsked": 42,
+   "aPlusC": 20.2,
+   "coverageScored": 20
+  },
+  "P3": {
+   "core1": {
+    "lo": 55.1,
+    "hi": 56.4,
+    "point": 55.8,
+    "withheld": false,
+    "shown": 55.8
+   },
+   "coreA": {
+    "lo": 55.7,
+    "hi": 57.4,
+    "point": 56.5,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 55.1,
+    "hi": 56.4,
+    "point": 55.8,
+    "withheld": false,
+    "shown": 55.8
+   },
+   "brA": {
+    "lo": 49.6,
+    "hi": 55.2,
+    "point": 52.4,
+    "withheld": false,
+    "shown": 52.4
+   },
+   "fin1": {
+    "lo": 55.1,
+    "hi": 56.4,
+    "point": 55.8,
+    "withheld": false,
+    "shown": 55.8
+   },
+   "finA": {
+    "lo": 49.6,
+    "hi": 55.2,
+    "point": 52.4,
+    "withheld": false,
+    "shown": 52.4
+   },
+   "depthIndex": 35.8,
+   "depthAsked": 45,
+   "aPlusC": 51,
+   "coverageScored": 28
+  },
+  "P4": {
+   "core1": {
+    "lo": 73.9,
+    "hi": 76.5,
+    "point": 75.2,
+    "withheld": false,
+    "shown": 75.2
+   },
+   "coreA": {
+    "lo": 73.9,
+    "hi": 76.5,
+    "point": 75.2,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 73.9,
+    "hi": 76.5,
+    "point": 75.2,
+    "withheld": false,
+    "shown": 75.2
+   },
+   "brA": {
+    "lo": 73.5,
+    "hi": 77.1,
+    "point": 75.3,
+    "withheld": false,
+    "shown": 75.3
+   },
+   "fin1": {
+    "lo": 73.9,
+    "hi": 76.5,
+    "point": 75.2,
+    "withheld": false,
+    "shown": 75.2
+   },
+   "finA": {
+    "lo": 73.5,
+    "hi": 77.1,
+    "point": 75.3,
+    "withheld": false,
+    "shown": 75.3
+   },
+   "depthIndex": 47.8,
+   "depthAsked": 23,
+   "aPlusC": 76.9,
+   "coverageScored": 10
+  },
+  "P5": {
+   "core1": {
+    "lo": 60.6,
+    "hi": 61.8,
+    "point": 61.2,
+    "withheld": true,
+    "shown": null
+   },
+   "coreA": {
+    "lo": 60.6,
+    "hi": 61.8,
+    "point": 61.2,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 60.6,
+    "hi": 61.8,
+    "point": 61.2,
+    "withheld": true,
+    "shown": null
+   },
+   "brA": {
+    "lo": 53.2,
+    "hi": 58.6,
+    "point": 55.9,
+    "withheld": true,
+    "shown": null
+   },
+   "fin1": {
+    "lo": 54.5,
+    "hi": 55.9,
+    "point": 55.2,
+    "withheld": false,
+    "shown": 55.2
+   },
+   "finA": {
+    "lo": 48.8,
+    "hi": 54.2,
+    "point": 51.5,
+    "withheld": false,
+    "shown": 51.5
+   },
+   "depthIndex": 35.8,
+   "depthAsked": 45,
+   "aPlusC": 50.2,
+   "coverageScored": 28
+  },
+  "P6b": {
+   "core1": {
+    "lo": 83.1,
+    "hi": 84.9,
+    "point": 84,
+    "withheld": false,
+    "shown": 84
+   },
+   "coreA": {
+    "lo": 83,
+    "hi": 85.2,
+    "point": 84.1,
+    "withheld": true,
+    "shown": null
+   },
+   "brA1": {
+    "lo": 83.1,
+    "hi": 84.9,
+    "point": 84,
+    "withheld": false,
+    "shown": 84
+   },
+   "brA": {
+    "lo": 82,
+    "hi": 89.4,
+    "point": 85.7,
+    "withheld": false,
+    "shown": 85.7
+   },
+   "fin1": {
+    "lo": 82.2,
+    "hi": 84,
+    "point": 83.1,
+    "withheld": false,
+    "shown": 83.1
+   },
+   "finA": {
+    "lo": 81.3,
+    "hi": 88.7,
+    "point": 85,
+    "withheld": false,
+    "shown": 85
+   },
+   "depthIndex": 17.9,
+   "depthAsked": 39,
+   "aPlusC": 71.2,
+   "coverageScored": 27
+  }
+ }
+}

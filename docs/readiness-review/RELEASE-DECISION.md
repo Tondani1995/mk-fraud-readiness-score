@@ -40,6 +40,7 @@ The integrated review track works end to end through the real interface: intervi
 13. The review-track interface still presents reviewer evidence work as a second stage of the review and defines completion in reviewer terms (`REPORT-ENGINE-MK-DECISIONS.md`, B-3). Under MK's correction this belongs to Advisory; whether the reviewer workspace moves to a separate Advisory surface, and the wording that replaces it, are MK decisions (B3, B5, B7).
 14. The methodology and integration decisions in `REPORT-ENGINES-AND-REVISED-ASSESSMENT.md` (S1 to S11, M-1 to M-12): how revised assessments are scored and reported through the existing engines, products and prices, and whether the revised method replaces MFRS for new assessments.
 15. The scoring methodology decisions MD-1 to MD-16 in `METHODOLOGY-DECISION-PACKAGE.md`, which refine S1 to S11 with simulation evidence: the scored frame, tiers as a scoring classification, the treatment of non-anchored answers, unknown and outstanding information, false comfort, aggregation, caps, bands, comparability with MFRS, and the report-engine change scope. Until decided, no revised scoring value is implemented.
+16. The staged-assessment and scoring decisions MD-B1 to MD-B11 in `STAGED-ASSESSMENT-AND-SCORING-PLAN.md`, which supersede the tier 1 recommendation of MD-1: the scored frame, the core indicator's definition, the tier review, the consistency sample, the depth rules, the stage each product requires before fulfilment, package expiry, respondent burden policy and Snapshot labelling.
 
 ## Limitations of this candidate
 
