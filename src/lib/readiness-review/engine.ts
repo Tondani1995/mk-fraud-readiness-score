@@ -30,6 +30,10 @@ export function loadedRulesetProblem(): string | null {
   return null;
 }
 
+/** The engine's own vocabulary: every practice class it records, and the classes it treats as a reported gap. */
+export const REVIEW_PRACTICE_CLASSES: readonly string[] = REVIEW.CLASSES;
+export const REVIEW_ISSUE_CLASSES: readonly string[] = REVIEW.ISSUE;
+
 export function createReviewEngine(clock: ReviewClock): EngineInstance {
   return REVIEW.create(bank, coverage, {
     ceiling: READINESS_REVIEW_CONTRACT.respondentScreenLimit,

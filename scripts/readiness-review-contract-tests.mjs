@@ -473,6 +473,33 @@ await T('C-22', 'Telemetry: a review credential is removed by the analytics sani
   return [leaks.length === 0 && kept, `${urls.length} URLs and ${paths.length} paths through 6 boundaries; marker survived ${leaks.length} times${leaks.length ? `: ${leaks.slice(0, 4).join('; ')}` : ''}; suffixes and public pages preserved: ${kept}`];
 });
 
+// Report input: what a report engine consumes, built only from the stored log.
+await T('C-23', 'Report input: deterministic from the log, complete over every control, consistent with the engine report, and carrying no score', async () => {
+  const { buildReportInput, reportInputDigest, REPORT_INPUT_CONTRACT } = await import('../src/lib/readiness-review/report-input.ts');
+  const { canonicalDigest } = await import('../src/lib/readiness-review/canonical.ts');
+  const live = newSession();
+  let n = 0;
+  runInterview(live, (step) => (step.q.id.startsWith('PR-') || step.q.id === '__assumptions__' ? strong(step) : n++ % 7 === 3 ? (step.q.format === 'multi' ? ['unknown'] : 'unknown') : strong(step)), 120);
+  act(live, { type: 'organisation.sendToOwners' }, 'organisation');
+  const input = buildReportInput(replay(live.record));
+  const again = buildReportInput(replay(JSON.parse(JSON.stringify(live.record))));
+  const report = reportFor(replay(live.record));
+  const controls = input.domains.flatMap((d) => d.controls);
+  const rows = report.domains.flatMap((d) => d.rows);
+  const countsMatch = input.domains.every((d) => Object.entries(d.counts).every(([st, n]) => d.controls.filter((c) => c.state === st).length === n));
+  const waitingMatch = input.openWork.waiting.map((w) => w.id).join() === report.waiting.map((r) => r.id).join() && input.openWork.waiting.every((w) => w.provenance && w.provenance.kind);
+  const gapsMatch = input.findings.reportedGaps.map((g) => g.id).join() === report.issues.map((r) => r.id).join();
+  const answersOk = controls.filter((c) => c.answer).every((c) => c.history.every((h) => h.version < c.answer.version)) && controls.filter((c) => c.state === 'reported').every((c) => c.answer && c.class);
+  const scoreKeys = [...keysDeep(input)].filter((k) => /^(score|scores|band|bands|rating|ratings|confidence|maturity|predicted|prediction|predictions|readinessLevel)$/i.test(k));
+  const lineageOk = input.lineage.logDigest === canonicalDigest(live.record.actions) && input.lineage.actionCount === live.record.actions.length && input.lineage.rulesetReader === 'recorded';
+  const fixture = JSON.parse(readFileSync(path.join(ROOT, 'scripts/fixtures/readiness-review-session-1.2.0.json'), 'utf8'));
+  const historical = buildReportInput(replay(fixture.record));
+  const ok = reportInputDigest(input) === reportInputDigest(again) && controls.length === rows.length && countsMatch && waitingMatch && gapsMatch && answersOk && scoreKeys.length === 0 && input.method.scoring.status === 'withheld' &&
+    lineageOk && input.contract.name === REPORT_INPUT_CONTRACT.name && historical.lineage.rulesetReader === 'historical-1.0-1.2' && historical.domains.flatMap((d) => d.controls).length === rows.length &&
+    historical.findings.reportedGaps.length === fixture.expectedReport.issues && historical.openWork.waiting.length === fixture.expectedReport.waiting;
+  return [ok, `${controls.length} controls (${controls.filter((c) => c.answer).length} answered, ${input.openWork.waiting.length} waiting, ${input.findings.reportedGaps.length} gaps); same digest on a second replay ${reportInputDigest(input) === reportInputDigest(again)}; counts ${countsMatch}, waiting ${waitingMatch}, gaps ${gapsMatch}, answers ${answersOk}; score-like keys ${scoreKeys.length}; lineage ${lineageOk}; 1.2.0 record read through the historical reader ${historical.lineage.rulesetReader} with ${historical.findings.reportedGaps.length} gaps and ${historical.openWork.waiting.length} waiting, as its report recorded`];
+});
+
 rmSync(dir, { recursive: true, force: true });
 const summary = results.reduce((a, r) => ((a[r.status] = (a[r.status] || 0) + 1), a), {});
 results.forEach((r) => console.log(`${r.id.padEnd(6)} ${r.status.padEnd(5)} ${r.name}\n        ${r.detail}`));
