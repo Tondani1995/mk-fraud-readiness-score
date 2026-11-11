@@ -236,6 +236,30 @@ check('public Advisory validation normalises and bounds what it accepts', () => 
   assert.ok(result.data.notes.length <= 800);
 });
 
+check('public Advisory carries allow-listed campaign attribution to the audit record, never into the row', () => {
+  const result = parsePublicAdvisoryEnquiry({
+    ...VALID_ADVISORY,
+    attribution: {
+      utm_source: 'linkedin',
+      utm_medium: 'organic_social',
+      utm_campaign: 'fraud_readiness',
+      utm_content: '<b>post-01</b>',
+      email: 'leak@example.com',
+      assessment_token: 'secret'
+    }
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(Object.keys(result.data.attribution).sort(), ['utm_campaign', 'utm_content', 'utm_medium', 'utm_source']);
+  assert.equal(result.data.attribution.utm_source, 'linkedin');
+  assert.ok(!result.data.attribution.utm_content.includes('<'), 'markup is stripped');
+  assert.deepEqual(parsePublicAdvisoryEnquiry(VALID_ADVISORY).data.attribution, {}, 'absent attribution is an empty object');
+
+  const form = read('src/components/website/FraudReadiness/PublicAdvisoryEnquiryForm.tsx');
+  assert.ok(form.includes('attribution: getCampaignAttribution()'), 'the public Advisory form must send the consent-scoped acquisition context');
+  const route = read('src/app/score/api/enquiries/advisory/route.ts');
+  assert.ok(route.includes('attribution: parsed.data.attribution'), 'the Advisory route must record attribution on the enquiry audit');
+});
+
 await check('a public Advisory enquiry persists with null assessment, organisation and respondent', async () => {
   const db = fakeDb();
   const parsed = parsePublicAdvisoryEnquiry(VALID_ADVISORY);

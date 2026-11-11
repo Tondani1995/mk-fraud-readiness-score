@@ -9,6 +9,7 @@ import {
   ADVISORY_TIMEFRAMES
 } from '@/lib/enquiries/taxonomy';
 import { trackEvent } from '@/lib/website/gtag';
+import { getCampaignAttribution } from '@/lib/website/acquisition-context';
 
 /**
  * Pre-assessment MK Advisory intake.
@@ -65,7 +66,13 @@ export function PublicAdvisoryEnquiryForm() {
       const response = await fetch('/score/api/enquiries/advisory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, areasOfFocus, consentContact, botcheck })
+        body: JSON.stringify({
+          ...form,
+          areasOfFocus,
+          consentContact,
+          botcheck,
+          attribution: getCampaignAttribution()
+        })
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.ok) {
