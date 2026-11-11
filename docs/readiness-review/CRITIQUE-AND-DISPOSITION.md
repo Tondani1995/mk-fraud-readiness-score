@@ -44,7 +44,7 @@ Open risk: the anchored answer scale for practice questions (Not in place to Emb
 
 Parked: 156 automated scans with zero WCAG-tagged axe violations and 69 incomplete colour-contrast results; keyboard, focus return and reduced-motion handling in the instrument were observed; no screen-reader, magnification or physical-device session.
 
-Candidate: zero axe violations on 22 scans of the review track and public pages (11 pages at 1440 and 390px, initial states) and on the 14 baseline scans; keyboard answering with reduced motion at 640px (1280px at 200% zoom), focus on the next prompt after every transition at all brief widths, error states announced with `role="alert"`, save status in a polite live region. Programmatic focus targets no longer show a stray focus ring. Screen-reader output, magnification and physical devices remain outstanding for both.
+Candidate: zero axe violations on 48 scans at rest (11 pages at 1440 and 390px, plus 13 interactive and error states of the review track at both widths) and on the 14 baseline scans, with 13 incomplete contrast results listed in `VERIFICATION.md`; keyboard answering with reduced motion at 640px (1280px at 200% zoom), focus on the next prompt after every transition at all brief widths, error states announced with `role="alert"`, save status in a polite live region. Programmatic focus targets no longer show a stray focus ring. Screen-reader output, magnification and physical devices remain outstanding for both.
 
 ### Performance
 
@@ -91,8 +91,9 @@ Candidate: no score, band, rating, confidence or predicted state in any view or 
 
 ## Weaknesses of the candidate itself
 
-- The review Snapshot and management view are long and text-dense. Definitions, reasons and suggested roles are correct but need editorial and visual compression once MK approves the wording.
+- The review Snapshot and management view are long and text-dense; the independent review measured the seeded Snapshot at about 40,500px on a phone. Definitions, reasons and suggested roles are correct but need editorial and visual compression once MK approves the wording.
 - The interview's area introductions use the bank's module names, which read as internal labels in places.
 - At 1440x700 and 1920x700 the homepage companion falls back to one column, as in the baseline; it is not a regression but is not ideal on short laptop screens.
 - A multi-select question answered with every option is covered by contract test C-08 but was not reached through the page in the journeys.
+- The independent review found six defects in the first candidate (`fb91178`): false attribution of waiting items, lost links on concurrent starts, review tokens retained by telemetry sanitisers, incomplete ruleset binding, discarded reviewer drafts and an incremental bundle. All six are corrected; see `INDEPENDENT-REVIEW-RESPONSE.md`.
 - Everything runs on a fictional file harness with links standing in for sign-in. That is enough to exercise the interface; it is not persistence or access control.

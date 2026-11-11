@@ -38,6 +38,10 @@ The legacy scored path (`src/lib/adaptive`, `src/lib/scoring`, `src/lib/snapshot
 | Evidence state | `setEvidence` | `/review/s/{reviewer}` → `ReviewerWorkspace` form | POST `reviewer.evidence` | `reviewer.evidence` bound to answer version | reviewer queues; management "Needs evidence" |
 | Reviewer conclusion and follow-up | `setReview` | same form; follow-up can be saved alone | POST `reviewer.review` | `reviewer.review` bound to answer version | reviewer tasks; management "Who acts next" |
 | Re-review after a changed answer | engine `reReview`, `stale` | "Needs re-review" queue; earlier records marked not current | reviewer view | none extra | management finding shows no current conclusion |
+| Why a question is waiting | engine assignment origin, `ownerFollowup`, `waiting-scope`, answer log; `waitingProvenance` | Snapshot waiting section and breakdown; management "needs an answer" | snapshot view `waiting[].provenance`, `waitingBySource` | derived from the log | Snapshot, management view, export |
+| Reviewer drafts | none (client only) | `ReviewerWorkspace`: drafts per control and answer version, kept in the tab | none until saved | none until saved | none |
+| Complete ruleset of a record | `currentRuleset`, `validateRecordRuleset`, `loadedRulesetProblem` | refusal page `ReviewProblem` | 410 `incompatible`, 503 `ruleset_unavailable` | `ruleset` on the session | export `ruleset` |
+| Telemetry privacy | `src/lib/monitoring/credential-paths.ts` | `ReviewAnalyticsGuard` in the review layout; full page loads in and out | monitoring intake redacts | none | none |
 | Unscored Snapshot | engine `report()` | `/review/s/{t}/snapshot` → `SnapshotDocument` | `/review/api/s/{t}/snapshot` | derived | four counts with denominators and lists |
 | Management actions | `managementView` | `/review/s/{management}` → `ManagementDocument` | management view | derived | needs an answer, evidence, remediation; who acts next; completion conditions |
 | Public explanation | fixture from the engine | home, Fraud Readiness, methodology (review build only) | none | `fixtures/preview-example.json` | Snapshot preview, journey steps, methodology points |

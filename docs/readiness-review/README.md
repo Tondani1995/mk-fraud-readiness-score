@@ -8,8 +8,8 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | Readiness baseline | build 1.4 (engine `6d374561…`), extended additively as engine build 1.5 (`7f8ca08f…`) |
 | Candidate branch | `review/mk-integrated-readiness` |
 | Candidate source commit | see `SOURCE-COMMIT.txt` in the package |
-| Data contract | `mk-readiness-review` 1.2.0 |
-| Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness. See `RELEASE-DECISION.md`. |
+| Data contract | `mk-readiness-review` 1.3.0 |
+| Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness, with the independent review's six findings corrected. See `RELEASE-DECISION.md`. |
 
 ## Documents
 
@@ -23,6 +23,7 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | `CHANGE-LOG.md` | Material product decisions and the defects found and fixed during integration |
 | `VERIFICATION.md` | Results by layer, with conditions and what was not tested |
 | `RELEASE-DECISION.md` | Decision, blocking items, decisions MK must take, limitations |
+| `INDEPENDENT-REVIEW-RESPONSE.md` | Each finding of the independent review of `fb91178`, its correction, commit and regression evidence |
 
 ## Commits
 
@@ -36,6 +37,8 @@ The branch is layered so each concern can be reviewed on its own. Every commit t
 | Presentation | review pages and components; public site behind the track switch; later presentation fixes |
 | Verification | contract tests and browser, layout, timing, accessibility and recording scripts |
 | Docs | these documents |
+| Security and persistence, Engine adapter, Security, Presentation, Verification | the corrections for the independent review (F1 to F5), one concern per commit |
+| Presentation, Verification | what re-verifying the corrections found: the phone placement correction, the management view's result after sending, the located-error, p95, phone placement and hydration probes, and state-based waits in the scripts |
 
 The commit-by-commit working history, including the defect fixes in the order they were found, is kept on `review/mk-integrated-readiness-worklog`. Its final tree is identical to the layered branch at the first Verification commit; the later presentation fixes, verification scripts and these documents were added on the layered branch only.
 
@@ -44,8 +47,9 @@ The commit-by-commit working history, including the defect fixes in the order th
 Requirements: Node 24 (as `package.json` `engines`), npm 11, a Chromium for the browser scripts (Playwright 1.63 used here). No `.env` file, Supabase project or credential is needed for the review track.
 
 ```bash
-git clone mk-integrated-readiness.bundle mk && cd mk
-git checkout review/mk-integrated-readiness
+# The bundle is self-contained: it carries the full history to the candidate and needs no other repository.
+git clone --branch review/mk-integrated-readiness mk-integrated-readiness.bundle mk && cd mk
+git rev-parse HEAD   # compare with SOURCE-COMMIT.txt
 npm ci --ignore-scripts --no-audit --no-fund
 
 # Review-track build
@@ -71,14 +75,20 @@ node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-
 # Against a running review build with the harness and faults enabled
 node scripts/readiness-review-browser-journeys.cjs   http://localhost:3200 out/journeys
 node scripts/readiness-review-viewport-journeys.cjs  http://localhost:3200 out/viewports
-node scripts/readiness-review-transition-timing.cjs  http://localhost:3200 out/timing.json 24
+node scripts/readiness-review-transition-timing.cjs  http://localhost:3200 out/timing.json 40
 node scripts/readiness-review-settle-probe.cjs       http://localhost:3200 6
 node scripts/readiness-review-seed.cjs               http://localhost:3200 out/seed.json
 node scripts/readiness-review-layout-sweep.cjs       http://localhost:3200 out/sweep after '<pages json>' --companion --perf
-node scripts/readiness-review-axe-scan.cjs           http://localhost:3200 out/axe.json '<pages json>'
+node scripts/readiness-review-axe-scan.cjs           http://localhost:3200 out/axe.json '<pages json>' --states
 node scripts/readiness-review-record.cjs             http://localhost:3200 out/recordings [baseline url]
+
+# Intermittent problems that need a busy processor: run each beside another journeys run
+node scripts/readiness-review-phone-placement-probe.cjs http://localhost:3200 out/phone-placement.json 12
+node scripts/readiness-review-hydration-probe.cjs       http://localhost:3200 out/hydration.json 60 management
 ```
 
 `<pages json>` maps page names to paths, for example `{"home":"/","start":"/review","snapshot":"/review/s/<management link>/snapshot"}`; the seed script prints the links it creates.
+
+The journeys, recorder, axe scan and phone placement probe exit non-zero on any failure. The recorder writes a record per clip; the axe scan keeps incomplete results. The hydration probe runs from the repository root of the build it is checking, because it reads the production React chunk from `.next`.
 
 All organisations and answers used by these scripts are fictional.
