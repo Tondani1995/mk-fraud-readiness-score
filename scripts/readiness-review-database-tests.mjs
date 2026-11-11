@@ -880,8 +880,11 @@ async function scenarios() {
   // ------------------------------------------------------------------------------------------------ 5. determinism, digests, lineage
   // A fixed fictional session: fixed id, links, clock and action ids, so its report input digest is the same on every
   // run and on every backend. Update the expected value only with a change to the ruleset or the report input contract.
+  // Report input 1.2.0 (Phase 2 of the report engine) added the method's own content to each practice control, which is
+  // the only reason the pinned digest changed: the same input with that content removed must still give the 1.1.0 digest.
   const FIXTURE_ID = 'mkreviewdeterministicfixture01';
-  const EXPECTED_FIXTURE_INPUT_DIGEST = 'cb2180f5a845f664de0f2f4ac2718d8ae53805500633e054cdfb71895e7618dd';
+  const EXPECTED_FIXTURE_INPUT_DIGEST = '506cf9c0756298d7ff3aa4af99e339875388836855d901f6743e18234667b85f';
+  const EXPECTED_FIXTURE_INPUT_DIGEST_1_1_0 = 'cb2180f5a845f664de0f2f4ac2718d8ae53805500633e054cdfb71895e7618dd';
   function fixtureSession() {
     let t = Date.parse('2026-11-11T06:00:00.000Z');
     let n = 0;
@@ -916,8 +919,12 @@ async function scenarios() {
     const texts = inputs.map((i) => canonicalJson(i));
     fixtureDigest = reportInputDigest(inputs[0]);
     const identical = texts.every((t) => t === texts[0]);
-    const ok = identical && same(first, live.record) && inputs[0].lineage.logDigest === canonicalDigest(first.actions) && fixtureDigest === EXPECTED_FIXTURE_INPUT_DIGEST;
-    return [ok, `${first.actions.length} actions; 4 builds identical ${identical} (${Buffer.byteLength(texts[0])} bytes); input digest ${fixtureDigest}, the pinned value ${fixtureDigest === EXPECTED_FIXTURE_INPUT_DIGEST}; log digest ${inputs[0].lineage.logDigest.slice(0, 12)}; fixture ${origin}`];
+    const previous = JSON.parse(texts[0]);
+    previous.contract.version = '1.1.0';
+    for (const d of previous.domains) for (const c of d.controls) delete c.method;
+    const asBefore = canonicalDigest(previous) === EXPECTED_FIXTURE_INPUT_DIGEST_1_1_0;
+    const ok = identical && same(first, live.record) && inputs[0].lineage.logDigest === canonicalDigest(first.actions) && fixtureDigest === EXPECTED_FIXTURE_INPUT_DIGEST && asBefore;
+    return [ok, `${first.actions.length} actions; 4 builds identical ${identical} (${Buffer.byteLength(texts[0])} bytes); input digest ${fixtureDigest}, the pinned value ${fixtureDigest === EXPECTED_FIXTURE_INPUT_DIGEST}; without the method content added in 1.2.0 it is the pinned 1.1.0 digest ${asBefore}; log digest ${inputs[0].lineage.logDigest.slice(0, 12)}; fixture ${origin}`];
   });
 
   await T('S5.2', 'Report-run lineage: each run is recorded exactly as given and tied to its log position; the input is rebuilt from the stored prefix after the log grows; invalid runs are refused', async () => {

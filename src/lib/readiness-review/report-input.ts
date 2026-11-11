@@ -7,7 +7,7 @@ import type { AnswerValue, LiveSession, RecordedRuleset } from './session';
 import { reportFor, waitingProvenance, type WaitingProvenance } from './view-model';
 
 /**
- * The input a report engine consumes (report input contract 1.0.0). It is built only by replaying a stored answer log
+ * The input a report engine consumes (report input contract 1.2.0). It is built only by replaying a stored answer log
  * through the review engine the log was recorded under, so it is a pure function of the log: the same log always gives
  * the same input, byte for byte, and its digest identifies it. Nothing here is stored as truth; the log is.
  *
@@ -17,7 +17,18 @@ import { reportFor, waitingProvenance, type WaitingProvenance } from './view-mod
  * score, band, rating, confidence or prediction: the method withholds them until MK approves a supported method, and a
  * report engine must not derive them from this input.
  */
-export const REPORT_INPUT_CONTRACT = { name: 'mk-readiness-report-input', version: '1.1.0' } as const;
+export const REPORT_INPUT_CONTRACT = { name: 'mk-readiness-report-input', version: '1.2.0' } as const;
+
+/**
+ * What the method itself says about a practice control (added in 1.2.0): the answer or answers the method classes as
+ * in place, the anchored description of the lowest in-place level where the question is anchored, and the fraud risks
+ * the method names for it. Copied from the question bank of the recorded ruleset; never written by the engine. The
+ * method is not yet approved by MK (B4), so a report may quote this only as the draft method's own wording.
+ */
+export type MethodContent = {
+  inPlace: { kind: 'anchored-level' | 'practice-option' | 'choice-options'; answers: { value: string; label: string }[]; description: string | null } | null;
+  risks: { id: string; name: string }[];
+};
 
 export type AnswerVersion = {
   version: number;
@@ -86,6 +97,8 @@ export type ControlRecord = {
   evidence: ReviewRecordRef | null;
   review: ReviewRecordRef | null;
   reReview: { reason: string; sinceVersion: number | null } | null;
+  /** The method's own content for a practice control (1.2.0); null for facts, applicability and context questions. */
+  method: MethodContent | null;
 };
 
 export type ReportInput = ReturnType<typeof buildReportInput>;
@@ -100,6 +113,30 @@ const DETAIL_KEYS: [string, 'reach' | 'tested' | 'evidenceAvailable' | 'note'][]
 function moduleIndex() {
   const index = new Map<string, { id: string; name: string }>();
   for (const d of (REVIEW_BANK as any).domains) for (const m of d.bank.modules) for (const q of m.questions) index.set(q.id, { id: m.id, name: m.name });
+  return index;
+}
+
+/** The method's content for each practice question, read from the question bank in the bank's own order. */
+function methodIndex() {
+  const index = new Map<string, MethodContent>();
+  for (const d of (REVIEW_BANK as any).domains) {
+    const riskNames: Record<string, string> = d.bank.risks ?? {};
+    for (const m of d.bank.modules) for (const q of m.questions) {
+      if (q.type !== 'practice') continue;
+      const label = (value: string) => (q.options ?? []).find((o: [string, string]) => o[0] === value)?.[1] ?? value;
+      let inPlace: MethodContent['inPlace'] = null;
+      if (q.format === 'anchored' && q.levelClass && Array.isArray(q.levels)) {
+        const full = Object.keys(q.levelClass).filter((k) => q.levelClass[k] === 'full').sort((a, b) => Number(a) - Number(b));
+        if (full.length) inPlace = { kind: 'anchored-level', answers: full.map((k) => ({ value: k, label: label(k) })), description: q.levels[Number(full[0])] ?? null };
+      } else if (q.format === 'practice') {
+        if ((q.options ?? []).some((o: [string, string]) => o[0] === 'full')) inPlace = { kind: 'practice-option', answers: [{ value: 'full', label: label('full') }], description: null };
+      } else if (q.format === 'choicePractice' && q.practiceMap) {
+        const full = (q.options ?? []).map((o: [string, string]) => o[0]).filter((k: string) => q.practiceMap[k] === 'full');
+        if (full.length) inPlace = { kind: 'choice-options', answers: full.map((k: string) => ({ value: k, label: label(k) })), description: null };
+      }
+      index.set(q.id, { inPlace, risks: (q.risks ?? []).filter((r: string) => riskNames[r]).map((r: string) => ({ id: r, name: riskNames[r] })) });
+    }
+  }
   return index;
 }
 
@@ -167,7 +204,7 @@ function reviewRef(rec: any, kind: 'evidence' | 'review'): ReviewRecordRef | nul
   return { ...base, conclusion: rec.conclusion ?? null, label: rec.conclusion ? CONCLUSION_LABEL[rec.conclusion] ?? rec.conclusion : 'No conclusion yet', followUp: rec.followUp ?? '', limitation: rec.limitation ?? '' };
 }
 
-function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, sources: Map<string, LoggedAnswer[]>, domain: { id: string; name: string }, row: any): ControlRecord {
+function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, methods: Map<string, MethodContent>, sources: Map<string, LoggedAnswer[]>, domain: { id: string; name: string }, row: any): ControlRecord {
   const sc = row.scenario ? report.scenarios.find((s: any) => s.id === row.scenario) : null;
   const rec = e.S.ans[row.id];
   const given = versionSources(rec, sources.get(row.id));
@@ -199,7 +236,8 @@ function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id
     subPractices: row.subs ?? null,
     evidence: reviewRef(row.evidence, 'evidence'),
     review: reviewRef(row.review, 'review'),
-    reReview: row.reReview ? { reason: row.reReview.reason, sinceVersion: row.reReview.since ?? null } : null
+    reReview: row.reReview ? { reason: row.reReview.reason, sinceVersion: row.reReview.since ?? null } : null,
+    method: methods.get(row.id) ?? null
   };
 }
 
@@ -207,11 +245,12 @@ export function buildReportInput(live: LiveSession) {
   const e = live.engine;
   const report = reportFor(live);
   const modules = moduleIndex();
+  const methods = methodIndex();
   const sources = answerSources(e);
   const actions = live.record.actions;
   const domains = report.domains.map((d: any) => {
     const domain = { id: d.id, name: d.name };
-    const controls: ControlRecord[] = d.rows.map((row: any) => controlRecord(e, report, modules, sources, domain, row));
+    const controls: ControlRecord[] = d.rows.map((row: any) => controlRecord(e, report, modules, methods, sources, domain, row));
     return { id: d.id, name: d.name, counts: { ...d.counts } as Record<string, number>, controls };
   });
   const byId = new Map<string, ControlRecord>(domains.flatMap((d: any) => d.controls.map((c: ControlRecord) => [c.id, c] as const)));

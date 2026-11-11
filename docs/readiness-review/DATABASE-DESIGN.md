@@ -96,7 +96,7 @@ For the signed-in role the hosted mode creates a temporary fictional user (`mk-r
 | 2 Concurrency, stale saves, retries, ambiguous responses | S2.1 stale and repeated saves; S2.2 lost responses at the store; S2.3 24 concurrent starts and 12 concurrent saves; S2.4 retries through the service after a lost or unconfirmed save; S2.5 the service end to end on the store it opens itself, with a write from another process |
 | 3 Denial of unauthorised roles | S3.1 the public role (needs only the public key); S3.2 public and signed-in roles against a stored session, and no table route even with the secret key |
 | 4 The complete report input | S4.1 a stored session with owner answers, evidence and conclusions: all 902 controls, states kept distinct |
-| 5 Determinism and lineage | S5.1 a fixed fictional session gives the same input digest on every load, replay and backend (`cb2180f5…`); S5.2 report runs recorded exactly, rebuilt from the stored prefix, invalid runs refused |
+| 5 Determinism and lineage | S5.1 a fixed fictional session gives the same input digest on every load, replay and backend (`506cf9c0…` under report input 1.2.0; without the method content added in 1.2.0, still the 1.1.0 digest `cb2180f5…`); S5.2 report runs recorded exactly, rebuilt from the stored prefix, invalid runs refused |
 | 6 No unsupported conclusions | S6.1 gaps are reported practice only, conclusions only from recorded reviews; S6.2 a reviewer record written straight to the store for an unasked control |
 | 7 Immutability, purge, errors | S7.1 changes refused through the interface; S7.2 explicit, complete purge; S7.3 the owner-level SQL suite (local here; hosted through the management connection); S7.4 every stored record read back and screened for personal data |
 
