@@ -75,7 +75,7 @@ When a report is produced (or fails), the database store records the run: `store
 | `owner-answer` | An accountable function answered it |
 | `activities-screen` | Set on the activities screen (assumptions to confirm) |
 
-It is read from the engine's own answer log, which records one entry for each answer version except those set on the activities screen. A correction keeps `via: respondent`, so `source` is the field that says it was a correction.
+It is read from the engine's own answer log, which records one entry for each answer version, with the same time, value and channel, except those set on the activities screen. Each version is matched to its entry by those three, so a missing entry gives that version `source: null` and never shifts the provenance of another version (database test S1.5). A correction keeps `via: respondent`, so `source` is the field that says it was a correction. A report engine must treat `null` as "not known" and say so; it must not assume a first answer.
 
 ### Control states
 
@@ -114,6 +114,7 @@ Additive fields raise the minor version. Any change to the meaning of an existin
 |---|---|
 | 1.0.0 | First version (`392859e`). Its documentation listed `correction` and `owner-followup` as values of `via`; the builder never produced them, because the engine records corrections with `via: respondent`. |
 | 1.1.0 | Adds `source` to every answer version, so a correction is identifiable; corrects the documented values of `via`. No other field changes. Inputs built under 1.0.0 differ only by the new field. |
+| 1.1.0, implementation correction | `source` is matched by time, value and channel rather than by position in the engine's log. The output for every intact log is unchanged (the pinned digests of the S5.1 fixture and of the 1.2.0 sample are identical before and after); only a damaged log, which the service never produces, now gives `null` instead of a shifted attribution. No version change. |
 
 ## Size
 

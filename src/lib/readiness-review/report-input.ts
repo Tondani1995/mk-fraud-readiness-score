@@ -30,7 +30,8 @@ export type AnswerVersion = {
   via: string;
   /**
    * How this version was given, from the engine's own answer log: respondent-answer, respondent-correction,
-   * owner-answer, or activities-screen. Added in 1.1.0; null only if the engine's log has no entry for it.
+   * owner-answer, or activities-screen. Added in 1.1.0; null when the engine's log has no entry with this version's
+   * time, value and channel. Never inferred.
    */
   source: AnswerSource | null;
   /** Who answered: "Respondent" or the accountable function. */
@@ -103,26 +104,40 @@ function moduleIndex() {
 }
 
 /**
- * How each answer version of each question was given. The engine pairs every answer record with one entry in its own
- * log (S.log), in order, except the activities screen, which records facts with a single entry for the screen.
+ * How each answer version of each question was given. The engine writes one entry to its own answer log (S.log) for
+ * every answer record it makes, with the same time, value and channel, except the activities screen, which records its
+ * facts under a single entry for the screen.
  */
+type LoggedAnswer = { at: string; value: string; via: string; source: AnswerSource; used: boolean };
+
 function answerSources(e: EngineInstance) {
-  const out = new Map<string, AnswerSource[]>();
+  const out = new Map<string, LoggedAnswer[]>();
   for (const entry of (e.S.log ?? []) as any[]) {
     if (typeof entry.q !== 'string' || entry.q.startsWith('__')) continue;
     const source: AnswerSource = entry.kind === 'correction' ? 'respondent-correction' : entry.via === 'owner' ? 'owner-answer' : 'respondent-answer';
     const list = out.get(entry.q) ?? [];
-    list.push(source);
+    list.push({ at: entry.at, value: JSON.stringify(entry.v), via: entry.via ?? 'respondent', source, used: false });
     out.set(entry.q, list);
   }
   return out;
 }
 
-function versionSources(rec: any, logged: AnswerSource[] | undefined) {
+/**
+ * Each version is matched to the first unused log entry with the same time, value and channel. A version without one
+ * gets null rather than a guess, so a gap in the log never shifts the provenance of other versions.
+ */
+function versionSources(rec: any, logged: LoggedAnswer[] | undefined) {
   const byVersion = new Map<number, AnswerSource | null>();
-  const queue = [...(logged ?? [])];
+  const entries = (logged ?? []).map((l) => ({ ...l, used: false }));
   for (const v of [...(rec?.hist ?? []), rec].filter(Boolean).sort((a: any, b: any) => a.ver - b.ver)) {
-    byVersion.set(v.ver, v.via === 'assumptions' ? 'activities-screen' : queue.shift() ?? null);
+    if (v.via === 'assumptions') {
+      byVersion.set(v.ver, 'activities-screen');
+      continue;
+    }
+    const value = JSON.stringify(v.v);
+    const match = entries.find((l) => !l.used && l.at === v.at && l.value === value && l.via === v.via);
+    if (match) match.used = true;
+    byVersion.set(v.ver, match ? match.source : null);
   }
   return byVersion;
 }
@@ -152,7 +167,7 @@ function reviewRef(rec: any, kind: 'evidence' | 'review'): ReviewRecordRef | nul
   return { ...base, conclusion: rec.conclusion ?? null, label: rec.conclusion ? CONCLUSION_LABEL[rec.conclusion] ?? rec.conclusion : 'No conclusion yet', followUp: rec.followUp ?? '', limitation: rec.limitation ?? '' };
 }
 
-function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, sources: Map<string, AnswerSource[]>, domain: { id: string; name: string }, row: any): ControlRecord {
+function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, sources: Map<string, LoggedAnswer[]>, domain: { id: string; name: string }, row: any): ControlRecord {
   const sc = row.scenario ? report.scenarios.find((s: any) => s.id === row.scenario) : null;
   const rec = e.S.ans[row.id];
   const given = versionSources(rec, sources.get(row.id));
