@@ -37,8 +37,8 @@ The integrated review track works end to end through the real interface: intervi
 10. Which presentation baseline governs where `AGENTS.md` and the inherited parked presentation disagree (B10).
 11. Whether the review laboratories and preview-only QA routes leave the production build before release, and who reviews the QA recovery routes that use the service-role client on preview deployments.
 12. The report engine's methodological, copy, presentation and commercial decisions (`REPORT-ENGINE-MK-DECISIONS.md`), including how the standard self-reported report relates to the Comprehensive Report and whether Advisory is ever mentioned in it.
-14. The methodology and integration decisions in `REPORT-ENGINES-AND-REVISED-ASSESSMENT.md` (S1 to S11, M-1 to M-12): how revised assessments are scored and reported through the existing engines, products and prices, and whether the revised method replaces MFRS for new assessments.
 13. The review-track interface still presents reviewer evidence work as a second stage of the review and defines completion in reviewer terms (`REPORT-ENGINE-MK-DECISIONS.md`, B-3). Under MK's correction this belongs to Advisory; whether the reviewer workspace moves to a separate Advisory surface, and the wording that replaces it, are MK decisions (B3, B5, B7).
+14. The methodology and integration decisions in `REPORT-ENGINES-AND-REVISED-ASSESSMENT.md` (S1 to S11, M-1 to M-12): how revised assessments are scored and reported through the existing engines, products and prices, and whether the revised method replaces MFRS for new assessments.
 
 ## Limitations of this candidate
 
