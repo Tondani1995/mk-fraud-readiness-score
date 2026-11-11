@@ -1,5 +1,7 @@
 # Report engine, Phase 2: the standard (self-reported) report
 
+> Direction changed by MK on 11 November 2026 (15:14 and 15:17): the existing Snapshot, Essential and Comprehensive engines are kept and enhanced to consume the revised assessment; there is no second report-generation architecture. The standard report builder below is retained as a test oracle and fixture source only; its input contract, gate, ledger, checks and golden sessions are reused inside the existing engines as set out in `REPORT-ENGINES-AND-REVISED-ASSESSMENT.md`.
+
 Authorised by MK on 11 November 2026: the complete deterministic rules and template engine for fictional records only, all four layers including scenario analysis, with the Phase 1 review findings incorporated. Corrected by MK the same day, before Phase 2 continued: the standard assessment and the Comprehensive Report rest only on the organisation's own responses and the method; evidence review, verification and specialist conclusions belong to the separately scoped Advisory package. The architecture, templates, release criteria and tests were changed to that boundary first (`REPORT-ENGINE-DESIGN.md`, revision 3), then Phase 2 was built on it.
 
 Not authorised and not done: approving the methodology or any copy, generating customer reports, external delivery, connecting the engine to the Snapshot, the Comprehensive Report or any route, and anything in shared preview or production. No real customer data was used.
