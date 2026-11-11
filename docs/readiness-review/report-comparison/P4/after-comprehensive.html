@@ -1,0 +1,968 @@
+<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>MK Fraud Readiness Comprehensive: Fictional Owner-Managed Firm</title><style>
+:root{
+  --navy-900:#0B1B33;--navy-700:#142F4C;--navy-500:#2C4A6B;--navy-300:#8FA3B5;
+  --ink:#1A2634;--muted:#5A6B7C;--rule:#D9E1E7;--rule-soft:#EDF1F4;
+  --cream:#FBF9F5;--white:#FFFFFF;--brass:#C9A227;--brass-soft:#F0E6C8;
+  --weak:#A32020;--mid:#B8761F;--strong:#1F6B4A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);
+  font-size:9.4pt;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+@page{size:A4;margin:16mm 14mm 18mm 14mm}
+
+/* fixed core page */
+.page{width:182mm;height:263mm;position:relative;overflow:hidden;page-break-before:always;display:flex;flex-direction:column}
+.page--navy{background:var(--navy-900);color:#fff;margin:-16mm -14mm;padding:26mm 20mm 20mm;width:210mm;height:297mm}
+.q{font-size:6.8pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass)}
+h1{font-size:18pt;line-height:1.18;font-weight:700;color:var(--navy-900);letter-spacing:-.01em;margin-top:2.5mm}
+h2{font-size:10.5pt;font-weight:700;color:var(--navy-700);margin:5mm 0 2.5mm}
+h3{font-size:9.4pt;font-weight:700;color:var(--navy-900);margin-bottom:1.5mm}
+p{max-width:168mm}
+.lede{font-size:10.2pt;line-height:1.5;max-width:165mm}
+.cap{font-size:7pt;color:var(--muted)}
+.muted{color:var(--muted)}
+.gap{height:5mm}.sp{flex:1}
+ul{margin:1mm 0 0 4mm}li{margin:.8mm 0}
+
+/* flowing register section */
+.reg{page-break-before:always}
+/* Breaks are declared on the leading edge only. A page that also broke after
+   itself produced two breaks against any section that breaks before itself, and
+   the browser emitted an empty page between them. The first section must not
+   break, or the document opens on a blank sheet. */
+.page:first-of-type,section:first-of-type{page-break-before:avoid}
+.reg-head{border-top:2.5px solid var(--navy-900);padding-top:3mm;margin-bottom:4mm}
+.reg-head .n{font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);font-weight:700}
+.reg-head h1{margin-top:1.5mm;font-size:15pt}
+.reg-note{font-size:7.4pt;color:var(--muted);margin-top:2mm;max-width:168mm}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:7.1pt;margin-top:2.5mm}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+th{background:var(--navy-700);color:#fff;font-size:6.2pt;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;text-align:left;padding:1.6mm 1.8mm;vertical-align:bottom}
+td{padding:1.5mm 1.8mm;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.3}
+tbody tr:nth-child(even) td{background:var(--rule-soft)}
+td.id{font-size:6.8pt;color:var(--muted);white-space:nowrap}
+td.tight{white-space:nowrap}
+.tag{display:inline-block;font-size:6.2pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:.6mm 1.4mm;border-radius:1mm;background:var(--rule-soft);color:var(--navy-700)}
+.tag.crit{background:#FBEDED;color:var(--weak)}
+.tag.gate{background:var(--brass-soft);color:#7a6011}
+
+/* core exhibits */
+.stats{display:flex;gap:8mm;border-top:2px solid var(--navy-900);border-bottom:1px solid var(--rule);padding:4mm 0;margin-top:3mm}
+.stats .s{flex:1}
+.stats .n{font-size:21pt;font-weight:700;color:var(--navy-900);line-height:1;letter-spacing:-.02em}
+.stats .l{font-size:6.6pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.4mm;line-height:1.35}
+.bars{width:100%;font-size:7.8pt;margin-top:2mm}
+.bars .row{display:flex;align-items:center;gap:2.5mm;padding:1.2mm 0;border-bottom:1px solid var(--rule-soft)}
+.bars .nm{width:58mm}.bars .track{flex:1;height:6px;background:var(--rule-soft);position:relative}
+.bars .fill{position:absolute;left:0;top:0;bottom:0;background:var(--navy-500)}
+.bars .fill.weak{background:var(--weak)}.bars .fill.strong{background:var(--strong)}
+.bars .val{width:14mm;text-align:right;font-weight:600}
+.bars .band{width:20mm;text-align:right;color:var(--muted);font-size:6.8pt}
+.prog{border-top:2px solid var(--navy-900);padding-top:2.5mm;margin-bottom:4mm;page-break-inside:avoid}
+.prog .hd{display:flex;justify-content:space-between;align-items:baseline}
+.prog .qn{font-size:8pt;color:var(--navy-500);margin:1mm 0 1.5mm;font-style:italic}
+.prog .meta{font-size:6.8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.panel{background:var(--cream);border-left:3px solid var(--navy-700);padding:3.5mm 4.5mm;margin-top:3mm}
+.panel .l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--navy-700);margin-bottom:1.5mm}
+.interp{border-left:3px solid var(--brass);background:#FDFBF4;padding:3.5mm 4.5mm;margin-top:4mm}
+.interp-l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7a6011;margin-bottom:1.5mm}
+.interp--pending p{font-size:7.6pt}
+.toc{font-size:8.6pt;margin-top:4mm}
+.toc .row{display:flex;justify-content:space-between;padding:1.6mm 0;border-bottom:1px solid var(--rule-soft)}
+.toc .row.head{font-weight:700;color:var(--navy-900);border-bottom-color:var(--rule);margin-top:3mm}
+.toc .sec{color:var(--muted);font-size:7.2pt;letter-spacing:.1em;text-transform:uppercase}
+.note{font-size:7.2pt;color:var(--muted);line-height:1.5;max-width:168mm}
+</style></head><body><div style="position:fixed;top:0;left:0;right:0;z-index:9;background:#7a1f1f;color:#fff;font:600 7.5pt/1.4 sans-serif;padding:1.2mm 4mm;text-align:center">FICTIONAL PROTOTYPE. Staged review answers from a fictional organisation. All figures are test fixtures, not an approved score.</div><section class="page page--navy">
+    <div style="font-size:7.2pt;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-weight:600">MK Fraud Insights</div>
+    <div style="height:16mm"></div>
+    <div style="font-size:7.6pt;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)">Comprehensive Fraud Readiness Report</div>
+    <h1 style="color:#fff;font-size:27pt;line-height:1.16;max-width:165mm;margin-top:6mm">Fraud exposure, target control environment and implementation programme</h1>
+    <div class="sp"></div>
+    <div style="border-top:2px solid var(--brass);padding-top:5mm;display:flex;gap:12mm;align-items:flex-end">
+      <div><div style="font-size:34pt;font-weight:700;line-height:.9">78.50</div><div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:2mm">Readiness / 100</div></div>
+      <div><div style="font-size:15pt;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Structured</div><div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:2mm">Maturity band</div></div>
+    </div>
+    <div style="height:9mm"></div>
+    <div style="font-size:7pt;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55)">Prepared for</div>
+    <div style="font-size:15pt;font-weight:600;margin-top:2mm">Fictional Owner-Managed Firm</div>
+    <div style="font-size:8pt;color:rgba(255,255,255,.7);margin-top:3mm">Assessment reference · FX-P4</div>
+    
+    <div style="height:6mm"></div>
+    <div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)">Confidential · Automated analysis · Not independently reviewed</div>
+  </section><section class="page">
+    <div class="q">How to read this report</div>
+    <h1>Contents</h1>
+    <div class="toc">
+      <div class="row head"><span>Management report</span><span class="sec">Sections 1–9</span></div>
+      <div class="row"><span>1 · Where the organisation stands</span></div><div class="row"><span>2 · What is driving the position</span></div><div class="row"><span>3 · Where the material fraud exposure sits</span></div><div class="row"><span>4 · Fraud scenario portfolio</span></div><div class="row"><span>5 · The control environment management should build</span></div><div class="row"><span>6 · Who must own the response</span></div><div class="row"><span>7 · Decisions leadership must make</span></div><div class="row"><span>8 · What should happen, and in what order</span></div><div class="row"><span>9 · How management will know it is working</span></div>
+      <div class="row head"><span>Analytical registers</span><span class="sec">Appendices A–F</span></div>
+      <div class="row"><span>A · Finding register</span><span class="muted">11 entries</span></div><div class="row"><span>B · Fraud risk register</span><span class="muted">11 entries</span></div><div class="row"><span>C · Control blueprint register</span><span class="muted">11 entries</span></div><div class="row"><span>D · Evidence requirement register</span><span class="muted">9 entries</span></div><div class="row"><span>E · 12-month action and assurance register</span><span class="muted">31 entries</span></div><div class="row"><span>F · Measurement register</span><span class="muted">11 entries</span></div>
+    </div>
+    <div class="panel"><div class="l">The two halves of this report</div>
+      <p class="note">Sections 1–9 are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections. They contain every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
+    </div>
+    <div class="panel"><div class="l">Basis of this report</div><p class="note">This report is produced by automated analysis of the recorded MK Fraud Readiness assessment. It has not been independently reviewed. No evidence has been examined, no control has been tested for operating effectiveness, no personnel have been interviewed, and no assurance opinion is given. Assessment positions are self-reported by the organisation. Recommended control designs, evidence requirements and operating measures are MK methodology: what good practice requires, not observations of what the organisation currently does.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">1 · Where the organisation stands</div>
+    <h1>The assessed readiness position</h1>
+    <div class="stats">
+      <div class="s"><div class="n">78.50</div><div class="l">Readiness score out of 100</div></div>
+      <div class="s"><div class="n">Structured</div><div class="l">Maturity band</div></div>
+      <div class="s"><div class="n">6</div><div class="l">Domains assessed</div></div>
+      <div class="s"><div class="n">11</div><div class="l">Material findings</div></div>
+      <div class="s"><div class="n">11</div><div class="l">Control designs recommended</div></div>
+    </div>
+    <h2>Domain readiness profile</h2>
+    <div class="bars"><div class="row">
+      <div class="nm">Fraud governance and accountability</div>
+      <div class="track"><div class="fill " style="width:90%"></div></div>
+      <div class="val">90.00</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Fraud risk assessment</div>
+      <div class="track"><div class="fill " style="width:91.7%"></div></div>
+      <div class="val">91.70</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Ethics, integrity and anti-corruption</div>
+      <div class="track"><div class="fill " style="width:86.7%"></div></div>
+      <div class="val">86.70</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Finance, banking and financial reporting</div>
+      <div class="track"><div class="fill " style="width:100%"></div></div>
+      <div class="val">100.00</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Digital, cyber-enabled and identity fraud</div>
+      <div class="track"><div class="fill " style="width:16%"></div></div>
+      <div class="val">16.00</div><div class="band">Reactive</div></div><div class="row">
+      <div class="nm">Detection, speak-up and response</div>
+      <div class="track"><div class="fill " style="width:86.7%"></div></div>
+      <div class="val">86.70</div><div class="band">Strategic</div></div></div>
+    <div class="cap" style="margin-top:2mm">Ordered as assessed. Positions are self-reported through the assessment and have not been independently verified.</div>
+    <div class="interp interp--pending"><div class="interp-l">Executive interpretation</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">2 · What is driving the position</div>
+    <h1>The patterns beneath the score</h1>
+    <p class="lede">The assessment produced 11 material findings. They resolve into 3 connected patterns, ordered by how much of the organisation's critical control population each one affects.</p>
+    <table>
+      <thead><tr><th style="width:29%">Pattern</th><th style="width:9%">Findings</th><th style="width:9%">Critical</th><th style="width:9%">Hard gate</th><th style="width:44%">Management question this raises</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Identity and access challenge</strong><div class="cap" style="margin-top:.8mm">Digital, cyber-enabled and identity fraud</div></td>
+        <td class="tight">8</td>
+        <td class="tight"><span class="tag crit">3</span></td>
+        <td class="tight">Not recorded</td>
+        <td>Is authority verified at the points where it can be misused?</td></tr><tr>
+        <td><strong>Incident response and evidence integrity</strong><div class="cap" style="margin-top:.8mm">Digital, cyber-enabled and identity fraud</div></td>
+        <td class="tight">2</td>
+        <td class="tight"><span class="tag crit">1</span></td>
+        <td class="tight">Not recorded</td>
+        <td>When something is suspected, can we contain it and keep the evidence?</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong><div class="cap" style="margin-top:.8mm">Ethics, integrity and anti-corruption</div></td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td>Do people recognise fraud, and does the control environment learn?</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Every finding behind these patterns is listed in Appendix A.</div>
+    <div class="interp interp--pending"><div class="interp-l">Why this matters</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">3 · Where the material fraud exposure sits</div>
+    <h1>Exposure by control family</h1>
+    <p class="lede">11 fraud risks arise from the assessed position. They concentrate in 3 exposure families.</p>
+    <table>
+      <thead><tr><th style="width:30%">Exposure family</th><th style="width:10%">Risks</th><th style="width:16%">Domains affected</th><th style="width:44%">What the organisation is exposed to</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Identity and access challenge</strong></td>
+        <td class="tight">8</td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Is authority verified at the points where it can be misused?</td></tr><tr>
+        <td><strong>Incident response and evidence integrity</strong></td>
+        <td class="tight">2</td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>When something is suspected, can we contain it and keep the evidence?</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td>Ethics, integrity and anti-corruption</td>
+        <td>Do people recognise fraud, and does the control environment learn?</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Full risk statements, causes and treatment directions are in Appendix B. Risks are derived from assessed control positions; no likelihood or monetary value is assigned, because the assessment does not support one.</div>
+    <div class="interp interp--pending"><div class="interp-l">Management implication</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Section 4</div><h1>Fraud scenario portfolio</h1><div class="reg-note">Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.</div></div>
+    <table>
+      <thead><tr><th style="width:17%">Pathway</th><th style="width:19%">How it could begin</th><th style="width:20%">How it could progress</th><th style="width:20%">Interruption point</th><th style="width:16%">Warning indicators</th><th style="width:8%">Links</th></tr></thead>
+      <tbody><tr>
+        <td>A payment instruction received by email is acted on<div class="cap" style="margin-top:.8mm">IDENTITY IMPERSONATION</div></td>
+        <td>Changed details or urgent payments are processed on the strength of an email.</td>
+        <td>Acting on payment instructions received by email is how business email compromise succeeds. What the answers show: Payment changes received by email are acted on as received.</td>
+        <td>An organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td>
+        <td><ul><li>Business email compromise and payment redirection</li><li>Takeover of staff accounts</li></ul></td>
+        <td class="id">RISK-FS-D9-02, CI-FS-D9-02</td></tr><tr>
+        <td>An email account is taken over<div class="cap" style="margin-top:.8mm">IDENTITY IMPERSONATION</div></td>
+        <td>A mailbox without strong sign-in is used to send or intercept payment instructions.</td>
+        <td>Most business email compromise starts with an account that has no multi-factor authentication. What the answers show: Email accounts are protected by passwords only.</td>
+        <td>Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+        <td><ul><li>Takeover of staff accounts</li><li>Business email compromise and payment redirection</li><li>Spoofed or lookalike email in the organisation's name</li><li>Criminals impersonating the organisation to customers, suppliers and the public</li><li>Slow response that lets losses grow</li></ul></td>
+        <td class="id">RISK-FS-D9-01, CI-FS-D9-01</td></tr><tr>
+        <td>A cloned voice or video instruction is obeyed<div class="cap" style="margin-top:.8mm">IDENTITY IMPERSONATION</div></td>
+        <td>A caller who sounds or looks like a known person is believed.</td>
+        <td>Voices and faces can be cloned, so only an agreed verification method holds. What the answers show: Some staff check unusual requests, depending on their own judgement. Pressure triggers verification: only in some areas, cases or periods. Most changes are verified through the old details or another trusted route.</td>
+        <td>An agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it. Pressure triggers verification: the answer to &quot;Are requests for secrecy, urgency or skipping normal steps treated as warning signs that trigger verification, whoever appears to be asking?&quot; is yes, across everything it should cover. Every change to a phone number or email used for verification is confirmed through the previous details or another trusted route before it is used. Gift cards and PIN requests banned: the answer to &quot;Are requests to buy gift cards, vouchers or airtime, or to share a one-time PIN, refused outright, whoever seems to be asking?&quot; is yes, across everything it should cover.</td>
+        <td><ul><li>Deepfake voice and video impersonation of executives and staff</li><li>Business email compromise and payment redirection</li><li>Takeover of staff accounts</li><li>SIM swaps and intercepted one-time PINs</li></ul></td>
+        <td class="id">RISK-FS-D9-03, CI-FS-D9-03</td></tr><tr>
+        <td>A compromise is not contained quickly<div class="cap" style="margin-top:.8mm">INCIDENT CONCEALMENT</div></td>
+        <td>Accounts stay compromised while suppliers and customers keep receiving instructions.</td>
+        <td>What the answers show: There is no plan; each case would be handled from scratch.</td>
+        <td>A written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td>
+        <td><ul><li>Slow response that lets losses grow</li><li>Business email compromise and payment redirection</li><li>Takeover of staff accounts</li></ul></td>
+        <td class="id">RISK-FS-D9-12, CI-FS-D9-12</td></tr><tr>
+        <td>Systems that move money are accessed without strong sign-in<div class="cap" style="margin-top:.8mm">PRIVILEGED ACCESS MISUSE</div></td>
+        <td>Remote access, cloud or banking systems rely on passwords alone.</td>
+        <td>What the answers show: These systems are protected by passwords only.</td>
+        <td>It is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td>
+        <td><ul><li>Takeover of staff accounts</li><li>Misuse of administrator and third-party access</li><li>Theft and sale of personal information</li></ul></td>
+        <td class="id">RISK-FS-D9-07, CI-FS-D9-07</td></tr><tr>
+        <td>A security compromise is not notified<div class="cap" style="margin-top:.8mm">INCIDENT CONCEALMENT</div></td>
+        <td>The Regulator and affected people are not told, so they cannot protect themselves.</td>
+        <td>POPIA section 22 requires notification as soon as reasonably possible. What the answers show: A compromise would be handled as it happens, without a set process. Affected people warned: not in place.</td>
+        <td>A procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly. Affected people warned: the answer to &quot;When data is leaked, are affected people warned about follow-up fraud, such as phishing that uses their real details?&quot; is yes, across everything it should cover.</td>
+        <td><ul><li>Theft and sale of personal information</li><li>Criminals impersonating the organisation to customers, suppliers and the public</li><li>Slow response that lets losses grow</li></ul></td>
+        <td class="id">RISK-FS-D9-05, CI-FS-D9-05</td></tr><tr>
+        <td>Personal information is over-exposed or kept too long<div class="cap" style="margin-top:.8mm">PRIVILEGED ACCESS MISUSE</div></td>
+        <td>Too many people can reach or export personal information, or records outlive their purpose.</td>
+        <td>What the answers show: Access is limited for some systems only.</td>
+        <td>In every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td>
+        <td><ul><li>Theft and sale of personal information</li><li>Takeover of staff accounts</li></ul></td>
+        <td class="id">RISK-FS-D9-08, CI-FS-D9-08</td></tr><tr>
+        <td>A help desk reset hands an attacker access<div class="cap" style="margin-top:.8mm">PRIVILEGED ACCESS MISUSE</div></td>
+        <td>An impersonator persuades the help desk to reset a password or authenticator.</td>
+        <td>What the answers show: Most resets need verification through a trusted route, such as the person's manager or a number on file.</td>
+        <td>Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td>
+        <td><ul><li>Social engineering of the IT help desk</li><li>Takeover of staff accounts</li><li>Misuse of administrator and third-party access</li></ul></td>
+        <td class="id">RISK-FS-D9-06, CI-FS-D9-06</td></tr><tr>
+        <td>Spoofed email in the organisation's name deceives staff, suppliers or customers<div class="cap" style="margin-top:.8mm">IDENTITY IMPERSONATION</div></td>
+        <td>Emails that appear to come from the organisation's own domain carry false payment instructions.</td>
+        <td>What the answers show: Domain protected against spoofing: only in some areas, cases or periods.</td>
+        <td>Domain protected against spoofing: the answer to &quot;Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?&quot; is yes, across everything it should cover.</td>
+        <td><ul><li>Spoofed or lookalike email in the organisation's name</li><li>Criminals impersonating the organisation to customers, suppliers and the public</li></ul></td>
+        <td class="id">RISK-FS-D9-14, CI-FS-D9-14</td></tr><tr>
+        <td>The organisation's own information helps attackers<div class="cap" style="margin-top:.8mm">IDENTITY IMPERSONATION</div></td>
+        <td>Published staff details and routines make impersonation easier.</td>
+        <td>What the answers show: Staff guided on what not to share: not in place.</td>
+        <td>Staff guided on what not to share: the answer to &quot;Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?&quot; is yes, across everything it should cover.</td>
+        <td><ul><li>Deepfake voice and video impersonation of executives and staff</li><li>Business email compromise and payment redirection</li><li>Criminals impersonating the organisation to customers, suppliers and the public</li></ul></td>
+        <td class="id">RISK-FS-D9-11, CI-FS-D9-11</td></tr><tr>
+        <td>Staff do not know or understand what is expected<div class="cap" style="margin-top:.8mm">THIRD PARTY COLLUSION</div></td>
+        <td>Expectations are not communicated in a way people understand, and nobody checks.</td>
+        <td>What the answers show: Training on joining: only in some areas, cases or periods.</td>
+        <td>Training on joining: the answer to &quot;Do all employees receive fraud and ethics training when they join?&quot; is yes, across everything it should cover.</td>
+        <td><ul><li>Unclear standards, so misconduct is excused as normal practice</li><li>Inconsistent consequences that signal the rules do not apply to everyone</li><li>Staff unable to recognise fraud, including AI-enabled schemes</li><li>Corporate criminal liability for bribery by people acting for the organisation</li></ul></td>
+        <td class="id">RISK-FS-D3-10, CI-FS-D3-10</td></tr></tbody>
+    </table>
+  </section><section class="page">
+    <div class="q">5 · The control environment management should build</div>
+    <h1>The control programmes</h1>
+    <p class="lede">The 11 recommended control designs group into 3 programmes. Each is one coherent piece of work with one accountable executive.</p>
+    <table>
+      <thead><tr><th style="width:30%">Programme</th><th style="width:9%">Controls</th><th style="width:10%">Evidence</th><th style="width:9%">Measures</th><th style="width:22%">Accountable</th><th style="width:20%">Horizon</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Identity and access challenge</strong></td>
+        <td class="tight">8</td>
+        <td class="tight">7</td>
+        <td class="tight">8</td>
+        <td>Head of IT</td>
+        <td>30 days, 60 days, 90 days</td></tr><tr>
+        <td><strong>Incident response and evidence integrity</strong></td>
+        <td class="tight">2</td>
+        <td class="tight">2</td>
+        <td class="tight">2</td>
+        <td>Head of IT</td>
+        <td>60 days, 90 days</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">0</td>
+        <td class="tight">1</td>
+        <td>People, learning and ethics</td>
+        <td>90 days</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Individual control designs are in Appendix C; the evidence each requires is in Appendix D.</div>
+    <div class="interp interp--pending"><div class="interp-l">Control programme synthesis</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+      <div class="q">5 · The control environment management should build</div>
+      <h1>Programme detail</h1>
+      <div class="prog">
+        <div class="hd"><h3>Identity and access challenge</h3><span class="meta">8 controls</span></div>
+        <div class="qn">Is authority verified at the points where it can be misused?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: Head of IT</div>
+               <div class="cap"><strong>Evidence expected</strong> · 7 items across 6 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 30 days, 60 days, 90 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 8</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-FS-D9-01, CI-FS-D9-02, CI-FS-D9-03, CI-FS-D9-06, CI-FS-D9-07, CI-FS-D9-08, CI-FS-D9-11, CI-FS-D9-14</div>
+      </div><div class="prog">
+        <div class="hd"><h3>Incident response and evidence integrity</h3><span class="meta">2 controls</span></div>
+        <div class="qn">When something is suspected, can we contain it and keep the evidence?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: Head of IT</div>
+               <div class="cap"><strong>Evidence expected</strong> · 2 items across 2 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 60 days, 90 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 2</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-FS-D9-05, CI-FS-D9-12</div>
+      </div><div class="prog">
+        <div class="hd"><h3>Culture and continuous improvement</h3><span class="meta">1 controls</span></div>
+        <div class="qn">Do people recognise fraud, and does the control environment learn?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: People, learning and ethics</div>
+               <div class="cap"><strong>Evidence expected</strong> · 0 items across 0 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 90 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 1</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-FS-D3-10</div>
+      </div>
+      <div class="sp"></div>
+    </section><section class="page">
+    <div class="q">6 · Who must own the response</div>
+    <h1>The governance model</h1>
+    <p class="lede">Accountability is expressed as roles, not individuals. The assessment does not identify people, and this report does not infer them.</p>
+    <table>
+      <thead><tr><th style="width:26%">Role</th><th style="width:16%">Standing</th><th style="width:9%">Controls</th><th style="width:9%">Decisions</th><th style="width:10%">Evidence</th><th style="width:30%">Escalation responsibility</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Head of IT</strong></td>
+        <td class="cap">executive accountability</td>
+        <td class="tight">10</td>
+        <td class="tight">1</td>
+        <td class="tight">6</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Chief Financial Officer</strong></td>
+        <td class="cap">executive accountability</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">2</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Chief Executive / Managing Director</strong></td>
+        <td class="cap">executive accountability</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">2</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>People, learning and ethics</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>HR lead</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Information officer (POPIA)</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">1</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Communications</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>The owners</strong></td>
+        <td class="cap">oversight</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td>Any suspected case of the scheme where staff do not know or understand what is expected, or any case processed without this control: training on joining.</td></tr></tbody>
+    </table>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">7 · Decisions leadership must make</div>
+    <h1>The decision agenda</h1>
+    <table>
+      <thead><tr><th style="width:22%">Decision</th><th style="width:22%">Why now</th><th style="width:22%">Recommended direction</th><th style="width:16%">Owner</th><th style="width:18%">Consequence of delay</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Name one accountable executive for each area with first-priority schemes open or unsupported: digital and identity (4).</strong></td>
+        <td>Each scheme needs one person with authority over the process, the system and the people involved.</td>
+        <td>Head of IT or IT provider for digital and identity.</td>
+        <td>Chief Executive / Managing Director<div class="cap">30 days</div></td>
+        <td>Schemes with no owner stay open, and the gaps that let them happen stay unassigned.</td></tr><tr>
+        <td><strong>Approve the target design for digital and identity, where 4 first-priority schemes are open or unsupported.</strong></td>
+        <td>The schemes share processes and owners; designing them together avoids separate partial fixes.</td>
+        <td>Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+        <td>Head of IT<div class="cap">60 days</div></td>
+        <td>Controls are added one at a time and the scheme stays open through the gaps between them.</td></tr><tr>
+        <td><strong>Decide whether to keep relying on 1 control reported in place whose supporting practices were reported as gaps.</strong></td>
+        <td>A self-reported control that its own practices do not support can give management comfort it has not earned.</td>
+        <td>Ask each process owner to confirm in writing how the control works without the missing practices, and close the practices in the next 60 days.</td>
+        <td>People, learning and ethics<div class="cap">30 days</div></td>
+        <td>The scheme is treated as covered when it may not be.</td></tr><tr>
+        <td><strong>Have the owners receive the status of the 4 first-priority schemes each month until they are closed.</strong></td>
+        <td>Monthly reporting keeps the schemes visible to the people who can remove blockers.</td>
+        <td>A one-page scheme status: owner, controls in place, controls outstanding, next date.</td>
+        <td>Chief Executive / Managing Director<div class="cap">30 days</div></td>
+        <td>Progress is not visible until the next assessment.</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">A recommended direction is MK methodology. The decision remains management's.</div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">8 · What should happen, and in what order</div>
+    <h1>The 12-month implementation programme</h1>
+    <p class="lede">11 implementation actions, followed by 10 embed-and-evidence checkpoints, and 10 assure-and-review checkpoints across the 12-month programme. 31 programme objects in total, each with an owner, a deliverable and a test that shows it is complete.</p>
+    <table>
+      <thead><tr><th style="width:13%">Horizon</th><th style="width:16%">Work type</th><th style="width:8%">Count</th><th style="width:63%">Programmes advanced in this horizon</th></tr></thead>
+      <tbody><tr>
+        <td><strong>30 days</strong></td>
+        <td class="cap">Implement</td>
+        <td class="tight">2</td>
+        <td>Identity and access challenge</td></tr><tr>
+        <td><strong>60 days</strong></td>
+        <td class="cap">Implement</td>
+        <td class="tight">2</td>
+        <td>Identity and access challenge · Incident response and evidence integrity</td></tr><tr>
+        <td><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td class="tight">7</td>
+        <td>Culture and continuous improvement · Identity and access challenge · Incident response and evidence integrity</td></tr><tr>
+        <td><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td class="tight">10</td>
+        <td>Culture and continuous improvement · Identity and access challenge · Incident response and evidence integrity</td></tr><tr>
+        <td><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td class="tight">10</td>
+        <td>Culture and continuous improvement · Identity and access challenge · Incident response and evidence integrity</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Every programme item, with its dependency and completion criterion, is in Appendix E.</div>
+    <div class="interp interp--pending"><div class="interp-l">Implementation synthesis</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">9 · How management will know it is working</div>
+    <h1>The measurement framework</h1>
+    <p class="lede">Each programme carries effectiveness measures drawn from the control designs behind it. These are the signals management should expect to see, not a claim that they exist today.</p>
+    <table>
+      <thead><tr><th style="width:34%">Programme</th><th style="width:12%">Measures</th><th style="width:12%">Controls</th><th style="width:42%">Accountable for reporting</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Identity and access challenge</strong></td>
+        <td class="tight">8</td>
+        <td class="tight">8</td>
+        <td>Head of IT</td></tr><tr>
+        <td><strong>Incident response and evidence integrity</strong></td>
+        <td class="tight">2</td>
+        <td class="tight">2</td>
+        <td>Head of IT</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">1</td>
+        <td>People, learning and ethics</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">The individual measures are in Appendix F.</div>
+    <div class="interp interp--pending"><div class="interp-l">Conclusion</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix A</div><h1>Finding register</h1><div class="reg-note">Every material finding the assessment produced. &quot;Assessment indication&quot; is what the responses record; it is self-reported and has not been verified.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:13%">Domain</th><th style="width:22%">Assessment indication</th><th style="width:10%">Materiality</th><th style="width:23%">Fraud mechanism</th><th style="width:12%">Risk</th><th style="width:11%">Control</th></tr></thead>
+      <tbody><tr>
+        <td class="id">MF-FS-D9-02<div>D9-E-05</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Payment changes received by email are acted on as received.<div class="cap" style="margin-top:.8mm">Acting on payment instructions received by email is how business email compromise succeeds.</div></td>
+        <td>control failure <span class="tag crit">critical</span></td>
+        <td>Changed details or urgent payments are processed on the strength of an email. The method links it to business email compromise and payment redirection and takeover of staff accounts.</td>
+        <td class="id">RISK-FS-D9-02</td>
+        <td class="id">CI-FS-D9-02</td></tr><tr>
+        <td class="id">MF-FS-D9-01<div>D9-E-01</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Email accounts are protected by passwords only.<div class="cap" style="margin-top:.8mm">Most business email compromise starts with an account that has no multi-factor authentication.</div></td>
+        <td>control failure <span class="tag crit">critical</span></td>
+        <td>A mailbox without strong sign-in is used to send or intercept payment instructions. The method links it to takeover of staff accounts, business email compromise and payment redirection, spoofed or lookalike email in the organisation's name, criminals impersonating the organisation to customers, suppliers and the public and slow response that lets losses grow.</td>
+        <td class="id">RISK-FS-D9-01</td>
+        <td class="id">CI-FS-D9-01</td></tr><tr>
+        <td class="id">MF-FS-D9-03<div>D9-I-01</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Some staff check unusual requests, depending on their own judgement.<div class="cap" style="margin-top:.8mm">Voices and faces can be cloned, so only an agreed verification method holds.</div></td>
+        <td>control gap <span class="tag crit">critical</span></td>
+        <td>A caller who sounds or looks like a known person is believed. The method links it to deepfake voice and video impersonation of executives and staff, business email compromise and payment redirection, takeover of staff accounts and SIM swaps and intercepted one-time PINs.</td>
+        <td class="id">RISK-FS-D9-03</td>
+        <td class="id">CI-FS-D9-03</td></tr><tr>
+        <td class="id">MF-FS-D9-12<div>D9-R-02</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>There is no plan; each case would be handled from scratch.<div class="cap" style="margin-top:.8mm">A compromise is not contained quickly is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control failure</td>
+        <td>Accounts stay compromised while suppliers and customers keep receiving instructions. The method links it to slow response that lets losses grow, business email compromise and payment redirection and takeover of staff accounts.</td>
+        <td class="id">RISK-FS-D9-12</td>
+        <td class="id">CI-FS-D9-12</td></tr><tr>
+        <td class="id">MF-FS-D9-07<div>D9-A-01</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>These systems are protected by passwords only.<div class="cap" style="margin-top:.8mm">Systems that move money are accessed without strong sign-in is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control failure</td>
+        <td>Remote access, cloud or banking systems rely on passwords alone. The method links it to takeover of staff accounts, misuse of administrator and third-party access and theft and sale of personal information.</td>
+        <td class="id">RISK-FS-D9-07</td>
+        <td class="id">CI-FS-D9-07</td></tr><tr>
+        <td class="id">MF-FS-D9-05<div>D9-P-04</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>A compromise would be handled as it happens, without a set process.<div class="cap" style="margin-top:.8mm">POPIA section 22 requires notification as soon as reasonably possible.</div></td>
+        <td>control gap <span class="tag crit">critical</span></td>
+        <td>The Regulator and affected people are not told, so they cannot protect themselves. The method links it to theft and sale of personal information, criminals impersonating the organisation to customers, suppliers and the public and slow response that lets losses grow.</td>
+        <td class="id">RISK-FS-D9-05</td>
+        <td class="id">CI-FS-D9-05</td></tr><tr>
+        <td class="id">MF-FS-D9-08<div>D9-P-01</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Access is limited for some systems only.<div class="cap" style="margin-top:.8mm">Personal information is over-exposed or kept too long is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control gap</td>
+        <td>Too many people can reach or export personal information, or records outlive their purpose. The method links it to theft and sale of personal information and takeover of staff accounts.</td>
+        <td class="id">RISK-FS-D9-08</td>
+        <td class="id">CI-FS-D9-08</td></tr><tr>
+        <td class="id">MF-FS-D9-06<div>D9-A-05</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Most resets need verification through a trusted route, such as the person's manager or a number on file.<div class="cap" style="margin-top:.8mm">A help desk reset hands an attacker access is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control gap</td>
+        <td>An impersonator persuades the help desk to reset a password or authenticator. The method links it to social engineering of the IT help desk, takeover of staff accounts and misuse of administrator and third-party access.</td>
+        <td class="id">RISK-FS-D9-06</td>
+        <td class="id">CI-FS-D9-06</td></tr><tr>
+        <td class="id">MF-FS-D9-14<div>D9-E-02</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>Partly<div class="cap" style="margin-top:.8mm">Spoofed email in the organisation's name deceives staff, suppliers or customers is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control gap</td>
+        <td>Emails that appear to come from the organisation's own domain carry false payment instructions. The method links it to spoofed or lookalike email in the organisation's name and criminals impersonating the organisation to customers, suppliers and the public.</td>
+        <td class="id">RISK-FS-D9-14</td>
+        <td class="id">CI-FS-D9-14</td></tr><tr>
+        <td class="id">MF-FS-D9-11<div>D9-O-02</div></td>
+        <td>Digital, cyber-enabled and identity fraud</td>
+        <td>No<div class="cap" style="margin-top:.8mm">The organisation's own information helps attackers is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>control failure</td>
+        <td>Published staff details and routines make impersonation easier. The method links it to deepfake voice and video impersonation of executives and staff, business email compromise and payment redirection and criminals impersonating the organisation to customers, suppliers and the public.</td>
+        <td class="id">RISK-FS-D9-11</td>
+        <td class="id">CI-FS-D9-11</td></tr><tr>
+        <td class="id">MF-FS-D3-10<div>D3-C-04</div></td>
+        <td>Ethics, integrity and anti-corruption</td>
+        <td>Yes, across everything it should cover<div class="cap" style="margin-top:.8mm">Staff do not know or understand what is expected is a scheme the method asks about for organisations with this profile.</div></td>
+        <td>assurance priority</td>
+        <td>Expectations are not communicated in a way people understand, and nobody checks. The method links it to unclear standards, so misconduct is excused as normal practice, inconsistent consequences that signal the rules do not apply to everyone, staff unable to recognise fraud, including AI-enabled schemes and corporate criminal liability for bribery by people acting for the organisation.</td>
+        <td class="id">RISK-FS-D3-10</td>
+        <td class="id">CI-FS-D3-10</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix B</div><h1>Fraud risk register</h1><div class="reg-note">Risks implied by the assessed control positions. No likelihood, monetary value or incident frequency is assigned, because the assessment does not support one.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:33%">Risk</th><th style="width:19%">Current control position</th><th style="width:26%">Required treatment</th><th style="width:13%">Owner role</th></tr></thead>
+      <tbody><tr>
+        <td class="id">RISK-FS-D3-10<div>MF-FS-D3-10</div></td>
+        <td><strong>Because its control is reported in place while training on joining (only in some areas, cases or periods), there is a risk that expectations are not communicated in a way people understand, and nobody checks.</strong></td>
+        <td>Training on joining: only in some areas, cases or periods.</td>
+        <td>Training on joining: the answer to &quot;Do all employees receive fraud and ethics training when they join?&quot; is yes, across everything it should cover.</td>
+        <td>Ethics officer or company secretary</td></tr><tr>
+        <td class="id">RISK-FS-D9-01<div>MF-FS-D9-01</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: multi-factor on all email (not in place), there is a risk that a mailbox without strong sign-in is used to send or intercept payment instructions. Most business email compromise starts with an account that has no multi-factor authentication.</strong></td>
+        <td>Email accounts are protected by passwords only.</td>
+        <td>Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-02<div>MF-FS-D9-02</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: email never enough on its own (not in place), there is a risk that changed details or urgent payments are processed on the strength of an email. Acting on payment instructions received by email is how business email compromise succeeds.</strong></td>
+        <td>Payment changes received by email are acted on as received.</td>
+        <td>An organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-03<div>MF-FS-D9-03</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: verification for calls, voice notes and video (only in some areas, cases or periods), pressure triggers verification (only in some areas, cases or periods), changes to call-back details verified (only in some areas, cases or periods) and gift cards and PIN requests banned (only in some areas, cases or periods), there is a risk that a caller who sounds or looks like a known person is believed. Voices and faces can be cloned, so only an agreed verification method holds.</strong></td>
+        <td>Some staff check unusual requests, depending on their own judgement. Pressure triggers verification: only in some areas, cases or periods. Most changes are verified through the old details or another trusted route. Gift cards and PIN requests banned: only in some areas, cases or periods.</td>
+        <td>An agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it. Pressure triggers verification: the answer to &quot;Are requests for secrecy, urgency or skipping normal steps treated as warning signs that trigger verification, whoever appears to be asking?&quot; is yes, across everything it should cover. Every change to a phone number or email used for verification is confirmed through the previous details or another trusted route before it is used. Gift cards and PIN requests banned: the answer to &quot;Are requests to buy gift cards, vouchers or airtime, or to share a one-time PIN, refused outright, whoever seems to be asking?&quot; is yes, across everything it should cover.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-05<div>MF-FS-D9-05</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: compromises reported as POPIA requires (only in some areas, cases or periods) and affected people warned (not in place), there is a risk that the Regulator and affected people are not told, so they cannot protect themselves. POPIA section 22 requires notification as soon as reasonably possible.</strong></td>
+        <td>A compromise would be handled as it happens, without a set process. Affected people warned: not in place.</td>
+        <td>A procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly. Affected people warned: the answer to &quot;When data is leaked, are affected people warned about follow-up fraud, such as phishing that uses their real details?&quot; is yes, across everything it should cover.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-06<div>MF-FS-D9-06</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: help desk resets verified (only in some areas, cases or periods), there is a risk that an impersonator persuades the help desk to reset a password or authenticator.</strong></td>
+        <td>Most resets need verification through a trusted route, such as the person's manager or a number on file.</td>
+        <td>Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-07<div>MF-FS-D9-07</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: multi-factor on critical systems (not in place), there is a risk that remote access, cloud or banking systems rely on passwords alone.</strong></td>
+        <td>These systems are protected by passwords only.</td>
+        <td>It is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-08<div>MF-FS-D9-08</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: access to personal information limited (only in some areas, cases or periods), there is a risk that too many people can reach or export personal information, or records outlive their purpose.</strong></td>
+        <td>Access is limited for some systems only.</td>
+        <td>In every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-11<div>MF-FS-D9-11</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: staff guided on what not to share (not in place), there is a risk that published staff details and routines make impersonation easier.</strong></td>
+        <td>Staff guided on what not to share: not in place.</td>
+        <td>Staff guided on what not to share: the answer to &quot;Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?&quot; is yes, across everything it should cover.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-14<div>MF-FS-D9-14</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: domain protected against spoofing (only in some areas, cases or periods), there is a risk that emails that appear to come from the organisation's own domain carry false payment instructions.</strong></td>
+        <td>Domain protected against spoofing: only in some areas, cases or periods.</td>
+        <td>Domain protected against spoofing: the answer to &quot;Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?&quot; is yes, across everything it should cover.</td>
+        <td>Head of IT or IT provider</td></tr><tr>
+        <td class="id">RISK-FS-D9-12<div>MF-FS-D9-12</div></td>
+        <td><strong>Because the controls that stop it were reported as gaps: compromise playbook (not in place), there is a risk that accounts stay compromised while suppliers and customers keep receiving instructions.</strong></td>
+        <td>There is no plan; each case would be handled from scratch.</td>
+        <td>A written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td>
+        <td>Head of IT or IT provider</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix C</div><h1>Control blueprint register</h1><div class="reg-note">Recommended control standard for each finding. This is MK methodology: what good practice requires, not a description of what the organisation currently operates. The assessed state column records what the organisation reported for that control.</div></div>
+    <div class="panel"><div class="l">Assessed state key</div><ul><li>Training on joining: only in some areas, cases or periods.</li><li>Email accounts are protected by passwords only.</li><li>Payment changes received by email are acted on as received.</li><li>Some staff check unusual requests, depending on their own judgement. Pressure triggers verification: only in some areas, cases or periods. Most changes are verified through the old details or another trusted route. Gift cards and PIN requests banned: only in some areas, cases or periods.</li><li>A compromise would be handled as it happens, without a set process. Affected people warned: not in place.</li><li>Most resets need verification through a trusted route, such as the person's manager or a number on file.</li><li>These systems are protected by passwords only.</li><li>Access is limited for some systems only.</li><li>Staff guided on what not to share: not in place.</li><li>Domain protected against spoofing: only in some areas, cases or periods.</li><li>There is no plan; each case would be handled from scratch.</li></ul></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:21%">Objective</th><th style="width:24%">Recommended design</th><th style="width:9%">Assessed</th><th style="width:14%">Owner / oversight</th><th style="width:10%">Frequency</th><th style="width:13%">Effectiveness test</th></tr></thead>
+      <tbody><tr>
+        <td class="id">CI-FS-D3-10<div>D3-C-04</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where staff do not know or understand what is expected.</strong></td>
+        <td>1. Training on joining: the answer to &quot;Do all employees receive fraud and ethics training when they join?&quot; is yes, across everything it should cover.</td>
+          <td class="tight"><span class="tag">State 1</span></td>
+        <td>HR lead or ethics officer<div class="cap">The owners</div></td>
+        <td>As each case arises, with a monthly review by the process owner</td>
+        <td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td></tr><tr>
+        <td class="id">CI-FS-D9-01<div>D9-E-01</div><div>30 days</div></td>
+        <td><strong>Stop the scheme where an email account is taken over.</strong></td>
+        <td>1. Multi-factor on all email: Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+          <td class="tight"><span class="tag">State 2</span></td>
+        <td>Head of IT or IT provider<div class="cap">The owners</div></td>
+        <td>Continuous, with monthly review</td>
+        <td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td></tr><tr>
+        <td class="id">CI-FS-D9-02<div>D9-E-05</div><div>30 days</div></td>
+        <td><strong>Stop the scheme where a payment instruction received by email is acted on.</strong></td>
+        <td>1. Email never enough on its own: An organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td>
+          <td class="tight"><span class="tag">State 3</span></td>
+        <td>Head of IT or IT provider<div class="cap">The owners</div></td>
+        <td>Continuous, with monthly review</td>
+        <td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td></tr><tr>
+        <td class="id">CI-FS-D9-03<div>D9-I-01</div><div>60 days</div></td>
+        <td><strong>Stop the scheme where a cloned voice or video instruction is obeyed.</strong></td>
+        <td>1. Verification for calls, voice notes and video: An agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it. 2. Pressure triggers verification: the answer to &quot;Are requests for secrecy, urgency or skipping normal steps treated as warning signs that trigger verification, whoever appears to be asking?&quot; is yes, across everything it should cover. 3. Changes to call-back details verified: Every change to a phone number or email used for verification is confirmed through the previous details or another trusted route before it is used. 4. Gift cards and PIN requests banned: the answer to &quot;Are requests to buy gift cards, vouchers or airtime, or to share a one-time PIN, refused outright, whoever seems to be asking?&quot; is yes, across everything it should cover.</td>
+          <td class="tight"><span class="tag">State 4</span></td>
+        <td>CFO and head of IT together<div class="cap">The owners</div></td>
+        <td>Every payment or change instruction received electronically</td>
+        <td>Management's own records show, for every case in the period: an agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it.</td></tr><tr>
+        <td class="id">CI-FS-D9-05<div>D9-P-04</div><div>60 days</div></td>
+        <td><strong>Stop the scheme where a security compromise is not notified.</strong></td>
+        <td>1. Compromises reported as POPIA requires: A procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly. 2. Affected people warned: the answer to &quot;When data is leaked, are affected people warned about follow-up fraud, such as phishing that uses their real details?&quot; is yes, across everything it should cover.</td>
+          <td class="tight"><span class="tag">State 5</span></td>
+        <td>Head of IT or information security<div class="cap">The owners</div></td>
+        <td>As each case arises, with a monthly review by the process owner</td>
+        <td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td></tr><tr>
+        <td class="id">CI-FS-D9-06<div>D9-A-05</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where a help desk reset hands an attacker access.</strong></td>
+        <td>1. Help desk resets verified: Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td>
+          <td class="tight"><span class="tag">State 6</span></td>
+        <td>Head of IT or IT provider<div class="cap">The owners</div></td>
+        <td>Every joiner, mover and leaver, and quarterly review</td>
+        <td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td></tr><tr>
+        <td class="id">CI-FS-D9-07<div>D9-A-01</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where systems that move money are accessed without strong sign-in.</strong></td>
+        <td>1. Multi-factor on critical systems: It is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td>
+          <td class="tight"><span class="tag">State 7</span></td>
+        <td>Head of IT or IT provider<div class="cap">The owners</div></td>
+        <td>Every joiner, mover and leaver, and quarterly review</td>
+        <td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td></tr><tr>
+        <td class="id">CI-FS-D9-08<div>D9-P-01</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where personal information is over-exposed or kept too long.</strong></td>
+        <td>1. Access to personal information limited: In every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td>
+          <td class="tight"><span class="tag">State 8</span></td>
+        <td>Information officer (POPIA)<div class="cap">The owners</div></td>
+        <td>As each case arises, with a monthly review by the process owner</td>
+        <td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td></tr><tr>
+        <td class="id">CI-FS-D9-11<div>D9-O-02</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where the organisation's own information helps attackers.</strong></td>
+        <td>1. Staff guided on what not to share: the answer to &quot;Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?&quot; is yes, across everything it should cover.</td>
+          <td class="tight"><span class="tag">State 9</span></td>
+        <td>Communications or marketing manager<div class="cap">The owners</div></td>
+        <td>As each case arises, with a monthly review by the process owner</td>
+        <td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td></tr><tr>
+        <td class="id">CI-FS-D9-14<div>D9-E-02</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where spoofed email in the organisation's name deceives staff, suppliers or customers.</strong></td>
+        <td>1. Domain protected against spoofing: the answer to &quot;Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?&quot; is yes, across everything it should cover.</td>
+          <td class="tight"><span class="tag">State 10</span></td>
+        <td>Head of IT or IT provider<div class="cap">The owners</div></td>
+        <td>Continuous, with monthly review</td>
+        <td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td></tr><tr>
+        <td class="id">CI-FS-D9-12<div>D9-R-02</div><div>90 days</div></td>
+        <td><strong>Stop the scheme where a compromise is not contained quickly.</strong></td>
+        <td>1. Compromise playbook: A written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td>
+          <td class="tight"><span class="tag">State 11</span></td>
+        <td>Head of IT or information security<div class="cap">The owners</div></td>
+        <td>As each case arises, with a monthly review by the process owner</td>
+        <td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix D</div><h1>Evidence requirement register</h1><div class="reg-note">What management should be able to produce for each recommended control. No evidence has been requested, received or examined.</div></div>
+    <h3 style="margin-top:5mm;border-top:1.5px solid var(--navy-700);padding-top:2.5mm">Identity and access challenge</h3>
+      <table>
+        <thead><tr><th style="width:10%">Control</th><th style="width:22%">Evidence required</th><th style="width:26%">What it should prove</th><th style="width:24%">Minimum acceptable characteristic</th><th style="width:18%">Owner / recency</th></tr></thead>
+        <tbody><tr>
+          <td class="id">CI-FS-D9-01</td>
+          <td><strong>The email security report showing multi-factor status for every account, including shared mailboxes.</strong></td>
+          <td>That multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or IT provider<div class="cap">Continuous, with monthly review</div></td></tr><tr>
+          <td class="id">CI-FS-D9-02</td>
+          <td><strong>The written rule, staff communication, call-back records for a sample of requests.</strong></td>
+          <td>That an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or IT provider<div class="cap">Continuous, with monthly review</div></td></tr><tr>
+          <td class="id">CI-FS-D9-03</td>
+          <td><strong>The verification procedure, briefing records for executives, simulation results.</strong></td>
+          <td>That an agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>CFO and head of IT together<div class="cap">Every payment or change instruction received electronically</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Change records for supplier and executive contact details, how each change was confirmed.</strong></td>
+          <td>That every change to a phone number or email used for verification is confirmed through the previous details or another trusted route before it is used</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>CFO and head of IT together<div class="cap">Every payment or change instruction received electronically</div></td></tr><tr>
+          <td class="id">CI-FS-D9-06</td>
+          <td><strong>The help desk reset procedure, reset logs, social engineering test results.</strong></td>
+          <td>That every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or IT provider<div class="cap">Every joiner, mover and leaver, and quarterly review</div></td></tr><tr>
+          <td class="id">CI-FS-D9-07</td>
+          <td><strong>Multi-factor coverage reports for remote access, cloud and banking systems.</strong></td>
+          <td>That it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or IT provider<div class="cap">Every joiner, mover and leaver, and quarterly review</div></td></tr><tr>
+          <td class="id">CI-FS-D9-08</td>
+          <td><strong>Role-based access settings, export restrictions, access reviews.</strong></td>
+          <td>That in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Information officer (POPIA)<div class="cap">As each case arises, with a monthly review by the process owner</div></td></tr></tbody>
+      </table><h3 style="margin-top:5mm;border-top:1.5px solid var(--navy-700);padding-top:2.5mm">Incident response and evidence integrity</h3>
+      <table>
+        <thead><tr><th style="width:10%">Control</th><th style="width:22%">Evidence required</th><th style="width:26%">What it should prove</th><th style="width:24%">Minimum acceptable characteristic</th><th style="width:18%">Owner / recency</th></tr></thead>
+        <tbody><tr>
+          <td class="id">CI-FS-D9-05</td>
+          <td><strong>The breach response procedure, notification templates, records of past notifications.</strong></td>
+          <td>That a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or information security<div class="cap">As each case arises, with a monthly review by the process owner</div></td></tr><tr>
+          <td class="id">CI-FS-D9-12</td>
+          <td><strong>The incident plan for email compromise, its contact list, test or incident records.</strong></td>
+          <td>That a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles</td>
+          <td>Covers every case in the period, not a selection</td>
+          <td>Head of IT or information security<div class="cap">As each case arises, with a monthly review by the process owner</div></td></tr></tbody>
+      </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix E</div><h1>12-month action and assurance register</h1><div class="reg-note">The full twelve-month programme. Not every row is initial implementation: later horizons operate each control through its required cycle and then review whether it is still effective. The work type on each row says which it is.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">Horizon</th><th style="width:11%">Work type</th><th style="width:24%">Action</th><th style="width:14%">Owner</th><th style="width:21%">Completion criterion</th><th style="width:21%">Effectiveness measure</th></tr></thead>
+      <tbody><tr>
+        <td class="tight"><strong>30 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where an email account is taken over: put in place multi-factor on all email.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The email security report showing multi-factor status for every account, including shared mailboxes.</td>
+        <td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td></tr><tr>
+        <td class="tight"><strong>30 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where a payment instruction received by email is acted on: put in place email never enough on its own.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The written rule, staff communication, call-back records for a sample of requests.</td>
+        <td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td></tr><tr>
+        <td class="tight"><strong>60 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where a cloned voice or video instruction is obeyed: put in place verification for calls, voice notes and video, pressure triggers verification, changes to call-back details verified and gift cards and PIN requests banned.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The verification procedure, briefing records for executives, simulation results. Change records for supplier and executive contact details, how each change was confirmed.</td>
+        <td>Management's own records show, for every case in the period: an agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it.</td></tr><tr>
+        <td class="tight"><strong>60 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where a security compromise is not notified: put in place compromises reported as POPIA requires and affected people warned.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The breach response procedure, notification templates, records of past notifications.</td>
+        <td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Confirm with HR lead or ethics officer how code accessible to staff operates and put in place training on joining.</td>
+        <td>Ethics officer or company secretary</td>
+        <td>HR lead or ethics officer confirms in writing that the controls operate for every case.</td>
+        <td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where a help desk reset hands an attacker access: put in place help desk resets verified.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The help desk reset procedure, reset logs, social engineering test results.</td>
+        <td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where systems that move money are accessed without strong sign-in: put in place multi-factor on critical systems.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Multi-factor coverage reports for remote access, cloud and banking systems.</td>
+        <td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where personal information is over-exposed or kept too long: put in place access to personal information limited.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Role-based access settings, export restrictions, access reviews.</td>
+        <td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where the organisation's own information helps attackers: put in place staff guided on what not to share.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Communications or marketing manager confirms in writing that the controls operate for every case.</td>
+        <td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where spoofed email in the organisation's name deceives staff, suppliers or customers: put in place domain protected against spoofing.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Head of IT or IT provider confirms in writing that the controls operate for every case.</td>
+        <td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Implement</td>
+        <td>Close the scheme where a compromise is not contained quickly: put in place compromise playbook.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The incident plan for email compromise, its contact list, test or incident records.</td>
+        <td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (As each case arises, with a monthly review by the process owner), with a management sample and any exceptions recorded.</td>
+        <td>Ethics officer or company secretary</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Continuous, with monthly review), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Continuous, with monthly review), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (As each case arises, with a monthly review by the process owner), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Every joiner, mover and leaver, and quarterly review), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Every joiner, mover and leaver, and quarterly review), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (As each case arises, with a monthly review by the process owner), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (As each case arises, with a monthly review by the process owner), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Continuous, with monthly review), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (As each case arises, with a monthly review by the process owner), with a management sample and any exceptions recorded.</td>
+        <td>Head of IT or IT provider</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D3-10 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td>
+        <td>Ethics officer or company secretary</td>
+        <td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td>
+        <td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-01 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td>
+        <td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-02 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td>
+        <td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-05 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td>
+        <td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-06 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td>
+        <td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-07 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td>
+        <td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-08 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td>
+        <td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-11 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td>
+        <td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-14 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td>
+        <td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-FS-D9-12 covering effectiveness, exception trend and dependency, evidenced against: Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td>
+        <td>Head of IT or IT provider</td>
+        <td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td>
+        <td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix F</div><h1>Measurement register</h1><div class="reg-note">The effectiveness test behind each recommended control, grouped by programme. These are the signals management should expect once the control operates.</div></div>
+    <div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Identity and access challenge</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>Management's own records show, for every case in the period: multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.</td><td class="id">CI-FS-D9-01</td></tr><tr><td>Management's own records show, for every case in the period: an organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.</td><td class="id">CI-FS-D9-02</td></tr><tr><td>Management's own records show, for every case in the period: an agreed method, such as a call-back on a known number or a code word, applies to everyone, including executives, and staff know they are expected to use it.</td><td class="id">CI-FS-D9-03</td></tr><tr><td>Management's own records show, for every case in the period: every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.</td><td class="id">CI-FS-D9-06</td></tr><tr><td>Management's own records show, for every case in the period: it is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.</td><td class="id">CI-FS-D9-07</td></tr><tr><td>Management's own records show, for every case in the period: in every system, access to personal information is limited to people who need it for their work, and bulk exports are restricted and logged.</td><td class="id">CI-FS-D9-08</td></tr><tr><td>Management's own records show that every case in the period passes this test: Are staff guided on what not to share about their work online, such as who approves payments or when executives are travelling?</td><td class="id">CI-FS-D9-11</td></tr><tr><td>Management's own records show that every case in the period passes this test: Is the organisation's email domain protected against spoofing with SPF, DKIM and a DMARC policy set to quarantine or reject?</td><td class="id">CI-FS-D9-14</td></tr></tbody>
+        </table>
+      </div><div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Incident response and evidence integrity</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>Management's own records show, for every case in the period: a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly.</td><td class="id">CI-FS-D9-05</td></tr><tr><td>Management's own records show, for every case in the period: a written plan covers locking accounts, revoking sessions, informing the bank and warning suppliers and customers, and people know their roles.</td><td class="id">CI-FS-D9-12</td></tr></tbody>
+        </table>
+      </div><div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Culture and continuous improvement</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>Management's own records show that every case in the period passes this test: Do all employees receive fraud and ethics training when they join?</td><td class="id">CI-FS-D3-10</td></tr></tbody>
+        </table>
+      </div>
+  </section></body></html>

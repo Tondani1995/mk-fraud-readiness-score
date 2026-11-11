@@ -77,7 +77,7 @@
       "Operations and sales": 3
     },
     "actions": 497,
-    "digest": "3d7a48efc58389d8f90655ad02ea3237a60ee9c6dccad18ac7a01ba30618cbb3"
+    "digest": "23eac322c0e5e98d3e66335463128e86451c9120f3b8cdd87318794ebe2cba76"
   },
   "P2": {
     "respondentScreens": 156,
@@ -155,7 +155,7 @@
       "Operations and sales": 15
     },
     "actions": 591,
-    "digest": "7b03584bfe933d1ecbaf40e79d80762425c44104ddbaf96b164a6cf85bce6354"
+    "digest": "b73f611316e90b9ff71787f3e5ea0557f0ee1a96743e8c9438dbf0fd406b6de4"
   },
   "P3": {
     "respondentScreens": 162,
@@ -234,7 +234,7 @@
       "Operations and sales": 15
     },
     "actions": 563,
-    "digest": "36e3e7d97c9378e03e4ce8a157da65909ccd47d38de19a47411c0195e4086af0"
+    "digest": "dbec6671627c4e192363b1f64b9ad6365d95a5f964280c46df9fbd162de8c998"
   },
   "P4": {
     "respondentScreens": 96,
@@ -310,7 +310,7 @@
       "Legal, compliance and ethics": 1
     },
     "actions": 274,
-    "digest": "1cc476f752e4ae0325aa7517517b21270034a553514c34e3c44938d6c428bb81"
+    "digest": "27cce60ab16616f0689d8e1224620400acef04866c328537ec7aabe2bd7c68c0"
   },
   "P5": {
     "respondentScreens": 141,
@@ -394,7 +394,7 @@
       "Operations and sales": 20
     },
     "actions": 699,
-    "digest": "2b8bbd7aaff5c2258e38cb4b7086d2db62602874412d5edcd9dabe747918ed4a"
+    "digest": "29869430ee2b72a46b8c4a031a986e20e962b3e8ab012bebce9338aa702635ae"
   },
   "P6b": {
     "respondentScreens": 167,
@@ -477,6 +477,6 @@
       "Operations and sales": 11
     },
     "actions": 553,
-    "digest": "798470cdaccf99ff81a0d93a06e717941665f872dd531b95b8099e8b047fcdfa"
+    "digest": "2504c09c357302dc54749ce5876bf46c8fc30529a4cd8df8ee97c6211d8d85cc"
   }
 }

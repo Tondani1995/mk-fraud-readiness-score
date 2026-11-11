@@ -1,0 +1,265 @@
+{
+ "base": "http://localhost:3217",
+ "axe": "4.12.1",
+ "tags": [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa"
+ ],
+ "rows": [
+  {
+   "name": "review-landing",
+   "url": "/review",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 24,
+   "passNodes": 53,
+   "inapplicable": 39
+  },
+  {
+   "name": "snapshot-complete",
+   "url": "/review/s/:token/snapshot",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 29,
+   "passNodes": 870,
+   "inapplicable": 34
+  },
+  {
+   "name": "snapshot-outstanding",
+   "url": "/review/s/:token/snapshot",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 29,
+   "passNodes": 969,
+   "inapplicable": 34
+  },
+  {
+   "name": "management-outstanding",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 29,
+   "passNodes": 279,
+   "inapplicable": 34
+  },
+  {
+   "name": "management-advisory",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 27,
+   "passNodes": 194,
+   "inapplicable": 36
+  },
+  {
+   "name": "interview-area-entry",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 2,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 31,
+   "passNodes": 166,
+   "inapplicable": 32
+  },
+  {
+   "name": "procurement-package",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 22,
+   "passNodes": 127,
+   "inapplicable": 41
+  },
+  {
+   "name": "review-landing",
+   "url": "/review",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 24,
+   "passNodes": 53,
+   "inapplicable": 39
+  },
+  {
+   "name": "snapshot-complete",
+   "url": "/review/s/:token/snapshot",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 10,
+     "targets": [
+      "th[scope=\"col\"]:nth-child(4)",
+      "th[scope=\"col\"]:nth-child(5)",
+      "th[scope=\"col\"]:nth-child(6)",
+      ".last\\:border-0:nth-child(1) > td:nth-child(5)",
+      ".last\\:border-0:nth-child(2) > td:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 30,
+   "passNodes": 861,
+   "inapplicable": 33
+  },
+  {
+   "name": "snapshot-outstanding",
+   "url": "/review/s/:token/snapshot",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 11,
+     "targets": [
+      "th[scope=\"col\"]:nth-child(4)",
+      "th[scope=\"col\"]:nth-child(5)",
+      "th[scope=\"col\"]:nth-child(6)",
+      ".last\\:border-0:nth-child(1) > td:nth-child(5)",
+      ".last\\:border-0:nth-child(2) > td:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 30,
+   "passNodes": 959,
+   "inapplicable": 33
+  },
+  {
+   "name": "management-outstanding",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 11,
+     "targets": [
+      "th[scope=\"col\"]:nth-child(4)",
+      "th[scope=\"col\"]:nth-child(5)",
+      "th[scope=\"col\"]:nth-child(6)",
+      ".last\\:border-0:nth-child(1) > td:nth-child(5)",
+      ".last\\:border-0:nth-child(2) > td:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 30,
+   "passNodes": 269,
+   "inapplicable": 33
+  },
+  {
+   "name": "management-advisory",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 27,
+   "passNodes": 194,
+   "inapplicable": 36
+  },
+  {
+   "name": "interview-area-entry",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 2,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 27,
+   "passNodes": 112,
+   "inapplicable": 36
+  },
+  {
+   "name": "procurement-package",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 22,
+   "passNodes": 127,
+   "inapplicable": 41
+  }
+ ]
+}

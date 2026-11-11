@@ -8,6 +8,27 @@ Conditions throughout: Node 24.22, Next.js 15.5.22 production builds, `next star
 
 Before this run, three full runs on the corrected code were superseded because each found something to correct: a phone placement defect and a test defect (`951ea06`), a management view without a visible result after sending and fixed waits in the scripts (`e6690fc`), and an accessibility scan taken mid-fade (`deb0aa1`). Each is described in `INDEPENDENT-REVIEW-RESPONSE.md` and kept in `evidence/results/re-verification`.
 
+## Integration prototype delivery (11 November 2026, continued from `ef1e1ac`)
+
+Checked on the working tree that became the delivery commit, with Node 24.22, a fresh Next.js production build and the fictional harness. Build 1.6 and the revised method stay inactive for customers; none of these results is a release criterion being met. What each item delivers is in `INTEGRATION-PROTOTYPE.md`.
+
+| Check | Result |
+|---|---|
+| Standard-assessment status (`readiness-review-standard-status-tests.mjs`) | 10 of 10: no reviewer-based completion on any standard surface; completion; declines; unanswered information and a function's "I don't know"; stage reopening after a correction; concurrent saves of a decline and an answer; multi-function assignments with no duplicate task; area hand-over at entry; reports and interface counting the same outstanding information; corrections after an early hand-over |
+| Methodology-version dispatch (`methodology-version-dispatch-tests.mjs`) | 9 of 9, including the withdrawn P-5 rule reproduced and refused |
+| MFRS parity | 8 of 8, byte-identical to `3f933ac` |
+| Build 1.6 suite | 19 of 19 (golden digests regenerated after the wording and stage-accounting changes; journeys otherwise identical) |
+| Review contract | 23 of 23 (C-09 now checks that reviewer actions sit only in the Advisory section) |
+| Review report engine | 17 of 17 |
+| Integrity guard | Passes; no exception requested. The P-5 patch is removed |
+| Research checks | Information gain, objectives review, delegation timing and candidate confirmations reproduce their recorded outputs |
+| Preview fixture | Matches the engine |
+| Report comparison | 16 reports rebuilt and rendered; all four revised Essentials pass the existing validator with no internal identifiers; measures reproduce `comparison.json`; PDF page counts as stated in `REPORT-COMPARISON.md` |
+| Screens (`readiness-review-standard-status-screens.cjs`) | 9 of 9 at 1440 and 390px: no reviewer-completion wording, the four status statements present, no sideways page scroll and no panel wider than the viewport |
+| Accessibility (axe-core, WCAG 2.0, 2.1, 2.2 A and AA) | Seven pages at both widths, 14 scans: 0 violations, five contrast results undecided (`STANDARD-ASSESSMENT-STATUS.md`). No manual audit or screen-reader test |
+| Every test suite under `scripts/` (158), this tree and `3f933ac` | 93 pass and 65 fail in both, all 65 with the same first failure (one after rerunning it on its own); classification in `verification/SUITE-FAILURE-RECONCILIATION.md` |
+| Type check and lint | 0 errors on the changed source |
+
 ## Staged assessment delivery (11 November 2026, build 1.6)
 
 Checked on the working tree that became the delivery commit, with Node 24.22 and the fictional harness. Build 1.6 is inactive for customers; none of these results is a release criterion being met.

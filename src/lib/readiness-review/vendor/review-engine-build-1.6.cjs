@@ -28,7 +28,7 @@ const REVIEW16 = (() => {
     'partial-operation': 'Partial operation: the supporting practice is reported at an intermediate level',
     'not-yet-operating': 'Not yet operating: the supporting practice is reported as set out but not working',
     conflicting: 'Conflicting answer: the supporting practice is reported not in place',
-    'no-case-yet': 'Untested in practice: the organisation reports that no case has arisen',
+    'no-case-yet': 'No case yet: the organisation reports that no case has arisen, so the practice has not been used',
     'missing-information': 'Missing information: the answer was "I don\'t know"',
     pending: 'Not yet answered',
     'not-applicable': 'No longer applicable after a later answer',
@@ -105,9 +105,11 @@ const REVIEW16 = (() => {
       const tested = checks.filter((c) => ANSWERED_OUTCOMES.includes(c.outcome)).length;
       return {
         rule: `One follow-up after a tier ${consistencyOpts.tiers.join(' or ')} confirmation reported fully in place, at most ${consistencyOpts.perDomain} per area and ${consistencyOpts.max} in all, chosen in the order the confirmations were answered.`,
+        // `untested` is kept for contract 1.4.0 readers; it means "not cross-checked", never "not tested in operation".
         eligible: eligible.length, selected: checks.length, answered: tested, untested: eligible.length - checks.filter((c) => c.outcome !== 'superseded').length,
+        notCrossChecked: eligible.length - checks.filter((c) => c.outcome !== 'superseded').length,
         counts, checks,
-        limitation: 'Each check is one further answer from the organisation about a practice that supports a confirmation it reported in place. It is self-reported, it is not a test of operation and it is not evidence. Confirmations that were not selected are untested. No score or band is adjusted for any outcome.'
+        limitation: 'Each cross-check is one further self-reported answer from the organisation about a practice that supports a confirmation it reported in place. It is not a test of operation and it is not evidence. Confirmations that were not selected were not cross-checked, and nothing is concluded about them or extrapolated to them. No score or band is adjusted for any outcome.'
       };
     }
 
@@ -120,8 +122,10 @@ const REVIEW16 = (() => {
       const seen = new Set();
       rep.scenarios.forEach((s) => {
         if (s.status === 'outofscope') return;
-        if (!s.confirmations.length) { rows.push({ id: s.id, tier: s.tier, state: s.status === 'waiting' ? 'waiting' : 'scope-unconfirmed' }); return; }
-        s.confirmations.forEach((c) => { if (seen.has(c.id)) return; seen.add(c.id); rows.push({ id: c.id, tier: s.tier, state: c.state }); });
+        // A row in an area the respondent handed to its function is with that function, whether or not it has been reached.
+        const handedArea = !!S.domainAssign[(SCN[s.id] && SCN[s.id].domain) || ''];
+        if (!s.confirmations.length) { rows.push({ id: s.id, tier: s.tier, state: s.status === 'waiting' ? 'waiting' : 'scope-unconfirmed', handedArea }); return; }
+        s.confirmations.forEach((c) => { if (seen.has(c.id)) return; seen.add(c.id); rows.push({ id: c.id, tier: s.tier, state: c.state, handedArea: !!S.domainAssign[DOM[c.id]] }); });
       });
       const sum = (list) => {
         const applicable = list.filter((r) => !EXCLUDED.includes(r.state));
@@ -132,8 +136,9 @@ const REVIEW16 = (() => {
         const statusOf = (r) => (S.assign[r.id] ? S.assign[r.id].status : null);
         const declined = applicable.filter((r) => r.state === 'waiting' && statusOf(r) === 'declined');
         const ownerUnknown = applicable.filter((r) => r.state === 'waiting' && statusOf(r) === 'owner-unknown');
-        const handed = applicable.filter((r) => r.state === 'waiting' && !['declined', 'owner-unknown'].includes(statusOf(r)));
-        const open = applicable.filter((r) => !['reported', 'reused', 'na', 'waiting'].includes(r.state));
+        const notReached = (r) => !['reported', 'reused', 'na', 'waiting'].includes(r.state);
+        const handed = applicable.filter((r) => (r.state === 'waiting' && !['declined', 'owner-unknown'].includes(statusOf(r))) || (notReached(r) && r.handedArea));
+        const open = applicable.filter((r) => notReached(r) && !r.handedArea);
         return { applicableSoFar: applicable.length, answered: answeredRows.length, withFunctions: handed.length, declined: declined.length, unknownToFunction: ownerUnknown.length, open: open.length, complete: open.length === 0 };
       };
       const core = sum(rows.filter((r) => r.tier === 1));

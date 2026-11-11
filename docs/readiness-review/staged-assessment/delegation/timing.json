@@ -1,0 +1,491 @@
+{
+ "fictional": true,
+ "label": "FICTIONAL RESEARCH: deterministic simulated answers, not people",
+ "engineBuild": "1.6",
+ "cases": [
+  {
+   "key": "P5",
+   "areas": [
+    [
+     "D4",
+     "Procurement manager"
+    ],
+    [
+     "D9",
+     "IT manager"
+    ]
+   ]
+  },
+  {
+   "key": "P3",
+   "areas": [
+    [
+     "D4",
+     "Procurement manager"
+    ],
+    [
+     "D5",
+     "HR or payroll manager"
+    ],
+    [
+     "D9",
+     "IT manager"
+    ]
+   ]
+  },
+  {
+   "key": "P4",
+   "areas": [
+    [
+     "D9",
+     "Head of IT or IT provider"
+    ]
+   ]
+  }
+ ],
+ "rows": [
+  {
+   "key": "P5",
+   "timing": "none",
+   "areas": [],
+   "respondentScreens": 162,
+   "ownerScreens": 118,
+   "organisationScreens": 280,
+   "byFunction": {
+    "Executive and governance": 2,
+    "Risk and investigations": 22,
+    "Legal, compliance and ethics": 6,
+    "IT and information": 11,
+    "Procurement": 16,
+    "HR and payroll": 18,
+    "Finance": 23,
+    "Operations and sales": 20
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 701,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 7,
+    "total": 7
+   },
+   "interview": "Completed",
+   "information": "7 outstanding",
+   "confirmationsAnsweredByFunctions": 35,
+   "confirmationsAnsweredByRespondent": 73
+  },
+  {
+   "key": "P5",
+   "timing": "after-core",
+   "areas": [
+    "D4",
+    "D9"
+   ],
+   "respondentScreens": 141,
+   "ownerScreens": 130,
+   "organisationScreens": 271,
+   "byFunction": {
+    "Executive and governance": 2,
+    "Risk and investigations": 22,
+    "Legal, compliance and ethics": 5,
+    "IT and information": 17,
+    "Procurement": 25,
+    "HR and payroll": 18,
+    "Finance": 21,
+    "Operations and sales": 20
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 699,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 7,
+    "total": 7
+   },
+   "interview": "Completed",
+   "information": "7 outstanding",
+   "confirmationsAnsweredByFunctions": 42,
+   "confirmationsAnsweredByRespondent": 66
+  },
+  {
+   "key": "P5",
+   "timing": "area-entry",
+   "areas": [
+    "D4",
+    "D9"
+   ],
+   "respondentScreens": 126,
+   "ownerScreens": 141,
+   "organisationScreens": 267,
+   "byFunction": {
+    "Executive and governance": 2,
+    "Risk and investigations": 22,
+    "Legal, compliance and ethics": 5,
+    "IT and information": 21,
+    "Procurement": 33,
+    "HR and payroll": 18,
+    "Finance": 20,
+    "Operations and sales": 20
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 702,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 7,
+    "total": 7
+   },
+   "interview": "Completed",
+   "information": "7 outstanding",
+   "confirmationsAnsweredByFunctions": 50,
+   "confirmationsAnsweredByRespondent": 58
+  },
+  {
+   "key": "P5",
+   "timing": "at-start",
+   "areas": [
+    "D4",
+    "D9"
+   ],
+   "respondentScreens": 126,
+   "ownerScreens": 141,
+   "organisationScreens": 267,
+   "byFunction": {
+    "Executive and governance": 2,
+    "Risk and investigations": 22,
+    "Legal, compliance and ethics": 5,
+    "IT and information": 21,
+    "Procurement": 33,
+    "HR and payroll": 18,
+    "Finance": 20,
+    "Operations and sales": 20
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 702,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 7,
+    "total": 7
+   },
+   "interview": "Completed",
+   "information": "7 outstanding",
+   "confirmationsAnsweredByFunctions": 50,
+   "confirmationsAnsweredByRespondent": 58
+  },
+  {
+   "key": "P3",
+   "timing": "none",
+   "areas": [],
+   "respondentScreens": 162,
+   "ownerScreens": 79,
+   "organisationScreens": 241,
+   "byFunction": {
+    "Risk and investigations": 15,
+    "Legal, compliance and ethics": 3,
+    "IT and information": 4,
+    "Procurement": 14,
+    "HR and payroll": 15,
+    "Finance": 13,
+    "Operations and sales": 15
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 584,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 0,
+   "confirmationsAnsweredByRespondent": 107
+  },
+  {
+   "key": "P3",
+   "timing": "after-core",
+   "areas": [
+    "D4",
+    "D5",
+    "D9"
+   ],
+   "respondentScreens": 132,
+   "ownerScreens": 111,
+   "organisationScreens": 243,
+   "byFunction": {
+    "IT and information": 15,
+    "Procurement": 24,
+    "HR and payroll": 25,
+    "Risk and investigations": 15,
+    "Legal, compliance and ethics": 3,
+    "Finance": 14,
+    "Operations and sales": 15
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 626,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 22,
+   "confirmationsAnsweredByRespondent": 86
+  },
+  {
+   "key": "P3",
+   "timing": "area-entry",
+   "areas": [
+    "D4",
+    "D5",
+    "D9"
+   ],
+   "respondentScreens": 110,
+   "ownerScreens": 133,
+   "organisationScreens": 243,
+   "byFunction": {
+    "IT and information": 21,
+    "Procurement": 33,
+    "HR and payroll": 32,
+    "Risk and investigations": 15,
+    "Legal, compliance and ethics": 3,
+    "Finance": 14,
+    "Operations and sales": 15
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 648,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 39,
+   "confirmationsAnsweredByRespondent": 69
+  },
+  {
+   "key": "P3",
+   "timing": "at-start",
+   "areas": [
+    "D4",
+    "D5",
+    "D9"
+   ],
+   "respondentScreens": 110,
+   "ownerScreens": 133,
+   "organisationScreens": 243,
+   "byFunction": {
+    "IT and information": 21,
+    "Procurement": 33,
+    "HR and payroll": 32,
+    "Risk and investigations": 15,
+    "Legal, compliance and ethics": 3,
+    "Finance": 14,
+    "Operations and sales": 15
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 648,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 39,
+   "confirmationsAnsweredByRespondent": 69
+  },
+  {
+   "key": "P4",
+   "timing": "none",
+   "areas": [],
+   "respondentScreens": 96,
+   "ownerScreens": 21,
+   "organisationScreens": 117,
+   "byFunction": {
+    "Risk and investigations": 10,
+    "IT and information": 4,
+    "HR and payroll": 3,
+    "Finance": 3,
+    "Legal, compliance and ethics": 1
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 274,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 0,
+   "confirmationsAnsweredByRespondent": 49
+  },
+  {
+   "key": "P4",
+   "timing": "after-core",
+   "areas": [
+    "D9"
+   ],
+   "respondentScreens": 88,
+   "ownerScreens": 29,
+   "organisationScreens": 117,
+   "byFunction": {
+    "IT and information": 12,
+    "Risk and investigations": 10,
+    "HR and payroll": 3,
+    "Finance": 3,
+    "Legal, compliance and ethics": 1
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 284,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 6,
+   "confirmationsAnsweredByRespondent": 43
+  },
+  {
+   "key": "P4",
+   "timing": "area-entry",
+   "areas": [
+    "D9"
+   ],
+   "respondentScreens": 83,
+   "ownerScreens": 34,
+   "organisationScreens": 117,
+   "byFunction": {
+    "IT and information": 17,
+    "Risk and investigations": 10,
+    "HR and payroll": 3,
+    "Finance": 3,
+    "Legal, compliance and ethics": 1
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 289,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 10,
+   "confirmationsAnsweredByRespondent": 39
+  },
+  {
+   "key": "P4",
+   "timing": "at-start",
+   "areas": [
+    "D9"
+   ],
+   "respondentScreens": 83,
+   "ownerScreens": 34,
+   "organisationScreens": 117,
+   "byFunction": {
+    "IT and information": 17,
+    "Risk and investigations": 10,
+    "HR and payroll": 3,
+    "Finance": 3,
+    "Legal, compliance and ethics": 1
+   },
+   "coreCompleteAfterInterview": true,
+   "breadthCompleteAfterInterview": true,
+   "sessions": 1,
+   "actionLog": 289,
+   "duplicateAssignments": 0,
+   "answeredByTwoActors": 0,
+   "corrections": 0,
+   "outstandingAtEnd": {
+    "notReached": 0,
+    "withFunctions": 0,
+    "declined": 0,
+    "unknownToFunction": 0,
+    "total": 0
+   },
+   "interview": "Completed",
+   "information": "Nothing outstanding",
+   "confirmationsAnsweredByFunctions": 10,
+   "confirmationsAnsweredByRespondent": 39
+  }
+ ]
+}

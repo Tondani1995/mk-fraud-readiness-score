@@ -143,7 +143,7 @@ export function OwnerPackagesNote({ packages, columns = 2 }: { packages: Snapsho
 
 export function StatusPanel({ status }: { status: Snapshot['status'] }) {
   return (
-    <dl className="grid gap-4 rounded-md border border-mk-line bg-white p-5 text-sm leading-6 md:grid-cols-3" data-review-status>
+    <dl className="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border border-mk-line bg-white p-5 text-sm leading-6 md:grid-cols-3" data-review-status>
       <div>
         <dt className="font-medium text-mk-ink">Interview</dt>
         <dd className="text-mk-muted">
@@ -154,16 +154,36 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
           {status.corrections ? ` ${status.corrections} answers were changed afterwards.` : ''}
         </dd>
       </div>
-      <div>
-        <dt className="font-medium text-mk-ink">MK review</dt>
-        <dd className="text-mk-muted">{status.reviewStatus}. Answers are the organisation&rsquo;s own statements unless a reviewer record says otherwise.</dd>
+      <div className="md:col-span-2">
+        <dt className="font-medium text-mk-ink">Answers</dt>
+        <dd className="text-mk-muted">Every answer is the organisation&rsquo;s own statement, given by the respondent or an accountable function. Nothing has been tested or verified.</dd>
       </div>
-      <div>
-        <dt className="font-medium text-mk-ink">Is the review complete?</dt>
-        <dd className="text-mk-muted">No. {status.completeWhy}</dd>
-      </div>
+      <AssessmentStatus assessment={status.assessment} />
       {status.stages && <StageOutstanding stages={status.stages} />}
     </dl>
+  );
+}
+
+/**
+ * The four status statements, kept separate so that none implies another: an interview can be completed while
+ * information is outstanding, and neither decides whether a commercial report is eligible.
+ */
+export function AssessmentStatus({ assessment }: { assessment: Snapshot['status']['assessment'] }) {
+  return (
+    <div className="md:col-span-3 border-t border-mk-line pt-4" data-review-assessment-status>
+      <dt className="font-medium text-mk-ink">Where the assessment stands</dt>
+      <dd className="mt-2">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {assessment.facets.map((f) => (
+            <li key={f.key} className="rounded-md border border-mk-line p-3" data-status-facet={f.key} data-settled={f.settled === null ? 'n/a' : String(f.settled)}>
+              <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{f.label}</p>
+              <p className="mt-1 font-medium text-mk-ink">{f.state}</p>
+              <p className="mt-1 text-mk-muted">{f.detail}</p>
+            </li>
+          ))}
+        </ul>
+      </dd>
+    </div>
   );
 }
 
@@ -180,8 +200,9 @@ function StageOutstanding({ stages }: { stages: NonNullable<Snapshot['status']['
           : `${o.withFunctions} ${o.withFunctions === 1 ? 'confirmation is' : 'confirmations are'} with a function; ${o.packagesOpen} package ${o.packagesOpen === 1 ? 'question is' : 'questions are'} open; ${o.declined} declined by a function; ${o.unknownToFunction} answered “I don’t know” by the function.`}
         {' '}Counts are so far: a later answer can bring questions into scope or take them out.
         </p>
+      {/* At phone width the table scrolls sideways; the region is focusable so keyboard users can scroll it too. */}
       {stages.functions.length > 0 && (
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Progress by function">
           <table className="w-full min-w-[520px] text-left text-sm">
             <caption className="sr-only">Progress by accountable function</caption>
             <thead>
@@ -228,7 +249,6 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
     ['gaps', 'Reported gaps'],
     ['waiting', 'Waiting for an owner'],
     ['open', 'Still open'],
-    ['evidence', 'Evidence to review'],
     ['in-place', 'Reported in place'],
     ['scope', 'Scope and assumptions'],
     ['next', 'Next steps']
@@ -240,8 +260,8 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
         <h1 className="mt-3 text-3xl font-semibold text-mk-ink">Fraud Readiness Snapshot</h1>
         <p className="mt-2 text-base text-mk-ink">Prepared for {view.organisationLabel} · as at {date(view.asOf)}</p>
         <p className="mt-4 max-w-3xl text-base leading-7 text-mk-ink">
-          Nothing in this Snapshot is a score, a rating or a prediction. It records what the organisation reported, which questions are waiting for the people who would know, which
-          material scenarios are still open and what evidence an MK reviewer would need to see. A control that was not asked is shown as not yet established, never as in place or missing.
+          Nothing in this Snapshot is a score, a rating or a prediction. It records what the organisation reported, which questions are waiting for the people who would know and which
+          material scenarios are still open. A control that was not asked is shown as not yet established, never as in place or missing.
         </p>
       </header>
       <div className="mt-6"><StatusPanel status={view.status} /></div>
@@ -266,9 +286,6 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
       </Section>
       <Section id="open" title={`Material scenarios still open (${view.openScenarios.length})`} intro="Failure scenarios that apply or may apply where the deciding fact or control is not yet established. Tiers set the order in which the interview asks; they are a proposal awaiting MK approval and are not a risk rating.">
         <ScenarioList items={view.openScenarios} />
-      </Section>
-      <Section id="evidence" title={`Evidence still to review (${view.evidenceToReview.length})`} intro="Controls reported in place or partly in place that are essential confirmations, or where the respondent said a record could be shown. An MK reviewer has not yet examined evidence for them.">
-        <ControlList items={view.evidenceToReview} empty="Nothing is waiting for evidence review." />
       </Section>
       <Section id="in-place" title={`Reported in place (${view.reportedInPlace.length})`} intro="Controls the organisation reported as in place across everything they should cover. Self-reported; listed so that nothing reported is hidden.">
         <details className="mt-3">

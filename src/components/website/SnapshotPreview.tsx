@@ -97,7 +97,7 @@ const REVIEW_ROWS: { key: keyof typeof example.counts; label: string; note: stri
   { key: "reported-gaps", label: "Reported gaps", note: "self-reported, not verified" },
   { key: "waiting", label: "Waiting for an owner", note: "with the function that would know" },
   { key: "open-scenarios", label: "Material scenarios still open", note: "not established either way" },
-  { key: "evidence", label: "Evidence still to review", note: "for an MK reviewer" },
+  { key: "outstanding", label: "Information outstanding", note: "declined, unanswered or not known" },
 ];
 
 function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: boolean }) {

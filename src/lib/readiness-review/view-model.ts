@@ -145,9 +145,22 @@ export type StatusView = {
   ownerAnswers: number;
   corrections: number;
   followUpSent: boolean;
-  reviewStatus: string;
-  complete: false;
-  completeWhy: string;
+  /**
+   * The standard assessment's status, as four separate statements: whether the interview is completed, where the
+   * function packages stand, whether the information is sufficient (nothing outstanding) and whether a commercial report
+   * is eligible. Completion is defined by the self-reported assessment and its outstanding information only. Evidence
+   * review and reviewer conclusions are MK Advisory work and are never a condition of completing this assessment.
+   */
+  assessment: AssessmentStatusView;
+  /** Records made through the separate Advisory evidence-review service, if any. Kept and shown apart; not a completion step. */
+  advisory: { records: number; label: string };
+};
+
+export type StatusFacet = { key: 'interview' | 'packages' | 'information' | 'eligibility'; label: string; state: string; detail: string; settled: boolean | null };
+export type AssessmentStatusView = {
+  facets: StatusFacet[];
+  /** Information still outstanding. Declined, unanswered and "I don't know" are each counted here and never treated as resolved. */
+  outstanding: { notReached: number; withFunctions: number; declined: number; unknownToFunction: number; total: number };
 };
 
 export type StageCountView = { answered: number; withFunctions: number; declined: number; unknownToFunction: number; open: number; applicableSoFar: number; complete: boolean; pct: number };
@@ -206,9 +219,89 @@ export function stageProgressView(report: any): StageProgressView | null {
   };
 }
 
+const SCENARIO_UNSETTLED = ['unconfirmed', 'waiting', 'scope-unconfirmed', 'route-unconfirmed', 'route-incomplete'];
+
+/** The four status statements for the standard assessment. Nothing here depends on an MK reviewer or on evidence. */
+export function assessmentStatusView(report: any, stages: StageProgressView | null): AssessmentStatusView {
+  const s = report.status;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let notReached: number, withFunctions: number, declined: number, unknownToFunction: number;
+  let interviewDone: boolean, interviewDetail: string, packages: StatusFacet;
+  if (stages) {
+    // Staged: the interview is completed when the respondent has reached every applicable confirmation.
+    notReached = stages.breadth.open;
+    withFunctions = stages.breadth.withFunctions + stages.outstanding.packagesOpen;
+    declined = stages.outstanding.declined;
+    unknownToFunction = stages.outstanding.unknownToFunction;
+    interviewDone = stages.breadth.complete || s.interview === 'ended';
+    interviewDetail = interviewDone
+      ? `The respondent has reached every confirmation that applies so far (${s.respondentScreens} questions answered). A later answer or correction can bring more into scope and reopen it.`
+      : `${stages.currentLabel}. ${stages.breadth.pct}% of the confirmations that apply so far have been reached.`;
+    const st = report.staged.stages.packages;
+    const answered = stages.functions.reduce((a, f) => a + f.answered, 0);
+    packages = {
+      key: 'packages', label: 'Function packages',
+      state: st.open > 0 ? 'Open' : st.sent > 0 ? 'Returned' : withFunctions > 0 ? 'Not yet sent' : 'None needed',
+      detail: st.sent > 0 || st.open > 0
+        ? `${plural(st.sent, 'send', 'sends')} so far; ${plural(st.open, 'question is', 'questions are')} still open, ${answered} answered, ${declined} declined and ${unknownToFunction} answered "I don't know" by the function.`
+        : withFunctions > 0 ? `${plural(withFunctions, 'question is', 'questions are')} with accountable functions and can be sent once the core stage is complete.` : 'No question needs an accountable function.',
+      settled: st.open === 0
+    };
+  } else {
+    // Build 1.5: the same rows as the staged stage measure, so both builds count questions, not scenarios. A
+    // confirmation in an applicable scenario that is not answered or with a function is not reached; a scenario whose
+    // deciding fact is not established counts once.
+    const seen = new Set<string>();
+    notReached = 0;
+    for (const sc of report.scenarios as any[]) {
+      if (sc.status === 'outofscope') continue;
+      if (!sc.confirmations.length) { if (SCENARIO_UNSETTLED.includes(sc.status) && sc.status !== 'waiting') notReached++; continue; }
+      for (const c of sc.confirmations) { if (seen.has(c.id)) continue; seen.add(c.id); if (!['reported', 'reused', 'na', 'waiting'].includes(c.state)) notReached++; }
+    }
+    withFunctions = report.waiting.length;
+    declined = 0;
+    unknownToFunction = 0;
+    interviewDone = s.interview === 'ended';
+    interviewDetail = interviewDone
+      ? `${STOP_LABEL[s.stopReason] ?? 'Ended'}. ${s.respondentScreens} of ${LIMIT} respondent screens used.${notReached ? ` ${plural(notReached, 'scenario was', 'scenarios were')} not settled when it ended.` : ''}`
+      : `In progress: ${s.respondentScreens} of ${LIMIT} respondent screens used.`;
+    packages = {
+      key: 'packages', label: 'Function packages',
+      state: s.followUpSent ? (withFunctions ? 'Open' : 'Returned') : withFunctions ? 'Not yet sent' : 'None needed',
+      detail: withFunctions ? `${plural(withFunctions, 'question is', 'questions are')} with accountable functions.` : 'No question is with an accountable function.',
+      settled: withFunctions === 0
+    };
+  }
+  const total = notReached + withFunctions + declined + unknownToFunction;
+  const parts = [
+    notReached ? `${notReached} not yet reached` : '', withFunctions ? `${withFunctions} with a function` : '', declined ? `${declined} declined by a function` : '',
+    unknownToFunction ? `${unknownToFunction} not known by the function` : ''
+  ].filter(Boolean);
+  return {
+    outstanding: { notReached, withFunctions, declined, unknownToFunction, total },
+    facets: [
+      { key: 'interview', label: 'Interview', state: interviewDone ? 'Completed' : 'In progress', detail: interviewDetail, settled: interviewDone },
+      packages,
+      {
+        key: 'information', label: 'Information', state: total === 0 ? 'Nothing outstanding' : `${total} outstanding`,
+        detail: total === 0
+          ? 'Every applicable question has an answer from the respondent or an accountable function. Answers are self-reported.'
+          : `${parts.join('; ')}. A declined question, an unanswered question and an "I don't know" stay outstanding until someone answers; none is treated as in place or as missing.`,
+        settled: total === 0
+      },
+      {
+        key: 'eligibility', label: 'Report eligibility', state: 'Not determined by this assessment',
+        detail: 'Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. This assessment records the information; it makes no order, report or delivery available.',
+        settled: null
+      }
+    ]
+  };
+}
+
 export function statusView(report: any): StatusView {
   const s = report.status;
   const staged = !!report.staged;
+  const stages = stageProgressView(report);
   return {
     interview: s.interview,
     stopReason: s.stopReason || '',
@@ -216,13 +309,15 @@ export function statusView(report: any): StatusView {
     screensUsed: s.respondentScreens,
     limit: staged ? null : LIMIT,
     pctOfLimit: staged ? null : Math.min(100, Math.round((s.respondentScreens / LIMIT) * 100)),
-    stages: stageProgressView(report),
+    stages,
     ownerAnswers: s.ownerScreens,
     corrections: s.corrections,
     followUpSent: !!s.followUpSent,
-    reviewStatus: s.review === 'not started' ? 'Not reviewed by MK' : 'MK review in progress',
-    complete: false,
-    completeWhy: s.completeWhy
+    assessment: assessmentStatusView(report, stages),
+    advisory: {
+      records: (report.reviews?.length ?? 0) + (report.evidence?.length ?? 0) + report.reviewerFindings.length + report.reviewerTasks.length + report.reReview.length,
+      label: s.review === 'not started' ? 'No Advisory evidence-review records' : 'Advisory evidence-review records exist for this session'
+    }
   };
 }
 
@@ -234,6 +329,11 @@ export type RespondentView = {
   status: StatusView;
   step: StepView | null;
   lastSaved: { q: string; text: string; label: string; unknownArea: { domain: string; areaName: string; owner: string; fn: string } | null } | null;
+  /**
+   * Build 1.6 only: on the first question of an area, the offer to hand the whole area to its accountable function before
+   * answering anything in it. The area's questions keep one task each; they stay outstanding until the function answers.
+   */
+  areaHandoff: { domain: string; areaName: string; owner: string; fn: string } | null;
   /** Answers the respondent gave, oldest first. Choices are included so Back can show and change a saved answer. */
   history: { q: string; text: string; label: string; areaName: string; changeable: boolean; value: string | string[]; format: 'single' | 'multi'; choices: ChoiceView[] }[];
   /**
@@ -271,6 +371,16 @@ export function respondentView(live: LiveSession): RespondentView {
   const unknownArea = lastUnknown && lastDomain && areaOwner && !e.S.domainAssign[lastDomain] && !e.S.ended
     ? { domain: lastDomain, areaName: e.DNAME[lastDomain], owner: areaOwner, fn: e.functionOf(areaOwner) }
     : null;
+  // Rule (build 1.6): at the first question of an area not already handed over, offer the whole area to the function
+  // that owns it. Earlier delegation is a choice, never a default; the core confirmations in a handed-over area count as
+  // with a function, so the respondent's own stage can still complete.
+  const step = live.respondentStep;
+  const stepDomain = step ? e.DOM[step.q.id] : null;
+  const firstInArea = !!step && !!stepDomain && !history.some((h) => e.DOM[h.q] === stepDomain);
+  const stepOwner = stepDomain ? (e.MOD[step!.q.id]?.owner ?? null) : null;
+  const areaHandoff = isStagedEngine(e) && firstInArea && stepOwner && !e.S.domainAssign[stepDomain!] && !e.S.ended && !unknownArea
+    ? { domain: stepDomain!, areaName: e.DNAME[stepDomain!], owner: stepOwner, fn: e.functionOf(stepOwner) }
+    : null;
   const answeredByArea = new Map<string, number>();
   for (const h of history) {
     const d = e.DOM[h.q];
@@ -290,6 +400,7 @@ export function respondentView(live: LiveSession): RespondentView {
     status: statusView(report),
     step: live.respondentStep ? stepView(live, live.respondentStep, 'respondent') : null,
     lastSaved: lastQ && lastRec ? { q: lastQ.id, text: plain(lastQ.text), label: e.labelOf(lastQ, lastRec.v), unknownArea } : last?.q === '__assumptions__' ? { q: '__assumptions__', text: 'Less common activities', label: 'Recorded', unknownArea: null } : null,
+    areaHandoff,
     history,
     areas,
     canResume: e.S.ended && e.S.stopReason === 'respondent',
@@ -492,11 +603,12 @@ export function snapshotView(live: LiveSession) {
   const waitingBySource = (Object.keys(WAITING_SOURCE_LABEL) as WaitingSource[])
     .map((kind) => ({ kind, label: WAITING_SOURCE_SUMMARY[kind], count: waitingItems.filter((w: { provenance: WaitingProvenance }) => w.provenance.kind === kind).length }))
     .filter((x) => x.count > 0);
+  const statusOutstanding = assessmentStatusView(report, stageProgressView(report)).outstanding;
   const counts: CountView[] = [
     { key: 'reported-gaps', label: 'Reported gaps', value: report.issues.length, definition: 'Controls the respondent reported as not in place, partly in place, or set out but not yet working. These are self-reported and have not been verified.', denominator: `of ${reported.length} controls with a reported answer` },
     { key: 'waiting', label: 'Waiting for an owner', value: report.waiting.length, definition: 'Questions that now sit with an accountable function: answered “I don’t know”, sent with the rest of an area, not reached in the interview and sent as second-stage follow-up, opened by an owner’s answer, or applicable only if a fact still with an owner holds. Each item says which.', denominator: null },
     { key: 'open-scenarios', label: 'Material scenarios still open', value: report.unresolvedMaterial.length, definition: 'Tier 1 and tier 2 failure scenarios that apply or may apply, where the deciding fact or control is not yet established. Tiers are a proposed priority for asking, not a risk rating.', denominator: `of ${material.length} material scenarios that apply or may apply` },
-    { key: 'evidence', label: 'Evidence still to review', value: evidence.length, definition: 'Controls reported in place or partly in place on an essential confirmation, or where the respondent said a record could be shown, that MK has not yet reviewed against evidence.', denominator: `${tier1Confirmations.size} essential confirmations have a reported answer` }
+    { key: 'outstanding', label: 'Information outstanding', value: statusOutstanding.total, definition: 'Questions asked and not yet answered: waiting for an accountable function, declined by a function, answered “I don’t know” by the function, or confirmations not yet reached. None is treated as in place or as missing.', denominator: null }
   ];
   return {
     organisationLabel: live.record.organisationLabel,
@@ -625,8 +737,10 @@ export function managementView(live: LiveSession) {
     if (!groups.has(actor)) groups.set(actor, { actor, actions: [] });
     groups.get(actor)!.actions.push({ type: action.type, id: action.id, text: plain(action.text) });
   }
-  const order = ['MK reviewer', 'Respondent', ...e.FUNCTIONS];
-  const whoActsNext = [...groups.values()].sort((a, b) => order.indexOf(a.actor) - order.indexOf(b.actor));
+  // MK reviewer actions belong to the separate Advisory service: they are kept, but never listed as standard work.
+  const order = ['Respondent', ...e.FUNCTIONS];
+  const whoActsNext = [...groups.values()].filter((g) => g.actor !== 'MK reviewer').sort((a, b) => order.indexOf(a.actor) - order.indexOf(b.actor));
+  const advisoryActions = groups.get('MK reviewer')?.actions ?? [];
   const needsAnswerByFunction = new Map<string, { fn: string; slug: string; items: { id: string; title: string; why: string }[] }>();
   const addAnswer = (fn: string, id: string, title: string, why: string) => {
     if (!needsAnswerByFunction.has(fn)) needsAnswerByFunction.set(fn, { fn, slug: ownerFunctionSlug(fn), items: [] });
@@ -634,14 +748,6 @@ export function managementView(live: LiveSession) {
   };
   snapshot.waiting.forEach((w: any) => addAnswer(w.ownerFunction ?? 'Executive and governance', w.id, w.title, w.via));
   snapshot.openScenarios.forEach((s: any) => addAnswer(s.accountableFunction ?? 'Executive and governance', s.id, s.name, s.whyOpen));
-  const completion = [
-    { label: 'The interview has ended', met: report.status.interview === 'ended' },
-    { label: 'Every applicable tier-1 scenario is settled, with every route decided', met: !report.scenarios.some((s: any) => s.tier === 1 && ['unconfirmed', 'waiting', 'scope-unconfirmed', 'route-unconfirmed', 'route-incomplete', 'precluded'].includes(s.status)) },
-    { label: 'No question is waiting for an owner', met: report.waiting.length === 0 },
-    { label: 'Evidence for essential confirmations has been reviewed', met: evidenceToReview(report).length === 0 },
-    { label: 'No reviewer finding, follow-up or re-review is open', met: report.reviewerFindings.length === 0 && report.reviewerTasks.length === 0 && report.reReview.length === 0 },
-    { label: 'An authorised MK reviewer has recorded a conclusion on scope, evidence and findings', met: false }
-  ];
   return {
     organisationLabel: live.record.organisationLabel,
     asOf: live.asOf,
@@ -649,14 +755,20 @@ export function managementView(live: LiveSession) {
     staged: snapshot.staged,
     counts: snapshot.counts,
     needsAnswer: [...needsAnswerByFunction.values()].sort((a, b) => e.FUNCTIONS.indexOf(a.fn) - e.FUNCTIONS.indexOf(b.fn)),
-    needsEvidence: snapshot.evidenceToReview,
-    needsRemediation: {
-      reportedGaps: snapshot.reportedGaps,
-      reviewerFindings: (report.reviewerFindings as any[]).map((f) => ({ id: f.id, title: f.key, area: areaName(e, f.id), respondent: f.respondent, evidence: f.evidence ? EVIDENCE_LABEL[f.evidence.state] : null, conclusion: f.review?.conclusion ? CONCLUSION_LABEL[f.review.conclusion] : null, followUp: f.followUp }))
-    },
-    reviewer: { tasks: report.reviewerTasks.length, reReview: report.reReview.length },
+    needsRemediation: { reportedGaps: snapshot.reportedGaps },
     whoActsNext,
-    completion,
+    /** The standard assessment's status: interview, function packages, information and report eligibility. */
+    completion: snapshot.status.assessment.facets,
+    /**
+     * The separate MK Advisory evidence-review service. Its records are kept in full (and in the export and the reviewer
+     * workspace); they are shown apart and are not a condition of completing the standard assessment.
+     */
+    advisory: {
+      records: snapshot.status.advisory.records,
+      candidates: snapshot.evidenceToReview,
+      reviewerFindings: (report.reviewerFindings as any[]).map((f) => ({ id: f.id, title: f.key, area: areaName(e, f.id), respondent: f.respondent, evidence: f.evidence ? EVIDENCE_LABEL[f.evidence.state] : null, conclusion: f.review?.conclusion ? CONCLUSION_LABEL[f.review.conclusion] : null, followUp: f.followUp })),
+      tasks: report.reviewerTasks.length, reReview: report.reReview.length, actions: advisoryActions
+    },
     ownerPackages: snapshot.ownerPackages,
     seq: live.record.actions.length
   };

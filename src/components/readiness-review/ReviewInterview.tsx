@@ -41,8 +41,8 @@ function Orientation({ onBegin, staged }: { onBegin: () => void; staged: boolean
           is assumed in the meantime. If a whole area is outside your knowledge, you can send the rest of it to that function in one step.
         </p>
         <p>
-          Nothing is scored. Your Snapshot lists what you reported, what is unknown, what is still open and what evidence MK would need to see. Your answers remain your own statements
-          until an MK reviewer has examined evidence.
+          Nothing is scored. Your Snapshot lists what you reported, what is unknown and what is still open. Your answers are your own statements; this assessment does not test or
+          verify them.
         </p>
       </div>
       <div className="mt-8 rounded-md border border-mk-line bg-white p-5" role="group" aria-label="Worked example, not saved">
@@ -206,7 +206,7 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
         </h1>
         <p className="mt-4 text-base leading-7 text-mk-ink">
           {s.stages
-            ? `${s.stages.core.complete ? 'The core stage is complete' : 'The core stage is not yet complete'} and ${s.stages.breadth.complete ? 'every applicable confirmation is answered or with a function' : `${s.stages.breadth.open} confirmations are still open`}. You answered ${s.screensUsed} questions. Your Snapshot lists everything that is still open, including questions waiting for other functions.`
+            ? `${s.stages.core.complete ? 'The core stage is complete' : 'The core stage is not yet complete'} and ${s.stages.breadth.complete ? 'you have reached every confirmation that applies so far' : `${s.stages.breadth.open} confirmations are still open`}. You answered ${s.screensUsed} questions. ${s.assessment.outstanding.total ? `${s.assessment.outstanding.total} items of information are still outstanding (with a function, declined or not known); they stay open until someone answers them.` : 'Nothing is outstanding.'} Your Snapshot lists every open item.`
             : `${s.stopLabel ?? 'The interview has ended'}. ${s.screensUsed} of the 95 respondent screens were used. Your Snapshot is prepared from these answers and lists everything that is still open, including any questions waiting for other functions.`}
         </p>
         {message && <p role="status" className="mt-4 text-sm text-mk-ink">{message}</p>}
@@ -224,8 +224,8 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
           <details className="mt-10 rounded-md border border-mk-line bg-white p-4" data-review-answers>
             <summary className="min-h-11 cursor-pointer py-2 font-medium text-mk-ink">Review or change an answer ({changeable.length})</summary>
             <p className="mt-2 text-sm leading-6 text-mk-muted">
-              A change is recorded with the earlier answer kept in its history. If an MK reviewer has already looked at that answer, their record is kept but marked as relating to the
-              earlier answer. A change after the interview has ended does not reopen it.
+              A change is recorded with the earlier answer kept in its history. If the answer was part of a separate Advisory evidence review, that record is kept but marked as relating
+              to the earlier answer. A change that brings new questions into scope reopens the interview for them.
             </p>
             <ul className="mt-3 divide-y divide-mk-line">
               {changeable.map(({ h, i }) => (
@@ -356,6 +356,19 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
                 <div className="mt-3">
                   <Button type="button" variant="secondary" disabled={saving} onClick={() => run({ type: 'respondent.assignArea', domain: unknownArea.domain, owner: unknownArea.owner })}>
                     Send the rest of {unknownArea.areaName} to {unknownArea.fn}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!reviewing && !unknownArea && view.areaHandoff && (
+              <div className="mb-5 rounded-md border border-mk-line bg-white p-4 text-sm leading-6 text-mk-ink" data-review-area-delegate>
+                <p>
+                  {view.areaHandoff.areaName} is usually answered by {view.areaHandoff.fn} (suggested person: {view.areaHandoff.owner}). If this area is outside your knowledge, you can
+                  hand all of it to them now instead of answering it yourself. Its questions then wait for {view.areaHandoff.fn} and stay outstanding until they answer.
+                </p>
+                <div className="mt-3">
+                  <Button type="button" variant="secondary" disabled={saving} onClick={() => run({ type: 'respondent.assignArea', domain: view.areaHandoff!.domain, owner: view.areaHandoff!.owner })}>
+                    Hand {view.areaHandoff.areaName} to {view.areaHandoff.fn}
                   </Button>
                 </div>
               </div>

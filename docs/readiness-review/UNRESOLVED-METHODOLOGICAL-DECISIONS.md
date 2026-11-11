@@ -68,6 +68,10 @@ Reported separately, as MK asked, from the working staged assessment. None of th
 
 **Meanwhile.** MD-1 to MD-16 and MD-B1 to MD-B11 remain open; no calculator for the revised family exists.
 
+## Added on 11 November (18:33)
+
+The report integration prototype raises three decisions that block taking the paid reports further, R-1 to R-3 in `REPORT-COMPARISON.md` section 6. R-2 (issuing a paid report with information outstanding) is the reporting side of U-6. The five candidate confirmations of U-1 were tested and the recommendation narrowed to three (`objectives/CANDIDATE-CONFIRMATIONS.md`); they do not block report development.
+
 ## Release blockers that stay open
 
 B2 (staging isolation), B3 (authenticated access), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (intermittent hydration error) and J-01 (intermittent unregistered answer) are open. B1 is partly done (`RELEASE-DECISION.md`).

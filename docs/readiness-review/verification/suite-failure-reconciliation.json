@@ -1,0 +1,799 @@
+{
+  "baseline": "3f933ac",
+  "tree": "working tree on review/mk-integrated-readiness after this delivery",
+  "run": "158 suites, four at a time, 300 s each",
+  "failing": 65,
+  "passing": 93,
+  "rows": [
+    {
+      "suite": "certification-freeze-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: src/app/(website)/home/page.tsx changed outside certification scope",
+      "sameAtBaseline": true,
+      "cause": "Freeze or protected-behaviour check already failing at the baseline",
+      "relevance": [
+        "other (website, release control)"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "commercial-pdf-composition-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "not ok - the template renders the bounded projection roadmap, never the full L1 set",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "comprehensive-deliverables-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "cx-v12-customer-experience-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Assessment progress/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "essential-customer-residue-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "TypeError: pack.facts is not iterable",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "essential-v7-equivalent-certification",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "not ok - the supporting-detail statement reports the authoritative L1 counts",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-comprehensive-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: ENOENT: no such file or directory, open 'src/app/score/api/admin/comprehensive/[orderReference]/evidence/[evidenceId]/route.ts'",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-comprehensive-workbook-tests",
+      "exitNow": "2",
+      "exitBaseline": "2",
+      "firstErrorNow": "An order reference is required.",
+      "sameAtBaseline": true,
+      "cause": "Operator script needing an argument (order reference or pre/post)",
+      "relevance": [
+        "reporting",
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-customer-operability-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: ENOENT: no such file or directory, open 'src/components/assessment/FreeSnapshot.tsx'",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-integrated-journey-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: ENOENT: no such file or directory, open 'src/components/assessment/FreeSnapshot.tsx'",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-migration-replay-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-review-authority-refs-tests",
+      "exitNow": "2",
+      "exitBaseline": "2",
+      "firstErrorNow": "An order reference is required.",
+      "sameAtBaseline": true,
+      "cause": "Operator script needing an argument (order reference or pre/post)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "joint-launch-transactional-safety-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase-v7-checkpoint-a-response-label-db-integration-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - getOfficialResponseLabels() returns the full, correct 0-5 scale for MFRS-V1.0",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "scoring"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase-v7-checkpoint-b-commercial-quality-gate-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - C1-C8,C14. Quality failure: no storage upload/verification/completion RPC, previous report untouched, failure RPC called once with commercial_quality_failed, no cleanup needed",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase-v7-checkpoint-e-ai-narrative-integration-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - E4: administrator Phase 1 AI mode reaches the real shared pipeline, HTML, PDF and provenance",
+      "sameAtBaseline": true,
+      "cause": "Needs an AI provider or the manuscript-first path (deterministic fallback disabled by design)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase-v7-checkpoint-e-migration-replay-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "reporting",
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase-v7-checkpoint-f-rendered-pdf-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "PDF audit failureCount 4: PDF_AI_BODY_NOT_RENDERED x3, PDF_CLEAN_ASSURANCE_SEMANTIC_FAILURE (run on its own)",
+      "sameAtBaseline": true,
+      "cause": "Rendered-PDF audit findings (timed out in the parallel run)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false,
+      "firstErrorParallelRun": "TimeoutError: Timed out after waiting 30000ms",
+      "rerunAlone": {
+        "exit": 1,
+        "auditFailuresIdenticalTo3f933ac": true
+      }
+    },
+    {
+      "suite": "phase-v7-current-manuscript-first-certification",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /createV11WholeManuscriptWriter\\(flags\\.model, \\{ providerCallBudget: 1 \\}\\)/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-ai-attempt-budget-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-ai-narrative-integrity-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "NarrativeManuscriptFirstBoundaryError: Reporting Bible v1.1 requires a validated, owner-approved plain-text manuscript before any paid report PDF is composed; deterministic narrative fallback is disab",
+      "sameAtBaseline": true,
+      "cause": "Needs an AI provider or the manuscript-first path (deterministic fallback disabled by design)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-ai-settlement-parity-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - the paid Essential path has no fallback to the old completion RPC",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-autonomous-report-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /export default withWorkflow\\(nextConfig\\)/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-delivery-entitlement-wiring-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-delivery-reconciliation-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-pdf-renderer-crash-recovery-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: Cannot find module './design/tokens'",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-report-access-eligibility-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-webhook-route-db-test",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: Local Supabase URL, service key and test webhook secret are required.",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "payment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase14-workflow-start-reconciliation-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "phase9-manual-eft-order-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: Admin detail preserves the disabled automation boundary: expected src/app/score/admin/orders/[orderReference]/page.tsx to include Phase 14 automation remains disabled",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "payment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "production-email-hmac-bootstrap-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "production-monitor-database-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: connect ECONNREFUSED 127.0.0.1:55439",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-application-freeze-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/operation-freeze.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-certification-enablement-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/control-plane.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-control-plane-profile-read-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: usage: node scripts/rc1-control-plane-profile-read-tests.mjs <pre|post>",
+      "sameAtBaseline": true,
+      "cause": "Operator script needing an argument (order reference or pre/post)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-control-plane-route-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/control-plane.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-delivery-entitlement-metadata-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - E6. the uploader really writes the checksum Supabase stores as user metadata",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-narrative-domain-scope-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "TypeError: Cannot read properties of undefined (reading 'array')",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "scoring",
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-near-real-time-fulfilment-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: Vercel waitUntil is used",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-notification-recovery-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "\u2716 T1 provider disabled: event is recorded but not sent (Nms)",
+      "sameAtBaseline": true,
+      "cause": "Fixture or behaviour expectation not met at the baseline",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-old-schema-freeze-compatibility-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-orphan-remediation-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/control-plane.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-prepostflight-disposable-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-preview-development-delivery-db-test",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: STAGING_DATABASE_URL is required for the Staging database integration test.",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-replay-matrix-c-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-service-role-privilege-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: LOCAL_DB_URL is required",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-staging-postflight-hardening-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: LOCAL_DB_URL is required",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-synthetic-cleanup-route-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/control-plane.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-synthetic-marking-route-test",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: LOCAL_DB_URL, NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.",
+      "sameAtBaseline": true,
+      "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-synthetic-marking-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/lib/rc1/control-plane.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "rc1-synthetic-notification-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /if \\(target\\.state === 'PAID' && !data\\.duplicate\\)[\\s\\S]*?notifyInternalPaymentReceived/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "payment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "release-b-durable-fulfilment-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: FAIL: vercel.json cron points at the new worker route (expected vercel.json to include \"/score/api/internal/fulfilment-worker\")",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "release-c-email-secure-delivery-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: FAIL: payment-service.ts calls the payment-confirmed notification (expected src/lib/payments/payment-service.ts to include \"recordPaymentConfirmedNotification\")",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "payment",
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "release-c-order-detail-delivery-truth-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "release-c-runtime-secret-provisioning-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: FAIL: the route pre-checks AAL2 before calling the RPC (expected src/app/score/api/admin/phase14-activation/runtime-secret/route.ts to include \"decodeAalClaimForDisplayOnly(accessToken) !== 'aa",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "release-d-operational-alerts-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "snapshot-advisory-notification-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'node_modules/next/server' imported from src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts",
+      "sameAtBaseline": true,
+      "cause": "Module resolution under the test runner (next/server, extensionless import)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "synthetic-comprehensive-route-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /maxRepairsPerSlot: 0/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "v12-essential-productionisation-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /providerCallBudget: 1/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "reporting"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "v12-manual-fulfilment-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: Invoice helper explains VAT invoice delivery: expected src/components/commercial/OrderJourney.tsx to include MK will prepare the VAT invoice using the details below and",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "payment",
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "v12-premium-experience-recovery-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Clarify the position/. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "v12-stalled-lead-controls-setter-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "Error: spawn node_modules/@embedded-postgres/linux-x64/native/bin/initdb EACCES",
+      "sameAtBaseline": true,
+      "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+      "relevance": [
+        "fulfilment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "visual-coherence-contract-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: Protected behaviour changed: src/app/score/api/adaptive/[assessmentRef]/result/route.ts",
+      "sameAtBaseline": true,
+      "cause": "Freeze or protected-behaviour check already failing at the baseline",
+      "relevance": [
+        "scoring"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "website-ai-fraud-methodology-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "FAIL - the public methodology statement keeps its two load-bearing sentences: The input did not match the regular expression /Expert-designed\\. Deterministic at the core\\./. Input:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "assessment"
+      ],
+      "touchedByThisDelivery": false
+    },
+    {
+      "suite": "website-indexing-analytics-health-tests",
+      "exitNow": "1",
+      "exitBaseline": "1",
+      "firstErrorNow": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "sameAtBaseline": true,
+      "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+      "relevance": [
+        "other (website, release control)"
+      ],
+      "touchedByThisDelivery": false
+    }
+  ]
+}

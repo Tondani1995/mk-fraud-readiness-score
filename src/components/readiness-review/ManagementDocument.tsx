@@ -6,8 +6,10 @@ import { SendToOwners } from './SendToOwners';
 type Management = ReturnType<typeof managementView>;
 
 /**
- * The management view: what needs an answer, what needs evidence, what needs remediation and who acts next. Unknown
- * answers are shown as waiting, never as failed controls; self-reported controls are never shown as verified.
+ * The management view: what needs an answer, what needs remediation and who acts next, with the standard assessment's
+ * status stated as interview, function packages, information and report eligibility. Unknown, declined and unanswered
+ * questions are shown as outstanding, never as failed or resolved; self-reported controls are never shown as verified.
+ * Evidence review is MK Advisory work: its records are kept and shown in their own section, never as a completion step.
  */
 export function ManagementDocument({ view, token }: { view: Management; token: string }) {
   const answerTotal = view.needsAnswer.reduce((n, g) => n + g.items.length, 0);
@@ -17,14 +19,14 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
         <p className="clarity-eyebrow">Management view · fictional session</p>
         <h1 className="mt-3 text-3xl font-semibold text-mk-ink">{view.organisationLabel}</h1>
         <p className="mt-4 max-w-3xl text-base leading-7 text-mk-ink">
-          This view groups the open work by what it needs next. Questions waiting for an answer are not failed controls, and controls the organisation reported in place have not been
-          verified unless an MK reviewer record says so.
+          This view groups the open work by what it needs next. Questions waiting for an answer are not failed controls, and controls the organisation reported in place are its own
+          statements; nothing here has been tested or verified.
         </p>
       </header>
       <div className="mt-6"><StatusPanel status={view.status} /></div>
       <div className="mt-6"><CountCards counts={view.counts} /></div>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-3">
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="m-answer" className="rounded-md border border-mk-line bg-white p-5" data-m="answer">
           <h2 id="m-answer" className="text-lg font-semibold text-mk-ink">Needs an answer ({answerTotal})</h2>
           <p className="mt-1 text-sm leading-6 text-mk-muted">Questions and scenarios waiting for the function that would know.</p>
@@ -45,31 +47,9 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
             ))}
           </ul>
         </section>
-        <section aria-labelledby="m-evidence" className="rounded-md border border-mk-line bg-white p-5" data-m="evidence">
-          <h2 id="m-evidence" className="text-lg font-semibold text-mk-ink">Needs evidence ({view.needsEvidence.length})</h2>
-          <p className="mt-1 text-sm leading-6 text-mk-muted">Reported in place or partly in place, and not yet examined by an MK reviewer.</p>
-          <details className="mt-3">
-            <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-ink">Show the controls</summary>
-            <ul className="mt-1 space-y-2 border-l border-mk-line pl-3 text-sm leading-6">
-              {view.needsEvidence.map((c) => <li key={c.id}><span className="text-mk-ink">{c.title}</span><span className="block text-mk-muted">{c.area} · {c.stateLabel}</span></li>)}
-            </ul>
-          </details>
-        </section>
         <section aria-labelledby="m-remediation" className="rounded-md border border-mk-line bg-white p-5" data-m="remediation">
-          <h2 id="m-remediation" className="text-lg font-semibold text-mk-ink">Needs remediation ({view.needsRemediation.reportedGaps.length + view.needsRemediation.reviewerFindings.length})</h2>
-          <p className="mt-1 text-sm leading-6 text-mk-muted">
-            {view.needsRemediation.reportedGaps.length} gaps the organisation reported itself, and {view.needsRemediation.reviewerFindings.length} findings recorded by an MK reviewer.
-          </p>
-          {view.needsRemediation.reviewerFindings.length > 0 && (
-            <ul className="mt-3 space-y-2 text-sm leading-6" data-m="findings">
-              {view.needsRemediation.reviewerFindings.map((f) => (
-                <li key={f.id} className="border-l-2 border-mk-navy pl-3">
-                  <span className="font-medium text-mk-ink">Reviewer finding: {f.title}</span>
-                  <span className="block text-mk-muted">{[f.evidence, f.conclusion].filter(Boolean).join('; ')}{f.followUp ? `. Follow-up: ${f.followUp}` : ''}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <h2 id="m-remediation" className="text-lg font-semibold text-mk-ink">Needs remediation ({view.needsRemediation.reportedGaps.length})</h2>
+          <p className="mt-1 text-sm leading-6 text-mk-muted">Gaps the organisation reported itself.</p>
           <details className="mt-3">
             <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-ink">Show the reported gaps</summary>
             <ControlList items={view.needsRemediation.reportedGaps} empty="No gaps were reported." />
@@ -90,18 +70,30 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
         </div>
       </section>
 
-      <section aria-labelledby="m-complete" className="mt-10" data-m="completion">
-        <h2 id="m-complete" className="text-xl font-semibold text-mk-ink">What a completed review would need</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-mk-muted">Proposed conditions, awaiting MK approval. The review is never marked complete by this candidate.</p>
-        <ul className="mt-4 space-y-2 text-sm leading-6">
-          {view.completion.map((c) => (
-            <li key={c.label} className="flex gap-3">
-              <span aria-hidden="true" className="w-5 shrink-0 text-center font-semibold text-mk-ink">{c.met ? '✓' : '○'}</span>
-              <span className="text-mk-ink"><span className="sr-only">{c.met ? 'Met: ' : 'Not met: '}</span>{c.label}<span className="text-mk-muted">{c.met ? ' (met)' : ' (not met)'}</span></span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {view.advisory.records + view.advisory.actions.length > 0 && (
+        <section aria-labelledby="m-advisory" className="mt-10 rounded-md border border-mk-line bg-white p-5" data-m="advisory">
+          <h2 id="m-advisory" className="text-xl font-semibold text-mk-ink">Advisory evidence review (separate service)</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-mk-muted">
+            Records made through MK&rsquo;s Advisory evidence review for this session. They are kept in full and are not part of completing the standard assessment above.
+          </p>
+          {view.advisory.reviewerFindings.length > 0 && (
+            <ul className="mt-3 space-y-2 text-sm leading-6" data-m="findings">
+              {view.advisory.reviewerFindings.map((f) => (
+                <li key={f.id} className="border-l-2 border-mk-navy pl-3">
+                  <span className="font-medium text-mk-ink">Reviewer finding: {f.title}</span>
+                  <span className="block text-mk-muted">{[f.evidence, f.conclusion].filter(Boolean).join('; ')}{f.followUp ? `. Follow-up: ${f.followUp}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {view.advisory.actions.length > 0 && (
+            <details className="mt-3">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-ink">Advisory reviewer actions ({view.advisory.actions.length})</summary>
+              <ul className="mt-1 space-y-2 border-l border-mk-line pl-3 text-sm leading-6">{view.advisory.actions.map((a, i) => <li key={`${a.id}-${i}`}>{a.text}</li>)}</ul>
+            </details>
+          )}
+        </section>
+      )}
       <div className="mt-8 flex flex-wrap gap-4 text-sm">
         <Link className="min-h-11 py-2 font-medium text-mk-navy underline underline-offset-4" href={`/review/s/${token}/snapshot`}>Open the Snapshot</Link>
         <a className="min-h-11 py-2 font-medium text-mk-navy underline underline-offset-4" href={`/review/api/s/${token}/export`}>Download the full record (JSON)</a>

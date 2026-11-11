@@ -4,7 +4,7 @@ import { READINESS_REVIEW_CONTRACT } from './contract';
 import { CONCLUSION_LABEL, CONTROL_STATE_LABEL, EVIDENCE_LABEL, REPORTED_LABEL, SCENARIO_STATUS_LABEL } from './labels';
 import { canonicalDigest } from './canonical';
 import type { AnswerValue, LiveSession, RecordedRuleset } from './session';
-import { reportFor, waitingProvenance, type WaitingProvenance } from './view-model';
+import { assessmentStatusView, reportFor, stageProgressView, waitingProvenance, type WaitingProvenance } from './view-model';
 
 /**
  * The input a report engine consumes (report input contract 1.2.0). It is built only by replaying a stored answer log
@@ -355,8 +355,21 @@ export function buildStagedReportInput(live: LiveSession) {
   const base = buildReportInput(live);
   const e = live.engine;
   const st = report.staged;
+  // The standard assessment's status, in the same four statements the interface shows. Completion is defined by the
+  // self-reported assessment and its outstanding information; evidence review is a separate Advisory service and is no
+  // part of it. Report eligibility is not decided by the assessment.
+  const assessment = assessmentStatusView(report, stageProgressView(report));
+  const interviewDone = assessment.facets.find((f) => f.key === 'interview')!.settled === true;
   return {
     ...base,
+    method: {
+      ...base.method,
+      completeness: {
+        complete: interviewDone && assessment.outstanding.total === 0,
+        why: 'The assessment is complete when the interview has reached every applicable confirmation and no information is outstanding. A declined question, an unanswered question and an "I don\'t know" from a function are outstanding, never resolved. Evidence review is a separate Advisory service and is not a condition. Report eligibility is an MK commercial decision.'
+      }
+    },
+    assessmentStatus: { facets: assessment.facets.map(({ key, state, settled }) => ({ key, state, settled })), outstanding: assessment.outstanding },
     contract: { ...STAGED_REPORT_INPUT_CONTRACT },
     interview: { ...base.interview, respondentScreenLimit: null },
     staged: {

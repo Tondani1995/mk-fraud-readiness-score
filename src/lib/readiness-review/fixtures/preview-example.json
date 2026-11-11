@@ -18,9 +18,9 @@
       "value": 57,
       "denominator": "of 90 material scenarios that apply or may apply"
     },
-    "evidence": {
-      "value": 24,
-      "denominator": "31 essential confirmations have a reported answer"
+    "outstanding": {
+      "value": 89,
+      "denominator": null
     }
   },
   "exampleGap": {

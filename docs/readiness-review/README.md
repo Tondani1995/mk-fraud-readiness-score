@@ -10,6 +10,7 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | Candidate source commit | see `SOURCE-COMMIT.txt` in the package |
 | Data contract | `mk-readiness-review` 1.3.0 (build 1.5 sessions); 1.4.0 for staged sessions on build 1.6 (fictional harness only) |
 | Staged assessment | Review engine build 1.6, composing build 1.5 unchanged; inactive for customers and produces no score (`STAGED-BUILD-1.6.md`) |
+| Integration prototype | The staged assessment fed through the existing Essential and Comprehensive engines on fictional organisations, with a before-and-after comparison (`INTEGRATION-PROTOTYPE.md`) |
 | Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness, with the independent review's six findings corrected. See `RELEASE-DECISION.md`. |
 
 ## Documents
@@ -38,6 +39,13 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | `methodology-simulation/` | The generated evidence for that package: `SIMULATION-RESULTS.md`, `membership-matrix.csv` (902 rows), `membership-summary.json`, `results.json`; produced by `scripts/research/scoring-simulation/run.mjs` and checked by `check.mjs` (research only, imported by nothing under `src`) |
 | `STAGED-BUILD-1.6.md` | MK's direction of 11 November (17:24) as built: the staged assessment on build 1.6, methodology-version dispatch with MFRS parity, the revised input adapter, the method-scoped content registry, stage progress and delegation, the commercial gates kept, results and limitations |
 | `DECISION-REGISTER.md` | Concise register of what that delivery took from MK, decided in engineering (implemented, inactive), proposes and reserves |
+| `INTEGRATION-PROTOTYPE.md` | MK's direction of 11 November (18:33) as delivered: each of the eight items, where it is and its evidence |
+| `REPORT-COMPARISON.md`, `report-comparison/` | The Essential and Comprehensive reports before (MFRS V1.2) and after (staged assessment) for four fictional organisations: the reports in HTML and PDF, their models, objective measures, verbatim excerpts, what is not better, and the report decisions R-1 to R-3 |
+| `VERSION-DISPATCH.md` | Methodology dispatch resolved from the assessment's recorded mode, methodology version and graph pin; the withdrawn P-5 and why |
+| `STANDARD-ASSESSMENT-STATUS.md`, `staged-assessment/standard-status-screens/` | The corrected standard assessment: the four status statements, outstanding information, the Advisory records kept apart, earlier area hand-over; screens at 1440 and 390px, accessibility scan and limitations |
+| `staged-assessment/delegation/` | When to hand an area to its function: four timings on three fictional organisations, workload, completion, duplicates, corrections and outstanding information |
+| `objectives/CANDIDATE-CONFIRMATIONS.md` | The five candidate confirmations tested for scheme semantics, routing and distinctness |
+| `verification/` | The 65 wider-suite failures reconciled against `3f933ac` and classified by cause and commercial area |
 | `UNRESOLVED-METHODOLOGICAL-DECISIONS.md` | The open methodological decisions, reported separately: the 17 uncovered objectives, consistency penalties, Snapshot scoring, prioritisation, visibility thresholds, paid-report fulfilment conditions and the scored frame |
 | `objectives/` | The review of the 17 objectives without a scenario confirmation (`OBJECTIVES-REVIEW.md`, `objectives-review.json`, `proposed-coverage-changes.json`); produced and checked by `scripts/research/objectives/review.mjs` |
 | `staged-assessment/JOURNEYS.md`, `INFORMATION-GAIN-AND-CONSISTENCY.md`, `screens/` | Respondent and function journeys for six fictional profiles, depth by information gain against the priority-eight method with the re-ranking test, consistency checks per profile, and the stage-progress screenshots with their checks |
@@ -98,6 +106,13 @@ node $L scripts/methodology-dispatch-parity-tests.mjs
 node $L scripts/readiness-review-build16-journeys.mjs
 node $L scripts/research/depth/information-gain.mjs --check
 node scripts/research/objectives/review.mjs --check
+
+# Standard-assessment status, version dispatch, delegation timing, candidate confirmations, report comparison
+node $L scripts/readiness-review-standard-status-tests.mjs
+node $L scripts/methodology-version-dispatch-tests.mjs
+node $L scripts/research/delegation/timing.mjs --check
+node $L scripts/research/objectives/candidates.mjs --check
+node $L scripts/revised-reports/build-comparison.mjs && node scripts/revised-reports/compare.mjs
 
 # Stage-progress screens: seed staged sessions, then start the build on the same harness with engine 1.6
 MK_READINESS_REVIEW_HARNESS=fictional-local MK_READINESS_REVIEW_HARNESS_DIR=out/h16 MK_READINESS_REVIEW_ENGINE=1.6 \

@@ -1,0 +1,101 @@
+[
+  {
+    "name": "01-snapshot-status-complete",
+    "url": "/review/s/<token>/snapshot",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "02-snapshot-status-outstanding",
+    "url": "/review/s/<token>/snapshot",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "03-snapshot-status-phone",
+    "url": "/review/s/<token>/snapshot",
+    "width": 390,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "04-management-status",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "05-management-advisory-separate",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "06-management-phone",
+    "url": "/review/s/<token>",
+    "width": 390,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "07-interview-area-handover",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "08-interview-area-handover-phone",
+    "url": "/review/s/<token>",
+    "width": 390,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  },
+  {
+    "name": "09-review-landing",
+    "url": "/review",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": [],
+    "horizontalOverflow": false,
+    "elementWiderThanViewport": false
+  }
+]

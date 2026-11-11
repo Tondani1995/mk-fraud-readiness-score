@@ -17,13 +17,13 @@ export default function ReviewStartPage() {
           and asks directly about the controls that matter most for them. Where that person does not know an answer, the question goes to the function that would know.
         </p>
         <p>
-          The first stage ends with a Snapshot. It lists the gaps the organisation reported, the questions waiting for an owner, the material scenarios that are still open and the
-          evidence an MK reviewer would need to see. It contains no score and makes no prediction about controls that were not asked.
+          The first stage ends with a Snapshot. It lists the gaps the organisation reported, the questions waiting for an owner and the material scenarios that are still open. It
+          contains no score and makes no prediction about controls that were not asked.
         </p>
         <p>
-          In the second stage, accountable functions answer their own questions outside the 95-screen limit, an MK reviewer can record evidence and conclusions against each answer, and
-          management sees what needs an answer, evidence or remediation and who acts next. The review is complete only when an authorised MK reviewer has concluded on scope, evidence and
-          findings, and the conditions for that are still a proposal awaiting MK approval.
+          In the second stage, accountable functions answer their own questions outside the 95-screen limit, and management sees what needs an answer or remediation and who acts next.
+          The assessment is complete when the interview is completed and its outstanding information is answered; anything declined, unanswered or not known stays listed as outstanding.
+          Whether a report can be issued with information outstanding is an MK commercial decision. Evidence review is not part of the assessment; it is a separate Advisory service.
         </p>
       </div>
       <h2 className="mt-10 text-xl font-semibold text-mk-ink">Start a fictional review</h2>

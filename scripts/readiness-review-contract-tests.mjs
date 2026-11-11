@@ -168,9 +168,12 @@ await T('C-09', 'V13-01 through the adapter: a confirmed review with a follow-up
   act(live, { type: 'reviewer.review', q: ids[1], conclusion: null, basis: '', followUp: 'Check the sample size', limitation: 'Only head office records were available' }, 'reviewer');
   const v = reviewerView(live);
   const m = managementView(live);
-  const mk = m.whoActsNext.find((g) => g.actor === 'MK reviewer');
-  const ok = v.tasks.length === 2 && mk && mk.actions.filter((a) => a.type === 'reviewer').length === 2 && v.controls.find((c) => c.id === ids[1]).reviewRecord.limitation === 'Only head office records were available';
-  return [ok, `tasks ${v.tasks.map((t) => t.id + ':' + t.conclusion).join(', ')}; MK reviewer actions ${mk?.actions.length}; limitation kept: ${v.controls.find((c) => c.id === ids[1]).reviewRecord.limitation}`];
+  // Reviewer actions are Advisory work (MK direction, 11 November 18:33): kept in full in the management view's Advisory
+  // section, never listed as standard work or as a step to completing the assessment.
+  const mk = { actions: m.advisory.actions };
+  const notStandard = !m.whoActsNext.some((g) => g.actor === 'MK reviewer') && !m.completion.some((c) => /reviewer|evidence/i.test(`${c.label} ${c.state} ${c.detail}`));
+  const ok = notStandard && v.tasks.length === 2 && mk.actions.filter((a) => a.type === 'reviewer').length === 2 && v.controls.find((c) => c.id === ids[1]).reviewRecord.limitation === 'Only head office records were available';
+  return [ok, `tasks ${v.tasks.map((t) => t.id + ':' + t.conclusion).join(', ')}; Advisory reviewer actions ${mk.actions.length}; none in standard work or completion ${notStandard}; limitation kept: ${v.controls.find((c) => c.id === ids[1]).reviewRecord.limitation}`];
 });
 
 await T('C-10', 'V13-02 and V13-04 through the adapter: a corrected answer never shows an earlier confirmation as current; history keeps bindings', async () => {
