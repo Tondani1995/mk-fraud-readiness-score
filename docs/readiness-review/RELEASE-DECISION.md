@@ -8,7 +8,7 @@ The integrated review track works end to end through the real interface: intervi
 
 | # | Item | Why it blocks | Owner |
 |---|---|---|---|
-| B1 | Durable persistence | The file harness is a test fixture. A production store needs the same append-only, sequence-checked, idempotent contract (`DATA-CONTRACT.md`) on an isolated database, with backup and retention. | Engineering, after B2 |
+| B1 | Durable persistence | A database store with the same append-only, sequence-checked, idempotent contract is implemented and verified at the database level on an isolated temporary project (`DATABASE-DESIGN.md`). Still open: the store, service and browser tests over the hosted API with a server-held service key; backup and retention decisions; and hosted use waits for B2 and B3. | Engineering, then MK for retention |
 | B2 | Staging isolation | Preview and production share one Supabase project; `customer_start` activation is enabled for both. No isolated target exists to test persistence or payments against. Owner-reserved. | MK |
 | B3 | Authenticated access | Links stand in for sign-in. Respondent, owner, management and MK reviewer access needs authentication, invitations for owners, and reviewer access only under an engagement. Credentials in URL paths also reach hosting request logs, which no code change can prevent. | MK and engineering |
 | B4 | Method approval | Scenario tiers, answer mappings, exclusions, owner functions, completion conditions and legal wording are proposals (`contract.ts` approval statement). | MK |

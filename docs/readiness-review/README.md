@@ -24,6 +24,8 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | `VERIFICATION.md` | Results by layer, with conditions and what was not tested |
 | `RELEASE-DECISION.md` | Decision, blocking items, decisions MK must take, limitations |
 | `INDEPENDENT-REVIEW-RESPONSE.md` | Each finding of the independent review of `fb91178`, its correction, commit and regression evidence |
+| `DATABASE-DESIGN.md` | The database store: tables, functions, access, errors, what was verified where, and what is still open |
+| `REPORT-INPUT-CONTRACT.md` | What a report engine consumes: the input built from the stored answer log, its lineage and the rules a report must keep |
 
 ## Commits
 

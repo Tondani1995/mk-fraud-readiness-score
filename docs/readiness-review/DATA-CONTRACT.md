@@ -50,7 +50,11 @@ One JSON document per session (`SessionRecord` in `session.ts`):
 
 The state of a session is never stored. It is recomputed by replaying `actions` through the engine. A record bound to any other ruleset is refused (`ReplayError`, HTTP 410) rather than reinterpreted under different rules.
 
-## Storage (fictional file harness)
+## Storage
+
+Two stores keep the same contract: the fictional file harness (below), and the database store, which holds the same record in transactional storage on an isolated project (`DATABASE-DESIGN.md`). A record read from either is the same record, and replays to the same report input (database test D-02). Every store reports its log length, and the service checks it before using a cached session when other processes may write to the same store.
+
+### Fictional file harness
 
 Creation is one transaction over the shared link index: an in-process queue and a lock file shared by every process using the harness directory. The session file is written, then the index; if the index cannot be written, the session file is removed and the start fails with "Nothing was created". Temporary files are uniquely named and replaced by rename. A missing index is empty; an unreadable or damaged index or session file is reported (`store_unavailable`, HTTP 503) and never overwritten or treated as empty. Appends hold the same per-session lock and check the expected length. This is a single-host file harness; production storage needs database transactions, tenancy, retention and its own multi-instance tests.
 

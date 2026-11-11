@@ -38,6 +38,8 @@ Decisions taken in this candidate, why, and what remains for MK. Owner-reserved 
 20. **Reviewer drafts are kept until saved or explicitly discarded,** and never attached to an answer that changed after they were written.
 21. **The next prompt is placed again as each answer transition ends.** The placement rule is unchanged; it is applied a second time when the transition returns to idle, because the browser can move the page after the first placement (defect below). A failed save changes no question and leaves the page where the respondent is.
 22. **Sending the open questions has a visible result on the management view.** Once packages exist, the management view shows which functions hold questions, with the same note as the Snapshot.
+23. **A database store for review sessions.** The same record and contract as the file harness, in an isolated Supabase project: append-only answer log, per-session sequence, rulesets stored once, links by hash, report runs with lineage, and access only through functions the server role may run (`DATABASE-DESIGN.md`). The shared preview and production project is refused until B2 is resolved.
+24. **A report input contract.** What a reworked report engine consumes, built only by replaying the stored log, identified by its digest, keeping scope, reported practice, uncertainty, evidence and review judgement apart, and carrying no score (`REPORT-INPUT-CONTRACT.md`).
 
 ## Defects found and fixed during this integration
 
