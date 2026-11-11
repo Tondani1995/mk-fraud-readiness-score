@@ -8,6 +8,24 @@ Conditions throughout: Node 24.22, Next.js 15.5.22 production builds, `next star
 
 Before this run, three full runs on the corrected code were superseded because each found something to correct: a phone placement defect and a test defect (`951ea06`), a management view without a visible result after sending and fixed waits in the scripts (`e6690fc`), and an accessibility scan taken mid-fade (`deb0aa1`). Each is described in `INDEPENDENT-REVIEW-RESPONSE.md` and kept in `evidence/results/re-verification`.
 
+## Staged assessment delivery (11 November 2026, build 1.6)
+
+Checked on the working tree that became the delivery commit, with Node 24.22 and the fictional harness. Build 1.6 is inactive for customers; none of these results is a release criterion being met.
+
+| Check | Result |
+|---|---|
+| Build 1.6 suite (`readiness-review-build16-tests.mjs`) | 19 of 19: contract and binding, six journeys (strong, weak, mixed, small, unknown-heavy, overstated) against golden fixtures, correction after a completed stage, interruption and rebuild from the log, consistency outcomes, depth selection, declines, overlapping assignments, combined workload, concurrent answers and corrections through the service, link access boundaries, views, report input 1.3.0 and the adapter |
+| Methodology dispatch, MFRS parity and content registry | 8 of 8; eight fixed and five adaptive MFRS cases byte-identical to results pinned at `3f933ac` |
+| Review contract (build 1.5) | 23 of 23 |
+| Report engine Phase 2 | 17 of 17 |
+| Database store, local backend | 24 of 24, cleanup verified |
+| Every test suite under `scripts/` (158 files, excluding the review suites above and the database-only ones), run in this tree and in a checkout of `3f933ac` | 93 pass in both; 65 fail in both with the same first error (missing environment, database or stale expectations that predate this work); none passes at `3f933ac` and fails now. `meta-tracking-tests` failed once at `3f933ac` under parallel load and passed on rerun in both trees |
+| Parked regression commands | 29 of 30 pass; `recovery-postgres-tests.mjs` cannot run here, as before |
+| Integrity guard (`spatial-integrity-tests.mjs`) | Passes. Routing the protected `score-assessment.ts` through dispatch failed it, so that one-line change is held for an MK exception (P-5) |
+| Stage-progress screens | 10 of 10 page checks at 1440 and 390px on a production build; axe scan of six staged pages at both widths: 0 violations, 8 incomplete contrast results |
+| Research checks | Objectives review, information gain, scoring simulation and depth checks pass (the last two check that `src` is committed, so they are run on the commit) |
+| Type check and lint | 0 errors |
+
 ## Summary
 
 | Layer | Check | Result |

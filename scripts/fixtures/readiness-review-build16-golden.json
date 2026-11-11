@@ -31,15 +31,16 @@
       }
     },
     "sends": [
-      27,
-      3,
+      31,
+      11,
+      4,
       0
     ],
     "ownerScreens": {
-      "Risk and investigations": 11,
-      "Legal, compliance and ethics": 2,
-      "Procurement": 5,
-      "HR and payroll": 8,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
+      "Procurement": 9,
+      "HR and payroll": 15,
       "Finance": 1,
       "Operations and sales": 3
     },
@@ -68,15 +69,15 @@
     },
     "workload": {
       "respondent": 167,
-      "Risk and investigations": 11,
-      "Legal, compliance and ethics": 2,
-      "Procurement": 5,
-      "HR and payroll": 8,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
+      "Procurement": 9,
+      "HR and payroll": 15,
       "Finance": 1,
       "Operations and sales": 3
     },
-    "actions": 444,
-    "digest": "8bb53dc1c2fb6ea2e97ba542407bd27af15255e734157701ad6e58711a007692"
+    "actions": 497,
+    "digest": "3d7a48efc58389d8f90655ad02ea3237a60ee9c6dccad18ac7a01ba30618cbb3"
   },
   "P2": {
     "respondentScreens": 156,
@@ -109,15 +110,15 @@
       }
     },
     "sends": [
-      79,
-      4,
+      81,
+      5,
       0
     ],
     "ownerScreens": {
       "Risk and investigations": 15,
       "Legal, compliance and ethics": 8,
       "IT and information": 4,
-      "Procurement": 11,
+      "Procurement": 14,
       "HR and payroll": 15,
       "Finance": 15,
       "Operations and sales": 15
@@ -148,13 +149,13 @@
       "Risk and investigations": 15,
       "Legal, compliance and ethics": 8,
       "IT and information": 4,
-      "Procurement": 11,
+      "Procurement": 14,
       "HR and payroll": 15,
       "Finance": 15,
       "Operations and sales": 15
     },
-    "actions": 582,
-    "digest": "6d3eaabf19423ae59fc2f210da80d07a53ab74c6f3e1f7db3aeb2f7c33bf6c0d"
+    "actions": 591,
+    "digest": "7b03584bfe933d1ecbaf40e79d80762425c44104ddbaf96b164a6cf85bce6354"
   },
   "P3": {
     "respondentScreens": 162,
@@ -188,19 +189,19 @@
       }
     },
     "sends": [
-      68,
-      2,
+      72,
+      4,
       0
     ],
     "ownerScreens": {
-      "Risk and investigations": 12,
-      "Legal, compliance and ethics": 2,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
       "IT and information": 4,
       "HR and payroll": 15,
       "Finance": 13,
       "Operations and sales": 15
     },
-    "declined": 9,
+    "declined": 11,
     "consistency": {
       "eligible": 32,
       "selected": 5,
@@ -225,15 +226,15 @@
     },
     "workload": {
       "respondent": 162,
-      "Risk and investigations": 12,
-      "Legal, compliance and ethics": 2,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
       "IT and information": 4,
       "HR and payroll": 15,
       "Finance": 13,
       "Operations and sales": 15
     },
-    "actions": 546,
-    "digest": "eec893d0150960fae25603f23cd6d9d1c4231a198d28eb5eb9444b0d657e524f"
+    "actions": 563,
+    "digest": "36e3e7d97c9378e03e4ce8a157da65909ccd47d38de19a47411c0195e4086af0"
   },
   "P4": {
     "respondentScreens": 96,
@@ -266,15 +267,16 @@
       }
     },
     "sends": [
-      16,
-      1,
+      18,
+      3,
       0
     ],
     "ownerScreens": {
-      "Risk and investigations": 8,
+      "Risk and investigations": 10,
       "IT and information": 4,
-      "HR and payroll": 2,
-      "Finance": 3
+      "HR and payroll": 3,
+      "Finance": 3,
+      "Legal, compliance and ethics": 1
     },
     "declined": 0,
     "consistency": {
@@ -301,13 +303,14 @@
     },
     "workload": {
       "respondent": 96,
-      "Risk and investigations": 8,
+      "Risk and investigations": 10,
       "IT and information": 4,
-      "HR and payroll": 2,
-      "Finance": 3
+      "HR and payroll": 3,
+      "Finance": 3,
+      "Legal, compliance and ethics": 1
     },
-    "actions": 260,
-    "digest": "19736205480ecfa72a30635256420dfdc99bb9a30ee819f61e739afefff5849f"
+    "actions": 274,
+    "digest": "1cc476f752e4ae0325aa7517517b21270034a553514c34e3c44938d6c428bb81"
   },
   "P5": {
     "respondentScreens": 141,
@@ -341,16 +344,16 @@
       }
     },
     "sends": [
-      69,
-      4,
+      73,
+      7,
       0
     ],
     "ownerScreens": {
       "Executive and governance": 2,
-      "Risk and investigations": 19,
-      "Legal, compliance and ethics": 4,
+      "Risk and investigations": 22,
+      "Legal, compliance and ethics": 5,
       "IT and information": 17,
-      "Procurement": 22,
+      "Procurement": 25,
       "HR and payroll": 18,
       "Finance": 21,
       "Operations and sales": 20
@@ -382,15 +385,98 @@
     "workload": {
       "respondent": 141,
       "Executive and governance": 2,
-      "Risk and investigations": 19,
-      "Legal, compliance and ethics": 4,
+      "Risk and investigations": 22,
+      "Legal, compliance and ethics": 5,
       "IT and information": 17,
-      "Procurement": 22,
+      "Procurement": 25,
       "HR and payroll": 18,
       "Finance": 21,
       "Operations and sales": 20
     },
-    "actions": 677,
-    "digest": "ff311857bcfdd3053ecb27e86ffb25408991f943f22e1e33cc85f1680e27e1fa"
+    "actions": 699,
+    "digest": "2b8bbd7aaff5c2258e38cb4b7086d2db62602874412d5edcd9dabe747918ed4a"
+  },
+  "P6b": {
+    "respondentScreens": 167,
+    "kinds": {
+      "profile": 5,
+      "confirm": 45,
+      "consistency": 10,
+      "scope": 40,
+      "route": 4,
+      "assumptions": 1,
+      "coverage": 62
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 45,
+        "answered": 45,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      46,
+      19,
+      0
+    ],
+    "ownerScreens": {
+      "Executive and governance": 1,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
+      "Procurement": 15,
+      "HR and payroll": 15,
+      "Finance": 5,
+      "Operations and sales": 11
+    },
+    "declined": 0,
+    "consistency": {
+      "eligible": 67,
+      "selected": 10,
+      "answered": 10,
+      "untested": 57,
+      "counts": {
+        "conflicting": 6,
+        "partial-operation": 1,
+        "narrower-scope": 3
+      }
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 167,
+      "Executive and governance": 1,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 3,
+      "Procurement": 15,
+      "HR and payroll": 15,
+      "Finance": 5,
+      "Operations and sales": 11
+    },
+    "actions": 553,
+    "digest": "798470cdaccf99ff81a0d93a06e717941665f872dd531b95b8099e8b047fcdfa"
   }
 }

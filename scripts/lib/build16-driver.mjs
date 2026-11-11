@@ -2,14 +2,16 @@
 // service does, with deterministic clocks, ids and answers. Used by the build 1.6 tests and the journey
 // demonstrations. Fictional organisations only; nothing here is a production value.
 import { newSessionRecord, replay, commit, initialActions, ensureOwnerServed, ensureRespondentServed } from '../../src/lib/readiness-review/session.ts';
-import { PROFILES, POLICIES, QI as SIM_QI, practiceValue, factValue, withUnknown, draw } from '../research/scoring-simulation/lib.mjs';
+import { COVERAGE, PROFILES, POLICIES, QI as SIM_QI, practiceValue, factValue, withUnknown, draw } from '../research/scoring-simulation/lib.mjs';
 
 export const JOURNEY_PROFILES = {
   P1: { name: 'Strong controls', profile: 'R', practice: POLICIES.strong },
   P2: { name: 'Weak controls', profile: 'R', practice: POLICIES.weak },
   P3: { name: 'Mixed controls', profile: 'R', practice: POLICIES.mixed },
   P4: { name: 'Small owner-managed firm (limited applicability)', profile: 'S', practice: POLICIES.mixed },
-  P5: { name: 'Extensive unanswered information (35% "I don\'t know"; two areas delegated)', profile: 'R', practice: withUnknown(POLICIES.mixed, 0.35), truth: POLICIES.mixed, ownerUnknown: 0.1, delegate: [['D4', 'Procurement manager'], ['D9', 'IT manager']] }
+  P5: { name: 'Extensive unanswered information (35% "I don\'t know"; two areas delegated)', profile: 'R', practice: withUnknown(POLICIES.mixed, 0.35), truth: POLICIES.mixed, ownerUnknown: 0.1, delegate: [['D4', 'Procurement manager'], ['D9', 'IT manager']] },
+  // Research profile carried into the harness: every confirmation reported in place, every supporting practice weak.
+  P6b: { name: 'Overstated confirmations (confirmations in place, supporting practices weak)', profile: 'R', practice: (q, seed) => (COVERAGE.questionRole[q.id]?.role === 'confirm' ? POLICIES.strong(q, seed) : POLICIES.weak(q, seed)) }
 };
 const SEED = 'mk-sim';
 

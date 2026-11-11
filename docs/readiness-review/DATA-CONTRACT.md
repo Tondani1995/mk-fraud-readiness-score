@@ -1,6 +1,6 @@
 # Readiness review data contract
 
-Contract name `mk-readiness-review`, version **1.3.0**, action schema `mk-readiness-review/actions/1`. Defined in `src/lib/readiness-review/contract.ts`; enforced by `scripts/readiness-review-contract-tests.mjs` (C-01 to C-22).
+Contract name `mk-readiness-review`, version **1.3.0**, action schema `mk-readiness-review/actions/1`, for sessions on review engine build 1.5. Sessions on the staged build 1.6 use version **1.4.0** with action schema `mk-readiness-review/actions/2` (section "Staged sessions" below). Defined in `src/lib/readiness-review/contract.ts`; enforced by `scripts/readiness-review-contract-tests.mjs` (C-01 to C-23) and, for 1.4.0, `scripts/readiness-review-build16-tests.mjs` (B16-01 to B16-13 and the journey tests).
 
 The contract covers the adapter between the vendored review engine and everything that reads it: the stored session record, the actions that change it, the role-scoped views the pages and API return, and the export. It does not cover the legacy scored assessment, whose records, scores and reports are untouched.
 
@@ -147,6 +147,28 @@ The management view's "needs an answer" list and the export use the same reasons
 
 No view or export contains a score, maturity band, rating, confidence label or inferred control state (C-06, J-05).
 
+## Staged sessions (contract 1.4.0, build 1.6)
+
+Fictional harness only, inactive for customers and never selected in production. A session is created on build 1.6 only when `MK_READINESS_REVIEW_HARNESS=fictional-local` and `MK_READINESS_REVIEW_ENGINE=1.6` are both set; its ruleset records engine build 1.6, contract 1.4.0 and action schema 2, and replay refuses it under any other engine. Build 1.5 sessions are unaffected.
+
+| Part | Version | File | SHA-256 |
+|---|---|---|---|
+| Review engine | build 1.6, composing build 1.5 (`7f8ca08f…`) unchanged | `vendor/review-engine-build-1.6.cjs` | as `contract.ts` `stagedBuild.engine.sha256` (B16-01 fails on any difference) |
+| Question bank, coverage map | as for 1.3.0 | | |
+
+Changes against 1.3.0, all additive:
+
+| Area | Change |
+|---|---|
+| Respondent limit | None. `status.limit` and `status.pctOfLimit` are `null`; `status.stages` gives the core and breadth stages (answered, with a function, declined, not known by the function, open, applicable so far, complete, share reached), the current stage, function progress and outstanding information. |
+| `owner.decline` | New. Fields `fn`, `q`, `reason` (required, at most 300 characters). Allowed for that function's link (`fn` is taken from the link) on a question assigned to the function or the delegated-area question on its screen. The question stays outstanding with the reason and is not served again or reassigned. Refused in 1.5 sessions. |
+| `organisation.sendToOwners` | Accepts `depth`: `"recommended"` (default), `"none"` or a list of current candidate ids (at most 200). Allowed once the core stage is complete and repeatable; a question already with a function is never assigned twice. |
+| `respondent.correct` | As in 1.3.0; in a staged session a correction that brings questions into scope reopens a completed interview and serves them. |
+| Owner view | Adds `progress` (open, answered, declined, not known, areas) and `canDecline`; items carry `declineReason`. |
+| Snapshot and management views | Add `staged`: whether packages can be sent, how many sends so far, the recommended ids and up to 80 candidates (title, function, kind, scenario). |
+| Waiting provenance | Adds the kind `declined`, labelled with the function and its reason. |
+| Export | Unchanged in shape; the report carries `engineBuild: '1.6'` and `staged`. |
+
 ## Export
 
 `GET /review/api/s/{token}/export` returns:
@@ -169,5 +191,6 @@ No view or export contains a score, maturity band, rating, confidence label or i
 | 1.1.0 | `5eb2418` | HTTP error mapping; respondent `history` items carry `value`, `format`, `choices` and `changeable` so Back can show and change a saved answer; `lastSaved.unknownArea` carries the area handoff offer. |
 | 1.2.0 | `a195a8e` | Respondent view adds `areas` (name, the respondent's own answers in the area, where it was sent, current) for the interview's area rail. It is orientation only and does not measure completeness. |
 | 1.3.0 | `a1a0aad`, `a7df17a` | Records store their complete ruleset and replay validates it, with an explicit historical reader for 1.0.0 to 1.2.0 records; the export reports the recorded ruleset and reader; storage failures are reported as `store_unavailable`; waiting items carry `provenance` and the Snapshot `waitingBySource`. |
+| 1.4.0 | this delivery | Staged sessions on build 1.6 only, with action schema 2: no respondent limit, stage progress, `owner.decline`, depth selection on `organisation.sendToOwners`, function progress, the `staged` send view and the `declined` waiting provenance. 1.3.0 sessions are unchanged. |
 
 Versions 1.0.0 to 1.2.0 sit in the single engine commit of the layered branch; their working history is kept on `review/mk-integrated-readiness-worklog`. Version 1.3.0 was added on the layered branch in response to the independent review.

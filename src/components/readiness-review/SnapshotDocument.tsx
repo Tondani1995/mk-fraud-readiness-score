@@ -56,7 +56,7 @@ export function ControlList({ items, empty, showOwner = false }: { items: (Contr
                 </p>
                 {c.detail.map((d) => <p key={d} className="text-mk-muted">{d}</p>)}
                 {c.provenance && <p className="text-mk-muted">Why it is waiting: {c.provenance.label}.</p>}
-                {showOwner && c.ownerFunction && <p className="text-mk-muted">With: {c.ownerFunction}</p>}
+                {showOwner && c.ownerFunction && c.provenance?.kind !== 'declined' && <p className="text-mk-muted">With: {c.ownerFunction}</p>}
                 {c.scenario && <p className="text-mk-muted">Scenario: {c.scenario.name} ({tierLabel(c.scenario.tier)})</p>}
                 {c.evidence && <p className="text-mk-muted">{c.evidence.label}{c.evidence.current ? '' : ` (earlier answer, version ${c.evidence.forVer}; not current)`}</p>}
               </li>
@@ -148,9 +148,9 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
         <dt className="font-medium text-mk-ink">Interview</dt>
         <dd className="text-mk-muted">
           {status.stages
-            ? `${status.stages.currentLabel}. Core stage ${status.stages.core.complete ? 'complete' : `${status.stages.core.answered + status.stages.core.withFunctions} of ${status.stages.core.applicableSoFar} so far`}; all confirmations ${status.stages.breadth.complete ? 'answered or with a function' : `${status.stages.breadth.answered + status.stages.breadth.withFunctions} of ${status.stages.breadth.applicableSoFar} so far`}. The respondent answered ${status.screensUsed} questions.`
+            ? `${status.stages.currentLabel}. Core stage ${status.stages.core.complete ? 'complete' : `${status.stages.core.pct}% reached so far`}; all confirmations ${status.stages.breadth.complete ? 'reached' : `${status.stages.breadth.pct}% reached so far`}. The respondent answered ${status.screensUsed} questions.`
             : `${status.interview === 'ended' ? `${status.stopLabel ?? 'Ended'}.` : 'In progress.'} ${status.screensUsed} of 95 respondent screens used.`}
-          {status.ownerAnswers ? ` ${status.ownerAnswers} further answers came from accountable functions, outside that limit.` : ''}
+          {status.ownerAnswers ? ` ${status.ownerAnswers} further answers came from accountable functions${status.stages ? '' : ', outside that limit'}.` : ''}
           {status.corrections ? ` ${status.corrections} answers were changed afterwards.` : ''}
         </dd>
       </div>
@@ -162,7 +162,64 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
         <dt className="font-medium text-mk-ink">Is the review complete?</dt>
         <dd className="text-mk-muted">No. {status.completeWhy}</dd>
       </div>
+      {status.stages && <StageOutstanding stages={status.stages} />}
     </dl>
+  );
+}
+
+/** Build 1.6: what is still outstanding and how far each accountable function has got. Counts only; nothing is scored. */
+function StageOutstanding({ stages }: { stages: NonNullable<Snapshot['status']['stages']> }) {
+  const o = stages.outstanding;
+  return (
+    <div className="md:col-span-3 border-t border-mk-line pt-4" data-review-stage-outstanding>
+      <dt className="font-medium text-mk-ink">Outstanding information and function progress</dt>
+      <dd className="mt-1">
+        <p className="text-mk-muted">
+        {o.withFunctions + o.declined + o.unknownToFunction + o.packagesOpen === 0
+          ? 'Nothing is outstanding: every applicable confirmation has an answer and every package question sent has been answered.'
+          : `${o.withFunctions} ${o.withFunctions === 1 ? 'confirmation is' : 'confirmations are'} with a function; ${o.packagesOpen} package ${o.packagesOpen === 1 ? 'question is' : 'questions are'} open; ${o.declined} declined by a function; ${o.unknownToFunction} answered “I don’t know” by the function.`}
+        {' '}Counts are so far: a later answer can bring questions into scope or take them out.
+        </p>
+      {stages.functions.length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <caption className="sr-only">Progress by accountable function</caption>
+            <thead>
+              <tr className="border-b border-mk-line text-mk-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">Function</th>
+                <th scope="col" className="py-2 pr-3 font-medium tabular-nums">Open</th>
+                <th scope="col" className="py-2 pr-3 font-medium tabular-nums">Answered</th>
+                <th scope="col" className="py-2 pr-3 font-medium tabular-nums">Declined</th>
+                <th scope="col" className="py-2 pr-3 font-medium tabular-nums">&ldquo;I don&rsquo;t know&rdquo;</th>
+                <th scope="col" className="py-2 font-medium">Areas delegated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stages.functions.map((f) => (
+                <tr key={f.fn} className="border-b border-mk-line last:border-0">
+                  <th scope="row" className="py-2 pr-3 font-normal text-mk-ink">{f.fn}</th>
+                  <td className="py-2 pr-3 tabular-nums text-mk-ink">{f.open}</td>
+                  <td className="py-2 pr-3 tabular-nums text-mk-ink">{f.answered}</td>
+                  <td className="py-2 pr-3 tabular-nums text-mk-ink">{f.declined}</td>
+                  <td className="py-2 pr-3 tabular-nums text-mk-ink">{f.unknownToFunction}</td>
+                  <td className="py-2 text-mk-ink">{f.areas.join(', ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {o.declinedItems.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {o.declinedItems.map((d) => (
+            <li key={d.q} className="text-mk-ink">
+              <span className="font-medium">{d.title}</span> was declined by {d.fn}. <span className="text-mk-muted">Reason: {d.reason}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      </dd>
+    </div>
   );
 }
 

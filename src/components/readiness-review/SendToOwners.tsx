@@ -39,6 +39,7 @@ export function SendToOwners({ token, seq, staged = null }: { token: string; seq
   }
 
   const same = chosen.length === staged.recommended.length && chosen.every((id) => staged.recommended.includes(id));
+  const groups = [...staged.candidates.reduce((m, c) => m.set(c.fn, [...(m.get(c.fn) ?? []), c]), new Map<string, StagedSendView['candidates']>())];
   const toggle = (id: string) => setChosen((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   return (
     <div data-review-send-owners data-staged>
@@ -50,19 +51,28 @@ export function SendToOwners({ token, seq, staged = null }: { token: string; seq
           Recommended questions are selected because their answers would add most to what is known: they cover an objective no confirmation covers, say which part of a partly reported
           control is in place, or decide which other questions apply. You can add or remove any of them.
         </p>
-        <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
-          {staged.candidates.map((c) => (
-            <li key={c.id}>
-              <label className="flex min-h-11 cursor-pointer gap-3 text-sm leading-6">
-                <input type="checkbox" className="mt-1.5 h-4 w-4 shrink-0" checked={chosen.includes(c.id)} onChange={() => toggle(c.id)} />
-                <span>
-                  <span className="block font-medium text-mk-ink">{c.title}</span>
-                  <span className="block text-mk-muted">{c.fn}. {c.kind}: {c.scenario}</span>
-                </span>
-              </label>
-            </li>
+        <div className="mt-3 max-h-[28rem] space-y-4 overflow-y-auto pr-1">
+          {groups.map(([fn, items]) => (
+            <fieldset key={fn}>
+              <legend className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">
+                {fn} ({items.filter((c) => chosen.includes(c.id)).length} of {items.length} selected)
+              </legend>
+              <ul className="mt-1 space-y-1">
+                {items.map((c) => (
+                  <li key={c.id}>
+                    <label className="flex min-h-11 cursor-pointer gap-3 py-1 text-sm leading-6">
+                      <input type="checkbox" className="mt-1.5 h-4 w-4 shrink-0" checked={chosen.includes(c.id)} onChange={() => toggle(c.id)} />
+                      <span>
+                        <span className="block font-medium text-mk-ink">{c.title}</span>
+                        <span className="block text-mk-muted">{c.kind}, for &ldquo;{c.scenario}&rdquo;</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
           ))}
-        </ul>
+        </div>
       </details>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button type="button" disabled={busy || chosen.length === 0} onClick={() => submit(same ? 'recommended' : chosen)}>

@@ -36,35 +36,32 @@ export function ReviewAreaRail({ areas }: { areas: Area[] }) {
 export function ReviewAreaContext({ areas, screensUsed, limit, stages }: { areas: Area[]; screensUsed: number; limit: number | null; stages?: StageProgressView | null }) {
   const current = areas.find((area) => area.current);
   if (stages) {
-    const row = (label: string, x: { answered: number; withFunctions: number; applicableSoFar: number; complete: boolean }) => (
-      <div className="flex items-baseline justify-between gap-3 py-2">
-        <dt className="text-sm text-mk-ink">{label}</dt>
-        <dd className="text-sm tabular-nums text-mk-navy">{x.complete ? 'Complete' : `${x.answered + x.withFunctions} of ${x.applicableSoFar}`}</dd>
+    const reached = (x: StageProgressView['core']) => x.answered + x.withFunctions + x.declined + x.unknownToFunction;
+    const row = (label: string, x: StageProgressView['core']) => (
+      <div className="py-3">
+        <dt className="text-sm text-mk-muted">{label}</dt>
+        <dd className="mt-1">
+          <span className="block text-lg font-semibold tabular-nums text-mk-navy">{x.complete ? 'Complete' : `${reached(x)} of ${x.applicableSoFar}`}</span>
+          <span aria-hidden="true" className="mt-2 block h-1 rounded-full bg-mk-line">
+            <span className="block h-1 rounded-full bg-mk-navy" style={{ width: `${x.complete ? 100 : x.pct}%` }} />
+          </span>
+        </dd>
       </div>
     );
+    const o = stages.outstanding;
     return (
       <aside className="assessment-contextual hidden xl:block self-start rounded-panel border border-mk-line bg-mk-surface p-5" aria-label="Assessment progress" data-review-context data-review-stages>
         <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{current ? 'Current area' : 'About the organisation'}</p>
         <h2 className="mt-3 text-lg font-semibold leading-snug text-mk-navy">{current ? current.name : 'Profile questions'}</h2>
         <dl className="mt-5 divide-y divide-mk-line border-y border-mk-line">
-          {row('Core stage', stages.core)}
-          {row('All confirmations', stages.breadth)}
-          {stages.outstanding.withFunctions > 0 && (
-            <div className="flex items-baseline justify-between gap-3 py-2">
-              <dt className="text-sm text-mk-ink">With other functions</dt>
-              <dd className="text-sm tabular-nums text-mk-navy">{stages.outstanding.withFunctions}</dd>
-            </div>
-          )}
-          {stages.outstanding.declined > 0 && (
-            <div className="flex items-baseline justify-between gap-3 py-2">
-              <dt className="text-sm text-mk-ink">Declined by a function</dt>
-              <dd className="text-sm tabular-nums text-mk-navy">{stages.outstanding.declined}</dd>
-            </div>
-          )}
-          {stages.outstanding.unknownToFunction > 0 && (
-            <div className="flex items-baseline justify-between gap-3 py-2">
-              <dt className="text-sm text-mk-ink">Not known by the function</dt>
-              <dd className="text-sm tabular-nums text-mk-navy">{stages.outstanding.unknownToFunction}</dd>
+          {row('Core confirmations', stages.core)}
+          {row('All confirmations that apply', stages.breadth)}
+          {o.withFunctions + o.declined + o.unknownToFunction > 0 && (
+            <div className="py-3">
+              <dt className="text-sm text-mk-muted">With accountable functions</dt>
+              <dd className="mt-1 text-sm leading-6 text-mk-ink">
+                {o.withFunctions} waiting{o.declined ? `, ${o.declined} declined` : ''}{o.unknownToFunction ? `, ${o.unknownToFunction} not known by the function` : ''}
+              </dd>
             </div>
           )}
         </dl>

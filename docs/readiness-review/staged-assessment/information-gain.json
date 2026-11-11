@@ -1,0 +1,2098 @@
+{
+  "generated": "HYPOTHETICAL: research simulation, not an approved or production value",
+  "bank": "1.3-review",
+  "engine": "1.6",
+  "profiles": {
+    "P1": {
+      "name": "Strong controls",
+      "ig": {
+        "pk": "P1",
+        "method": "ig",
+        "sends": [
+          31,
+          11,
+          4,
+          0
+        ],
+        "depthAsked": 46,
+        "kinds": {
+          "coverage": 30,
+          "gate": 4,
+          "diagnostic": 12
+        },
+        "perFunctionMax": 15,
+        "answered": 46,
+        "gapsFound": 5,
+        "expectedGaps": 0,
+        "hiddenGaps": 4,
+        "hiddenScenarios": 4,
+        "coverageGaps": 5,
+        "gatesAsked": 4,
+        "scenariosTouched": 13,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D5-02",
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D4-13",
+            "FS-D5-12",
+            "FS-D8-11",
+            "FS-D3-10"
+          ],
+          "entered": [
+            "FS-D5-02",
+            "FS-D4-13",
+            "FS-D5-12",
+            "FS-D3-10"
+          ]
+        },
+        "issuesOnlyAfter": 4,
+        "issuesBefore": 4,
+        "issuesAfter": 8,
+        "outsideFirstEight": 4,
+        "candidatesFirst": 78,
+        "recommendedFirst": 31,
+        "excluded": {
+          "belowMinGain": 14,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 68,
+          "selected": 10,
+          "tested": 10,
+          "untested": 58,
+          "counts": {
+            "consistent": 10
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 46,
+        "workload": {
+          "respondent": 167,
+          "Risk and investigations": 15,
+          "Legal, compliance and ethics": 3,
+          "Procurement": 9,
+          "HR and payroll": 15,
+          "Finance": 1,
+          "Operations and sales": 3
+        }
+      },
+      "priority": {
+        "pk": "P1",
+        "method": "priority",
+        "sends": [
+          39
+        ],
+        "depthAsked": 39,
+        "kinds": {
+          "coverage": 25,
+          "diagnostic": 10,
+          "follow-up": 4
+        },
+        "perFunctionMax": 14,
+        "answered": 39,
+        "gapsFound": 4,
+        "expectedGaps": 0,
+        "hiddenGaps": 3,
+        "hiddenScenarios": 3,
+        "coverageGaps": 4,
+        "gatesAsked": 0,
+        "scenariosTouched": 14,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D5-02",
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D5-12",
+            "FS-D8-11",
+            "FS-D3-10"
+          ],
+          "entered": [
+            "FS-D5-02",
+            "FS-D5-12",
+            "FS-D3-10"
+          ]
+        },
+        "issuesOnlyAfter": 3,
+        "issuesBefore": 4,
+        "issuesAfter": 7,
+        "outsideFirstEight": 3,
+        "candidatesFirst": 78,
+        "recommendedFirst": 31,
+        "excluded": {
+          "belowMinGain": 14,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 68,
+          "selected": 10,
+          "tested": 10,
+          "untested": 58,
+          "counts": {
+            "consistent": 10
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 39,
+        "workload": {
+          "respondent": 167,
+          "Executive and governance": 5,
+          "Risk and investigations": 10,
+          "Legal, compliance and ethics": 2,
+          "Procurement": 3,
+          "HR and payroll": 14,
+          "Finance": 2,
+          "Operations and sales": 3
+        }
+      }
+    },
+    "P2": {
+      "name": "Weak controls",
+      "ig": {
+        "pk": "P2",
+        "method": "ig",
+        "sends": [
+          81,
+          5,
+          0
+        ],
+        "depthAsked": 86,
+        "kinds": {
+          "coverage": 22,
+          "gate": 2,
+          "follow-up": 16,
+          "diagnostic": 46
+        },
+        "perFunctionMax": 15,
+        "answered": 86,
+        "gapsFound": 60,
+        "expectedGaps": 1,
+        "hiddenGaps": 0,
+        "hiddenScenarios": 0,
+        "coverageGaps": 22,
+        "gatesAsked": 2,
+        "scenariosTouched": 35,
+        "r1": {
+          "before": [
+            "FS-D1-01",
+            "FS-D1-02",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "after": [
+            "FS-D1-01",
+            "FS-D1-02",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D1-02",
+            "FS-D1-01",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D3-01",
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D10-04",
+            "FS-D7-02",
+            "FS-D4-13",
+            "FS-D1-02"
+          ],
+          "entered": [
+            "FS-D4-05",
+            "FS-D3-01",
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D10-04",
+            "FS-D7-02",
+            "FS-D4-13"
+          ]
+        },
+        "issuesOnlyAfter": 0,
+        "issuesBefore": 103,
+        "issuesAfter": 103,
+        "outsideFirstEight": 60,
+        "candidatesFirst": 373,
+        "recommendedFirst": 81,
+        "excluded": {
+          "belowMinGain": 218,
+          "byLimits": 74
+        },
+        "consistency": {
+          "eligible": 0,
+          "selected": 0,
+          "tested": 0,
+          "untested": 0,
+          "counts": {},
+          "checks": []
+        },
+        "respondentScreens": 156,
+        "functionScreens": 86,
+        "workload": {
+          "respondent": 156,
+          "Risk and investigations": 15,
+          "Legal, compliance and ethics": 8,
+          "IT and information": 4,
+          "Procurement": 14,
+          "HR and payroll": 15,
+          "Finance": 15,
+          "Operations and sales": 15
+        }
+      },
+      "priority": {
+        "pk": "P2",
+        "method": "priority",
+        "sends": [
+          24
+        ],
+        "depthAsked": 24,
+        "kinds": {
+          "coverage": 18,
+          "follow-up": 6
+        },
+        "perFunctionMax": 9,
+        "answered": 24,
+        "gapsFound": 24,
+        "expectedGaps": 6,
+        "hiddenGaps": 0,
+        "hiddenScenarios": 0,
+        "coverageGaps": 18,
+        "gatesAsked": 0,
+        "scenariosTouched": 13,
+        "r1": {
+          "before": [
+            "FS-D1-01",
+            "FS-D1-02",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "after": [
+            "FS-D1-01",
+            "FS-D1-02",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D1-02",
+            "FS-D1-01",
+            "FS-D1-05",
+            "FS-D1-06",
+            "FS-D1-07",
+            "FS-D1-10",
+            "FS-D2-02",
+            "FS-D3-02"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D1-10",
+            "FS-D1-02",
+            "FS-D2-02",
+            "FS-D1-06",
+            "FS-D3-02",
+            "FS-D5-12",
+            "FS-D3-10"
+          ],
+          "entered": [
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D3-10"
+          ]
+        },
+        "issuesOnlyAfter": 0,
+        "issuesBefore": 103,
+        "issuesAfter": 103,
+        "outsideFirstEight": 18,
+        "candidatesFirst": 373,
+        "recommendedFirst": 81,
+        "excluded": {
+          "belowMinGain": 218,
+          "byLimits": 74
+        },
+        "consistency": {
+          "eligible": 0,
+          "selected": 0,
+          "tested": 0,
+          "untested": 0,
+          "counts": {},
+          "checks": []
+        },
+        "respondentScreens": 156,
+        "functionScreens": 24,
+        "workload": {
+          "respondent": 156,
+          "Executive and governance": 1,
+          "Risk and investigations": 3,
+          "Legal, compliance and ethics": 3,
+          "IT and information": 2,
+          "Procurement": 3,
+          "HR and payroll": 9,
+          "Operations and sales": 3
+        }
+      }
+    },
+    "P3": {
+      "name": "Mixed controls",
+      "ig": {
+        "pk": "P3",
+        "method": "ig",
+        "sends": [
+          72,
+          7,
+          0
+        ],
+        "depthAsked": 79,
+        "kinds": {
+          "coverage": 29,
+          "gate": 4,
+          "follow-up": 12,
+          "diagnostic": 34
+        },
+        "perFunctionMax": 15,
+        "answered": 79,
+        "gapsFound": 47,
+        "expectedGaps": 1,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 17,
+        "gatesAsked": 4,
+        "scenariosTouched": 27,
+        "r1": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "after": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D4-09"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D7-03",
+            "FS-D8-02",
+            "FS-D7-02",
+            "FS-D4-13",
+            "FS-D5-02"
+          ],
+          "entered": [
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D7-03",
+            "FS-D8-02",
+            "FS-D7-02",
+            "FS-D4-13",
+            "FS-D5-02"
+          ]
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 58,
+        "issuesAfter": 59,
+        "outsideFirstEight": 39,
+        "candidatesFirst": 265,
+        "recommendedFirst": 72,
+        "excluded": {
+          "belowMinGain": 121,
+          "byLimits": 72
+        },
+        "consistency": {
+          "eligible": 32,
+          "selected": 5,
+          "tested": 5,
+          "untested": 27,
+          "counts": {
+            "consistent": 5
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 162,
+        "functionScreens": 79,
+        "workload": {
+          "respondent": 162,
+          "Risk and investigations": 15,
+          "Legal, compliance and ethics": 3,
+          "IT and information": 4,
+          "Procurement": 14,
+          "HR and payroll": 15,
+          "Finance": 13,
+          "Operations and sales": 15
+        }
+      },
+      "priority": {
+        "pk": "P3",
+        "method": "priority",
+        "sends": [
+          42
+        ],
+        "depthAsked": 42,
+        "kinds": {
+          "coverage": 25,
+          "follow-up": 13,
+          "diagnostic": 4
+        },
+        "perFunctionMax": 13,
+        "answered": 42,
+        "gapsFound": 32,
+        "expectedGaps": 10,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 15,
+        "gatesAsked": 0,
+        "scenariosTouched": 18,
+        "r1": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "after": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D4-09"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D4-01",
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D5-12"
+          ],
+          "entered": [
+            "FS-D4-01",
+            "FS-D5-12"
+          ]
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 58,
+        "issuesAfter": 59,
+        "outsideFirstEight": 12,
+        "candidatesFirst": 265,
+        "recommendedFirst": 72,
+        "excluded": {
+          "belowMinGain": 121,
+          "byLimits": 72
+        },
+        "consistency": {
+          "eligible": 32,
+          "selected": 5,
+          "tested": 5,
+          "untested": 27,
+          "counts": {
+            "consistent": 5
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 162,
+        "functionScreens": 42,
+        "workload": {
+          "respondent": 162,
+          "Risk and investigations": 9,
+          "Legal, compliance and ethics": 2,
+          "IT and information": 2,
+          "Procurement": 13,
+          "HR and payroll": 10,
+          "Finance": 2,
+          "Operations and sales": 4
+        }
+      }
+    },
+    "P4": {
+      "name": "Small owner-managed firm (limited applicability)",
+      "ig": {
+        "pk": "P4",
+        "method": "ig",
+        "sends": [
+          18,
+          3,
+          0
+        ],
+        "depthAsked": 21,
+        "kinds": {
+          "coverage": 10,
+          "gate": 2,
+          "diagnostic": 7,
+          "follow-up": 2
+        },
+        "perFunctionMax": 10,
+        "answered": 21,
+        "gapsFound": 5,
+        "expectedGaps": 0,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 1,
+        "gatesAsked": 2,
+        "scenariosTouched": 10,
+        "r1": {
+          "before": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-03",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-06",
+            "FS-D9-08"
+          ],
+          "after": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-03",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-06",
+            "FS-D9-08"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-03",
+            "FS-D9-11",
+            "FS-D9-06"
+          ],
+          "after": [
+            "FS-D9-05",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-03",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-11",
+            "FS-D9-06"
+          ],
+          "entered": []
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 10,
+        "issuesAfter": 11,
+        "outsideFirstEight": 1,
+        "candidatesFirst": 41,
+        "recommendedFirst": 18,
+        "excluded": {
+          "belowMinGain": 9,
+          "byLimits": 14
+        },
+        "consistency": {
+          "eligible": 24,
+          "selected": 5,
+          "tested": 5,
+          "untested": 19,
+          "counts": {
+            "consistent": 5
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-04",
+              "tier": 1,
+              "confirmation": "D6-R-02",
+              "followup": "D6-R-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 96,
+        "functionScreens": 21,
+        "workload": {
+          "respondent": 96,
+          "Risk and investigations": 10,
+          "IT and information": 4,
+          "HR and payroll": 3,
+          "Finance": 3,
+          "Legal, compliance and ethics": 1
+        }
+      },
+      "priority": {
+        "pk": "P4",
+        "method": "priority",
+        "sends": [
+          25
+        ],
+        "depthAsked": 25,
+        "kinds": {
+          "coverage": 9,
+          "diagnostic": 10,
+          "follow-up": 6
+        },
+        "perFunctionMax": 12,
+        "answered": 25,
+        "gapsFound": 14,
+        "expectedGaps": 2,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 1,
+        "gatesAsked": 0,
+        "scenariosTouched": 11,
+        "r1": {
+          "before": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-03",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-06",
+            "FS-D9-08"
+          ],
+          "after": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-03",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-06",
+            "FS-D9-08"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D9-07",
+            "FS-D9-12",
+            "FS-D9-03",
+            "FS-D9-11",
+            "FS-D9-06"
+          ],
+          "after": [
+            "FS-D9-05",
+            "FS-D9-01",
+            "FS-D9-03",
+            "FS-D9-02",
+            "FS-D9-06",
+            "FS-D9-07",
+            "FS-D9-08",
+            "FS-D9-12"
+          ],
+          "entered": [
+            "FS-D9-08"
+          ]
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 10,
+        "issuesAfter": 11,
+        "outsideFirstEight": 1,
+        "candidatesFirst": 41,
+        "recommendedFirst": 18,
+        "excluded": {
+          "belowMinGain": 9,
+          "byLimits": 14
+        },
+        "consistency": {
+          "eligible": 24,
+          "selected": 5,
+          "tested": 5,
+          "untested": 19,
+          "counts": {
+            "consistent": 5
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-04",
+              "tier": 1,
+              "confirmation": "D6-R-02",
+              "followup": "D6-R-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 96,
+        "functionScreens": 25,
+        "workload": {
+          "respondent": 96,
+          "Risk and investigations": 7,
+          "IT and information": 12,
+          "HR and payroll": 2,
+          "Finance": 4
+        }
+      }
+    },
+    "P5": {
+      "name": "Extensive unanswered information (35% \"I don't know\"; two areas delegated)",
+      "ig": {
+        "pk": "P5",
+        "method": "ig",
+        "sends": [
+          73,
+          7,
+          0
+        ],
+        "depthAsked": 80,
+        "kinds": {
+          "coverage": 29,
+          "gate": 4,
+          "follow-up": 12,
+          "diagnostic": 35
+        },
+        "perFunctionMax": 15,
+        "answered": 76,
+        "gapsFound": 44,
+        "expectedGaps": 1,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 16,
+        "gatesAsked": 4,
+        "scenariosTouched": 28,
+        "r1": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "after": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D4-09"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D7-03",
+            "FS-D8-02",
+            "FS-D7-02",
+            "FS-D4-13",
+            "FS-D9-05"
+          ],
+          "entered": [
+            "FS-D4-01",
+            "FS-D7-01",
+            "FS-D7-03",
+            "FS-D8-02",
+            "FS-D7-02",
+            "FS-D4-13"
+          ]
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 58,
+        "issuesAfter": 59,
+        "outsideFirstEight": 36,
+        "candidatesFirst": 266,
+        "recommendedFirst": 73,
+        "excluded": {
+          "belowMinGain": 121,
+          "byLimits": 72
+        },
+        "consistency": {
+          "eligible": 32,
+          "selected": 5,
+          "tested": 4,
+          "untested": 27,
+          "counts": {
+            "consistent": 4,
+            "missing-information": 1
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-03",
+              "tier": 1,
+              "confirmation": "D1-B-01",
+              "followup": "D1-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-02",
+              "tier": 1,
+              "confirmation": "D6-P-05",
+              "followup": "D6-P-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-02",
+              "tier": 1,
+              "confirmation": "D10-P-02",
+              "followup": "D10-P-08",
+              "outcome": "missing-information"
+            }
+          ]
+        },
+        "respondentScreens": 141,
+        "functionScreens": 130,
+        "workload": {
+          "respondent": 141,
+          "Executive and governance": 2,
+          "Risk and investigations": 22,
+          "Legal, compliance and ethics": 5,
+          "IT and information": 17,
+          "Procurement": 25,
+          "HR and payroll": 18,
+          "Finance": 21,
+          "Operations and sales": 20
+        }
+      },
+      "priority": {
+        "pk": "P5",
+        "method": "priority",
+        "sends": [
+          42
+        ],
+        "depthAsked": 42,
+        "kinds": {
+          "coverage": 25,
+          "follow-up": 13,
+          "diagnostic": 4
+        },
+        "perFunctionMax": 13,
+        "answered": 39,
+        "gapsFound": 30,
+        "expectedGaps": 10,
+        "hiddenGaps": 1,
+        "hiddenScenarios": 1,
+        "coverageGaps": 14,
+        "gatesAsked": 0,
+        "scenariosTouched": 18,
+        "r1": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "after": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D4-01",
+            "FS-D4-03"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D4-05",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D9-05",
+            "FS-D4-09"
+          ],
+          "after": [
+            "FS-D4-05",
+            "FS-D4-01",
+            "FS-D4-02",
+            "FS-D4-04",
+            "FS-D5-01",
+            "FS-D9-01",
+            "FS-D9-02",
+            "FS-D5-12"
+          ],
+          "entered": [
+            "FS-D4-01",
+            "FS-D5-12"
+          ]
+        },
+        "issuesOnlyAfter": 1,
+        "issuesBefore": 58,
+        "issuesAfter": 59,
+        "outsideFirstEight": 11,
+        "candidatesFirst": 266,
+        "recommendedFirst": 73,
+        "excluded": {
+          "belowMinGain": 121,
+          "byLimits": 72
+        },
+        "consistency": {
+          "eligible": 32,
+          "selected": 5,
+          "tested": 4,
+          "untested": 27,
+          "counts": {
+            "consistent": 4,
+            "missing-information": 1
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-03",
+              "tier": 1,
+              "confirmation": "D1-B-01",
+              "followup": "D1-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-02",
+              "tier": 1,
+              "confirmation": "D6-P-05",
+              "followup": "D6-P-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-02",
+              "tier": 1,
+              "confirmation": "D10-P-02",
+              "followup": "D10-P-08",
+              "outcome": "missing-information"
+            }
+          ]
+        },
+        "respondentScreens": 141,
+        "functionScreens": 92,
+        "workload": {
+          "respondent": 141,
+          "Executive and governance": 2,
+          "Risk and investigations": 16,
+          "Legal, compliance and ethics": 4,
+          "IT and information": 15,
+          "Procurement": 24,
+          "HR and payroll": 13,
+          "Finance": 9,
+          "Operations and sales": 9
+        }
+      }
+    },
+    "P6b": {
+      "name": "Overstated confirmations (confirmations in place, supporting practices weak)",
+      "ig": {
+        "pk": "P6b",
+        "method": "ig",
+        "sends": [
+          46,
+          19,
+          0
+        ],
+        "depthAsked": 65,
+        "kinds": {
+          "coverage": 27,
+          "gate": 5,
+          "diagnostic": 27,
+          "follow-up": 6
+        },
+        "perFunctionMax": 15,
+        "answered": 65,
+        "gapsFound": 46,
+        "expectedGaps": 0,
+        "hiddenGaps": 43,
+        "hiddenScenarios": 14,
+        "coverageGaps": 27,
+        "gatesAsked": 5,
+        "scenariosTouched": 18,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D1-01",
+            "FS-D2-02",
+            "FS-D4-01",
+            "FS-D6-01",
+            "FS-D7-01",
+            "FS-D9-01",
+            "FS-D3-01",
+            "FS-D5-01"
+          ],
+          "after": [
+            "FS-D2-01",
+            "FS-D2-02",
+            "FS-D4-01",
+            "FS-D8-02",
+            "FS-D1-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D5-02"
+          ],
+          "entered": [
+            "FS-D2-01",
+            "FS-D8-02",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D5-02"
+          ]
+        },
+        "issuesOnlyAfter": 10,
+        "issuesBefore": 16,
+        "issuesAfter": 26,
+        "outsideFirstEight": 43,
+        "candidatesFirst": 148,
+        "recommendedFirst": 46,
+        "excluded": {
+          "belowMinGain": 69,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 67,
+          "selected": 10,
+          "tested": 10,
+          "untested": 57,
+          "counts": {
+            "conflicting": 6,
+            "partial-operation": 1,
+            "narrower-scope": 3
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "partial-operation"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "narrower-scope"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "narrower-scope"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D10-02",
+              "tier": 1,
+              "confirmation": "D10-P-02",
+              "followup": "D10-P-08",
+              "outcome": "narrower-scope"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 65,
+        "workload": {
+          "respondent": 167,
+          "Executive and governance": 1,
+          "Risk and investigations": 15,
+          "Legal, compliance and ethics": 3,
+          "Procurement": 15,
+          "HR and payroll": 15,
+          "Finance": 5,
+          "Operations and sales": 11
+        }
+      },
+      "priority": {
+        "pk": "P6b",
+        "method": "priority",
+        "sends": [
+          39
+        ],
+        "depthAsked": 39,
+        "kinds": {
+          "coverage": 25,
+          "diagnostic": 10,
+          "follow-up": 4
+        },
+        "perFunctionMax": 14,
+        "answered": 39,
+        "gapsFound": 37,
+        "expectedGaps": 0,
+        "hiddenGaps": 22,
+        "hiddenScenarios": 10,
+        "coverageGaps": 25,
+        "gatesAsked": 0,
+        "scenariosTouched": 14,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D1-01",
+            "FS-D2-02",
+            "FS-D4-01",
+            "FS-D6-01",
+            "FS-D7-01",
+            "FS-D9-01",
+            "FS-D3-01",
+            "FS-D5-01"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D4-12",
+            "FS-D1-01",
+            "FS-D2-02"
+          ],
+          "entered": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D4-12"
+          ]
+        },
+        "issuesOnlyAfter": 9,
+        "issuesBefore": 16,
+        "issuesAfter": 25,
+        "outsideFirstEight": 22,
+        "candidatesFirst": 148,
+        "recommendedFirst": 46,
+        "excluded": {
+          "belowMinGain": 69,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 67,
+          "selected": 10,
+          "tested": 10,
+          "untested": 57,
+          "counts": {
+            "conflicting": 6,
+            "partial-operation": 1,
+            "narrower-scope": 3
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "partial-operation"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "narrower-scope"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "narrower-scope"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D10-02",
+              "tier": 1,
+              "confirmation": "D10-P-02",
+              "followup": "D10-P-08",
+              "outcome": "narrower-scope"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 39,
+        "workload": {
+          "respondent": 167,
+          "Executive and governance": 5,
+          "Risk and investigations": 10,
+          "Legal, compliance and ethics": 2,
+          "Procurement": 3,
+          "HR and payroll": 14,
+          "Finance": 2,
+          "Operations and sales": 3
+        }
+      }
+    },
+    "P6c": {
+      "name": "Weak only where no confirmation looks",
+      "ig": {
+        "pk": "P6c",
+        "method": "ig",
+        "sends": [
+          34,
+          18,
+          3,
+          0
+        ],
+        "depthAsked": 55,
+        "kinds": {
+          "coverage": 27,
+          "gate": 4,
+          "diagnostic": 20,
+          "follow-up": 4
+        },
+        "perFunctionMax": 15,
+        "answered": 55,
+        "gapsFound": 29,
+        "expectedGaps": 0,
+        "hiddenGaps": 26,
+        "hiddenScenarios": 11,
+        "coverageGaps": 27,
+        "gatesAsked": 4,
+        "scenariosTouched": 14,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D2-02",
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D2-02",
+            "FS-D8-02",
+            "FS-D4-12",
+            "FS-D5-02",
+            "FS-D4-13"
+          ],
+          "entered": [
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D8-02",
+            "FS-D5-02",
+            "FS-D4-13"
+          ]
+        },
+        "issuesOnlyAfter": 11,
+        "issuesBefore": 5,
+        "issuesAfter": 16,
+        "outsideFirstEight": 26,
+        "candidatesFirst": 82,
+        "recommendedFirst": 34,
+        "excluded": {
+          "belowMinGain": 15,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 68,
+          "selected": 10,
+          "tested": 10,
+          "untested": 58,
+          "counts": {
+            "consistent": 9,
+            "conflicting": 1
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 55,
+        "workload": {
+          "respondent": 167,
+          "Risk and investigations": 15,
+          "Legal, compliance and ethics": 3,
+          "Procurement": 11,
+          "HR and payroll": 15,
+          "Finance": 3,
+          "Operations and sales": 8
+        }
+      },
+      "priority": {
+        "pk": "P6c",
+        "method": "priority",
+        "sends": [
+          39
+        ],
+        "depthAsked": 39,
+        "kinds": {
+          "coverage": 25,
+          "diagnostic": 10,
+          "follow-up": 4
+        },
+        "perFunctionMax": 14,
+        "answered": 39,
+        "gapsFound": 26,
+        "expectedGaps": 0,
+        "hiddenGaps": 22,
+        "hiddenScenarios": 10,
+        "coverageGaps": 25,
+        "gatesAsked": 0,
+        "scenariosTouched": 14,
+        "r1": {
+          "before": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "entered": []
+        },
+        "r2": {
+          "before": [
+            "FS-D2-02",
+            "FS-D3-11",
+            "FS-D5-09",
+            "FS-D4-12",
+            "FS-D8-11"
+          ],
+          "after": [
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D4-12",
+            "FS-D2-02",
+            "FS-D5-02",
+            "FS-D8-02",
+            "FS-D3-01"
+          ],
+          "entered": [
+            "FS-D2-01",
+            "FS-D4-05",
+            "FS-D5-12",
+            "FS-D5-02",
+            "FS-D8-02",
+            "FS-D3-01"
+          ]
+        },
+        "issuesOnlyAfter": 10,
+        "issuesBefore": 5,
+        "issuesAfter": 15,
+        "outsideFirstEight": 22,
+        "candidatesFirst": 82,
+        "recommendedFirst": 34,
+        "excluded": {
+          "belowMinGain": 15,
+          "byLimits": 33
+        },
+        "consistency": {
+          "eligible": 68,
+          "selected": 10,
+          "tested": 10,
+          "untested": 58,
+          "counts": {
+            "consistent": 9,
+            "conflicting": 1
+          },
+          "checks": [
+            {
+              "scenario": "FS-D1-01",
+              "tier": 1,
+              "confirmation": "D1-A-01",
+              "followup": "D1-A-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D2-02",
+              "tier": 1,
+              "confirmation": "D2-C-07",
+              "followup": "D2-I-09",
+              "outcome": "conflicting"
+            },
+            {
+              "scenario": "FS-D3-01",
+              "tier": 1,
+              "confirmation": "D3-B-01",
+              "followup": "D3-B-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D4-01",
+              "tier": 1,
+              "confirmation": "D4-O-01",
+              "followup": "D4-O-03",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D5-01",
+              "tier": 1,
+              "confirmation": "D5-M-05",
+              "followup": "D5-M-06",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D6-01",
+              "tier": 1,
+              "confirmation": "D6-P-02",
+              "followup": "D6-P-01",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D7-01",
+              "tier": 1,
+              "confirmation": "D7-R-01",
+              "followup": "D7-R-02",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D8-01",
+              "tier": 1,
+              "confirmation": "D8-C-03",
+              "followup": "D8-C-12",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D9-01",
+              "tier": 1,
+              "confirmation": "D9-E-01",
+              "followup": "D9-E-04",
+              "outcome": "consistent"
+            },
+            {
+              "scenario": "FS-D10-01",
+              "tier": 1,
+              "confirmation": "D10-W-01",
+              "followup": "D10-W-03",
+              "outcome": "consistent"
+            }
+          ]
+        },
+        "respondentScreens": 167,
+        "functionScreens": 39,
+        "workload": {
+          "respondent": 167,
+          "Executive and governance": 5,
+          "Risk and investigations": 10,
+          "Legal, compliance and ethics": 2,
+          "Procurement": 3,
+          "HR and payroll": 14,
+          "Finance": 2,
+          "Operations and sales": 3
+        }
+      }
+    }
+  }
+}

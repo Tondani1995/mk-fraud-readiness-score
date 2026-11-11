@@ -159,7 +159,7 @@ export type StageProgressView = {
   breadth: StageCountView;
   functions: { fn: string; open: number; answered: number; declined: number; unknownToFunction: number; areas: string[] }[];
   /** Information still outstanding: with a function, declined by one (with its reason) or not known by the function. */
-  outstanding: { withFunctions: number; declined: number; unknownToFunction: number; packagesOpen: number; declinedItems: { q: string; fn: string; reason: string }[] };
+  outstanding: { withFunctions: number; declined: number; unknownToFunction: number; packagesOpen: number; declinedItems: { q: string; title: string; fn: string; reason: string }[] };
   consistency: { eligible: number; selected: number; answered: number; untested: number; counts: Record<string, number>; limitation: string };
   workload: { actor: string; screens: number }[];
   note: string;
@@ -185,18 +185,20 @@ export function stageProgressView(report: any): StageProgressView | null {
     return { ...x, declined, unknownToFunction, pct: x.applicableSoFar ? Math.round((reached / x.applicableSoFar) * 100) : 100 };
   };
   const fns = (s.packages.functions as any[]).filter((f) => f.open || f.answered || f.declined.length || f.unknownByOwner || f.areas.length);
+  const titles = new Map<string, string>((report.domains as any[]).flatMap((d) => d.rows).map((r: any) => [r.id, r.key ?? r.id]));
+  const areaNames = new Map<string, string>((report.domains as any[]).map((d) => [d.id, d.name]));
   return {
     current: s.current,
     currentLabel: STAGE_LABEL[s.current as StageProgressView['current']],
     core: count(s.core),
     breadth: count(s.breadth),
-    functions: fns.map((f) => ({ fn: f.fn, open: f.open, answered: f.answered, declined: f.declined.length, unknownToFunction: f.unknownByOwner, areas: f.areas })),
+    functions: fns.map((f) => ({ fn: f.fn, open: f.open, answered: f.answered, declined: f.declined.length, unknownToFunction: f.unknownByOwner, areas: (f.areas as string[]).map((d) => areaNames.get(d) ?? d) })),
     outstanding: {
       withFunctions: s.breadth.withFunctions,
       declined: fns.reduce((a, f) => a + f.declined.length, 0),
       unknownToFunction: fns.reduce((a, f) => a + f.unknownByOwner, 0),
       packagesOpen: s.packages.open,
-      declinedItems: fns.flatMap((f) => f.declined.map((d: { id: string; reason: string }) => ({ q: d.id, fn: f.fn, reason: d.reason }))).slice(0, 50)
+      declinedItems: fns.flatMap((f) => f.declined.map((d: { id: string; reason: string }) => ({ q: d.id, title: titles.get(d.id) ?? d.id, fn: f.fn, reason: d.reason }))).slice(0, 50)
     },
     consistency: { eligible: st.consistency.eligible, selected: st.consistency.selected, answered: st.consistency.answered, untested: st.consistency.untested, counts: st.consistency.counts, limitation: st.consistency.limitation },
     workload: Object.entries(st.workload as Record<string, number>).map(([actor, screens]) => ({ actor: actor === 'respondent' ? 'Respondent' : actor, screens })),
@@ -337,7 +339,7 @@ function controlItem(e: EngineInstance, report: any, row: Row): ControlItem {
     text: plain(row.text ?? ''),
     answer: row.label ?? null,
     state: row.state === 'reported' ? row.cls : row.state,
-    stateLabel: row.state === 'reported' ? REPORTED_LABEL[row.cls] ?? row.cls : CONTROL_STATE_LABEL[row.state] ?? row.state,
+    stateLabel: row.state === 'reported' ? REPORTED_LABEL[row.cls] ?? row.cls : row.assignment?.status === 'declined' ? 'Declined by the function it was sent to; outstanding' : CONTROL_STATE_LABEL[row.state] ?? row.state,
     scenario: sc ? { id: sc.id, name: sc.name, tier: sc.tier } : null,
     detail: answerDetail(row),
     evidence: row.evidence ? { state: row.evidence.state, label: EVIDENCE_LABEL[row.evidence.state] ?? row.evidence.state, current: !!row.evidence.current, forVer: row.evidence.forVer ?? null } : null,
@@ -346,7 +348,7 @@ function controlItem(e: EngineInstance, report: any, row: Row): ControlItem {
   };
 }
 
-export type WaitingSource = 'respondent-unknown' | 'owner-unknown' | 'area' | 'not-reached' | 'owner-opened' | 'scope-waiting' | 'assigned';
+export type WaitingSource = 'respondent-unknown' | 'owner-unknown' | 'area' | 'not-reached' | 'owner-opened' | 'scope-waiting' | 'assigned' | 'declined';
 export type WaitingProvenance = { kind: WaitingSource; label: string };
 
 export const WAITING_SOURCE_LABEL: Record<WaitingSource, string> = {
@@ -356,7 +358,8 @@ export const WAITING_SOURCE_LABEL: Record<WaitingSource, string> = {
   'not-reached': 'Not reached in the interview; sent as a second-stage follow-up',
   'owner-opened': 'Opened by an accountable function’s answer',
   'scope-waiting': 'Whether it applies depends on a fact that is waiting for an owner',
-  assigned: 'Sent to an accountable function'
+  assigned: 'Sent to an accountable function',
+  declined: 'Declined by the accountable function it was sent to'
 };
 
 /** Count lines under the Snapshot's waiting section: "<n> <summary>". */
@@ -367,7 +370,8 @@ export const WAITING_SOURCE_SUMMARY: Record<WaitingSource, string> = {
   'not-reached': 'not reached in the interview and sent as second-stage follow-up',
   'owner-opened': 'opened by an accountable function’s answer',
   'scope-waiting': 'apply only if a fact still with an owner holds',
-  assigned: 'sent to an accountable function for another recorded reason'
+  assigned: 'sent to an accountable function for another recorded reason',
+  declined: 'declined by the accountable function they were sent to (build 1.6)'
 };
 
 const isUnknownValue = (v: unknown) => v === 'unknown' || (Array.isArray(v) && v.length === 1 && v[0] === 'unknown');
@@ -380,6 +384,8 @@ const isUnknownValue = (v: unknown) => v === 'unknown' || (Array.isArray(v) && v
  */
 export function waitingProvenance(e: EngineInstance, report: any, row: Row): WaitingProvenance {
   const rec = e.S.ans[row.id];
+  // Build 1.6: a declined question stays outstanding with the function's reason, whatever first sent it there.
+  if (row.assignment?.status === 'declined') return { kind: 'declined', label: `Declined by ${row.assignment.fn ?? 'an accountable function'}${row.assignment.declineReason ? `: ${plain(String(row.assignment.declineReason))}` : ''}` };
   if (rec && !rec.stale && isUnknownValue(rec.v)) {
     if (rec.via === 'owner' || rec.via === 'owner-followup') return { kind: 'owner-unknown', label: `${rec.by && rec.by !== 'Respondent' ? rec.by : 'An accountable function'} answered “I don’t know”` };
     return { kind: 'respondent-unknown', label: rec.via === 'correction' ? 'The respondent changed the answer to “I don’t know”' : WAITING_SOURCE_LABEL['respondent-unknown'] };
@@ -440,7 +446,8 @@ export type CountView = { key: string; label: string; value: number; definition:
 const DEPTH_KIND_LABEL: Record<string, string> = {
   coverage: 'Only question on an objective no confirmation covers',
   diagnostic: 'Which parts of a partly reported control are in place',
-  'follow-up': 'What else is in place where a gap was reported'
+  'follow-up': 'What else is in place where a gap was reported',
+  gate: 'A fact that decides whether further questions apply'
 };
 
 export type StagedSendView = {

@@ -4,7 +4,10 @@ import { calculateFraudReadinessScore } from './scoring-engine';
  * Methodology-version dispatch.
  *
  * Every score run is calculated by the calculator of its own methodology family, and only that one:
- *   mfrs-fixed      the fixed MFRS question set (`calculateFraudReadinessScore`), reached through this dispatch;
+ *   mfrs-fixed      the fixed MFRS question set (`calculateFraudReadinessScore`). `score-assessment.ts` is protected by
+ *                   the integrity guard and still calls the calculator directly; routing it through this dispatch is a
+ *                   one-line change held for MK's integrity exception (docs/readiness-review/patches/), with parity
+ *                   proven against results pinned at 3f933ac;
  *   mfrs-adaptive   the adaptive MFRS graph, scored inside `scoreAdaptiveSubmittedAssessment` against the graph and
  *                   methodology version the assessment is pinned to (unchanged; it never reaches revised code);
  *   revised-review  the revised assessment (review engine bank 1.3). No calculator is approved, so dispatch refuses it.

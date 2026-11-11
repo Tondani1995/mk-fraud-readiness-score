@@ -177,18 +177,30 @@ const REVIEW16 = (() => {
     //            follow-up 2 under a partial gap or 1 under a gap reported not in place (what else is in place);
     //   +1 tier 1 scenario, +0.5 tier 2; +1 if other practices depend on it (its answer decides what is asked next);
     //   +1 if its objective has no known answer yet; -1 for a detail practice whose objective already has two.
+    // A candidate that cannot yet be asked because a fact or another practice decides whether it applies (a module gate
+    // such as "Has the organisation dealt with a suspected fraud in the last three years?") is replaced by that gate,
+    // valued at the best candidate it would open less 0.5, so dependencies are followed rather than left unreachable.
     // Selection takes candidates at or above minGain, highest first, within per-function, per-scenario and per-objective
     // limits. It is recomputed on every send, so answers already returned change what is selected next.
+    function gateFor(id, depth) {
+      const q = QI[id];
+      if (!q || q.retired || answered(id) || activeAssignment(id) || (depth || 0) > 4) return null;
+      if (S.assign[id] && ['declined', 'owner-unknown'].includes(S.assign[id].status)) return null;
+      const sc = scope(q);
+      if (sc.st === 'applicable') return id;
+      if ((sc.st === 'unconfirmed' || sc.st === 'prerequisite') && sc.by && sc.by !== id) return gateFor(sc.by, (depth || 0) + 1);
+      return null;
+    }
     function depthCandidates() {
       const rep = e.report();
       const objKnown = {};
       Object.keys(S.ans).forEach((id) => { if (QI[id] && QI[id].type === 'practice' && answered(id) && S.ans[id].v !== 'unknown') (ROLE[id] && ROLE[id].objectives || []).forEach((o) => { objKnown[o] = (objKnown[o] || 0) + 1; }); });
       const out = [];
+      const gates = {};
       const consider = (id, kind, scenario, worst) => {
         const q = QI[id];
         if (!q || q.retired || answered(id) || activeAssignment(id)) return;
         if (S.assign[id] && ['declined', 'owner-unknown'].includes(S.assign[id].status)) return;
-        if (scope(q).st !== 'applicable') return;
         if (out.some((c) => c.id === id)) return;
         const tier = (SCN[scenario] || {}).tier || 9;
         const objs = (ROLE[id] && ROLE[id].objectives) || [];
@@ -197,17 +209,36 @@ const REVIEW16 = (() => {
         gain += tier === 1 ? 1 : tier === 2 ? 0.5 : 0;
         if (CHILDREN[id]) gain += 1;
         if (known === 0) gain += 1; else if (known >= 2 && q.stage === 'detail') gain -= 1;
+        const sc = scope(q);
+        if (sc.st !== 'applicable') {
+          if (!['unconfirmed', 'prerequisite'].includes(sc.st)) return;
+          const g = gateFor(sc.by);
+          if (!g || g === id) return;
+          const cur = gates[g];
+          if (!cur || gain > cur.best) gates[g] = { best: gain, scenario, tier, opens: (cur ? cur.opens : 0) + 1 };
+          else cur.opens += 1;
+          return;
+        }
         out.push({ id, kind, scenario, tier, gain, objective: objs[0] || null, fn: functionOf((MOD[id] || {}).owner || 'Senior manager'), owner: (MOD[id] || {}).owner || 'Senior manager' });
       };
       const sev = { absent: 0, designed: 1, partial: 2 };
+      // A scenario whose confirmations are reported in place is still investigated when an answer already given on one
+      // of its supporting practices reports a gap (a consistency check, a function's answer): the answers so far, not a
+      // ranking chosen before them, decide where further questions are most likely to change a conclusion.
+      const contested = (sc) => [...(sc.followups || []), ...(sc.related || [])].some((id) => ['absent', 'partial', 'designed'].includes(clsNow(id)));
       rep.scenarios.filter((s) => s.status !== 'outofscope').forEach((s) => {
-        const worst = s.confirmations.map((c) => clsNow(c.id)).filter((k) => k in sev).sort((a, b) => sev[a] - sev[b])[0];
-        if (!worst) return;
         const sc = SCN[s.id];
+        let worst = s.confirmations.map((c) => clsNow(c.id)).filter((k) => k in sev).sort((a, b) => sev[a] - sev[b])[0];
+        if (!worst) { if (!s.confirmations.some((c) => clsNow(c.id) === 'full') || !contested(sc)) return; worst = 'contested'; }
         (sc.followups || []).forEach((f) => consider(f, 'follow-up', s.id, worst));
         if (worst !== 'absent') (sc.related || []).filter((id) => ROLE[id] && ROLE[id].role === 'related' && !COVERAGE_Q.has(id)).forEach((id) => consider(id, 'diagnostic', s.id, worst));
       });
       [...COVERAGE_Q].forEach((id) => { const sid = ROLE[id].scenario; const st = (rep.scenarios.find((x) => x.id === sid) || {}).status; if (st && st !== 'outofscope') consider(id, 'coverage', sid, null); });
+      Object.entries(gates).forEach(([g, x]) => {
+        if (out.some((c) => c.id === g)) return;
+        const owner = (MOD[g] || {}).owner || 'Senior manager';
+        out.push({ id: g, kind: 'gate', scenario: x.scenario, tier: x.tier, gain: x.best - 0.5, objective: null, opens: x.opens, fn: functionOf(owner), owner });
+      });
       return out.sort((a, b) => b.gain - a.gain || a.tier - b.tier || ORDER[a.scenario] - ORDER[b.scenario] || (a.id < b.id ? -1 : 1));
     }
     function selectDepth() {
@@ -235,7 +266,7 @@ const REVIEW16 = (() => {
       const made = [];
       selected.forEach((c) => {
         if (activeAssignment(c.id) || answered(c.id)) return;
-        const what = c.kind === 'coverage' ? 'the only question on an objective no confirmation covers' : c.kind === 'diagnostic' ? 'which parts of a partly reported control are in place' : 'what else is in place where a gap was reported';
+        const what = c.kind === 'coverage' ? 'the only question on an objective no confirmation covers' : c.kind === 'diagnostic' ? 'which parts of a partly reported control are in place' : c.kind === 'gate' ? 'a fact that decides whether further questions apply' : 'what else is in place where a gap was reported';
         const a = e.assign(c.id, c.owner, `Package for ${c.fn}: ${what} (“${(SCN[c.scenario] || {}).name || c.scenario}”).`);
         Object.assign(a, { origin: 'depth', kind: c.kind, scenario: c.scenario, objective: c.objective, gain: c.gain });
         made.push(c.id);
@@ -261,7 +292,12 @@ const REVIEW16 = (() => {
     // Questions in an area the respondent delegated go to the function that owns it, after that function's package items.
     function nextOwner(who, again) {
       const step = e.nextOwner(who, again);
-      if (step) return step;
+      if (step) {
+        // The base build explains a package item as a follow-up or an "I don't know"; a depth question says why it was sent.
+        const a = S.assign[step.q.id];
+        if (a && a.origin === 'depth') step.reason = `${a.why} Suggested person: ${a.owner}.`;
+        return step;
+      }
       const fn = functionOf(who);
       for (const [dom, a] of Object.entries(S.domainAssign)) {
         if (functionOf(a.owner) !== fn) continue;

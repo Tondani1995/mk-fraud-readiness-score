@@ -1,0 +1,762 @@
+{
+  "generated": "HYPOTHETICAL: research simulation, not an approved or production value",
+  "uncovered": [
+    "OBJ-D2-ownership",
+    "OBJ-D2-identification",
+    "OBJ-D2-rating",
+    "OBJ-D2-evidence",
+    "OBJ-D3-training",
+    "OBJ-D3-monitoring",
+    "OBJ-D4-scope",
+    "OBJ-D4-orders",
+    "OBJ-D4-receiving",
+    "OBJ-D4-contracts",
+    "OBJ-D4-monitoring",
+    "OBJ-D5-highrisk",
+    "OBJ-D5-conduct",
+    "OBJ-D5-verification",
+    "OBJ-D8-gateway",
+    "OBJ-D10-lastcase",
+    "OBJ-X-11"
+  ],
+  "proposal": {
+    "OBJ-D2-identification": {
+      "relevance": "Foundational",
+      "treatment": "revised-confirmation",
+      "change": {
+        "scenario": "FS-D2-01",
+        "question": "D2-I-01",
+        "route": {
+          "when": {
+            "q": "D2-G-01",
+            "in": [
+              "dedicated",
+              "erm"
+            ]
+          }
+        },
+        "removeFollowup": false
+      },
+      "why": "FS-D2-01 (\"Fraud risks are never identified\") is confirmed by D2-G-01, which records only that an assessment exists. An assessment that names general labels (\"theft\") identifies no scheme a control can be tested against. Adding D2-I-01 as a second confirmation on the route the scenario already uses for organisations with an assessment mirrors its existing route for informal or no assessment (D2-N-04).",
+      "reports": "Essential: a priority finding on risk identification and the systemic theme on governance. Comprehensive: the target operating model (risk challenge and coordination) and the blueprint for the risk assessment itself."
+    },
+    "OBJ-D4-orders": {
+      "relevance": "Foundational",
+      "treatment": "revised-confirmation",
+      "change": {
+        "scenario": "FS-D4-05",
+        "question": "D4-P-01",
+        "route": {
+          "when": null
+        },
+        "removeFollowup": false
+      },
+      "why": "FS-D4-05 (\"Invoices are paid for goods or services not received or not agreed\") is confirmed by D4-V-01, the check at the point of payment against \"what was approved\". Where nothing is approved before the commitment, the check compares the invoice with an approval raised after the event. Approval before commitment (D4-P-01, \"through a purchase order or another recorded approval\") is the \"agreed\" half of the scenario and applies to every organisation that buys.",
+      "reports": "Essential: a priority control in procurement and a fraud scenario (commitment without approval, split orders). Comprehensive: the procurement blueprint (population, frequency, independent check)."
+    },
+    "OBJ-D5-verification": {
+      "relevance": "Foundational",
+      "treatment": "revised-confirmation",
+      "change": {
+        "scenario": "FS-D5-02",
+        "question": "D5-V-01",
+        "route": {
+          "when": null
+        },
+        "removeFollowup": true
+      },
+      "why": "FS-D5-02 (\"Ghost employees are paid\") is confirmed by a review of each payroll run (D5-P-01) or of the bureau report (D5-O-05). Those reviews look at changes and totals; a ghost already on the payroll passes them every month. Matching the people paid to real employees (D5-V-01) is the control that finds one. It is currently a follow-up; it moves from the follow-ups to the confirmations of the same scenario.",
+      "reports": "Essential: the payroll priority finding and the ghost-employee scenario, which is one of the most familiar fraud stories for South African organisations. Comprehensive: the payroll blueprint."
+    },
+    "OBJ-D5-highrisk": {
+      "relevance": "Foundational",
+      "treatment": "revised-confirmation",
+      "change": {
+        "scenario": "FS-D5-12",
+        "question": "D5-H-01",
+        "route": {
+          "when": null
+        },
+        "removeFollowup": true
+      },
+      "why": "FS-D5-12 (\"An insider in a high-risk role works unchecked\") is confirmed by mandatory block leave (D5-K-01). Block leave protects only the roles the organisation has identified as high-risk; without D5-H-01 (high-risk roles identified) the confirmation can be reported in place for an undefined population. It is currently a follow-up; it moves to the confirmations of the same scenario.",
+      "reports": "Essential: the insider-risk finding. Comprehensive: the operating model (who holds money-moving and master-data rights) and the people-risk blueprint."
+    },
+    "OBJ-D3-training": {
+      "relevance": "Foundational",
+      "treatment": "revised-confirmation",
+      "change": {
+        "scenario": "FS-D3-10",
+        "question": "D3-A-03",
+        "route": {
+          "when": null
+        },
+        "removeFollowup": false
+      },
+      "why": "No confirmation asks whether the people most likely to be targeted (finance, procurement, payroll, sales and IT) are trained on the frauds they face. FS-D3-10 (\"Staff do not know or understand what is expected\") is confirmed by D3-C-04, which concerns standards of conduct. D3-A-03 is added as its second confirmation. FS-D3-10 is tier 3; whether training of high-risk roles warrants a higher tier is left to MK (prioritisation is an open decision).",
+      "reports": "Essential: a common first-90-day priority control (targeted awareness for high-risk roles). Comprehensive: the leadership decision on awareness investment and the 12-month plan."
+    },
+    "OBJ-D2-ownership": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "Management acceptance and participation in the assessment are the conditions under which FS-D2-05 (a response is decided for risks above tolerance, D2-P-01) is met. The confirmation that matters is the response; ownership explains a gap in it.",
+      "reports": "Comprehensive: target operating model (risk challenge and coordination). Essential: context for a risk-assessment finding."
+    },
+    "OBJ-D2-rating": {
+      "relevance": "Maturity",
+      "treatment": "diagnostic",
+      "why": "Rating method, inherent and residual ratings and comparison with tolerance describe how mature the assessment is. FS-D2-05 already confirms that risks above tolerance receive a decided response.",
+      "reports": "Comprehensive: current state of the risk-assessment blueprint."
+    },
+    "OBJ-D2-evidence": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "Documentation and links to other risk work make the assessment defensible and shared; they are attributes of the assessment, not a control over a fraud scenario. MK may want legal advice on whether documentation should carry more weight for the PRECCA adequate-procedures position.",
+      "reports": "Comprehensive: blueprint evidence and proof retained; operating model connections."
+    },
+    "OBJ-D3-monitoring": {
+      "relevance": "Maturity",
+      "treatment": "diagnostic",
+      "why": "Review of the ethics programme and trend reporting apply mainly to larger and public organisations and describe the second and third line over the ethics programme, not a control over a scenario.",
+      "reports": "Comprehensive: management scorecard and assurance in the operating model."
+    },
+    "OBJ-D4-receiving": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "Confirmation of receipt is already part of the FS-D4-05 confirmation (D4-V-01 asks for a check \"against confirmation that the goods or services were received\"). D4-R-01 also assumes goods: no fact in bank 1.3 separates organisations that buy only services, so as a confirmation it would be answered as a gap by service-only buyers.",
+      "reports": "Comprehensive: procurement blueprint current state; consistency check candidate (D4-R-03 is already a follow-up of FS-D4-05)."
+    },
+    "OBJ-D4-contracts": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "FS-D4-13 confirms the decisive control (variations approved before work goes ahead, D4-K-04). The register, tracking and reviews describe how well contracts are administered.",
+      "reports": "Comprehensive: procurement blueprint and scorecard measures."
+    },
+    "OBJ-D4-monitoring": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "FS-D4-12 confirms monthly senior review of supplier payments (D4-V-15). Data analysis, reviewer independence and independent examination deepen detection; they describe its quality.",
+      "reports": "Comprehensive: monitoring and detection responsibility in the operating model."
+    },
+    "OBJ-X-11": {
+      "relevance": "Proportionate",
+      "treatment": "diagnostic",
+      "why": "Independent assurance over high-risk processes is third-line activity that tests controls rather than operating one. Many owner-managed organisations have no internal audit and cannot reasonably be expected to. A size-conditioned tier 3 confirmation could be considered, but that conditioning is itself an MK decision.",
+      "reports": "Comprehensive: Audit Committee and board oversight in the operating model."
+    },
+    "OBJ-D5-conduct": {
+      "relevance": "Supporting",
+      "treatment": "diagnostic",
+      "why": "Behavioural indicators, financial-wellness support and lifestyle reviews are sensitive and partly regulated (POPIA, labour law). They inform recommendations; scoring them would reward intrusive practices.",
+      "reports": "Comprehensive: people-risk blueprint, with the lawful-basis caveat."
+    },
+    "OBJ-D4-scope": {
+      "relevance": "Not a control",
+      "treatment": "outside",
+      "why": "A scope objective: its questions switch later modules on or off. Its one practice-typed question (D4-S-07, written contracts for ongoing or significant work) is recorded as a data observation: MK may want it retyped as a fact or moved to OBJ-D4-contracts.",
+      "reports": "Context for applicability only."
+    },
+    "OBJ-D8-gateway": {
+      "relevance": "Not a control",
+      "treatment": "outside",
+      "why": "Establishes which physical things of value the organisation holds. D8-S-04 (how stock is recorded) is a fact that opens the stock controls.",
+      "reports": "Context for applicability only."
+    },
+    "OBJ-D10-lastcase": {
+      "relevance": "Not a control",
+      "treatment": "outside",
+      "why": "Facts about the most recent case. They show how fraud is found and handled here and feed narrative comparisons; one event is not a standing control and would make the frame depend on whether a case happened.",
+      "reports": "Essential and Comprehensive narrative (how the last case was found and handled); the legal reporting duty is confirmed separately in D1."
+    }
+  },
+  "applicability": {
+    "A": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 10
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 8
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 2
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 3
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 2
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 7
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 8
+      }
+    },
+    "B": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 9
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 4
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 0
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 2
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 0
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 3
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 1
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 1
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 0
+      }
+    },
+    "C": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 10
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 8
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 2
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 3
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 2
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 8
+      }
+    },
+    "D": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 10
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 8
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 2
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 3
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 2
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 7
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 8
+      }
+    },
+    "R": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 10
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 8
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 2
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 3
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 2
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 6
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 1
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 8
+      }
+    },
+    "S": {
+      "OBJ-D2-ownership": {
+        "practices": 8,
+        "applicable": 3
+      },
+      "OBJ-D2-identification": {
+        "practices": 10,
+        "applicable": 9
+      },
+      "OBJ-D2-rating": {
+        "practices": 5,
+        "applicable": 1
+      },
+      "OBJ-D2-evidence": {
+        "practices": 7,
+        "applicable": 4
+      },
+      "OBJ-D3-training": {
+        "practices": 8,
+        "applicable": 7
+      },
+      "OBJ-D3-monitoring": {
+        "practices": 3,
+        "applicable": 0
+      },
+      "OBJ-D4-scope": {
+        "practices": 1,
+        "applicable": 0
+      },
+      "OBJ-D4-orders": {
+        "practices": 6,
+        "applicable": 0
+      },
+      "OBJ-D4-receiving": {
+        "practices": 7,
+        "applicable": 0
+      },
+      "OBJ-D4-contracts": {
+        "practices": 11,
+        "applicable": 0
+      },
+      "OBJ-D4-monitoring": {
+        "practices": 6,
+        "applicable": 0
+      },
+      "OBJ-D5-highrisk": {
+        "practices": 7,
+        "applicable": 0
+      },
+      "OBJ-D5-conduct": {
+        "practices": 7,
+        "applicable": 0
+      },
+      "OBJ-D5-verification": {
+        "practices": 8,
+        "applicable": 0
+      },
+      "OBJ-D8-gateway": {
+        "practices": 1,
+        "applicable": 0
+      },
+      "OBJ-D10-lastcase": {
+        "practices": 2,
+        "applicable": 0
+      },
+      "OBJ-X-11": {
+        "practices": 9,
+        "applicable": 0
+      }
+    }
+  },
+  "frames": {
+    "P1": {
+      "A": 87.6,
+      "AplusC": 86.3,
+      "AplusP": 87.7,
+      "deltaC": -1.3,
+      "deltaP": 0.1,
+      "frameA": 108,
+      "coverageScored": 59,
+      "frameAP": 113,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    },
+    "P2": {
+      "A": 21,
+      "AplusC": 20.1,
+      "AplusP": 21.2,
+      "deltaC": -0.9,
+      "deltaP": 0.2,
+      "frameA": 106,
+      "coverageScored": 35,
+      "frameAP": 110,
+      "promotedApplicable": [
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    },
+    "P3": {
+      "A": 51.8,
+      "AplusC": 53.9,
+      "AplusP": 51.8,
+      "deltaC": 2.1,
+      "deltaP": 0,
+      "frameA": 108,
+      "coverageScored": 59,
+      "frameAP": 113,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    },
+    "P4": {
+      "A": 75.3,
+      "AplusC": 78.6,
+      "AplusP": 75.9,
+      "deltaC": 3.3,
+      "deltaP": 0.6,
+      "frameA": 49,
+      "coverageScored": 24,
+      "frameAP": 51,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D3-A-03"
+      ]
+    },
+    "P5": {
+      "A": 51.8,
+      "AplusC": 53.9,
+      "AplusP": 51.8,
+      "deltaC": 2.1,
+      "deltaP": 0,
+      "frameA": 108,
+      "coverageScored": 59,
+      "frameAP": 113,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    },
+    "P6b": {
+      "A": 87.6,
+      "AplusC": 63.1,
+      "AplusP": 85,
+      "deltaC": -24.5,
+      "deltaP": -2.6,
+      "frameA": 108,
+      "coverageScored": 59,
+      "frameAP": 113,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    },
+    "P6c": {
+      "A": 87.6,
+      "AplusC": 63.1,
+      "AplusP": 85,
+      "deltaC": -24.5,
+      "deltaP": -2.6,
+      "frameA": 108,
+      "coverageScored": 59,
+      "frameAP": 113,
+      "promotedApplicable": [
+        "D2-I-01",
+        "D4-P-01",
+        "D5-V-01",
+        "D5-H-01",
+        "D3-A-03"
+      ]
+    }
+  },
+  "burden": {
+    "P1": {
+      "respondentScreensA": 167,
+      "respondentScreensAP": 170,
+      "added": 3,
+      "breadthA": 108,
+      "breadthAP": 113
+    },
+    "P2": {
+      "respondentScreensA": 156,
+      "respondentScreensAP": 158,
+      "added": 2,
+      "breadthA": 106,
+      "breadthAP": 110
+    },
+    "P3": {
+      "respondentScreensA": 162,
+      "respondentScreensAP": 165,
+      "added": 3,
+      "breadthA": 108,
+      "breadthAP": 113
+    },
+    "P4": {
+      "respondentScreensA": 96,
+      "respondentScreensAP": 97,
+      "added": 1,
+      "breadthA": 49,
+      "breadthAP": 51
+    },
+    "P5": {
+      "respondentScreensA": 162,
+      "respondentScreensAP": 165,
+      "added": 3,
+      "breadthA": 108,
+      "breadthAP": 113
+    },
+    "P6b": {
+      "respondentScreensA": 167,
+      "respondentScreensAP": 170,
+      "added": 3,
+      "breadthA": 108,
+      "breadthAP": 113
+    },
+    "P6c": {
+      "respondentScreensA": 167,
+      "respondentScreensAP": 170,
+      "added": 3,
+      "breadthA": 108,
+      "breadthAP": 113
+    }
+  }
+}
