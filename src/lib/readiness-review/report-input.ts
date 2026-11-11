@@ -17,7 +17,7 @@ import { reportFor, waitingProvenance, type WaitingProvenance } from './view-mod
  * score, band, rating, confidence or prediction: the method withholds them until MK approves a supported method, and a
  * report engine must not derive them from this input.
  */
-export const REPORT_INPUT_CONTRACT = { name: 'mk-readiness-report-input', version: '1.0.0' } as const;
+export const REPORT_INPUT_CONTRACT = { name: 'mk-readiness-report-input', version: '1.1.0' } as const;
 
 export type AnswerVersion = {
   version: number;
@@ -26,8 +26,13 @@ export type AnswerVersion = {
   /** Practice class the engine assigned (full, partial, designed, absent, noinstance, na), or null for facts and unknowns. */
   class: string | null;
   at: string;
-  /** Channel: respondent, correction, owner, owner-followup, assumptions. */
+  /** Channel as the engine records it: respondent (including corrections), owner, or assumptions. */
   via: string;
+  /**
+   * How this version was given, from the engine's own answer log: respondent-answer, respondent-correction,
+   * owner-answer, or activities-screen. Added in 1.1.0; null only if the engine's log has no entry for it.
+   */
+  source: AnswerSource | null;
   /** Who answered: "Respondent" or the accountable function. */
   by: string | null;
   /** The role the answer was asked of, when an accountable function answered. */
@@ -35,6 +40,8 @@ export type AnswerVersion = {
   /** The respondent's optional detail, in the engine's own terms. */
   detail: { reach?: string; tested?: string; evidenceAvailable?: string; note?: string } | null;
 };
+
+export type AnswerSource = 'respondent-answer' | 'respondent-correction' | 'owner-answer' | 'activities-screen';
 
 export type ReviewRecordRef = {
   state?: string;
@@ -95,7 +102,32 @@ function moduleIndex() {
   return index;
 }
 
-function answerVersion(e: EngineInstance, qid: string, a: any): AnswerVersion {
+/**
+ * How each answer version of each question was given. The engine pairs every answer record with one entry in its own
+ * log (S.log), in order, except the activities screen, which records facts with a single entry for the screen.
+ */
+function answerSources(e: EngineInstance) {
+  const out = new Map<string, AnswerSource[]>();
+  for (const entry of (e.S.log ?? []) as any[]) {
+    if (typeof entry.q !== 'string' || entry.q.startsWith('__')) continue;
+    const source: AnswerSource = entry.kind === 'correction' ? 'respondent-correction' : entry.via === 'owner' ? 'owner-answer' : 'respondent-answer';
+    const list = out.get(entry.q) ?? [];
+    list.push(source);
+    out.set(entry.q, list);
+  }
+  return out;
+}
+
+function versionSources(rec: any, logged: AnswerSource[] | undefined) {
+  const byVersion = new Map<number, AnswerSource | null>();
+  const queue = [...(logged ?? [])];
+  for (const v of [...(rec?.hist ?? []), rec].filter(Boolean).sort((a: any, b: any) => a.ver - b.ver)) {
+    byVersion.set(v.ver, v.via === 'assumptions' ? 'activities-screen' : queue.shift() ?? null);
+  }
+  return byVersion;
+}
+
+function answerVersion(e: EngineInstance, qid: string, a: any, source: AnswerSource | null = null): AnswerVersion {
   const q = e.QI[qid];
   const detail: AnswerVersion['detail'] = {};
   for (const [from, to] of DETAIL_KEYS) if (a[from] !== undefined && a[from] !== null && a[from] !== '') detail[to] = a[from];
@@ -106,6 +138,7 @@ function answerVersion(e: EngineInstance, qid: string, a: any): AnswerVersion {
     class: a.cls ?? null,
     at: a.at,
     via: a.via,
+    source,
     by: a.by ?? null,
     role: a.role ?? null,
     detail: Object.keys(detail).length ? detail : null
@@ -119,11 +152,12 @@ function reviewRef(rec: any, kind: 'evidence' | 'review'): ReviewRecordRef | nul
   return { ...base, conclusion: rec.conclusion ?? null, label: rec.conclusion ? CONCLUSION_LABEL[rec.conclusion] ?? rec.conclusion : 'No conclusion yet', followUp: rec.followUp ?? '', limitation: rec.limitation ?? '' };
 }
 
-function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, domain: { id: string; name: string }, row: any): ControlRecord {
+function controlRecord(e: EngineInstance, report: any, modules: Map<string, { id: string; name: string }>, sources: Map<string, AnswerSource[]>, domain: { id: string; name: string }, row: any): ControlRecord {
   const sc = row.scenario ? report.scenarios.find((s: any) => s.id === row.scenario) : null;
   const rec = e.S.ans[row.id];
-  const current = rec && !rec.stale ? answerVersion(e, row.id, rec) : null;
-  const history = rec ? [...(rec.hist ?? [])].map((h: any) => answerVersion(e, row.id, h)).sort((a, b) => a.version - b.version) : [];
+  const given = versionSources(rec, sources.get(row.id));
+  const current = rec && !rec.stale ? answerVersion(e, row.id, rec, given.get(rec.ver) ?? null) : null;
+  const history = rec ? [...(rec.hist ?? [])].map((h: any) => answerVersion(e, row.id, h, given.get(h.ver) ?? null)).sort((a, b) => a.version - b.version) : [];
   const waiting = row.state === 'waiting' || row.state === 'waiting-scope';
   const owner = row.owner ?? null;
   const scoped = ['outofscope', 'proportion', 'precluded', 'retired', 'scope-unconfirmed', 'prerequisite', 'waiting-scope', 'assumed', 'unconfirmed'].includes(row.state) && (row.by !== undefined || row.basis !== undefined);
@@ -158,10 +192,11 @@ export function buildReportInput(live: LiveSession) {
   const e = live.engine;
   const report = reportFor(live);
   const modules = moduleIndex();
+  const sources = answerSources(e);
   const actions = live.record.actions;
   const domains = report.domains.map((d: any) => {
     const domain = { id: d.id, name: d.name };
-    const controls: ControlRecord[] = d.rows.map((row: any) => controlRecord(e, report, modules, domain, row));
+    const controls: ControlRecord[] = d.rows.map((row: any) => controlRecord(e, report, modules, sources, domain, row));
     return { id: d.id, name: d.name, counts: { ...d.counts } as Record<string, number>, controls };
   });
   const byId = new Map<string, ControlRecord>(domains.flatMap((d: any) => d.controls.map((c: ControlRecord) => [c.id, c] as const)));

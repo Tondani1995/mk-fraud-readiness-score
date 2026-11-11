@@ -1,6 +1,6 @@
 # Report input contract
 
-Contract name `mk-readiness-report-input`, version **1.0.0**. Defined in `src/lib/readiness-review/report-input.ts`; enforced by contract test C-23 and database test D-07.
+Contract name `mk-readiness-report-input`, version **1.1.0**. Defined in `src/lib/readiness-review/report-input.ts`; enforced by contract test C-23 and by database tests S1.3, S4.1, S5.1, S5.2 and S6.1 (`scripts/readiness-review-database-tests.mjs`), on the local and the hosted backend.
 
 This is what a reworked report engine consumes. It replaces nothing in the legacy scored track, whose reports are untouched.
 
@@ -57,14 +57,25 @@ When a report is produced (or fails), the database store records the run: `store
 | `scenario`, `role`, `objectives` | The scenario it confirms or relates to, its role there, and the objectives it serves |
 | `state`, `stateLabel` | The engine's state and its canonical wording (table below) |
 | `class`, `issue` | For a reported practice: full, partial, designed, absent, noinstance or na; `issue` is true for partial, designed and absent |
-| `answer` | The current answer: version, value, label, class, time, channel (`via`), who answered and in which role, and the respondent's optional detail (reach, tested, evidence available, note) |
-| `history` | Earlier answer versions, oldest first. When an owner answers after a respondent's "I don't know", the earlier "I don't know" is kept here |
+| `answer` | The current answer: version, value, label, class, time, channel (`via`: `respondent`, `owner` or `assumptions`, as the engine records it), how it was given (`source`, below), who answered and in which role, and the respondent's optional detail (reach, tested, evidence available, note) |
+| `history` | Earlier answer versions, oldest first, each with the same fields. When an owner answers after a respondent's "I don't know", the earlier "I don't know" is kept here; when the respondent corrects an answer, every earlier version is kept here |
 | `waiting` | For waiting controls: owner, function and `provenance` (why it is waiting, from what was recorded) |
 | `scope` | For scope states: the fact that decided it and its basis |
 | `reused` | When a wider answer established it |
 | `subPractices` | For multi-part practices, each part's class |
 | `evidence`, `review` | MK's evidence state and the reviewer's conclusion, each with the answer version it was made against and whether it is `current` |
 | `reReview` | Why a review no longer applies to the current answer |
+
+### How an answer version was given (`source`, from 1.1.0)
+
+| Value | Meaning |
+|---|---|
+| `respondent-answer` | The respondent answered the question when it was asked |
+| `respondent-correction` | The respondent changed an earlier answer; the version it replaced is in `history` |
+| `owner-answer` | An accountable function answered it |
+| `activities-screen` | Set on the activities screen (assumptions to confirm) |
+
+It is read from the engine's own answer log, which records one entry for each answer version except those set on the activities screen. A correction keeps `via: respondent`, so `source` is the field that says it was a correction.
 
 ### Control states
 
@@ -91,13 +102,18 @@ When a report is produced (or fails), the database store records the run: `store
 2. Record every run, generated or failed, with the input digest and log position.
 3. Never present a score, band, rating, confidence or prediction, and never infer one from counts.
 4. Never treat a control that was not asked, is waiting or is out of scope as a gap. Gaps are `findings.reportedGaps` only, and they are reported practice until evidence is reviewed.
-5. Present evidence and conclusions as current only when `current` is true; earlier ones are history.
+5. Present evidence and conclusions as current only when `current` is true; earlier ones are history. A record with `forVersion: null` was made against no answer at all and is never current (database test S6.2).
 6. State that the review is not complete while `method.completeness.complete` is false, and say why.
 7. Use the canonical wording in `method.vocabulary` for states and statuses, or wording MK approves in its place.
 
 ## Versioning
 
 Additive fields raise the minor version. Any change to the meaning of an existing field, or a removal, raises the major version, and report runs record the version they consumed. The input of a session recorded under contract 1.0.0 to 1.2.0 is built through the historical reader and says so in `lineage.rulesetReader`.
+
+| Version | Change |
+|---|---|
+| 1.0.0 | First version (`392859e`). Its documentation listed `correction` and `owner-followup` as values of `via`; the builder never produced them, because the engine records corrections with `via: respondent`. |
+| 1.1.0 | Adds `source` to every answer version, so a correction is identifiable; corrects the documented values of `via`. No other field changes. Inputs built under 1.0.0 differ only by the new field. |
 
 ## Size
 
