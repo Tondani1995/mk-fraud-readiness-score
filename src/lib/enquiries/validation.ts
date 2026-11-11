@@ -85,6 +85,7 @@ export type PublicAdvisoryEnquiryInput = {
   preferredContactMethod: string;
   preferredConsultationTimeframe: string;
   notes: string | null;
+  attribution: CampaignAttribution;
 };
 
 export function parsePublicAdvisoryEnquiry(
@@ -138,7 +139,8 @@ export function parsePublicAdvisoryEnquiry(
       areasOfFocus: areas,
       preferredContactMethod,
       preferredConsultationTimeframe,
-      notes: cleanMultiline(record.notes, LIMITS.notes) || null
+      notes: cleanMultiline(record.notes, LIMITS.notes) || null,
+      attribution: sanitiseCampaignAttribution(record.attribution)
     }
   };
 }
