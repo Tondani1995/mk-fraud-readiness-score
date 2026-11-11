@@ -18,6 +18,14 @@ export function reviewHarnessDirectory() {
   return process.env.MK_READINESS_REVIEW_HARNESS_DIR || path.join(process.cwd(), '.readiness-review-harness');
 }
 
+/**
+ * The review engine build new sessions are created with. Build 1.6 (staged completion) only in the fictional harness
+ * and only when asked for explicitly; every other case is build 1.5, exactly as before.
+ */
+export function reviewEngineBuild(): '1.5' | '1.6' {
+  return reviewHarnessStatus().enabled && process.env.MK_READINESS_REVIEW_ENGINE === '1.6' ? '1.6' : '1.5';
+}
+
 /** Test-only fault injection for save-failure and retry checks. Requires the harness and an explicit second flag. */
 export function reviewHarnessFaultsEnabled() {
   return reviewHarnessStatus().enabled && process.env.MK_READINESS_REVIEW_FAULTS === 'enabled';

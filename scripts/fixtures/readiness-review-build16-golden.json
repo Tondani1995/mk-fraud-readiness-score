@@ -1,0 +1,396 @@
+{
+  "P1": {
+    "respondentScreens": 167,
+    "kinds": {
+      "profile": 5,
+      "confirm": 45,
+      "consistency": 10,
+      "scope": 40,
+      "route": 4,
+      "assumptions": 1,
+      "coverage": 62
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 45,
+        "answered": 45,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      27,
+      3,
+      0
+    ],
+    "ownerScreens": {
+      "Risk and investigations": 11,
+      "Legal, compliance and ethics": 2,
+      "Procurement": 5,
+      "HR and payroll": 8,
+      "Finance": 1,
+      "Operations and sales": 3
+    },
+    "declined": 0,
+    "consistency": {
+      "eligible": 68,
+      "selected": 10,
+      "answered": 10,
+      "untested": 58,
+      "counts": {
+        "consistent": 10
+      }
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 167,
+      "Risk and investigations": 11,
+      "Legal, compliance and ethics": 2,
+      "Procurement": 5,
+      "HR and payroll": 8,
+      "Finance": 1,
+      "Operations and sales": 3
+    },
+    "actions": 444,
+    "digest": "8bb53dc1c2fb6ea2e97ba542407bd27af15255e734157701ad6e58711a007692"
+  },
+  "P2": {
+    "respondentScreens": 156,
+    "kinds": {
+      "profile": 5,
+      "confirm": 46,
+      "scope": 40,
+      "route": 4,
+      "assumptions": 1,
+      "coverage": 60
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 46,
+        "answered": 46,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 106,
+        "answered": 106,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      79,
+      4,
+      0
+    ],
+    "ownerScreens": {
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 8,
+      "IT and information": 4,
+      "Procurement": 11,
+      "HR and payroll": 15,
+      "Finance": 15,
+      "Operations and sales": 15
+    },
+    "declined": 0,
+    "consistency": {
+      "eligible": 0,
+      "selected": 0,
+      "answered": 0,
+      "untested": 0,
+      "counts": {}
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 106,
+        "answered": 106,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 156,
+      "Risk and investigations": 15,
+      "Legal, compliance and ethics": 8,
+      "IT and information": 4,
+      "Procurement": 11,
+      "HR and payroll": 15,
+      "Finance": 15,
+      "Operations and sales": 15
+    },
+    "actions": 582,
+    "digest": "6d3eaabf19423ae59fc2f210da80d07a53ab74c6f3e1f7db3aeb2f7c33bf6c0d"
+  },
+  "P3": {
+    "respondentScreens": 162,
+    "kinds": {
+      "profile": 5,
+      "confirm": 45,
+      "consistency": 5,
+      "scope": 40,
+      "route": 4,
+      "assumptions": 1,
+      "coverage": 62
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 45,
+        "answered": 45,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      68,
+      2,
+      0
+    ],
+    "ownerScreens": {
+      "Risk and investigations": 12,
+      "Legal, compliance and ethics": 2,
+      "IT and information": 4,
+      "HR and payroll": 15,
+      "Finance": 13,
+      "Operations and sales": 15
+    },
+    "declined": 9,
+    "consistency": {
+      "eligible": 32,
+      "selected": 5,
+      "answered": 5,
+      "untested": 27,
+      "counts": {
+        "consistent": 5
+      }
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 162,
+      "Risk and investigations": 12,
+      "Legal, compliance and ethics": 2,
+      "IT and information": 4,
+      "HR and payroll": 15,
+      "Finance": 13,
+      "Operations and sales": 15
+    },
+    "actions": 546,
+    "digest": "eec893d0150960fae25603f23cd6d9d1c4231a198d28eb5eb9444b0d657e524f"
+  },
+  "P4": {
+    "respondentScreens": 96,
+    "kinds": {
+      "profile": 5,
+      "confirm": 23,
+      "consistency": 5,
+      "scope": 33,
+      "route": 4,
+      "coverage": 26
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 23,
+        "answered": 23,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 49,
+        "answered": 49,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      16,
+      1,
+      0
+    ],
+    "ownerScreens": {
+      "Risk and investigations": 8,
+      "IT and information": 4,
+      "HR and payroll": 2,
+      "Finance": 3
+    },
+    "declined": 0,
+    "consistency": {
+      "eligible": 24,
+      "selected": 5,
+      "answered": 5,
+      "untested": 19,
+      "counts": {
+        "consistent": 5
+      }
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 49,
+        "answered": 49,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 96,
+      "Risk and investigations": 8,
+      "IT and information": 4,
+      "HR and payroll": 2,
+      "Finance": 3
+    },
+    "actions": 260,
+    "digest": "19736205480ecfa72a30635256420dfdc99bb9a30ee819f61e739afefff5849f"
+  },
+  "P5": {
+    "respondentScreens": 141,
+    "kinds": {
+      "profile": 5,
+      "confirm": 44,
+      "consistency": 5,
+      "scope": 35,
+      "route": 4,
+      "assumptions": 1,
+      "coverage": 47
+    },
+    "afterInterview": {
+      "core": {
+        "applicableSoFar": 45,
+        "answered": 34,
+        "withFunctions": 11,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      },
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 66,
+        "withFunctions": 42,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "sends": [
+      69,
+      4,
+      0
+    ],
+    "ownerScreens": {
+      "Executive and governance": 2,
+      "Risk and investigations": 19,
+      "Legal, compliance and ethics": 4,
+      "IT and information": 17,
+      "Procurement": 22,
+      "HR and payroll": 18,
+      "Finance": 21,
+      "Operations and sales": 20
+    },
+    "declined": 0,
+    "consistency": {
+      "eligible": 32,
+      "selected": 5,
+      "answered": 4,
+      "untested": 27,
+      "counts": {
+        "consistent": 4,
+        "missing-information": 1
+      }
+    },
+    "final": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 106,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 2,
+        "open": 0,
+        "complete": true
+      },
+      "packagesOpen": 0
+    },
+    "workload": {
+      "respondent": 141,
+      "Executive and governance": 2,
+      "Risk and investigations": 19,
+      "Legal, compliance and ethics": 4,
+      "IT and information": 17,
+      "Procurement": 22,
+      "HR and payroll": 18,
+      "Finance": 21,
+      "Operations and sales": 20
+    },
+    "actions": 677,
+    "digest": "ff311857bcfdd3053ecb27e86ffb25408991f943f22e1e33cc85f1680e27e1fa"
+  }
+}

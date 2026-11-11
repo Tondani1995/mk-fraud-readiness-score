@@ -7,7 +7,7 @@
  * recorded as explicit "serve" actions. That makes a rebuilt session identical to the live one, including its
  * timestamps, and lets every respondent or owner answer be checked against the exact question that was shown.
  */
-import { createReviewEngine, loadedRulesetProblem, type EngineInstance, type EngineStep, type ReviewClock } from './engine';
+import { createReviewEngine, isStagedEngine, loadedRulesetProblem, type DepthSelection, type EngineInstance, type EngineStep, type ReviewClock } from './engine';
 import { READINESS_REVIEW_CONTRACT } from './contract';
 
 export const REVIEW_ACTORS = ['respondent', 'owner', 'organisation', 'reviewer', 'system'] as const;
@@ -30,7 +30,10 @@ export type ReviewAction =
   | { type: 'respondent.resume' }
   | { type: 'owner.serve'; fn: string; q: string | null }
   | { type: 'owner.answer'; fn: string; q: string; value: AnswerValue }
-  | { type: 'organisation.sendToOwners' }
+  /** Build 1.6 only: an accountable function declines a question assigned to it; it stays outstanding with the reason. */
+  | { type: 'owner.decline'; fn: string; q: string; reason: string }
+  /** Build 1.6 accepts a depth selection: none, the recommended selection (default) or chosen candidate ids. */
+  | { type: 'organisation.sendToOwners'; depth?: DepthSelection }
   | { type: 'reviewer.evidence'; q: string; state: string; basis: string }
   | { type: 'reviewer.review'; q: string; conclusion: string | null; basis: string; followUp: string; limitation: string };
 
@@ -85,19 +88,21 @@ export class ReplayError extends Error {}
 /** The data this build loaded is not the data its contract declares; nothing should be replayed or written. */
 export class RulesetIntegrityError extends Error {}
 
-export function currentRuleset(): RecordedRuleset {
+export function currentRuleset(build: string = '1.5'): RecordedRuleset {
   const c = READINESS_REVIEW_CONTRACT;
+  const staged = build === c.stagedBuild.engine.build;
+  if (!staged && build !== c.engine.build) throw new Error(`No review engine build ${build}`);
   return {
-    contract: { name: c.name, version: c.version, actionSchema: c.actionSchema },
-    engine: { build: c.engine.build, sha256: c.engine.sha256 },
+    contract: staged ? { name: c.name, version: c.stagedBuild.contractVersion, actionSchema: c.stagedBuild.actionSchema } : { name: c.name, version: c.version, actionSchema: c.actionSchema },
+    engine: staged ? { build: c.stagedBuild.engine.build, sha256: c.stagedBuild.engine.sha256 } : { build: c.engine.build, sha256: c.engine.sha256 },
     bank: { version: c.bank.version, sha256: c.bank.sha256, digest: c.bank.digest },
     coverage: { version: c.coverage.version, sha256: c.coverage.sha256, digest: c.coverage.digest }
   };
 }
 
 /** A new, empty session record bound to this build's complete ruleset. */
-export function newSessionRecord(input: { sessionId: string; createdAt: string; organisationLabel: string; tokens: SessionTokens }): SessionRecord {
-  const ruleset = currentRuleset();
+export function newSessionRecord(input: { sessionId: string; createdAt: string; organisationLabel: string; tokens: SessionTokens; build?: '1.5' | '1.6' }): SessionRecord {
+  const ruleset = currentRuleset(input.build ?? '1.5');
   return {
     sessionId: input.sessionId,
     createdAt: input.createdAt,
@@ -124,6 +129,17 @@ export function validateRecordRuleset(record: SessionRecord): { ruleset: Recorde
   const refuse = (why: string) => {
     throw new ReplayError(`Session ${record.sessionId} cannot be replayed by this build: ${why}`);
   };
+  if (record.ruleset && record.ruleset.engine?.build === c.stagedBuild.engine.build) {
+    // A build 1.6 record: replayed only by this exact staged build over the same bank and coverage map.
+    const r = record.ruleset;
+    const s = c.stagedBuild;
+    if (r.contract?.name !== c.name || r.contract.version !== s.contractVersion || r.contract.actionSchema !== s.actionSchema) refuse(`it was recorded under staged contract ${r.contract?.version} with ${r.contract?.actionSchema}.`);
+    if (r.engine.sha256 !== s.engine.sha256) refuse(`it was recorded with staged engine ${String(r.engine.sha256).slice(0, 12)}; this build runs ${s.engine.sha256.slice(0, 12)}.`);
+    if (r.bank?.sha256 !== now.bank.sha256 || r.bank?.digest !== now.bank.digest || r.bank?.version !== now.bank.version) refuse(`it was recorded with question bank ${r.bank?.version} (${String(r.bank?.sha256).slice(0, 12)}).`);
+    if (r.coverage?.sha256 !== now.coverage.sha256 || r.coverage?.digest !== now.coverage.digest) refuse(`it was recorded with coverage map ${String(r.coverage?.sha256).slice(0, 12)}.`);
+    if (record.contractVersion !== r.contract.version || record.engineSha256 !== r.engine.sha256 || record.bankVersion !== r.bank.version) refuse('its summary fields disagree with its recorded ruleset.');
+    return { ruleset: r, reader: 'recorded' };
+  }
   if (record.ruleset) {
     const r = record.ruleset;
     if (r.contract?.name !== c.name) refuse(`it belongs to contract "${r.contract?.name}".`);
@@ -217,8 +233,15 @@ function applyStored(live: LiveSession, a: StoredAction) {
       live.ownerSteps[a.fn] = undefined;
       return;
     }
+    case 'owner.decline': {
+      if (!isStagedEngine(e)) throw new ReplayError(`Replay diverged at #${a.seq}: owner.decline in a build ${live.ruleset.engine.build} session`);
+      e.ownerDecline(a.q, a.fn, a.reason);
+      live.ownerSteps[a.fn] = undefined;
+      return;
+    }
     case 'organisation.sendToOwners':
-      e.planFollowUp({ by: 'The organisation' });
+      if (isStagedEngine(e)) e.planFollowUp({ by: 'The organisation', depth: a.depth ?? 'recommended' });
+      else e.planFollowUp({ by: 'The organisation' });
       return;
     case 'reviewer.evidence':
       e.setEvidence(a.q, a.state, { by: HARNESS_REVIEWER, basis: a.basis });
@@ -233,7 +256,7 @@ export function replay(record: SessionRecord): LiveSession {
   // A session is replayed only under the exact ruleset it was recorded with; it is never silently reinterpreted.
   const { ruleset, reader } = validateRecordRuleset(record);
   const clock: ReviewClock = { now: record.createdAt };
-  const live: LiveSession = { record, ruleset, rulesetReader: reader, engine: createReviewEngine(clock), clock, respondentStep: undefined, ownerSteps: {}, asOf: record.createdAt };
+  const live: LiveSession = { record, ruleset, rulesetReader: reader, engine: createReviewEngine(clock, ruleset.engine.build), clock, respondentStep: undefined, ownerSteps: {}, asOf: record.createdAt };
   for (const a of record.actions) applyStored(live, a);
   live.asOf = record.actions.at(-1)?.at ?? record.createdAt;
   return live;
@@ -395,10 +418,35 @@ export function commit(live: LiveSession, input: ReviewAction, actor: ReviewActo
       break;
     }
     case 'organisation.sendToOwners':
+      if (isStagedEngine(e)) {
+        // Build 1.6: packages can be sent once the core stage is complete, and sent again as answers change; a question
+        // already with a function is never assigned twice.
+        if (!e.stages().core.complete) throw new ActionRejected('not_allowed', 'Packages are sent to accountable functions once the core stage is complete.');
+        const depth = input.depth ?? 'recommended';
+        if (Array.isArray(depth)) {
+          const candidates = new Set(e.depthCandidates().map((c) => c.id));
+          if (depth.length > 200 || depth.some((id) => typeof id !== 'string' || !candidates.has(id))) throw new ActionRejected('invalid_input', 'The selection includes a question that is not a current candidate.');
+        } else if (depth !== 'none' && depth !== 'recommended') throw new ActionRejected('invalid_input', 'Unknown selection');
+        push(d, { type: 'organisation.sendToOwners', depth }, 'organisation');
+        break;
+      }
       if (!e.S.ended) throw new ActionRejected('not_allowed', 'Open questions are sent to accountable functions after the interview has ended.');
       if (e.S.followUp) throw new ActionRejected('not_allowed', 'Open questions have already been sent to accountable functions.');
       push(d, { type: 'organisation.sendToOwners' }, 'organisation');
       break;
+    case 'owner.decline': {
+      if (!isStagedEngine(e)) throw new ActionRejected('not_allowed', 'Declining a question is available only in staged sessions.');
+      if (!e.FUNCTIONS.includes(input.fn)) throw new ActionRejected('invalid_input', 'Unknown accountable function');
+      const a = e.S.assign[input.q];
+      const assignedHere = !!a && a.fn === input.fn && ['assigned', 'accepted', 'overdue'].includes(a.status);
+      // A delegated-area question has no assignment until it is answered or declined; it can be declined while on screen.
+      const onScreen = !a && live.ownerSteps[input.fn]?.q.id === input.q;
+      if (!assignedHere && !onScreen) throw new ActionRejected('not_allowed', 'Only a question assigned to this function, or the one on its screen, can be declined.');
+      const reason = sanitiseText(input.reason, 300);
+      if (!reason) throw new ActionRejected('invalid_input', 'A reason is required');
+      push(d, { type: 'owner.decline', fn: input.fn, q: input.q, reason }, 'owner');
+      break;
+    }
     case 'reviewer.evidence': {
       answered(input.q);
       if (!e.EV_STATES.includes(input.state)) throw new ActionRejected('invalid_input', 'Unknown evidence state');
@@ -420,10 +468,10 @@ export function commit(live: LiveSession, input: ReviewAction, actor: ReviewActo
 
   // Serves that keep the respondent's and the owner's screens consistent with the engine.
   if (RESPONDENT_ACTIONS.has(input.type)) serveRespondent(d);
-  else if (input.type === 'owner.answer' || input.type === 'organisation.sendToOwners') {
+  else if (input.type === 'owner.answer' || input.type === 'owner.decline' || input.type === 'organisation.sendToOwners') {
     const current = live.respondentStep;
     if ((current === null && !e.S.ended) || (current && !respondentStepValid(e, current))) serveRespondent(d);
-    if (input.type === 'owner.answer') serveOwner(d, input.fn, true);
+    if (input.type === 'owner.answer' || input.type === 'owner.decline') serveOwner(d, input.fn, true);
   }
   live.asOf = at;
   return d.out;

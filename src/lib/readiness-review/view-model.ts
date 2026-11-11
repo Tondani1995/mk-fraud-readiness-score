@@ -4,7 +4,7 @@
  * grouping of report fields with its rule stated next to it. No output computes its own interpretation; pages, API
  * routes and the export all call these functions, and the contract tests check that they agree.
  */
-import type { EngineInstance, EngineQuestion, EngineStep } from './engine';
+import { isStagedEngine, type EngineInstance, type EngineQuestion, type EngineStep } from './engine';
 import { READINESS_REVIEW_CONTRACT } from './contract';
 import type { LiveSession, StoredAction } from './session';
 import { ownerFunctionSlug } from './session';
@@ -136,9 +136,12 @@ export type StatusView = {
   stopReason: string;
   stopLabel: string | null;
   screensUsed: number;
-  limit: number;
-  /** Share of the respondent screen limit used. It is not a measure of completeness or readiness. */
-  pctOfLimit: number;
+  /** Build 1.5 only: the respondent screen limit. Null for staged sessions, which have no limit. */
+  limit: number | null;
+  /** Share of the respondent screen limit used (build 1.5). It is not a measure of completeness or readiness. */
+  pctOfLimit: number | null;
+  /** Build 1.6 only: completion by stage, outstanding information and function progress. */
+  stages: StageProgressView | null;
   ownerAnswers: number;
   corrections: number;
   followUpSent: boolean;
@@ -147,15 +150,71 @@ export type StatusView = {
   completeWhy: string;
 };
 
+export type StageCountView = { answered: number; withFunctions: number; declined: number; unknownToFunction: number; open: number; applicableSoFar: number; complete: boolean; pct: number };
+
+export type StageProgressView = {
+  current: 'core' | 'breadth' | 'packages' | 'complete';
+  currentLabel: string;
+  core: StageCountView;
+  breadth: StageCountView;
+  functions: { fn: string; open: number; answered: number; declined: number; unknownToFunction: number; areas: string[] }[];
+  /** Information still outstanding: with a function, declined by one (with its reason) or not known by the function. */
+  outstanding: { withFunctions: number; declined: number; unknownToFunction: number; packagesOpen: number; declinedItems: { q: string; fn: string; reason: string }[] };
+  consistency: { eligible: number; selected: number; answered: number; untested: number; counts: Record<string, number>; limitation: string };
+  workload: { actor: string; screens: number }[];
+  note: string;
+};
+
+const STAGE_LABEL: Record<StageProgressView['current'], string> = {
+  core: 'Core: the confirmations every assessment needs',
+  breadth: 'Breadth: the remaining confirmations that apply',
+  packages: 'Function packages: questions for accountable functions',
+  complete: 'Every applicable confirmation has been reached: answered, with a function or listed as outstanding'
+};
+
+/** Stage progress for a build 1.6 session, derived only from the engine's own report. */
+export function stageProgressView(report: any): StageProgressView | null {
+  const st = report.staged;
+  if (!st) return null;
+  const s = st.stages;
+  // Reached so far: answered, with a function, declined or not known by the function. Never a measure of readiness.
+  const count = (x: any): StageCountView => {
+    const declined = x.declined ?? 0;
+    const unknownToFunction = x.unknownToFunction ?? 0;
+    const reached = x.answered + x.withFunctions + declined + unknownToFunction;
+    return { ...x, declined, unknownToFunction, pct: x.applicableSoFar ? Math.round((reached / x.applicableSoFar) * 100) : 100 };
+  };
+  const fns = (s.packages.functions as any[]).filter((f) => f.open || f.answered || f.declined.length || f.unknownByOwner || f.areas.length);
+  return {
+    current: s.current,
+    currentLabel: STAGE_LABEL[s.current as StageProgressView['current']],
+    core: count(s.core),
+    breadth: count(s.breadth),
+    functions: fns.map((f) => ({ fn: f.fn, open: f.open, answered: f.answered, declined: f.declined.length, unknownToFunction: f.unknownByOwner, areas: f.areas })),
+    outstanding: {
+      withFunctions: s.breadth.withFunctions,
+      declined: fns.reduce((a, f) => a + f.declined.length, 0),
+      unknownToFunction: fns.reduce((a, f) => a + f.unknownByOwner, 0),
+      packagesOpen: s.packages.open,
+      declinedItems: fns.flatMap((f) => f.declined.map((d: { id: string; reason: string }) => ({ q: d.id, fn: f.fn, reason: d.reason }))).slice(0, 50)
+    },
+    consistency: { eligible: st.consistency.eligible, selected: st.consistency.selected, answered: st.consistency.answered, untested: st.consistency.untested, counts: st.consistency.counts, limitation: st.consistency.limitation },
+    workload: Object.entries(st.workload as Record<string, number>).map(([actor, screens]) => ({ actor: actor === 'respondent' ? 'Respondent' : actor, screens })),
+    note: s.note
+  };
+}
+
 export function statusView(report: any): StatusView {
   const s = report.status;
+  const staged = !!report.staged;
   return {
     interview: s.interview,
     stopReason: s.stopReason || '',
     stopLabel: s.stopReason ? STOP_LABEL[s.stopReason] ?? null : null,
     screensUsed: s.respondentScreens,
-    limit: LIMIT,
-    pctOfLimit: Math.min(100, Math.round((s.respondentScreens / LIMIT) * 100)),
+    limit: staged ? null : LIMIT,
+    pctOfLimit: staged ? null : Math.min(100, Math.round((s.respondentScreens / LIMIT) * 100)),
+    stages: stageProgressView(report),
     ownerAnswers: s.ownerScreens,
     corrections: s.corrections,
     followUpSent: !!s.followUpSent,
@@ -378,6 +437,38 @@ export type CountView = { key: string; label: string; value: number; definition:
 
 // ---------------------------------------------------------------------------------------------------------- snapshot
 
+const DEPTH_KIND_LABEL: Record<string, string> = {
+  coverage: 'Only question on an objective no confirmation covers',
+  diagnostic: 'Which parts of a partly reported control are in place',
+  'follow-up': 'What else is in place where a gap was reported'
+};
+
+export type StagedSendView = {
+  canSend: boolean;
+  sends: number;
+  recommended: string[];
+  candidates: { id: string; title: string; fn: string; kind: string; scenario: string }[];
+};
+
+/** Build 1.6: what the organisation can send to accountable functions now. Candidates are capped for display. */
+function stagedSendView(e: EngineInstance, report: any): StagedSendView | null {
+  if (!isStagedEngine(e)) return null;
+  const candidates = e.depthCandidates();
+  const recommended = e.selectDepth().map((c) => c.id);
+  const show = [...recommended, ...candidates.map((c) => c.id).filter((id) => !recommended.includes(id))].slice(0, 80);
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+  const scenarioName = new Map<string, string>((report.scenarios as { id: string; name: string }[]).map((s) => [s.id, s.name]));
+  return {
+    canSend: e.stages().core.complete,
+    sends: (e.S as any).v16?.sends?.length ?? 0,
+    recommended,
+    candidates: show.map((id) => {
+      const c = byId.get(id)!;
+      return { id, title: e.QI[id]?.key ?? id, fn: c.fn, kind: DEPTH_KIND_LABEL[c.kind] ?? c.kind, scenario: scenarioName.get(c.scenario) ?? c.scenario };
+    })
+  };
+}
+
 export function snapshotView(live: LiveSession) {
   const e = live.engine;
   const report = reportFor(live);
@@ -404,6 +495,7 @@ export function snapshotView(live: LiveSession) {
     organisationLabel: live.record.organisationLabel,
     asOf: live.asOf,
     status: statusView(report),
+    staged: stagedSendView(e, report),
     counts,
     reportedGaps: report.issues.map((r: Row) => controlItem(e, report, r)),
     waiting: waitingItems,
@@ -436,7 +528,10 @@ export function ownerView(live: LiveSession, fn: string) {
     step: step ? stepView(live, step, 'owner') : null,
     waitingCount: (report.ownerPackages as Record<string, number>)[fn] ?? 0,
     answeredCount: answered,
-    items: assignments.map((a) => ({ id: a.qid, title: e.QI[a.qid]?.key ?? a.qid, status: a.status, suggestedRole: a.owner, origin: a.origin === 'follow-up' ? `Follow-up for ${a.scenario}` : a.why ?? '' })),
+    items: assignments.map((a) => ({ id: a.qid, title: e.QI[a.qid]?.key ?? a.qid, status: a.status, suggestedRole: a.owner, origin: a.origin === 'follow-up' ? `Follow-up for ${a.scenario}` : a.why ?? '', declineReason: a.declineReason ?? null })),
+    /** Build 1.6: this function's own progress, including areas delegated to it. */
+    progress: stageProgressView(report)?.functions.find((f) => f.fn === fn) ?? { fn, open: 0, answered: 0, declined: 0, unknownToFunction: 0, areas: [] },
+    canDecline: !!report.staged,
     seq: live.record.actions.length
   };
 }
@@ -544,6 +639,7 @@ export function managementView(live: LiveSession) {
     organisationLabel: live.record.organisationLabel,
     asOf: live.asOf,
     status: snapshot.status,
+    staged: snapshot.staged,
     counts: snapshot.counts,
     needsAnswer: [...needsAnswerByFunction.values()].sort((a, b) => e.FUNCTIONS.indexOf(a.fn) - e.FUNCTIONS.indexOf(b.fn)),
     needsEvidence: snapshot.evidenceToReview,

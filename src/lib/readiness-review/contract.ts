@@ -53,8 +53,25 @@ export const READINESS_REVIEW_CONTRACT = {
     bankSha256: '95abc50e743f428e5829c042abc1823c517075b77204ffdf0e538aa5fe5f4419',
     coverageSha256: '9081b069f1f15dfea35afe001da69d8636345492810b36b56b30624a302c77a7'
   },
-  /** Maximum respondent screens, including the profile. Owner answers and corrections do not count. */
+  /** Maximum respondent screens, including the profile, for build 1.5 sessions. Owner answers and corrections do not count. */
   respondentScreenLimit: 95,
+  /**
+   * Build 1.6, staged completion: no respondent screen limit; core, breadth and accountable-function packages; a
+   * consistency check; depth selection; owners may decline. Selected per session in the fictional harness only
+   * (MK_READINESS_REVIEW_ENGINE=1.6), never by default, and it produces no score. Its records carry contract 1.4.0 and
+   * action schema 2; build 1.5 records keep contract 1.3.0 and replay exactly as before.
+   */
+  stagedBuild: {
+    contractVersion: '1.4.0',
+    actionSchema: 'mk-readiness-review/actions/2',
+    engine: {
+      build: '1.6',
+      file: 'vendor/review-engine-build-1.6.cjs',
+      sha256: '9b0d64dae0d24af1c92791ff7572d1911a16f40f562834a6e7bec289db3903a6',
+      composes: { build: '1.5', sha256: '7f8ca08f2626108919ef97d664d6b752fe91ae686fdd44639d1e79be5d9395ba' }
+    },
+    approval: 'Not approved by MK. Stages, the consistency check, depth selection and decline handling are proposals; build 1.6 produces no score and is inactive for customers.'
+  },
   approval: 'Not approved by MK. Scenario tiers, answer mappings, exclusions, owner functions, completion conditions and legal wording are proposals.'
 } as const;
 

@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { loadAssessmentMethodology } from '@/lib/respondent/assessment-methodology';
-import { calculateFraudReadinessScore, type ScoringResult } from '@/lib/scoring/scoring-engine';
+import { type ScoringResult } from '@/lib/scoring/scoring-engine';
+import { dispatchFixedScoring, methodologyFamilyFor } from '@/lib/scoring/methodology-dispatch';
 import type { ScoreRunType, SavedAssessmentAnswer, SavedExposureAnswer } from '@/lib/types/domain';
 
 type ScoreAssessmentOptions = {
@@ -208,7 +209,8 @@ export async function scoreSubmittedAssessment(assessmentReference: string, opti
     loadScoringAnswers(assessment.id)
   ]);
 
-  const result = calculateFraudReadinessScore({ domains, answers, exposureAnswers });
+  // Methodology-version dispatch: a fixed MFRS assessment is scored by the fixed MFRS calculator, exactly as before.
+  const result = dispatchFixedScoring(methodologyFamilyFor({ graphVersionId: null }), { domains, answers, exposureAnswers });
   if (result.summary.status !== 'scorable') {
     return { ok: false as const, status: 422, errors: ['assessment_not_scorable'], result };
   }

@@ -28,7 +28,8 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
         <section aria-labelledby="m-answer" className="rounded-md border border-mk-line bg-white p-5" data-m="answer">
           <h2 id="m-answer" className="text-lg font-semibold text-mk-ink">Needs an answer ({answerTotal})</h2>
           <p className="mt-1 text-sm leading-6 text-mk-muted">Questions and scenarios waiting for the function that would know.</p>
-          {view.status.interview === 'ended' && !view.status.followUpSent && answerTotal > 0 && <div className="mt-3"><SendToOwners token={token} seq={view.seq} /></div>}
+          {!view.staged && view.status.interview === 'ended' && !view.status.followUpSent && answerTotal > 0 && <div className="mt-3"><SendToOwners token={token} seq={view.seq} /></div>}
+          {view.staged && view.staged.canSend && view.staged.candidates.length > 0 && <div className="mt-3"><SendToOwners token={token} seq={view.seq} staged={view.staged} /></div>}
           {/* Once sent, the result of the action stays visible where it was taken. */}
           {view.ownerPackages.length > 0 && <div className="mt-3 text-sm leading-6 text-mk-ink"><OwnerPackagesNote packages={view.ownerPackages} columns={1} /></div>}
           <ul className="mt-4 space-y-3">

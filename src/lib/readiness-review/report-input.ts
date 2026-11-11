@@ -338,3 +338,38 @@ export function buildReportInput(live: LiveSession) {
 export function reportInputDigest(input: ReportInput) {
   return canonicalDigest(input);
 }
+
+// ---------------------------------------------------------------------------------------------------------- 1.3.0
+
+export const STAGED_REPORT_INPUT_CONTRACT = { name: 'mk-readiness-report-input', version: '1.3.0' } as const;
+
+/**
+ * Report input 1.3.0, built only from a build 1.6 (staged) session: the 1.2.0 input with no screen limit and a `staged`
+ * record of stages, function packages, consistency checks (outcomes recorded, never applied), workload and package
+ * sends. Additive: without `staged`, and with the 1.2.0 contract and limit restored, it is the 1.2.0 input. It carries
+ * no score; build 1.5 sessions keep producing 1.2.0 exactly as before.
+ */
+export function buildStagedReportInput(live: LiveSession) {
+  const report = reportFor(live);
+  if (!report.staged) throw new Error('Report input 1.3.0 is built only from a build 1.6 (staged) session.');
+  const base = buildReportInput(live);
+  const e = live.engine;
+  const st = report.staged;
+  return {
+    ...base,
+    contract: { ...STAGED_REPORT_INPUT_CONTRACT },
+    interview: { ...base.interview, respondentScreenLimit: null },
+    staged: {
+      build: st.build as string,
+      approval: st.approval as string,
+      stages: st.stages,
+      consistency: { ...st.consistency, outcomeLabels: { ...(e as any).OUTCOME_LABEL } },
+      workload: { ...st.workload } as Record<string, number>,
+      sends: st.sends as { at: string; by: string | null; mode: string; assigned: string[] }[],
+      packages: Object.values(e.S.assign as Record<string, any>).map((a) => ({ id: a.qid, function: a.fn as string, suggestedOwner: a.owner as string, status: a.status as string, origin: (a.origin ?? (/did not know/.test(a.why ?? '') ? 'unknown' : 'other')) as string, kind: (a.kind ?? null) as string | null, scenario: (a.scenario ?? null) as string | null, declineReason: (a.declineReason ?? null) as string | null })),
+      areaDelegations: Object.entries(e.S.domainAssign as Record<string, { owner: string }>).map(([domain, a]) => ({ domain, owner: a.owner, function: e.functionOf(a.owner) })),
+      depthCandidatesOpen: st.depthPending as number
+    }
+  };
+}
+export type StagedReportInput = ReturnType<typeof buildStagedReportInput>;

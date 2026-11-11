@@ -13,7 +13,7 @@ import { useReviewAction, type ReviewActionInput } from './useReviewAction';
 type SaveState = 'ready' | 'saving' | 'saved' | 'error';
 type HistoryItem = RespondentView['history'][number];
 
-function Orientation({ onBegin }: { onBegin: () => void }) {
+function Orientation({ onBegin, staged }: { onBegin: () => void; staged: boolean }) {
   return (
     <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12" aria-labelledby="orientation-title" data-review-orientation>
       <p className="clarity-eyebrow">Before you begin</p>
@@ -25,10 +25,17 @@ function Orientation({ onBegin }: { onBegin: () => void }) {
           Each screen asks one question. Choosing an answer saves it and moves to the next question, and Back lets you look at an earlier answer and change it. Your answers decide which
           questions apply: an activity your organisation does not carry out removes the questions that depend on it, and changing an earlier answer can open or close later ones.
         </p>
-        <p>
-          The interview stops after at most 95 screens, including the questions about your organisation. Anything it has not reached by then stays open in your Snapshot and is not
-          assumed to be either in place or missing.
-        </p>
+        {staged ? (
+          <p>
+            The assessment runs in stages and can be saved and resumed at any point. The core stage asks the confirmations every assessment needs; the breadth stage asks the rest
+            that apply to your organisation, and you can hand an area to the function that owns it. Nothing you have not answered is assumed to be in place or missing.
+          </p>
+        ) : (
+          <p>
+            The interview stops after at most 95 screens, including the questions about your organisation. Anything it has not reached by then stays open in your Snapshot and is not
+            assumed to be either in place or missing.
+          </p>
+        )}
         <p>
           If you do not know an answer, choose &ldquo;I don&rsquo;t know&rdquo;. The question then waits for the function that would know, such as Finance or HR and payroll, and nothing
           is assumed in the meantime. If a whole area is outside your knowledge, you can send the rest of it to that function in one step.
@@ -184,7 +191,7 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
     if (!outcome.retryable) setReviewIndex(null);
   }
 
-  if (screen === 'orientation') return <Orientation onBegin={() => setScreen('question')} />;
+  if (screen === 'orientation') return <Orientation onBegin={() => setScreen('question')} staged={!!initial.status.stages} />;
 
   const step = view.step;
   const reviewing: HistoryItem | null = reviewIndex !== null ? view.history[reviewIndex] ?? null : null;
@@ -198,8 +205,9 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
           Your answers are recorded
         </h1>
         <p className="mt-4 text-base leading-7 text-mk-ink">
-          {s.stopLabel ?? 'The interview has ended'}. {s.screensUsed} of the 95 respondent screens were used. Your Snapshot is prepared from these answers and lists everything that is
-          still open, including any questions waiting for other functions.
+          {s.stages
+            ? `${s.stages.core.complete ? 'The core stage is complete' : 'The core stage is not yet complete'} and ${s.stages.breadth.complete ? 'every applicable confirmation is answered or with a function' : `${s.stages.breadth.open} confirmations are still open`}. You answered ${s.screensUsed} questions. Your Snapshot lists everything that is still open, including questions waiting for other functions.`
+            : `${s.stopLabel ?? 'The interview has ended'}. ${s.screensUsed} of the 95 respondent screens were used. Your Snapshot is prepared from these answers and lists everything that is still open, including any questions waiting for other functions.`}
         </p>
         {message && <p role="status" className="mt-4 text-sm text-mk-ink">{message}</p>}
         <div className="mt-8 flex flex-wrap gap-3">
@@ -303,7 +311,11 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
           <div>
             <p className="clarity-eyebrow">FRAUD READINESS / REVIEW</p>
             <span>{shown.areaName}</span>
-            <p className="mt-1 text-sm text-mk-muted">About {s.pctOfLimit}% of the 95-screen interview limit used</p>
+            <p className="mt-1 text-sm text-mk-muted">
+              {s.stages
+                ? `${s.stages.current === 'core' ? 'Core' : 'Breadth'} stage: ${s.stages.current === 'core' ? s.stages.core.answered + s.stages.core.withFunctions : s.stages.breadth.answered + s.stages.breadth.withFunctions} of ${s.stages.current === 'core' ? s.stages.core.applicableSoFar : s.stages.breadth.applicableSoFar} confirmations so far`
+                : `About ${s.pctOfLimit}% of the 95-screen interview limit used`}
+            </p>
           </div>
           <p role="status" aria-live="polite" aria-atomic="true" className="instrument-save ml-auto" data-save-state={saveState}>
             {saveState === 'saved' ? 'Saved' : saving ? 'Selected · Saving…' : saveState === 'error' ? 'Save needs attention' : 'Ready'}
@@ -311,13 +323,13 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
           <div
             className="instrument-progress-track"
             role="progressbar"
-            aria-label="Share of the interview limit used"
-            aria-valuetext={`About ${s.pctOfLimit}% of the 95-screen interview limit used`}
+            aria-label={s.stages ? 'Stage completion so far' : 'Share of the interview limit used'}
+            aria-valuetext={s.stages ? `${s.stages.current === 'core' ? s.stages.core.pct : s.stages.breadth.pct}% of the ${s.stages.current === 'core' ? 'core' : 'breadth'} stage so far` : `About ${s.pctOfLimit}% of the 95-screen interview limit used`}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={s.pctOfLimit}
+            aria-valuenow={s.stages ? (s.stages.current === 'core' ? s.stages.core.pct : s.stages.breadth.pct) : s.pctOfLimit ?? 0}
           >
-            <i style={{ width: `${s.pctOfLimit}%` }} />
+            <i style={{ width: `${s.stages ? (s.stages.current === 'core' ? s.stages.core.pct : s.stages.breadth.pct) : s.pctOfLimit}%` }} />
           </div>
         </header>
         <div className="instrument-layout xl:[&:has(>.assessment-contextual)]:grid-cols-[160px_minmax(0,1fr)_220px]">
@@ -453,7 +465,7 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
               </div>
             )}
           </section>
-          <ReviewAreaContext areas={view.areas} screensUsed={s.screensUsed} limit={s.limit} />
+          <ReviewAreaContext areas={view.areas} screensUsed={s.screensUsed} limit={s.limit} stages={s.stages} />
         </div>
       </div>
     </div>

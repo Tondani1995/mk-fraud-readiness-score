@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { READINESS_REVIEW_CONTRACT } from './contract';
-import { reviewHarnessStatus } from './harness';
+import { reviewEngineBuild, reviewHarnessStatus } from './harness';
 import {
   ActionRejected,
   commit,
@@ -103,6 +103,7 @@ export async function createSession(organisationLabel: string): Promise<CreatedS
   const at = new Date().toISOString();
   const functions = createReviewEngine({ now: at }).FUNCTIONS;
   const record: SessionRecord = newSessionRecord({
+    build: reviewEngineBuild(),
     sessionId,
     createdAt: at,
     organisationLabel: label,
@@ -165,7 +166,7 @@ export async function exportFor(tokenValue: string) {
 const ALLOWED: Record<TokenEntry['role'], ReviewAction['type'][]> = {
   respondent: ['respondent.answer', 'respondent.assignArea', 'respondent.correct', 'respondent.stop', 'respondent.resume', 'organisation.sendToOwners'],
   management: ['organisation.sendToOwners'],
-  owner: ['owner.answer'],
+  owner: ['owner.answer', 'owner.decline'],
   reviewer: ['reviewer.evidence', 'reviewer.review'],
   links: []
 };
@@ -178,7 +179,8 @@ export async function submit(tokenValue: string, submission: Submission) {
   const entry = await resolve(tokenValue);
   if (!ALLOWED[entry.role].includes(submission.action.type)) throw new ActionRejected('not_allowed', 'This link cannot make that change.');
   if (!/^[A-Za-z0-9-]{8,64}$/.test(submission.actionId)) throw new ActionRejected('invalid_input', 'Invalid action reference');
-  const action = entry.role === 'owner' && submission.action.type === 'owner.answer' ? { ...submission.action, fn: entry.fn! } : submission.action;
+  // An accountable-function link always acts as its own function, whatever the submission names.
+  const action = entry.role === 'owner' && (submission.action.type === 'owner.answer' || submission.action.type === 'owner.decline') ? { ...submission.action, fn: entry.fn! } : submission.action;
   return serial(entry.sessionId, async () => {
     let live = await liveFor(entry.sessionId);
     // A retried submission that was already stored returns the current state instead of applying twice.

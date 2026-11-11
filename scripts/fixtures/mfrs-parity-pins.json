@@ -1,0 +1,137 @@
+{
+  "pinnedAt": "3f933ac",
+  "fixed": {
+    "all-three": {
+      "inputHash": "38fa5d7d2071452aa5ee1af566bca7bd8de18c58f314459446899e7c2c8af84e",
+      "resultHash": "a468e00b0d0da9088e77fbe8242cf567e1066bae57c69ec0b9ce14b87b20aa36",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 60,
+        "finalMaturity": "Structured",
+        "capEvents": 0
+      }
+    },
+    "all-five": {
+      "inputHash": "e741c0618ff7603d642c4cebe952e8711093118aba997be336c7e41e305461ee",
+      "resultHash": "644707c6447825973834f2ef51499f77b68b43f25839f2a0f46772fe88348a97",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 100,
+        "finalMaturity": "Strategic",
+        "capEvents": 0
+      }
+    },
+    "all-one": {
+      "inputHash": "6bb6c3af564c6564187295f0900071676274f8fe6be46bda06f902a468a8002a",
+      "resultHash": "1510222f42372b2c10ecf8297104d06333aadfc53df1b748038569c793b9ffef",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 20,
+        "finalMaturity": "Reactive",
+        "capEvents": 4
+      }
+    },
+    "mixed-by-domain": {
+      "inputHash": "8b0d3b2ce50b57f830e34014f52f160c9d5cfc51b73dab3a529e1936303edcbf",
+      "resultHash": "0e700c97e89b899faea453c05666f64d2fe0104dc8208ce4b2462145b70af088",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 60.85,
+        "finalMaturity": "Developing",
+        "capEvents": 5
+      }
+    },
+    "hard-gate-zero": {
+      "inputHash": "667632d4b94cf2de3c3affe46966314a4f410424ead87a40a8c7a89432fc94cc",
+      "resultHash": "d210ec4aeb624848f5dd142536830c57462081304728a38ada712927859a14a0",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 53.21,
+        "finalMaturity": "Developing",
+        "capEvents": 4
+      }
+    },
+    "critical-low": {
+      "inputHash": "058022180a41dda6977f2fb6f0d10db5709121d7bc5a1578678a276c57371db3",
+      "resultHash": "2069cbfb09f53699c58a82241a2c6273c00833a09bac974e1acaa4454f5f815a",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 70.77,
+        "finalMaturity": "Developing",
+        "capEvents": 3
+      }
+    },
+    "with-not-applicable": {
+      "inputHash": "d18bc81de81ff6e64591d98a7f8b31a43bcdd2c60e6222e848a2ed325b413cc5",
+      "resultHash": "099107e59acd7c1a3291ff99e21dd457807a88ec946f1e7752c7b9e56df19a00",
+      "summary": {
+        "status": "scorable",
+        "overallScore": 60,
+        "finalMaturity": "Structured",
+        "capEvents": 0
+      }
+    },
+    "incomplete": {
+      "inputHash": "388b30ce34b253775f8156116807f414a2fdc516c8ad7997520a013095e33242",
+      "resultHash": "e52fa62924091c2645a2628c28572dc16a1b16ae1f08bbc8ad5d61f32a01acd8",
+      "summary": {
+        "status": "incomplete",
+        "overallScore": null,
+        "finalMaturity": null,
+        "capEvents": 0
+      }
+    }
+  },
+  "adaptive": {
+    "mixed-controls": {
+      "inputHash": "3cd6797ad64b0c436d99c6d41adfb7f8b7e3c6ffa6a8836ddcad4d5015be5511",
+      "resultHash": "8b65a0161c454fe3420e3745d03019a8efb232a27f2bd0611959f1f0cc9d982a",
+      "summary": {
+        "status": "NORMAL",
+        "overallScore": 68.4,
+        "finalMaturity": "Developing",
+        "capEvents": 5
+      }
+    },
+    "critical-controls": {
+      "inputHash": "b9527375f5eb86ccaab792e8b1189264bc7d1026903426dffb2cba01a4ebd4c4",
+      "resultHash": "cebde49d643ecc7afb59bae69816765195e3483221fcdbc537d377d7fe70713b",
+      "summary": {
+        "status": "NORMAL",
+        "overallScore": 20,
+        "finalMaturity": "Reactive",
+        "capEvents": 4
+      }
+    },
+    "strong-controls": {
+      "inputHash": "a0ad5873934149f8f204b96d23d00664e06ff387595cc2c1d3bc87d37a02847a",
+      "resultHash": "5e5f99339d08e6a42b5a06c8515cd6b7f2177d173f244b3a2c8e922e77aa71c5",
+      "summary": {
+        "status": "NORMAL",
+        "overallScore": 100,
+        "finalMaturity": "Strategic",
+        "capEvents": 0
+      }
+    },
+    "partial-coverage": {
+      "inputHash": "0574826223728922b83a0a9dd69681dc120c361cffa31b9d1cba01c341e166d7",
+      "resultHash": "5f5eefdcb9786eb25371157ab0a249d3030b457d4a0b16f5e2186e559aec124f",
+      "summary": {
+        "status": "PROVISIONAL",
+        "overallScore": 60,
+        "finalMaturity": "Structured",
+        "capEvents": 0
+      }
+    },
+    "visibility-limited": {
+      "inputHash": "e98da05f7241e8ce066e12d9071878c31875e3b44fd1cd6eb30bcabcbdc45dcd",
+      "resultHash": "013d1f913803a8180541d577ddab0bdb9dc6f97f67ef7a4432a95e1baa038d44",
+      "summary": {
+        "status": "INSUFFICIENT_VISIBILITY",
+        "overallScore": null,
+        "finalMaturity": null,
+        "capEvents": 0
+      }
+    }
+  }
+}

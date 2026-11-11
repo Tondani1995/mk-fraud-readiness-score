@@ -147,7 +147,9 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
       <div>
         <dt className="font-medium text-mk-ink">Interview</dt>
         <dd className="text-mk-muted">
-          {status.interview === 'ended' ? `${status.stopLabel ?? 'Ended'}.` : 'In progress.'} {status.screensUsed} of 95 respondent screens used.
+          {status.stages
+            ? `${status.stages.currentLabel}. Core stage ${status.stages.core.complete ? 'complete' : `${status.stages.core.answered + status.stages.core.withFunctions} of ${status.stages.core.applicableSoFar} so far`}; all confirmations ${status.stages.breadth.complete ? 'answered or with a function' : `${status.stages.breadth.answered + status.stages.breadth.withFunctions} of ${status.stages.breadth.applicableSoFar} so far`}. The respondent answered ${status.screensUsed} questions.`
+            : `${status.interview === 'ended' ? `${status.stopLabel ?? 'Ended'}.` : 'In progress.'} ${status.screensUsed} of 95 respondent screens used.`}
           {status.ownerAnswers ? ` ${status.ownerAnswers} further answers came from accountable functions, outside that limit.` : ''}
           {status.corrections ? ` ${status.corrections} answers were changed afterwards.` : ''}
         </dd>
@@ -245,7 +247,17 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
       </Section>
       <Section id="next" title="Next steps">
         <div className="mt-4 space-y-4 text-sm leading-6 text-mk-ink">
-          {view.status.interview === 'ended' && !view.status.followUpSent && (role === 'respondent' || role === 'management') && (
+          {view.staged && view.staged.canSend && view.staged.candidates.length > 0 && (role === 'respondent' || role === 'management') && (
+            <div className="rounded-md border border-mk-line bg-white p-4" data-review-staged-send>
+              <p>
+                The core stage is complete. Questions that would add most to what is known can now go to the accountable functions that own them. Each function receives only its own
+                questions. You can send again later as answers come in; a question already with a function is never sent twice.
+                {view.staged.sends > 0 ? ` Packages have been sent ${view.staged.sends} ${view.staged.sends === 1 ? 'time' : 'times'} so far.` : ''}
+              </p>
+              <div className="mt-3"><SendToOwners token={token} seq={view.seq} staged={view.staged} /></div>
+            </div>
+          )}
+          {!view.staged && view.status.interview === 'ended' && !view.status.followUpSent && (role === 'respondent' || role === 'management') && (
             <div className="rounded-md border border-mk-line bg-white p-4">
               <p>
                 The open material scenarios can now be sent to the accountable functions that would know. Each function receives only its own questions, and their answers do not use the

@@ -1,10 +1,12 @@
 import REVIEW, { type EngineInstance } from './vendor/review-engine-build-1.5.cjs';
+import REVIEW16, { type StagedEngineInstance } from './vendor/review-engine-build-1.6.cjs';
 import bank from './data/bank-v1.3.json' with { type: 'json' };
 import coverage from './data/coverage-map-v1.3.json' with { type: 'json' };
 import { createHash } from 'node:crypto';
 import { READINESS_REVIEW_CONTRACT } from './contract';
 
 export type { EngineInstance, EngineQuestion, EngineStep } from './vendor/review-engine-build-1.5.cjs';
+export type { StagedEngineInstance, DepthCandidate, DepthSelection } from './vendor/review-engine-build-1.6.cjs';
 
 /**
  * A controllable clock. The engine stamps every record with `now()`. During replay the clock is set to each stored
@@ -34,12 +36,19 @@ export function loadedRulesetProblem(): string | null {
 export const REVIEW_PRACTICE_CLASSES: readonly string[] = REVIEW.CLASSES;
 export const REVIEW_ISSUE_CLASSES: readonly string[] = REVIEW.ISSUE;
 
-export function createReviewEngine(clock: ReviewClock): EngineInstance {
+/** Build 1.5 unless a session is bound to build 1.6 (staged completion, fictional harness only). */
+export function createReviewEngine(clock: ReviewClock, build: string = '1.5'): EngineInstance {
+  if (build === READINESS_REVIEW_CONTRACT.stagedBuild.engine.build) return REVIEW16.create(bank, coverage, { now: () => clock.now });
+  if (build !== READINESS_REVIEW_CONTRACT.engine.build) throw new Error(`No review engine build ${build}`);
   return REVIEW.create(bank, coverage, {
     ceiling: READINESS_REVIEW_CONTRACT.respondentScreenLimit,
     followups: 2,
     now: () => clock.now
   });
+}
+
+export function isStagedEngine(e: EngineInstance): e is StagedEngineInstance {
+  return (e as Partial<StagedEngineInstance>).build === '1.6';
 }
 
 export const REVIEW_BANK = bank as unknown as {
