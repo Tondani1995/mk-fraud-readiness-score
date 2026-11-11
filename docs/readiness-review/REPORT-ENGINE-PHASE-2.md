@@ -90,7 +90,7 @@ None. The engine produces internal interim documents from fictional records only
 One finding outside the report engine: the review-track interface, built before the correction, still presents reviewer evidence work as a second stage of the review, and the vendored engine defines completion in reviewer terms. The report engine ignores both; the interface needs an MK decision and approved wording (B-3 in the decisions list).
 
 
-`REPORT-ENGINE-MK-DECISIONS.md`: 18 methodological, 9 copy, 3 presentation and 2 commercial decisions; and D1 to D12 in `REPORT-ENGINE-DESIGN.md`.
+`REPORT-ENGINE-MK-DECISIONS.md`: 18 methodological, 9 copy, 3 presentation and 3 commercial and product decisions; and D1 to D12 in `REPORT-ENGINE-DESIGN.md`.
 
 ## Hosted verification
 
