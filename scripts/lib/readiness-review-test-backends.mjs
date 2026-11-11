@@ -56,7 +56,7 @@ export function hostedConfigurationInstructions() {
     '   The harness refuses a key given in an environment variable, a key file inside the repository, owned by another user or readable by others.',
     '3. From the repository root, with dependencies installed:',
     '     scripts/readiness-review-hosted-tests.sh',
-    '   It writes the results to ~/.config/mk-review/results/ and exits 0 only if every test passed and the cleanup of every record and temporary user was verified.',
+    '   It writes the results to ~/.config/mk-review/results/ and exits 0 only if every test passed and the cleanup of every record and temporary user was verified; exit code 5 means a record that this run cannot show it created was found and left untouched for investigation.',
     '4. Delete the secret key in the dashboard straight after the run, then: rm ~/.config/mk-review/temp-secret-key',
     'The key is read only by this process and is never printed or written to the results.'
   ].join('\n');

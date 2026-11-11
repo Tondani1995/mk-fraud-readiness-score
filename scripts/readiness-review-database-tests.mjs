@@ -17,12 +17,19 @@
 // user, then checks separately that each is gone. Its result is reported apart from the test results and never changes
 // them. A session is purged only if the stored record carries this run's own creation time, first action and links.
 //
+// A record the run cannot show it created (no identifying field matches: unowned; some match: ambiguous) is never
+// purged. It is reported as a cleanup exception that needs investigation, with the record left untouched.
+//
 // Exit code: 0 every executed test passed, none is blocked, cleanup verified; 1 a test or the harness failed; 2 the
 // configuration was refused and nothing ran; 3 tests are blocked; 4 cleanup could not be verified (whatever the tests
-// did); 130 or 143 interrupted, after cleanup. --access-denied runs only scenario 3 and the read-back of stored records.
+// did); 5 cleanup exception: a record this run cannot show it created was found and left untouched, investigate;
+// 129, 130 or 143 interrupted by SIGHUP, SIGINT or SIGTERM, after cleanup. Cleanup cannot run after SIGKILL, a crash
+// of Node itself, power loss or the machine being reclaimed; DATABASE-DESIGN.md says how to find what remains.
+// --access-denied runs only scenario 3 and the read-back of stored records.
 //
-// MK_REVIEW_TEST_INJECT=fail:<id>|crash:<id>|signal:<id> injects a failure after test <id> has created its records, to
-// show that cleanup still runs: the test fails, the harness throws, or the process receives SIGTERM.
+// MK_REVIEW_TEST_INJECT=<mode>:<id> injects a fault after test <id> has created its records: fail (the test fails),
+// crash (the harness throws), signal (SIGTERM), or, on the local backend only, foreign or ambiguous (a record of
+// another run whose id this run believes it used, with no or some identifying fields matching).
 //
 // Every record is fictional, is screened for personal data before it is sent and again when read back. No key, token
 // or temporary user detail is printed or written: every detail and error passes through redactText first.
@@ -57,6 +64,8 @@ const results = [];
 const created = new Map();
 const harnessErrors = [];
 const extraSensitive = [];
+/** Records found that this run cannot show it created: never deleted, always reported for investigation. */
+const cleanupExceptions = [];
 let screenedSent = 0;
 let backend = null;
 let cleanupResult = null;
@@ -75,12 +84,14 @@ function finish({ refused = null, interrupted = null } = {}) {
   const shown = results.map((r) => ({ ...r, name: r.name, detail: redact(r.detail) }));
   const summary = shown.reduce((a, r) => ((a[r.status] = (a[r.status] || 0) + 1), a), {});
   const verdict = refused ? 'REFUSED' : interrupted ? 'INTERRUPTED' : summary.fail || harnessErrors.length ? 'FAIL' : summary.blocked ? 'BLOCKED' : 'PASS';
-  const code = refused ? 2 : cleanupResult && !cleanupResult.verified ? 4 : interrupted ? (interrupted === 'SIGINT' ? 130 : 143) : summary.fail || harnessErrors.length ? 1 : summary.blocked ? 3 : 0;
+  const signalCode = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 };
+  const code = refused ? 2 : cleanupResult?.status === 'not-verified' ? 4 : cleanupResult?.status === 'exception' ? 5 : interrupted ? signalCode[interrupted] : summary.fail || harnessErrors.length ? 1 : summary.blocked ? 3 : 0;
   shown.forEach((r) => console.log(`${r.id.padEnd(5)} ${r.status.padEnd(7)} ${r.name}\n        ${r.detail}`));
   harnessErrors.forEach((e) => console.log(`HARNESS ${redact(e)}`));
-  if (cleanupResult) console.log(`CLEANUP ${cleanupResult.verified ? 'verified' : 'NOT VERIFIED'}: ${redact(JSON.stringify(cleanupResult))}`);
+  if (cleanupResult) console.log(`CLEANUP ${cleanupResult.status === 'verified' ? 'verified' : cleanupResult.status === 'exception' ? 'EXCEPTION, INVESTIGATE' : 'NOT VERIFIED'}: ${redact(JSON.stringify(cleanupResult))}`);
+  for (const e of cleanupResult?.exceptions ?? []) console.log(`CLEANUP EXCEPTION ${e.ownership} record ${e.id}, found by ${e.foundBy}: ${e.action}${e.leftUntouched === undefined ? '' : `; left untouched ${e.leftUntouched}`}`);
   const out = { backend: backend?.mode ?? process.env.MK_REVIEW_TEST_BACKEND ?? null, target: backend?.target ?? null, verdict, summary, cleanup: cleanupResult, exitCode: code, fixtureInputDigest: fixtureDigest, ...(refused ? { refused: redact(refused) } : {}), ...(interrupted ? { interrupted } : {}), ...(harnessErrors.length ? { harnessErrors: harnessErrors.map(redact) } : {}) };
-  console.log(redact(JSON.stringify({ ...out, cleanup: cleanupResult ? cleanupResult.verified : null })));
+  console.log(redact(JSON.stringify({ ...out, cleanup: cleanupResult ? cleanupResult.status : null })));
   if (process.env.MK_REVIEW_DB_RESULTS) writeFileSync(process.env.MK_REVIEW_DB_RESULTS, redact(JSON.stringify({ ...out, preflight: backend?.preflight ?? null, results: shown }, null, 1)));
   process.exit(code);
 }
@@ -99,13 +110,28 @@ if (backend.serviceBlocked) console.error(`BLOCKED (tests that need the secret k
 // ------------------------------------------------------------------------------------------------ fault injection
 class InjectedCrash extends Error {}
 const INJECT = (() => {
-  const m = /^(fail|crash|signal):([A-Z][0-9.]+)$/.exec(process.env.MK_REVIEW_TEST_INJECT ?? '');
+  const m = /^(fail|crash|signal|foreign|ambiguous):([A-Z][0-9.]+)$/.exec(process.env.MK_REVIEW_TEST_INJECT ?? '');
   return m ? { mode: m[1], id: m[2] } : null;
 })();
 async function inject(id) {
   if (!INJECT || INJECT.id !== id) return null;
   if (INJECT.mode === 'fail') return 'injected failure after the test created its records';
   if (INJECT.mode === 'crash') throw new InjectedCrash(`injected harness crash after ${id} created its records`);
+  if (INJECT.mode === 'foreign' || INJECT.mode === 'ambiguous') {
+    // Another run's record whose id this run believes it used. Never on a hosted project: the record would remain.
+    if (backend.mode !== 'local') return 'foreign and ambiguous records are injected only on the local backend; nothing was injected';
+    const other = newSession('Fictional Record Of Another Run');
+    await new DatabaseReviewStore(client).create(other.record);
+    const partly = INJECT.mode === 'ambiguous';
+    created.set(other.record.sessionId, {
+      createdAt: partly ? other.record.createdAt : '2000-01-01T00:00:00.000Z',
+      label: partly ? other.record.organisationLabel : 'Fictional Label This Run Used',
+      firstActionId: 'not-the-first-action-of-that-record',
+      respondent: token(),
+      tokens: []
+    });
+    return null;
+  }
   setInterval(() => {}, 1000);
   process.kill(process.pid, 'SIGTERM');
   return new Promise(() => {});
@@ -157,9 +183,18 @@ function fictionalActions(actions, sending = true) {
 function track(record) {
   created.set(record.sessionId, { createdAt: record.createdAt, label: record.organisationLabel, firstActionId: record.actions[0]?.id ?? null, respondent: record.tokens.respondent, tokens: allTokens(record) });
 }
-/** Whether a stored record is the one this run created: same creation time, label, first action and respondent link. */
-function ownedBy(stored, mark) {
-  return stored.createdAt === mark.createdAt && stored.organisationLabel === mark.label && (stored.actions[0]?.id ?? null) === mark.firstActionId && sha256Hex(stored.tokens?.respondent ?? '') === sha256Hex(mark.respondent);
+/**
+ * Whether a stored record is the one this run created: owned when its creation time, label, first action and respondent
+ * link all match what this run sent; unowned when none does; ambiguous when some do. Only an owned record is purged.
+ */
+function ownership(stored, mark) {
+  const same = [
+    stored?.createdAt === mark.createdAt,
+    stored?.organisationLabel === mark.label,
+    (stored?.actions?.[0]?.id ?? null) === mark.firstActionId,
+    typeof stored?.tokens?.respondent === 'string' && sha256Hex(stored.tokens.respondent) === sha256Hex(mark.respondent)
+  ].filter(Boolean).length;
+  return same === 4 ? 'owned' : same === 0 ? 'unowned' : 'ambiguous';
 }
 /** The store under test, screening every record before it is sent and remembering every session for cleanup. */
 function screened(inner) {
@@ -375,7 +410,7 @@ async function scenarios() {
     return [failed.length === 0, `${Object.keys(cases).length} cases, all as expected${failed.length ? ` except ${failed.join(', ')}` : ''}${otherUser === null ? '; a key file of another user cannot be made by this user, so that case was not run' : ''}; a hosted run also checks over the network that the API answers as ${ref}, that the public key is refused and that the secret key can execute the eight store functions`];
   }, { needs: 'none' });
 
-  await T('H.3', 'Harness self-checks: errors are redacted before any output, and only recognised permission or not-exposed errors count as denial', async () => {
+  await T('H.3', 'Harness self-checks: errors are redacted before any output; only recognised permission or not-exposed errors count as denial; only a fully matching record counts as this run\'s own', async () => {
     const ref = backends.AUTHORISED_HOSTED_TEST_PROJECT_REF;
     const jwt = (claims) => `${Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.fictional-signature-0000`;
     const planted = {
@@ -406,7 +441,18 @@ async function scenarios() {
       tooFewTablesNotDenial: tableDenied([], 'hosted') === false
     };
     const failed = Object.entries(denial).filter(([, v]) => !v).map(([k]) => k);
-    return [leaked.length === 0 && failed.length === 0, `error output keeps none of ${Object.keys(planted).length} planted credentials and details${leaked.length ? ` (leaked: ${leaked.join(', ')})` : ''}, for example "${shown.split(' | ')[0].slice(0, 150)}…"; denial rules: ${Object.keys(denial).length} cases as expected${failed.length ? ` except ${failed.join(', ')}` : ''}`];
+    const sample = newSession('Fictional Ownership Check Co').record;
+    const mark = { createdAt: sample.createdAt, label: sample.organisationLabel, firstActionId: sample.actions[0].id, respondent: sample.tokens.respondent };
+    const owner = {
+      allMatch: ownership(sample, mark) === 'owned',
+      noneMatch: ownership(sample, { createdAt: 'x', label: 'y', firstActionId: 'z', respondent: token() }) === 'unowned',
+      respondentLinkDiffers: ownership(sample, { ...mark, respondent: token() }) === 'ambiguous',
+      onlyTimeMatches: ownership(sample, { createdAt: mark.createdAt, label: 'y', firstActionId: 'z', respondent: token() }) === 'ambiguous',
+      malformedRecord: ownership({ sessionId: 'x' }, mark) === 'unowned',
+      partialRecord: ownership({ createdAt: sample.createdAt }, mark) === 'ambiguous'
+    };
+    const ownerFailed = Object.entries(owner).filter(([, v]) => !v).map(([k]) => k);
+    return [leaked.length === 0 && failed.length === 0 && ownerFailed.length === 0, `error output keeps none of ${Object.keys(planted).length} planted credentials and details${leaked.length ? ` (leaked: ${leaked.join(', ')})` : ''}, for example "${shown.split(' | ')[0].slice(0, 150)}…"; denial rules: ${Object.keys(denial).length} cases as expected${failed.length ? ` except ${failed.join(', ')}` : ''}; ownership rules: ${Object.keys(owner).length} cases as expected${ownerFailed.length ? ` except ${ownerFailed.join(', ')}` : ''}`];
   }, { needs: 'none' });
 
   // ------------------------------------------------------------------------------------------------ 1. creation, retrieval, appends, corrections
@@ -861,7 +907,8 @@ async function scenarios() {
       track(live.record);
       origin = 'an identical fixture left by an interrupted run was found, verified as this harness\'s own record and reused';
     } else {
-      return [false, `a session with the fixture id ${FIXTURE_ID} exists and is not this harness's fixture; it was left untouched and is not cleaned up`];
+      cleanupExceptions.push({ id: FIXTURE_ID, ownership: 'unowned', foundBy: 'S5.1', action: 'a record with the fixture id differs from the fixture; left untouched; investigate' });
+      return [false, `a session with the fixture id ${FIXTURE_ID} exists and is not this harness's fixture; it was left untouched and raised as a cleanup exception`];
     }
     const first = await store.load(FIXTURE_ID);
     const second = await store.load(FIXTURE_ID);
@@ -1045,8 +1092,8 @@ const retry = async (f) => { try { return await f(); } catch { return f(); } };
  */
 async function cleanUp(reason) {
   closing = true;
-  const out = { reason, verified: false, sessions: { tracked: created.size, purged: 0, alreadyAbsent: 0, notOwned: 0, confirmedAbsent: 0, links: 0, linksConfirmedAbsent: 0 }, users: null, errors: [] };
-  const notOwned = new Set();
+  const out = { reason, status: 'not-verified', verified: false, sessions: { tracked: created.size, purged: 0, alreadyAbsent: 0, notOwned: 0, confirmedAbsent: 0, links: 0, linksConfirmedAbsent: 0 }, users: null, exceptions: [...cleanupExceptions], errors: [] };
+  const notOwned = new Map();
   if (store) {
     for (const [id, mark] of created) {
       try {
@@ -1055,9 +1102,11 @@ async function cleanUp(reason) {
           out.sessions.alreadyAbsent++;
           continue;
         }
-        // Never purge a record this run cannot show it created.
-        if (!ownedBy(stored, mark)) {
-          notOwned.add(id);
+        // Never purge a record this run cannot show it created: raise it for investigation instead.
+        const owner = ownership(stored, mark);
+        if (owner !== 'owned') {
+          notOwned.set(id, canonicalJson(stored));
+          out.exceptions.push({ id, ownership: owner, foundBy: 'cleanup', action: 'not purged; left untouched; investigate' });
           continue;
         }
         if (await retry(() => store.purge(id))) out.sessions.purged++;
@@ -1079,6 +1128,15 @@ async function cleanUp(reason) {
     }
   }
   out.sessions.notOwned = notOwned.size;
+  // Confirm that every record raised as an exception is still there and unchanged.
+  for (const e of out.exceptions) {
+    if (!notOwned.has(e.id)) continue;
+    try {
+      e.leftUntouched = canonicalJson(await store.load(e.id)) === notOwned.get(e.id);
+    } catch (error) {
+      out.errors.push(`recheck ${e.id.slice(0, 8)}: ${describeError(error)}`);
+    }
+  }
   try {
     out.users = await backend.cleanup();
   } catch (error) {
@@ -1086,14 +1144,16 @@ async function cleanUp(reason) {
   }
   out.users.errors = out.users.errors.map((e) => redact(e));
   const s = out.sessions;
-  out.verified = out.errors.length === 0 && out.users.errors.length === 0 && s.confirmedAbsent === s.tracked - s.notOwned && s.linksConfirmedAbsent === s.links && out.users.confirmedAbsent === out.users.created;
+  const removed = out.errors.length === 0 && out.users.errors.length === 0 && s.confirmedAbsent === s.tracked - s.notOwned && s.linksConfirmedAbsent === s.links && out.users.confirmedAbsent === out.users.created;
+  out.status = !removed ? 'not-verified' : out.exceptions.length ? 'exception' : 'verified';
+  out.verified = out.status === 'verified';
   return out;
 }
 let finalising = null;
 const finalise = (reason) => (finalising ??= cleanUp(reason).then((r) => (cleanupResult = r)));
 
 let stopping = false;
-for (const signal of ['SIGINT', 'SIGTERM']) {
+for (const signal of ['SIGHUP', 'SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     if (stopping) return;
     stopping = true;
