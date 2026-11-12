@@ -2,14 +2,14 @@
  "P6b/essential": {
   "pass": true,
   "pages": 21,
-  "words": 4368,
+  "words": 4442,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "b1803218342b",
+  "pdf": "260773e5d5e1",
   "workbook": [
    "Read me 19",
    "Findings 25",
@@ -24,14 +24,14 @@
  "P6b/comprehensive": {
   "pass": true,
   "pages": 33,
-  "words": 4859,
+  "words": 5026,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "7edc830ba237",
+  "pdf": "8c5f81408f87",
   "workbook": [
    "Read me 18",
    "Summary 10",
@@ -46,19 +46,14 @@
  "P3/essential": {
   "pass": true,
   "pages": 20,
-  "words": 3531,
+  "words": 3566,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
-  "sparsePages": [
-   {
-    "page": 12,
-    "chars": 419
-   }
-  ],
-  "pdf": "21d7e04bf71b",
+  "sparsePages": [],
+  "pdf": "4bb8518e9ac9",
   "workbook": [
    "Read me 19",
    "Findings 59",
@@ -73,14 +68,14 @@
  "P3/comprehensive": {
   "pass": true,
   "pages": 31,
-  "words": 4080,
+  "words": 4223,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "cb0b44170523",
+  "pdf": "95954f749021",
   "workbook": [
    "Read me 18",
    "Summary 10",
@@ -102,7 +97,7 @@
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "aeed2c11b287",
+  "pdf": "a54c8ec3a542",
   "workbook": [
    "Read me 19",
    "Findings 11",
@@ -116,15 +111,15 @@
  },
  "P4/comprehensive": {
   "pass": true,
-  "pages": 29,
-  "words": 2836,
+  "pages": 28,
+  "words": 2924,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "2649d028dd14",
+  "pdf": "47562abec99f",
   "workbook": [
    "Read me 18",
    "Summary 10",
@@ -138,15 +133,15 @@
  },
  "P5/essential": {
   "pass": true,
-  "pages": 19,
-  "words": 3097,
+  "pages": 20,
+  "words": 3132,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
   "sparsePages": [],
-  "pdf": "bc7c807b6b7c",
+  "pdf": "5bb547ba0e5c",
   "workbook": [
    "Read me 19",
    "Findings 59",
@@ -160,20 +155,15 @@
  },
  "P5/comprehensive": {
   "pass": true,
-  "pages": 32,
-  "words": 3552,
+  "pages": 31,
+  "words": 3687,
   "fonts": [
    "Poppins-SemiBold",
    "Poppins-Medium",
    "Poppins-Regular"
   ],
-  "sparsePages": [
-   {
-    "page": 8,
-    "chars": 383
-   }
-  ],
-  "pdf": "2e0de3874401",
+  "sparsePages": [],
+  "pdf": "663a2b711f88",
   "workbook": [
    "Read me 18",
    "Summary 10",

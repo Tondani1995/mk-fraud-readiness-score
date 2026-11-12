@@ -45,11 +45,26 @@ for (const [k, product] of jobs) {
   fs.writeFileSync(path.join(dir, `${product}-validation.json`), JSON.stringify(validation, null, 1) + '\n');
   fs.writeFileSync(path.join(dir, `${product}-manuscript.txt`), plainManuscript(md, fp, plan));
   if (!validation.pass) { console.log(k, product, 'VALIDATION FAILED: not composed', validation.issues.filter((i) => i.blocking).map((i) => i.code).join(',')); summary[`${k}/${product}`] = { pass: false }; continue; }
-  const base = { md, fp, plan, dateLabel: '12 November 2026', prototype: true };
+  const base = { md, fp, plan, dateLabel: '12 November 2026', prototype: true, flowSections: [] };
   let { html, sections } = composeRevisedReportHtml(base);
   const tmp = path.join(dir, `${product}.pass1.pdf`);
   fs.writeFileSync(tmp, (await renderPublicationPdf(html)).pdf);
-  const texts = pagesText(tmp);
+  let texts = pagesText(tmp);
+  // Page rhythm: a section that starts a new page after a near-empty last page of the previous section follows on
+  // instead, then the report is laid out again before the page map is taken.
+  const bodyChars = (t) => t.replace(/mk fraud insights|confidential.*$/g, '').length;
+  const flowSections = [];
+  sections.forEach((s, i) => {
+    if (i < 2) return;
+    const p = findPage(texts, s.heading, 2);
+    if (p && p > 3 && bodyChars(texts[p - 2]) < 700 && !findPage([texts[p - 2]], s.heading)) flowSections.push(s.id);
+  });
+  if (flowSections.length) {
+    base.flowSections = flowSections;
+    ({ html, sections } = composeRevisedReportHtml(base));
+    fs.writeFileSync(tmp, (await renderPublicationPdf(html)).pdf);
+    texts = pagesText(tmp);
+  }
   fs.unlinkSync(tmp);
   const pageMap = {};
   // Skip the cover and the contents pages, which list every heading.
@@ -79,7 +94,7 @@ for (const [k, product] of jobs) {
     versions: { factPack: fp.version, storyPlan: plan.version, validator: validation.validator, composer: REVISED_COMPOSER_VERSION, publication: MK_PUBLICATION_VERSION, workbook: BIBLE_WORKBOOK_VERSION, content: fp.contentVersions },
     hashes: { factPack: fp.sha256, manuscript: sha(md), html: sha(html), pdf: sha256, workbook: wb.sha256 },
     workbookSheets: wb.sheets,
-    pages, fonts, generatedLabel: base.dateLabel, prototype: true
+    pages, fonts, flowSections: base.flowSections, generatedLabel: base.dateLabel, prototype: true
   };
   fs.writeFileSync(path.join(dir, `${product}-manifest.json`), JSON.stringify(manifest, null, 1) + '\n');
   summary[`${k}/${product}`] = { pass: true, pages, words: validation.stats.words, fonts, sparsePages: sparse, pdf: sha256.slice(0, 12), workbook: wb.sheets.map((x) => `${x.name} ${x.rows}`) };

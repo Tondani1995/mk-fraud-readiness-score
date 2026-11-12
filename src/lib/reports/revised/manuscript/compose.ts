@@ -22,7 +22,9 @@ function typeset(s: string): string {
 const prose = (text: string, fp: RevisedFactPack) => esc(typeset(fillSlots(text, fp).text));
 
 export type PageMap = Record<string, number>;
-export type ComposeInput = { md: string; fp: RevisedFactPack; plan: RevisedStoryPlan; pageMap?: PageMap; dateLabel: string; prototype: boolean };
+export type ComposeInput = { md: string; fp: RevisedFactPack; plan: RevisedStoryPlan; pageMap?: PageMap; dateLabel: string; prototype: boolean;
+  /** Sections that follow on from the previous page instead of starting a new one, because the previous section would otherwise end on a near-empty page. */
+  flowSections?: string[] };
 
 export function composeRevisedReportHtml(input: ComposeInput): { html: string; sections: { id: string; heading: string; units: string[] }[] } {
   const { fp, plan } = input;
@@ -38,7 +40,7 @@ export function composeRevisedReportHtml(input: ComposeInput): { html: string; s
   for (const s of parsed.sections) {
     const ps = plan.sections.find((x) => x.id === s.id);
     outline.push({ id: s.id, heading: fillSlots(s.heading, fp).text, units: s.blocks.filter((b) => b.type === 'h2').map((b) => fillSlots(b.text, fp).text) });
-    body.push(sectionHtml(s, ps?.units ?? [], input, ps?.newPage !== false, parsed.sections, outline));
+    body.push(sectionHtml(s, ps?.units ?? [], input, ps?.newPage !== false && !(input.flowSections ?? []).includes(s.id), parsed.sections, outline));
   }
   body.push(backCover(input));
   const html = `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(product === 'essential' ? 'Fraud Readiness Report' : 'Fraud Readiness Strategy and Control Blueprint')}: ${esc(fp.organisation.name)}</title>
@@ -159,7 +161,12 @@ function position(fp: RevisedFactPack): string {
   const text: Record<string, (p: { value: string; text: string }) => string> = {
     calculated: () => 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.',
     inconsistencies: (p) => p.text,
-    interpretation: (p) => p.text.replace(/ This reads self-reported answers; nothing has been tested\.$/, ' This reads the organisation\'s own answers.'),
+    interpretation: () => {
+      // Same counts, same framing as the executive summary: held, open to settle, outstanding and gap add up to the total.
+      const n = (r: string) => Number(fp.facts[r]?.value ?? 0);
+      const held = n('N-REPORTED-HELD'), apply = n('N-APPLY'), settle = n('N-SETTLE'), outs = n('N-OUTSTANDING-SCHEMES'), gap = n('N-GAP');
+      return `On its own answers, the organisation reports the core control in place for ${held} of the ${apply} fraud scenarios that apply${settle ? `; ${settle} more have answers to settle or clarify` : ''}${outs ? `; ${outs} cannot yet be read because answers are outstanding` : ''}; and ${gap} ${gap === 1 ? 'has' : 'have'} a core control reported as a gap.`;
+    },
     conclusion: () => 'MK states its readiness conclusion here under its approved readiness method. Until then the report sets out what the answers establish.'
   };
   const keys = ['calculated', 'inconsistencies', 'interpretation', 'conclusion'];

@@ -1,6 +1,6 @@
 # Writer brief: Essential manuscript for Fictional Retail Group (extensive unanswered information)
 
-Fact Pack revised-fact-pack-0.1 (5bb1eed050a8), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
+Fact Pack revised-fact-pack-0.1 (0f292539dfa0), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
 
 ## Contract
 
@@ -306,6 +306,10 @@ Selection rule: Settling answers comes first where there are any; then the contr
 - **PRIORITY-04** Application documents verified (control). Why: Credit is obtained with fabricated documents. Establish: The key information in every credit application is verified with its source, such as the employer, the bank or a verification service, before credit is approved. Accountable: Chief financial officer. Practical owner: Finance lead. Stage: 60 days, proposed. Success measure: Every credit application in the period has a credit application file showing the key information verified with its source before approval.
 - **PRIORITY-05** Block leave required (control). Why: An insider in a high-risk role works unchecked. Establish: Everyone in a sensitive role takes a block of consecutive leave each year, with their work done by someone else, and exceptions are approved. Accountable: Chief financial officer. Practical owner: HR and payroll lead. Stage: 60 days, proposed. Success measure: Every person in a sensitive role in scope took a block of leave in the year with their work done by someone else, or has an approved exception.
 - **PRIORITY-06** Customer detail changes verified (control). Why: Customer details are changed to divert money or goods. Establish: Every change to a customer's refund account, delivery address or contact numbers is verified with the customer through details already on file, and is made by someone outside sales. Accountable: Chief financial officer. Practical owner: Commercial and customer lead. Stage: 60 days, proposed. Success measure: Every change to customer details in the period was verified with the customer through details already on file before it took effect, and was made by someone outside sales.
+
+## South African legal context (cite only where it bears on a finding; state what the law provides, never that the organisation breached it)
+
+- **LAW-01** (Digital, cyber-enabled and identity fraud, Compromises reported as POPIA requires): Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?
 
 ## Proposed stages
 

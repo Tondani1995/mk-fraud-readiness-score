@@ -166,8 +166,8 @@ Every investigation is reported as carried out by people independent of the area
 Both can be right if HR, or a manager from another area, carries out the investigation. They would conflict if a line manager ever investigates a matter in the area they manage. The answers do not say whether that happens.
 <!-- refs: FINDING-06 -->
 
-An investigation conducted by someone close to the matter may reach a conclusion that does not withstand a disciplinary hearing or a court, and a report that reaches a manager who is implicated may be closed without action. The investigations lead should state whether line managers ever investigate their own area and, where they do, how independence is achieved.
-<!-- refs: FINDING-06, PRIORITY-02 -->
+An investigation conducted by someone close to the matter may reach a conclusion that does not withstand a disciplinary hearing or a court, and a report that reaches a manager who is implicated may be closed without action. The question also bears on the group's legal duties. Where section 34 of PRECCA applies, the matter must be reported to the police, and a criminal case rests on an investigation that a court will examine. The investigations lead should state whether line managers ever investigate their own area and, where they do, how independence is achieved.
+<!-- refs: FINDING-06, PRIORITY-02, LAW-01 -->
 
 [[exhibit:finding:FINDING-06]]
 
@@ -243,8 +243,8 @@ The [[N-CLARIFY|w]] open questions sit with the process owners in risk, finance,
 A monthly senior review of supplier payments, carried out by someone who does not process payments, closes the gap that allows split orders, duplicate invoices and changed bank details to pass unseen. The finance lead owns it, with the chief financial officer accountable, and its measure is a review that ran every month with every query answered.
 <!-- refs: PRIORITY-03 -->
 
-Link checks before any donation or sponsorship is committed close the route by which a donation could channel a bribe to a public official, a customer's decision-maker or an employee. The ethics lead owns them, and every commitment in the period should have an approval file showing the checks completed first.
-<!-- refs: PRIORITY-04 -->
+Link checks before any donation or sponsorship is committed close the route by which a donation could channel a bribe to a public official, a customer's decision-maker or an employee. Section 34A of PRECCA makes the organisation itself liable when someone associated with it pays a bribe, unless it had adequate procedures, and a recorded check before each commitment is the kind of procedure that defence depends on. The ethics lead owns the checks, and every commitment in the period should have an approval file showing them completed first.
+<!-- refs: PRIORITY-04, LAW-02 -->
 
 Supervisor approval of hours and overtime against the roster or attendance record, before payment, closes the route by which hours are inflated. The HR and payroll lead owns it, and every timesheet paid should carry a supervisor's prior approval.
 <!-- refs: PRIORITY-05 -->

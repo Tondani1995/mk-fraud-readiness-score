@@ -3,7 +3,7 @@
  "organisation": "Fictional Retail Group (overstated confirmations)",
  "assessmentReference": "FX-P6b",
  "bibleVersion": "1.1",
- "sourceCommit": "55ea176d53fad965a176eff788a1fa4480ab2031",
+ "sourceCommit": "f99a64bc876e6b7962d4c445036c3f9e65e6fdf9",
  "writer": {
   "mode": "in-session bounded writer under the writer contract",
   "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
@@ -24,11 +24,11 @@
   }
  },
  "hashes": {
-  "factPack": "99ecc866c54e2edd2b8700d7fa6470d87aad1a98fe1c4b1bbdd835ba2d3de5fe",
-  "manuscript": "9c51fb71ce75497ae9a0bd5782d3889dd50602347a01f779f0f57558d4248682",
-  "html": "659e6e2b4f3501559ba75104bccadc9ff73e9fa7c340fcb0e194c5a7d0478aaf",
-  "pdf": "7edc830ba237d5a2159a00cb482e562d70c15d59014f9aefcd6eaeb33418aada",
-  "workbook": "cc42adc73e5a0d0b61f654fcdc23fe896e1029637456fc7063fc9c0af26682a3"
+  "factPack": "4bb6665d70d3ba8a6b7aecbf1a0b1eb3af1e9b9513d41c131914b178d3695ddf",
+  "manuscript": "2210c74fc1e673d42691296405daf3d36452200a8cae66c727e2666c0a986345",
+  "html": "a9f9e03d07f7a7ec6cc5c86e76cf1fbca524fea50228e8a3372e255d087a6353",
+  "pdf": "8c5f81408f87ae9d1bc6bb4aef6fdcf41df8832719d30332aeeb7d943c37f3a1",
+  "workbook": "338d4f8765376e22ec6468d3b90054b71087b37a3c836dd271e53e588aaa23a6"
  },
  "workbookSheets": [
   {
@@ -78,6 +78,7 @@
   "Poppins-Medium",
   "Poppins-Regular"
  ],
+ "flowSections": [],
  "generatedLabel": "12 November 2026",
  "prototype": true
 }

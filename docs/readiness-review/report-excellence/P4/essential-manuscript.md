@@ -24,7 +24,7 @@ In fraud terms, that is the profile on which business email compromise and imper
 <!-- refs: FINDING-04, FINDING-03, FINDING-01, FINDING-06 -->
 
 The first responses are few and practical. Multi-factor sign-in on every email account and on every system that moves money, an organisation-wide rule that no payment or bank detail received by email is acted on without confirmation through a separate, known channel, and an agreed way to verify calls, voice notes and video that applies to everyone including the owners. Alongside these, the firm needs a set procedure for notifying the Information Regulator and the people affected if personal information is compromised, as POPIA requires, and help desk resets verified through a route the caller does not control.
-<!-- refs: PRIORITY-01, PRIORITY-02, PRIORITY-03, PRIORITY-04, PRIORITY-05, PRIORITY-06 -->
+<!-- refs: PRIORITY-01, PRIORITY-02, PRIORITY-03, PRIORITY-04, PRIORITY-05, PRIORITY-06, LAW-01 -->
 
 Every question in the assessment was answered, so the position is not limited by missing information.
 <!-- refs: N-OUTSTANDING, POSITION-1, POSITION-4 -->
@@ -100,7 +100,7 @@ A security compromise would be handled as it happens, without a set process, and
 <!-- refs: FINDING-02 -->
 
 POPIA requires the Information Regulator and the people affected to be notified as soon as reasonably possible after a compromise is discovered. Without a procedure, the decision about whether and when to notify would be made under pressure, and the people affected could not protect themselves in time.
-<!-- refs: FINDING-02 -->
+<!-- refs: FINDING-02, LAW-01 -->
 
 The firm should set out who decides, who notifies the Regulator and the people affected, and how quickly, and test the procedure once a year.
 <!-- refs: FINDING-02, PRIORITY-02 -->

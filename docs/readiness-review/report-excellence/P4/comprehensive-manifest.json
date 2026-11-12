@@ -3,7 +3,7 @@
  "organisation": "Fictional Owner-Managed Firm",
  "assessmentReference": "FX-P4",
  "bibleVersion": "1.1",
- "sourceCommit": "55ea176d53fad965a176eff788a1fa4480ab2031",
+ "sourceCommit": "f99a64bc876e6b7962d4c445036c3f9e65e6fdf9",
  "writer": {
   "mode": "in-session bounded writer under the writer contract",
   "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
@@ -24,11 +24,11 @@
   }
  },
  "hashes": {
-  "factPack": "f71a3fc3e3f9c1fa32f3e06d7b179856f41abd455795a1834dc94c656e02bce2",
-  "manuscript": "890e3ee099aadec03b8559e0b7e2b53a0d2015fd196475c01bbc23dda464cd92",
-  "html": "ac04e74925f4a1f171121181359c1fd85dd0c3d5280c729aec6b69a202f0cdf6",
-  "pdf": "2649d028dd14e471fbc2f2be345ba073267f13f7c7128a21f2a2a7ebae4eb643",
-  "workbook": "fddedca2cc2b738fd0b966985561c47268ff2f9d2365ba5ac1038812b9884d7b"
+  "factPack": "7f75ac761e6a92b2df5b0e34ff044151713df36c45fbd844fddbd5a6aed3970d",
+  "manuscript": "f27fdd9897fa900203081115dc5b63ba69d2df09e42650f9ef8c542472459a5d",
+  "html": "d0382e3936edc729669fd6b2695420a9e830e5abccb5e4aa13223ad8f1f80a94",
+  "pdf": "47562abec99f815580eb6a8501faf252b26052d4cff6595d339b5eabb2a6549e",
+  "workbook": "3cfcea32fe7f42d34d72044521ddb9647c2a60e43510f73312d47965e90996de"
  },
  "workbookSheets": [
   {
@@ -72,11 +72,15 @@
    "columns": 10
   }
  ],
- "pages": 29,
+ "pages": 28,
  "fonts": [
   "Poppins-SemiBold",
   "Poppins-Medium",
   "Poppins-Regular"
+ ],
+ "flowSections": [
+  "COMP-TARGET",
+  "COMP-PROGRAMME"
  ],
  "generatedLabel": "12 November 2026",
  "prototype": true

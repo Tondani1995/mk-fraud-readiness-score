@@ -1,6 +1,6 @@
 # Writer brief: Comprehensive manuscript for Fictional Retail Group (extensive unanswered information)
 
-Fact Pack revised-fact-pack-0.1 (abe14fe62c6f), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
+Fact Pack revised-fact-pack-0.1 (57301d7f26e6), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
 
 ## Contract
 
@@ -454,6 +454,10 @@ Selection rule: Settling answers comes first where there are any; then the contr
 - **MEASURE-OWNERS** Open scenarios with a named owner and a recorded decision to address, defer or accept them. Owner: Chief executive. Frequency: each month. Escalation: A scenario without an owner after 60 days is reported to the oversight body.
 - **MEASURE-CYCLES** Priority controls that have met their success measure for a full operating cycle. Owner: Fraud risk lead. Frequency: each quarter. Escalation: A control that misses its measure twice is reported with its owner's correction plan.
 - **MEASURE-REPORT** Status reported to the board. Owner: Chief executive. Frequency: each meeting. Escalation: A missed report is itself reported at the next meeting.
+
+## South African legal context (cite only where it bears on a finding; state what the law provides, never that the organisation breached it)
+
+- **LAW-01** (Digital, cyber-enabled and identity fraud, Compromises reported as POPIA requires): Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?
 
 ## Proposed stages
 

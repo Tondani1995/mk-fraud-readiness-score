@@ -1,6 +1,6 @@
 # Writer brief: Essential manuscript for Fictional Retail Group (overstated confirmations)
 
-Fact Pack revised-fact-pack-0.1 (6a97342741a1), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
+Fact Pack revised-fact-pack-0.1 (bfc083003d00), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
 
 ## Contract
 
@@ -313,6 +313,12 @@ Selection rule: Settling answers comes first where there are any; then the contr
 - **PRIORITY-04** Recipients checked for links (control). Why: Donations or sponsorships channel bribes. Establish: Before any donation or sponsorship is committed, the recipient is checked for links to public officials, customers' decision-makers and employees, and any link found is disclosed and approved. Accountable: Chief executive. Practical owner: Ethics lead. Stage: 60 days, proposed. Success measure: Every donation or sponsorship in the period has a donation approval file showing the link checks completed and approved before money was committed.
 - **PRIORITY-05** Hours approved by supervisor (control). Why: Hours and overtime are inflated. Establish: Hours and overtime are approved by the employee's supervisor, against the roster or attendance record, before they are paid. Accountable: Chief financial officer. Practical owner: HR and payroll lead. Stage: 60 days, proposed. Success measure: Every timesheet paid in the period was approved by the employee's supervisor, against the roster or attendance record, before payment.
 - **PRIORITY-06** Losses tracked and reported (control). Why: Losses are never tracked. Establish: Losses of cash, stock and assets are tracked over time and by location, and reported to management each month with the actions taken. Accountable: Chief financial officer. Practical owner: Finance lead. Stage: 60 days, proposed. Success measure: The review of losses of cash, stock and assets ran monthly throughout the period, and every exception it raised was reported to management with the action taken.
+
+## South African legal context (cite only where it bears on a finding; state what the law provides, never that the organisation breached it)
+
+- **LAW-01** (Detection, speak-up and response, Criminal cases opened and followed): Are criminal cases opened with the SAPS, or with the DPCI where section 34 of PRECCA applies, and is their progress followed up?
+- **LAW-02** (Fraud governance and accountability, Adequate procedures against bribery): Section 34A of PRECCA makes a private-sector organisation or incorporated state-owned entity liable when a person associated with it pays a bribe, unless it had adequate procedures. Whether procedures are adequate is for a court to decide; this question records what is in place.
+- **LAW-03** (Digital, cyber-enabled and identity fraud, Compromises reported as POPIA requires): Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?
 
 ## Proposed stages
 

@@ -81,7 +81,7 @@ export function knownRefs(fp: RevisedFactPack): Set<string> {
     ...Object.keys(fp.facts), ...fp.position.map((p) => p.ref), ...fp.areas.map((a) => a.ref), ...fp.themes.map((t) => t.ref),
     ...fp.findings.map((f) => f.ref), ...fp.pathways.map((p) => p.ref), ...fp.priorities.map((p) => p.ref), ...fp.blueprints.map((b) => b.ref),
     ...fp.decisions.map((d) => d.ref), ...fp.roadmap.map((s) => s.ref), ...fp.scorecard.map((m) => m.ref), ...fp.operatingModel.map((r) => r.ref),
-    ...fp.pending.map((p) => p.ref)
+    ...fp.pending.map((p) => p.ref), ...(fp.legal ?? []).map((l) => l.ref)
   ]);
 }
 
@@ -153,7 +153,11 @@ export function validateManuscript(md: string, fp: RevisedFactPack, plan: Revise
       refsTotal += b.refs.length;
       for (const r of b.refs) if (!known.has(r)) add('REF-UNKNOWN', 'factual', true, s.id, b.line, `Unknown reference ${r}.`);
       // Figures typed by the writer: every digit must come from a slot or be a permitted planning term.
-      const typed = b.text.replace(/\[\[[^\]]+\]\]/g, '').replace(ALLOWED_DIGITS, '');
+      // A statute citation ("section 34A of PRECCA") is not a figure when the paragraph cites a legal-context fact that
+      // carries exactly that section; any other number is still a typed figure.
+      const lawText = b.refs.map((r) => (fp.legal ?? []).find((l) => l.ref === r)?.text ?? '').join(' ');
+      const typed = b.text.replace(/\[\[[^\]]+\]\]/g, '').replace(ALLOWED_DIGITS, '')
+        .replace(/\bsections?\s+(\d+[A-Z]?)\b/gi, (m, n) => (new RegExp(`\\bsection ${n}\\b`, 'i').test(lawText) ? '' : m));
       const digits = typed.match(/\d[\d\s,.]*/g);
       const counted = typed.match(COUNT_WORDS);
       if (counted) add('TYPED-COUNT', 'factual', true, s.id, b.line, `Counts typed in words instead of inserted from the Fact Pack: ${counted.join(', ')}.`);

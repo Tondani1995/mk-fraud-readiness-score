@@ -14,13 +14,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 3531,
+    "words": 3566,
     "paragraphs": 65,
-    "refsPerParagraph": 2.29,
+    "refsPerParagraph": 2.31,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 3531,
+     "totalWords": 3566,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -113,13 +113,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 4080,
-    "paragraphs": 79,
-    "refsPerParagraph": 2.49,
+    "words": 4223,
+    "paragraphs": 80,
+    "refsPerParagraph": 2.55,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 4080,
+     "totalWords": 4223,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -137,7 +137,7 @@
    "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
    "pass": true,
    "detail": {
-    "paragraphs": 79
+    "paragraphs": 80
    }
   },
   {
@@ -220,7 +220,7 @@
    "detail": {
     "words": 2558,
     "paragraphs": 59,
-    "refsPerParagraph": 2.22,
+    "refsPerParagraph": 2.25,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
@@ -317,13 +317,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 2836,
-    "paragraphs": 62,
-    "refsPerParagraph": 2.4,
+    "words": 2924,
+    "paragraphs": 63,
+    "refsPerParagraph": 2.48,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 2836,
+     "totalWords": 2924,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -341,7 +341,7 @@
    "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
    "pass": true,
    "detail": {
-    "paragraphs": 62
+    "paragraphs": 63
    }
   },
   {
@@ -349,7 +349,7 @@
    "name": "page count within the Bible range, no appendix",
    "pass": true,
    "detail": {
-    "pages": 29,
+    "pages": 28,
     "defaultRange": "28-34"
    }
   },
@@ -422,13 +422,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 3097,
+    "words": 3132,
     "paragraphs": 64,
-    "refsPerParagraph": 2.38,
+    "refsPerParagraph": 2.39,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 3097,
+     "totalWords": 3132,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -454,7 +454,7 @@
    "name": "page count within the Bible range, no appendix",
    "pass": true,
    "detail": {
-    "pages": 19,
+    "pages": 20,
     "defaultRange": "18-22"
    }
   },
@@ -521,13 +521,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 3552,
-    "paragraphs": 72,
-    "refsPerParagraph": 2.43,
+    "words": 3687,
+    "paragraphs": 73,
+    "refsPerParagraph": 2.48,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 3552,
+     "totalWords": 3687,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -545,7 +545,7 @@
    "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
    "pass": true,
    "detail": {
-    "paragraphs": 72
+    "paragraphs": 73
    }
   },
   {
@@ -553,7 +553,7 @@
    "name": "page count within the Bible range, no appendix",
    "pass": true,
    "detail": {
-    "pages": 32,
+    "pages": 31,
     "defaultRange": "28-34"
    }
   },
@@ -626,13 +626,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 4368,
+    "words": 4442,
     "paragraphs": 70,
-    "refsPerParagraph": 2.41,
+    "refsPerParagraph": 2.44,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 4368,
+     "totalWords": 4442,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -725,13 +725,13 @@
    "name": "manuscript passes factual and editorial validation",
    "pass": true,
    "detail": {
-    "words": 4859,
-    "paragraphs": 82,
-    "refsPerParagraph": 2.45,
+    "words": 5026,
+    "paragraphs": 83,
+    "refsPerParagraph": 2.52,
     "mechanical": {
      "ok": true,
      "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 4859,
+     "totalWords": 5026,
      "reportFindings": [],
      "slotFindings": [],
      "repairTargets": []
@@ -749,7 +749,7 @@
    "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
    "pass": true,
    "detail": {
-    "paragraphs": 82
+    "paragraphs": 83
    }
   },
   {

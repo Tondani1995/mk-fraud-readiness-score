@@ -116,7 +116,7 @@ This finding connects with the gap in loss tracking. Losses that are not tracked
 
 Every investigation is reported as independent of the area and people concerned, and suspected fraud as investigated by line management or HR. Both can be true if HR, or a manager from another area, investigates; the answers do not say whether a line manager ever investigates their own area.
 
-The question matters for the whole response capability. An investigation conducted by someone close to the matter may not withstand a disciplinary hearing or a court, and concerns raised about a manager may be closed by that manager. The investigations lead should state whether line managers investigate their own areas and, where they do, how independence is secured.
+The question matters for the whole response capability. An investigation conducted by someone close to the matter may not withstand a disciplinary hearing or a court, and concerns raised about a manager may be closed by that manager. The exposure is legal as well as practical: where section 34 of PRECCA applies, the matter must be reported to the police, and the criminal case that follows will test how the facts were gathered. The investigations lead should state whether line managers investigate their own areas and, where they do, how independence is secured.
 
 ## Supplier payments are reviewed only in some areas, so patterns across them can pass unseen
 
@@ -172,7 +172,7 @@ The review is the organisation's principal detective control over procurement, a
 
 Checking recipients for links to officials, customers' decision-makers and employees is reported in place only in some cases. In the target state, every donation or sponsorship passes the check before money is committed, any link is disclosed and approved, and the approval file shows both.
 
-The control is simple and preventive. Its value lies in reaching every commitment, which is why its measure is a complete approval file for each one, and why a commitment found without the check triggers a review of everything paid before it was found.
+The control is simple and preventive. Its value lies in reaching every commitment, which is why its measure is a complete approval file for each one, and why a commitment found without the check triggers a review of everything paid before it was found. It also carries legal weight: section 34A of PRECCA makes the organisation liable when someone associated with it pays a bribe unless it had adequate procedures, and whether procedures were adequate is for a court to decide on the record the organisation can produce.
 
 ## Supervisor approval of hours and overtime before payment
 
@@ -199,6 +199,8 @@ Because the control is already designed, the work is to make it operate: to prod
 The organisation reports that executive accountability for fraud risk is written into a named executive's role and that the board holds final oversight. The target operating model builds on that. The chief executive remains accountable overall; the fraud risk lead coordinates the assessment, challenges the control owners and consolidates reporting; the owners of procurement, finance, payroll, ethics and investigations operate the controls in their processes and keep the records; and the investigations lead receives reports and alerts and investigates independently.
 
 What the model adds is a rhythm and an independent check. Status on each open scenario moves upward each month from the control owners to the fraud risk lead and on to the chief executive, and to the board at each meeting. Escalations follow the same route. The independent check is the decision the themes call for: how procurement and payroll will be examined by someone outside those processes, whether a manager from another area, internal audit or an external engagement.
+
+The management information follows from the position. Until every answer is settled, each monthly report should open with the answers to settle and the questions to clarify, and with the corrections they produced. The controls come next: each measure missed or escalated in the period and, once the independent examination of procurement and payroll is running, what it found. The board's version should be brief enough to read at every meeting and specific enough to show whether the position it relies on is the one the records support.
 
 # Four decisions rest with leadership, and the first determines how much of the rest can proceed
 

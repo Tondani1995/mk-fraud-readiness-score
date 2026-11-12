@@ -152,8 +152,8 @@ The HR and payroll lead should identify the sensitive roles, keep the list curre
 Most changes to customer details are verified with the customer, but sales staff can still make them. Defined onboarding is not in place, business customers are only partly verified, and details shared between accounts are not flagged.
 <!-- refs: FINDING-05 -->
 
-A change to a refund account or delivery address is how refunds and goods are redirected. Allowing the people who serve customers to make it removes the second person whose involvement would deter collusion.
-<!-- refs: FINDING-05 -->
+A change to a refund account or delivery address is how refunds and goods are redirected. Allowing the people who serve customers to make it removes the second person whose involvement would deter collusion. Where an impostor gains a customer's personal information in the process, the group is the responsible party under POPIA and must report the compromise to the Information Regulator and the customer, as section 22 requires.
+<!-- refs: FINDING-05, LAW-01 -->
 
 The commercial and customer lead should verify every change through details on file and move the change out of sales.
 <!-- refs: FINDING-05, PRIORITY-06 -->

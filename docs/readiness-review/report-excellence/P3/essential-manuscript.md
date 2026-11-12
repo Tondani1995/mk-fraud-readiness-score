@@ -134,8 +134,8 @@ The finance lead should require the key information in every application, such a
 Most changes to customer details are verified with the customer, but sales staff can still make them. Defined customer onboarding is not in place, business customers are only partly verified, and details shared between customer accounts are not flagged.
 <!-- refs: FINDING-04 -->
 
-A change to a refund account, a delivery address or a contact number is how refunds and goods are redirected, whether by an outsider impersonating the customer or by an employee. Allowing the people who deal with customers to make those changes removes the separation that would otherwise require a second person to be involved.
-<!-- refs: FINDING-04 -->
+A change to a refund account, a delivery address or a contact number is how refunds and goods are redirected, whether by an outsider impersonating the customer or by an employee. Allowing the people who deal with customers to make those changes removes the separation that would otherwise require a second person to be involved. Where an impostor gains a customer's personal information in the process, the group is the responsible party under POPIA and must notify the Information Regulator and the customer of the compromise, as section 22 requires.
+<!-- refs: FINDING-04, LAW-01 -->
 
 The commercial and customer lead should ensure that every change to these details is verified with the customer through details already on file and is made by someone outside sales.
 <!-- refs: FINDING-04, PRIORITY-05 -->

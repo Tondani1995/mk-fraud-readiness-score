@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import coverage from '../../../readiness-review/data/coverage-map-v1.3.json' with { type: 'json' };
+import bankData from '../../../readiness-review/data/bank-v1.3.json' with { type: 'json' };
 import type { RevisedReport, ControlBlueprint, Finding } from '../evidence-model';
 import { SCENARIO_STRUCTURES, SCENARIO_STRUCTURE_VERSION, type ScenarioStructure } from './scenario-structures';
 import { DECISION_OPTIONS, DECISION_OPTIONS_VERSION, decisionTypeOf, type DecisionOptionSet } from './decision-options';
@@ -50,6 +51,7 @@ export type BlueprintFact = {
 export type DecisionFact = { ref: string; decisionRef: string; type: string; question: string; why: string; owner: string; when: string; delay: string; options: DecisionOptionSet | null };
 export type StageFact = { ref: string; label: string; window: string; purpose: string; outcomes: string[]; owners: string[]; items: { text: string; owner: string; deliverable: string }[] };
 export type MeasureFact = { ref: string; measure: string; owner: string; frequency: string; escalation: string; kind: 'control' | 'programme' };
+export type LegalFact = { ref: string; area: string; areaName: string; question: string; text: string; source: string };
 export type RoleFact = { ref: string; role: string; responsibility: string; basis: string };
 
 export type RevisedFactPack = {
@@ -68,6 +70,8 @@ export type RevisedFactPack = {
   roadmap: StageFact[];
   scorecard: MeasureFact[];
   operatingModel: RoleFact[];
+  /** South African legal context the method itself attaches to questions in the areas the report discusses (bank help text). */
+  legal: LegalFact[];
   outstanding: { key: string; fn: string | null; reason: string; scenario: string | null }[];
   selectionRules: Record<string, string>;
   boundary: string[];
@@ -363,13 +367,38 @@ export function buildRevisedFactPack(input: {
 
   // ---- Outstanding information.
   const outstanding = r.outstanding.map((o) => ({ key: o.key, fn: o.fn, reason: o.reasonText, scenario: o.schemeName }));
+  // South African legal context: the method's own guidance (bank help or question text) that names a statute, chosen
+  // by the topic of the findings, pathways and priorities the report discusses. Context only: it states what the law
+  // provides, never that the organisation has breached it. Bills and drafts are excluded.
+  const TOPICS: { re: RegExp; ids: string[] }[] = [
+    { re: /investigat/i, ids: ['D10-O-03'] },
+    { re: /donation|sponsorship|bribe|gift|facilitation|public official|decision-maker/i, ids: ['D1-L-03'] },
+    { re: /customer detail|personal information|account takeover|identity|security compromise/i, ids: ['D9-P-04'] },
+    { re: /speak-up|whistle|report(?:ing)? concerns|disclosure/i, ids: ['D10-S-03'] },
+    { re: /vetting|background check|screening/i, ids: ['D5-R-16'] }
+  ];
+  const discussedText = [...findings.map((f) => `${f.title} ${f.how ?? ''}`), ...pathways.map((p) => p.title), ...priorities.map((p) => `${p.title} ${p.why}`)].join(' \n ');
+  type BankShape = { domains: { id: string; name: string; bank: { modules: { questions: { id: string; key?: string; text?: string; help?: string }[] }[] } }[] };
+  const bankById = new Map<string, { q: { id: string; key?: string; text?: string; help?: string }; area: string; areaName: string }>();
+  for (const d of (bankData as unknown as BankShape).domains) for (const m of d.bank.modules) for (const q of m.questions) bankById.set(q.id, { q, area: d.id, areaName: d.name });
+  const LAW = /PRECCA|Prevention and Combating of Corrupt Activities|Protected Disclosures Act|POPIA|Information Regulator|Companies Act/;
+  const legal: LegalFact[] = [];
+  for (const t of TOPICS) {
+    if (!t.re.test(discussedText)) continue;
+    for (const id of t.ids) {
+      const e = bankById.get(id);
+      if (!e || legal.some((l) => l.source.includes(id))) continue;
+      const txt = [e.q.text, e.q.help].filter((x): x is string => !!x && LAW.test(x) && !/Bill, 2026|draft/i.test(x)).sort((a, b) => Number(/section \d/i.test(b)) - Number(/section \d/i.test(a)))[0];
+      if (txt) legal.push({ ref: `LAW-${String(legal.length + 1).padStart(2, '0')}`, area: e.area, areaName: e.areaName, question: e.q.key ?? id, text: txt, source: `bank-v1.3 ${id} ${txt === e.q.help ? 'help' : 'text'}` });
+    }
+  }
 
   const pack: Omit<RevisedFactPack, 'sha256'> = {
     version: REVISED_FACT_PACK_VERSION, product, bibleVersion: '1.1', generatedAt: input.generatedAt,
     contentVersions: { controls: 'control-content-library-0.1', scenarios: SCENARIO_STRUCTURE_VERSION, decisions: DECISION_OPTIONS_VERSION, relationships: 'relationship-review-0.2', sufficiency: r.sufficiency.rule },
     organisation: { name: input.organisationName, reference: input.assessmentReference, industry: prof('PR-13'), people: prof('PR-01'), turnover: prof('PR-12'), type: prof('PR-02'), oversight: r.oversight, oversightKnown: r.oversightKnown },
     facts, position: input.position.map((p, i) => ({ ref: `POSITION-${i + 1}`, label: p.label, value: p.value, text: p.text })),
-    areas, themes, findings, pathways, priorities, blueprints, decisions, roadmap, scorecard, operatingModel, outstanding,
+    areas, themes, findings, pathways, priorities, blueprints, decisions, roadmap, scorecard, operatingModel, legal, outstanding,
     selectionRules: {
       themes: 'A theme is reported where the method supports a pattern: answers to settle together with weaker related practices (five or more), outstanding answers (five or more), areas fully in place set against areas mostly open (two or more of each), one area holding most open scenarios, or one of the method\'s cross-area objectives reported weaker in two or more areas. Up to five, in that order.',
       findings: `Every scenario with answers to settle or a question to clarify, then one scenario from each theme in turn, choosing the one with more core controls reported absent, then more related practices reported weaker, then the method's order; up to ${MAX_FINDINGS}. This is a selection rule, not a ranking: MK has not approved a prioritisation method.`,

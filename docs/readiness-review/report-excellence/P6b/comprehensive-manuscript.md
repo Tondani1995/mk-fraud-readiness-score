@@ -169,8 +169,8 @@ This finding connects with the gap in loss tracking. Losses that are not tracked
 Every investigation is reported as independent of the area and people concerned, and suspected fraud as investigated by line management or HR. Both can be true if HR, or a manager from another area, investigates; the answers do not say whether a line manager ever investigates their own area.
 <!-- refs: FINDING-06 -->
 
-The question matters for the whole response capability. An investigation conducted by someone close to the matter may not withstand a disciplinary hearing or a court, and concerns raised about a manager may be closed by that manager. The investigations lead should state whether line managers investigate their own areas and, where they do, how independence is secured.
-<!-- refs: FINDING-06, PRIORITY-02 -->
+The question matters for the whole response capability. An investigation conducted by someone close to the matter may not withstand a disciplinary hearing or a court, and concerns raised about a manager may be closed by that manager. The exposure is legal as well as practical: where section 34 of PRECCA applies, the matter must be reported to the police, and the criminal case that follows will test how the facts were gathered. The investigations lead should state whether line managers investigate their own areas and, where they do, how independence is secured.
+<!-- refs: FINDING-06, PRIORITY-02, LAW-01 -->
 
 [[exhibit:finding:FINDING-06]]
 
@@ -254,8 +254,8 @@ The review is the organisation's principal detective control over procurement, a
 Checking recipients for links to officials, customers' decision-makers and employees is reported in place only in some cases. In the target state, every donation or sponsorship passes the check before money is committed, any link is disclosed and approved, and the approval file shows both.
 <!-- refs: BLUEPRINT-02 -->
 
-The control is simple and preventive. Its value lies in reaching every commitment, which is why its measure is a complete approval file for each one, and why a commitment found without the check triggers a review of everything paid before it was found.
-<!-- refs: BLUEPRINT-02 -->
+The control is simple and preventive. Its value lies in reaching every commitment, which is why its measure is a complete approval file for each one, and why a commitment found without the check triggers a review of everything paid before it was found. It also carries legal weight: section 34A of PRECCA makes the organisation liable when someone associated with it pays a bribe unless it had adequate procedures, and whether procedures were adequate is for a court to decide on the record the organisation can produce.
+<!-- refs: BLUEPRINT-02, LAW-02 -->
 
 [[exhibit:blueprint:BLUEPRINT-02]]
 
@@ -299,6 +299,9 @@ The organisation reports that executive accountability for fraud risk is written
 
 What the model adds is a rhythm and an independent check. Status on each open scenario moves upward each month from the control owners to the fraud risk lead and on to the chief executive, and to the board at each meeting. Escalations follow the same route. The independent check is the decision the themes call for: how procurement and payroll will be examined by someone outside those processes, whether a manager from another area, internal audit or an external engagement.
 <!-- refs: ROLE-RISK, ROLE-OVERSIGHT, THEME-X-11, DECISION-04 -->
+
+The management information follows from the position. Until every answer is settled, each monthly report should open with the answers to settle and the questions to clarify, and with the corrections they produced. The controls come next: each measure missed or escalated in the period and, once the independent examination of procurement and payroll is running, what it found. The board's version should be brief enough to read at every meeting and specific enough to show whether the position it relies on is the one the records support.
+<!-- refs: ROLE-RISK, ROLE-OVERSIGHT, MEASURE-SETTLE, MEASURE-CYCLES, MEASURE-REPORT, DECISION-04 -->
 
 <!-- section: COMP-DECISIONS -->
 # [[N-DECISIONS|W]] decisions rest with leadership, and the first determines how much of the rest can proceed

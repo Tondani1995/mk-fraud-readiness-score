@@ -164,6 +164,8 @@ The firm reports that executive accountability for fraud risk is written into a 
 
 In a firm of this size the roles of risk coordination and investigation may sit with the same person or with an adviser. What matters is that each responsibility is named, and that status on the digital controls reaches the owners at each meeting.
 
+The management information can be just as simple. A short note at each owners' meeting should record whether every mailbox and every system that moves money still requires a second factor, how each payment or bank-detail instruction received by email was confirmed, and whether any compromise or attempted fraud arose and how it was handled. Because the owners hold final oversight, the note goes to them directly; a firm of this size gains nothing from an intermediate committee, and loses time if a suspected compromise waits for one.
+
 # Three decisions rest with the owners, and all of them are straightforward
 
 (Leadership decisions)

@@ -2195,6 +2195,16 @@
    "basis": "The method's owner for detection, speak-up and response."
   }
  ],
+ "legal": [
+  {
+   "ref": "LAW-01",
+   "area": "D9",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "question": "Compromises reported as POPIA requires",
+   "text": "Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?",
+   "source": "bank-v1.3 D9-P-04 text"
+  }
+ ],
  "outstanding": [
   {
    "key": "Process owners take part",
@@ -2275,5 +2285,5 @@
    "status": "Drafts for MK approval: control-content-library-0.1, scenario-structures-0.1, decision-options-0.1."
   }
  ],
- "sha256": "abe14fe62c6f27ed9da3b49696568fdf831ef9d60d4f5882304d003e73cfaf05"
+ "sha256": "57301d7f26e6f1bc30558d28f7f9a314492ef540c9adfc9f4d5cf826170359a9"
 }

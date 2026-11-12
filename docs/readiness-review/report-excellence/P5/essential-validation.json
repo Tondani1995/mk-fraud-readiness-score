@@ -6,15 +6,15 @@
  "stats": {
   "sections": 10,
   "paragraphs": 64,
-  "words": 3097,
+  "words": 3132,
   "headings": 24,
   "exhibits": 16,
-  "refsPerParagraph": 2.38,
+  "refsPerParagraph": 2.39,
   "slots": 22,
   "mechanical": {
    "ok": true,
    "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-   "totalWords": 3097,
+   "totalWords": 3132,
    "reportFindings": [],
    "slotFindings": [],
    "repairTargets": []

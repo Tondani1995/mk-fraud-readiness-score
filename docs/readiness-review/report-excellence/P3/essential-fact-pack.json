@@ -1902,6 +1902,16 @@
    "basis": "The method's owner for detection, speak-up and response."
   }
  ],
+ "legal": [
+  {
+   "ref": "LAW-01",
+   "area": "D9",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "question": "Compromises reported as POPIA requires",
+   "text": "Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?",
+   "source": "bank-v1.3 D9-P-04 text"
+  }
+ ],
  "outstanding": [],
  "selectionRules": {
   "themes": "A theme is reported where the method supports a pattern: answers to settle together with weaker related practices (five or more), outstanding answers (five or more), areas fully in place set against areas mostly open (two or more of each), one area holding most open scenarios, or one of the method's cross-area objectives reported weaker in two or more areas. Up to five, in that order.",
@@ -1939,5 +1949,5 @@
    "status": "Drafts for MK approval: control-content-library-0.1, scenario-structures-0.1, decision-options-0.1."
   }
  ],
- "sha256": "71aa7964db185835be9db12d3a91698ec2a2dd063de2172aa16a271e0c2edc85"
+ "sha256": "ddcc920ff3f957952855291a4b8ef086c2098d27a0dabed79bd6a4242455b03e"
 }

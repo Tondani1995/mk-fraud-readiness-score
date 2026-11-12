@@ -16,7 +16,7 @@ That distinction matters because modern fraud against small firms rarely attacks
 <!-- refs: THEME-HELD, THEME-AREA, THEME-VERIFY -->
 
 The response is unusually tractable. Most of what is needed is a set of settings and one rule: multi-factor sign-in on every mailbox and every system that moves money; confirmation through a separate, known channel for every payment instruction received by email or call; verified help desk resets; and a set procedure for notifying the Information Regulator and the people affected if personal information is compromised, as POPIA requires. Within ninety days, these can be in place and tested; within twelve months, each should have met its measure over a full cycle and the owners should be receiving a short status report at each meeting.
-<!-- refs: BLUEPRINT-01, BLUEPRINT-02, BLUEPRINT-03, BLUEPRINT-04, BLUEPRINT-05, PRIORITY-06, PHASE-ESTABLISH, PHASE-MATURE -->
+<!-- refs: BLUEPRINT-01, BLUEPRINT-02, BLUEPRINT-03, BLUEPRINT-04, BLUEPRINT-05, PRIORITY-06, PHASE-ESTABLISH, PHASE-MATURE, LAW-01 -->
 
 Every question in the assessment was answered, so the position is not limited by missing information.
 <!-- refs: N-OUTSTANDING, POSITION-1, POSITION-4 -->
@@ -97,7 +97,7 @@ A compromise would be handled as it happens, without a set process, and warning 
 <!-- refs: FINDING-02 -->
 
 POPIA requires notification of the Information Regulator and the people affected as soon as reasonably possible. Without a procedure, the decision would be made under pressure, and the people affected could not protect themselves against the fraud that often follows a compromise. The target is a written procedure, tested once a year.
-<!-- refs: FINDING-02, BLUEPRINT-02 -->
+<!-- refs: FINDING-02, BLUEPRINT-02, LAW-01 -->
 
 [[exhibit:finding:FINDING-02]]
 
@@ -207,7 +207,7 @@ The control connects with treating pressure as a trigger, verifying changes to c
 ## A notification procedure for compromises of personal information
 
 A compromise would be handled today without a set process. In the target state, a procedure sets out who decides, who notifies the Information Regulator and the people affected, and how quickly, as section 22 of POPIA requires, and it is tested once a year.
-<!-- refs: BLUEPRINT-02 -->
+<!-- refs: BLUEPRINT-02, LAW-01 -->
 
 [[exhibit:blueprint:BLUEPRINT-02]]
 
@@ -245,6 +245,9 @@ The firm reports that executive accountability for fraud risk is written into a 
 
 In a firm of this size the roles of risk coordination and investigation may sit with the same person or with an adviser. What matters is that each responsibility is named, and that status on the digital controls reaches the owners at each meeting.
 <!-- refs: ROLE-RISK, ROLE-DETECT, DECISION-03 -->
+
+The management information can be just as simple. A short note at each owners' meeting should record whether every mailbox and every system that moves money still requires a second factor, how each payment or bank-detail instruction received by email was confirmed, and whether any compromise or attempted fraud arose and how it was handled. Because the owners hold final oversight, the note goes to them directly; a firm of this size gains nothing from an intermediate committee, and loses time if a suspected compromise waits for one.
+<!-- refs: ROLE-OVERSIGHT, ROLE-OWNERS, MEASURE-REPORT, MEASURE-CYCLES -->
 
 <!-- section: COMP-DECISIONS -->
 # [[N-DECISIONS|W]] decisions rest with the owners, and all of them are straightforward

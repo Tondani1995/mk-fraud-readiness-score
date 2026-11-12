@@ -96,7 +96,7 @@ Most changes to customer details are verified with the customer, but sales staff
 
 Customer details are where refunds and deliveries are directed, so the ability to change them is the ability to redirect money and goods. Allowing the people who serve customers to make the change removes the separation that would require a second person to be involved, and without flags on shared details, several accounts paying into one bank account would not stand out.
 
-The target moves the change out of sales and verifies it with the customer through details already on file.
+The exposure is regulatory as well as financial. An impostor who changes a customer's details usually gains access to that customer's personal information, which POPIA treats as a security compromise that section 22 requires the group to report to the Information Regulator and the customer. The target moves the change out of sales and verifies it with the customer through details already on file.
 
 ## Payroll is reviewed only at the level of totals
 
@@ -195,6 +195,8 @@ Separating the change from the sale restores the second person whose involvement
 The group reports that executive accountability for fraud risk is written into a named role and that the board holds final oversight. The target operating model keeps both and adds what the themes show is missing: owners for the controls inside the operations. The chief executive remains accountable overall; the fraud risk lead sets the standards, challenges the owners and consolidates reporting; the owners of finance, customers, payroll and the other operating areas run the controls in their processes and keep the records; and the investigations lead handles reports and alerts independently.
 
 Status moves upward each month from the area owners through the fraud risk lead to the chief executive, and to the board at each meeting. The independent check sits outside this line: someone who does not run procurement or payroll examines those processes and reports to the chief executive and the board.
+
+The management information that makes this work is small and specific. Each month the fraud risk lead should consolidate, for the chief executive, the stage reached by every open scenario, each control measure missed or escalated in the period, and the outcome of each report or alert the investigations lead has closed. The board needs less detail and a clearer signal: whether each operating area now has an owner, whether the priority controls have completed a full operating cycle, and which escalations called for an executive decision. The scorecard that follows is designed to produce exactly that picture.
 
 # Three decisions rest with leadership, and ownership comes first because everything else depends on it
 

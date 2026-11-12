@@ -146,8 +146,8 @@ The target identifies the sensitive roles, keeps the list current and requires b
 Most changes to customer details are verified, but sales staff can still make them. Defined onboarding is not in place, business customers are only partly verified, and details shared between accounts are not flagged.
 <!-- refs: FINDING-05 -->
 
-The ability to change customer details is the ability to redirect refunds and goods. Moving the change out of sales and verifying it with the customer through details on file restores the separation that deters collusion. It is among the first responses and is specified in full in the workbook.
-<!-- refs: FINDING-05, PRIORITY-06 -->
+The ability to change customer details is the ability to redirect refunds and goods. Moving the change out of sales and verifying it with the customer through details on file restores the separation that deters collusion. A changed record that lets an impostor see or use a customer's personal information is also a security compromise under POPIA, which section 22 requires the group to report to the Information Regulator and the customer. The response is among the first and is specified in full in the workbook.
+<!-- refs: FINDING-05, PRIORITY-06, LAW-01 -->
 
 [[exhibit:finding:FINDING-05]]
 
@@ -274,6 +274,9 @@ The group reports that executive accountability for fraud risk is written into a
 
 For this group the model carries a specific expectation: each control owner should be able to say how their controls operate, which is what the outstanding questions show is not yet the case. Status moves upward each month from the owners through the fraud risk lead to the chief executive and to the board at each meeting, including the questions that remain open.
 <!-- refs: ROLE-OWNERS, THEME-UNCERTAINTY, DECISION-04 -->
+
+The management information should keep the unknowns visible until they close. Each month the fraud risk lead should report to the chief executive the outstanding questions answered and still open, by the function that holds them, the stage reached by every open scenario, and each control measure missed or escalated. The board should see the same picture at a higher level: which functions still owe answers, which priority controls have completed a full operating cycle, and which escalations needed an executive decision. A report that shows the unknowns shrinking is itself evidence that ownership has moved into the operations.
+<!-- refs: ROLE-RISK, ROLE-OVERSIGHT, MEASURE-OUTSTANDING, MEASURE-CYCLES, MEASURE-REPORT -->
 
 <!-- section: COMP-DECISIONS -->
 # [[N-DECISIONS|W]] decisions rest with leadership, and resolving the unknowns comes first

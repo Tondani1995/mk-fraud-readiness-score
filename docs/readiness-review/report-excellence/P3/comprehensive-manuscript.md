@@ -137,8 +137,8 @@ Most changes to customer details are verified with the customer, but sales staff
 Customer details are where refunds and deliveries are directed, so the ability to change them is the ability to redirect money and goods. Allowing the people who serve customers to make the change removes the separation that would require a second person to be involved, and without flags on shared details, several accounts paying into one bank account would not stand out.
 <!-- refs: FINDING-04, THEME-VERIFY -->
 
-The target moves the change out of sales and verifies it with the customer through details already on file.
-<!-- refs: FINDING-04, BLUEPRINT-05 -->
+The exposure is regulatory as well as financial. An impostor who changes a customer's details usually gains access to that customer's personal information, which POPIA treats as a security compromise that section 22 requires the group to report to the Information Regulator and the customer. The target moves the change out of sales and verifies it with the customer through details already on file.
+<!-- refs: FINDING-04, BLUEPRINT-05, LAW-01 -->
 
 [[exhibit:finding:FINDING-04]]
 
@@ -293,6 +293,9 @@ The group reports that executive accountability for fraud risk is written into a
 
 Status moves upward each month from the area owners through the fraud risk lead to the chief executive, and to the board at each meeting. The independent check sits outside this line: someone who does not run procurement or payroll examines those processes and reports to the chief executive and the board.
 <!-- refs: ROLE-RISK, ROLE-OVERSIGHT, THEME-X-11, DECISION-03 -->
+
+The management information that makes this work is small and specific. Each month the fraud risk lead should consolidate, for the chief executive, the stage reached by every open scenario, each control measure missed or escalated in the period, and the outcome of each report or alert the investigations lead has closed. The board needs less detail and a clearer signal: whether each operating area now has an owner, whether the priority controls have completed a full operating cycle, and which escalations called for an executive decision. The scorecard that follows is designed to produce exactly that picture.
+<!-- refs: ROLE-RISK, ROLE-DETECT, ROLE-OVERSIGHT, MEASURE-OWNERS, MEASURE-CYCLES, MEASURE-REPORT -->
 
 <!-- section: COMP-DECISIONS -->
 # [[N-DECISIONS|W]] decisions rest with leadership, and ownership comes first because everything else depends on it

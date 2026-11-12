@@ -62,6 +62,7 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan): 
     L.push('## Scorecard', '');
     for (const m of fp.scorecard) L.push(`- **${m.ref}** ${m.measure}. Owner: ${m.owner}. Frequency: ${m.frequency}. Escalation: ${m.escalation}`);
   }
+  if ((fp.legal ?? []).length) { L.push('', '## South African legal context (cite only where it bears on a finding; state what the law provides, never that the organisation breached it)', ''); for (const l of fp.legal) L.push(`- **${l.ref}** (${l.areaName}, ${l.question}): ${l.text}`); }
   L.push('', '## Proposed stages', '');
   for (const s of fp.roadmap) L.push(`- **${s.ref}** ${s.label} (${s.window}): ${s.purpose} Outcomes: ${s.outcomes.join('; ')}. Owners: ${s.owners.join(', ')}.`);
   if (fp.outstanding.length) { L.push('', '## Outstanding questions', ''); for (const x of fp.outstanding) L.push(`- ${x.key}: ${x.reason}${x.fn ? ` (${x.fn})` : ''}${x.scenario ? `; affects "${x.scenario}"` : ''}`); }

@@ -1,6 +1,6 @@
 # Writer brief: Essential manuscript for Fictional Owner-Managed Firm
 
-Fact Pack revised-fact-pack-0.1 (67f4e88f105d), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
+Fact Pack revised-fact-pack-0.1 (22abca211f86), Story Plan revised-story-plan-0.1, Reporting Bible 1.1. FICTIONAL PROTOTYPE.
 
 ## Contract
 
@@ -279,6 +279,10 @@ Selection rule: Settling answers comes first where there are any; then the contr
 - **PRIORITY-04** Multi-factor on all email (control). Why: An email account is taken over. Establish: Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions. Accountable: Chief financial officer. Practical owner: IT lead. Stage: 60 days, proposed. Success measure: At the end of the period, the email security report shows multi-factor authentication on every email account, including executives' and shared mailboxes, and any exception is approved and recorded.
 - **PRIORITY-05** Help desk resets verified (control). Why: A help desk reset hands an attacker access. Establish: Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel. Accountable: Chief financial officer. Practical owner: IT lead. Stage: 60 days, proposed. Success measure: Every password or multi-factor reset made in the period was confirmed through a route the caller did not control before it took effect, or is a recorded and approved exception.
 - **PRIORITY-06** Multi-factor on critical systems (control). Why: Systems that move money are accessed without strong sign-in. Establish: Multi-factor authentication is required for remote access, cloud systems, the banking platform and every system that can move money or change master data. Accountable: Chief financial officer. Practical owner: IT lead. Stage: 60 days, proposed. Success measure: At the end of the period, the multi-factor coverage report shows multi-factor authentication on remote access, cloud systems, the banking platform and every system that can move money or change master data, and any exception is approved and recorded.
+
+## South African legal context (cite only where it bears on a finding; state what the law provides, never that the organisation breached it)
+
+- **LAW-01** (Digital, cyber-enabled and identity fraud, Compromises reported as POPIA requires): Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?
 
 ## Proposed stages
 
