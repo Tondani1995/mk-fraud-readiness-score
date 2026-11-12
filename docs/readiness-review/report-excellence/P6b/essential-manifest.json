@@ -1,0 +1,83 @@
+{
+ "product": "essential",
+ "organisation": "Fictional Retail Group (overstated confirmations)",
+ "assessmentReference": "FX-P6b",
+ "bibleVersion": "1.1",
+ "sourceCommit": "55ea176d53fad965a176eff788a1fa4480ab2031",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "6a97342741a10539ab38a5e63d05bc2c0853e8e2959dcf62cb620d8dbc27847a",
+  "manuscript": "54c3997ea6696285cdcf6b5c4a5ad28877086fbc695321341f1987997e3ec76f",
+  "html": "0d3782201cc274f5b5e94275d3ba459ce67282b6fff78cb39976813f8d02c03f",
+  "pdf": "b1803218342b4c2656f338c2d533f9dd753b96f1ddfeb59dbf64d631df7b9eb6",
+  "workbook": "9855ac9462bc286afdc5e59cd744769284fb9b227fc5630667ec04b58cb74e0e"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 19,
+   "columns": 2
+  },
+  {
+   "name": "Findings",
+   "rows": 25,
+   "columns": 12
+  },
+  {
+   "name": "Risks",
+   "rows": 5,
+   "columns": 8
+  },
+  {
+   "name": "Control Actions",
+   "rows": 43,
+   "columns": 9
+  },
+  {
+   "name": "Proof of Progress",
+   "rows": 61,
+   "columns": 5
+  },
+  {
+   "name": "Roadmap",
+   "rows": 15,
+   "columns": 6
+  },
+  {
+   "name": "Question Trace",
+   "rows": 166,
+   "columns": 10
+  },
+  {
+   "name": "Control Improvements",
+   "rows": 63,
+   "columns": 22
+  }
+ ],
+ "pages": 21,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

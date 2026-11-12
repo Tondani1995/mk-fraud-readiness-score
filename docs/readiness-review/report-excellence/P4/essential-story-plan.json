@@ -1,0 +1,252 @@
+{
+ "version": "revised-story-plan-0.1",
+ "product": "essential",
+ "sections": [
+  {
+   "id": "ESS-ORIENT",
+   "movement": "Orientation",
+   "title": "About this report",
+   "purpose": "One short paragraph explaining the journey of the report, set above the contents list.",
+   "takeaway": "The reader knows what the report will tell them and in what order.",
+   "next": "ESS-EXEC",
+   "requiredFacts": [],
+   "exhibits": [
+    "contents"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "ESS-EXEC",
+   "movement": "1. Executive diagnosis",
+   "title": "Executive summary",
+   "purpose": "Where the organisation stands and what the position means: whether the environment is even or uneven, where it is strongest, the two to four patterns that matter, why they matter in fraud terms, what management should do first, and any uncertainty that genuinely limits the reading. Must stand alone as an executive briefing.",
+   "takeaway": "An executive who reads only these pages understands the position and the first decisions.",
+   "next": "ESS-PROFILE",
+   "requiredFacts": [
+    "N-APPLY",
+    "N-REPORTED-HELD",
+    "N-GAP",
+    "N-SETTLE",
+    "THEME-HELD",
+    "THEME-AREA",
+    "THEME-VERIFY",
+    "POSITION-1",
+    "POSITION-4"
+   ],
+   "exhibits": [
+    "position"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "ESS-PROFILE",
+   "movement": "1. Executive diagnosis",
+   "title": "Readiness profile",
+   "purpose": "Interpret the shape of the environment across the ten areas in two or three paragraphs, around one exhibit.",
+   "takeaway": "The pattern beneath the counts.",
+   "next": "ESS-THEMES",
+   "requiredFacts": [
+    "AREA-D1-GAP",
+    "AREA-D2-GAP",
+    "AREA-D3-GAP",
+    "AREA-D6-GAP",
+    "AREA-D8-GAP",
+    "AREA-D9-GAP",
+    "AREA-D10-GAP"
+   ],
+   "exhibits": [
+    "profile"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "ESS-THEMES",
+   "movement": "2. What is driving the position",
+   "title": "What is driving the position",
+   "purpose": "The management-level patterns, each synthesising several answers, explaining why the pattern matters for prevention, detection or response, and closing with a leadership implication.",
+   "takeaway": "The few patterns that explain most of the position.",
+   "next": "ESS-FINDINGS",
+   "requiredFacts": [
+    "THEME-HELD",
+    "THEME-AREA",
+    "THEME-VERIFY"
+   ],
+   "exhibits": [],
+   "newPage": false,
+   "units": [
+    {
+     "id": "ESS-THEME-THEME-HELD",
+     "ref": "THEME-HELD"
+    },
+    {
+     "id": "ESS-THEME-THEME-AREA",
+     "ref": "THEME-AREA"
+    },
+    {
+     "id": "ESS-THEME-THEME-VERIFY",
+     "ref": "THEME-VERIFY"
+    }
+   ]
+  },
+  {
+   "id": "ESS-FINDINGS",
+   "movement": "3. The findings that matter",
+   "title": "The findings this report develops",
+   "purpose": "Advisory observations: claim heading, the recorded position in one sentence, interpretation, fraud implication and management implication, with a compact factual strip. State the selection rule once.",
+   "takeaway": "Which weaknesses deserve leadership attention and why.",
+   "next": "ESS-PATHWAYS",
+   "requiredFacts": [
+    "FINDING-01",
+    "FINDING-02",
+    "FINDING-03",
+    "FINDING-04",
+    "FINDING-05",
+    "FINDING-06",
+    "FINDING-07"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "ESS-FINDING-01",
+     "ref": "FINDING-01",
+     "exhibit": "finding:FINDING-01"
+    },
+    {
+     "id": "ESS-FINDING-02",
+     "ref": "FINDING-02",
+     "exhibit": "finding:FINDING-02"
+    },
+    {
+     "id": "ESS-FINDING-03",
+     "ref": "FINDING-03",
+     "exhibit": "finding:FINDING-03"
+    },
+    {
+     "id": "ESS-FINDING-04",
+     "ref": "FINDING-04",
+     "exhibit": "finding:FINDING-04"
+    },
+    {
+     "id": "ESS-FINDING-05",
+     "ref": "FINDING-05",
+     "exhibit": "finding:FINDING-05"
+    },
+    {
+     "id": "ESS-FINDING-06",
+     "ref": "FINDING-06",
+     "exhibit": "finding:FINDING-06"
+    },
+    {
+     "id": "ESS-FINDING-07",
+     "ref": "FINDING-07",
+     "exhibit": "finding:FINDING-07"
+    }
+   ]
+  },
+  {
+   "id": "ESS-PATHWAYS",
+   "movement": "4. How fraud exposure could materialise",
+   "title": "How fraud exposure could materialise",
+   "purpose": "Plausible fraud pathways in connected prose: actor, opportunity, entry point, mechanism, the weakness relied on, concealment and consequence, with warning signs and containment in a panel.",
+   "takeaway": "How the weaknesses translate into loss.",
+   "next": "ESS-PRIORITIES",
+   "requiredFacts": [
+    "PATHWAY-01",
+    "PATHWAY-02",
+    "PATHWAY-03"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "ESS-PATHWAY-01",
+     "ref": "PATHWAY-01",
+     "exhibit": "pathway:PATHWAY-01"
+    },
+    {
+     "id": "ESS-PATHWAY-02",
+     "ref": "PATHWAY-02",
+     "exhibit": "pathway:PATHWAY-02"
+    },
+    {
+     "id": "ESS-PATHWAY-03",
+     "ref": "PATHWAY-03",
+     "exhibit": "pathway:PATHWAY-03"
+    }
+   ]
+  },
+  {
+   "id": "ESS-PRIORITIES",
+   "movement": "5. What management should do first",
+   "title": "What management should do first",
+   "purpose": "The responses management should address first: why each comes first, what to establish, the accountable executive, the practical owner, the proposed stage and one success measure. The full specifications are in the workbook.",
+   "takeaway": "A short, owned list of first responses.",
+   "next": "ESS-ROADMAP",
+   "requiredFacts": [
+    "PRIORITY-01",
+    "PRIORITY-02",
+    "PRIORITY-03",
+    "PRIORITY-04",
+    "PRIORITY-05",
+    "PRIORITY-06"
+   ],
+   "exhibits": [
+    "priorities"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "ESS-ROADMAP",
+   "movement": "5. What management should do first",
+   "title": "A 30, 60 and 90 day response",
+   "purpose": "The first ninety days as proposed stages with owners, deliverables and outcomes, stating that the windows are proposals, not deadlines.",
+   "takeaway": "What will be true at each point.",
+   "next": "ESS-BASIS",
+   "requiredFacts": [
+    "STAGE-30",
+    "STAGE-60",
+    "STAGE-90"
+   ],
+   "exhibits": [
+    "roadmap-90"
+   ],
+   "newPage": false
+  },
+  {
+   "id": "ESS-BASIS",
+   "movement": "Basis",
+   "title": "Basis of this report",
+   "purpose": "One concise page: self-reported basis, how unknowns are treated, no independent validation, what is pending MK's approval.",
+   "takeaway": "The boundary, stated once.",
+   "next": "ESS-CONCLUSION",
+   "requiredFacts": [
+    "N-PAIRS"
+   ],
+   "exhibits": [],
+   "newPage": false
+  },
+  {
+   "id": "ESS-CONCLUSION",
+   "movement": "6. Management conclusion",
+   "title": "Management conclusion",
+   "purpose": "Close in narrative: what the organisation should recognise, which few changes matter most, what should be true within ninety days, and the sensible next step.",
+   "takeaway": "A useful close, not a list.",
+   "next": null,
+   "requiredFacts": [],
+   "exhibits": [],
+   "newPage": true
+  }
+ ],
+ "pageTarget": {
+  "default": [
+   18,
+   22
+  ],
+  "acceptable": [
+   16,
+   24
+  ],
+  "hardMax": 26
+ }
+}

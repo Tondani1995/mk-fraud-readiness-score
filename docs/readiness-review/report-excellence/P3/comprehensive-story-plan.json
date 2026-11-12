@@ -1,0 +1,359 @@
+{
+ "version": "revised-story-plan-0.1",
+ "product": "comprehensive",
+ "sections": [
+  {
+   "id": "COMP-EXEC",
+   "movement": "Diagnosis",
+   "title": "Executive diagnosis",
+   "purpose": "Start with what MK concluded: the position, the pattern beneath it, the strengths, the exposure themes and the leadership priorities. By the end of this section an executive understands the full management story.",
+   "takeaway": "The whole management story in three pages.",
+   "next": "COMP-SCOPE",
+   "requiredFacts": [
+    "N-APPLY",
+    "N-REPORTED-HELD",
+    "N-GAP",
+    "N-SETTLE",
+    "THEME-STRUCTURE",
+    "THEME-VERIFY",
+    "THEME-X-11",
+    "POSITION-1",
+    "POSITION-4"
+   ],
+   "exhibits": [
+    "position"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "COMP-SCOPE",
+   "movement": "Diagnosis",
+   "title": "Scope and analytical basis",
+   "purpose": "One concise page: the self-assessment basis and the boundary, strategic analysis and control design, not independent verification.",
+   "takeaway": "What the report can and cannot say.",
+   "next": "COMP-PROFILE",
+   "requiredFacts": [
+    "N-PAIRS"
+   ],
+   "exhibits": [],
+   "newPage": true
+  },
+  {
+   "id": "COMP-PROFILE",
+   "movement": "Diagnosis",
+   "title": "Readiness profile",
+   "purpose": "The ten areas, interpreted: the shape of the environment, not a list of figures.",
+   "takeaway": "Where the environment holds and where it is open.",
+   "next": "COMP-THEMES",
+   "requiredFacts": [
+    "AREA-D1-GAP",
+    "AREA-D2-GAP",
+    "AREA-D3-GAP",
+    "AREA-D4-GAP",
+    "AREA-D5-GAP",
+    "AREA-D6-GAP",
+    "AREA-D7-GAP",
+    "AREA-D8-GAP",
+    "AREA-D9-GAP",
+    "AREA-D10-GAP"
+   ],
+   "exhibits": [
+    "profile"
+   ],
+   "newPage": false
+  },
+  {
+   "id": "COMP-THEMES",
+   "movement": "Interpretation",
+   "title": "Systemic themes",
+   "purpose": "The cross-cutting themes and how they interact: which weakness provides opportunity and which delays detection or response.",
+   "takeaway": "Why the themes must be treated together.",
+   "next": "COMP-FINDINGS",
+   "requiredFacts": [
+    "THEME-STRUCTURE",
+    "THEME-VERIFY",
+    "THEME-X-11"
+   ],
+   "exhibits": [
+    "theme-map"
+   ],
+   "newPage": true,
+   "units": [
+    {
+     "id": "COMP-THEME-THEME-STRUCTURE",
+     "ref": "THEME-STRUCTURE"
+    },
+    {
+     "id": "COMP-THEME-THEME-VERIFY",
+     "ref": "THEME-VERIFY"
+    },
+    {
+     "id": "COMP-THEME-THEME-X-11",
+     "ref": "THEME-X-11"
+    }
+   ]
+  },
+  {
+   "id": "COMP-FINDINGS",
+   "movement": "Interpretation",
+   "title": "Findings",
+   "purpose": "Deeper advisory findings: the recorded condition, the control-system context, interaction with other controls, the plausible pathway, the management consequence and why the target design matters.",
+   "takeaway": "What each weakness means in this organisation.",
+   "next": "COMP-PATHWAYS",
+   "requiredFacts": [
+    "FINDING-01",
+    "FINDING-02",
+    "FINDING-03",
+    "FINDING-04",
+    "FINDING-05",
+    "FINDING-06",
+    "FINDING-07"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "COMP-FINDING-01",
+     "ref": "FINDING-01",
+     "exhibit": "finding:FINDING-01"
+    },
+    {
+     "id": "COMP-FINDING-02",
+     "ref": "FINDING-02",
+     "exhibit": "finding:FINDING-02"
+    },
+    {
+     "id": "COMP-FINDING-03",
+     "ref": "FINDING-03",
+     "exhibit": "finding:FINDING-03"
+    },
+    {
+     "id": "COMP-FINDING-04",
+     "ref": "FINDING-04",
+     "exhibit": "finding:FINDING-04"
+    },
+    {
+     "id": "COMP-FINDING-05",
+     "ref": "FINDING-05",
+     "exhibit": "finding:FINDING-05"
+    },
+    {
+     "id": "COMP-FINDING-06",
+     "ref": "FINDING-06",
+     "exhibit": "finding:FINDING-06"
+    },
+    {
+     "id": "COMP-FINDING-07",
+     "ref": "FINDING-07",
+     "exhibit": "finding:FINDING-07"
+    }
+   ]
+  },
+  {
+   "id": "COMP-PATHWAYS",
+   "movement": "Interpretation",
+   "title": "Fraud exposure and pathways",
+   "purpose": "Organisation-relevant fraud pathways and the exposure themes they demonstrate.",
+   "takeaway": "How the weaknesses combine into loss.",
+   "next": "COMP-TARGET",
+   "requiredFacts": [
+    "PATHWAY-01",
+    "PATHWAY-02",
+    "PATHWAY-03",
+    "PATHWAY-04"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "COMP-PATHWAY-01",
+     "ref": "PATHWAY-01",
+     "exhibit": "pathway:PATHWAY-01"
+    },
+    {
+     "id": "COMP-PATHWAY-02",
+     "ref": "PATHWAY-02",
+     "exhibit": "pathway:PATHWAY-02"
+    },
+    {
+     "id": "COMP-PATHWAY-03",
+     "ref": "PATHWAY-03",
+     "exhibit": "pathway:PATHWAY-03"
+    },
+    {
+     "id": "COMP-PATHWAY-04",
+     "ref": "PATHWAY-04",
+     "exhibit": "pathway:PATHWAY-04"
+    }
+   ]
+  },
+  {
+   "id": "COMP-TARGET",
+   "movement": "Design",
+   "title": "Target fraud-control environment",
+   "purpose": "The priority control blueprints: current state, target state, how each should operate, what it connects to and how effectiveness is measured, in prose with a compact specification panel.",
+   "takeaway": "What the organisation should build.",
+   "next": "COMP-OPMODEL",
+   "requiredFacts": [
+    "BLUEPRINT-01",
+    "BLUEPRINT-02",
+    "BLUEPRINT-03",
+    "BLUEPRINT-04",
+    "BLUEPRINT-05"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "COMP-BLUEPRINT-01",
+     "ref": "BLUEPRINT-01",
+     "exhibit": "blueprint:BLUEPRINT-01"
+    },
+    {
+     "id": "COMP-BLUEPRINT-02",
+     "ref": "BLUEPRINT-02",
+     "exhibit": "blueprint:BLUEPRINT-02"
+    },
+    {
+     "id": "COMP-BLUEPRINT-03",
+     "ref": "BLUEPRINT-03",
+     "exhibit": "blueprint:BLUEPRINT-03"
+    },
+    {
+     "id": "COMP-BLUEPRINT-04",
+     "ref": "BLUEPRINT-04",
+     "exhibit": "blueprint:BLUEPRINT-04"
+    },
+    {
+     "id": "COMP-BLUEPRINT-05",
+     "ref": "BLUEPRINT-05",
+     "exhibit": "blueprint:BLUEPRINT-05"
+    }
+   ]
+  },
+  {
+   "id": "COMP-OPMODEL",
+   "movement": "Design",
+   "title": "Target fraud-risk operating model",
+   "purpose": "Who owns fraud risk, who operates the controls, who monitors, who investigates, who escalates and who oversees, proportionate to the organisation.",
+   "takeaway": "Accountability that holds across areas.",
+   "next": "COMP-DECISIONS",
+   "requiredFacts": [
+    "ROLE-OVERSIGHT",
+    "ROLE-EXECUTIVE",
+    "ROLE-RISK",
+    "ROLE-OWNERS",
+    "ROLE-DETECT"
+   ],
+   "exhibits": [
+    "operating-model"
+   ],
+   "newPage": false
+  },
+  {
+   "id": "COMP-DECISIONS",
+   "movement": "Design",
+   "title": "Leadership decisions",
+   "purpose": "The real decisions executives must take, explaining the approved options, trade-offs and MK's recommended route without adding options.",
+   "takeaway": "The choices only leadership can make.",
+   "next": "COMP-PROGRAMME",
+   "requiredFacts": [
+    "DECISION-01",
+    "DECISION-02",
+    "DECISION-03"
+   ],
+   "exhibits": [],
+   "newPage": true,
+   "units": [
+    {
+     "id": "COMP-DECISION-01",
+     "ref": "DECISION-01",
+     "exhibit": "decision:DECISION-01"
+    },
+    {
+     "id": "COMP-DECISION-02",
+     "ref": "DECISION-02",
+     "exhibit": "decision:DECISION-02"
+    },
+    {
+     "id": "COMP-DECISION-03",
+     "ref": "DECISION-03",
+     "exhibit": "decision:DECISION-03"
+    }
+   ]
+  },
+  {
+   "id": "COMP-PROGRAMME",
+   "movement": "Design",
+   "title": "Twelve-month implementation blueprint",
+   "purpose": "Stabilise, Establish, Embed and Mature as proposed stages: outcomes, owners and dependencies, not walls of control text, and not deadlines.",
+   "takeaway": "How the organisation gets from here to there.",
+   "next": "COMP-SCORECARD",
+   "requiredFacts": [
+    "PHASE-STABILISE",
+    "PHASE-ESTABLISH",
+    "PHASE-EMBED",
+    "PHASE-MATURE"
+   ],
+   "exhibits": [
+    "roadmap-12"
+   ],
+   "newPage": true
+  },
+  {
+   "id": "COMP-SCORECARD",
+   "movement": "Design",
+   "title": "Management fraud-readiness scorecard",
+   "purpose": "Practical measures with owners, frequency and escalation thresholds.",
+   "takeaway": "How management will know it is working.",
+   "next": "COMP-BASIS",
+   "requiredFacts": [
+    "MEASURE-01",
+    "MEASURE-02",
+    "MEASURE-03",
+    "MEASURE-04",
+    "MEASURE-05",
+    "MEASURE-OWNERS",
+    "MEASURE-CYCLES",
+    "MEASURE-REPORT"
+   ],
+   "exhibits": [
+    "scorecard"
+   ],
+   "newPage": false
+  },
+  {
+   "id": "COMP-BASIS",
+   "movement": "Basis",
+   "title": "Methodology and limitations",
+   "purpose": "Concise product boundary and how the position is read, including what awaits MK's approval.",
+   "takeaway": "The boundary, stated once.",
+   "next": "COMP-CONCLUSION",
+   "requiredFacts": [],
+   "exhibits": [],
+   "newPage": false
+  },
+  {
+   "id": "COMP-CONCLUSION",
+   "movement": "Conclusion",
+   "title": "Management conclusion",
+   "purpose": "Where the organisation is, the transition required, the foundations that matter most, what success looks like by ninety days and by twelve months, and when Advisory would add value.",
+   "takeaway": "A useful close.",
+   "next": null,
+   "requiredFacts": [],
+   "exhibits": [],
+   "newPage": true
+  }
+ ],
+ "pageTarget": {
+  "default": [
+   28,
+   34
+  ],
+  "acceptable": [
+   26,
+   36
+  ],
+  "hardMax": 38
+ }
+}

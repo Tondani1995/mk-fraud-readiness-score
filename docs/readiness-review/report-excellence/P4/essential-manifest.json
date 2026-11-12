@@ -1,0 +1,83 @@
+{
+ "product": "essential",
+ "organisation": "Fictional Owner-Managed Firm",
+ "assessmentReference": "FX-P4",
+ "bibleVersion": "1.1",
+ "sourceCommit": "55ea176d53fad965a176eff788a1fa4480ab2031",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "67f4e88f105d5d00782e3d9904e5063eeafeb10bf37cf692c42b16d00f567a02",
+  "manuscript": "6a8d70ba23c3ff1d220d81c2856d92ad3584ddcd9bdedeff9b694e1a38563e8f",
+  "html": "f0dc6b66651d2619facef03e92e14b3153b4f5ed121160be4f55799b1ce42498",
+  "pdf": "aeed2c11b287a03a9d7452f75d3f5b9912c898549bf77470b49c276d59f8dea7",
+  "workbook": "8f0ea1ed8576abdcf91daf64f6b193b3eb0f7c5c618a4edc61c9511c39cc7a10"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 19,
+   "columns": 2
+  },
+  {
+   "name": "Findings",
+   "rows": 11,
+   "columns": 12
+  },
+  {
+   "name": "Risks",
+   "rows": 10,
+   "columns": 8
+  },
+  {
+   "name": "Control Actions",
+   "rows": 16,
+   "columns": 9
+  },
+  {
+   "name": "Proof of Progress",
+   "rows": 15,
+   "columns": 5
+  },
+  {
+   "name": "Roadmap",
+   "rows": 16,
+   "columns": 6
+  },
+  {
+   "name": "Question Trace",
+   "rows": 56,
+   "columns": 10
+  },
+  {
+   "name": "Control Improvements",
+   "rows": 15,
+   "columns": 22
+  }
+ ],
+ "pages": 19,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

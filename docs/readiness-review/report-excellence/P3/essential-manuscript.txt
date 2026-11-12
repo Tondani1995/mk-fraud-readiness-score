@@ -1,0 +1,193 @@
+# About this report
+
+This report sets out what the group's own answers establish about its fraud controls, what that position means for management, and what should happen first. It begins with the overall position and the patterns behind it, develops the findings that deserve leadership attention, shows how fraud could exploit them, and closes with the first responses and a ninety-day plan. The supporting workbook carries the complete registers and the detailed control specifications.
+
+# The group has built its fraud framework at the centre, but the controls have not yet reached the processes where money, goods and identity change hands
+
+(Executive summary)
+
+On its own answers, the group reports the core controls in place for 48 of the 106 fraud scenarios that apply to a retail and wholesale business of its size, and a core control reported as a gap in 58. Those two figures describe two different organisations. In fraud governance, fraud risk assessment, finance and banking, and detection and response, every core control is reported in place. In third parties, people and payroll, customers, assets and stock, and digital channels, almost every core control is reported as a gap.
+
+The environment is therefore sharply uneven rather than uniformly weak. The group has done the work that sits at the centre of a fraud programme: ownership is assigned, the risks are assessed, finance and banking controls are in place, and there are channels to report and investigate concerns. What has not followed is the translation of that framework into the operating processes, where suppliers are paid, staff are paid, customers are given credit and refunds, stock is held and instructions arrive by email, phone and video. Those processes are where most fraud against a retail group would occur.
+
+Three patterns explain most of the position. The first is this gap between a sound framework and unprotected operations. The second runs across the operating areas: changes to bank details, customer details and identities are accepted on the strength of the request, in third parties and supply chain, people, payroll and insider risk, customers, revenue and products and digital, cyber-enabled and identity fraud. The third is that no independent review examines procurement or payroll, the two processes through which money most often leaves an organisation unnoticed.
+
+In fraud terms, these patterns open well-known routes to loss. A supplier's bank details can be changed by an impostor and the next payment made to the fraudster. A follow-up call that sounds like the supplier's usual contact is accepted as confirmation, and an instruction in a cloned voice depends on an individual's judgement. Stock is counted by the people who hold it, and payroll is checked only at the level of totals. Each of these is a common, practised scheme, and each is aided by the fact that nobody looks across the payments as a whole.
+
+The first priority for management is ownership. Each operating area with open scenarios needs a named executive who is accountable for its controls, because the framework at the centre cannot put controls into processes it does not run. The first controls to design are those that close the most practised routes: confirming every change to supplier bank details through contact details already on file, whatever a caller appears to be; a monthly senior review of supplier payments; verifying credit applications with their source; verifying customer detail changes away from sales; and a detailed review of each payroll run by someone who did not prepare it.
+
+Every question in the assessment was answered, so the position is not limited by missing information, and no pair of answers conflicts. This summary sets out what the answers establish and what the group should do first.
+
+# The profile divides cleanly: the centre holds, and the operating areas are open
+
+(Readiness profile)
+
+The profile shows, for each of the ten areas, how the fraud scenarios that apply divide between controls reported in place and controls reported as gaps. The division is unusually clean. In four areas every core control is reported in place: fraud governance and accountability, fraud risk assessment, finance, banking and financial reporting and detection, speak-up and response. In five areas nearly every core control is reported as a gap: third parties and supply chain, people, payroll and insider risk, customers, revenue and products, assets, cash and inventory and digital, cyber-enabled and identity fraud.
+
+The open areas are not small. Together they hold most of the scenarios in the method, with 14 gaps in digital channels, 12 in third parties, 11 in people and payroll, and 10 each in customers and in assets. Ethics sits between the two groups, with most of its controls reported in place and one reported as a gap.
+
+The shape suggests a programme that has been built from the centre outward and has not yet reached the operations. That reading matters for the response: the group does not need to rebuild its governance, which the answers describe as working, but to extend the same discipline into the processes that move money, pay, goods and customer value.
+
+# Three patterns drive the position, and together they leave the operating processes without their basic defences
+
+(What is driving the position)
+
+The profile shows where the gaps lie. The patterns below explain why they matter together, and each ends with what it asks of leadership.
+
+## A sound framework at the centre has not been carried into the operating processes
+
+Governance, risk assessment, finance and detection are reported as complete, while third parties, people and payroll, customers, assets and digital channels are reported as almost entirely open. A framework of this kind tells the organisation who owns fraud risk, what the risks are and how concerns will be handled. It does not, by itself, stop a supplier being paid into the wrong account or stock leaving a store; those outcomes depend on controls inside the processes, and the answers report that most of those controls are absent.
+
+The consequence is that the group's fraud programme can describe its exposure accurately and respond to a case once it is found, but has few means of preventing or detecting fraud where it would occur. A loss in these areas is likely to be discovered by a supplier, a customer, a stock count or a whistle-blower rather than by a control designed to find it.
+
+For leadership, the implication is that ownership of fraud controls has to move into the operating areas. The executives who run procurement, payroll, customers, stock and digital channels should each be accountable for the controls in their processes, supported by the risk function that already owns the framework.
+
+## Changes to bank details, customer details and identity are accepted on the requester's word
+
+Across four areas, 14 practices that verify a request through a route the requester does not control are reported weaker than in place. Supplier bank changes are confirmed using contact details taken from the request itself, and a follow-up call from someone who sounds like the supplier is accepted. Changes to employees' bank details, customer refund accounts and delivery addresses are not consistently verified with the person concerned. Requests made by phone, voice note or video are checked only at an individual's discretion, and credit documents are verified only if something looks wrong.
+
+These are the same weakness appearing in different processes. Most payment diversion, impersonation and application fraud succeeds not by defeating a control but by supplying the confirmation the process asks for, a familiar voice, a plausible document or a reply to an email the fraudster controls. Verification that uses details already held, through a channel the requester did not choose, is the defence, and the answers report it missing almost everywhere it is needed.
+
+The implication is that the group should design this requirement once and apply it across suppliers, payroll, customers and digital channels, rather than solving it separately in each area. A single rule, applied to everyone including executives, is simpler to brief, to follow and to test.
+
+## Nothing independent examines procurement or payroll
+
+Independent review of procurement and independent review of payroll are both reported weaker than in place, across third parties and supply chain and people, payroll and insider risk. In the same processes, the senior review of supplier payments is set out but not yet working, and the payroll review looks at totals rather than detail.
+
+Procurement and payroll are where money leaves the organisation in volume and on a routine cycle. Without anyone looking across the payments, fictitious suppliers, duplicate invoices, split orders and ghost employees can each pass every individual check. Independent review is also the control that would tell management whether the new controls it puts in place actually operate.
+
+Leadership should decide how procurement and payroll will be examined by someone outside those processes, whether a manager from another area, internal audit or an external engagement, and should expect the first examination within the year.
+
+# Seven findings show how the patterns appear in the processes that move money and goods
+
+(The findings this report develops)
+
+The findings below are the scenarios through which each pattern appears most clearly: within each theme, the scenario with more core controls reported absent, or with the most related practices also reported weaker. They are presented in the order of the method's areas, which is not a ranking. The full register of 59 findings is in the supporting workbook.
+
+## Supplier bank changes can be confirmed through the fraudster's own contact details
+
+Changes to supplier bank details are confirmed, but sometimes using contact details taken from the change request itself, and a follow-up call from someone who sounds like the supplier's usual contact is accepted as confirmation.
+
+Both answers describe a confirmation that the fraudster can supply. When the contact details come from the request, the call goes to the person who sent it. When a familiar voice is enough, a cloned voice or a well-prepared caller passes the check. The control exists in form, which may give the finance team confidence, but it does not establish that the supplier asked for the change.
+
+Changed supplier bank details are among the most practised routes to payment fraud, and the loss is usually a genuine payment that the group must then make again. Management should require every change to be confirmed through contact details already on file, by someone other than the person who captured it, whatever an incoming call or video appears to show.
+
+## The senior review of supplier payments has been agreed but does not yet run
+
+A monthly senior review of supplier payments is reported as set out but not yet working in practice. Monitoring for split orders is likewise set out but not operating, reviewing payment data for unusual patterns is not in place, and independent review of procurement is only partly in place.
+
+These answers describe one capability that the group has decided it needs but has not yet built: looking at supplier payments as a population. Each order and invoice may pass its own checks while the pattern across them, such as purchases split under an approval limit, an invoice paid twice or a new supplier paid unusually often, goes unseen.
+
+Because the review is already designed, the work is to make it run. The finance lead should name the senior manager who reviews the payments each month, someone who does not process them, and the first review should look back over the previous twelve months.
+
+## Credit applications are verified only when something looks wrong
+
+Supporting documents for credit applications are checked only if something looks wrong. Several related practices are also reported weaker, including independent approval of credit, bureau and fraud database checks and the investigation of early defaults.
+
+A check triggered by appearance is the check that generated documents are designed to pass. Payslips and bank statements can now be produced cheaply and convincingly, and an application that looks right will be approved. With early defaults not consistently investigated, the resulting losses are likely to be booked as bad debt rather than recognised as application fraud, so the pattern would repeat.
+
+The finance lead should require the key information in every application, such as employment and income, to be verified with its source before credit is approved.
+
+## Customer refund and delivery details can be changed by sales staff
+
+Most changes to customer details are verified with the customer, but sales staff can still make them. Defined customer onboarding is not in place, business customers are only partly verified, and details shared between customer accounts are not flagged.
+
+A change to a refund account, a delivery address or a contact number is how refunds and goods are redirected, whether by an outsider impersonating the customer or by an employee. Allowing the people who deal with customers to make those changes removes the separation that would otherwise require a second person to be involved.
+
+The commercial and customer lead should ensure that every change to these details is verified with the customer through details already on file and is made by someone outside sales.
+
+## Payroll is reviewed only at the level of totals
+
+Someone other than the preparer looks at each payroll run, but only at the totals, not at the detail. Headcount verification is not in place, payroll data analysis is set out but not operating, and independent review of payroll is only partly in place.
+
+A ghost employee, or a leaver who remains on the payroll, does not change the totals enough to be noticed. A review of totals confirms that the payroll is roughly the size expected; it does not confirm that every person paid exists and still works for the group.
+
+The HR and payroll lead should require a detailed review of each run before payment by someone who did not prepare it, including new starters, leavers and changes, with variances explained.
+
+## Stock is counted by the people who hold it
+
+The stores team counts the stock, and someone else glances at the results. How stock is recorded, full counts, explaining differences before adjusting, approving write-offs and tracking shrinkage are all reported weaker than in place.
+
+Counts conducted by the people who hold the stock can conceal its theft, because the record that should reveal a loss is prepared by the person who would cause it. Without differences being explained before adjustment and without shrinkage being tracked, a loss can be written off as damage or a counting error and never examined.
+
+The finance lead should arrange counts by people independent of each store's custody, carried out without sight of the system quantities, with every difference explained before the records are adjusted.
+
+## Instructions by phone, voice note or video are checked only at individual discretion
+
+Some staff check unusual requests made by phone, voice note or video, depending on their own judgement. Verifying changes to call-back details is only partly in place, and executives and their teams are only partly prepared.
+
+Voices and faces can now be cloned from public recordings, so recognising a caller no longer confirms who they are. A check that depends on an individual's judgement will be skipped under pressure, and pressure is exactly what an impersonation of a senior person applies.
+
+The chief financial officer should agree a verification method, such as a call-back on a known number or a code word, that applies to every request of this kind and to everyone, including executives.
+
+# The open controls create three practised routes to loss, each hard to see from inside the process
+
+(How fraud exposure could materialise)
+
+The findings do not operate separately. In each pathway below, one weakness provides the opportunity and another delays its discovery. These are plausible sequences built from the answers and MK's scenario library; they do not suggest that any of these events has occurred.
+
+## Stock leaves a store, and the count is made to agree
+
+An employee with custody of stock, sometimes working with a driver, a supplier or a colleague, removes stock over time. The opportunity is that the stores team counts its own stock, with only a glance from anyone else.
+
+When the count is done, the counter records the expected quantities, or attributes the shortfall to damage or a counting error. Because differences are not explained before adjustment and shrinkage is not tracked by location, nothing marks the store out. The loss is absorbed into margin, and the write-offs that conceal it look like the ordinary cost of retail.
+
+## A supplier's bank details are changed and the next payment run pays the fraudster
+
+An outsider who has compromised a supplier's email sends a request to change its bank details, on the supplier's letterhead and with its usual invoice references. The request includes a contact number, and when finance calls it, the person who answers confirms the change; sometimes a follow-up call from someone who sounds like the usual contact is enough.
+
+The change is captured on the supplier master file, and the next genuine invoice is approved and paid to the new account in the normal run. Every document is genuine, so nothing looks wrong until the real supplier asks why it has not been paid. By then the account has usually been emptied, and the group still owes the supplier.
+
+## A purchase is split below the approval limit, and nobody looks across the orders
+
+A buyer who wants to avoid a tender splits a purchase into several orders that each fall below the approval limit, or a supplier resubmits an invoice already paid with a changed number. Each order and each invoice passes its own checks.
+
+The pattern exists only in the payment data, and because the senior review of supplier payments has not started and split orders are not monitored, nobody examines it. Purchases are made without competition, duplicate payments go unrecovered, and the loss grows with each payment run until a supplier, an auditor or a whistle-blower raises it.
+
+# Six controls come first, and each closes a route that fraud already uses
+
+(What management should do first)
+
+The first responses are the controls that close the findings above, in the order the work should start. Each can be designed and owned within the existing structure, and none requires new systems to begin. The full operating specification for each, including its records and failure response, is in the supporting workbook.
+
+Confirming every supplier bank change through contact details already on file, and calling back on the number on file whatever an incoming call or video appears to show, together close the most practised route to payment fraud. The finance lead owns both, with the chief financial officer accountable. Success is every change in the period confirmed before it took effect, and staff who process changes briefed and tested.
+
+Making the senior review of supplier payments run each month gives the group its first view of payments as a whole. Its measure is a review that ran every month, with every query answered.
+
+Verifying the key information in every credit application with its source closes the route that generated documents exploit. The finance lead owns it, and every application in the period should have a file showing the verification before approval.
+
+Verifying customer detail changes with the customer, and moving the changes out of sales, protects refunds and deliveries from redirection. The commercial and customer lead owns it.
+
+A detailed review of each payroll run by someone who did not prepare it, before payment, is the control a ghost employee cannot pass. The HR and payroll lead owns it, and every run in the period should carry an independent approval with variances explained.
+
+# The first ninety days give each open area an owner and put the first controls to work
+
+(A 30, 60 and 90 day response)
+
+The plan sets out three proposed stages. The windows are proposals for management's own plan; they are not deadlines, contractual dates or estimates of how long any control takes to design or to prove. A control can be said to work only once it has met its success measure over a full operating cycle.
+
+In the first thirty days, the chief executive names an accountable executive for each operating area with open scenarios and records the order in which the remaining work will be done, with the factors behind it. Because the verification requirement runs across several areas, it is best designed once in this period and applied everywhere.
+
+By sixty days, each of the priority controls should have an approved design, an owner and a defined record, with its first cycle scheduled. By ninety days, each should have run at least once and produced its record, and the chief executive should report the status of every open area to the board.
+
+# This report rests on the group's own answers, read against MK's method
+
+(Basis of this report)
+
+Every finding in this report rests on answers given by the group's respondent and the functions to which questions were referred. MK has not examined documents, interviewed staff or tested any control, and the records named in the report are records that management should keep rather than evidence MK has reviewed. Independent examination of whether controls operate belongs to MK Advisory, which is scoped and priced separately.
+
+Answers are read together as well as one at a time. Where a control is reported in place, the answers about practices that defend against the same scenario are compared with it under a reviewed table of relationships. Answers given as "not known" or declined would be reported as outstanding, never as weaknesses; none remained in this assessment.
+
+The position is stated in four parts with the executive summary: what was calculated, what is inconsistent, how the answers read and what MK concludes. Findings and responses are selected and ordered by the rules stated where they appear, not by a ranking of fraud risk.
+
+# The group's next step is to carry the discipline it has built at the centre into the processes where fraud would occur
+
+(Management conclusion)
+
+The group should recognise that its fraud programme is complete at the centre and largely absent in operation. It has ownership, a risk assessment, finance controls and a response capability, which many organisations of its size lack. What it does not yet have are the controls that stop fraud inside the processes where suppliers, staff and customers are paid, stock is held and instructions arrive.
+
+A small number of changes will close the most practised routes. Each operating area needs an accountable executive. Changes to bank details, customer details and identity need to be verified through a route the requester does not control, designed once and applied everywhere. The senior review of supplier payments needs to run, and payroll and stock need checks by people independent of the work.
+
+Within ninety days, every open area should have a named owner, the priority controls should be designed and running their first cycles, and the board should have received a status report that shows which routes have been closed and which remain open.
+
+Once the first controls are running, the sensible next step is to extend the work to the remaining scenarios in the register in the order management has decided, and to arrange the independent examination of procurement and payroll that will show whether the new controls operate as designed.

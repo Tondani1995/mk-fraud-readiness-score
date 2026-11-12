@@ -1,0 +1,53 @@
+{
+ "validator": "revised-manuscript-validator-0.1",
+ "product": "essential",
+ "pass": true,
+ "issues": [
+  {
+   "code": "SHORT-PARAGRAPH",
+   "layer": "editorial",
+   "blocking": false,
+   "section": "ESS-FINDINGS",
+   "line": 125,
+   "detail": "A paragraph of 13 words."
+  },
+  {
+   "code": "SHORT-PARAGRAPH",
+   "layer": "editorial",
+   "blocking": false,
+   "section": "ESS-FINDINGS",
+   "line": 151,
+   "detail": "A paragraph of 13 words."
+  }
+ ],
+ "stats": {
+  "sections": 10,
+  "paragraphs": 59,
+  "words": 2558,
+  "headings": 23,
+  "exhibits": 16,
+  "refsPerParagraph": 2.22,
+  "slots": 12,
+  "mechanical": {
+   "ok": true,
+   "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+   "totalWords": 2558,
+   "reportFindings": [],
+   "slotFindings": [],
+   "repairTargets": []
+  },
+  "contrasts": 0,
+  "shortParagraphs": 2,
+  "boundaryMentions": 2,
+  "manuscriptTest": {
+   "Where does the organisation stand?": true,
+   "What does that position mean?": true,
+   "What patterns drive the result?": true,
+   "Which findings matter and why?": true,
+   "How could they translate into fraud?": true,
+   "What should management do first?": true,
+   "What should the organisation become?": true,
+   "What should management take away?": true
+  }
+ }
+}

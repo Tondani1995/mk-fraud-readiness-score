@@ -1,0 +1,36 @@
+{
+ "validator": "revised-manuscript-validator-0.1",
+ "product": "essential",
+ "pass": true,
+ "issues": [],
+ "stats": {
+  "sections": 10,
+  "paragraphs": 65,
+  "words": 3531,
+  "headings": 23,
+  "exhibits": 16,
+  "refsPerParagraph": 2.29,
+  "slots": 19,
+  "mechanical": {
+   "ok": true,
+   "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+   "totalWords": 3531,
+   "reportFindings": [],
+   "slotFindings": [],
+   "repairTargets": []
+  },
+  "contrasts": 0,
+  "shortParagraphs": 0,
+  "boundaryMentions": 2,
+  "manuscriptTest": {
+   "Where does the organisation stand?": true,
+   "What does that position mean?": true,
+   "What patterns drive the result?": true,
+   "Which findings matter and why?": true,
+   "How could they translate into fraud?": true,
+   "What should management do first?": true,
+   "What should the organisation become?": true,
+   "What should management take away?": true
+  }
+ }
+}

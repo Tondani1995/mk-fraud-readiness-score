@@ -1,0 +1,836 @@
+{
+ "gates": 92,
+ "passed": 92,
+ "acceptance": {
+  "id": "AT-AI-01",
+  "name": "production AI manuscript run",
+  "pass": false,
+  "blocked": true,
+  "detail": "No AI Gateway credential is present in this environment. The production AI manuscript stage was not exercised; the reports were composed from manuscripts written in-session under the same writer contract and are not certified paid-report generations."
+ },
+ "results": [
+  {
+   "id": "G01 P3/essential",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 3531,
+    "paragraphs": 65,
+    "refsPerParagraph": 2.29,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 3531,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P3/essential",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P3/essential",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 65
+   }
+  },
+  {
+   "id": "G04 P3/essential",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 20,
+    "defaultRange": "18-22"
+   }
+  },
+  {
+   "id": "G05 P3/essential",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P3/essential",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P3/essential",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P3/essential",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 19",
+    "Findings 59",
+    "Risks 58",
+    "Control Actions 38",
+    "Proof of Progress 105",
+    "Roadmap 19",
+    "Question Trace 155",
+    "Control Improvements 106"
+   ]
+  },
+  {
+   "id": "G09 P3/essential",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P3/essential",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P3/essential",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P3/comprehensive",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 4080,
+    "paragraphs": 79,
+    "refsPerParagraph": 2.49,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 4080,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P3/comprehensive",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P3/comprehensive",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 79
+   }
+  },
+  {
+   "id": "G04 P3/comprehensive",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 31,
+    "defaultRange": "28-34"
+   }
+  },
+  {
+   "id": "G05 P3/comprehensive",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P3/comprehensive",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P3/comprehensive",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P3/comprehensive",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 18",
+    "Summary 10",
+    "Material Findings 59",
+    "Risk Register 58",
+    "Control Blueprints 106",
+    "Implementation Blueprint 43",
+    "Management Decisions 9",
+    "Question Traceability 155"
+   ]
+  },
+  {
+   "id": "G09 P3/comprehensive",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P3/comprehensive",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P3/comprehensive",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G12 P3",
+   "name": "tier differentiation: Comprehensive adds blueprints, operating model, decisions, programme and scorecard; Essential does not",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P4/essential",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 2558,
+    "paragraphs": 59,
+    "refsPerParagraph": 2.22,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 2558,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P4/essential",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P4/essential",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 59
+   }
+  },
+  {
+   "id": "G04 P4/essential",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 19,
+    "defaultRange": "18-22"
+   }
+  },
+  {
+   "id": "G05 P4/essential",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P4/essential",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P4/essential",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P4/essential",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 19",
+    "Findings 11",
+    "Risks 10",
+    "Control Actions 16",
+    "Proof of Progress 15",
+    "Roadmap 16",
+    "Question Trace 56",
+    "Control Improvements 15"
+   ]
+  },
+  {
+   "id": "G09 P4/essential",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P4/essential",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 49,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P4/essential",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P4/comprehensive",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 2836,
+    "paragraphs": 62,
+    "refsPerParagraph": 2.4,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 2836,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P4/comprehensive",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P4/comprehensive",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 62
+   }
+  },
+  {
+   "id": "G04 P4/comprehensive",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 29,
+    "defaultRange": "28-34"
+   }
+  },
+  {
+   "id": "G05 P4/comprehensive",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P4/comprehensive",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P4/comprehensive",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P4/comprehensive",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 18",
+    "Summary 10",
+    "Material Findings 11",
+    "Risk Register 10",
+    "Control Blueprints 15",
+    "Implementation Blueprint 21",
+    "Management Decisions 9",
+    "Question Traceability 56"
+   ]
+  },
+  {
+   "id": "G09 P4/comprehensive",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P4/comprehensive",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 49,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P4/comprehensive",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G12 P4",
+   "name": "tier differentiation: Comprehensive adds blueprints, operating model, decisions, programme and scorecard; Essential does not",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P5/essential",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 3097,
+    "paragraphs": 64,
+    "refsPerParagraph": 2.38,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 3097,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P5/essential",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P5/essential",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 64
+   }
+  },
+  {
+   "id": "G04 P5/essential",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 19,
+    "defaultRange": "18-22"
+   }
+  },
+  {
+   "id": "G05 P5/essential",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P5/essential",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P5/essential",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P5/essential",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 19",
+    "Findings 59",
+    "Risks 58",
+    "Control Actions 43",
+    "Proof of Progress 102",
+    "Roadmap 19",
+    "Question Trace 152",
+    "Control Improvements 103"
+   ]
+  },
+  {
+   "id": "G09 P5/essential",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P5/essential",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P5/essential",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P5/comprehensive",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 3552,
+    "paragraphs": 72,
+    "refsPerParagraph": 2.43,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 3552,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P5/comprehensive",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P5/comprehensive",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 72
+   }
+  },
+  {
+   "id": "G04 P5/comprehensive",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 32,
+    "defaultRange": "28-34"
+   }
+  },
+  {
+   "id": "G05 P5/comprehensive",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P5/comprehensive",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P5/comprehensive",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P5/comprehensive",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 18",
+    "Summary 10",
+    "Material Findings 59",
+    "Risk Register 58",
+    "Control Blueprints 103",
+    "Implementation Blueprint 48",
+    "Management Decisions 12",
+    "Question Traceability 152"
+   ]
+  },
+  {
+   "id": "G09 P5/comprehensive",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P5/comprehensive",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P5/comprehensive",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G12 P5",
+   "name": "tier differentiation: Comprehensive adds blueprints, operating model, decisions, programme and scorecard; Essential does not",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P6b/essential",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 4368,
+    "paragraphs": 70,
+    "refsPerParagraph": 2.41,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 4368,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P6b/essential",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P6b/essential",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 70
+   }
+  },
+  {
+   "id": "G04 P6b/essential",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 21,
+    "defaultRange": "18-22"
+   }
+  },
+  {
+   "id": "G05 P6b/essential",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P6b/essential",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P6b/essential",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P6b/essential",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 19",
+    "Findings 25",
+    "Risks 5",
+    "Control Actions 43",
+    "Proof of Progress 61",
+    "Roadmap 15",
+    "Question Trace 166",
+    "Control Improvements 63"
+   ]
+  },
+  {
+   "id": "G09 P6b/essential",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P6b/essential",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P6b/essential",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G01 P6b/comprehensive",
+   "name": "manuscript passes factual and editorial validation",
+   "pass": true,
+   "detail": {
+    "words": 4859,
+    "paragraphs": 82,
+    "refsPerParagraph": 2.45,
+    "mechanical": {
+     "ok": true,
+     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
+     "totalWords": 4859,
+     "reportFindings": [],
+     "slotFindings": [],
+     "repairTargets": []
+    }
+   }
+  },
+  {
+   "id": "G02 P6b/comprehensive",
+   "name": "every narrative paragraph carries provenance references",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G03 P6b/comprehensive",
+   "name": "plain-text manuscript exists and every manuscript paragraph appears in the PDF",
+   "pass": true,
+   "detail": {
+    "paragraphs": 82
+   }
+  },
+  {
+   "id": "G04 P6b/comprehensive",
+   "name": "page count within the Bible range, no appendix",
+   "pass": true,
+   "detail": {
+    "pages": 33,
+    "defaultRange": "28-34"
+   }
+  },
+  {
+   "id": "G05 P6b/comprehensive",
+   "name": "Poppins is the only typeface, embedded",
+   "pass": true,
+   "detail": [
+    "Poppins-SemiBold",
+    "Poppins-Medium",
+    "Poppins-Regular"
+   ]
+  },
+  {
+   "id": "G06 P6b/comprehensive",
+   "name": "no em dash, internal identifier, maturity band or research-stage wording in the PDF",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G07 P6b/comprehensive",
+   "name": "test fixture labelled, prototype notice and fictional footer present",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G08 P6b/comprehensive",
+   "name": "workbook has the Bible sheets, frozen headers, filters and no formula cells",
+   "pass": true,
+   "detail": [
+    "Read me 18",
+    "Summary 10",
+    "Material Findings 25",
+    "Risk Register 5",
+    "Control Blueprints 63",
+    "Implementation Blueprint 48",
+    "Management Decisions 12",
+    "Question Traceability 166"
+   ]
+  },
+  {
+   "id": "G09 P6b/comprehensive",
+   "name": "registers reconcile: workbook rows equal the analytical model",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G10 P6b/comprehensive",
+   "name": "cross-artefact consistency: fact pack counts, PDF position statements and workbook agree",
+   "pass": true,
+   "detail": {
+    "scenarios": 106,
+    "findingsDiscussed": 7
+   }
+  },
+  {
+   "id": "G11 P6b/comprehensive",
+   "name": "manifest records Bible version, source commit, versions and hashes",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "G12 P6b",
+   "name": "tier differentiation: Comprehensive adds blueprints, operating model, decisions, programme and scorecard; Essential does not",
+   "pass": true,
+   "detail": null
+  },
+  {
+   "id": "AT-AI-01",
+   "name": "production AI manuscript run",
+   "pass": false,
+   "blocked": true,
+   "detail": "No AI Gateway credential is present in this environment. The production AI manuscript stage was not exercised; the reports were composed from manuscripts written in-session under the same writer contract and are not certified paid-report generations."
+  }
+ ]
+}

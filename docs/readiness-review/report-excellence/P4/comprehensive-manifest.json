@@ -1,0 +1,83 @@
+{
+ "product": "comprehensive",
+ "organisation": "Fictional Owner-Managed Firm",
+ "assessmentReference": "FX-P4",
+ "bibleVersion": "1.1",
+ "sourceCommit": "55ea176d53fad965a176eff788a1fa4480ab2031",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "f71a3fc3e3f9c1fa32f3e06d7b179856f41abd455795a1834dc94c656e02bce2",
+  "manuscript": "890e3ee099aadec03b8559e0b7e2b53a0d2015fd196475c01bbc23dda464cd92",
+  "html": "ac04e74925f4a1f171121181359c1fd85dd0c3d5280c729aec6b69a202f0cdf6",
+  "pdf": "2649d028dd14e471fbc2f2be345ba073267f13f7c7128a21f2a2a7ebae4eb643",
+  "workbook": "fddedca2cc2b738fd0b966985561c47268ff2f9d2365ba5ac1038812b9884d7b"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 18,
+   "columns": 2
+  },
+  {
+   "name": "Summary",
+   "rows": 10,
+   "columns": 2
+  },
+  {
+   "name": "Material Findings",
+   "rows": 11,
+   "columns": 12
+  },
+  {
+   "name": "Risk Register",
+   "rows": 10,
+   "columns": 8
+  },
+  {
+   "name": "Control Blueprints",
+   "rows": 15,
+   "columns": 22
+  },
+  {
+   "name": "Implementation Blueprint",
+   "rows": 21,
+   "columns": 9
+  },
+  {
+   "name": "Management Decisions",
+   "rows": 9,
+   "columns": 13
+  },
+  {
+   "name": "Question Traceability",
+   "rows": 56,
+   "columns": 10
+  }
+ ],
+ "pages": 29,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

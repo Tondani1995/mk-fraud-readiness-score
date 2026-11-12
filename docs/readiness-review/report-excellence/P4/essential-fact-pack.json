@@ -1,0 +1,1693 @@
+{
+ "version": "revised-fact-pack-0.1",
+ "product": "essential",
+ "bibleVersion": "1.1",
+ "generatedAt": "2026-11-12T18:00:00Z",
+ "contentVersions": {
+  "controls": "control-content-library-0.1",
+  "scenarios": "scenario-structures-0.1",
+  "decisions": "decision-options-0.1",
+  "relationships": "relationship-review-0.2",
+  "sufficiency": "information-sufficiency-candidate-0.2"
+ },
+ "organisation": {
+  "name": "Fictional Owner-Managed Firm",
+  "reference": "FX-P4",
+  "industry": "Other",
+  "people": "Fewer than 50",
+  "turnover": "Less than R10 million",
+  "type": "Private company",
+  "oversight": "The owners",
+  "oversightKnown": true
+ },
+ "facts": {
+  "N-APPLY": {
+   "ref": "N-APPLY",
+   "label": "Fraud scenarios that apply to the organisation",
+   "value": 49,
+   "words": "49",
+   "source": "summary.applicable"
+  },
+  "N-HELD": {
+   "ref": "N-HELD",
+   "label": "Scenarios with every core control reported in place",
+   "value": 36,
+   "words": "36",
+   "source": "summary.byKind.confirmed"
+  },
+  "N-QUALIFIED": {
+   "ref": "N-QUALIFIED",
+   "label": "Scenarios with the core control in place and a related practice reported weaker",
+   "value": 1,
+   "words": "one",
+   "source": "summary.byKind.qualified"
+  },
+  "N-GAP": {
+   "ref": "N-GAP",
+   "label": "Scenarios with a core control reported as a gap",
+   "value": 10,
+   "words": "ten",
+   "source": "summary.byKind.gap"
+  },
+  "N-CONTRA": {
+   "ref": "N-CONTRA",
+   "label": "Scenarios whose answers cannot both be right",
+   "value": 0,
+   "words": "none",
+   "source": "summary.byKind.contradiction"
+  },
+  "N-CLARIFY": {
+   "ref": "N-CLARIFY",
+   "label": "Scenarios whose answers raise a question to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "summary.byKind.clarify"
+  },
+  "N-SETTLE": {
+   "ref": "N-SETTLE",
+   "label": "Scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "summary.byKind"
+  },
+  "N-OUTSTANDING-SCHEMES": {
+   "ref": "N-OUTSTANDING-SCHEMES",
+   "label": "Scenarios whose core answers are outstanding",
+   "value": 0,
+   "words": "none",
+   "source": "summary.byKind.outstanding"
+  },
+  "N-NOT-EXPECTED": {
+   "ref": "N-NOT-EXPECTED",
+   "label": "Scenarios not expected at this size",
+   "value": 2,
+   "words": "two",
+   "source": "summary.byKind.not-expected"
+  },
+  "N-REPORTED-HELD": {
+   "ref": "N-REPORTED-HELD",
+   "label": "Scenarios with the core control reported in place (with or without a weaker related practice)",
+   "value": 37,
+   "words": "37",
+   "source": "summary.byKind"
+  },
+  "N-OUTSTANDING": {
+   "ref": "N-OUTSTANDING",
+   "label": "Questions outstanding",
+   "value": 0,
+   "words": "none",
+   "source": "outstanding"
+  },
+  "N-OUTSTANDING-FUNCTIONS": {
+   "ref": "N-OUTSTANDING-FUNCTIONS",
+   "label": "Functions holding outstanding questions",
+   "value": 0,
+   "words": "none",
+   "source": "outstanding.fn"
+  },
+  "N-PAIRS": {
+   "ref": "N-PAIRS",
+   "label": "Answer pairs compared under the reviewed relationship table",
+   "value": 1,
+   "words": "one",
+   "source": "position.pairsCompared"
+  },
+  "N-CONTROLS": {
+   "ref": "N-CONTROLS",
+   "label": "Controls the full register acts on",
+   "value": 15,
+   "words": "15",
+   "source": "controls"
+  },
+  "N-PUT": {
+   "ref": "N-PUT",
+   "label": "Controls to put in place",
+   "value": 10,
+   "words": "ten",
+   "source": "controls.purpose"
+  },
+  "N-STRENGTHEN": {
+   "ref": "N-STRENGTHEN",
+   "label": "Related practices to strengthen",
+   "value": 5,
+   "words": "five",
+   "source": "controls.purpose"
+  },
+  "FIX-SCORE": {
+   "ref": "FIX-SCORE",
+   "label": "Calculated test result (test fixture, not an approved score)",
+   "value": 78.5,
+   "words": "78.5",
+   "source": "fixture.overall"
+  },
+  "AREA-D1-APPLY": {
+   "ref": "AREA-D1-APPLY",
+   "label": "Fraud governance and accountability: scenarios that apply",
+   "value": 11,
+   "words": "11",
+   "source": "schemes[area=D1]"
+  },
+  "AREA-D1-HELD": {
+   "ref": "AREA-D1-HELD",
+   "label": "Fraud governance and accountability: scenarios with the core controls reported in place",
+   "value": 11,
+   "words": "11",
+   "source": "schemes[area=D1]"
+  },
+  "AREA-D1-GAP": {
+   "ref": "AREA-D1-GAP",
+   "label": "Fraud governance and accountability: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D1]"
+  },
+  "AREA-D1-OPEN": {
+   "ref": "AREA-D1-OPEN",
+   "label": "Fraud governance and accountability: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D1]"
+  },
+  "AREA-D2-APPLY": {
+   "ref": "AREA-D2-APPLY",
+   "label": "Fraud risk assessment: scenarios that apply",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D2]"
+  },
+  "AREA-D2-HELD": {
+   "ref": "AREA-D2-HELD",
+   "label": "Fraud risk assessment: scenarios with the core controls reported in place",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D2]"
+  },
+  "AREA-D2-GAP": {
+   "ref": "AREA-D2-GAP",
+   "label": "Fraud risk assessment: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D2]"
+  },
+  "AREA-D2-OPEN": {
+   "ref": "AREA-D2-OPEN",
+   "label": "Fraud risk assessment: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D2]"
+  },
+  "AREA-D3-APPLY": {
+   "ref": "AREA-D3-APPLY",
+   "label": "Ethics, integrity and anti-corruption: scenarios that apply",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D3]"
+  },
+  "AREA-D3-HELD": {
+   "ref": "AREA-D3-HELD",
+   "label": "Ethics, integrity and anti-corruption: scenarios with the core controls reported in place",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D3]"
+  },
+  "AREA-D3-GAP": {
+   "ref": "AREA-D3-GAP",
+   "label": "Ethics, integrity and anti-corruption: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D3]"
+  },
+  "AREA-D3-OPEN": {
+   "ref": "AREA-D3-OPEN",
+   "label": "Ethics, integrity and anti-corruption: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D3]"
+  },
+  "AREA-D6-APPLY": {
+   "ref": "AREA-D6-APPLY",
+   "label": "Finance, banking and financial reporting: scenarios that apply",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D6]"
+  },
+  "AREA-D6-HELD": {
+   "ref": "AREA-D6-HELD",
+   "label": "Finance, banking and financial reporting: scenarios with the core controls reported in place",
+   "value": 6,
+   "words": "six",
+   "source": "schemes[area=D6]"
+  },
+  "AREA-D6-GAP": {
+   "ref": "AREA-D6-GAP",
+   "label": "Finance, banking and financial reporting: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D6]"
+  },
+  "AREA-D6-OPEN": {
+   "ref": "AREA-D6-OPEN",
+   "label": "Finance, banking and financial reporting: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D6]"
+  },
+  "AREA-D8-APPLY": {
+   "ref": "AREA-D8-APPLY",
+   "label": "Assets, cash and inventory: scenarios that apply",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D8]"
+  },
+  "AREA-D8-HELD": {
+   "ref": "AREA-D8-HELD",
+   "label": "Assets, cash and inventory: scenarios with the core controls reported in place",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D8]"
+  },
+  "AREA-D8-GAP": {
+   "ref": "AREA-D8-GAP",
+   "label": "Assets, cash and inventory: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D8]"
+  },
+  "AREA-D8-OPEN": {
+   "ref": "AREA-D8-OPEN",
+   "label": "Assets, cash and inventory: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D8]"
+  },
+  "AREA-D9-APPLY": {
+   "ref": "AREA-D9-APPLY",
+   "label": "Digital, cyber-enabled and identity fraud: scenarios that apply",
+   "value": 10,
+   "words": "ten",
+   "source": "schemes[area=D9]"
+  },
+  "AREA-D9-HELD": {
+   "ref": "AREA-D9-HELD",
+   "label": "Digital, cyber-enabled and identity fraud: scenarios with the core controls reported in place",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D9]"
+  },
+  "AREA-D9-GAP": {
+   "ref": "AREA-D9-GAP",
+   "label": "Digital, cyber-enabled and identity fraud: scenarios with a core control reported as a gap",
+   "value": 10,
+   "words": "ten",
+   "source": "schemes[area=D9]"
+  },
+  "AREA-D9-OPEN": {
+   "ref": "AREA-D9-OPEN",
+   "label": "Digital, cyber-enabled and identity fraud: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D9]"
+  },
+  "AREA-D10-APPLY": {
+   "ref": "AREA-D10-APPLY",
+   "label": "Detection, speak-up and response: scenarios that apply",
+   "value": 8,
+   "words": "eight",
+   "source": "schemes[area=D10]"
+  },
+  "AREA-D10-HELD": {
+   "ref": "AREA-D10-HELD",
+   "label": "Detection, speak-up and response: scenarios with the core controls reported in place",
+   "value": 8,
+   "words": "eight",
+   "source": "schemes[area=D10]"
+  },
+  "AREA-D10-GAP": {
+   "ref": "AREA-D10-GAP",
+   "label": "Detection, speak-up and response: scenarios with a core control reported as a gap",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D10]"
+  },
+  "AREA-D10-OPEN": {
+   "ref": "AREA-D10-OPEN",
+   "label": "Detection, speak-up and response: scenarios with answers to settle or questions to clarify",
+   "value": 0,
+   "words": "none",
+   "source": "schemes[area=D10]"
+  },
+  "N-AREAS": {
+   "ref": "N-AREAS",
+   "label": "Areas assessed",
+   "value": 6,
+   "words": "six",
+   "source": "areas"
+  },
+  "N-AREAS-HELD": {
+   "ref": "N-AREAS-HELD",
+   "label": "Areas with every core control reported in place",
+   "value": 5,
+   "words": "five",
+   "source": "areas.pattern"
+  },
+  "N-AREAS-OPEN": {
+   "ref": "N-AREAS-OPEN",
+   "label": "Areas where most core controls are reported as gaps",
+   "value": 1,
+   "words": "one",
+   "source": "areas.pattern"
+  },
+  "L-AREAS-HELD": {
+   "ref": "L-AREAS-HELD",
+   "label": "Areas with every core control reported in place",
+   "value": "fraud governance and accountability, fraud risk assessment, ethics, integrity and anti-corruption, finance, banking and financial reporting and detection, speak-up and response",
+   "source": "areas.pattern"
+  },
+  "L-AREAS-OPEN": {
+   "ref": "L-AREAS-OPEN",
+   "label": "Areas where most core controls are reported as gaps",
+   "value": "digital, cyber-enabled and identity fraud",
+   "source": "areas.pattern"
+  },
+  "THEME-VERIFY-N": {
+   "ref": "THEME-VERIFY-N",
+   "label": "Instructions that move money or change identity are accepted on the requester's word: practices reported weaker",
+   "value": 4,
+   "words": "four",
+   "source": "coverage.crossObjectives"
+  },
+  "THEME-VERIFY-AREAS": {
+   "ref": "THEME-VERIFY-AREAS",
+   "label": "Instructions that move money or change identity are accepted on the requester's word: areas",
+   "value": "digital, cyber-enabled and identity fraud",
+   "source": "coverage.crossObjectives"
+  },
+  "THEME-VERIFY-NAREAS": {
+   "ref": "THEME-VERIFY-NAREAS",
+   "label": "Instructions that move money or change identity are accepted on the requester's word: number of areas",
+   "value": 1,
+   "words": "one",
+   "source": "coverage.crossObjectives"
+  },
+  "N-FINDINGS": {
+   "ref": "N-FINDINGS",
+   "label": "Findings developed in this report",
+   "value": 7,
+   "words": "seven",
+   "source": "selection"
+  },
+  "N-FINDINGS-REGISTER": {
+   "ref": "N-FINDINGS-REGISTER",
+   "label": "Findings in the full register (workbook)",
+   "value": 11,
+   "words": "11",
+   "source": "findings"
+  },
+  "N-THEMES": {
+   "ref": "N-THEMES",
+   "label": "Themes developed in this report",
+   "value": 3,
+   "words": "three",
+   "source": "selection"
+  },
+  "N-PATHWAYS": {
+   "ref": "N-PATHWAYS",
+   "label": "Fraud pathways developed in this report",
+   "value": 3,
+   "words": "three",
+   "source": "selection"
+  },
+  "N-PRIORITIES": {
+   "ref": "N-PRIORITIES",
+   "label": "First responses",
+   "value": 6,
+   "words": "six",
+   "source": "selection"
+  },
+  "N-PRIORITIES-SETTLE": {
+   "ref": "N-PRIORITIES-SETTLE",
+   "label": "First responses that settle answers",
+   "value": 0,
+   "words": "none",
+   "source": "selection"
+  },
+  "N-PRIORITIES-CONTROL": {
+   "ref": "N-PRIORITIES-CONTROL",
+   "label": "First responses that are controls",
+   "value": 6,
+   "words": "six",
+   "source": "selection"
+  },
+  "N-BLUEPRINTS": {
+   "ref": "N-BLUEPRINTS",
+   "label": "Control blueprints in this report",
+   "value": 5,
+   "words": "five",
+   "source": "selection"
+  },
+  "N-DECISIONS": {
+   "ref": "N-DECISIONS",
+   "label": "Leadership decisions",
+   "value": 3,
+   "words": "three",
+   "source": "decisions"
+  },
+  "N-OPEN-AREAS": {
+   "ref": "N-OPEN-AREAS",
+   "label": "Areas with an open or unresolved scenario",
+   "value": 1,
+   "words": "one",
+   "source": "areas"
+  },
+  "N-ACTIONS": {
+   "ref": "N-ACTIONS",
+   "label": "Actions in the full action register (workbook)",
+   "value": 16,
+   "words": "16",
+   "source": "actions"
+  }
+ },
+ "position": [
+  {
+   "ref": "POSITION-1",
+   "label": "Calculated test result",
+   "value": "78.5 of 100, test fixture",
+   "text": "From a research simulation of the draft method, kept for traceability. It is not a score, a maturity band or a readiness level."
+  },
+  {
+   "ref": "POSITION-2",
+   "label": "Unresolved inconsistencies",
+   "value": "None found",
+   "text": "None found in the 1 pair of answers compared. Most related practices were not asked, so this is not a finding that every answer is consistent."
+  },
+  {
+   "ref": "POSITION-3",
+   "label": "Provisional management interpretation",
+   "value": "10 with a control reported as a gap",
+   "text": "On its own answers, the organisation reports the controls that stop the scenario in place for 37 of the 49 fraud scenarios that apply, and a control reported as a gap in 10. This reads self-reported answers; nothing has been tested."
+  },
+  {
+   "ref": "POSITION-4",
+   "label": "Approved readiness conclusion",
+   "value": "None issued",
+   "text": "MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result."
+  }
+ ],
+ "areas": [
+  {
+   "ref": "AREA-D1",
+   "code": "D1",
+   "name": "Fraud governance and accountability",
+   "apply": 11,
+   "confirmed": 11,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 0,
+   "figure": 90,
+   "pattern": "held"
+  },
+  {
+   "ref": "AREA-D2",
+   "code": "D2",
+   "name": "Fraud risk assessment",
+   "apply": 6,
+   "confirmed": 6,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 0,
+   "figure": 91.7,
+   "pattern": "held"
+  },
+  {
+   "ref": "AREA-D3",
+   "code": "D3",
+   "name": "Ethics, integrity and anti-corruption",
+   "apply": 6,
+   "confirmed": 5,
+   "qualified": 1,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 0,
+   "figure": 86.7,
+   "pattern": "held"
+  },
+  {
+   "ref": "AREA-D6",
+   "code": "D6",
+   "name": "Finance, banking and financial reporting",
+   "apply": 6,
+   "confirmed": 6,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 0,
+   "figure": 100,
+   "pattern": "held"
+  },
+  {
+   "ref": "AREA-D8",
+   "code": "D8",
+   "name": "Assets, cash and inventory",
+   "apply": 0,
+   "confirmed": 0,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 1,
+   "figure": null,
+   "pattern": "not-assessed"
+  },
+  {
+   "ref": "AREA-D9",
+   "code": "D9",
+   "name": "Digital, cyber-enabled and identity fraud",
+   "apply": 10,
+   "confirmed": 0,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 10,
+   "outstanding": 0,
+   "notExpected": 1,
+   "figure": 16,
+   "pattern": "open"
+  },
+  {
+   "ref": "AREA-D10",
+   "code": "D10",
+   "name": "Detection, speak-up and response",
+   "apply": 8,
+   "confirmed": 8,
+   "qualified": 0,
+   "unresolved": 0,
+   "gap": 0,
+   "outstanding": 0,
+   "notExpected": 0,
+   "figure": 86.7,
+   "pattern": "held"
+  }
+ ],
+ "themes": [
+  {
+   "ref": "THEME-HELD",
+   "kind": "held",
+   "title": "The core fraud framework is reported in place",
+   "basis": "Areas with every core control reported in place.",
+   "areas": [
+    "Fraud governance and accountability",
+    "Fraud risk assessment",
+    "Ethics, integrity and anti-corruption",
+    "Finance, banking and financial reporting",
+    "Detection, speak-up and response"
+   ],
+   "controls": [],
+   "schemeRefs": [
+    "S01",
+    "S02",
+    "S03",
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08",
+    "S09",
+    "S10",
+    "S11",
+    "S12",
+    "S13",
+    "S14",
+    "S15",
+    "S16",
+    "S17",
+    "S18",
+    "S19",
+    "S20",
+    "S21",
+    "S22",
+    "S23",
+    "S24",
+    "S25",
+    "S26",
+    "S27",
+    "S28",
+    "S29",
+    "S42",
+    "S43",
+    "S44",
+    "S45",
+    "S46",
+    "S47",
+    "S48",
+    "S49"
+   ],
+   "factRefs": [
+    "N-AREAS-HELD",
+    "L-AREAS-HELD",
+    "AREA-D1-HELD",
+    "AREA-D2-HELD",
+    "AREA-D3-HELD",
+    "AREA-D6-HELD",
+    "AREA-D10-HELD"
+   ]
+  },
+  {
+   "ref": "THEME-AREA",
+   "kind": "area",
+   "title": "The open fraud scenarios sit almost entirely in digital, cyber-enabled and identity fraud",
+   "basis": "Share of the scenarios with a core control reported as a gap that fall in one area.",
+   "areas": [
+    "Digital, cyber-enabled and identity fraud"
+   ],
+   "controls": [],
+   "schemeRefs": [
+    "S31",
+    "S32",
+    "S33",
+    "S34",
+    "S35",
+    "S36",
+    "S37",
+    "S38",
+    "S39",
+    "S41"
+   ],
+   "factRefs": [
+    "AREA-D9-GAP",
+    "N-GAP",
+    "AREA-D9-APPLY"
+   ]
+  },
+  {
+   "ref": "THEME-VERIFY",
+   "kind": "cross",
+   "title": "Instructions that move money or change identity are accepted on the requester's word",
+   "basis": "The method's cross-area objectives: Changes to payment details are verified through a route the requester does not control; Identity is established through routes an impersonator cannot control.",
+   "areas": [
+    "Digital, cyber-enabled and identity fraud"
+   ],
+   "controls": [
+    "Changes to call-back details verified",
+    "Email never enough on its own",
+    "Help desk resets verified",
+    "Verification for calls, voice notes and video"
+   ],
+   "schemeRefs": [
+    "S32",
+    "S33",
+    "S35"
+   ],
+   "confirmSchemeRefs": [
+    "S32",
+    "S33",
+    "S35"
+   ],
+   "factRefs": [
+    "THEME-VERIFY-N",
+    "THEME-VERIFY-AREAS",
+    "THEME-VERIFY-NAREAS"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "ref": "FINDING-01",
+   "findingRef": "F04",
+   "schemeRef": "S33",
+   "schemeId": "FS-D9-03",
+   "kind": "gap",
+   "title": "A cloned voice or video instruction is obeyed",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-VERIFY",
+   "how": "A caller who sounds or looks like a known person is believed.",
+   "why": "Voices and faces can be cloned, so only an agreed verification method holds.",
+   "position": "Verification for calls, voice notes and video: some staff check unusual requests, depending on their own judgement. Related practices also reported weaker: pressure triggers verification (partly in place), changes to call-back details verified (partly in place) and gift cards and PIN requests banned (partly in place).",
+   "reported": [
+    {
+     "key": "Verification for calls, voice notes and video",
+     "state": "Partly in place",
+     "question": "Is there an agreed way to verify a request made by phone, voice note or video, such as calling back on a known number or using a code word, that applies to everyone including executives?",
+     "answer": "Some staff check unusual requests, depending on their own judgement.",
+     "owner": "Chief financial officer"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Deepfake voice and video impersonation of executives and staff"
+   ],
+   "ownerRole": "Chief financial officer",
+   "controlRefs": [
+    "C04",
+    "C05",
+    "C07",
+    "C06"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"Instructions that move money or change identity are accepted on the requester's word\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-02",
+   "findingRef": "F05",
+   "schemeRef": "S34",
+   "schemeId": "FS-D9-05",
+   "kind": "gap",
+   "title": "A security compromise is not notified",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-AREA",
+   "how": "The Regulator and affected people are not told, so they cannot protect themselves.",
+   "why": "POPIA section 22 requires notification as soon as reasonably possible.",
+   "position": "Compromises reported as POPIA requires: a compromise would be handled as it happens, without a set process. Related practices also reported weaker: affected people warned (not in place).",
+   "reported": [
+    {
+     "key": "Compromises reported as POPIA requires",
+     "state": "Partly in place",
+     "question": "Is there a procedure to notify the Information Regulator, through its eServices portal, and the affected people of a security compromise as soon as reasonably possible after it is discovered, as section 22 of POPIA requires, with any delay justified and recorded?",
+     "answer": "A compromise would be handled as it happens, without a set process.",
+     "owner": "IT lead"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Theft and sale of personal information"
+   ],
+   "ownerRole": "IT lead",
+   "controlRefs": [
+    "C08",
+    "C09"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"The open fraud scenarios sit almost entirely in digital, cyber-enabled and identity fraud\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-03",
+   "findingRef": "F03",
+   "schemeRef": "S32",
+   "schemeId": "FS-D9-02",
+   "kind": "gap",
+   "title": "A payment instruction received by email is acted on",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-VERIFY",
+   "how": "Changed details or urgent payments are processed on the strength of an email.",
+   "why": "Acting on payment instructions received by email is how business email compromise succeeds.",
+   "position": "Email never enough on its own: payment changes received by email are acted on as received.",
+   "reported": [
+    {
+     "key": "Email never enough on its own",
+     "state": "Not in place",
+     "question": "Is there an organisation-wide rule that payment details, salary details or urgent payment requests received by email are never acted on without confirmation through a separate, known channel?",
+     "answer": "Payment changes received by email are acted on as received.",
+     "owner": "Chief financial officer"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Business email compromise and payment redirection"
+   ],
+   "ownerRole": "Chief financial officer",
+   "controlRefs": [
+    "C03"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"Instructions that move money or change identity are accepted on the requester's word\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-04",
+   "findingRef": "F02",
+   "schemeRef": "S31",
+   "schemeId": "FS-D9-01",
+   "kind": "gap",
+   "title": "An email account is taken over",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-AREA",
+   "how": "A mailbox without strong sign-in is used to send or intercept payment instructions.",
+   "why": "Most business email compromise starts with an account that has no multi-factor authentication.",
+   "position": "Multi-factor on all email: email accounts are protected by passwords only.",
+   "reported": [
+    {
+     "key": "Multi-factor on all email",
+     "state": "Not in place",
+     "question": "Is multi-factor authentication required for every email account, including executives' and shared mailboxes?",
+     "answer": "Email accounts are protected by passwords only.",
+     "owner": "IT lead"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Takeover of staff accounts",
+    "Business email compromise and payment redirection"
+   ],
+   "ownerRole": "IT lead",
+   "controlRefs": [
+    "C02"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"The open fraud scenarios sit almost entirely in digital, cyber-enabled and identity fraud\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-05",
+   "findingRef": "F06",
+   "schemeRef": "S35",
+   "schemeId": "FS-D9-06",
+   "kind": "gap",
+   "title": "A help desk reset hands an attacker access",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-VERIFY",
+   "how": "An impersonator persuades the help desk to reset a password or authenticator.",
+   "why": null,
+   "position": "Help desk resets verified: most resets need verification through a trusted route, such as the person's manager or a number on file.",
+   "reported": [
+    {
+     "key": "Help desk resets verified",
+     "state": "Partly in place",
+     "question": "Are requests to the IT help desk to reset a password or multi-factor authentication verified through a route an impersonator would not control, such as a call-back to a number on file or a manager's confirmation through a separate channel, rather than on how convincing the caller or video seems?",
+     "answer": "Most resets need verification through a trusted route, such as the person's manager or a number on file.",
+     "owner": "IT lead"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Social engineering of the IT help desk",
+    "Takeover of staff accounts"
+   ],
+   "ownerRole": "IT lead",
+   "controlRefs": [
+    "C10"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"Instructions that move money or change identity are accepted on the requester's word\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-06",
+   "findingRef": "F07",
+   "schemeRef": "S36",
+   "schemeId": "FS-D9-07",
+   "kind": "gap",
+   "title": "Systems that move money are accessed without strong sign-in",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-AREA",
+   "how": "Remote access, cloud or banking systems rely on passwords alone.",
+   "why": null,
+   "position": "Multi-factor on critical systems: these systems are protected by passwords only.",
+   "reported": [
+    {
+     "key": "Multi-factor on critical systems",
+     "state": "Not in place",
+     "question": "Is multi-factor authentication required for remote access, cloud systems, the banking platform and any system that can move money or change master data?",
+     "answer": "These systems are protected by passwords only.",
+     "owner": "IT lead"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Takeover of staff accounts"
+   ],
+   "ownerRole": "IT lead",
+   "controlRefs": [
+    "C11"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"The open fraud scenarios sit almost entirely in digital, cyber-enabled and identity fraud\" with the most related practices also reported weaker."
+  },
+  {
+   "ref": "FINDING-07",
+   "findingRef": "F08",
+   "schemeRef": "S37",
+   "schemeId": "FS-D9-08",
+   "kind": "gap",
+   "title": "Personal information is over-exposed or kept too long",
+   "areaName": "Digital, cyber-enabled and identity fraud",
+   "themeRef": "THEME-AREA",
+   "how": "Too many people can reach or export personal information, or records outlive their purpose.",
+   "why": null,
+   "position": "Access to personal information limited: access is limited for some systems only.",
+   "reported": [
+    {
+     "key": "Access to personal information limited",
+     "state": "Partly in place",
+     "question": "Is access to personal information limited to people who need it for their work, with bulk exports restricted?",
+     "answer": "Access is limited for some systems only.",
+     "owner": "Legal and compliance lead"
+    }
+   ],
+   "furtherWeaknesses": [],
+   "questions": [],
+   "methodRisks": [
+    "Theft and sale of personal information"
+   ],
+   "ownerRole": "Legal and compliance lead",
+   "controlRefs": [
+    "C12"
+   ],
+   "selectedBecause": "It is the scenario in the theme \"The open fraud scenarios sit almost entirely in digital, cyber-enabled and identity fraud\" with the most related practices also reported weaker."
+  }
+ ],
+ "pathways": [
+  {
+   "ref": "PATHWAY-01",
+   "schemeId": "FS-D9-01",
+   "schemeRef": "S31",
+   "findingRef": "FINDING-04",
+   "themeRef": "THEME-AREA",
+   "title": "An email account is taken over and the organisation's own invoices are used to divert its income",
+   "structure": {
+    "title": "An email account is taken over and the organisation's own invoices are used to divert its income",
+    "actor": "An outsider who gains access to a staff mailbox through a stolen password.",
+    "opportunity": "The mailbox has no multi-factor sign-in, so a password is enough to enter it, read correspondence and send from it.",
+    "entryPoint": "A phishing message or a password reused from another site.",
+    "mechanism": "The attacker watches correspondence with clients and, at the right moment, sends a genuine-looking invoice or notice with changed bank details from the real account.",
+    "controlRelied": "Email accounts are not protected by multi-factor sign-in.",
+    "concealment": "The message comes from the organisation's real address, so clients have no reason to doubt it; the attacker may set rules that hide replies from the mailbox owner.",
+    "consequence": "Client payments are lost, the organisation may still need to recover its fees, and clients' trust in its correspondence is damaged.",
+    "warningIndicators": [
+     "Clients querying a change of bank details",
+     "Unfamiliar sign-ins or forwarding rules on a mailbox",
+     "Sent messages the owner did not write",
+     "A drop in expected receipts"
+    ],
+    "containment": "Reset the account and remove any forwarding rules, notify clients through a known channel, and preserve the sign-in and message logs.",
+    "longTerm": "Every email account is protected by multi-factor sign-in, and clients are told how the organisation will confirm any change of bank details.",
+    "sources": [
+     "bank 1.3 FS-D9-01",
+     "MFRS mechanism account_takeover"
+    ]
+   }
+  },
+  {
+   "ref": "PATHWAY-02",
+   "schemeId": "FS-D9-03",
+   "schemeRef": "S33",
+   "findingRef": "FINDING-01",
+   "themeRef": "THEME-VERIFY",
+   "title": "A cloned voice of a senior person instructs an urgent payment",
+   "structure": {
+    "title": "A cloned voice of a senior person instructs an urgent payment",
+    "actor": "An outsider using a cloned voice, a voice note or a manipulated video of an executive or owner, built from recordings that are publicly available.",
+    "opportunity": "Staff act on instructions from senior people, and recognising the voice has always been enough.",
+    "entryPoint": "A call or voice note, apparently from the chief executive or owner, asking for an urgent and confidential payment.",
+    "mechanism": "The instruction is urgent and comes from a voice the employee knows, so the payment is made outside the normal process or pushed through it quickly.",
+    "controlRelied": "There is no agreed method, such as a call-back on a known number or a code word, that verifies a request made by phone, voice note or video, and executives are not bound by it.",
+    "concealment": "The employee believes the instruction was genuine and the payment appears properly authorised until the executive is asked about it.",
+    "consequence": "A payment lost to an account that is quickly emptied, with the added harm that staff no longer trust instructions from their own leaders.",
+    "warningIndicators": [
+     "An instruction that insists on secrecy or bypasses the normal process",
+     "Urgency with a reason why the executive cannot be called back",
+     "A request from an unfamiliar number or account",
+     "A new beneficiary on an executive instruction"
+    ],
+    "containment": "Call the executive back on a known number, contact the bank to recall the payment, and preserve the call, message and payment records.",
+    "longTerm": "An agreed verification method applies to every request made by phone, voice note or video, to everyone including executives, and staff are expected to use it.",
+    "sources": [
+     "bank 1.3 FS-D9-03",
+     "MFRS mechanism account_takeover"
+    ]
+   }
+  },
+  {
+   "ref": "PATHWAY-03",
+   "schemeId": "FS-D9-02",
+   "schemeRef": "S32",
+   "findingRef": "FINDING-03",
+   "themeRef": "THEME-VERIFY",
+   "title": "A payment instruction received by email is acted on without separate confirmation",
+   "structure": {
+    "title": "A payment instruction received by email is acted on without separate confirmation",
+    "actor": "An outsider sending a convincing email that appears to come from the owner, a supplier or a client.",
+    "opportunity": "Payment, salary and urgent requests received by email are processed on the strength of the email itself.",
+    "entryPoint": "An email instructing an urgent payment or a change of bank details, often timed for when the sender is known to be unavailable.",
+    "mechanism": "The request looks routine and comes from a familiar name, so it is processed in the ordinary way.",
+    "controlRelied": "There is no organisation-wide rule requiring every payment, salary or urgent request received by email to be confirmed through a separate, known channel.",
+    "concealment": "The payment is properly processed against a request that appears genuine; the fraud is found only when the supposed sender is asked.",
+    "consequence": "A payment lost to an account that is quickly emptied, and recovery that depends on how quickly the bank is alerted.",
+    "warningIndicators": [
+     "Urgency and a reason why the sender cannot be reached",
+     "A new beneficiary or changed bank details",
+     "A slightly different email address",
+     "An instruction to keep the request confidential"
+    ],
+    "containment": "Contact the bank to recall the payment, confirm with the supposed sender through a known number, and preserve the email and payment records.",
+    "longTerm": "Every payment, salary or urgent request received by email is confirmed through a separate, known channel before it is acted on.",
+    "sources": [
+     "bank 1.3 FS-D9-02"
+    ]
+   }
+  }
+ ],
+ "priorities": [
+  {
+   "ref": "PRIORITY-01",
+   "kind": "control",
+   "title": "Verification for calls, voice notes and video",
+   "why": "A cloned voice or video instruction is obeyed",
+   "establish": "An agreed method, such as a call-back on a known number or a code word, verifies any request made by phone, voice note or video; it applies to everyone, including executives, and staff know they are expected to use it.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "Chief financial officer",
+   "stage": "60 days, proposed",
+   "measure": "All staff who act on requests by phone, voice note or video were briefed by the end of the period, and the most recent test found the rule followed in every case tested, including requests that appeared to come from executives.",
+   "controlRef": "C04",
+   "findingRefs": [
+    "FINDING-01"
+   ]
+  },
+  {
+   "ref": "PRIORITY-02",
+   "kind": "control",
+   "title": "Compromises reported as POPIA requires",
+   "why": "A security compromise is not notified",
+   "establish": "A procedure sets out who decides, who notifies the Information Regulator through its eServices portal and the people affected, and how quickly, as section 22 of POPIA requires.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "IT lead",
+   "stage": "60 days, proposed",
+   "measure": "In the period, the procedure was tested or used, and every compromise discovered was notified as soon as reasonably possible, with any delay justified and recorded.",
+   "controlRef": "C08",
+   "findingRefs": [
+    "FINDING-02"
+   ]
+  },
+  {
+   "ref": "PRIORITY-03",
+   "kind": "control",
+   "title": "Email never enough on its own",
+   "why": "A payment instruction received by email is acted on",
+   "establish": "An organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "Chief financial officer",
+   "stage": "60 days, proposed",
+   "measure": "All staff who act on payment or salary requests were briefed by the end of the period, and the most recent test found the rule followed in every case tested.",
+   "controlRef": "C03",
+   "findingRefs": [
+    "FINDING-03"
+   ]
+  },
+  {
+   "ref": "PRIORITY-04",
+   "kind": "control",
+   "title": "Multi-factor on all email",
+   "why": "An email account is taken over",
+   "establish": "Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "IT lead",
+   "stage": "60 days, proposed",
+   "measure": "At the end of the period, the email security report shows multi-factor authentication on every email account, including executives' and shared mailboxes, and any exception is approved and recorded.",
+   "controlRef": "C02",
+   "findingRefs": [
+    "FINDING-04"
+   ]
+  },
+  {
+   "ref": "PRIORITY-05",
+   "kind": "control",
+   "title": "Help desk resets verified",
+   "why": "A help desk reset hands an attacker access",
+   "establish": "Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "IT lead",
+   "stage": "60 days, proposed",
+   "measure": "Every password or multi-factor reset made in the period was confirmed through a route the caller did not control before it took effect, or is a recorded and approved exception.",
+   "controlRef": "C10",
+   "findingRefs": [
+    "FINDING-05"
+   ]
+  },
+  {
+   "ref": "PRIORITY-06",
+   "kind": "control",
+   "title": "Multi-factor on critical systems",
+   "why": "Systems that move money are accessed without strong sign-in",
+   "establish": "Multi-factor authentication is required for remote access, cloud systems, the banking platform and every system that can move money or change master data.",
+   "accountable": "Chief financial officer",
+   "practicalOwner": "IT lead",
+   "stage": "60 days, proposed",
+   "measure": "At the end of the period, the multi-factor coverage report shows multi-factor authentication on remote access, cloud systems, the banking platform and every system that can move money or change master data, and any exception is approved and recorded.",
+   "controlRef": "C11",
+   "findingRefs": [
+    "FINDING-06"
+   ]
+  }
+ ],
+ "blueprints": [
+  {
+   "ref": "BLUEPRINT-01",
+   "controlRef": "C04",
+   "id": "D9-I-01",
+   "name": "Verification for calls, voice notes and video",
+   "purpose": "put-in-place",
+   "current": "Some staff check unusual requests, depending on their own judgement.",
+   "target": "An agreed method, such as a call-back on a known number or a code word, verifies any request made by phone, voice note or video; it applies to everyone, including executives, and staff know they are expected to use it.",
+   "objective": "A cloned voice or video instruction is obeyed",
+   "accountable": "Chief financial officer",
+   "processOwner": "Chief financial officer",
+   "population": "Staff who act on requests by phone, voice note or video",
+   "frequency": "each year",
+   "record": "Verification method record: the agreed method, briefing records and the results of each test.",
+   "independentCheck": "A periodic review by the fraud risk lead, who samples the records and reports exceptions.",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "sla": "Completed each year; exceptions answered before the next review.",
+   "measure": "All staff who act on requests by phone, voice note or video were briefed by the end of the period, and the most recent test found the rule followed in every case tested, including requests that appeared to come from executives.",
+   "onFailure": "Where the rule was not followed, establish why, brief the people concerned again and check whether any payment or disclosure resulted.",
+   "connected": [
+    "Pressure triggers verification",
+    "Changes to call-back details verified",
+    "Gift cards and PIN requests banned"
+   ],
+   "activities": [
+    "Write the rule and have it approved by the chief executive.",
+    "Brief staff who act on requests by phone, voice note or video, including executives and their assistants, and record who has been briefed.",
+    "Test the rule at least once a year, for example with a simulated request, and act on the result."
+   ],
+   "archetype": "An organisation-wide rule that people follow",
+   "sources": [
+    "L4",
+    "EV"
+   ],
+   "findingRefs": [
+    "FINDING-01"
+   ]
+  },
+  {
+   "ref": "BLUEPRINT-02",
+   "controlRef": "C08",
+   "id": "D9-P-04",
+   "name": "Compromises reported as POPIA requires",
+   "purpose": "put-in-place",
+   "current": "A compromise would be handled as it happens, without a set process.",
+   "target": "A procedure sets out who decides, who notifies the Information Regulator through its eServices portal and the people affected, and how quickly, as section 22 of POPIA requires.",
+   "objective": "A security compromise is not notified",
+   "accountable": "Chief financial officer",
+   "processOwner": "IT lead",
+   "population": "Security compromises",
+   "frequency": "each year",
+   "record": "Breach response procedure: the procedure, the notification templates, and each compromise with its notification dates and any justified delay.",
+   "independentCheck": "A periodic review by the fraud risk lead, who samples the records and reports exceptions.",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "sla": "Completed each year; exceptions answered before the next review.",
+   "measure": "In the period, the procedure was tested or used, and every compromise discovered was notified as soon as reasonably possible, with any delay justified and recorded.",
+   "onFailure": "Where the procedure was not followed or did not work, record why, correct it and brief the people concerned.",
+   "connected": [
+    "Affected people warned"
+   ],
+   "activities": [
+    "Write the procedure, naming who decides and who acts at each step.",
+    "Brief the people with a role in it, and keep the contact details it relies on current.",
+    "Test it each year with an exercise or a real case, and record what changed as a result."
+   ],
+   "archetype": "A procedure ready to use",
+   "sources": [
+    "L4",
+    "EV"
+   ],
+   "findingRefs": [
+    "FINDING-02"
+   ]
+  },
+  {
+   "ref": "BLUEPRINT-03",
+   "controlRef": "C03",
+   "id": "D9-E-05",
+   "name": "Email never enough on its own",
+   "purpose": "put-in-place",
+   "current": "Payment changes received by email are acted on as received.",
+   "target": "An organisation-wide rule requires confirmation through a separate, known channel for every payment, salary or urgent request received by email, and staff follow it.",
+   "objective": "A payment instruction received by email is acted on",
+   "accountable": "Chief financial officer",
+   "processOwner": "Chief financial officer",
+   "population": "Staff who act on payment or salary requests",
+   "frequency": "each year",
+   "record": "Verification rule record: the rule, briefing records, call-back records and the results of each test.",
+   "independentCheck": "A periodic review by the fraud risk lead, who samples the records and reports exceptions.",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "sla": "Completed each year; exceptions answered before the next review.",
+   "measure": "All staff who act on payment or salary requests were briefed by the end of the period, and the most recent test found the rule followed in every case tested.",
+   "onFailure": "Where the rule was not followed, establish why, brief the people concerned again and check whether any payment or disclosure resulted.",
+   "connected": [],
+   "activities": [
+    "Write the rule and have it approved by the chief executive.",
+    "Brief staff who act on payment or salary requests, including executives and their assistants, and record who has been briefed.",
+    "Test the rule at least once a year, for example with a simulated request, and act on the result."
+   ],
+   "archetype": "An organisation-wide rule that people follow",
+   "sources": [
+    "L4",
+    "EV"
+   ],
+   "findingRefs": [
+    "FINDING-03"
+   ]
+  },
+  {
+   "ref": "BLUEPRINT-04",
+   "controlRef": "C02",
+   "id": "D9-E-01",
+   "name": "Multi-factor on all email",
+   "purpose": "put-in-place",
+   "current": "Email accounts are protected by passwords only.",
+   "target": "Multi-factor authentication is required for every email account, including executives' and shared mailboxes, with no exceptions.",
+   "objective": "An email account is taken over",
+   "accountable": "Chief financial officer",
+   "processOwner": "IT lead",
+   "population": "Email accounts",
+   "frequency": "monthly",
+   "record": "Email security report: the multi-factor status of every account, including shared mailboxes.",
+   "independentCheck": "A periodic review by the fraud risk lead, who samples the records and reports exceptions.",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "sla": "Completed monthly; exceptions answered before the next review.",
+   "measure": "At the end of the period, the email security report shows multi-factor authentication on every email account, including executives' and shared mailboxes, and any exception is approved and recorded.",
+   "onFailure": "Close the gap, check activity for the period it was open, and treat any unexplained activity as a security incident.",
+   "connected": [],
+   "activities": [
+    "List every email account in scope and how it is set today.",
+    "Apply the setting to each, starting with executives' and finance mailboxes, and record any approved exception.",
+    "Produce the email security report monthly, and follow up any gap."
+   ],
+   "archetype": "Technical protection in place everywhere it is needed",
+   "sources": [
+    "L4",
+    "EV"
+   ],
+   "findingRefs": [
+    "FINDING-04"
+   ]
+  },
+  {
+   "ref": "BLUEPRINT-05",
+   "controlRef": "C10",
+   "id": "D9-A-05",
+   "name": "Help desk resets verified",
+   "purpose": "put-in-place",
+   "current": "Most resets need verification through a trusted route, such as the person's manager or a number on file.",
+   "target": "Every password or multi-factor reset is verified through a route the caller does not control, such as a call-back to a number on file or a manager's confirmation through a known channel.",
+   "objective": "A help desk reset hands an attacker access",
+   "accountable": "Chief financial officer",
+   "processOwner": "IT lead",
+   "population": "Password and multi-factor resets",
+   "frequency": "whenever a reset is requested",
+   "record": "Reset log: each reset, how the requester was verified, by whom and when.",
+   "independentCheck": "A periodic review by the fraud risk lead, who samples the records and reports exceptions.",
+   "escalation": "Any case handled without the check, or any exception approved, is reported to the chief financial officer within the month.",
+   "sla": "Completed each time, before the result is relied on; exceptions answered within the month.",
+   "measure": "Every password or multi-factor reset made in the period was confirmed through a route the caller did not control before it took effect, or is a recorded and approved exception.",
+   "onFailure": "Suspend any password or multi-factor reset that was not confirmed until it is verified, and check whether any payment, delivery or access used it.",
+   "connected": [],
+   "activities": [
+    "Write the confirmation step into the procedure: a call-back to a number on file, or a manager's confirmation through a known channel, never details supplied with the request.",
+    "Limit who can make the change in the help desk system, and log how each change was confirmed.",
+    "Check the password and multi-factor resets made in the last six months against the log, and confirm any that were not verified."
+   ],
+   "archetype": "Verify a change through a known channel",
+   "sources": [
+    "L4",
+    "EV"
+   ],
+   "findingRefs": [
+    "FINDING-05"
+   ]
+  }
+ ],
+ "decisions": [
+  {
+   "ref": "DECISION-01",
+   "decisionRef": "D01",
+   "type": "name-owners",
+   "question": "Name one accountable executive for each area with open or unresolved scenarios: digital channels (10).",
+   "why": "Each scenario needs one person with authority over the process, the system and the people involved.",
+   "owner": "Chief executive",
+   "when": "Before design work starts.",
+   "delay": "Open scenarios have no owner, and the controls that stop them stay unassigned.",
+   "options": {
+    "options": [
+     {
+      "label": "One accountable executive per area",
+      "description": "Each area with open scenarios has one executive accountable for its controls, as the method suggests.",
+      "effort": "Low to decide; ongoing for each executive.",
+      "benefit": "Clear ownership that matches how the organisation is run.",
+      "tradeOff": "Requirements that span areas, such as how changes to payment details are verified, need coordination across owners."
+     },
+     {
+      "label": "One executive for the whole programme",
+      "description": "A single executive owns every open scenario and directs area leads.",
+      "effort": "Concentrated on one person.",
+      "benefit": "One point of accountability and a consistent approach.",
+      "tradeOff": "Area executives may treat the work as someone else's."
+     },
+     {
+      "label": "Area owners with a programme coordinator",
+      "description": "Area executives own their scenarios, and the fraud risk lead coordinates requirements that span areas and reports progress.",
+      "effort": "Moderate.",
+      "benefit": "Ownership stays in the areas while cross-area requirements are handled once.",
+      "tradeOff": "Needs a coordinator with enough standing to hold owners to account."
+     }
+    ],
+    "recommended": "Area owners with a programme coordinator.",
+    "rationale": "The open scenarios sit in the operating areas, so ownership belongs there; several of the requirements span areas and are best designed once."
+   }
+  },
+  {
+   "ref": "DECISION-02",
+   "decisionRef": "D02",
+   "type": "order-work",
+   "question": "Decide the order in which the open scenarios are addressed, using explicit factors.",
+   "why": "MK has not approved a method for rating fraud risks, so this report does not rank them, and neither its order nor the method's tiers is a ranking.",
+   "owner": "Chief executive",
+   "when": "Before design work starts.",
+   "delay": "Effort is spread across every scenario at once, or follows the order of this report, which is not a ranking.",
+   "options": {
+    "options": [
+     {
+      "label": "Explicit factors, settled facts first",
+      "description": "Answers to settle come first; then each open scenario is weighed on how far its control is reported in place, whether money, pay, cash or stock can leave without it, how much of the activity exists, and what management already knows of incidents.",
+      "effort": "Moderate: a structured management session.",
+      "benefit": "A defensible order that management can explain to the oversight body.",
+      "tradeOff": "Depends on information management must supply, such as volumes and known incidents."
+     },
+     {
+      "label": "Area by area",
+      "description": "One area is completed before the next begins.",
+      "effort": "Low to plan.",
+      "benefit": "Simple to manage and report.",
+      "tradeOff": "Requirements that span areas are designed several times, and exposure in later areas waits."
+     },
+     {
+      "label": "Cross-area requirements first",
+      "description": "Requirements that span areas, such as verifying changes to payment details, are designed once and applied everywhere, before area-specific controls.",
+      "effort": "Moderate.",
+      "benefit": "One design closes several scenarios at once.",
+      "tradeOff": "Area-specific exposures wait until the shared designs are complete."
+     }
+    ],
+    "recommended": "Explicit factors, settled facts first, applying cross-area requirements once where they arise.",
+    "rationale": "An order of work should rest on facts management can state and defend to its oversight body, and designing shared requirements once avoids building the same control several times."
+   }
+  },
+  {
+   "ref": "DECISION-03",
+   "decisionRef": "D03",
+   "type": "report-status",
+   "question": "Have the owners receive the status of the open and unresolved scenarios at each of its meetings until each is closed, deferred with a reason or accepted.",
+   "why": "Regular reporting keeps the scenarios visible to the people who can remove blockers.",
+   "owner": "Chief executive",
+   "when": "From the first meeting after this report.",
+   "delay": "Progress is not visible until the next assessment.",
+   "options": {
+    "options": [
+     {
+      "label": "At each meeting of the oversight body",
+      "description": "A one-page status per open scenario at each meeting until it is closed, deferred with a reason or accepted.",
+      "effort": "Low.",
+      "benefit": "Keeps the scenarios visible to the people who can remove blockers.",
+      "tradeOff": "Adds to the oversight body's agenda."
+     },
+     {
+      "label": "Quarterly summary",
+      "description": "A consolidated summary each quarter.",
+      "effort": "Low.",
+      "benefit": "Less frequent demand on the oversight body.",
+      "tradeOff": "Blockers may wait a quarter before they are seen."
+     },
+     {
+      "label": "Exceptions only",
+      "description": "Only scenarios that are late or blocked are reported.",
+      "effort": "Lowest.",
+      "benefit": "Focuses attention on problems.",
+      "tradeOff": "The oversight body does not see progress, and a scenario can drift without being reported as an exception."
+     }
+    ],
+    "recommended": "At each meeting of the oversight body, until each open scenario is closed, deferred with a reason or accepted.",
+    "rationale": "Regular reporting is what keeps a programme moving once the first controls are in place."
+   }
+  }
+ ],
+ "roadmap": [
+  {
+   "ref": "STAGE-30",
+   "label": "30 days, proposed",
+   "window": "Proposed for the first 30 days",
+   "purpose": "Name the owners, decide the order of work and approve the designs to be built.",
+   "outcomes": [
+    "Each open area has a named accountable executive",
+    "The order of work is recorded with the factors behind it"
+   ],
+   "owners": [
+    "Chief executive"
+   ],
+   "items": [
+    {
+     "text": "Name the executive accountable for digital channels, where 10 scenarios are open or unresolved.",
+     "owner": "Chief executive",
+     "deliverable": "A named accountable executive for the area."
+    },
+    {
+     "text": "Decide which of the 10 scenarios with a control reported as a gap to address in this cycle, and in what order, using the decision factors in the finding register.",
+     "owner": "Chief executive",
+     "deliverable": "A recorded selection and order, with the factors that decided each choice."
+    },
+    {
+     "text": "Approve the target design for each selected control, using the target practice, records and measure in the control blueprint register.",
+     "owner": "Chief executive",
+     "deliverable": "Approved designs, each with an owner and the records it will keep."
+    }
+   ]
+  },
+  {
+   "ref": "STAGE-60",
+   "label": "60 days, proposed",
+   "window": "Proposed for days 31 to 60",
+   "purpose": "Approve the design, owner and record for each priority control, and schedule its first operating cycle.",
+   "outcomes": [
+    "Verification for calls, voice notes and video",
+    "Compromises reported as POPIA requires",
+    "Email never enough on its own",
+    "Multi-factor on all email",
+    "Help desk resets verified",
+    "Multi-factor on critical systems"
+   ],
+   "owners": [
+    "Chief financial officer",
+    "IT lead"
+   ],
+   "items": [
+    {
+     "text": "Verification for calls, voice notes and video",
+     "owner": "Chief financial officer",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    },
+    {
+     "text": "Compromises reported as POPIA requires",
+     "owner": "IT lead",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    },
+    {
+     "text": "Email never enough on its own",
+     "owner": "Chief financial officer",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    },
+    {
+     "text": "Multi-factor on all email",
+     "owner": "IT lead",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    },
+    {
+     "text": "Help desk resets verified",
+     "owner": "IT lead",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    },
+    {
+     "text": "Multi-factor on critical systems",
+     "owner": "IT lead",
+     "deliverable": "Approved design and first operating cycle scheduled"
+    }
+   ]
+  },
+  {
+   "ref": "STAGE-90",
+   "label": "90 days, proposed",
+   "window": "Proposed for days 61 to 90",
+   "purpose": "Start operating the priority controls and report status to the oversight body.",
+   "outcomes": [
+    "Each priority control has run at least once and kept its record",
+    "Status reported to the owners"
+   ],
+   "owners": [
+    "Chief executive",
+    "Chief financial officer",
+    "IT lead"
+   ],
+   "items": [
+    {
+     "text": "All staff who act on requests by phone, voice note or video were briefed by the end of the period, and the most recent test found the rule followed in every case tested, including requests that appeared to come from executives.",
+     "owner": "Chief financial officer",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "In the period, the procedure was tested or used, and every compromise discovered was notified as soon as reasonably possible, with any delay justified and recorded.",
+     "owner": "IT lead",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "All staff who act on payment or salary requests were briefed by the end of the period, and the most recent test found the rule followed in every case tested.",
+     "owner": "Chief financial officer",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "At the end of the period, the email security report shows multi-factor authentication on every email account, including executives' and shared mailboxes, and any exception is approved and recorded.",
+     "owner": "IT lead",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "Every password or multi-factor reset made in the period was confirmed through a route the caller did not control before it took effect, or is a recorded and approved exception.",
+     "owner": "IT lead",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "At the end of the period, the multi-factor coverage report shows multi-factor authentication on remote access, cloud systems, the banking platform and every system that can move money or change master data, and any exception is approved and recorded.",
+     "owner": "IT lead",
+     "deliverable": "First operating record"
+    },
+    {
+     "text": "Report the status of each open scenario to the owners.",
+     "owner": "Chief executive",
+     "deliverable": "One-page status per scenario"
+    }
+   ]
+  }
+ ],
+ "scorecard": [
+  {
+   "ref": "MEASURE-01",
+   "measure": "All staff who act on requests by phone, voice note or video were briefed by the end of the period, and the most recent test found the rule followed in every case tested, including requests that appeared to come from executives.",
+   "owner": "Chief financial officer",
+   "frequency": "each year",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "kind": "control"
+  },
+  {
+   "ref": "MEASURE-02",
+   "measure": "In the period, the procedure was tested or used, and every compromise discovered was notified as soon as reasonably possible, with any delay justified and recorded.",
+   "owner": "IT lead",
+   "frequency": "each year",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "kind": "control"
+  },
+  {
+   "ref": "MEASURE-03",
+   "measure": "All staff who act on payment or salary requests were briefed by the end of the period, and the most recent test found the rule followed in every case tested.",
+   "owner": "Chief financial officer",
+   "frequency": "each year",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "kind": "control"
+  },
+  {
+   "ref": "MEASURE-04",
+   "measure": "At the end of the period, the email security report shows multi-factor authentication on every email account, including executives' and shared mailboxes, and any exception is approved and recorded.",
+   "owner": "IT lead",
+   "frequency": "monthly",
+   "escalation": "Any exception not closed by the next review, or any review missed, is reported to the chief financial officer.",
+   "kind": "control"
+  },
+  {
+   "ref": "MEASURE-05",
+   "measure": "Every password or multi-factor reset made in the period was confirmed through a route the caller did not control before it took effect, or is a recorded and approved exception.",
+   "owner": "IT lead",
+   "frequency": "whenever a reset is requested",
+   "escalation": "Any case handled without the check, or any exception approved, is reported to the chief financial officer within the month.",
+   "kind": "control"
+  },
+  {
+   "ref": "MEASURE-OWNERS",
+   "measure": "Open scenarios with a named owner and a recorded decision to address, defer or accept them",
+   "owner": "Chief executive",
+   "frequency": "each month",
+   "escalation": "A scenario without an owner after 60 days is reported to the oversight body.",
+   "kind": "programme"
+  },
+  {
+   "ref": "MEASURE-CYCLES",
+   "measure": "Priority controls that have met their success measure for a full operating cycle",
+   "owner": "Fraud risk lead",
+   "frequency": "each quarter",
+   "escalation": "A control that misses its measure twice is reported with its owner's correction plan.",
+   "kind": "programme"
+  },
+  {
+   "ref": "MEASURE-REPORT",
+   "measure": "Status reported to the owners",
+   "owner": "Chief executive",
+   "frequency": "each meeting",
+   "escalation": "A missed report is itself reported at the next meeting.",
+   "kind": "programme"
+  }
+ ],
+ "operatingModel": [
+  {
+   "ref": "ROLE-OVERSIGHT",
+   "role": "The owners",
+   "responsibility": "Receives fraud risk reporting, approves the order of work and holds the executive to account.",
+   "basis": "The organisation's own answer on final oversight."
+  },
+  {
+   "ref": "ROLE-EXECUTIVE",
+   "role": "Chief executive",
+   "responsibility": "Accountable for fraud risk overall; names the accountable executives and decides the order of work.",
+   "basis": "Executive accountability is reported as \"Yes, it is written into a named executive's role\"."
+  },
+  {
+   "ref": "ROLE-RISK",
+   "role": "Fraud risk lead",
+   "responsibility": "Coordinates the fraud risk assessment, challenges the control owners and consolidates status reporting.",
+   "basis": "The method's owner for fraud risk assessment."
+  },
+  {
+   "ref": "ROLE-OWNERS",
+   "role": "Chief financial officer and IT lead",
+   "responsibility": "Operate the controls in their processes, keep the records and report exceptions.",
+   "basis": "The method's owners for the controls this report acts on."
+  },
+  {
+   "ref": "ROLE-DETECT",
+   "role": "Investigations lead",
+   "responsibility": "Receives reports and alerts, investigates independently and records outcomes.",
+   "basis": "The method's owner for detection, speak-up and response."
+  }
+ ],
+ "outstanding": [],
+ "selectionRules": {
+  "themes": "A theme is reported where the method supports a pattern: answers to settle together with weaker related practices (five or more), outstanding answers (five or more), areas fully in place set against areas mostly open (two or more of each), one area holding most open scenarios, or one of the method's cross-area objectives reported weaker in two or more areas. Up to five, in that order.",
+  "findings": "Every scenario with answers to settle or a question to clarify, then one scenario from each theme in turn, choosing the one with more core controls reported absent, then more related practices reported weaker, then the method's order; up to 7. This is a selection rule, not a ranking: MK has not approved a prioritisation method.",
+  "pathways": "Findings with an approved scenario structure, one per theme where possible; up to 3.",
+  "priorities": "Settling answers comes first where there are any; then the controls that close the selected findings, controls to put in place before practices to strengthen, up to six in all.",
+  "blueprints": "The controls among the priorities, up to five."
+ },
+ "boundary": [
+  "Every finding rests on the organisation's own answers. MK has not examined documents, interviewed staff or tested any control.",
+  "Records named are records management should maintain. MK has not reviewed them.",
+  "Independent evidence review and validation belong to MK Advisory, which is scoped and priced separately."
+ ],
+ "prohibited": [
+  "Any score, maturity band or readiness level other than the labelled calculated test result",
+  "Any statement that a risk is high, critical, the most material or the highest priority",
+  "Any claim that a control was tested, verified, validated or confirmed by MK",
+  "Any incident, loss, Rand amount, supplier, system or person not in the Fact Pack",
+  "Any scenario, finding, control, decision option or owner not in the Fact Pack"
+ ],
+ "pending": [
+  {
+   "ref": "PENDING-CONCLUSION",
+   "requirement": "Approved readiness conclusion (Bible 10.1 and 13.1: score and maturity)",
+   "status": "Withheld until MK approves a readiness method (D-1)."
+  },
+  {
+   "ref": "PENDING-PRIORITY",
+   "requirement": "Priority of findings and risks (Bible 9 and 11.2: what matters most)",
+   "status": "Stated selection rules only until MK approves a prioritisation method (P-13 to P-15)."
+  },
+  {
+   "ref": "PENDING-CONTENT",
+   "requirement": "Approved control, scenario and decision content (Bible 3.1)",
+   "status": "Drafts for MK approval: control-content-library-0.1, scenario-structures-0.1, decision-options-0.1."
+  }
+ ],
+ "sha256": "67f4e88f105d5d00782e3d9904e5063eeafeb10bf37cf692c42b16d00f567a02"
+}
