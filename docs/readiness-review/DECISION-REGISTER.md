@@ -56,9 +56,31 @@ Concise record of what this delivery decided, what it only proposes, and what it
 | # | Proposal (not applied) | Evidence |
 |---|---|---|
 | P-6 | Of the five candidate confirmations (P-1): D2-I-01 only as a route-conditional confirmation; D4-P-01 distinct but covering half of FS-D4-05 (second confirmation or a separate scheme); D5-V-01 distinct, moving to the core stage; D5-H-01 and D3-A-03 not adopted as confirmations | `objectives/CANDIDATE-CONFIRMATIONS.md` |
-| P-7 | The prototype's presentation conventions (scheme tier to selection reasons, risk priority, likelihood and impact labels, the 30, 60 and 90-day windows) adopted for customer reports | `src/lib/reports/revised/evidence-model.ts`; `REPORT-COMPARISON.md` section 6 |
+| P-7 | Withdrawn on MK's direction of 12 November. The prototype's presentation conventions (scheme tier to selection reasons, risk priority, likelihood and impact labels, the 30, 60 and 90-day windows) adopted for customer reports | `src/lib/reports/revised/evidence-model.ts`; `REPORT-COMPARISON.md` section 6 |
 
 Decisions that block taking the reports further are R-1 to R-3 in `REPORT-COMPARISON.md` section 6.
+
+## Reporting-quality correction (MK direction, 12 November)
+
+R-1 to R-3 are now prototype conventions for testing (MK item 4), and P-7 is withdrawn: MK directed that tier and answer class are not turned into ratings, periods or deadlines. Summary and change register: `REPORT-QUALITY-CORRECTION.md`.
+
+| # | Engineering decision (prototype, inactive) | Basis | Evidence |
+|---|---|---|---|
+| E-21 | Answers that appear to conflict are classified pair by pair into five relationships; only a direct contradiction or a method-established dependency leaves a confirmation unresolved; unreviewed pairs default to a complementary weakness | MK item 1 | `CONTRADICTION-CLASSIFICATION.md`; RQ-01, RQ-02 |
+| E-22 | No priority, likelihood, impact, difficulty, period or deadline is derived; risks read "Not rated"; work is ordered by information, decision, prerequisites, build, strengthen and operate (presentation convention PC-1) | MK item 2 | RQ-03 |
+| E-23 | Answer and standard wording per response format in one module; context questions never given a standard; method content gaps declared, not filled | MK item 3 | `METHOD-CONTENT-GAPS.md`; RQ-04 to RQ-06 |
+| E-24 | R-1: the calculated figure is labelled a test fixture everywhere and leaves the cover headline when unresolved answers affect 3 or more schemes or 10% of tier 1 schemes reported covered | MK item 4 | RQ-07 |
+| E-25 | R-2: stages, outstanding information, analytical sufficiency and release kept separate; candidate rules A, E and C in a tested evaluator, connected to nothing commercial | MK item 4 | `INFORMATION-SUFFICIENCY-AND-RELEASE.md`; RQ-08 |
+| E-26 | R-3: concise Comprehensive management sections on the existing style sheet; each control once; consolidated roles; appendices A to I and a supporting workbook, reconciled | MK item 4 | RQ-09 |
+| E-27 | Build 1.6 cross-check label "Conflicting answer" replaced by a neutral label; the outcome code is unchanged | MK item 1 | Engine rehash; build 1.6 suite 19 of 19 |
+
+| # | Proposal (not applied) | Evidence |
+|---|---|---|
+| P-8 to P-12 | Prioritisation method: option A now, option B (MK priority groups with an MK-approved direct-loss list) for the first paid version; wording; no exposure questions yet | `PRIORITISATION-METHODOLOGY-PROPOSAL.md` |
+| R2-a to R2-e | Candidate sufficiency and release rules and thresholds | `INFORMATION-SUFFICIENCY-AND-RELEASE.md` |
+| C-1 | Approve the relationship classification and table; carry "requires" relationships in the method; review the remaining 770 pairs | `CONTRADICTION-CLASSIFICATION.md` |
+| C-2 | Method content for practice questions: target state, records and cycle | `METHOD-CONTENT-GAPS.md` |
+| C-3 | Confirm or adjust the R-1 trigger and the R-3 shape | `REPORT-QUALITY-CORRECTION.md` |
 
 ## Reserved for MK
 

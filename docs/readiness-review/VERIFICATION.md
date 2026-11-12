@@ -8,6 +8,24 @@ Conditions throughout: Node 24.22, Next.js 15.5.22 production builds, `next star
 
 Before this run, three full runs on the corrected code were superseded because each found something to correct: a phone placement defect and a test defect (`951ea06`), a management view without a visible result after sending and fixed waits in the scripts (`e6690fc`), and an accessibility scan taken mid-fade (`deb0aa1`). Each is described in `INDEPENDENT-REVIEW-RESPONSE.md` and kept in `evidence/results/re-verification`.
 
+## Reporting-quality correction (12 November 2026, continued from `5fb4dc2`)
+
+Checked on the tree that became the delivery commit, with Node 24.22. The reports are fictional prototypes; none of these results certifies a paid report. What changed is in `REPORT-QUALITY-CORRECTION.md`.
+
+| Check | Result |
+|---|---|
+| Reporting quality (`scripts/revised-reports/report-quality-tests.mjs`) | 13 of 13: the 21 flagged controls recalculated (2 contradictions, 4 dependencies, 15 complementary); five relationship types and their sources; no derived rating, period, difficulty or deadline in 4 models and 8 reports; answer and standard wording across all 821 practice questions and the context questions; no prompt concatenation; every reference resolves and every record is the method's; R-1 cover treatment; R-2 declines never answers and candidate rules evaluated only; R-3 every register row printed and in the workbook; validator and identifiers; labels and the records boundary; logical consistency; reused and proportionality-excluded confirmations |
+| Build 1.6 suite | 19 of 19 (engine label changed; one golden digest regenerated) |
+| Review contract | 23 of 23 |
+| Standard-assessment status | 10 of 10 |
+| Methodology-version dispatch and MFRS parity | 9 of 9; 8 of 8 |
+| Review report engine | 17 of 17 |
+| Journeys, information gain, objectives review, delegation timing, candidate confirmations, preview fixture | Reproduce their recorded outputs |
+| Integrity guard | Passes; no exception requested |
+| Type check and lint | 0 errors on the changed source |
+| Page review | All eight corrected PDFs rendered and reviewed; defects found in the review are listed in `REPORT-QUALITY-CORRECTION.md` and were fixed before these results |
+| Every test suite under `scripts/` (158), this tree and `3f933ac` | 93 pass and 65 fail, exactly the same suites as on 11 November; against `3f933ac` the same 65 fail, and `meta-tracking-tests` also fails there only because that worktree has no production build |
+
 ## Integration prototype delivery (11 November 2026, continued from `ef1e1ac`)
 
 Checked on the working tree that became the delivery commit, with Node 24.22, a fresh Next.js production build and the fictional harness. Build 1.6 and the revised method stay inactive for customers; none of these results is a release criterion being met. What each item delivers is in `INTEGRATION-PROTOTYPE.md`.
@@ -26,7 +44,7 @@ Checked on the working tree that became the delivery commit, with Node 24.22, a 
 | Report comparison | 16 reports rebuilt and rendered; all four revised Essentials pass the existing validator with no internal identifiers; measures reproduce `comparison.json`; PDF page counts as stated in `REPORT-COMPARISON.md` |
 | Screens (`readiness-review-standard-status-screens.cjs`) | 9 of 9 at 1440 and 390px: no reviewer-completion wording, the four status statements present, no sideways page scroll and no panel wider than the viewport |
 | Accessibility (axe-core, WCAG 2.0, 2.1, 2.2 A and AA) | Seven pages at both widths, 14 scans: 0 violations, five contrast results undecided (`STANDARD-ASSESSMENT-STATUS.md`). No manual audit or screen-reader test |
-| Every test suite under `scripts/` (158), this tree and `3f933ac` | 93 pass and 65 fail in both, all 65 with the same first failure (one after rerunning it on its own); classification in `verification/SUITE-FAILURE-RECONCILIATION.md` |
+| Every test suite under `scripts/` (158), this tree and `3f933ac` | 93 pass and 65 fail on this tree; the same 65 fail at `3f933ac`, all with the same first failure (one after rerunning it on its own), and `meta-tracking-tests` also fails there only because that worktree has no production build (corrected on 12 November; the earlier text said 93 pass in both); classification in `verification/SUITE-FAILURE-RECONCILIATION.md` |
 | Type check and lint | 0 errors on the changed source |
 
 ## Staged assessment delivery (11 November 2026, build 1.6)

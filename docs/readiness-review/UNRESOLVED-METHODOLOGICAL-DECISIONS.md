@@ -72,6 +72,10 @@ Reported separately, as MK asked, from the working staged assessment. None of th
 
 The report integration prototype raises three decisions that block taking the paid reports further, R-1 to R-3 in `REPORT-COMPARISON.md` section 6. R-2 (issuing a paid report with information outstanding) is the reporting side of U-6. The five candidate confirmations of U-1 were tested and the recommendation narrowed to three (`objectives/CANDIDATE-CONFIRMATIONS.md`); they do not block report development.
 
+## Added on 12 November
+
+R-1 to R-3 are prototype conventions for testing (`REPORT-QUALITY-CORRECTION.md`). U-4 (prioritisation) now has a decision-ready proposal (`PRIORITISATION-METHODOLOGY-PROPOSAL.md`, P-8 to P-12) and U-6 (paid-report fulfilment conditions) candidate rules (`INFORMATION-SUFFICIENCY-AND-RELEASE.md`, R2-a to R2-e). Two method decisions are new: approval of the answer-relationship classification and its extension to all 826 pairs (C-1, `CONTRADICTION-CLASSIFICATION.md`), and target-state, records and cycle content for the 688 practice questions described only by their in-place answer (C-2, `METHOD-CONTENT-GAPS.md`).
+
 ## Release blockers that stay open
 
 B2 (staging isolation), B3 (authenticated access), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (intermittent hydration error) and J-01 (intermittent unregistered answer) are open. B1 is partly done (`RELEASE-DECISION.md`).

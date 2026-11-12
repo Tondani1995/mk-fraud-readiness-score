@@ -795,5 +795,18 @@
       ],
       "touchedByThisDelivery": false
     }
-  ]
+  ],
+  "corrections": [
+    {
+      "date": "2026-11-12",
+      "suite": "meta-tracking-tests",
+      "note": "Fails at 3f933ac only because the baseline worktree has no production build (.next/static missing); passes on the delivery tree. The earlier summary said 93 pass in both trees; at the baseline 92 pass as run."
+    }
+  ],
+  "run12Nov": {
+    "tree": "corrected (this delivery)",
+    "pass": 93,
+    "fail": 65,
+    "sameAs11Nov": true
+  }
 }

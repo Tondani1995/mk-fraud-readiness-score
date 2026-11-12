@@ -1,0 +1,80 @@
+[
+ {
+  "id": "RQ-01",
+  "ok": true,
+  "name": "The 21 schemes the first prototype flagged as false comfort for the overstated organisation are recalculated: only reviewed contradictions and method-established dependencies stay unresolved",
+  "detail": "21 flagged before; now {\"qualified\":15,\"contradiction\":2,\"dependency\":4}; unresolved FS-D10-05, FS-D2-02, FS-D2-05, FS-D4-05, FS-D5-12, FS-D8-02"
+ },
+ {
+  "id": "RQ-02",
+  "ok": true,
+  "name": "Five relationship types: missing information and untested practices are decided by the answer, reviewed pairs by the table, method structure by askWhen, and the default never disproves a confirmation",
+  "detail": "missing-information, untested-practice, necessary-dependency (reviewed-pair), complementary-weakness (reviewed-pair), necessary-dependency (method-structure), complementary-weakness (default); reviewed table {\"complementary-weakness\":49,\"direct-contradiction\":2,\"necessary-dependency\":5}"
+ },
+ {
+  "id": "RQ-03",
+  "ok": true,
+  "name": "No priority, likelihood, impact, difficulty or deadline is derived from tier or answer class anywhere in the model or the reports",
+  "detail": "none in 4 models and 8 reports"
+ },
+ {
+  "id": "RQ-04",
+  "ok": true,
+  "name": "Answer-type integrity across the whole method: every practice, anchored, choice-practice and multi-select question gets a standard and reported wording in its own format",
+  "detail": "821 questions checked; no defects; D8-S-04 standard \"How stock is recorded: in an inventory or ERP system or in spreadsheets or manual records.\""
+ },
+ {
+  "id": "RQ-05",
+  "ok": true,
+  "name": "No report carries a mechanical concatenation of a questionnaire prompt, and every report standard is the method's own wording",
+  "detail": "none in 8 reports; every control standard is the method's"
+ },
+ {
+  "id": "RQ-06",
+  "ok": true,
+  "name": "Every recommendation traces to a response and method content; references resolve; records are the method's own; content gaps are declared, not filled",
+  "detail": "all references resolve; 192 controls carry a declared method content gap across the four organisations"
+ },
+ {
+  "id": "RQ-07",
+  "ok": true,
+  "name": "R-1: the calculated figure does not lead either cover when unresolved answers are substantial, and is labelled as a test fixture everywhere",
+  "detail": "P6b unresolved 6, substantial true; P3 substantial false"
+ },
+ {
+  "id": "RQ-08",
+  "ok": true,
+  "name": "R-2: a declined question is never an answer; the four statuses are separate; candidate release rules are evaluated, not applied",
+  "detail": "declined 2, counted as answered 0; Appendix H lists them true; P3 Essential candidate rule true; synthetic declined scheme not-analysable"
+ },
+ {
+  "id": "RQ-09",
+  "ok": true,
+  "name": "R-3: every register row is in the Comprehensive appendices and the workbook, and the counts reconcile",
+  "detail": "all rows printed and in the workbook for 4 organisations"
+ },
+ {
+  "id": "RQ-10",
+  "ok": true,
+  "name": "The corrected Essentials pass the existing validator, and neither report exposes a method identifier in its prose",
+  "detail": "validator words 1887, 1817, 1939, 1950"
+ },
+ {
+  "id": "RQ-11",
+  "ok": true,
+  "name": "Prototype and fixture labels on every page or section; records management should maintain are kept apart from MK evidence review",
+  "detail": "labels present in all 8 reports"
+ },
+ {
+  "id": "RQ-12",
+  "ok": true,
+  "name": "Logical consistency: a scheme is never both open and reported covered, unresolved schemes are never counted as covered, and the reports' counts agree with the model",
+  "detail": "consistent in 4 organisations"
+ },
+ {
+  "id": "RQ-13",
+  "ok": true,
+  "name": "A confirmation the method establishes from a wider answer counts as answered, and one the method does not ask at the organisation's size is neither a gap nor missing information",
+  "detail": "P3 two-approver scheme confirmed; P4 not expected at its size Losses are never tracked; The organisation is impersonated to defraud others; not analysable 0"
+ }
+]

@@ -27,7 +27,7 @@ const REVIEW16 = (() => {
     'narrower-scope': 'Narrower scope: the supporting practice is reported only in some areas, cases or periods',
     'partial-operation': 'Partial operation: the supporting practice is reported at an intermediate level',
     'not-yet-operating': 'Not yet operating: the supporting practice is reported as set out but not working',
-    conflicting: 'Conflicting answer: the supporting practice is reported not in place',
+    conflicting: 'Supporting practice not in place: whether this contradicts the confirmation depends on how the two questions relate',
     'no-case-yet': 'No case yet: the organisation reports that no case has arisen, so the practice has not been used',
     'missing-information': 'Missing information: the answer was "I don\'t know"',
     pending: 'Not yet answered',

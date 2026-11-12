@@ -1,6 +1,5 @@
 import type { StagedReportInput, ControlRecord } from '@/lib/readiness-review/report-input';
 import type { AssembledReportData, QuestionTraceRecord } from '@/lib/reports/types';
-import type { AdvisoryEvidenceModel } from '@/lib/reports/evidence-model/types';
 import { contentRegistry } from '@/lib/reports/methodology-content';
 import { REVISED_METHOD_LABEL, revisedDomainCode } from './evidence-model';
 
@@ -28,7 +27,6 @@ const LEVEL_MEANING = [
 
 export function buildRevisedAssembledData(input: {
   staged: StagedReportInput;
-  evidence: AdvisoryEvidenceModel;
   organisationName: string;
   assessmentReference: string;
   generatedAt: string;
@@ -41,15 +39,15 @@ export function buildRevisedAssembledData(input: {
     .filter((c) => c.role === 'confirm' && c.format === 'anchored' && c.answer && /^[0-5]$/.test(String(c.answer.value)))
     .map((c) => {
       const level = Number(c.answer!.value);
-      const tier = c.scenario?.tier ?? 3;
+      // No control is marked critical and no gap major or critical: the draft method's tier says how early a scheme is
+      // confirmed, not how serious a gap is, and MK has approved no rule that turns either into a severity.
       return {
         questionCode: c.id, domainCode: revisedDomainCode(d.id), domainName: d.name, prompt: REG.question(c.id)?.text ?? c.text,
-        responseValue: level, isCritical: tier === 1, isHardGate: false, isCriticalGap: tier === 1 && level <= 1, isMajorGap: tier <= 2 && level <= 2,
+        responseValue: level, isCritical: false, isHardGate: false, isCriticalGap: false, isMajorGap: false,
         normalisedScore: null, applicable: true, triggeredRules: []
       } as QuestionTraceRecord;
     }));
   const valueFor = new Map(fixture.areas.map((x) => [x.area, x.value]));
-  const findings = input.evidence.materialFindings;
   return {
     orderId: null, orderReference: null, orderAssessmentId: `fixture-${input.assessmentReference}`, assessmentId: `fixture-${input.assessmentReference}`, organisationId: 'fixture-organisation',
     currentScoreRunId: `fixture-${input.assessmentReference}`, orderVerifiedAt: null, orderVerifiedBy: null, paymentVerification: null as any,
@@ -61,13 +59,13 @@ export function buildRevisedAssembledData(input: {
       id: `fixture-${input.assessmentReference}`, assessmentId: `fixture-${input.assessmentReference}`, methodologyVersionId: REVISED_METHOD_LABEL,
       status: 'test_fixture', lockedAt: null, inputHash: null, overallScore: fixture.overall, calculatedMaturity: fixture.maturity, finalMaturity: fixture.maturity,
       exposureScore: null, exposureBand: null, coveragePct: 100, nARatePct: 0,
-      criticalGapCount: findings.filter((f) => f.gapClassification === 'critical').length, majorGapCount: findings.filter((f) => f.gapClassification === 'major').length,
+      criticalGapCount: 0, majorGapCount: 0,
       capApplied: false, capReason: fixture.label, capEffect: 'none'
     },
     // Only areas with applicable confirmations carry a fixture value; an area out of scope is not shown as zero.
     domainResults: domains.filter((d) => typeof valueFor.get(d.id) === 'number').map((d) => ({
       domainCode: revisedDomainCode(d.id), domainName: d.name, weightPct: Math.round(100 / domains.length), rawScore: valueFor.get(d.id) ?? null,
-      weightedContribution: null, coveragePct: null, criticalGapCount: findings.filter((f) => f.domainCode === revisedDomainCode(d.id) && f.gapClassification === 'critical').length
+      weightedContribution: null, coveragePct: null, criticalGapCount: 0
     })),
     exposureAnswers: [],
     questionTraces: traces,

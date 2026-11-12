@@ -1,5 +1,7 @@
 # Essential and Comprehensive: before and after the staged assessment
 
+> **Superseded in part on 12 November 2026.** This records the first prototype as MK reviewed it. Its report content was corrected on MK's direction of 12 November (`REPORT-QUALITY-CORRECTION.md`): the false-comfort rule, the tier-derived ratings and periods and the answer wording below are withdrawn, and R-1 to R-3 are now prototype conventions. The first prototype's reports stay here for comparison; they were built at commit 5fb4dc2.
+
 Fictional integration prototype for MK's direction of 11 November 2026 (18:33), items 5 and 6. Four fictional organisations are reported twice through MK's existing report engines: once from the MFRS V1.2 assessment they would complete today ("before") and once from the staged review assessment ("after"). The acceptance question is whether the final reports are better, so the comparison measures the reports, not the input.
 
 Nothing here is a customer report. No order, payment, entitlement, product, price or fulfilment path is touched, no database or provider is called and no AI manuscript stage runs on either side. Every number on the "after" side is a labelled test fixture.

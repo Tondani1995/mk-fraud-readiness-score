@@ -1,0 +1,351 @@
+{
+ "P3": {
+  "organisation": "Fictional Retail Group (mixed controls)",
+  "schemes": 106,
+  "gap": 58,
+  "tier1Gap": 22,
+  "unresolved": 0,
+  "optionA": {
+   "resolveFirst": 0,
+   "prerequisites": 0,
+   "managementChoice": 58
+  },
+  "optionB": {
+   "group1": 5,
+   "group2": 17,
+   "group3": 36
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "complete",
+    "breadth": "complete"
+   },
+   "outstanding": {
+    "total": 0,
+    "declined": 0,
+    "notKnown": 0,
+    "waiting": 0,
+    "onConfirmations": 0
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 106,
+     "analysable": 106,
+     "partly": 0,
+     "notAnalysable": 0
+    },
+    "tier1": {
+     "applicable": 43,
+     "analysable": 43,
+     "share": 1
+    },
+    "areasWithNoTier1Answer": [],
+    "notExpectedBySize": 0
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": true,
+     "reasons": []
+    },
+    "comprehensive": {
+     "meets": true,
+     "reasons": []
+    }
+   }
+  }
+ },
+ "P4": {
+  "organisation": "Fictional Owner-Managed Firm",
+  "schemes": 49,
+  "gap": 10,
+  "tier1Gap": 4,
+  "unresolved": 0,
+  "optionA": {
+   "resolveFirst": 0,
+   "prerequisites": 0,
+   "managementChoice": 10
+  },
+  "optionB": {
+   "group1": 2,
+   "group2": 2,
+   "group3": 6
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "complete",
+    "breadth": "complete"
+   },
+   "outstanding": {
+    "total": 0,
+    "declined": 0,
+    "notKnown": 0,
+    "waiting": 0,
+    "onConfirmations": 0
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 47,
+     "analysable": 47,
+     "partly": 0,
+     "notAnalysable": 0
+    },
+    "tier1": {
+     "applicable": 21,
+     "analysable": 21,
+     "share": 1
+    },
+    "areasWithNoTier1Answer": [],
+    "notExpectedBySize": 2
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": true,
+     "reasons": []
+    },
+    "comprehensive": {
+     "meets": true,
+     "reasons": []
+    }
+   }
+  }
+ },
+ "P5": {
+  "organisation": "Fictional Retail Group (extensive unanswered information)",
+  "schemes": 106,
+  "gap": 58,
+  "tier1Gap": 22,
+  "unresolved": 0,
+  "optionA": {
+   "resolveFirst": 0,
+   "prerequisites": 0,
+   "managementChoice": 58
+  },
+  "optionB": {
+   "group1": 5,
+   "group2": 17,
+   "group3": 36
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "complete",
+    "breadth": "complete"
+   },
+   "outstanding": {
+    "total": 7,
+    "declined": 0,
+    "notKnown": 7,
+    "waiting": 0,
+    "onConfirmations": 2
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 106,
+     "analysable": 104,
+     "partly": 0,
+     "notAnalysable": 2
+    },
+    "tier1": {
+     "applicable": 43,
+     "analysable": 43,
+     "share": 1
+    },
+    "areasWithNoTier1Answer": [],
+    "notExpectedBySize": 0
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": true,
+     "reasons": []
+    },
+    "comprehensive": {
+     "meets": true,
+     "reasons": []
+    }
+   }
+  }
+ },
+ "P6b": {
+  "organisation": "Fictional Retail Group (overstated confirmations)",
+  "schemes": 106,
+  "gap": 4,
+  "tier1Gap": 0,
+  "unresolved": 6,
+  "optionA": {
+   "resolveFirst": 6,
+   "prerequisites": 5,
+   "managementChoice": 4
+  },
+  "optionB": {
+   "group1": 6,
+   "group2": 0,
+   "group3": 4
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "complete",
+    "breadth": "complete"
+   },
+   "outstanding": {
+    "total": 0,
+    "declined": 0,
+    "notKnown": 0,
+    "waiting": 0,
+    "onConfirmations": 0
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 106,
+     "analysable": 106,
+     "partly": 0,
+     "notAnalysable": 0
+    },
+    "tier1": {
+     "applicable": 43,
+     "analysable": 43,
+     "share": 1
+    },
+    "areasWithNoTier1Answer": [],
+    "notExpectedBySize": 0
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": true,
+     "reasons": []
+    },
+    "comprehensive": {
+     "meets": true,
+     "reasons": []
+    }
+   }
+  }
+ },
+ "P3-declined": {
+  "organisation": "Fictional Retail Group (mixed controls) (two questions declined by Finance)",
+  "schemes": 106,
+  "gap": 58,
+  "tier1Gap": 22,
+  "unresolved": 0,
+  "optionA": {
+   "resolveFirst": 0,
+   "prerequisites": 0,
+   "managementChoice": 58
+  },
+  "optionB": {
+   "group1": 5,
+   "group2": 17,
+   "group3": 36
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "complete",
+    "breadth": "complete"
+   },
+   "outstanding": {
+    "total": 2,
+    "declined": 2,
+    "notKnown": 0,
+    "waiting": 0,
+    "onConfirmations": 0
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 106,
+     "analysable": 106,
+     "partly": 0,
+     "notAnalysable": 0
+    },
+    "tier1": {
+     "applicable": 43,
+     "analysable": 43,
+     "share": 1
+    },
+    "areasWithNoTier1Answer": [],
+    "notExpectedBySize": 0
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": true,
+     "reasons": []
+    },
+    "comprehensive": {
+     "meets": true,
+     "reasons": []
+    }
+   }
+  }
+ },
+ "P3-partial": {
+  "organisation": "Fictional Retail Group (mixed controls) (interview stopped after 60 screens)",
+  "schemes": 109,
+  "gap": 15,
+  "tier1Gap": 15,
+  "unresolved": 0,
+  "optionA": {
+   "resolveFirst": 0,
+   "prerequisites": 0,
+   "managementChoice": 15
+  },
+  "optionB": {
+   "group1": 3,
+   "group2": 12,
+   "group3": 0
+  },
+  "sufficiency": {
+   "stages": {
+    "core": "incomplete",
+    "breadth": "incomplete"
+   },
+   "outstanding": {
+    "total": 0,
+    "declined": 0,
+    "notKnown": 0,
+    "waiting": 0,
+    "onConfirmations": 0
+   },
+   "analytical": {
+    "schemes": {
+     "applicable": 109,
+     "analysable": 36,
+     "partly": 0,
+     "notAnalysable": 73
+    },
+    "tier1": {
+     "applicable": 44,
+     "analysable": 34,
+     "share": 0.773
+    },
+    "areasWithNoTier1Answer": [
+     "D8",
+     "D9"
+    ],
+    "notExpectedBySize": 0
+   },
+   "release": {
+    "status": "candidate-rules-not-approved",
+    "essential": {
+     "meets": false,
+     "reasons": [
+      "The core stage is not complete.",
+      "Fewer than 90% of applicable tier 1 schemes can be analysed (34 of 44).",
+      "No tier 1 confirmation is answered in 2 areas."
+     ]
+    },
+    "comprehensive": {
+     "meets": false,
+     "reasons": [
+      "The core stage is not complete.",
+      "Fewer than 90% of applicable tier 1 schemes can be analysed (34 of 44).",
+      "No tier 1 confirmation is answered in 2 areas.",
+      "The breadth stage is not complete.",
+      "Fewer than 85% of applicable schemes can be analysed (36 of 109)."
+     ]
+    }
+   }
+  }
+ }
+}

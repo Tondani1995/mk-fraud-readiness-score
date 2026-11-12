@@ -67,7 +67,7 @@ export const READINESS_REVIEW_CONTRACT = {
     engine: {
       build: '1.6',
       file: 'vendor/review-engine-build-1.6.cjs',
-      sha256: '563b1ed5054961750c50fd2a82f00d2b700d4f4704000353d237d8c259beb44a',
+      sha256: 'b5fb84e55533068cf0deaf71cd57c366582d9501e4c4338b7986ae26d0624151',
       composes: { build: '1.5', sha256: '7f8ca08f2626108919ef97d664d6b752fe91ae686fdd44639d1e79be5d9395ba' }
     },
     approval: 'Not approved by MK. Stages, the consistency check, depth selection and decline handling are proposals; build 1.6 produces no score and is inactive for customers.'

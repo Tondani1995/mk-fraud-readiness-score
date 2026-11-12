@@ -10,6 +10,7 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | Candidate source commit | see `SOURCE-COMMIT.txt` in the package |
 | Data contract | `mk-readiness-review` 1.3.0 (build 1.5 sessions); 1.4.0 for staged sessions on build 1.6 (fictional harness only) |
 | Staged assessment | Review engine build 1.6, composing build 1.5 unchanged; inactive for customers and produces no score (`STAGED-BUILD-1.6.md`) |
+| Reporting-quality correction | The prototype's report content corrected on MK's direction of 12 November (`REPORT-QUALITY-CORRECTION.md`) |
 | Integration prototype | The staged assessment fed through the existing Essential and Comprehensive engines on fictional organisations, with a before-and-after comparison (`INTEGRATION-PROTOTYPE.md`) |
 | Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness, with the independent review's six findings corrected. See `RELEASE-DECISION.md`. |
 
@@ -40,6 +41,11 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | `STAGED-BUILD-1.6.md` | MK's direction of 11 November (17:24) as built: the staged assessment on build 1.6, methodology-version dispatch with MFRS parity, the revised input adapter, the method-scoped content registry, stage progress and delegation, the commercial gates kept, results and limitations |
 | `DECISION-REGISTER.md` | Concise register of what that delivery took from MK, decided in engineering (implemented, inactive), proposes and reserves |
 | `INTEGRATION-PROTOTYPE.md` | MK's direction of 11 November (18:33) as delivered: each of the eight items, where it is and its evidence |
+| `REPORT-QUALITY-CORRECTION.md`, `report-correction/` | MK's direction of 12 November: the corrected Essential and Comprehensive for four fictional organisations (PDF, HTML, workbook, model), the claims register against the first prototype, tests and the decisions that remain |
+| `CONTRADICTION-CLASSIFICATION.md` | The five relationships between a confirmation and a weaker practice, and the recalculation of the 21 controls the first prototype flagged |
+| `PRIORITISATION-METHODOLOGY-PROPOSAL.md` | Decision-ready options for how reports say what to address first, without ratings from tier or answer class |
+| `INFORMATION-SUFFICIENCY-AND-RELEASE.md` | Candidate rules for analytical sufficiency and paid-report release (R-2), with their effect on the fictional cases |
+| `METHOD-CONTENT-GAPS.md` | Where the draft method is not specific enough to support a recommendation |
 | `REPORT-COMPARISON.md`, `report-comparison/` | The Essential and Comprehensive reports before (MFRS V1.2) and after (staged assessment) for four fictional organisations: the reports in HTML and PDF, their models, objective measures, verbatim excerpts, what is not better, and the report decisions R-1 to R-3 |
 | `VERSION-DISPATCH.md` | Methodology dispatch resolved from the assessment's recorded mode, methodology version and graph pin; the withdrawn P-5 and why |
 | `STANDARD-ASSESSMENT-STATUS.md`, `staged-assessment/standard-status-screens/` | The corrected standard assessment: the four status statements, outstanding information, the Advisory records kept apart, earlier area hand-over; screens at 1440 and 390px, accessibility scan and limitations |
@@ -112,7 +118,8 @@ node $L scripts/readiness-review-standard-status-tests.mjs
 node $L scripts/methodology-version-dispatch-tests.mjs
 node $L scripts/research/delegation/timing.mjs --check
 node $L scripts/research/objectives/candidates.mjs --check
-node $L scripts/revised-reports/build-comparison.mjs && node scripts/revised-reports/compare.mjs
+node $L scripts/revised-reports/build-comparison.mjs && node $L scripts/revised-reports/render-pdfs.mjs docs/readiness-review/report-correction
+node $L scripts/revised-reports/report-quality-tests.mjs && node scripts/revised-reports/claims-register.mjs
 
 # Stage-progress screens: seed staged sessions, then start the build on the same harness with engine 1.6
 MK_READINESS_REVIEW_HARNESS=fictional-local MK_READINESS_REVIEW_HARNESS_DIR=out/h16 MK_READINESS_REVIEW_ENGINE=1.6 \
