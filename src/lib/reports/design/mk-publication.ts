@@ -77,12 +77,12 @@ h3{font-weight:500;font-size:10.2pt;color:${P.navy};margin:6mm 0 2mm;break-after
 .keep{break-inside:avoid}
 .page-start{break-before:page}
 .page-start .unit-label{margin-top:0}
-.tag{display:inline-block;font-size:6.2pt;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${P.sageInk};border:.6pt solid ${P.sageDeep};padding:.5mm 1.6mm;margin-left:1.6mm;vertical-align:middle;border-radius:1mm}
+.tag{display:inline-block;font-size:6.5pt;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${P.sageInk};border:.6pt solid ${P.sageDeep};padding:.5mm 1.6mm;margin-left:1.6mm;vertical-align:middle;border-radius:1mm}
 .notice{border:.7pt dashed ${P.faint};padding:4mm 4.6mm 3mm;margin:7mm 0 4mm;break-inside:avoid}
 .notice-title{font-size:6.8pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:${P.slate};margin-bottom:2.4mm}
 .notice table{width:100%;border-collapse:collapse}
 .notice th{font-size:6.4pt;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:${P.muted};text-align:left;padding:1.2mm 2mm 1.2mm 0;border-bottom:.5pt solid ${P.rule}}
-.notice td{font-size:7.6pt;line-height:1.45;color:${P.text};padding:1.6mm 2.4mm 1.6mm 0;border-bottom:.5pt solid ${P.rule};vertical-align:top}
+.notice td{font-size:7.9pt;line-height:1.45;color:${P.text};padding:1.6mm 2.4mm 1.6mm 0;border-bottom:.5pt solid ${P.rule};vertical-align:top}
 .notice td.strong{color:${P.ink};font-weight:500;width:34mm}
 .after-head{break-before:avoid}
 .rule{height:0;border-top:.5pt solid ${P.rule};margin:6mm 0}
@@ -100,7 +100,7 @@ tr{break-inside:avoid}
 ul.plain{margin:0;padding:0;list-style:none}
 ul.plain li{position:relative;padding-left:3.6mm;margin:0 0 1.4mm;font-size:8.1pt;line-height:1.5}
 ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;height:1.5mm;border-radius:50%;background:${P.sageDeep}}
-.label{font-size:6.3pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:${P.slate};margin:0 0 1.2mm}
+.label{font-size:6.6pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:${P.slate};margin:0 0 1.2mm}
 .muted{color:${P.muted}}
 /* Cover */
 .cover{page:cover;position:relative;width:210mm;height:296.6mm;background:${P.navy};color:${P.white};overflow:hidden;break-after:page}
@@ -132,7 +132,7 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .position .cell:nth-child(odd){border-right:.5pt solid ${P.rule}}
 .position .cell:nth-child(even){padding-left:5mm}
 .position .v{font-size:12.2pt;font-weight:500;color:${P.navy};line-height:1.25;margin:0 0 1.6mm}
-.position .x{font-size:7.6pt;line-height:1.55;color:${P.text}}
+.position .x{font-size:8pt;line-height:1.55;color:${P.text}}
 .position .cell.pending .v{color:${P.navy2}}
 /* Profile */
 .profile td{padding:1.55mm 2.4mm 1.55mm 0;font-size:7.9pt}
@@ -157,12 +157,12 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .stage .k{font-size:15pt;font-weight:500;color:${P.navy};line-height:1.1;margin-bottom:.6mm}
 .stage .w{font-size:6.6pt;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${P.sageInk};margin-bottom:2.6mm}
 .stage .p{font-size:8pt;line-height:1.5;color:${P.ink};margin-bottom:2.6mm}
-.stage .o{font-size:7.4pt;color:${P.slate};margin-top:2mm;padding-top:2mm;border-top:.5pt solid ${P.rule}}
+.stage .o{font-size:8pt;color:${P.slate};margin-top:2mm;padding-top:2mm;border-top:.5pt solid ${P.rule}}
 /* Blueprint specification */
 .spec{display:grid;grid-template-columns:repeat(3,1fr);border-top:.6pt solid ${P.sageDeep};background:${P.surface};margin:4mm 0 3mm;break-inside:avoid;padding:1mm 0}
 .spec > div{padding:1.7mm 3.4mm 1.7mm 3.4mm}
 .spec .label{margin-bottom:.6mm}
-.spec .v{font-size:7.7pt;line-height:1.42;color:${P.ink}}
+.spec .v{font-size:8pt;line-height:1.42;color:${P.ink}}
 .spec .wide{grid-column:1 / span 3}
 /* Theme map */
 .tmap td.dot{text-align:center;padding-right:0}
@@ -175,7 +175,7 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .om .tier.top{border-top:.9pt solid ${P.navy}}
 .om .who{font-size:8.2pt;line-height:1.4;font-weight:500;color:${P.navy};padding-right:5mm}
 .om .what{font-size:7.9pt;line-height:1.45;color:${P.text}}
-.om .basis{font-size:6.8pt;color:${P.muted};margin-top:1mm}
+.om .basis{font-size:7.2pt;color:${P.muted};margin-top:1mm}
 .om .flow{font-size:6.4pt;letter-spacing:.12em;text-transform:uppercase;color:${P.sageInk};padding-left:56mm}
 /* Decision options */
 .options td.rec{box-shadow:inset .9mm 0 0 ${P.navy}}

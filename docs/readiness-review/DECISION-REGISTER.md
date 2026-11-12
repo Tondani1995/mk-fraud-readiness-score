@@ -107,6 +107,30 @@ E-21, E-24 and E-25 are superseded in part, as stated below; the rest of the fir
 | D-5 | Approve the control-content library as MK advisory content, name its owner, and decide its extension to the remaining practice questions. Takes the place of C-2 | `CONTROL-CONTENT-LIBRARY.md` |
 | D-6 | Confirm the proposed-stage convention for the roadmap and the programme. With D-1, takes the place of C-3 | `REPORT-REVISION.md` |
 
+## Premium report excellence (MK direction, 12 November, 19:33)
+
+The Reporting Bible v1.1 governs layout and assembly; it supersedes E-35 where the two differ (no appendix; registers in the workbook). Summary: `REPORT-EXCELLENCE.md`.
+
+| # | Engineering decision (prototype, inactive) | Basis | Evidence |
+|---|---|---|---|
+| E-37 | Manuscript-first construction restored for the revised model: Fact Pack, Story Plan and writer brief per report; manuscript with paragraph provenance and figure slots; factual and editorial validation; plain-text manuscript; composition; manifest. A manuscript that fails validation is never composed | Bible 3 to 5, 16, 21.1 | `report-excellence/`; gates G01 to G03, G11 |
+| E-38 | Essential in six movements (19 to 21 pages) and Comprehensive in the Bible sequence (28 to 33 pages); no appendix; Appendices A to J of E-35 withdrawn | Bible 9 to 15; brief items 3 and 4 | Gates G04, G12 |
+| E-39 | MK publication system: Poppins embedded, the corporate-profile palette measured from the profile (navy, slate, rules, sage accent), profile-style cover and running header. Production templates unchanged | Brief item 5 | `VISUAL-AND-BRAND-ACCEPTANCE.md`; gate G05 |
+| E-40 | Method status moved out of the prose: the position panel reads as a released report would, the calculated result carries a "test fixture" tag, and a composer-rendered prototype notice states what a released report adds | Brief item 7 | Gates G06, G07 |
+| E-41 | Bible eight-sheet workbooks for each product, with every register and every control's twelve-field specification; frozen headers, filters, formula-safe; rows reconcile with the model | Bible 15, 20 | Gates G08 to G10 |
+| E-42 | South African legal context drawn from the method's own guidance (PRECCA sections 34 and 34A, POPIA section 22) where a finding concerns it; a statute citation is permitted only when a cited legal fact carries that section | Bible 19.1; scorecard dimension 20 | Fact Pack `legal`; validator |
+| E-43 | Escalation and proposed service-level wording by control type (gate, periodic, event); service levels labelled as proposals | Defect found in review | Blueprint panels; workbook |
+| E-44 | Page-rhythm pass: a section that would start after a near-empty page follows on; each blueprint after the first starts a page | Bible 19.2, 21 | `build-summary.json` (no sparse pages) |
+| E-45 | Production AI manuscript run recorded as acceptance test AT-AI-01 with a ready harness; status BLOCKED in this environment | Brief item 2 | `ai-run-status.json`; `excellence-ai-run.mjs` |
+
+| # | Proposal for MK (not applied) | Evidence |
+|---|---|---|
+| D-7 | Run AT-AI-01 on a machine that holds the gateway credential; review its manuscripts against the 34 dimensions; decide whether manuscripts written under the writer contract outside the production model may ever serve as an owner-approved fallback (Bible 5.2) | `REPORT-EXCELLENCE.md` |
+| D-8 | Approve the scenario structures 0.1 and decision options 0.1 as MK advisory content (with D-5 for the control library), and name their owner | `QUALITY-SCORECARD-34.md` dimensions 9, 15 |
+| D-9 | Adopt the MK publication system for the production Essential and Comprehensive templates, and confirm sage as the restrained accent (the corporate profile uses it; the website direction of 25 October retired it) | `VISUAL-AND-BRAND-ACCEPTANCE.md` |
+| D-10 | Update the Bible where later decisions conflict with it: how the paid report states its conclusion and order of work while D-1 and D-3 are open (C-1, C-2); the production Essential register's missing eighth sheet (C-8); "analytical truth" for self-reported positions (C-9) | `BIBLE-COMPLIANCE-AND-GAP.md` |
+| D-11 | Set the Comprehensive depth standard: a finding construction with control interaction and management consequence, at about one and a half times the Essential's length, enforced in the writer brief and validator | `QUALITY-SCORECARD-34.md` dimensions 8, 29, 31 |
+
 ## Reserved for MK
 
 Every item in `UNRESOLVED-METHODOLOGICAL-DECISIONS.md`, and the release blockers **B2, B3, B4, B5, B6, B7, B11 and J-01, which remain open** (`RELEASE-DECISION.md`).

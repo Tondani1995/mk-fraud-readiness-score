@@ -3,7 +3,7 @@
  "organisation": "Fictional Owner-Managed Firm",
  "assessmentReference": "FX-P4",
  "bibleVersion": "1.1",
- "sourceCommit": "f99a64bc876e6b7962d4c445036c3f9e65e6fdf9",
+ "sourceCommit": "4e936baf99405a9428b6514e42e634dfac481d35",
  "writer": {
   "mode": "in-session bounded writer under the writer contract",
   "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
@@ -26,9 +26,9 @@
  "hashes": {
   "factPack": "7f75ac761e6a92b2df5b0e34ff044151713df36c45fbd844fddbd5a6aed3970d",
   "manuscript": "f27fdd9897fa900203081115dc5b63ba69d2df09e42650f9ef8c542472459a5d",
-  "html": "d0382e3936edc729669fd6b2695420a9e830e5abccb5e4aa13223ad8f1f80a94",
-  "pdf": "47562abec99f815580eb6a8501faf252b26052d4cff6595d339b5eabb2a6549e",
-  "workbook": "3cfcea32fe7f42d34d72044521ddb9647c2a60e43510f73312d47965e90996de"
+  "html": "0db7a58338a9c0996a9d537e706e639a2baec94638df8d612716920a6e4bf4ad",
+  "pdf": "154104ff605656e48fd9cd3d2a9b5f6c26815622c41c264dadef4ca43fdaa4a2",
+  "workbook": "ae7c7674a05252dd464f1a05f0d7897708817ed3f05f80b6c2704afcbd3e26aa"
  },
  "workbookSheets": [
   {

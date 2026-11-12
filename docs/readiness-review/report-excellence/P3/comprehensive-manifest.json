@@ -3,7 +3,7 @@
  "organisation": "Fictional Retail Group (mixed controls)",
  "assessmentReference": "FX-P3",
  "bibleVersion": "1.1",
- "sourceCommit": "f99a64bc876e6b7962d4c445036c3f9e65e6fdf9",
+ "sourceCommit": "4e936baf99405a9428b6514e42e634dfac481d35",
  "writer": {
   "mode": "in-session bounded writer under the writer contract",
   "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
@@ -26,9 +26,9 @@
  "hashes": {
   "factPack": "a11dad91cee4699653ad93ed03fb1a1f4d85ad3fdf48a4830c348ec0f884ca72",
   "manuscript": "df4148298da2deccb124eda3bc4bc95be32001f00576935ad7900948fc643cd4",
-  "html": "8648ee0dc1dacf0373986f09f0c33436eb2a3139d848960182ed1da64a6e559f",
-  "pdf": "95954f749021110a19a2aa914516a0d1e1bc8458d7c08802054a4227d937a090",
-  "workbook": "580af82d1d49e9de1d1771382f8c800d230a336bb0ae1729b61d3fac4d555582"
+  "html": "904ec06685cd28a840ad01142f0da374d9568c91e2092c0bd13ce7e112416fc8",
+  "pdf": "807a8aafdaaf27cf7b1d38391a6c55797ca72a7d4c0bf2a2eb5f677ddfe8bd56",
+  "workbook": "fa154a94675d70b4bedaac58f2b085606fe76047bf682a9dc32559bb5a7c5ee0"
  },
  "workbookSheets": [
   {
