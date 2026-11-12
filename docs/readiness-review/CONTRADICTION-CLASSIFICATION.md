@@ -1,5 +1,7 @@
 # Classifying answers that appear to conflict
 
+> **Superseded in part on 12 November (second direction).** The rules and the reviewed table are replaced by `ANSWER-RELATIONSHIP-RULES.md` (relationship-review-0.2): unreviewed pairs are no longer assumed complementary, routing no longer establishes a dependency, "not applicable" is no longer an untested practice, and five of the six unresolved pairs below are now reviewed questions to clarify. This document is kept as the record of the first correction.
+
 MK's direction of 12 November 2026, item 1. The first prototype called a confirmation "false comfort" whenever any other practice of the same fraud scheme was reported as a gap, and so reported 21 controls of the overstated organisation as "not supported in practice". That inferred that a control cannot operate merely because an associated practice is weaker, which the method does not establish. The corrected evidence model (`src/lib/reports/revised/relationships.ts`) classifies each pair instead.
 
 ## Five relationships

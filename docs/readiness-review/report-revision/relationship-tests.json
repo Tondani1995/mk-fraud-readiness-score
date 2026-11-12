@@ -1,0 +1,59 @@
+{
+ "pairsInMethod": 826,
+ "results": [
+  {
+   "id": "RS-01",
+   "ok": true,
+   "name": "\"Not applicable\" is outside scope and has no relationship; \"no case has arisen\" is the only untested practice; an outstanding answer is missing information whatever its class",
+   "detail": "na -> no relationship; noinstance -> untested-practice; outstanding -> missing-information"
+  },
+  {
+   "id": "RS-02",
+   "ok": true,
+   "name": "A routing condition never establishes a dependency: every pair in which one question is asked only when the other is answered a certain way is not established unless it has been reviewed",
+   "detail": "32 routed pairs in the method; 0 classified as anything but not established; the classifier reads no routing field"
+  },
+  {
+   "id": "RS-03",
+   "ok": true,
+   "name": "Every pair the method can produce is classified, and no unreviewed pair is assumed complementary or necessary: it is not established, asks nothing and concludes nothing",
+   "detail": "826 pairs in the method, 56 reviewed, 770 not established; no assumed relationship"
+  },
+  {
+   "id": "RS-04",
+   "ok": true,
+   "name": "A necessary dependency requires reviewed semantics: without them the table is invalid and the pair is not established; with them it holds only for the answers named",
+   "detail": "no semantics -> not-established (semantics-not-met); semantics and absent -> necessary-dependency; semantics and partly in place -> not-established (semantics-not-met)"
+  },
+  {
+   "id": "RS-05",
+   "ok": true,
+   "name": "A direct contradiction holds only for the answers it was reviewed for, and a reviewed wording written for one option is not applied to another",
+   "detail": "AI pair absent -> direct-contradiction, partly -> direct-contradiction; stock not recorded -> not-established with a question; stock in spreadsheets -> not-established (semantics-not-met)"
+  },
+  {
+   "id": "RS-06",
+   "ok": true,
+   "name": "The six pairs reassessed: the AI pair stays a direct contradiction; the investigations pair and the four former dependencies are reviewed questions, none claiming that a control cannot operate",
+   "detail": "all six as reassessed; table {\"complementary-weakness\":49,\"direct-contradiction\":1,\"not-established\":6}; validation problems 0"
+  },
+  {
+   "id": "RS-07",
+   "ok": true,
+   "name": "Mutation: removing a reviewed pair from the table turns its scenario neutral, never into a contradiction or a dependency",
+   "detail": "6 scenarios flagged in the overstated organisation; with their pairs unreviewed, 7 relationships become not-established/not-reviewed"
+  },
+  {
+   "id": "RS-08",
+   "ok": true,
+   "name": "Mutation: answering a supporting practice \"not applicable\" removes it from the scenario's relationships without making the scenario a gap or unresolved",
+   "detail": "AI scenario after the mutation: qualified, 3 relationships, none for the practice answered not applicable"
+  },
+  {
+   "id": "RS-09",
+   "ok": true,
+   "name": "The five relationships are preserved as distinct types, and only two of them count as unresolved inconsistencies",
+   "detail": "direct-contradiction, necessary-dependency, complementary-weakness, untested-practice, missing-information; unresolved: direct-contradiction, necessary-dependency; neutral status: not-established"
+  }
+ ]
+}

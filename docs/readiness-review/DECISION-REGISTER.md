@@ -82,6 +82,31 @@ R-1 to R-3 are now prototype conventions for testing (MK item 4), and P-7 is wit
 | C-2 | Method content for practice questions: target state, records and cycle | `METHOD-CONTENT-GAPS.md` |
 | C-3 | Confirm or adjust the R-1 trigger and the R-3 shape | `REPORT-QUALITY-CORRECTION.md` |
 
+## Report revision (MK direction, 12 November, second direction)
+
+E-21, E-24 and E-25 are superseded in part, as stated below; the rest of the first correction stands. Summary and change register: `REPORT-REVISION.md`.
+
+| # | Engineering decision (prototype, inactive) | Basis | Evidence |
+|---|---|---|---|
+| E-28 | Relationship review table 0.2 replaces 0.1 (supersedes the default in E-21): "not applicable" has no relationship; routing is never read as dependency; a necessary dependency needs reviewed semantics and a direct contradiction its holding answers; an unreviewed pair is "not established"; documentation gaps are not proof that a control cannot operate. The six pairs reassessed: one direct contradiction kept, five reviewed questions | MK item 2 | `ANSWER-RELATIONSHIP-RULES.md`; RS-01 to RS-09; RQ-01, RQ-02 |
+| E-29 | Scenario kind "question to clarify" for a reviewed pair the answers leave open; unresolved inconsistencies are only direct contradictions and necessary dependencies | MK item 2 | RQ-12 |
+| E-30 | Four position statements in both reports for every organisation; no band, visible or hidden; area figures in the method's order; the R-1 threshold of E-24 withdrawn | MK item 3 | RQ-07 |
+| E-31 | No materiality, priority or ranking language; no rank numbers; scenario references in the method's order; every selection states its rule | MK item 4 | RQ-03, RQ-15 |
+| E-32 | Control-content library 0.1 (15 archetypes, 146 entries) supplies target practice, activities, records, measure, cycle and failure response; a control without an entry uses the method's wording and is flagged | MK item 5 | `CONTROL-CONTENT-LIBRARY.md`; RQ-14 |
+| E-33 | The 30/60/90 roadmap and the twelve-month programme are proposed stages with proposed planning windows, not deadlines or estimates; prerequisites only from reviewed dependencies; control actions grouped by stage and owner | MK item 6 | RQ-16 |
+| E-34 | Candidate product-sufficiency rules 0.2 per deliverable (supersedes rules A, E and C of E-25), connected to nothing commercial | MK item 1 | `PRODUCT-SUFFICIENCY-CANDIDATE.md`; SA-01 to SA-09 |
+| E-35 | Comprehensive refinements: blueprint blocks, scorecard by owner, action register by stage, Appendix J on information coverage | MK item 7 | RQ-09; PDF samples |
+| E-36 | Oversight reported from the organisation's own answer; an unanswered oversight question is stated as not identified | Defect found in this revision | SA-05 |
+
+| # | Proposal for MK (not applied) | Evidence |
+|---|---|---|
+| D-1 | Adopt the four-statement position convention for paid reports; no band until a readiness method is approved | `REPORT-REVISION.md` |
+| D-2 | Approve the relationship rules and table 0.2; review the 770 pairs not yet reviewed; decide whether dependency semantics belong in the method itself | `ANSWER-RELATIONSHIP-RULES.md` |
+| D-3 (P-13 to P-15) | Approve the factor-based decision method, the direct-loss classification and a preventive or detective attribute per control; decide whether reports show attention groups once approved. Supersedes P-8 to P-12 option B | `PRIORITISATION-METHODOLOGY-PROPOSAL.md` |
+| D-4 | Approve the shape and thresholds of the product-sufficiency rules and the customer message when they are not met. Supersedes R2-a to R2-e | `PRODUCT-SUFFICIENCY-CANDIDATE.md` |
+| D-5 | Approve the control-content library as MK advisory content, name its owner, and decide its extension to the remaining practice questions. Takes the place of C-2 | `CONTROL-CONTENT-LIBRARY.md` |
+| D-6 | Confirm the proposed-stage convention for the roadmap and the programme. With D-1, takes the place of C-3 | `REPORT-REVISION.md` |
+
 ## Reserved for MK
 
 Every item in `UNRESOLVED-METHODOLOGICAL-DECISIONS.md`, and the release blockers **B2, B3, B4, B5, B6, B7, B11 and J-01, which remain open** (`RELEASE-DECISION.md`).

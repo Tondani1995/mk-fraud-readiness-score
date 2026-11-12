@@ -1,5 +1,7 @@
 # Information sufficiency and paid-report release: candidate rules for MK's approval
 
+> **Superseded on 12 November (second direction)** by `PRODUCT-SUFFICIENCY-CANDIDATE.md` (candidate rules 0.2, per deliverable). Rules A, E and C below let an Essential pass with breadth incomplete and a Comprehensive pass with a function package declined; both cases are now adversarial tests that fail. Kept as the record of the first correction.
+
 MK's direction of 12 November 2026, item 4 (R-2): define candidate information-sufficiency and paid-report-release rules, keeping completed assessment stages, outstanding information, analytical sufficiency and commercial fulfilment separate, and never letting a declined question become a completed answer. The rules are implemented as a pure evaluator for testing (`src/lib/reports/revised/information-sufficiency.ts`). They are connected to no order, entitlement, payment or fulfilment path, and nothing releases a report.
 
 ## Four separate statements

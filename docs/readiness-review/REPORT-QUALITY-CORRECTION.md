@@ -1,5 +1,7 @@
 # Reporting-quality correction: MK's direction of 12 November 2026
 
+> **Revised on 12 November (second direction)** by `REPORT-REVISION.md`: relationship rules 0.2, four position statements instead of the R-1 threshold, no ranking language, the control-content library, proposed planning stages and candidate sufficiency rules 0.2. The reports below are kept in `report-correction/` as the "before" of `REVISION-COMPARISON.md`.
+
 Continued from local commit `5fb4dc2` on `review/mk-integrated-readiness`. This is a targeted correction of the prototype's report content, not a further architecture exercise. Every organisation is fictional, every calculated figure is a labelled test fixture, the revised method stays inactive, and no historical MFRS score, product, price, order, entitlement, payment or fulfilment path, shared preview or deployment was touched. Nothing has been pushed or merged. The AI manuscript stage and a real customer workflow remain untested, so none of these reports is a certified paid report, and each says so on every page.
 
 ## Outcome

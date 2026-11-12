@@ -1,5 +1,41 @@
 # Prioritisation methodology: proposal for MK's decision
 
+## Revision of 12 November (second direction): a decision method based on explicit factors
+
+MK preserved the commercial requirement for meaningful prioritisation and asked for a proposed decision method based on explicit factors rather than question tier. This revision supersedes option B below, which used tier, and is the proposal MK is now asked to decide (P-13 in `DECISION-REGISTER.md`). Nothing in it is applied to a report: the reports state the facts each factor needs where the assessment holds them, ask management to decide the order, and say that neither the order of the report nor the method's tiers is a ranking.
+
+**The factors.** Each is a fact, a candidate classification for MK to approve, or something management supplies; none is a score.
+
+| Factor | What it asks | Source | Status |
+|---|---|---|---|
+| F1 Information state | Are the answers for this scenario settled, open to a question, or outstanding? | The assessment (answer relationships, outstanding information) | Available |
+| F2 Control position | Is the control that stops the scenario absent, set out but not operating, or partly in place? | The assessment (answer class of the confirmation) | Available |
+| F3 Loss pathway | Can the scenario move money, pay, cash, stock or customer value out of the organisation? | A classification of the method's scenarios | Candidate list, needs MK approval |
+| F4 Exposure presence | Does the activity exist at a scale that matters here? | Scope answers and management knowledge | Not computed by the assessment |
+| F5 Detective cover | Would another control detect a loss after the event? | A preventive or detective attribute on each control | Needs a method attribute (the control-content library is the natural place) |
+| F6 Breadth of effect | How many other open scenarios does the same control serve? | The assessment (control-to-scenario links) | Available; shown in the finding register |
+| F7 Management knowledge | Incidents, losses, volumes and values known to management | Management | Supplied by management |
+
+**The method.** Ordering is lexicographic and produces groups, never ranks or scores. First, scenarios with answers to settle or questions to clarify come first, because nothing should be built on an answer that may be wrong (F1); this is a logical precondition, not a judgement of seriousness. Second, scenarios with a control reported as a gap fall into three attention groups: group A where the control is absent or not yet operating and the scenario has a direct-loss pathway (F2 and F3); group B where only one of those holds; group C where the control is partly in place and the pathway is indirect. Third, within each group management adjusts with F4, F5 and F7, and schedules together the scenarios that one control serves (F6). Tier plays no part.
+
+**What it would do.** Illustrated on the four fictional organisations (`report-revision/prioritisation-illustration.json`, `scripts/research/prioritisation/illustrate.mjs`); not used by any report:
+
+| Organisation | Establish the facts first | Group A | Group B | Group C |
+|---|---|---|---|---|
+| P3 mixed retail group | 0 | 21 (tiers 1, 2 and 3: 6, 9, 6) | 25 | 12 |
+| P4 owner-managed firm | 0 | 3 | 4 | 3 |
+| P5 much unknown | 0 (two scenarios are outstanding, not open) | 20 | 26 | 12 |
+| P6b overstated confirmations | 6 | 0 | 3 | 1 |
+
+Every group cuts across the tiers, which shows that the method orders by what the answers say about the control and the loss, not by how early the method asks. The groups are only as good as F3, which is the decision MK most needs to make: the candidate direct-loss list is the prototype's own grouping of the method's modules (M-9) and has not been reviewed.
+
+**Decisions for MK.** Approve the factors and the lexicographic method (P-13); approve or replace the direct-loss classification (P-14); decide whether to add a preventive or detective attribute to each control (P-15); and decide whether a paid report shows the attention groups once approved or continues to ask management to decide with the facts provided.
+
+---
+
+*The rest of this document is the proposal of 12 November (first direction), kept for the record. Option B is superseded by the revision above because it ordered by tier.*
+
+
 MK's direction of 12 November 2026, item 2: do not turn information-gathering tiers into fraud-risk priority, likelihood or impact, and do not assume urgency, difficulty or deadlines from tier or answer class; provide a separate, decision-ready proposal. This document is that proposal. Nothing in it is applied to a report.
 
 ## The decision sought

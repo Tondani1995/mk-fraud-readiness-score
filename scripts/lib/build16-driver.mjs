@@ -90,7 +90,7 @@ export function runRespondent(live, clock, pk, { onStep = null, maxScreens = 300
 }
 
 /** Every function works through its package until nothing is left for it. */
-export function runOwners(live, clock, pk, { decline = null, maxPerFunction = 400 } = {}) {
+export function runOwners(live, clock, pk, { decline = null, answer = null, maxPerFunction = 400 } = {}) {
   const e = live.engine;
   const screens = {};
   const declined = [];
@@ -103,7 +103,8 @@ export function runOwners(live, clock, pk, { decline = null, maxPerFunction = 40
         act(live, clock, { type: 'owner.decline', fn, q: step.q.id, reason }, 'owner');
         declined.push({ fn, q: step.q.id });
       } else {
-        act(live, clock, { type: 'owner.answer', fn, q: step.q.id, value: ownerAnswer(pk, step.q) }, 'owner');
+        const custom = answer ? answer(fn, step, live) : null;
+        act(live, clock, { type: 'owner.answer', fn, q: step.q.id, value: custom ?? ownerAnswer(pk, step.q) }, 'owner');
         screens[fn] = (screens[fn] || 0) + 1;
       }
       step = live.ownerSteps[fn];
@@ -112,18 +113,28 @@ export function runOwners(live, clock, pk, { decline = null, maxPerFunction = 40
   return { screens, declined };
 }
 
-/** A full journey: core and breadth, delegation, recommended packages sent and answered, sends repeated until none. */
-export function runJourney(pk, { decline = null, timeline = null, rounds = 4 } = {}) {
+/** "I don't know" in the question's own format, for adversarial journeys. */
+export const unknownValue = (q) => (q.type === 'practice' ? practiceValue(q, 'unknown') : (q.format === 'multi' ? ['unknown'] : 'unknown'));
+
+/**
+ * A full journey: core and breadth, delegation, recommended packages sent and answered, sends repeated until none.
+ * Optional hooks for adversarial tests (defaults leave every journey unchanged): `respond(step, live)` may return an
+ * action for the respondent, `answer(fn, step, live)` a value for a function, `decline(fn, step, live)` a reason to
+ * decline, and `stopAfterCore` ends the journey when the core stage is complete, before breadth and before any package.
+ */
+export function runJourney(pk, { decline = null, answer = null, respond = null, stopAfterCore = false, timeline = null, rounds = 4 } = {}) {
   const clock = makeClock();
   const live = newStagedSession(`Fictional ${JOURNEY_PROFILES[pk].name}`, clock);
   const p = JOURNEY_PROFILES[pk];
   const kinds = {};
   const add = (r) => { for (const [k, v] of Object.entries(r.kinds)) kinds[k] = (kinds[k] || 0) + v; };
   // Areas are delegated once the core stage is complete: the core is the respondent's; breadth can be shared.
-  add(runRespondent(live, clock, pk, { timeline, onStep: p.delegate ? (step, l) => (l.engine.stages().core.complete ? 'pause' : null) : null }));
+  const pauseAtCore = p.delegate || stopAfterCore;
+  add(runRespondent(live, clock, pk, { timeline, onStep: pauseAtCore || respond ? (step, l) => (pauseAtCore && l.engine.stages().core.complete ? 'pause' : respond ? respond(step, l) : null) : null }));
+  if (stopAfterCore) return { live, clock, respondent: { kinds, screens: live.engine.respondentScreens() }, afterInterview: live.engine.report().staged, sends: [], owners: { screens: {}, declined: [] }, final: live.engine.report() };
   if (p.delegate) {
     for (const [domain, owner] of p.delegate) act(live, clock, { type: 'respondent.assignArea', domain, owner });
-    add(runRespondent(live, clock, pk, { timeline }));
+    add(runRespondent(live, clock, pk, { timeline, onStep: respond }));
   }
   const respondent = { kinds, screens: live.engine.respondentScreens() };
   const afterInterview = live.engine.report().staged;
@@ -131,15 +142,17 @@ export function runJourney(pk, { decline = null, timeline = null, rounds = 4 } =
   const owners = { screens: {}, declined: [] };
   // Areas delegated during breadth are worked first, then packages are sent and answered; each send is recomputed.
   const merge = (r) => { for (const [k, v] of Object.entries(r.screens)) owners.screens[k] = (owners.screens[k] || 0) + v; owners.declined.push(...r.declined); };
-  merge(runOwners(live, clock, pk, { decline }));
+  merge(runOwners(live, clock, pk, { decline, answer }));
   for (let i = 0; i < rounds; i++) {
+    // Packages can only be sent once the core stage is complete; an adversarial journey may leave it incomplete.
+    if (!live.engine.stages().core.complete) break;
     const before = Object.keys(live.engine.S.assign).length;
     act(live, clock, { type: 'organisation.sendToOwners' }, 'organisation');
     const made = Object.keys(live.engine.S.assign).length - before;
     sends.push(live.engine.S.v16.sends.at(-1).assigned.length);
-    merge(runOwners(live, clock, pk, { decline }));
+    merge(runOwners(live, clock, pk, { decline, answer }));
     if (!made) break;
   }
-  if (live.respondentStep) runRespondent(live, clock, pk, { timeline });
+  if (live.respondentStep) runRespondent(live, clock, pk, { timeline, onStep: respond });
   return { live, clock, respondent, afterInterview, sends, owners, final: live.engine.report() };
 }

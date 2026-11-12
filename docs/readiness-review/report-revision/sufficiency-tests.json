@@ -1,0 +1,56 @@
+[
+ {
+  "id": "SA-01",
+  "ok": true,
+  "name": "Baseline: a complete fictional journey meets every candidate condition for both products",
+  "detail": "Essential meets; Comprehensive meets"
+ },
+ {
+  "id": "SA-02",
+  "ok": true,
+  "name": "Incomplete breadth: the core stage complete but breadth stopped with tier 2 unanswered fails the Essential (the defect MK reproduced) and the Comprehensive",
+  "detail": "core complete, breadth incomplete, tier 2 and 3 answered 1 of 62; Essential fails EF-2,EF-4,EF-5; Comprehensive fails EF-2,EF-4,EF-5,CF-2,CF-3,CG-2"
+ },
+ {
+  "id": "SA-03",
+  "ok": true,
+  "name": "Declined function package: every confirmation answered but one function declining its whole package fails the Comprehensive (the defect MK reproduced); the Essential, which rests on confirmations, still meets and discloses it",
+  "detail": "confirmations answered 108 of 108; Procurement declined 11 of 11 (8 of them practices, listed as outstanding); Essential meets; Comprehensive fails CB-2,CP-1"
+ },
+ {
+  "id": "SA-04",
+  "ok": true,
+  "name": "Missing blueprint inputs: a function answering \"I don't know\" to every diagnostic question leaves the scenarios it serves without blueprint inputs, so the Comprehensive fails",
+  "detail": "HR and payroll not known 11 of 15; open scenarios without a diagnostic answer 3; Essential meets; Comprehensive fails CB-2"
+ },
+ {
+  "id": "SA-05",
+  "ok": true,
+  "name": "Incomplete governance information: the risk function declining its package fails the governance analysis (CG-3); not knowing who has oversight holds the core stage open and fails both products",
+  "detail": "risk package declined: Essential meets; Comprehensive fails CG-3,CP-1. Oversight unknown: core incomplete; Essential fails EF-1,EF-2,EA-1; Comprehensive fails EF-1,EF-2,EA-1,CG-1,CG-2,CG-3,CP-1; the report names \"The oversight body (not identified in the answers)\""
+ },
+ {
+  "id": "SA-06",
+  "ok": true,
+  "name": "Outstanding confirmations: a quarter of tier 1 confirmations not known by the respondent and declined by the function fails both products; none is counted as answered",
+  "detail": "tier 1 answered 34 of 45; outstanding on confirmations 11; Essential fails EF-3; Comprehensive fails EF-3,CF-1,CF-2,CB-3,CG-2,CG-3,CP-1"
+ },
+ {
+  "id": "SA-07",
+  "ok": true,
+  "name": "Optional diagnostics are not required: only questions put to the organisation count, so the small firm meets both products although most of the method's diagnostic questions were never asked",
+  "detail": "diagnostic questions asked 22 of 186 applicable supporting practices; Essential meets; Comprehensive meets"
+ },
+ {
+  "id": "SA-08",
+  "ok": true,
+  "name": "Information and method conditions are kept apart: a control without library content fails a method condition, never an information condition",
+  "detail": "Essential failing EA-2 (information met true); Comprehensive failing CB-3,CP-3,EA-2"
+ },
+ {
+  "id": "SA-09",
+  "ok": true,
+  "name": "Candidate only: the evaluator imports nothing from orders, entitlements, payments, fulfilment or products, and every result says the rules are not approved",
+  "detail": "0 imports; status candidate-rules-not-approved"
+ }
+]

@@ -1,0 +1,715 @@
+{
+ "fictional": true,
+ "generated": "2026-11-12T18:00:00Z",
+ "aiManuscriptStage": "not run on either side",
+ "results": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "corrected": {
+    "fixtureScore": 55.5,
+    "position": {
+     "contradictions": 0,
+     "dependencies": 0,
+     "clarifications": 0,
+     "pairsCompared": 1,
+     "pairsNotReviewed": 0,
+     "crossChecksAsked": 5,
+     "crossCheckEligible": 32,
+     "conclusion": "MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result."
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "clarify": 0,
+      "gap": 58,
+      "qualified": 1,
+      "confirmed": 47,
+      "outstanding": 0,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 22,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 0,
+      "not-established": 0
+     },
+     "relationBasis": {
+      "answer": 0,
+      "reviewed-pair": 1,
+      "not-reviewed": 0,
+      "semantics-not-met": 0
+     },
+     "library": {
+      "version": "control-content-library-0.1",
+      "controls": 106,
+      "inLibrary": 106
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 2014
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 59
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 58
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 106
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 105
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 38
+     },
+     {
+      "letter": "F",
+      "title": "Management scorecard",
+      "count": 106
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 1
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 11
+     },
+     {
+      "letter": "J",
+      "title": "Information coverage",
+      "count": 10
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 11
+     },
+     {
+      "name": "Scenarios",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 59
+     },
+     {
+      "name": "Risks",
+      "rows": 58
+     },
+     {
+      "name": "Controls",
+      "rows": 106
+     },
+     {
+      "name": "Records",
+      "rows": 105
+     },
+     {
+      "name": "Actions",
+      "rows": 38
+     },
+     {
+      "name": "Measures",
+      "rows": 106
+     },
+     {
+      "name": "Decisions",
+      "rows": 3
+     },
+     {
+      "name": "Relationships",
+      "rows": 1
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Sufficiency",
+      "rows": 19
+     },
+     {
+      "name": "Roles",
+      "rows": 11
+     },
+     {
+      "name": "Content gaps",
+      "rows": 66
+     },
+     {
+      "name": "Traceability",
+      "rows": 106
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "corrected": {
+    "fixtureScore": 87.8,
+    "position": {
+     "contradictions": 1,
+     "dependencies": 0,
+     "clarifications": 5,
+     "pairsCompared": 56,
+     "pairsNotReviewed": 0,
+     "crossChecksAsked": 10,
+     "crossCheckEligible": 67,
+     "conclusion": "MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result."
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 1,
+      "dependency": 0,
+      "clarify": 5,
+      "gap": 4,
+      "qualified": 15,
+      "confirmed": 81,
+      "outstanding": 0,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 0,
+     "relations": {
+      "direct-contradiction": 1,
+      "necessary-dependency": 0,
+      "complementary-weakness": 49,
+      "untested-practice": 0,
+      "missing-information": 0,
+      "not-established": 6
+     },
+     "relationBasis": {
+      "answer": 0,
+      "reviewed-pair": 56,
+      "not-reviewed": 0,
+      "semantics-not-met": 0
+     },
+     "library": {
+      "version": "control-content-library-0.1",
+      "controls": 63,
+      "inLibrary": 63
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 2161
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 25
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 5
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 63
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 61
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 43
+     },
+     {
+      "letter": "F",
+      "title": "Management scorecard",
+      "count": 63
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 56
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 13
+     },
+     {
+      "letter": "J",
+      "title": "Information coverage",
+      "count": 10
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 11
+     },
+     {
+      "name": "Scenarios",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 25
+     },
+     {
+      "name": "Risks",
+      "rows": 5
+     },
+     {
+      "name": "Controls",
+      "rows": 63
+     },
+     {
+      "name": "Records",
+      "rows": 61
+     },
+     {
+      "name": "Actions",
+      "rows": 43
+     },
+     {
+      "name": "Measures",
+      "rows": 63
+     },
+     {
+      "name": "Decisions",
+      "rows": 4
+     },
+     {
+      "name": "Relationships",
+      "rows": 56
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Sufficiency",
+      "rows": 19
+     },
+     {
+      "name": "Roles",
+      "rows": 13
+     },
+     {
+      "name": "Content gaps",
+      "rows": 52
+     },
+     {
+      "name": "Traceability",
+      "rows": 63
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "corrected": {
+    "fixtureScore": 78.5,
+    "position": {
+     "contradictions": 0,
+     "dependencies": 0,
+     "clarifications": 0,
+     "pairsCompared": 1,
+     "pairsNotReviewed": 0,
+     "crossChecksAsked": 5,
+     "crossCheckEligible": 24,
+     "conclusion": "MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result."
+    },
+    "schemes": {
+     "applicable": 49,
+     "notExpected": 2,
+     "tier1": 21,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "clarify": 0,
+      "gap": 10,
+      "qualified": 1,
+      "confirmed": 36,
+      "outstanding": 0,
+      "not-expected": 2,
+      "none": 0
+     },
+     "tier1Gap": 4,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 0,
+      "not-established": 0
+     },
+     "relationBasis": {
+      "answer": 0,
+      "reviewed-pair": 1,
+      "not-reviewed": 0,
+      "semantics-not-met": 0
+     },
+     "library": {
+      "version": "control-content-library-0.1",
+      "controls": 15,
+      "inLibrary": 15
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1954
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 11
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 10
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 15
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 15
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 16
+     },
+     {
+      "letter": "F",
+      "title": "Management scorecard",
+      "count": 15
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 1
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 5
+     },
+     {
+      "letter": "J",
+      "title": "Information coverage",
+      "count": 6
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 11
+     },
+     {
+      "name": "Scenarios",
+      "rows": 49
+     },
+     {
+      "name": "Findings",
+      "rows": 11
+     },
+     {
+      "name": "Risks",
+      "rows": 10
+     },
+     {
+      "name": "Controls",
+      "rows": 15
+     },
+     {
+      "name": "Records",
+      "rows": 15
+     },
+     {
+      "name": "Actions",
+      "rows": 16
+     },
+     {
+      "name": "Measures",
+      "rows": 15
+     },
+     {
+      "name": "Decisions",
+      "rows": 3
+     },
+     {
+      "name": "Relationships",
+      "rows": 1
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Sufficiency",
+      "rows": 19
+     },
+     {
+      "name": "Roles",
+      "rows": 5
+     },
+     {
+      "name": "Content gaps",
+      "rows": 9
+     },
+     {
+      "name": "Traceability",
+      "rows": 15
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "corrected": {
+    "fixtureScore": 55.1,
+    "position": {
+     "contradictions": 0,
+     "dependencies": 0,
+     "clarifications": 0,
+     "pairsCompared": 1,
+     "pairsNotReviewed": 0,
+     "crossChecksAsked": 5,
+     "crossCheckEligible": 32,
+     "conclusion": "MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result."
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "clarify": 0,
+      "gap": 58,
+      "qualified": 1,
+      "confirmed": 45,
+      "outstanding": 2,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 22,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 3,
+      "not-established": 0
+     },
+     "relationBasis": {
+      "answer": 3,
+      "reviewed-pair": 1,
+      "not-reviewed": 0,
+      "semantics-not-met": 0
+     },
+     "library": {
+      "version": "control-content-library-0.1",
+      "controls": 103,
+      "inLibrary": 103
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 2062
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 59
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 58
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 103
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 102
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 43
+     },
+     {
+      "letter": "F",
+      "title": "Management scorecard",
+      "count": 103
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 4
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 7
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 11
+     },
+     {
+      "letter": "J",
+      "title": "Information coverage",
+      "count": 10
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 11
+     },
+     {
+      "name": "Scenarios",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 59
+     },
+     {
+      "name": "Risks",
+      "rows": 58
+     },
+     {
+      "name": "Controls",
+      "rows": 103
+     },
+     {
+      "name": "Records",
+      "rows": 102
+     },
+     {
+      "name": "Actions",
+      "rows": 43
+     },
+     {
+      "name": "Measures",
+      "rows": 103
+     },
+     {
+      "name": "Decisions",
+      "rows": 4
+     },
+     {
+      "name": "Relationships",
+      "rows": 4
+     },
+     {
+      "name": "Outstanding",
+      "rows": 7
+     },
+     {
+      "name": "Sufficiency",
+      "rows": 19
+     },
+     {
+      "name": "Roles",
+      "rows": 11
+     },
+     {
+      "name": "Content gaps",
+      "rows": 65
+     },
+     {
+      "name": "Traceability",
+      "rows": 103
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  }
+ }
+}

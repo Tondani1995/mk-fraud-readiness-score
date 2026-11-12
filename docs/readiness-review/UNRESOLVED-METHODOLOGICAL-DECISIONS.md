@@ -76,6 +76,10 @@ The report integration prototype raises three decisions that block taking the pa
 
 R-1 to R-3 are prototype conventions for testing (`REPORT-QUALITY-CORRECTION.md`). U-4 (prioritisation) now has a decision-ready proposal (`PRIORITISATION-METHODOLOGY-PROPOSAL.md`, P-8 to P-12) and U-6 (paid-report fulfilment conditions) candidate rules (`INFORMATION-SUFFICIENCY-AND-RELEASE.md`, R2-a to R2-e). Two method decisions are new: approval of the answer-relationship classification and its extension to all 826 pairs (C-1, `CONTRADICTION-CLASSIFICATION.md`), and target-state, records and cycle content for the 688 practice questions described only by their in-place answer (C-2, `METHOD-CONTENT-GAPS.md`).
 
+## Added on 12 November (second direction)
+
+U-4 (prioritisation) now has a factor-based decision method in place of the tier-based option B (`PRIORITISATION-METHODOLOGY-PROPOSAL.md`, P-13 to P-15). U-6 (paid-report fulfilment conditions) has candidate product-sufficiency rules per deliverable (`PRODUCT-SUFFICIENCY-CANDIDATE.md`), replacing R2-a to R2-e. The answer-relationship rules are revised (`ANSWER-RELATIONSHIP-RULES.md`): 56 of the method's 826 pairs are reviewed and the other 770 are not established until reviewed. The method content gap (C-2) is addressed for the 146 controls the fictional reports reach by a draft control-content library (`CONTROL-CONTENT-LIBRARY.md`); the remaining practice questions still need entries. MK's decisions are D-1 to D-6 in `DECISION-REGISTER.md`.
+
 ## Release blockers that stay open
 
 B2 (staging isolation), B3 (authenticated access), B4 (method approval), B5 (commercial path), B6 (terms and privacy), B7 (copy approval), B11 (intermittent hydration error) and J-01 (intermittent unregistered answer) are open. B1 is partly done (`RELEASE-DECISION.md`).

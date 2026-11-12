@@ -1,0 +1,98 @@
+[
+ {
+  "id": "RQ-01",
+  "ok": true,
+  "name": "The 21 scenarios the first prototype flagged as false comfort are reassessed under relationship-review-0.2: one direct contradiction, five reviewed questions to clarify, fifteen with a related practice weaker, and no dependency",
+  "detail": "21 flagged before; now {\"qualified\":15,\"clarify\":5,\"contradiction\":1}; unresolved FS-D2-02; to clarify FS-D10-05, FS-D2-05, FS-D4-05, FS-D5-12, FS-D8-02"
+ },
+ {
+  "id": "RQ-02",
+  "ok": true,
+  "name": "Every relationship in the four reports rests on the answer or a reviewed pair: none is assumed by default, none comes from routing, and no practice answered \"not applicable\" appears",
+  "detail": "P3 {\"answer\":0,\"reviewed-pair\":1,\"not-reviewed\":0,\"semantics-not-met\":0}; P4 {\"answer\":0,\"reviewed-pair\":1,\"not-reviewed\":0,\"semantics-not-met\":0}; P5 {\"answer\":3,\"reviewed-pair\":1,\"not-reviewed\":0,\"semantics-not-met\":0}; P6b {\"answer\":0,\"reviewed-pair\":56,\"not-reviewed\":0,\"semantics-not-met\":0}"
+ },
+ {
+  "id": "RQ-03",
+  "ok": true,
+  "name": "No priority, likelihood, impact, materiality, difficulty or deadline is derived anywhere, and no report uses materiality or ranking language",
+  "detail": "none in 4 models and 8 reports"
+ },
+ {
+  "id": "RQ-04",
+  "ok": true,
+  "name": "Answer-type integrity across the whole method: every practice, anchored, choice-practice and multi-select question gets a standard and reported wording in its own format",
+  "detail": "821 questions checked; no defects; D8-S-04 standard \"How stock is recorded: in an inventory or ERP system or in spreadsheets or manual records.\""
+ },
+ {
+  "id": "RQ-05",
+  "ok": true,
+  "name": "No report carries a mechanical concatenation of a questionnaire prompt, and every report standard is the method's own wording",
+  "detail": "none in 8 reports; every control standard is the method's"
+ },
+ {
+  "id": "RQ-06",
+  "ok": true,
+  "name": "Every recommendation traces to a response and to library or method content; references resolve; records come from the library or the method; method content gaps stay declared",
+  "detail": "all references resolve; 192 controls carry a declared method content gap, each filled by the draft library"
+ },
+ {
+  "id": "RQ-07",
+  "ok": true,
+  "name": "Score presentation: both reports, for every organisation, state the calculated test result, the unresolved inconsistencies, a provisional interpretation and the approved readiness conclusion separately, with no band and no threshold",
+  "detail": "four statements on both covers and position pages in 8 reports; no band; no threshold"
+ },
+ {
+  "id": "RQ-08",
+  "ok": true,
+  "name": "A declined question is never an answer: it is outstanding, listed in Appendix H, and the candidate rules report on it without being applied",
+  "detail": "declined 2, counted as answered 0; Appendix H lists them true; candidate verdicts: Essential true, Comprehensive true"
+ },
+ {
+  "id": "RQ-09",
+  "ok": true,
+  "name": "R-3: every register row is in the Comprehensive appendices and the workbook, and the counts reconcile",
+  "detail": "all rows printed and in the workbook for 4 organisations"
+ },
+ {
+  "id": "RQ-10",
+  "ok": true,
+  "name": "The corrected Essentials pass the existing validator, and neither report exposes a method identifier or an em dash in its prose",
+  "detail": "validator words 2014, 1954, 2062, 2161"
+ },
+ {
+  "id": "RQ-11",
+  "ok": true,
+  "name": "Prototype and fixture labels on every page or section; records management should maintain are kept apart from MK evidence review",
+  "detail": "labels present in all 8 reports"
+ },
+ {
+  "id": "RQ-12",
+  "ok": true,
+  "name": "Logical consistency: a scenario is never both open and reported covered, unresolved and to-clarify scenarios are never counted as covered, and the reports' counts agree with the model",
+  "detail": "consistent in 4 organisations"
+ },
+ {
+  "id": "RQ-13",
+  "ok": true,
+  "name": "A confirmation the method establishes from a wider answer counts as answered, and one the method does not ask at the organisation's size is neither a gap nor missing information",
+  "detail": "P3 two-approver scenario confirmed; P4 not expected at its size: Losses are never tracked; The organisation is impersonated to defraud others"
+ },
+ {
+  "id": "RQ-14",
+  "ok": true,
+  "name": "Control guidance comes from the reusable library: every control in the four reports has a target practice, responsible function, activities, records, a specific success measure, a cycle and a failure response, and no generic measure remains",
+  "detail": "145 distinct controls across the four reports, 146 library entries on 15 archetypes; complete and specific"
+ },
+ {
+  "id": "RQ-15",
+  "ok": true,
+  "name": "No silent ranking: no rank numbers or priority columns, scenario references follow the method's order, programmes are alphabetical, and each selection states its rule",
+  "detail": "no ranking displays in 8 reports; method order and stated rules throughout"
+ },
+ {
+  "id": "RQ-16",
+  "ok": true,
+  "name": "The roadmap proposes stages without deadlines or estimates, and uses a prerequisite only where a reviewed dependency supports it",
+  "detail": "proposed stages only; no prerequisite without reviewed semantics in 4 organisations"
+ }
+]

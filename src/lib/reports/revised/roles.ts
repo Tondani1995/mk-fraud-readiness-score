@@ -46,7 +46,17 @@ export function roleMap(labels: (string | null | undefined)[]): { role: string; 
   return [...m.entries()].map(([role, s]) => ({ role, methodLabels: [...s].sort() })).sort((a, b) => a.role.localeCompare(b.role));
 }
 
-/** Who oversees the work, from the organisation's own governance answer. */
-export function oversightBody(governance: string): string {
-  return governance === 'board' ? 'The board or its audit committee' : governance === 'owners' ? 'The owners' : 'Senior management';
+/**
+ * Who oversees the work, from the organisation's own answer to "who has final oversight". Corrected on 12 November:
+ * the answer "a board without an audit or risk committee" was previously reported as "the board or its audit committee".
+ * Where the question was not answered, the report says so rather than naming a body.
+ */
+export function oversightBody(governance: string | null | undefined): string {
+  switch (governance) {
+    case 'committees': return 'The board or its audit or risk committee';
+    case 'board': return 'The board';
+    case 'owners': return 'The owners';
+    case 'parent': return 'The parent company or head office';
+    default: return 'The oversight body (not identified in the answers)';
+  }
 }

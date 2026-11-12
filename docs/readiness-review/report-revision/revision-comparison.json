@@ -1,0 +1,683 @@
+{
+ "before": "afa6915 (report-correction)",
+ "after": "this revision (report-revision)",
+ "rows": {
+  "P3": {
+   "conclusions": {
+    "coverJudgement": {
+     "before": "Fictional Retail Group (mixed controls): Essential Fraud Readiness Report FICTIONAL PROTOTYPE · Fictional organisation · Test-fixture figures, not an approved score · Not a certified paid report MK Fraud Insights Essential Fraud Readiness Report 58 of the 106 fraud schemes that apply have a control reported as a gap, most of them in digital channels, procurement and people.",
+     "after": "On its own answers, the organisation reports the controls in place for 48 of the 106 fraud scenarios that apply and a control reported as a gap in 58."
+    },
+    "unresolvedInconsistencies": {
+     "before": 0,
+     "after": 0
+    },
+    "questionsToClarify": {
+     "before": 0,
+     "after": 0
+    },
+    "gapScenarios": {
+     "before": 58,
+     "after": 58
+    },
+    "bandShownInEssential": {
+     "before": "Developing",
+     "after": "none"
+    },
+    "largeScoreOnPage2": {
+     "before": true,
+     "after": false
+    },
+    "fourStatementsOnPage2": {
+     "before": false,
+     "after": true
+    }
+   },
+   "dependencies": {
+    "necessaryDependencies": {
+     "before": 0,
+     "after": 0
+    },
+    "dependenciesFromRouting": {
+     "before": 0,
+     "after": 0
+    },
+    "assumedComplementary": {
+     "before": 0,
+     "after": 0
+    },
+    "notApplicableTreatedAsUntested": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteControls": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteStage": {
+     "before": false,
+     "after": false
+    }
+   },
+   "recommendations": {
+    "controls": {
+     "before": 106,
+     "after": 106
+    },
+    "genericSuccessMeasures": {
+     "before": 53,
+     "after": 0
+    },
+    "distinctSuccessMeasures": {
+     "before": 106,
+     "after": 106
+    },
+    "controlsWithNamedRecords": {
+     "before": 47,
+     "after": 106
+    },
+    "controlsWithTargetPractice": {
+     "before": 53,
+     "after": 106
+    },
+    "mechanicalActivityLines": {
+     "before": 259,
+     "after": 0
+    },
+    "controlsWithFailureResponse": {
+     "before": 0,
+     "after": 106
+    }
+   },
+   "decisions": {
+    "decisions": {
+     "before": [
+      "Name one accountable executive for each area with open or unresolved schemes: ethics (1), procurement (12), people (11), customers (10), assets (10) and digital channels (14).",
+      "Decide which open schemes to address first.",
+      "Have the board or its audit committee receive the status of the open and unresolved schemes at each of its meetings until each is closed, deferred with a reason or accepted."
+     ],
+     "after": [
+      "Name one accountable executive for each area with open or unresolved scenarios: ethics (1), procurement (12), people (11), customers (10), assets (10) and digital channels (14).",
+      "Decide the order in which the open scenarios are addressed, using explicit factors.",
+      "Have the board receive the status of the open and unresolved scenarios at each of its meetings until each is closed, deferred with a reason or accepted."
+     ]
+    },
+    "orderDecidedOnExplicitFactors": {
+     "before": false,
+     "after": true
+    }
+   },
+   "actionability": {
+    "actions": {
+     "before": 126,
+     "after": 38
+    },
+    "actionsRepeatingOneControl": {
+     "before": 108,
+     "after": 5
+    },
+    "questionsForManagement": {
+     "before": 0,
+     "after": 0
+    },
+    "rankNumbersInEssential": {
+     "before": 11,
+     "after": 0
+    },
+    "materialityPhrases": {
+     "before": 5,
+     "after": 0
+    },
+    "essentialPages": {
+     "before": 8,
+     "after": 8
+    },
+    "comprehensivePages": {
+     "before": 54,
+     "after": 65
+    }
+   }
+  },
+  "P4": {
+   "conclusions": {
+    "coverJudgement": {
+     "before": "Fictional Owner-Managed Firm: Essential Fraud Readiness Report FICTIONAL PROTOTYPE · Fictional organisation · Test-fixture figures, not an approved score · Not a certified paid report MK Fraud Insights Essential Fraud Readiness Report 10 of the 49 fraud schemes that apply have a control reported as a gap, most of them in digital channels.",
+     "after": "On its own answers, the organisation reports the controls in place for 37 of the 49 fraud scenarios that apply and a control reported as a gap in 10."
+    },
+    "unresolvedInconsistencies": {
+     "before": 0,
+     "after": 0
+    },
+    "questionsToClarify": {
+     "before": 0,
+     "after": 0
+    },
+    "gapScenarios": {
+     "before": 10,
+     "after": 10
+    },
+    "bandShownInEssential": {
+     "before": "Structured",
+     "after": "none"
+    },
+    "largeScoreOnPage2": {
+     "before": true,
+     "after": false
+    },
+    "fourStatementsOnPage2": {
+     "before": false,
+     "after": true
+    }
+   },
+   "dependencies": {
+    "necessaryDependencies": {
+     "before": 0,
+     "after": 0
+    },
+    "dependenciesFromRouting": {
+     "before": 0,
+     "after": 0
+    },
+    "assumedComplementary": {
+     "before": 0,
+     "after": 0
+    },
+    "notApplicableTreatedAsUntested": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteControls": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteStage": {
+     "before": false,
+     "after": false
+    }
+   },
+   "recommendations": {
+    "controls": {
+     "before": 15,
+     "after": 15
+    },
+    "genericSuccessMeasures": {
+     "before": 5,
+     "after": 0
+    },
+    "distinctSuccessMeasures": {
+     "before": 15,
+     "after": 15
+    },
+    "controlsWithNamedRecords": {
+     "before": 9,
+     "after": 15
+    },
+    "controlsWithTargetPractice": {
+     "before": 10,
+     "after": 15
+    },
+    "mechanicalActivityLines": {
+     "before": 39,
+     "after": 0
+    },
+    "controlsWithFailureResponse": {
+     "before": 0,
+     "after": 15
+    }
+   },
+   "decisions": {
+    "decisions": {
+     "before": [
+      "Name one accountable executive for each area with open or unresolved schemes: digital channels (10).",
+      "Decide which open schemes to address first.",
+      "Have the owners receive the status of the open and unresolved schemes at each of its meetings until each is closed, deferred with a reason or accepted."
+     ],
+     "after": [
+      "Name one accountable executive for each area with open or unresolved scenarios: digital channels (10).",
+      "Decide the order in which the open scenarios are addressed, using explicit factors.",
+      "Have the owners receive the status of the open and unresolved scenarios at each of its meetings until each is closed, deferred with a reason or accepted."
+     ]
+    },
+    "orderDecidedOnExplicitFactors": {
+     "before": false,
+     "after": true
+    }
+   },
+   "actionability": {
+    "actions": {
+     "before": 24,
+     "after": 16
+    },
+    "actionsRepeatingOneControl": {
+     "before": 17,
+     "after": 6
+    },
+    "questionsForManagement": {
+     "before": 0,
+     "after": 0
+    },
+    "rankNumbersInEssential": {
+     "before": 11,
+     "after": 0
+    },
+    "materialityPhrases": {
+     "before": 5,
+     "after": 0
+    },
+    "essentialPages": {
+     "before": 8,
+     "after": 8
+    },
+    "comprehensivePages": {
+     "before": 24,
+     "after": 26
+    }
+   }
+  },
+  "P5": {
+   "conclusions": {
+    "coverJudgement": {
+     "before": "Fictional Retail Group (extensive unanswered information): Essential Fraud Readiness Report FICTIONAL PROTOTYPE · Fictional organisation · Test-fixture figures, not an approved score · Not a certified paid report MK Fraud Insights Essential Fraud Readiness Report 58 of the 106 fraud schemes that apply have a control reported as a gap, most of them in digital channels, procurement and people.",
+     "after": "On its own answers, the organisation reports the controls in place for 46 of the 106 fraud scenarios that apply and a control reported as a gap in 58."
+    },
+    "unresolvedInconsistencies": {
+     "before": 0,
+     "after": 0
+    },
+    "questionsToClarify": {
+     "before": 0,
+     "after": 0
+    },
+    "gapScenarios": {
+     "before": 58,
+     "after": 58
+    },
+    "bandShownInEssential": {
+     "before": "Developing",
+     "after": "none"
+    },
+    "largeScoreOnPage2": {
+     "before": true,
+     "after": false
+    },
+    "fourStatementsOnPage2": {
+     "before": false,
+     "after": true
+    }
+   },
+   "dependencies": {
+    "necessaryDependencies": {
+     "before": 0,
+     "after": 0
+    },
+    "dependenciesFromRouting": {
+     "before": 0,
+     "after": 0
+    },
+    "assumedComplementary": {
+     "before": 0,
+     "after": 0
+    },
+    "notApplicableTreatedAsUntested": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteControls": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteStage": {
+     "before": false,
+     "after": false
+    }
+   },
+   "recommendations": {
+    "controls": {
+     "before": 103,
+     "after": 103
+    },
+    "genericSuccessMeasures": {
+     "before": 52,
+     "after": 0
+    },
+    "distinctSuccessMeasures": {
+     "before": 103,
+     "after": 103
+    },
+    "controlsWithNamedRecords": {
+     "before": 45,
+     "after": 103
+    },
+    "controlsWithTargetPractice": {
+     "before": 51,
+     "after": 103
+    },
+    "mechanicalActivityLines": {
+     "before": 251,
+     "after": 0
+    },
+    "controlsWithFailureResponse": {
+     "before": 0,
+     "after": 103
+    }
+   },
+   "decisions": {
+    "decisions": {
+     "before": [
+      "Require an answer, or a recorded open item, for each of the 7 outstanding questions.",
+      "Name one accountable executive for each area with open or unresolved schemes: ethics (1), procurement (13), people (11), customers (10), assets (9) and digital channels (14).",
+      "Decide which open schemes to address first.",
+      "Have the board or its audit committee receive the status of the open and unresolved schemes at each of its meetings until each is closed, deferred with a reason or accepted."
+     ],
+     "after": [
+      "Require an answer, or a recorded open item, for each of the 7 outstanding questions.",
+      "Name one accountable executive for each area with open or unresolved scenarios: ethics (1), procurement (13), people (11), customers (10), assets (9) and digital channels (14).",
+      "Decide the order in which the open scenarios are addressed, using explicit factors.",
+      "Have the board receive the status of the open and unresolved scenarios at each of its meetings until each is closed, deferred with a reason or accepted."
+     ]
+    },
+    "orderDecidedOnExplicitFactors": {
+     "before": false,
+     "after": true
+    }
+   },
+   "actionability": {
+    "actions": {
+     "before": 128,
+     "after": 43
+    },
+    "actionsRepeatingOneControl": {
+     "before": 105,
+     "after": 5
+    },
+    "questionsForManagement": {
+     "before": 0,
+     "after": 0
+    },
+    "rankNumbersInEssential": {
+     "before": 11,
+     "after": 0
+    },
+    "materialityPhrases": {
+     "before": 5,
+     "after": 0
+    },
+    "essentialPages": {
+     "before": 8,
+     "after": 8
+    },
+    "comprehensivePages": {
+     "before": 52,
+     "after": 64
+    }
+   }
+  },
+  "P6b": {
+   "conclusions": {
+    "coverJudgement": {
+     "before": "Fictional Retail Group (overstated confirmations): Essential Fraud Readiness Report FICTIONAL PROTOTYPE · Fictional organisation · Test-fixture figures, not an approved score · Not a certified paid report MK Fraud Insights Essential Fraud Readiness Report In 6 fraud schemes the organisation's own answers conflict or rely on a practice reported as weaker, and in 4 a control is reported as a gap.",
+     "after": "On its own answers, the organisation reports the controls in place for 102 of the 106 fraud scenarios that apply and a control reported as a gap in 4; 1 has answers to settle and 5 raise questions the answers do not settle."
+    },
+    "unresolvedInconsistencies": {
+     "before": 6,
+     "after": 1
+    },
+    "questionsToClarify": {
+     "before": 0,
+     "after": 5
+    },
+    "gapScenarios": {
+     "before": 4,
+     "after": 4
+    },
+    "bandShownInEssential": {
+     "before": "Strategic",
+     "after": "none"
+    },
+    "largeScoreOnPage2": {
+     "before": true,
+     "after": false
+    },
+    "fourStatementsOnPage2": {
+     "before": false,
+     "after": true
+    }
+   },
+   "dependencies": {
+    "necessaryDependencies": {
+     "before": 5,
+     "after": 0
+    },
+    "dependenciesFromRouting": {
+     "before": 0,
+     "after": 0
+    },
+    "assumedComplementary": {
+     "before": 0,
+     "after": 0
+    },
+    "notApplicableTreatedAsUntested": {
+     "before": 0,
+     "after": 0
+    },
+    "prerequisiteControls": {
+     "before": 5,
+     "after": 0
+    },
+    "prerequisiteStage": {
+     "before": true,
+     "after": false
+    }
+   },
+   "recommendations": {
+    "controls": {
+     "before": 64,
+     "after": 63
+    },
+    "genericSuccessMeasures": {
+     "before": 42,
+     "after": 0
+    },
+    "distinctSuccessMeasures": {
+     "before": 64,
+     "after": 63
+    },
+    "controlsWithNamedRecords": {
+     "before": 15,
+     "after": 63
+    },
+    "controlsWithTargetPractice": {
+     "before": 22,
+     "after": 63
+    },
+    "mechanicalActivityLines": {
+     "before": 143,
+     "after": 0
+    },
+    "controlsWithFailureResponse": {
+     "before": 0,
+     "after": 63
+    }
+   },
+   "decisions": {
+    "decisions": {
+     "before": [
+      "Have the 6 schemes whose answers conflict or rely on a weaker practice resolved before any of them is treated as covered.",
+      "Name one accountable executive for each area with open or unresolved schemes: fraud risk assessment (2), ethics (1), procurement (2), people (2), assets (2) and detection (1).",
+      "Decide which open schemes to address first.",
+      "Have the board or its audit committee receive the status of the open and unresolved schemes at each of its meetings until each is closed, deferred with a reason or accepted."
+     ],
+     "after": [
+      "Have the answers that cannot both be right settled, and the questions the answers leave open answered, before the controls concerned are relied on.",
+      "Name one accountable executive for each area with open or unresolved scenarios: fraud risk assessment (1), ethics (1), procurement (1), people (1) and assets (1).",
+      "Decide the order in which the open scenarios are addressed, using explicit factors.",
+      "Have the board receive the status of the open and unresolved scenarios at each of its meetings until each is closed, deferred with a reason or accepted."
+     ]
+    },
+    "orderDecidedOnExplicitFactors": {
+     "before": false,
+     "after": true
+    }
+   },
+   "actionability": {
+    "actions": {
+     "before": 88,
+     "after": 43
+    },
+    "actionsRepeatingOneControl": {
+     "before": 63,
+     "after": 8
+    },
+    "questionsForManagement": {
+     "before": 0,
+     "after": 6
+    },
+    "rankNumbersInEssential": {
+     "before": 10,
+     "after": 0
+    },
+    "materialityPhrases": {
+     "before": 5,
+     "after": 0
+    },
+    "essentialPages": {
+     "before": 8,
+     "after": 8
+    },
+    "comprehensivePages": {
+     "before": 45,
+     "after": 51
+    }
+   }
+  }
+ },
+ "examples": [
+  {
+   "organisation": "P6b",
+   "control": "Senior review of supplier payments",
+   "before": {
+    "target": "Senior review of supplier payments: in place across everything it should cover.",
+    "activities": [
+     "Agree the design with the finance lead, so that it meets the target standard.",
+     "Review the first full cycle against M27."
+    ],
+    "records": null,
+    "measure": "Records for the period show this practice applied to every case in scope: senior review of supplier payments."
+   },
+   "after": {
+    "target": "Each month a senior manager who does not process payments reviews the list of supplier payments for unfamiliar suppliers, unusual amounts and changed bank details, and follows up each query.",
+    "owner": "Finance lead",
+    "activities": [
+     "Define the patterns to look for in supplier payments and the report, query or alert that finds them.",
+     "Name who reviews the output monthly and who follows up each exception, independently of the people whose activity is reviewed.",
+     "Run the review over the last twelve months of data, and follow up what it finds."
+    ],
+    "records": "Monthly payment review: the list reviewed, the reviewer, each query raised and its answer.",
+    "measure": "The review of supplier payments ran monthly throughout the period, and every exception it raised has a recorded answer.",
+    "cycle": "monthly",
+    "onFailure": "Where an exception proves to be fraud or error, follow the response procedure, correct the control that allowed it and add the pattern to the review.",
+    "pattern": "Monitor for exceptions",
+    "sources": [
+     "BANK"
+    ]
+   }
+  },
+  {
+   "organisation": "P3",
+   "control": "New supplier process",
+   "before": {
+    "target": "Every new supplier goes through a defined process, with set checks and an approval, before it can be paid.",
+    "activities": [
+     "Agree the design with the procurement lead, so that it meets the target standard at level 4.",
+     "Keep the records in E01.",
+     "Review the first full cycle against M01."
+    ],
+    "records": "The onboarding procedure, completed onboarding files for a sample of new suppliers, exception reports.",
+    "measure": "Records for the period show that every new supplier goes through a defined process, with set checks and an approval, before it can be paid."
+   },
+   "after": {
+    "target": "Every new supplier passes set checks, including registration, tax number, bank account and directors, and is approved before it can be paid.",
+    "owner": "Procurement lead",
+    "activities": [
+     "Set out the check in the procedure for new suppliers: what is checked, by whom, and who may approve an exception.",
+     "Set the supplier master file so that no new supplier proceeds until the check is recorded as passed.",
+     "Look back over new suppliers from the last twelve months, and follow up any that would not have passed the check."
+    ],
+    "records": "Supplier set-up file: the result and source of each check, who captured the supplier and who approved it.",
+    "measure": "Every new supplier in the period has a supplier set-up file showing each check passed and an approval dated before the first payment.",
+    "cycle": "before each new supplier is first paid",
+    "onFailure": "Where a new supplier went ahead without the check, complete the check at once and review anything paid or released before it was found.",
+    "pattern": "Check before the event",
+    "sources": [
+     "L4",
+     "EV",
+     "MFRS:D7-Q01"
+    ]
+   }
+  },
+  {
+   "organisation": "P3",
+   "control": "Daily reconciliation",
+   "before": {
+    "target": "Takings at every cash point are reconciled to sales records daily, and every shortage and surplus is investigated.",
+    "activities": [
+     "Agree the design with the operations lead, so that it meets the target standard at level 4.",
+     "Keep the records in E24.",
+     "Review the first full cycle against M43."
+    ],
+    "records": "Daily reconciliation sheets, the shortages and surpluses log, investigation notes.",
+    "measure": "Records for the period show that takings at every cash point are reconciled to sales records daily, and every shortage and surplus is investigated."
+   },
+   "after": {
+    "target": "Takings at every cash point are reconciled to sales records daily, and every shortage and surplus is investigated.",
+    "owner": "Operations lead",
+    "activities": [
+     "Set the reconciliation: what is compared, how often (daily), who prepares it and who reviews it.",
+     "Keep a log of differences with the explanation and outcome of each, and a threshold above which a difference is escalated.",
+     "Review the first month of reconciliations and differences, and correct the procedure where differences were left open."
+    ],
+    "records": "Daily cash reconciliation: takings at each cash point compared with sales records, the preparer and reviewer, and each shortage or surplus with its explanation.",
+    "measure": "Every daily cash reconciliation due in the period was completed and reviewed, and every difference has a recorded explanation.",
+    "cycle": "daily",
+    "onFailure": "Investigate any difference left unexplained, and escalate repeated differences at the same point or involving the same person.",
+    "pattern": "Reconcile and explain differences",
+    "sources": [
+     "L4",
+     "EV"
+    ]
+   }
+  },
+  {
+   "organisation": "P6b",
+   "control": "AI methods tested per process",
+   "before": {
+    "target": "AI methods tested per process: in place across everything it should cover.",
+    "activities": [
+     "Establish which answer is correct. The answers about AI-enabled fraud cannot both be right as given: one says AI-enabled schemes are assessed for every relevant process, the other that the assessment does not ask, process by process, how AI could be used against it.",
+     "Agree the design with the fraud risk lead, so that it meets the target standard.",
+     "Review the first full cycle against M03."
+    ],
+    "records": null,
+    "measure": "Records for the period show this practice applied to every case in scope: AI methods tested per process."
+   },
+   "after": {
+    "target": "For each high-risk process, the assessment asks how AI could be used against it, for example whether a cloned voice could pass a call-back check, and records the answer.",
+    "owner": "Fraud risk lead",
+    "activities": [
+     "Establish which of the conflicting answers reflects how the process runs, and correct the record.",
+     "Add a question, for each high-risk process, on how AI could be used against it to the fraud risk assessment method and to the template it uses.",
+     "Apply it at the next assessment or update, starting with processes that rely on a call-back, a signature or a document.",
+     "Have the person who signs off the assessment confirm that it meets the requirement."
+    ],
+    "records": "Fraud risk register: for each high-risk process, the AI methods considered and whether existing controls would stop them.",
+    "measure": "The assessment current at the end of the period shows the question asked and answered for every high-risk process.",
+    "cycle": "at each assessment and update",
+    "onFailure": "Record any part of the assessment that does not meet the requirement as an open item with an owner, and complete it before the next sign-off.",
+    "pattern": "A requirement of the fraud risk assessment",
+    "sources": [
+     "BANK"
+    ]
+   }
+  }
+ ]
+}

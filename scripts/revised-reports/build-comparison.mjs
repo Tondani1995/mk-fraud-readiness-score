@@ -4,10 +4,10 @@
 // staged review assessment through the revised report model: Essential through the existing presentation model,
 // validator and renderer; Comprehensive through the revised renderer on the existing style sheet; plus the supporting
 // workbook). No AI manuscript stage runs, no database, order, payment or provider is touched, and every number on the
-// prototype side is a labelled test fixture. The first prototype (commit 5fb4dc2) is kept in report-comparison/.
+// prototype side is a labelled test fixture. The first prototype (5fb4dc2) is kept in report-comparison/ and the first correction (afa6915) in report-correction/.
 //
 //   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs \
-//     scripts/revised-reports/build-comparison.mjs [--pdf] [--before] [--out docs/readiness-review/report-correction]
+//     scripts/revised-reports/build-comparison.mjs [--pdf] [--before] [--out docs/readiness-review/report-revision]
 import fs from 'node:fs';
 import path from 'node:path';
 import { ORGANISATIONS, gatewaysFor, mfrsResponse } from './organisations.mjs';
@@ -22,7 +22,7 @@ import { renderComprehensiveManagementReportHtml } from '../../src/lib/reports/c
 import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 
 const args = process.argv.slice(2);
-const OUT = path.resolve(args.includes('--out') ? args[args.indexOf('--out') + 1] : 'docs/readiness-review/report-correction');
+const OUT = path.resolve(args.includes('--out') ? args[args.indexOf('--out') + 1] : 'docs/readiness-review/report-revision');
 const BEFORE = args.includes('--before');
 const PDF = args.includes('--pdf');
 const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : Object.keys(ORGANISATIONS);
@@ -78,7 +78,7 @@ for (const key of ONLY) {
   results[key] = {
     organisation: org.label,
     corrected: {
-      fixtureScore: fixture.overall, fixtureBand: fixture.maturity, r1: report.r1, schemes: report.summary,
+      fixtureScore: fixture.overall, position: report.position, schemes: report.summary,
       essentialValidation: { ok: aValidation.ok, issues: aValidation.issues.map((i) => `${i.code}: ${i.message}`), words: aValidation.customerWordCount },
       essentialIdLeaks: leaks(aEssHtml), comprehensiveIdLeaks: leaks(aCompHtml), comprehensive: aComp.appendices, workbook: workbook.sheets
     }

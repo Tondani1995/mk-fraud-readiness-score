@@ -8,6 +8,21 @@ Conditions throughout: Node 24.22, Next.js 15.5.22 production builds, `next star
 
 Before this run, three full runs on the corrected code were superseded because each found something to correct: a phone placement defect and a test defect (`951ea06`), a management view without a visible result after sending and fixed waits in the scripts (`e6690fc`), and an accessibility scan taken mid-fade (`deb0aa1`). Each is described in `INDEPENDENT-REVIEW-RESPONSE.md` and kept in `evidence/results/re-verification`.
 
+## Report revision (12 November 2026, second direction, continued from `afa6915`)
+
+Checked on the tree that became the delivery commit, with Node 24.22. The reports are fictional prototypes; none of these results certifies a paid report. What changed is in `REPORT-REVISION.md`.
+
+| Check | Result |
+|---|---|
+| Reporting quality (`report-quality-tests.mjs`) | 16 of 16: the 21 flagged scenarios reassessed (1 contradiction, 5 questions, 15 related practice weaker, no dependency); every relationship from the answer or a reviewed pair; no rating, materiality or ranking language in 4 models and 8 reports; answer and standard wording; traceable library and method content; four position statements and no band in 8 reports; declines never answers; every register row printed and in the workbook; validator, identifiers and em dashes; labels; consistency; reused and proportionality-excluded confirmations; library completeness and specificity; no silent ranking; proposed stages and no unreviewed prerequisite |
+| Answer relationships (`relationship-semantics-tests.mjs`) | 9 of 9 over all 826 method pairs, with two mutation tests (`report-revision/relationship-tests.json`) |
+| Product sufficiency (`sufficiency-adversarial-tests.mjs`) | 9 of 9 adversarial journeys through the build 1.6 engine (`report-revision/sufficiency-tests.json`) |
+| Build 1.6, review contract, standard status, version dispatch, dispatch parity, report engine | 19 of 19; 23 of 23; 10 of 10; 9 of 9; 8 of 8; 17 of 17 |
+| Existing Essential validator | All four revised Essentials pass (2,014 to 2,161 customer words) |
+| Integrity guard, type check, lint | Pass; 0 errors; 0 errors on the changed source |
+| Page review | All eight revised PDFs rendered and reviewed page by page; the defects found are in the change log and were fixed before these results |
+| Every test suite under `scripts/` (158) | 93 pass and 65 fail, identical suite by suite to `afa6915`; the 65 fail for the causes recorded at `3f933ac`. Dependency-blocked, listed separately as MK asked: 24 (embedded Postgres 15, database or Supabase 7, AI provider 2). Test environment: 9. Operator argument: 3. Pre-existing test defects at the baseline: 29 (`report-revision/suite-run.json`) |
+
 ## Reporting-quality correction (12 November 2026, continued from `5fb4dc2`)
 
 Checked on the tree that became the delivery commit, with Node 24.22. The reports are fictional prototypes; none of these results certifies a paid report. What changed is in `REPORT-QUALITY-CORRECTION.md`.

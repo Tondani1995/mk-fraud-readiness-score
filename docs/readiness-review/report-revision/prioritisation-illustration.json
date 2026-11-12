@@ -1,0 +1,1701 @@
+{
+ "method": "Factor-based decision method, candidate 0.1 (not approved; not used by any report)",
+ "factors": {
+  "F1": "Information state: answers to settle, questions to clarify or answers outstanding. A precondition, not a rank.",
+  "F2": "Control position: the weakest control that stops the scenario, reported absent, set out but not yet operating, or partly in place.",
+  "F3": "Loss pathway: whether the scenario can move money, pay, cash, stock or customer value out (candidate classification).",
+  "F4": "Exposure presence: whether the activity exists at scale (scope answers and management knowledge; not computed here).",
+  "F5": "Detective cover: whether a control that would detect a loss after the event is reported in place (needs a preventive or detective attribute on each control; not computed here).",
+  "F6": "Breadth of effect: how many other open scenarios the same control serves.",
+  "F7": "Management knowledge: incidents, losses, volumes and values known to management (supplied by management)."
+ },
+ "organisations": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "groups": {
+    "Establish the facts first": {
+     "count": 0,
+     "byTier": {}
+    },
+    "A": {
+     "count": 21,
+     "byTier": {
+      "tier 1": 6,
+      "tier 2": 9,
+      "tier 3": 6
+     }
+    },
+    "B": {
+     "count": 25,
+     "byTier": {
+      "tier 1": 12,
+      "tier 2": 12,
+      "tier 3": 1
+     }
+    },
+    "C": {
+     "count": 12,
+     "byTier": {
+      "tier 2": 7,
+      "tier 1": 4,
+      "tier 3": 1
+     }
+    }
+   },
+   "rows": [
+    {
+     "ref": "S26",
+     "name": "Donations or sponsorships channel bribes",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S29",
+     "name": "A fictitious supplier is created and paid",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S30",
+     "name": "Supplier payments are diverted through changed bank details",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S31",
+     "name": "A supplier is set up with an account it does not own",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S32",
+     "name": "One person can order and approve payment",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S33",
+     "name": "Invoices are paid for goods or services not received or not agreed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S34",
+     "name": "An outsourced provider misuses its access",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S36",
+     "name": "A tender is manipulated or purchases are split",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S37",
+     "name": "Buyers take kickbacks",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S38",
+     "name": "Purchase cards or petty cash are misused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S39",
+     "name": "Intermediaries pay bribes or inflate fees",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S40",
+     "name": "Procurement anomalies are never noticed",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S41",
+     "name": "Variations inflate the agreed value",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S42",
+     "name": "Salaries are redirected through a fake bank change",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S43",
+     "name": "Ghost employees are paid",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S44",
+     "name": "Leavers stay on the payroll",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S45",
+     "name": "A false identity enters at hiring",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S46",
+     "name": "A stand-in or deepfake candidate is appointed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S47",
+     "name": "The payroll payment file is altered after approval",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S48",
+     "name": "Cash wages are stolen or paid to ghosts",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S49",
+     "name": "Hours and overtime are inflated",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S50",
+     "name": "Expenses and advances are abused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S51",
+     "name": "Labour brokers invoice for workers who were not there",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S52",
+     "name": "An insider in a high-risk role works unchecked",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S65",
+     "name": "Refunds are stolen",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S66",
+     "name": "Customer details are changed to divert money or goods",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S67",
+     "name": "Credit is obtained with fabricated documents",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S68",
+     "name": "Claims are fabricated or inflated",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S69",
+     "name": "Sales are not billed or receipts are diverted",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S70",
+     "name": "Customers pay fraudsters impersonating the organisation",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S71",
+     "name": "Prices are overridden or side deals made",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S72",
+     "name": "Agents report fictitious sales",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S73",
+     "name": "Vouchers and loyalty points are abused",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S74",
+     "name": "Customers are wrongly blocked on a fraud flag",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S75",
+     "name": "Cash takings are stolen",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S76",
+     "name": "Stock is stolen and hidden in the counts",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S77",
+     "name": "Portable and fixed assets go missing",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S78",
+     "name": "Data leaves on disposed or reissued devices",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S79",
+     "name": "Assets or scrap are sold off cheaply or without payment",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S80",
+     "name": "Goods are released to an impostor",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S81",
+     "name": "Fuel and fleet are misused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S82",
+     "name": "Goods go missing in transit",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S83",
+     "name": "High-value materials are stolen by organised groups",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S84",
+     "name": "Losses are never tracked",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S85",
+     "name": "An email account is taken over",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S86",
+     "name": "A payment instruction received by email is acted on",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S87",
+     "name": "A cloned voice or video instruction is obeyed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S88",
+     "name": "Customer accounts are taken over",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S89",
+     "name": "A security compromise is not notified",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S90",
+     "name": "A help desk reset hands an attacker access",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S91",
+     "name": "Systems that move money are accessed without strong sign-in",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S92",
+     "name": "Personal information is over-exposed or kept too long",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S93",
+     "name": "A SIM swap defeats one-time PIN approvals",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S94",
+     "name": "An AI assistant is manipulated by hidden instructions",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S95",
+     "name": "The organisation's own information helps attackers",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S96",
+     "name": "A compromise is not contained quickly",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S97",
+     "name": "The organisation is impersonated to defraud others",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S98",
+     "name": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    }
+   ],
+   "sufficiency": {
+    "essential": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    },
+    "comprehensive": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    }
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "groups": {
+    "Establish the facts first": {
+     "count": 0,
+     "byTier": {}
+    },
+    "A": {
+     "count": 3,
+     "byTier": {
+      "tier 1": 2,
+      "tier 3": 1
+     }
+    },
+    "B": {
+     "count": 4,
+     "byTier": {
+      "tier 1": 1,
+      "tier 2": 3
+     }
+    },
+    "C": {
+     "count": 3,
+     "byTier": {
+      "tier 1": 1,
+      "tier 2": 2
+     }
+    }
+   },
+   "rows": [
+    {
+     "ref": "S31",
+     "name": "An email account is taken over",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S32",
+     "name": "A payment instruction received by email is acted on",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S33",
+     "name": "A cloned voice or video instruction is obeyed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S34",
+     "name": "A security compromise is not notified",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S35",
+     "name": "A help desk reset hands an attacker access",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S36",
+     "name": "Systems that move money are accessed without strong sign-in",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S37",
+     "name": "Personal information is over-exposed or kept too long",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S38",
+     "name": "The organisation's own information helps attackers",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S39",
+     "name": "A compromise is not contained quickly",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S41",
+     "name": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    }
+   ],
+   "sufficiency": {
+    "essential": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    },
+    "comprehensive": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    }
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "groups": {
+    "Establish the facts first": {
+     "count": 0,
+     "byTier": {}
+    },
+    "A": {
+     "count": 20,
+     "byTier": {
+      "tier 1": 6,
+      "tier 2": 8,
+      "tier 3": 6
+     }
+    },
+    "B": {
+     "count": 26,
+     "byTier": {
+      "tier 1": 12,
+      "tier 2": 13,
+      "tier 3": 1
+     }
+    },
+    "C": {
+     "count": 12,
+     "byTier": {
+      "tier 2": 7,
+      "tier 1": 4,
+      "tier 3": 1
+     }
+    }
+   },
+   "rows": [
+    {
+     "ref": "S26",
+     "name": "Donations or sponsorships channel bribes",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S29",
+     "name": "A fictitious supplier is created and paid",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S30",
+     "name": "Supplier payments are diverted through changed bank details",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S31",
+     "name": "A supplier is set up with an account it does not own",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S32",
+     "name": "One person can order and approve payment",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S33",
+     "name": "Invoices are paid for goods or services not received or not agreed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S34",
+     "name": "An outsourced provider misuses its access",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S35",
+     "name": "Supplier payments are released without two approvals",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S36",
+     "name": "A tender is manipulated or purchases are split",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S37",
+     "name": "Buyers take kickbacks",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S38",
+     "name": "Purchase cards or petty cash are misused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S39",
+     "name": "Intermediaries pay bribes or inflate fees",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S40",
+     "name": "Procurement anomalies are never noticed",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S41",
+     "name": "Variations inflate the agreed value",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S42",
+     "name": "Salaries are redirected through a fake bank change",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S43",
+     "name": "Ghost employees are paid",
+     "tier": 1,
+     "F1": "1 outstanding",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "B"
+    },
+    {
+     "ref": "S44",
+     "name": "Leavers stay on the payroll",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S45",
+     "name": "A false identity enters at hiring",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S46",
+     "name": "A stand-in or deepfake candidate is appointed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S47",
+     "name": "The payroll payment file is altered after approval",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S48",
+     "name": "Cash wages are stolen or paid to ghosts",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S49",
+     "name": "Hours and overtime are inflated",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S50",
+     "name": "Expenses and advances are abused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S51",
+     "name": "Labour brokers invoice for workers who were not there",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S52",
+     "name": "An insider in a high-risk role works unchecked",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S65",
+     "name": "Refunds are stolen",
+     "tier": 1,
+     "F1": "1 outstanding",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "C"
+    },
+    {
+     "ref": "S66",
+     "name": "Customer details are changed to divert money or goods",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S67",
+     "name": "Credit is obtained with fabricated documents",
+     "tier": 1,
+     "F1": "1 outstanding",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "C"
+    },
+    {
+     "ref": "S68",
+     "name": "Claims are fabricated or inflated",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S69",
+     "name": "Sales are not billed or receipts are diverted",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S70",
+     "name": "Customers pay fraudsters impersonating the organisation",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S71",
+     "name": "Prices are overridden or side deals made",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S72",
+     "name": "Agents report fictitious sales",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S73",
+     "name": "Vouchers and loyalty points are abused",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S74",
+     "name": "Customers are wrongly blocked on a fraud flag",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S75",
+     "name": "Cash takings are stolen",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S76",
+     "name": "Stock is stolen and hidden in the counts",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S78",
+     "name": "Data leaves on disposed or reissued devices",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S79",
+     "name": "Assets or scrap are sold off cheaply or without payment",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S80",
+     "name": "Goods are released to an impostor",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S81",
+     "name": "Fuel and fleet are misused",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S82",
+     "name": "Goods go missing in transit",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S83",
+     "name": "High-value materials are stolen by organised groups",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S84",
+     "name": "Losses are never tracked",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "designed",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S85",
+     "name": "An email account is taken over",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S86",
+     "name": "A payment instruction received by email is acted on",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S87",
+     "name": "A cloned voice or video instruction is obeyed",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S88",
+     "name": "Customer accounts are taken over",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S89",
+     "name": "A security compromise is not notified",
+     "tier": 1,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S90",
+     "name": "A help desk reset hands an attacker access",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S91",
+     "name": "Systems that move money are accessed without strong sign-in",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S92",
+     "name": "Personal information is over-exposed or kept too long",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S93",
+     "name": "A SIM swap defeats one-time PIN approvals",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S94",
+     "name": "An AI assistant is manipulated by hidden instructions",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S95",
+     "name": "The organisation's own information helps attackers",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S96",
+     "name": "A compromise is not contained quickly",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S97",
+     "name": "The organisation is impersonated to defraud others",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "absent",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "A"
+    },
+    {
+     "ref": "S98",
+     "name": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    }
+   ],
+   "sufficiency": {
+    "essential": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    },
+    "comprehensive": {
+     "meets": false,
+     "failing": [
+      "CG-2"
+     ],
+     "informationMet": false,
+     "methodMet": true
+    }
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "groups": {
+    "Establish the facts first": {
+     "count": 6,
+     "byTier": {
+      "tier 1": 3,
+      "tier 2": 3
+     }
+    },
+    "A": {
+     "count": 0,
+     "byTier": {}
+    },
+    "B": {
+     "count": 3,
+     "byTier": {
+      "tier 3": 2,
+      "tier 2": 1
+     }
+    },
+    "C": {
+     "count": 1,
+     "byTier": {
+      "tier 2": 1
+     }
+    }
+   },
+   "rows": [
+    {
+     "ref": "S14",
+     "name": "AI-enabled schemes are not considered",
+     "tier": 1,
+     "F1": "contradiction",
+     "F2": null,
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    },
+    {
+     "ref": "S17",
+     "name": "Risks above tolerance are left without action",
+     "tier": 2,
+     "F1": "clarify",
+     "F2": null,
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    },
+    {
+     "ref": "S26",
+     "name": "Donations or sponsorships channel bribes",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "C"
+    },
+    {
+     "ref": "S33",
+     "name": "Invoices are paid for goods or services not received or not agreed",
+     "tier": 1,
+     "F1": "clarify",
+     "F2": null,
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    },
+    {
+     "ref": "S40",
+     "name": "Procurement anomalies are never noticed",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S49",
+     "name": "Hours and overtime are inflated",
+     "tier": 2,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S52",
+     "name": "An insider in a high-risk role works unchecked",
+     "tier": 2,
+     "F1": "clarify",
+     "F2": null,
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    },
+    {
+     "ref": "S76",
+     "name": "Stock is stolen and hidden in the counts",
+     "tier": 1,
+     "F1": "clarify",
+     "F2": null,
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    },
+    {
+     "ref": "S84",
+     "name": "Losses are never tracked",
+     "tier": 3,
+     "F1": "answered",
+     "F2": "partial",
+     "F3": "direct loss (candidate)",
+     "F6": 0,
+     "settleFirst": false,
+     "group": "B"
+    },
+    {
+     "ref": "S102",
+     "name": "An investigation is not independent or fair",
+     "tier": 2,
+     "F1": "clarify",
+     "F2": null,
+     "F3": "other",
+     "F6": 0,
+     "settleFirst": true,
+     "group": "Establish the facts first"
+    }
+   ],
+   "sufficiency": {
+    "essential": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    },
+    "comprehensive": {
+     "meets": true,
+     "failing": [],
+     "informationMet": true,
+     "methodMet": true
+    }
+   }
+  }
+ }
+}

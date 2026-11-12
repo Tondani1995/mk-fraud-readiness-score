@@ -11,6 +11,7 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | Data contract | `mk-readiness-review` 1.3.0 (build 1.5 sessions); 1.4.0 for staged sessions on build 1.6 (fictional harness only) |
 | Staged assessment | Review engine build 1.6, composing build 1.5 unchanged; inactive for customers and produces no score (`STAGED-BUILD-1.6.md`) |
 | Reporting-quality correction | The prototype's report content corrected on MK's direction of 12 November (`REPORT-QUALITY-CORRECTION.md`) |
+| Report revision | The corrected reports revised on MK's second direction of 12 November: answer-relationship rules 0.2, candidate product-sufficiency rules 0.2, the four position statements, no ranking language, the control-content library and proposed planning stages (`REPORT-REVISION.md`) |
 | Integration prototype | The staged assessment fed through the existing Essential and Comprehensive engines on fictional organisations, with a before-and-after comparison (`INTEGRATION-PROTOTYPE.md`) |
 | Release decision | **Not releasable.** Candidate ready for MK review on the fictional harness, with the independent review's six findings corrected. See `RELEASE-DECISION.md`. |
 
@@ -41,6 +42,11 @@ Candidate integration of the parked MK digital experience with the rebuilt readi
 | `STAGED-BUILD-1.6.md` | MK's direction of 11 November (17:24) as built: the staged assessment on build 1.6, methodology-version dispatch with MFRS parity, the revised input adapter, the method-scoped content registry, stage progress and delegation, the commercial gates kept, results and limitations |
 | `DECISION-REGISTER.md` | Concise register of what that delivery took from MK, decided in engineering (implemented, inactive), proposes and reserves |
 | `INTEGRATION-PROTOTYPE.md` | MK's direction of 11 November (18:33) as delivered: each of the eight items, where it is and its evidence |
+| `REPORT-REVISION.md`, `report-revision/` | MK's second direction of 12 November as delivered: the revised Essential and Comprehensive for four fictional organisations (PDF, HTML, workbook, model), test results, the classified suite run, and the decisions that remain (D-1 to D-6) |
+| `REVISION-COMPARISON.md` | The first correction against this revision on conclusions, dependencies, recommendations, decisions and actionability, with what is not better |
+| `ANSWER-RELATIONSHIP-RULES.md` | Relationship rules 0.2: the five relationships and the neutral status, the four corrections, the six pairs reassessed, all 826 pairs tested |
+| `PRODUCT-SUFFICIENCY-CANDIDATE.md` | Candidate product-sufficiency rules 0.2 per promised deliverable, with the adversarial results |
+| `CONTROL-CONTENT-LIBRARY.md` | The reusable control-content library: fifteen archetypes, 146 entries, sources, coverage, checks and enrichment examples |
 | `REPORT-QUALITY-CORRECTION.md`, `report-correction/` | MK's direction of 12 November: the corrected Essential and Comprehensive for four fictional organisations (PDF, HTML, workbook, model), the claims register against the first prototype, tests and the decisions that remain |
 | `CONTRADICTION-CLASSIFICATION.md` | The five relationships between a confirmation and a weaker practice, and the recalculation of the 21 controls the first prototype flagged |
 | `PRIORITISATION-METHODOLOGY-PROPOSAL.md` | Decision-ready options for how reports say what to address first, without ratings from tier or answer class |
@@ -118,8 +124,9 @@ node $L scripts/readiness-review-standard-status-tests.mjs
 node $L scripts/methodology-version-dispatch-tests.mjs
 node $L scripts/research/delegation/timing.mjs --check
 node $L scripts/research/objectives/candidates.mjs --check
-node $L scripts/revised-reports/build-comparison.mjs && node $L scripts/revised-reports/render-pdfs.mjs docs/readiness-review/report-correction
-node $L scripts/revised-reports/report-quality-tests.mjs && node scripts/revised-reports/claims-register.mjs
+node $L scripts/revised-reports/build-comparison.mjs && node $L scripts/revised-reports/render-pdfs.mjs docs/readiness-review/report-revision
+node $L scripts/revised-reports/report-quality-tests.mjs && node $L scripts/revised-reports/relationship-semantics-tests.mjs && node $L scripts/revised-reports/sufficiency-adversarial-tests.mjs
+node scripts/revised-reports/revision-comparison.mjs && node $L scripts/research/prioritisation/illustrate.mjs
 
 # Stage-progress screens: seed staged sessions, then start the build on the same harness with engine 1.6
 MK_READINESS_REVIEW_HARNESS=fictional-local MK_READINESS_REVIEW_HARNESS_DIR=out/h16 MK_READINESS_REVIEW_ENGINE=1.6 \
