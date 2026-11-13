@@ -43,6 +43,9 @@ const WRITER_SYSTEM = [
   '4. Never type a number, count or percentage, in digits or in words. Insert every figure as a slot: `[[REF]]` for the value or `[[REF|w]]` for a number in words. Headings follow the same rule.',
   '5. Never write an internal reference in the prose: no FINDING-…, PATHWAY-…, THEME-…, PRIORITY-…, BLUEPRINT-…, DECISION-…, STAGE-…, MEASURE-…, POSITION-…, AREA-… and no question codes such as D6-P-09. Refs appear only inside `<!-- refs: -->` comments and `[[...]]` slots.',
   '6. Place each planned exhibit on its own line exactly as written in the plan, for example `[[exhibit:contents]]`.',
+  '7. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
+  '',
+  'LENGTH (mandatory): an Essential manuscript is 3,800 to 4,500 words and a Comprehensive manuscript 4,800 to 5,800 words. Give each finding three or four connected paragraphs (what the organisation reported, how fraud could exploit it in its operations, what good practice looks like, and what to do first), each theme two or three paragraphs, each pathway three paragraphs, and each priority, blueprint and decision at least two paragraphs. A short manuscript is rejected.',
   '',
   'EXAMPLE of the required shape (content illustrative only):',
   '<!-- section: ESS-EXEC -->',
@@ -54,8 +57,19 @@ const WRITER_SYSTEM = [
   'Write in South African English, in connected advisory paragraphs, with no em dashes. Never invent a fact, figure, owner, priority, control condition or assurance claim. Write the full length the plan sets.'
 ].join('\n');
 
-function repairPrompt(brief: string, manuscript: string, validation: ManuscriptValidation): string {
-  const issues = validation.issues.filter((i) => i.blocking).slice(0, 80)
+/** Minimum words a manuscript must reach to be composed; well below the writer's targets, above a thin draft. */
+export const MINIMUM_WORDS: Record<'essential' | 'comprehensive', number> = { essential: 3000, comprehensive: 3800 };
+
+type Acceptance = { pass: boolean; issues: { code: string; section: string; line: number; detail: string }[] };
+function accept(validation: ManuscriptValidation, product: 'essential' | 'comprehensive'): Acceptance {
+  const issues = validation.issues.filter((i) => i.blocking).map((i) => ({ code: i.code, section: i.section, line: i.line, detail: i.detail }));
+  const words = Number(validation.stats?.words ?? 0);
+  if (words < MINIMUM_WORDS[product]) issues.push({ code: 'TOO-SHORT', section: 'all', line: 0, detail: `The manuscript has ${words} words; it must have at least ${MINIMUM_WORDS[product]} and should reach the length the format rules set. Develop every unit to the paragraph counts given.` });
+  return { pass: issues.length === 0, issues };
+}
+
+function repairPrompt(brief: string, manuscript: string, acceptance: Acceptance): string {
+  const issues = acceptance.issues.slice(0, 80)
     .map((i) => `- ${i.code} in section ${i.section}, line ${i.line}: ${i.detail}`).join('\n');
   return `${brief}\n\n## Your previous manuscript\n\n${manuscript}\n\n## The validator rejected it for these reasons\n\n${issues}\n\n## Task\n\nReturn the complete corrected manuscript, every planned section in order, fixing every issue above and keeping the format rules. Replace each typed figure with its [[REF]] slot, add the missing <!-- refs: --> line after each paragraph, and remove every internal reference from the prose. Return only the manuscript.`;
 }
@@ -159,13 +173,14 @@ export async function produceRevisedArtefacts(input: {
   }
   let calls = 1;
   let validation = validateManuscript(written.text, factPack, plan);
-  const firstPass = { pass: validation.pass, blocking: validation.issues.filter((i) => i.blocking).length, words: validation.stats?.words ?? null };
-  if (!validation.pass && calls < REVISED_PROVIDER_CALL_CEILING) {
+  let acceptance = accept(validation, product);
+  const firstPass = { pass: acceptance.pass, blocking: acceptance.issues.length, words: validation.stats?.words ?? null };
+  if (!acceptance.pass && calls < REVISED_PROVIDER_CALL_CEILING) {
     // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
     // the writer still writes every word, and the result faces the same validator.
     let repaired: Awaited<ReturnType<ManuscriptWriter>>;
     try {
-      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, validation), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
     } catch (error) {
       throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
         stage: 'repair', requestedModel: selection.requestedModel, providerCalls: 2, firstPass,
@@ -176,12 +191,13 @@ export async function produceRevisedArtefacts(input: {
     const usage = { first: written.usage, repair: repaired.usage };
     written = { ...repaired, usage, latencyMs: written.latencyMs + repaired.latencyMs };
     validation = validateManuscript(written.text, factPack, plan);
+    acceptance = accept(validation, product);
   }
   const ai = { requestedModel: selection.requestedModel, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
-  if (!validation.pass) {
+  if (!acceptance.pass) {
     throw new RevisedGenerationError('manuscript_rejected', 'The AI manuscript failed validation and was not composed. Retry generation.', {
       stage: 'manuscript_validation', ...ai,
-      blocking: validation.issues.filter((i) => i.blocking).map((i) => `${i.code}@${i.section}:${i.line}`).slice(0, 30),
+      blocking: acceptance.issues.map((i) => `${i.code}@${i.section}:${i.line}`).slice(0, 30),
       words: validation.stats?.words ?? null,
       manuscriptSha256: crypto.createHash('sha256').update(written.text).digest('hex'),
       rejectedManuscript: written.text
