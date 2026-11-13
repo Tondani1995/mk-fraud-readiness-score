@@ -71,11 +71,21 @@ export function normaliseManuscriptLayout(md: string): string {
 export const MINIMUM_WORDS: Record<'essential' | 'comprehensive', number> = { essential: 3000, comprehensive: 3800 };
 
 type Acceptance = { pass: boolean; issues: { code: string; section: string; line: number; detail: string }[] };
-export function accept(validation: ManuscriptValidation, product: 'essential' | 'comprehensive'): Acceptance {
+/**
+ * Length gate. In the restricted test (MK direction, 13 November 2026) a manuscript that passes every Bible rule but
+ * falls short of the minimum is composed and labelled, and the shortfall is recorded as a customer-release blocker.
+ * Anywhere else the shortfall blocks composition.
+ */
+export function lengthGateMode(env: NodeJS.ProcessEnv = process.env): 'record' | 'block' {
+  return env.MK_REVISED_COMMERCIAL_PATH === 'restricted-test' ? 'record' : 'block';
+}
+
+export function accept(validation: ManuscriptValidation, product: 'essential' | 'comprehensive', mode: 'record' | 'block' = 'block'): Acceptance & { shortfall: { words: number; minimum: number } | null } {
   const issues = validation.issues.filter((i) => i.blocking).map((i) => ({ code: i.code, section: i.section, line: i.line, detail: i.detail }));
   const words = Number(validation.stats?.words ?? 0);
-  if (words < MINIMUM_WORDS[product]) issues.push({ code: 'TOO-SHORT', section: 'all', line: 0, detail: `The manuscript has ${words} words; it must have at least ${MINIMUM_WORDS[product]} and should reach the length the format rules set. Develop every unit to the paragraph counts given.` });
-  return { pass: issues.length === 0, issues };
+  const shortfall = words < MINIMUM_WORDS[product] ? { words, minimum: MINIMUM_WORDS[product] } : null;
+  if (shortfall && mode === 'block') issues.push({ code: 'TOO-SHORT', section: 'all', line: 0, detail: `The manuscript has ${words} words; it must have at least ${MINIMUM_WORDS[product]} and should reach the length the format rules set. Develop every unit to the paragraph counts given.` });
+  return { pass: issues.length === 0, issues, shortfall };
 }
 
 /**
@@ -225,7 +235,8 @@ export async function produceRevisedArtefacts(input: {
   }
   let calls = 1;
   let validation = validateManuscript(written.text, factPack, plan);
-  let acceptance = accept(validation, product);
+  const gate = lengthGateMode();
+  let acceptance = accept(validation, product, gate);
   const firstPass = { pass: acceptance.pass, blocking: acceptance.issues.length, words: validation.stats?.words ?? null };
   if (!acceptance.pass && calls < REVISED_PROVIDER_CALL_CEILING) {
     // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
@@ -252,7 +263,7 @@ export async function produceRevisedArtefacts(input: {
     const usage = { first: written.usage, repair: repaired.usage };
     written = { ...repaired, usage, latencyMs: written.latencyMs + repaired.latencyMs };
     validation = validateManuscript(written.text, factPack, plan);
-    acceptance = accept(validation, product);
+    acceptance = accept(validation, product, gate);
   }
   const ai = { requestedModel: selection.requestedModel, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
   if (!acceptance.pass) {
@@ -294,6 +305,7 @@ export async function produceRevisedArtefacts(input: {
     pdfSha256: crypto.createHash('sha256').update(pdf).digest('hex'),
     workbookSha256: workbook?.sha256 ?? null,
     validation: { pass: validation.pass, words: validation.stats?.words ?? null, warnings: validation.issues.filter((i) => !i.blocking).map((i) => i.code) },
+    lengthGate: { mode: gate, shortfall: acceptance.shortfall, releaseBlocker: acceptance.shortfall ? `Manuscript of ${acceptance.shortfall.words} words is below the ${acceptance.shortfall.minimum}-word minimum; not releasable to a customer.` : null },
     scoring: 'withheld: revised method not approved',
     restricted: RESTRICTED_TEST_LABEL,
     ai
