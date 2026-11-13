@@ -1,0 +1,1546 @@
+{
+ "base": "https://<host>",
+ "at": "2026-11-13T06:41:17.063Z",
+ "outcomes": {
+  "B": {
+   "org": "B",
+   "label": "Fictional Marula Retail Holdings",
+   "describe": "Apparently strong controls: every core confirmation reported in place, while the supporting practices behind them are reported weak, so the answers are inconsistent.",
+   "answers": [
+    {
+     "q": "PR-01",
+     "v": "250to1000",
+     "multi": false
+    },
+    {
+     "q": "PR-12",
+     "v": "lt10m",
+     "multi": false
+    },
+    {
+     "q": "PR-02",
+     "v": "private",
+     "multi": false
+    },
+    {
+     "q": "PR-13",
+     "v": "retail",
+     "multi": false
+    },
+    {
+     "q": "PR-04",
+     "v": "board",
+     "multi": false
+    },
+    {
+     "q": "D1-A-01",
+     "v": "named",
+     "multi": false
+    },
+    {
+     "q": "D1-A-02",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D1-B-07",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-B-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "PR-10",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D1-P-07",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-L-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-L-09",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "PR-06",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D1-L-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-I-01",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D1-I-06",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D2-G-01",
+     "v": "dedicated",
+     "multi": false
+    },
+    {
+     "q": "D2-C-07",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D2-I-09",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D2-K-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-B-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-B-03",
+     "v": "2",
+     "multi": false
+    },
+    {
+     "q": "D3-I-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "PR-08",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D3-G-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "PR-09",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D3-X-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-S-00",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D4-O-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-O-03",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D4-B-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-B-12",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-O-08",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-A-07",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-V-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-T-02",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D4-T-13",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-G-01",
+     "v": [
+      "inhouse",
+      "bureau"
+     ],
+     "multi": true
+    },
+    {
+     "q": "D5-M-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-M-06",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D5-O-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-P-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-O-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-T-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-R-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-R-12",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D6-S-02",
+     "v": [
+      "platform",
+      "h2h"
+     ],
+     "multi": true
+    },
+    {
+     "q": "D6-P-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-P-01",
+     "v": "1",
+     "multi": false
+    },
+    {
+     "q": "D6-P-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-P-09",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-R-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-S-01",
+     "v": [
+      "team",
+      "small"
+     ],
+     "multi": true
+    },
+    {
+     "q": "D6-O-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-S-07",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-S-01",
+     "v": "business",
+     "multi": false
+    },
+    {
+     "q": "D7-S-03",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-O-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D7-S-02",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-S-08",
+     "v": "buy",
+     "multi": false
+    },
+    {
+     "q": "D7-S-06",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D7-K-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D7-K-03",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D7-F-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D8-S-01",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D8-C-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D8-C-12",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D8-S-02",
+     "v": "significant",
+     "multi": false
+    },
+    {
+     "q": "D8-K-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-E-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-E-04",
+     "v": "absent",
+     "multi": false
+    },
+    {
+     "q": "D9-E-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-I-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-S-03",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D9-P-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-S-03",
+     "v": "independent",
+     "multi": false
+    },
+    {
+     "q": "D10-W-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-W-03",
+     "v": "designed",
+     "multi": false
+    },
+    {
+     "q": "D10-P-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-P-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-E-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "__assumptions__",
+     "v": [
+      "none"
+     ],
+     "multi": true
+    },
+    {
+     "q": "D1-L-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-A-07",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D2-K-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D2-P-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-H-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-C-09",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D3-T-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-G-01",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D4-X-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D4-K-04",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D5-P-07",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D5-K-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D5-O-03",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D6-P-11",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D6-A-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-M-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-J-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D7-B-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D7-B-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D8-I-10",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D9-A-05",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-A-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-P-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-E-02",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D9-R-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-S-02",
+     "v": "internal",
+     "multi": false
+    },
+    {
+     "q": "D10-I-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-K-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-A-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-P-04",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D10-O-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-S-06",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D3-N-02",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D4-S-05",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D4-S-06",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D4-T-01",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D4-T-03",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D5-S-08",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D5-C-01",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D5-S-02",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D5-S-04",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D5-S-05",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D5-S-03",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D6-S-05",
+     "v": "audited",
+     "multi": false
+    },
+    {
+     "q": "D6-F-01",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D6-S-08",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-S-04",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-S-09",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D8-S-05",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D8-S-07",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D8-S-06",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D9-S-04",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D9-M-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D9-S-08",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D1-M-03",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D1-R-05",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D1-I-04",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D2-M-02",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D3-C-04",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D4-V-15",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D7-M-08",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D8-M-01",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D9-O-02",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D9-I-05",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D3-S-07",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D3-P-01",
+     "v": "5",
+     "multi": false
+    },
+    {
+     "q": "D6-S-04",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D6-Z-01",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D7-S-05",
+     "v": "yes",
+     "multi": false
+    },
+    {
+     "q": "D7-L-02",
+     "v": "full",
+     "multi": false
+    },
+    {
+     "q": "D8-S-08",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D8-S-09",
+     "v": "no",
+     "multi": false
+    },
+    {
+     "q": "D1-G-03",
+     "v": "5",
+     "multi": false,
+     "afterCorrection": true
+    },
+    {
+     "q": "D1-R-01",
+     "v": "absent",
+     "multi": false,
+     "fn": "Finance"
+    },
+    {
+     "q": "D1-R-02",
+     "v": "absent",
+     "multi": false,
+     "fn": "Finance"
+    },
+    {
+     "q": "D4-P-01",
+     "v": "unknown",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-S-08",
+     "v": "no",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-S-07",
+     "v": "absent",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-P-05",
+     "v": "designed",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-S-04",
+     "v": "erp",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-O-05",
+     "v": "2",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-O-06",
+     "v": "designed",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-O-15",
+     "v": "designed",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-O-17",
+     "v": "absent",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D5-V-03",
+     "v": "absent",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-V-09",
+     "v": "no",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-H-01",
+     "v": "1",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D3-A-05",
+     "v": "designed",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-S-06",
+     "v": "yes",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-H-03",
+     "v": "absent",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-W-02",
+     "v": "absent",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-W-03",
+     "v": "designed",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D3-A-01",
+     "v": "absent",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D4-R-03",
+     "v": "designed",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D8-S-04",
+     "v": "system",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D4-R-01",
+     "v": "1",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D8-C-10",
+     "v": "no",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D8-C-01",
+     "v": "1",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D8-C-06",
+     "v": "2",
+     "multi": false,
+     "fn": "Operations and sales"
+    },
+    {
+     "q": "D2-R-01",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-O-03",
+     "v": "1",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-O-04",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-D-01",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D4-M-01",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D4-M-09",
+     "v": "yes",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-O-01",
+     "v": "fraudfn",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-I-01",
+     "v": "1",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-I-02",
+     "v": "designed",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D10-S-05",
+     "v": "no",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-D-03",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-C-09",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-K-06",
+     "v": "absent",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D2-K-07",
+     "v": "no",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D1-A-04",
+     "v": "designed",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D3-M-01",
+     "v": "designed",
+     "multi": false,
+     "fn": "Legal, compliance and ethics"
+    },
+    {
+     "q": "D3-M-02",
+     "v": "designed",
+     "multi": false,
+     "fn": "Legal, compliance and ethics"
+    },
+    {
+     "q": "D4-V-02",
+     "v": "no",
+     "multi": false,
+     "fn": "Finance"
+    },
+    {
+     "q": "D4-O-07",
+     "v": "unknown",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-O-14",
+     "v": "yes",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-S-01",
+     "v": "lt5m",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-S-03",
+     "v": "none",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D4-K-03",
+     "v": "absent",
+     "multi": false,
+     "fn": "Procurement"
+    },
+    {
+     "q": "D5-S-07",
+     "v": "integrated",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-V-11",
+     "v": "no",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D5-M-02",
+     "v": "1",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D3-C-01",
+     "v": "approved",
+     "multi": false,
+     "fn": "HR and payroll"
+    },
+    {
+     "q": "D2-G-03",
+     "v": "lt1",
+     "multi": false,
+     "fn": "Risk and investigations"
+    },
+    {
+     "q": "D3-M-03",
+     "v": "yes",
+     "multi": false,
+     "fn": "Legal, compliance and ethics"
+    },
+    {
+     "q": "D5-M-07",
+     "v": "no",
+     "multi": false,
+     "fn": "HR and payroll"
+    }
+   ],
+   "events": [
+    {
+     "at": 20,
+     "event": "stop-and-resume",
+     "interviewAtStop": "ended",
+     "answersAtStop": 20
+    },
+    {
+     "event": "correction",
+     "q": "PR-10",
+     "from": "no",
+     "to": "yes"
+    },
+    {
+     "event": "sent-to-owners",
+     "round": 1
+    },
+    {
+     "event": "owner-unknown",
+     "fn": "Procurement",
+     "q": "D4-P-01"
+    },
+    {
+     "event": "sent-to-owners",
+     "round": 2
+    },
+    {
+     "event": "owner-unknown",
+     "fn": "Procurement",
+     "q": "D4-O-07"
+    },
+    {
+     "event": "sent-to-owners",
+     "round": 3
+    }
+   ],
+   "snapshot": {
+    "status": {
+     "interview": "ended",
+     "stopReason": "plan",
+     "stopLabel": "The interview asked everything it needed to",
+     "screensUsed": 156,
+     "limit": null,
+     "pctOfLimit": null,
+     "stages": {
+      "current": "complete",
+      "currentLabel": "Every applicable confirmation has been reached: answered, with a function or listed as outstanding",
+      "core": {
+       "applicableSoFar": 47,
+       "answered": 47,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 0,
+       "open": 0,
+       "complete": true,
+       "pct": 100
+      },
+      "breadth": {
+       "applicableSoFar": 95,
+       "answered": 95,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 0,
+       "open": 0,
+       "complete": true,
+       "pct": 100
+      },
+      "functions": [
+       {
+        "fn": "Executive and governance",
+        "open": 0,
+        "answered": 1,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Risk and investigations",
+        "open": 0,
+        "answered": 15,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Legal, compliance and ethics",
+        "open": 0,
+        "answered": 3,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Procurement",
+        "open": 0,
+        "answered": 12,
+        "declined": 0,
+        "unknownToFunction": 2,
+        "areas": []
+       },
+       {
+        "fn": "HR and payroll",
+        "open": 0,
+        "answered": 14,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Finance",
+        "open": 0,
+        "answered": 3,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Operations and sales",
+        "open": 0,
+        "answered": 6,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       }
+      ],
+      "outstanding": {
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 2,
+       "packagesOpen": 0,
+       "declinedItems": []
+      },
+      "consistency": {
+       "eligible": 63,
+       "selected": 10,
+       "answered": 10,
+       "untested": 53,
+       "counts": {
+        "conflicting": 7,
+        "partial-operation": 2,
+        "not-yet-operating": 1
+       },
+       "limitation": "Each cross-check is one further self-reported answer from the organisation about a practice that supports a confirmation it reported in place. It is not a test of operation and it is not evidence. Confirmations that were not selected were not cross-checked, and nothing is concluded about them or extrapolated to them. No score or band is adjusted for any outcome."
+      },
+      "workload": [
+       {
+        "actor": "Respondent",
+        "screens": 156
+       },
+       {
+        "actor": "Finance",
+        "screens": 3
+       },
+       {
+        "actor": "Procurement",
+        "screens": 14
+       },
+       {
+        "actor": "HR and payroll",
+        "screens": 14
+       },
+       {
+        "actor": "Operations and sales",
+        "screens": 6
+       },
+       {
+        "actor": "Risk and investigations",
+        "screens": 15
+       },
+       {
+        "actor": "Executive and governance",
+        "screens": 1
+       },
+       {
+        "actor": "Legal, compliance and ethics",
+        "screens": 3
+       }
+      ],
+      "note": "Counts are \"so far\": a later answer can bring further questions into scope or take them out."
+     },
+     "ownerAnswers": 56,
+     "corrections": 1,
+     "followUpSent": true,
+     "assessment": {
+      "outstanding": {
+       "notReached": 0,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 2,
+       "total": 2
+      },
+      "facets": [
+       {
+        "key": "interview",
+        "label": "Interview",
+        "state": "Completed",
+        "detail": "The respondent has reached every confirmation that applies so far (156 questions answered). A later answer or correction can bring more into scope and reopen it.",
+        "settled": true
+       },
+       {
+        "key": "packages",
+        "label": "Function packages",
+        "state": "Returned",
+        "detail": "3 sends so far; 0 questions are still open, 54 answered, 0 declined and 2 answered \"I don't know\" by the function.",
+        "settled": true
+       },
+       {
+        "key": "information",
+        "label": "Information",
+        "state": "2 outstanding",
+        "detail": "2 not known by the function. A declined question, an unanswered question and an \"I don't know\" stay outstanding until someone answers; none is treated as in place or as missing.",
+        "settled": false
+       },
+       {
+        "key": "eligibility",
+        "label": "Report eligibility",
+        "state": "Not determined by this assessment",
+        "detail": "Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. This assessment records the information; it makes no order, report or delivery available.",
+        "settled": null
+       }
+      ]
+     },
+     "advisory": {
+      "records": 0,
+      "label": "No Advisory evidence-review records"
+     }
+    },
+    "counts": [
+     [
+      "reported-gaps",
+      46
+     ],
+     [
+      "waiting",
+      2
+     ],
+     [
+      "open-scenarios",
+      0
+     ],
+     [
+      "outstanding",
+      2
+     ]
+    ]
+   },
+   "assessmentReference": "MKFRS-2026-RV05BD5748",
+   "orders": {
+    "essential": {
+     "orderReference": "MKORD-2026-19433AAB",
+     "text": "Essential: order MKORD-2026-19433AAB, ZAR 7 500,00, awaiting payment. Open the private order page"
+    },
+    "comprehensive": {
+     "orderReference": "MKORD-2026-A7D23AC3",
+     "text": "Comprehensive: order MKORD-2026-A7D23AC3, ZAR 35 000,00, awaiting payment. Open the private order page"
+    }
+   },
+   "consoleErrors": []
+  }
+ },
+ "log": [
+  {
+   "org": "B",
+   "step": "session created through /review",
+   "ok": true,
+   "detail": "links page with 11 role links"
+  },
+  {
+   "org": "B",
+   "step": "stopped after 20 answers, reopened from the link and resumed",
+   "ok": true,
+   "detail": "interview at stop: ended"
+  },
+  {
+   "org": "B",
+   "step": "interview completed through the page",
+   "ok": true,
+   "detail": "155 answers"
+  },
+  {
+   "org": "B",
+   "step": "answer corrected through \"Review or change an answer\"",
+   "ok": true,
+   "detail": "PR-10: no -> yes"
+  },
+  {
+   "org": "B",
+   "step": "Snapshot send to accountable functions (round 1)",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "Finance package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "2 answers"
+  },
+  {
+   "org": "B",
+   "step": "Procurement package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "9 answers, 1 \"I don't know\""
+  },
+  {
+   "org": "B",
+   "step": "HR and payroll package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "9 answers"
+  },
+  {
+   "org": "B",
+   "step": "Operations and sales package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "6 answers"
+  },
+  {
+   "org": "B",
+   "step": "Risk and investigations package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "14 answers"
+  },
+  {
+   "org": "B",
+   "step": "Executive and governance package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "1 answers"
+  },
+  {
+   "org": "B",
+   "step": "Legal, compliance and ethics package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "2 answers"
+  },
+  {
+   "org": "B",
+   "step": "Snapshot send to accountable functions (round 2)",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "Finance package answered on its own page (round 2)",
+   "ok": true,
+   "detail": "1 answers"
+  },
+  {
+   "org": "B",
+   "step": "Procurement package answered on its own page (round 2)",
+   "ok": true,
+   "detail": "5 answers, 1 \"I don't know\""
+  },
+  {
+   "org": "B",
+   "step": "HR and payroll package answered on its own page (round 2)",
+   "ok": true,
+   "detail": "4 answers"
+  },
+  {
+   "org": "B",
+   "step": "Risk and investigations package answered on its own page (round 2)",
+   "ok": true,
+   "detail": "1 answers"
+  },
+  {
+   "org": "B",
+   "step": "Legal, compliance and ethics package answered on its own page (round 2)",
+   "ok": true,
+   "detail": "1 answers"
+  },
+  {
+   "org": "B",
+   "step": "Snapshot send to accountable functions (round 3)",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "HR and payroll package answered on its own page (round 3)",
+   "ok": true,
+   "detail": "1 answers"
+  },
+  {
+   "org": "B",
+   "step": "Snapshot shows no score, rating or maturity level",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "paid-report panel shown with restricted-test notice",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "answers submitted and bound to an assessment record",
+   "ok": true,
+   "detail": "MKFRS-2026-RV05BD5748"
+  },
+  {
+   "org": "B",
+   "step": "essential order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Essential: order MKORD-2026-19433AAB, ZAR 7 500,00, awaiting payment. Open the private order page"
+  },
+  {
+   "org": "B",
+   "step": "comprehensive order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Comprehensive: order MKORD-2026-A7D23AC3, ZAR 35 000,00, awaiting payment. Open the private order page"
+  }
+ ]
+}
