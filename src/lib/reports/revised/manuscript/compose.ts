@@ -161,7 +161,9 @@ function position(fp: RevisedFactPack): string {
   // The four statements MK set (12 November): labels and order fixed. The calculated result carries a visible fixture
   // tag; the explanatory copy is written as a released report would read, and method status sits in the notice.
   const text: Record<string, (p: { value: string; text: string }) => string> = {
-    calculated: () => 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.',
+    // When no score is issued (the revised method is unapproved), the cell states exactly that and nothing implies a
+    // calculated result exists.
+    calculated: (p) => (/not (issued|calculated)/i.test(p.value) ? p.text : 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.'),
     inconsistencies: (p) => p.text,
     interpretation: () => {
       // Same counts, same framing as the executive summary: held, open to settle, outstanding and gap add up to the total.
@@ -178,7 +180,11 @@ function position(fp: RevisedFactPack): string {
     const value = fixture ? p.value.replace(/,\s*test fixture$/i, '') : p.value;
     return `<div class="cell${i === 3 ? ' pending' : ''}"><div class="label">${esc(p.label)}</div><div class="v">${esc(value)}${fixture ? ' <span class="tag">Test fixture</span>' : ''}</div><div class="x">${esc(typeset(text[key] ? text[key](p) : p.text))}</div></div>`;
   }).join('');
-  return `<div class="exhibit"><div class="exhibit-title">What the assessment establishes</div><div class="position">${cells}</div><div class="caption">The four statements are kept separate: the calculated result is arithmetic, the inconsistencies and the interpretation come from the organisation's own answers, and the readiness conclusion is MK's.</div></div>`;
+  const scored = !/not (issued|calculated)/i.test(fp.position[0]?.value ?? '');
+  const caption = scored
+    ? 'The four statements are kept separate: the calculated result is arithmetic, the inconsistencies and the interpretation come from the organisation\'s own answers, and the readiness conclusion is MK\'s.'
+    : 'The four statements are kept separate: no score is issued, the inconsistencies and the interpretation come from the organisation\'s own answers, and the readiness conclusion is MK\'s.';
+  return `<div class="exhibit"><div class="exhibit-title">What the assessment establishes</div><div class="position">${cells}</div><div class="caption">${caption}</div></div>`;
 }
 
 /** Composer-rendered, never manuscript prose: what a released report adds that this prototype edition does not. */
@@ -195,16 +201,18 @@ function methodStatus(input: ComposeInput): string {
 
 function profile(fp: RevisedFactPack): string {
   const max = Math.max(...fp.areas.map((a) => a.apply + a.notExpected), 1);
+  // No area figure exists when no score is issued: the column and its caption sentence are then left out entirely.
+  const figures = fp.areas.some((a) => a.figure !== null);
   const rows = fp.areas.map((a) => {
     const w = (n: number) => `${((n / max) * 100).toFixed(2)}%`;
     const seg = (cls: string, n: number) => (n > 0 ? `<span class="${cls}" style="width:${w(n)}"></span>` : '');
     const held = a.confirmed + a.qualified;
-    return `<tr><td class="strong" style="width:52mm">${esc(a.name)}</td><td style="width:70mm"><div class="bar">${seg('seg-held', a.confirmed)}${seg('seg-qual', a.qualified)}${seg('seg-open', a.unresolved)}${seg('seg-gap', a.gap)}${seg('seg-out', a.outstanding)}</div></td><td class="num" style="width:24mm">${held} of ${a.apply}</td><td class="num muted" style="width:18mm">${a.figure === null ? '' : a.figure.toFixed(1)}</td></tr>`;
+    return `<tr><td class="strong" style="width:52mm">${esc(a.name)}</td><td style="width:70mm"><div class="bar">${seg('seg-held', a.confirmed)}${seg('seg-qual', a.qualified)}${seg('seg-open', a.unresolved)}${seg('seg-gap', a.gap)}${seg('seg-out', a.outstanding)}</div></td><td class="num" style="width:24mm">${held} of ${a.apply}</td>${figures ? `<td class="num muted" style="width:18mm">${a.figure === null ? '' : a.figure.toFixed(1)}</td>` : ''}</tr>`;
   }).join('');
   return `<div class="exhibit"><div class="exhibit-title">Readiness profile: fraud scenarios by area</div>
-<table class="profile"><thead><tr><th>Area</th><th>Scenarios that apply</th><th class="num">Core controls in place</th><th class="num">Test figure</th></tr></thead><tbody>${rows}</tbody></table>
+<table class="profile"><thead><tr><th>Area</th><th>Scenarios that apply</th><th class="num">Core controls in place</th>${figures ? '<th class="num">Test figure</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
 <div class="legend"><span><i class="seg-held"></i>Core controls reported in place</span><span><i class="seg-qual"></i>In place, related practice weaker</span><span><i class="seg-open"></i>Answers to settle or clarify</span><span><i class="seg-gap"></i>Core control reported as a gap</span>${fp.areas.some((a) => a.outstanding) ? '<span><i class="seg-out"></i>Answers outstanding</span>' : ''}</div>
-<div class="caption">Each bar shows the fraud scenarios in the method that apply to the organisation in that area, by what its answers report about the controls that stop them. Areas appear in the method's order. Test figures are the calculated result for each area, shown for traceability; they are not scores and carry no band.</div></div>`;
+<div class="caption">Each bar shows the fraud scenarios in the method that apply to the organisation in that area, by what its answers report about the controls that stop them. Areas appear in the method's order.${figures ? ' Test figures are the calculated result for each area, shown for traceability; they are not scores and carry no band.' : ''}</div></div>`;
 }
 
 function stageFor(fp: RevisedFactPack, f: FindingFact): string {
