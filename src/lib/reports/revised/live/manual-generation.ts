@@ -59,8 +59,11 @@ export async function generateRevisedManualReport(input: {
   try {
     artefacts = await produceRevisedArtefacts({ order, reportReference, versionNumber: input.versionNumber, writer: input.writer });
   } catch (error) {
+    // A rejected manuscript is kept only in the review store's failed-run record (database, service role only), for
+    // diagnosis; it never reaches the attempt row, storage or any customer surface.
+    const { rejectedManuscript, ...safeDiagnostics } = (error instanceof RevisedGenerationError ? error.diagnostics : {}) as Record<string, unknown>;
     const diagnostics = error instanceof RevisedGenerationError
-      ? { schemaVersion: 'revised-failure-diagnostics-v1', code: error.code, ...error.diagnostics }
+      ? { schemaVersion: 'revised-failure-diagnostics-v1', code: error.code, ...safeDiagnostics }
       : { schemaVersion: 'revised-failure-diagnostics-v1', code: 'unknown', error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' };
     input.track({ failureDiagnostics: diagnostics });
     // Order-scoped attempts cannot carry diagnostics: the diagnostics RPC accepts assessment-scoped attempts only and
@@ -72,7 +75,7 @@ export async function generateRevisedManualReport(input: {
       generationMode: 'ai', aiUsage: { providerCalls: (diagnostics as any).calls ?? (diagnostics as any).providerCalls ?? 0, usage: (diagnostics as any).usage ?? null },
       failureDiagnostics: diagnostics
     });
-    await recordReviewRun(db, order, 'failed', null, `${String((diagnostics as any).code)}: ${JSON.stringify(diagnostics).slice(0, 1500)}`, input.attemptId);
+    await recordReviewRun(db, order, 'failed', null, `${String((diagnostics as any).code)}: ${JSON.stringify(diagnostics).slice(0, 4000)}${typeof rejectedManuscript === 'string' ? `\n---rejected manuscript---\n${rejectedManuscript.slice(0, 80000)}` : ''}`, input.attemptId);
     if (error instanceof RevisedGenerationError) {
       const reason = error.code === 'render_failed' ? 'pdf_render_failed' : 'generation_failed';
       throw helpers.makeError(reason, error.message, error.code === 'answers_changed_since_binding' ? 409 : 502);

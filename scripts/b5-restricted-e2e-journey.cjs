@@ -16,6 +16,9 @@ const BASE = (process.argv[2] || 'http://localhost:3100').replace(/\/$/, '');
 const OUT = process.argv[3] || 'qa-output/b5';
 const ONLY = process.argv[4] || null;
 const EXTRA_HEADERS = process.env.B5_BYPASS_HEADER ? JSON.parse(process.env.B5_BYPASS_HEADER) : {};
+// Protected preview: B5_SHARE_URL is a Vercel share link for the deployment. Opening it once sets the access cookie,
+// which every later page load and API read then carries. The link itself is never written to the run's outputs.
+const SHARE_URL = process.env.B5_SHARE_URL || null;
 fs.mkdirSync(path.join(OUT, 'shots'), { recursive: true });
 fs.mkdirSync(path.join(OUT, '.secrets'), { recursive: true });
 const coverage = require('../src/lib/readiness-review/data/coverage-map-v1.3.json');
@@ -165,7 +168,7 @@ async function runOrg(browser, org) {
   links = await page.$$eval('[data-link] a', (as) => Object.fromEntries(as.map((a) => [a.closest('[data-link]').getAttribute('data-link'), a.getAttribute('href').split('/').pop()])));
   fs.writeFileSync(path.join(OUT, '.secrets', `${org.key}-links.json`), JSON.stringify({ linksToken, links }, null, 1));
   const R0 = links.respondent;
-  note(org.key, 'session created through /review', Boolean(R), `links page with ${Object.keys(links).length} role links`);
+  note(org.key, 'session created through /review', Boolean(R0), `links page with ${Object.keys(links).length} role links`);
 
   const R = R0;
   await page.goto(`${BASE}/review/s/${R}`, { waitUntil: 'networkidle' });
@@ -341,6 +344,16 @@ async function runOrg(browser, org) {
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  if (SHARE_URL) {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto(SHARE_URL, { waitUntil: 'domcontentloaded' });
+    const cookies = await ctx.cookies(BASE);
+    if (!cookies.length) throw new Error('The share link set no access cookie.');
+    EXTRA_HEADERS.Cookie = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    await ctx.close();
+    console.log(`access cookie set for ${new URL(BASE).host} (${cookies.map((c) => c.name).join(', ')})`);
+  }
   const outcomes = {};
   for (const key of Object.keys(ORGS)) {
     if (ONLY && key !== ONLY) continue;

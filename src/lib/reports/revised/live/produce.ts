@@ -30,9 +30,35 @@ import type { RevisedOrderContext } from './order';
  */
 
 export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.1';
-export const REVISED_PROVIDER_CALL_CEILING = 1;
+/** One writing call, plus at most one repair call that returns the validator's exact issues to the writer. */
+export const REVISED_PROVIDER_CALL_CEILING = 2;
 
-const WRITER_SYSTEM = 'You are the MK Fraud Insights report writer. Follow the writer contract in the brief exactly: write only the planned sections in order, in Markdown, with a claim heading for each section and unit, every paragraph followed by its <!-- refs: ... --> comment, every figure as a [[REF]] slot from the Fact Pack, and exhibits placed by name. Use South African English, connected advisory paragraphs and no em dashes. Never invent a fact, figure, owner, priority, control condition or assurance claim.';
+const WRITER_SYSTEM = [
+  'You are the MK Fraud Insights report writer. Follow the writer contract in the brief exactly. Your output is checked by an automatic validator; any breach of the format rules below rejects the whole manuscript.',
+  '',
+  'FORMAT RULES (mandatory):',
+  '1. Start every planned section with its marker line `<!-- section: ID -->` and keep the planned order; then `# ` and a heading that states a claim.',
+  '2. Inside a section, write one `## ` heading per planned unit, exactly as many units as the plan lists, each heading a claim.',
+  '3. After EVERY paragraph, on its own line, write `<!-- refs: REF, REF -->` naming the Fact Pack refs the paragraph relies on. A paragraph without this line is rejected.',
+  '4. Never type a number, count or percentage, in digits or in words. Insert every figure as a slot: `[[REF]]` for the value or `[[REF|w]]` for a number in words. Headings follow the same rule.',
+  '5. Never write an internal reference in the prose: no FINDING-…, PATHWAY-…, THEME-…, PRIORITY-…, BLUEPRINT-…, DECISION-…, STAGE-…, MEASURE-…, POSITION-…, AREA-… and no question codes such as D6-P-09. Refs appear only inside `<!-- refs: -->` comments and `[[...]]` slots.',
+  '6. Place each planned exhibit on its own line exactly as written in the plan, for example `[[exhibit:contents]]`.',
+  '',
+  'EXAMPLE of the required shape (content illustrative only):',
+  '<!-- section: ESS-EXEC -->',
+  '# The controls that guard payments are in place, but the processes that feed them are not',
+  '',
+  'On its own answers, the organisation reports the core controls in place for [[N-REPORTED-HELD]] of the [[N-APPLY]] fraud scenarios that apply, and a core control reported as a gap in [[N-GAP]].',
+  '<!-- refs: N-REPORTED-HELD, N-APPLY, N-GAP -->',
+  '',
+  'Write in South African English, in connected advisory paragraphs, with no em dashes. Never invent a fact, figure, owner, priority, control condition or assurance claim. Write the full length the plan sets.'
+].join('\n');
+
+function repairPrompt(brief: string, manuscript: string, validation: ManuscriptValidation): string {
+  const issues = validation.issues.filter((i) => i.blocking).slice(0, 80)
+    .map((i) => `- ${i.code} in section ${i.section}, line ${i.line}: ${i.detail}`).join('\n');
+  return `${brief}\n\n## Your previous manuscript\n\n${manuscript}\n\n## The validator rejected it for these reasons\n\n${issues}\n\n## Task\n\nReturn the complete corrected manuscript, every planned section in order, fixing every issue above and keeping the format rules. Replace each typed figure with its [[REF]] slot, add the missing <!-- refs: --> line after each paragraph, and remove every internal reference from the prose. Return only the manuscript.`;
+}
 
 export class RevisedGenerationError extends Error {
   readonly code: 'answers_changed_since_binding' | 'provider_failed' | 'manuscript_rejected' | 'render_failed';
@@ -79,7 +105,7 @@ export type RevisedArtefacts = {
   factPack: RevisedFactPack;
   plan: RevisedStoryPlan;
   provenance: Record<string, unknown>;
-  ai: { requestedModel: string; provider: string | null; model: string | null; usage: Record<string, unknown> | null; latencyMs: number; calls: number };
+  ai: { requestedModel: string; provider: string | null; model: string | null; usage: unknown; latencyMs: number; calls: number; firstPass: { pass: boolean; blocking: number; words: number | null } };
 };
 
 const dateLabel = (d: Date) => d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Johannesburg' });
@@ -131,14 +157,34 @@ export async function produceRevisedArtefacts(input: {
       error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown'
     });
   }
-  const ai = { requestedModel: selection.requestedModel, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls: REVISED_PROVIDER_CALL_CEILING };
-  const validation = validateManuscript(written.text, factPack, plan);
+  let calls = 1;
+  let validation = validateManuscript(written.text, factPack, plan);
+  const firstPass = { pass: validation.pass, blocking: validation.issues.filter((i) => i.blocking).length, words: validation.stats?.words ?? null };
+  if (!validation.pass && calls < REVISED_PROVIDER_CALL_CEILING) {
+    // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
+    // the writer still writes every word, and the result faces the same validator.
+    let repaired: Awaited<ReturnType<ManuscriptWriter>>;
+    try {
+      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, validation), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+    } catch (error) {
+      throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
+        stage: 'repair', requestedModel: selection.requestedModel, providerCalls: 2, firstPass,
+        error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown', rejectedManuscript: written.text
+      });
+    }
+    calls += 1;
+    const usage = { first: written.usage, repair: repaired.usage };
+    written = { ...repaired, usage, latencyMs: written.latencyMs + repaired.latencyMs };
+    validation = validateManuscript(written.text, factPack, plan);
+  }
+  const ai = { requestedModel: selection.requestedModel, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
   if (!validation.pass) {
     throw new RevisedGenerationError('manuscript_rejected', 'The AI manuscript failed validation and was not composed. Retry generation.', {
       stage: 'manuscript_validation', ...ai,
       blocking: validation.issues.filter((i) => i.blocking).map((i) => `${i.code}@${i.section}:${i.line}`).slice(0, 30),
       words: validation.stats?.words ?? null,
-      manuscriptSha256: crypto.createHash('sha256').update(written.text).digest('hex')
+      manuscriptSha256: crypto.createHash('sha256').update(written.text).digest('hex'),
+      rejectedManuscript: written.text
     });
   }
 
