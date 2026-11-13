@@ -38,7 +38,7 @@ const WRITER_SYSTEM = [
   '',
   'FORMAT RULES (mandatory):',
   '1. Start every planned section with its marker line `<!-- section: ID -->` and keep the planned order; then `# ` and a heading that states a claim.',
-  '2. Inside a section, write one `## ` heading per planned unit, exactly as many units as the plan lists, each heading a claim.',
+  '2. Inside a section, write one `## ` heading per planned unit, exactly as many units as the plan lists, each heading a claim. A section with a single planned unit (for example one pathway) still has its own `## ` unit heading under the `# ` section heading.',
   '3. After EVERY paragraph, on its own line, write `<!-- refs: REF, REF -->` naming the Fact Pack refs the paragraph relies on. A paragraph without this line is rejected.',
   '4. Never type a number, count or percentage, in digits or in words. Insert every figure as a slot: `[[REF]]` for the value or `[[REF|w]]` for a number in words. Headings follow the same rule.',
   '5. Never write an internal reference in the prose: no FINDING-…, PATHWAY-…, THEME-…, PRIORITY-…, BLUEPRINT-…, DECISION-…, STAGE-…, MEASURE-…, POSITION-…, AREA-… and no question codes such as D6-P-09. Refs appear only inside `<!-- refs: -->` comments and `[[...]]` slots.',
@@ -270,7 +270,9 @@ export async function produceRevisedArtefacts(input: {
     // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
     // the writer still writes every word, and the result faces the same validator.
     let repaired: Awaited<ReturnType<ManuscriptWriter>>;
-    const surgical = acceptance.issues.every((i) => i.line > 0) && acceptance.issues.length <= 60;
+    // Structural issues (unit or section counts) cannot be fixed one line at a time: they take the full repair.
+    const STRUCTURAL = new Set(['UNITS', 'STRUCTURE', 'HEADING-MISSING', 'EXHIBIT-MISSING']);
+    const surgical = acceptance.issues.every((i) => i.line > 0 && !STRUCTURAL.has(i.code)) && acceptance.issues.length <= 60;
     try {
       if (surgical) {
         const { prompt, lines } = lineRepairPrompt(brief, written.text, acceptance);
