@@ -36,7 +36,16 @@ Every browser answer is in the stored log (137 of 137; 212 of 212), with the cor
 
 Downloaded through the operator's console route on the deployment: all three files are byte-identical to their stored checksums. Requesting one order's report under another order is refused (`report_order_mismatch`). Customer email and self-service access links are disabled by design in this codebase (manual delivery), so the operator download is the delivery path.
 
-AI use for the whole test: 20 calls within the approved ceiling of 20 (one rejected by the gateway before any model ran), about US$0.35 in total.
+AI use for the whole test: 24 calls within the approved ceiling of 24 (one rejected by the gateway before any model ran), about US$0.50 in total.
+
+### Second round on `f5b82a63` (composer fix), 13 November 10:40 UTC
+
+| | Essential (Marula) | Comprehensive (Kestrel) |
+|---|---|---|
+| Order | `MKORD-2026-19433AAB` | `MKORD-2026-69BC67C1` |
+| Outcome | `RPT-MKFRS-2026-RV05BD5748-V1`, REPORT_READY: validator pass, 4,078 words, 2 calls; 23 pages, 272,277 bytes, restricted label on 22 pages; console download byte-identical | Rejected after repair: first draft 3,382 words and 6 issues; terra full repair reached 4,818 words with one remaining issue (MECHANICAL, a repeated-phrase allowance). Nothing composed; attempt recorded; retry available. |
+
+The composer fix is confirmed in the new Essential: the Score cell reads "No score is calculated…", and the "arithmetic result" caption and the empty "Test figure" column are gone. Marula's Essential qualifies its reported control base in its headline ("…unresolved answers and weaker practices limit reliance on them"), which its Comprehensive did not; the false-comfort risk (item 2 below) is strongest in the Comprehensive's opening.
 
 ## 5. Failure paths
 
@@ -66,4 +75,4 @@ None open. Fixed during this run: owner declines could not be saved on the datab
 
 **Do not release to a limited customer cohort yet.** The integration works end to end on the deployed system: real browser assessments, persisted and reconciled answers, existing orders and payment confirmation, real AI-written manuscripts validated against the Reporting Bible, branded PDFs and a workbook stored, verified and downloaded through the operator path. What is not ready is what a paying customer would read: no approved scoring method, a demonstrated false-comfort risk for strong-but-inconsistent organisations, a writer that needs repair on every report and a Comprehensive generation that runs close to the time limit.
 
-Shortest route to a limited cohort: MK approves the scoring and inconsistency decisions (MD series, D-2); generation moves to the background worker; Kestrel's Comprehensive and Marula's Essential are generated on `f5b82a63` and reviewed against the 34-dimension scorecard; then a small cohort with manual operator review of every report before delivery.
+Shortest route to a limited cohort: MK approves the scoring and inconsistency decisions (MD series, D-2); generation moves to the background worker, with a second repair pass for single residual style issues (as in Kestrel's Comprehensive); the four reports are reviewed against the 34-dimension scorecard; then a small cohort with manual operator review of every report before delivery.
