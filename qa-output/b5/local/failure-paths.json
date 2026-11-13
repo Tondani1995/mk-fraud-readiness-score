@@ -1,0 +1,59 @@
+{
+ "at": "2026-11-13T05:56:13.434Z",
+ "results": [
+  {
+   "id": "FP-01",
+   "name": "Revised commercial path enabled only on the isolated database; refused for production runtime, production databases, missing flag and mismatched databases",
+   "ok": true,
+   "detail": "isolated:on, productionRuntime:production-runtime, productionAppDb:production-database, productionReviewDb:production-database, flagMissing:not-configured, databasesDiffer:database-mismatch"
+  },
+  {
+   "id": "FP-02",
+   "name": "Paid order with an invalid private link is refused",
+   "ok": true,
+   "detail": "HTTP 403"
+  },
+  {
+   "id": "FP-03",
+   "name": "An answer recorded after submission blocks re-submission; the bound answers stay fixed",
+   "ok": true,
+   "detail": "later owner answer respondent correction PR-08 HTTP 200; re-submit HTTP 409 interview_not_complete"
+  },
+  {
+   "id": "FP-04",
+   "name": "Re-submitting unchanged answers returns the same assessment and creates nothing new",
+   "ok": true,
+   "detail": "HTTP 200; created false; same assessment"
+  },
+  {
+   "id": "FP-05",
+   "name": "A reviewer link cannot submit an assessment for a paid report",
+   "ok": true,
+   "detail": "HTTP 404"
+  },
+  {
+   "id": "FP-06",
+   "name": "Submission without accepting the terms is refused",
+   "ok": true,
+   "detail": "HTTP 400"
+  },
+  {
+   "id": "FP-07",
+   "name": "A second Comprehensive order for the same assessment returns the existing order",
+   "ok": true,
+   "detail": "HTTP 200; created false; same order"
+  },
+  {
+   "id": "FP-08",
+   "name": "The same payment confirmation submitted twice records one payment transition",
+   "ok": true,
+   "detail": "HTTP 307/307; transitions shown 1"
+  },
+  {
+   "id": "FP-09",
+   "name": "Two generation requests at once: only one runs, the other is refused as already active",
+   "ok": true,
+   "detail": "HTTP 409/502; generation_already_active / generation_failed"
+  }
+ ]
+}

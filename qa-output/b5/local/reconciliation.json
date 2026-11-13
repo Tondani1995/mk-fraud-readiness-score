@@ -70,7 +70,7 @@
   },
   "factPacks": {
    "essential": {
-    "sha256": "0dfe55f3ef192f82559129966ba7368b5fcd320dc9bb0fa7c88b6025b019cfe9",
+    "sha256": "c6f614cb5540880413dbf019d721b474d9f9dc4a1783295050fcabb96ae72ec5",
     "sections": 10,
     "themes": 2,
     "findings": 5,
@@ -83,7 +83,7 @@
     "scoreFact": false
    },
    "comprehensive": {
-    "sha256": "f2376d379648fe48eb4f0cf0fa9056a98e12b8fe53900b5922760952f002a0a7",
+    "sha256": "88212630d784049a3d3c2cfc83d87b380363c152cc6223a7670725ee23ca4b08",
     "sections": 13,
     "themes": 2,
     "findings": 5,
@@ -168,7 +168,7 @@
   },
   "factPacks": {
    "essential": {
-    "sha256": "d22521fb21a717817ea6d62ba7f935f0ba60ed91143446ae3cf70a4d87f173c4",
+    "sha256": "9b6b997c111d6c0b8d6fe35f99615b3ebffc267e3a95bdc155e0047cb121d448",
     "sections": 10,
     "themes": 2,
     "findings": 7,
@@ -181,7 +181,7 @@
     "scoreFact": false
    },
    "comprehensive": {
-    "sha256": "0b837da839459df3c4142aef3afb5c6e163b7e4e2cfd2372551d8a32892fe99b",
+    "sha256": "b1fa92794c8c90c22bad8ee6bbdc772e34d81465b1b540b71f4293c589d3af85",
     "sections": 13,
     "themes": 2,
     "findings": 7,
@@ -230,7 +230,7 @@
   "replay": {
    "inputDigestMatches": true,
    "logDigestMatches": true,
-   "actionsAfterBinding": 0,
+   "actionsAfterBinding": 4,
    "actionsAfterBindingExcluded": true
   },
   "answers": {
@@ -266,7 +266,7 @@
   },
   "factPacks": {
    "essential": {
-    "sha256": "eeadcef94f2ba7ab4d4ec7e8e166b0f4021d456fe88e843811ea84937547b169",
+    "sha256": "a98d854198551ba18c9d37c76b0f1948b1ae039bb233bbfea7cae8bacfefc660",
     "sections": 10,
     "themes": 2,
     "findings": 5,
@@ -279,7 +279,7 @@
     "scoreFact": false
    },
    "comprehensive": {
-    "sha256": "134e3cbad96a1a5d9b613b69e6a3bf56782352ab19dd765eda6350d9bd560ea6",
+    "sha256": "e74ba4a9085404e078acb94aca7518d07ace07591838573340020147f504483a",
     "sections": 13,
     "themes": 2,
     "findings": 5,
