@@ -27,9 +27,13 @@ The bound answer log is also recorded in `readiness_review.report_runs` for ever
 - **One provider call per generation**; a rejected manuscript is never composed and nothing is substituted.
 - **MFRS orders unchanged:** the hook returns null for every non-revised assessment.
 
-## Integrity-guard exception (MK to confirm)
+## Integrity-guard exception (approved by MK, 13 November 2026)
 
-`scripts/spatial-integrity-tests.mjs` protects `src/lib/reports/phase1-manual-fulfilment.ts`. B5 adds one dispatch hook there (about 40 lines, no change to the existing path). The guard therefore reports that file as changed. The pin is **not** added by this change: confirming the exception, and adding its SHA-256 to `REVIEWED_PROTECTED_CHANGES`, is MK's decision.
+`scripts/spatial-integrity-tests.mjs` protects `src/lib/reports/phase1-manual-fulfilment.ts`. B5 adds one dispatch hook there (about 40 lines, no change to the existing path). MK approved the exception on 13 November 2026; the reviewed version is pinned by SHA-256 in `REVIEWED_PROTECTED_CHANGES` and the guard passes. Any further change to that file fails the guard again.
+
+## Known limitation found during the local run
+
+Order-scoped generation attempts cannot carry structured failure diagnostics: `record_assessment_manual_report_generation_diagnostics` accepts assessment-scoped attempts only, and the service role may not update `manual_report_generation_attempts` (least-privilege contract). The existing Comprehensive branch's direct diagnostics write fails silently for the same reason (pre-existing, post-launch backlog). Revised runs record their safe diagnostics in `readiness_review.report_runs` instead; the attempt row keeps the safe message and error category.
 
 ## Restricted deployment
 

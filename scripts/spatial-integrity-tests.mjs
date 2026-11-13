@@ -13,7 +13,10 @@ const files=execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/lib',
 const REVIEWED_PROTECTED_CHANGES={
  'src/lib/monitoring/privacy.ts':'c4403750a6d3316e77a5358caa7463d2f98a5d5fdd39f5b1ec16f39d59ba226b',
  'src/lib/monitoring/sentry.ts':'6eeaeb5c5aed2dec727082a236332889c861d0a3217838d52f7d7536cbf3d3de',
- 'src/lib/website/analytics-url.ts':'2caa7e676664024d1a66bbb4600043c5fecf1670872ad28f0ebc2f8122444e33'
+ 'src/lib/website/analytics-url.ts':'2caa7e676664024d1a66bbb4600043c5fecf1670872ad28f0ebc2f8122444e33',
+ // B5, approved by MK on 13 November 2026: the one dispatch hook that sends an order on a revised (readiness_review)
+ // assessment to src/lib/reports/revised/live/; every other order follows the unchanged path.
+ 'src/lib/reports/phase1-manual-fulfilment.ts':'85685d5818a6939ac2672b2b58d2aadc3fb2edb96db34600acb29e5ae09f2cac'
 };
 const sha256=(buffer)=>createHash('sha256').update(buffer).digest('hex');
 for(const file of files){
