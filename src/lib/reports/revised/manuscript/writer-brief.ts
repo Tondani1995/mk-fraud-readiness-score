@@ -18,11 +18,11 @@ export const WRITER_CONTRACT = [
   'Do not expose question identifiers, internal references or engine language ("recorded condition", "hard gate", "the engine", "the model").'
 ];
 
-export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan): string {
+export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, options: { editionLabel?: string } = {}): string {
   const L: string[] = [];
   const o = fp.organisation;
   L.push(`# Writer brief: ${fp.product === 'essential' ? 'Essential' : 'Comprehensive'} manuscript for ${o.name}`);
-  L.push('', `Fact Pack ${fp.version} (${fp.sha256.slice(0, 12)}), Story Plan ${plan.version}, Reporting Bible 1.1. FICTIONAL PROTOTYPE.`);
+  L.push('', `Fact Pack ${fp.version} (${fp.sha256.slice(0, 12)}), Story Plan ${plan.version}, Reporting Bible 1.1. ${options.editionLabel ?? 'FICTIONAL PROTOTYPE.'}`);
   L.push('', '## Contract', '', ...WRITER_CONTRACT.map((x) => `- ${x}`));
   L.push('', '## Organisation', '', `- Name: ${o.name}`, `- Reference: ${o.reference}`, `- Industry: ${o.industry ?? 'not given'}`, `- People: ${o.people ?? 'not given'}`, `- Turnover: ${o.turnover ?? 'not given'}`, `- Type: ${o.type ?? 'not given'}`, `- Final oversight: ${o.oversight}${o.oversightKnown ? ' (its own answer)' : ' (not identified)'}`);
   L.push('', '## Position statements (four-position separation)', '');

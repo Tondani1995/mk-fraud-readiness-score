@@ -23,6 +23,8 @@ const prose = (text: string, fp: RevisedFactPack) => esc(typeset(fillSlots(text,
 
 export type PageMap = Record<string, number>;
 export type ComposeInput = { md: string; fp: RevisedFactPack; plan: RevisedStoryPlan; pageMap?: PageMap; dateLabel: string; prototype: boolean;
+  /** B5 restricted test: replaces the prototype notice on the cover, footer and back cover. Implies `prototype`. */
+  restrictedNotice?: string;
   /** Sections that follow on from the previous page instead of starting a new one, because the previous section would otherwise end on a near-empty page. */
   flowSections?: string[] };
 
@@ -31,7 +33,7 @@ export function composeRevisedReportHtml(input: ComposeInput): { html: string; s
   const parsed = parseManuscript(input.md);
   const product = fp.product;
   const titleOf = (id: string) => plan.sections.find((s) => s.id === id)?.title ?? '';
-  const footerLeft = `Confidential${input.prototype ? '  ·  Fictional prototype for MK review, not a customer report' : `  ·  Prepared for ${fp.organisation.name}`}`;
+  const footerLeft = `Confidential${input.restrictedNotice ? '  ·  RESTRICTED TEST, not for customer release' : input.prototype ? '  ·  Fictional prototype for MK review, not a customer report' : `  ·  Prepared for ${fp.organisation.name}`}`;
   void titleOf;
   const css = mkPublicationCss() + mkPageRules({ footerLeft, runningTitle: product === 'essential' ? 'Fraud Readiness Report' : 'Strategy and Control Blueprint' });
 
@@ -57,7 +59,7 @@ function cover(input: ComposeInput): string {
 <h1 class="title">${essential ? 'Fraud Readiness Report' : 'Fraud Readiness Strategy and Control Blueprint'}</h1>
 <div class="org">${esc(fp.organisation.name)}</div>
 <div class="meta">Assessment reference ${esc(fp.organisation.reference)}<br>${esc(input.dateLabel)}<br>Confidential. Prepared for the management of ${esc(fp.organisation.name)}.</div>
-${input.prototype ? `<div class="proto">Fictional prototype for MK review. The organisation is fictional, calculated figures are labelled test results, and this is not a customer report or a certified paid report.</div>` : ''}
+${input.restrictedNotice ? `<div class="proto">${esc(input.restrictedNotice)}</div>` : input.prototype ? `<div class="proto">Fictional prototype for MK review. The organisation is fictional, calculated figures are labelled test results, and this is not a customer report or a certified paid report.</div>` : ''}
 <div class="foot"><span>Independent specialist fraud risk advisory · South Africa</span><span>mkfraud.co.za</span></div>
 </div></section>`;
 }
@@ -67,7 +69,7 @@ function backCover(input: ComposeInput): string {
 <div class="brand">${mkLogo('reversed', 24)}</div>
 <div class="closing">Fraud strategy, readiness and operational resilience.</div>
 <div class="contact">info@mkfraud.co.za<br>www.mkfraud.co.za</div>
-<div class="legal">This report was prepared for the management of ${esc(input.fp.organisation.name)} on the basis of the organisation's own answers to the MK Fraud Readiness assessment. It is confidential to the organisation. MK Fraud Insights is a trading name of Stonda (Pty) Ltd.${input.prototype ? ' Fictional prototype for MK review; not a customer report.' : ''}</div>
+<div class="legal">This report was prepared for the management of ${esc(input.fp.organisation.name)} on the basis of the organisation's own answers to the MK Fraud Readiness assessment. It is confidential to the organisation. MK Fraud Insights is a trading name of Stonda (Pty) Ltd.${input.restrictedNotice ? ' Restricted test; not for customer release.' : input.prototype ? ' Fictional prototype for MK review; not a customer report.' : ''}</div>
 <div class="foot"><span>Independent specialist fraud risk advisory · South Africa</span><span>mkfraud.co.za</span></div>
 </div></section>`;
 }
@@ -183,7 +185,7 @@ function position(fp: RevisedFactPack): string {
 function methodStatus(input: ComposeInput): string {
   if (!input.prototype) return '';
   const rows: [string, string, string][] = [
-    ['Readiness conclusion', 'Issued under MK\'s approved readiness method, with the score and level that method defines.', 'Calculated result shown as a labelled test fixture; no level or band issued (decision D-1).'],
+    ['Readiness conclusion', 'Issued under MK\'s approved readiness method, with the score and level that method defines.', ((input.fp as any).facts?.['FIX-SCORE'] ? 'Calculated result shown as a labelled test fixture; no level or band issued (decision D-1).' : 'No score is calculated: the revised scoring method awaits MK approval, so no score, level or band is issued (decisions D-1, MD-1 to MD-16).')],
     ['Order of work', 'Set by MK\'s approved decision method.', 'Ordered by the explicit factors stated in the report, a candidate method (decision D-3).'],
     ['Control specifications, pathways and decision options', 'MK-approved advisory content.', 'Draft content from MK\'s control-content library, scenario structures and decision options (decision D-5).'],
     ['Manuscript', 'Written by the production AI writer from this fact pack, then validated.', 'Written in-session under the same writer contract and validated by the same checks; the production AI run is a blocked acceptance test.']

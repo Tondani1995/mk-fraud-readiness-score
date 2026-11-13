@@ -26,11 +26,15 @@ const nextConfig = {
     outputFileTracingIncludes: {
       '/score/api/admin/orders/[orderReference]/generate-report': [
         './node_modules/@sparticuz/chromium/bin/**/*',
+        // B5: the MK publication renderer embeds Poppins from public/fonts at runtime.
+        './public/fonts/**/*',
         './node_modules/@napi-rs/canvas/**/*',
         './node_modules/pdfjs-dist/legacy/build/**/*'
       ],
       '/score/api/internal/fulfilment-worker': [
         './node_modules/@sparticuz/chromium/bin/**/*',
+        // B5: the MK publication renderer embeds Poppins from public/fonts at runtime.
+        './public/fonts/**/*',
         './node_modules/@napi-rs/canvas/**/*',
         './node_modules/pdfjs-dist/legacy/build/**/*'
       ]

@@ -11,9 +11,20 @@ async function browser() {
   if (!browserPromise) {
     browserPromise = (async () => {
       const { default: puppeteer } = await import('puppeteer-core');
-      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
-      if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is required for the publication renderer in this prototype.');
-      return puppeteer.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--export-tagged-pdf', '--generate-pdf-document-outline'], protocolTimeout: 300_000 });
+      const accessibility = ['--export-tagged-pdf', '--generate-pdf-document-outline'];
+      const localExecutable = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+      if (localExecutable) {
+        return puppeteer.launch({ executablePath: localExecutable, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', ...accessibility], protocolTimeout: 300_000 });
+      }
+      // Hosted runtime: the same packaged Chromium the production renderer (render-pdf.ts) uses.
+      const { default: chromium } = await import('@sparticuz/chromium');
+      return puppeteer.launch({
+        executablePath: await chromium.executablePath(),
+        headless: 'shell',
+        args: await puppeteer.defaultArgs({ args: [...chromium.args, ...accessibility], headless: 'shell' }),
+        defaultViewport: (chromium as any).defaultViewport ?? null,
+        protocolTimeout: 240_000
+      });
     })();
   }
   return browserPromise;

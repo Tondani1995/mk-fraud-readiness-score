@@ -157,6 +157,32 @@ export async function snapshotFor(tokenValue: string) {
   });
 }
 
+/**
+ * B5: the live session behind a respondent or management link, read under the session's write queue so the log
+ * position returned is the one the caller binds. Owner, reviewer and links roles cannot bind a session to an order.
+ */
+export async function sessionForCommercialBinding(tokenValue: string) {
+  const entry = await resolve(tokenValue);
+  if (!['respondent', 'management'].includes(entry.role)) throw new TokenNotFound('This link cannot request a paid report.');
+  return serial(entry.sessionId, async () => {
+    const live = await liveFor(entry.sessionId);
+    return { role: entry.role, live, actionCount: live.record.actions.length };
+  });
+}
+
+/**
+ * B5: a session replayed from the stored log, bypassing the cache, for report generation. The report is always built
+ * from what the store holds, never from a process's memory.
+ */
+export async function replayStoredSession(sessionId: string, actionCount?: number): Promise<LiveSession> {
+  const record = await store().load(sessionId);
+  if (!record) throw new TokenNotFound('Session not found');
+  if (actionCount === undefined) return replay(record);
+  // The log as it stood at a recorded position: a report bound at that position is rebuilt from exactly those actions.
+  if (record.actions.length < actionCount) throw new TokenNotFound('The stored log is shorter than the bound position.');
+  return replay({ ...record, actions: record.actions.slice(0, actionCount) });
+}
+
 export async function exportFor(tokenValue: string) {
   const entry = await resolve(tokenValue);
   if (entry.role === 'owner' || entry.role === 'links') throw new TokenNotFound('This link does not include the export.');

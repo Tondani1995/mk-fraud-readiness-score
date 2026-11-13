@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { PRODUCTION_SUPABASE_REFS, supabaseRefFromUrl } from './commercial-environment';
 
 /**
  * The review track in this candidate stores sessions in a fictional local harness: JSON files on the server's own
@@ -6,10 +7,17 @@ import path from 'node:path';
  * and not suitable for real organisations. It runs only when explicitly configured, and never in a production
  * deployment, whatever the configuration says.
  */
-export type HarnessStatus = { enabled: boolean; reason: 'fictional-local' | 'production-runtime' | 'not-configured' };
+export type HarnessStatus = { enabled: boolean; reason: 'fictional-local' | 'production-runtime' | 'production-database' | 'not-configured' };
 
 export function reviewHarnessStatus(): HarnessStatus {
   if (process.env.VERCEL_ENV === 'production') return { enabled: false, reason: 'production-runtime' };
+  // B5: the revised assessment never starts, or accepts an answer, against a production database. Either database
+  // reference matching production switches the whole review track off.
+  const appRef = supabaseRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const reviewRef = process.env.MK_READINESS_REVIEW_DB_PROJECT_REF?.trim() ?? null;
+  if ((appRef && PRODUCTION_SUPABASE_REFS.includes(appRef)) || (reviewRef && PRODUCTION_SUPABASE_REFS.includes(reviewRef))) {
+    return { enabled: false, reason: 'production-database' };
+  }
   if (process.env.MK_READINESS_REVIEW_HARNESS !== 'fictional-local') return { enabled: false, reason: 'not-configured' };
   return { enabled: true, reason: 'fictional-local' };
 }
