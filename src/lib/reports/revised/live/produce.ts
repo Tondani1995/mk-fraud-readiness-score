@@ -57,6 +57,15 @@ const WRITER_SYSTEM = [
   'Write in South African English, in connected advisory paragraphs, with no em dashes. Never invent a fact, figure, owner, priority, control condition or assurance claim. Write the full length the plan sets.'
 ].join('\n');
 
+/**
+ * Lossless layout normalisation applied to every manuscript before validation: a `<!-- refs: ... -->` comment written
+ * at the end of its paragraph's line is moved onto its own line, where the contract places it. No word, slot or ref is
+ * added, removed or changed. Observed on the deployed model's output on 13 November 2026.
+ */
+export function normaliseManuscriptLayout(md: string): string {
+  return md.replace(/^(.*\S)[ \t]*(<!--\s*refs:[^>]*-->)[ \t]*$/gm, '$1\n$2');
+}
+
 /** Minimum words a manuscript must reach to be composed; well below the writer's targets, above a thin draft. */
 export const MINIMUM_WORDS: Record<'essential' | 'comprehensive', number> = { essential: 3000, comprehensive: 3800 };
 
@@ -85,12 +94,12 @@ export class RevisedGenerationError extends Error {
   }
 }
 
-export type ManuscriptWriter = (input: { system: string; prompt: string; model: string; fallbackModels: readonly string[] }) => Promise<{
+export type ManuscriptWriter = (input: { system: string; prompt: string; model: string; fallbackModels: readonly string[]; effort?: 'low' }) => Promise<{
   text: string; provider: string | null; model: string | null; usage: Record<string, unknown> | null; latencyMs: number;
 }>;
 
 /** The production writer: one call through the Vercel AI Gateway (OIDC on Vercel, or AI_GATEWAY_API_KEY). */
-export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, fallbackModels }) => {
+export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, fallbackModels, effort }) => {
   const { generateText } = await import('ai');
   const started = Date.now();
   const result: any = await generateText({
@@ -99,7 +108,7 @@ export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt
     prompt,
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(200_000),
-    providerOptions: { gateway: { order: [model, ...fallbackModels] } } as any
+    providerOptions: { gateway: { order: [model, ...fallbackModels] }, ...(effort ? { openai: { reasoningEffort: effort } } : {}) } as any
   });
   const routing = result?.providerMetadata?.gateway?.routing ?? null;
   return {
@@ -165,6 +174,7 @@ export async function produceRevisedArtefacts(input: {
   let written: Awaited<ReturnType<ManuscriptWriter>>;
   try {
     written = await writer({ system: WRITER_SYSTEM, prompt: brief, model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+    written = { ...written, text: normaliseManuscriptLayout(written.text) };
   } catch (error) {
     throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a manuscript. Nothing was composed; retry generation.', {
       stage: 'writer', requestedModel: selection.requestedModel, providerCalls: 1,
@@ -180,7 +190,8 @@ export async function produceRevisedArtefacts(input: {
     // the writer still writes every word, and the result faces the same validator.
     let repaired: Awaited<ReturnType<ManuscriptWriter>>;
     try {
-      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels, effort: 'low' });
+      repaired = { ...repaired, text: normaliseManuscriptLayout(repaired.text) };
     } catch (error) {
       throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
         stage: 'repair', requestedModel: selection.requestedModel, providerCalls: 2, firstPass,
