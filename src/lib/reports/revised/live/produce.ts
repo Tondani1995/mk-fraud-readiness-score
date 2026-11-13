@@ -3,7 +3,7 @@ import { canonicalDigest } from '@/lib/readiness-review/canonical';
 import { buildStagedReportInput, STAGED_REPORT_INPUT_CONTRACT } from '@/lib/readiness-review/report-input';
 import { replayStoredSession } from '@/lib/readiness-review/service';
 import { RESTRICTED_TEST_LABEL } from '@/lib/readiness-review/commercial-environment';
-import { selectNarrativeModel } from '@/lib/reports/ai-model-policy';
+import { NARRATIVE_FALLBACK_MODELS, PRIMARY_NARRATIVE_MODEL } from '@/lib/reports/ai-model-policy';
 import { buildRevisedReport, REVISED_REPORT_MODEL_VERSION } from '../evidence-model';
 import { positionStatements } from '../position';
 import { buildRevisedFactPack, REVISED_FACT_PACK_VERSION, type RevisedFactPack } from '../manuscript/fact-pack';
@@ -66,6 +66,32 @@ const WRITER_SYSTEM = [
  */
 export function normaliseManuscriptLayout(md: string): string {
   return md.replace(/^(.*\S)[ \t]*(<!--\s*refs:[^>]*-->)[ \t]*$/gm, '$1\n$2');
+}
+
+/**
+ * Tiered model use for the revised writer (MK decision, 13 November 2026: keep cost down, so the stronger model is
+ * used only where the cheaper one fails).
+ *   - The manuscript is written by the primary model (MK_REPORT_AI_MODEL if it is a well-formed model ID, otherwise the
+ *     policy's PRIMARY_NARRATIVE_MODEL). A malformed override is ignored and recorded, never sent to the gateway.
+ *   - Only if the manuscript fails validation is a repair made, by the escalation model (MK_REPORT_AI_REPAIR_MODEL if
+ *     well-formed, otherwise the policy's terra fallback), and a line-level repair sends and returns only the flagged
+ *     lines, so the stronger model writes a few hundred tokens rather than the report.
+ *   - Each call goes only to the model named: the gateway is not given a fallback order, so an outage fails (and can be
+ *     retried) instead of silently routing to a more expensive model.
+ * This departs, for the revised writer only, from the shared policy rule that quality failures never change the model.
+ */
+const MODEL_ID = /^[a-z0-9][a-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+export type RevisedModelPlan = { writer: string; repair: string; writerOverrideRejected: string | null; repairOverrideRejected: string | null };
+export function revisedModelPlan(env: NodeJS.ProcessEnv = process.env): RevisedModelPlan {
+  const pick = (raw: string | undefined, fallback: string) => {
+    const value = raw?.trim();
+    if (!value) return { model: fallback, rejected: null };
+    return MODEL_ID.test(value) ? { model: value, rejected: null } : { model: fallback, rejected: value.slice(0, 120) };
+  };
+  const terra = NARRATIVE_FALLBACK_MODELS.find((m) => m.endsWith('-terra')) ?? NARRATIVE_FALLBACK_MODELS[0];
+  const writer = pick(env.MK_REPORT_AI_MODEL, PRIMARY_NARRATIVE_MODEL);
+  const repair = pick(env.MK_REPORT_AI_REPAIR_MODEL, terra);
+  return { writer: writer.model, repair: repair.model, writerOverrideRejected: writer.rejected, repairOverrideRejected: repair.rejected };
 }
 
 /** Minimum words a manuscript must reach to be composed; well below the writer's targets, above a thin draft. */
@@ -152,7 +178,7 @@ export type ManuscriptWriter = (input: { system: string; prompt: string; model: 
 }>;
 
 /** The production writer: one call through the Vercel AI Gateway (OIDC on Vercel, or AI_GATEWAY_API_KEY). */
-export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, fallbackModels, effort }) => {
+export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, effort }) => {
   const { generateText } = await import('ai');
   const started = Date.now();
   const result: any = await generateText({
@@ -161,7 +187,8 @@ export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt
     prompt,
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(200_000),
-    providerOptions: { gateway: { order: [model, ...fallbackModels] }, ...(effort ? { openai: { reasoningEffort: effort } } : {}) } as any
+    // Only the named model, served by its own provider: no model fallback list is given to the gateway.
+    providerOptions: { gateway: { only: [model.split('/')[0]] }, ...(effort ? { openai: { reasoningEffort: effort } } : {}) } as any
   });
   const routing = result?.providerMetadata?.gateway?.routing ?? null;
   return {
@@ -181,7 +208,7 @@ export type RevisedArtefacts = {
   factPack: RevisedFactPack;
   plan: RevisedStoryPlan;
   provenance: Record<string, unknown>;
-  ai: { requestedModel: string; provider: string | null; model: string | null; usage: unknown; latencyMs: number; calls: number; firstPass: { pass: boolean; blocking: number; words: number | null } };
+  ai: { requestedModel: string; models: RevisedModelPlan; repairUsed: boolean; provider: string | null; model: string | null; usage: unknown; latencyMs: number; calls: number; firstPass: { pass: boolean; blocking: number; words: number | null } };
 };
 
 const dateLabel = (d: Date) => d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Johannesburg' });
@@ -222,15 +249,15 @@ export async function produceRevisedArtefacts(input: {
   const brief = renderWriterBrief(factPack, plan, { editionLabel: 'RESTRICTED TEST: answers entered through the test deployment; revised method not approved; no score issued.' });
 
   // 3. One manuscript from the configured model. No fallback content.
-  const selection = selectNarrativeModel();
+  const models = revisedModelPlan();
   const writer = input.writer ?? gatewayManuscriptWriter;
   let written: Awaited<ReturnType<ManuscriptWriter>>;
   try {
-    written = await writer({ system: WRITER_SYSTEM, prompt: brief, model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+    written = await writer({ system: WRITER_SYSTEM, prompt: brief, model: models.writer, fallbackModels: [] });
     written = { ...written, text: normaliseManuscriptLayout(written.text) };
   } catch (error) {
     throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a manuscript. Nothing was composed; retry generation.', {
-      stage: 'writer', requestedModel: selection.requestedModel, providerCalls: 1,
+      stage: 'writer', requestedModel: models.writer, models, providerCalls: 1,
       error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown'
     });
   }
@@ -247,16 +274,16 @@ export async function produceRevisedArtefacts(input: {
     try {
       if (surgical) {
         const { prompt, lines } = lineRepairPrompt(brief, written.text, acceptance);
-        const reply = await writer({ system: WRITER_SYSTEM, prompt, model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+        const reply = await writer({ system: WRITER_SYSTEM, prompt, model: models.repair, fallbackModels: [] });
         const patched = applyLineRepair(written.text, lines, reply.text);
         repaired = { ...reply, text: normaliseManuscriptLayout(patched ?? written.text) };
       } else {
-        repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+        repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: models.repair, fallbackModels: [] });
         repaired = { ...repaired, text: normaliseManuscriptLayout(repaired.text) };
       }
     } catch (error) {
       throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
-        stage: 'repair', requestedModel: selection.requestedModel, providerCalls: 2, firstPass,
+        stage: 'repair', requestedModel: models.repair, models, providerCalls: 2, firstPass,
         error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown', rejectedManuscript: written.text
       });
     }
@@ -266,7 +293,7 @@ export async function produceRevisedArtefacts(input: {
     validation = validateManuscript(written.text, factPack, plan);
     acceptance = accept(validation, product, gate);
   }
-  const ai = { requestedModel: selection.requestedModel, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
+  const ai = { requestedModel: models.writer, models, repairUsed: calls > 1, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
   if (!acceptance.pass) {
     throw new RevisedGenerationError('manuscript_rejected', 'The AI manuscript failed validation and was not composed. Retry generation.', {
       stage: 'manuscript_validation', ...ai,

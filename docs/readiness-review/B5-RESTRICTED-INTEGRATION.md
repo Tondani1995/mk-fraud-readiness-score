@@ -76,3 +76,18 @@ git push origin refs/heads/review/mk-integrated-readiness:refs/heads/review/mk-i
 ```
 
 Skip the first line if `git remote -v` already lists `origin`. Never push to `main`.
+
+## Writer models and cost (MK decision, 13 November 2026)
+
+The revised writer uses models in tiers so that the stronger model is paid for only where the cheaper one fails:
+
+| Step | Model | When |
+|---|---|---|
+| Write the manuscript | `MK_REPORT_AI_MODEL` if a well-formed model ID, otherwise the policy primary `openai/gpt-5-mini` | Every generation |
+| Repair the flagged lines | `MK_REPORT_AI_REPAIR_MODEL` if well-formed, otherwise the policy's `openai/gpt-5.6-terra` | Only when the manuscript fails validation; only the flagged lines are sent and returned |
+| Rewrite in full | the repair model | Only when the failure is not tied to lines (for example a missing section) |
+
+At most two provider calls per generation. Each call goes only to the named model; no gateway fallback can route it to a
+more expensive model. A malformed override is ignored, the primary is used, and the rejected value is recorded in the
+run. This departs, for the revised writer only, from the shared policy rule (`ai-model-policy.ts`) that quality failures
+never change the model; that rule is unchanged for the existing Essential and Comprehensive pipelines.
