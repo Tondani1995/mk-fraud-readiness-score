@@ -80,6 +80,12 @@ function choose(org, qid, values, multi) {
 
 // ------------------------------------------------------------------------------------------- page primitives
 async function waitSettled(page, prev) {
+  try { await waitSettledInner(page, prev); } catch (error) {
+    const state = await page.evaluate(() => ({ q: document.querySelector('[data-question-stage]')?.getAttribute('data-question-id'), detail: !!document.querySelector('[data-review-detail]'), message: document.querySelector('[data-review-message]')?.textContent?.slice(0, 160), phases: [...document.querySelectorAll('[data-transition-phase]')].map((e) => e.getAttribute('data-transition-phase')), buttons: [...document.querySelectorAll('main button')].map((b) => b.textContent.trim()).slice(0, 6) })).catch(() => null);
+    throw new Error(`waitSettled after ${prev}: ${JSON.stringify(state)}`);
+  }
+}
+async function waitSettledInner(page, prev) {
   await page.waitForFunction((p) => {
     if (document.querySelector('[data-review-complete]') || document.querySelector('[data-review-owner-done]')) return true;
     if (document.querySelector('[data-review-message][role=alert]')) return true;

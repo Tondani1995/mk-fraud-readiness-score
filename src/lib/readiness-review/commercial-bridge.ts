@@ -77,9 +77,11 @@ export async function bindSessionForPaidReport(token: string, request: BindingRe
   }
   const inputDigest = canonicalDigest(input);
   const logDigest = input.lineage.logDigest;
-  const controls = input.domains.reduce((n: number, d: any) => n + d.controls.length, 0);
   const outstanding = Number(input.assessmentStatus.outstanding?.total ?? 0);
-  const coverage = controls > 0 ? Math.round((1000 * (controls - outstanding)) / controls) / 10 : 0;
+  // Informational only (the revised run is unscored): share of the confirmations in scope so far that have an answer.
+  const breadth = (input.staged.stages as any)?.breadth ?? {};
+  const applicable = Number(breadth.applicableSoFar ?? 0);
+  const coverage = applicable > 0 ? Math.round((1000 * Number(breadth.answered ?? 0)) / applicable) / 10 : 0;
   const acceptedAt = new Date().toISOString();
 
   const db = createSupabaseServiceClient() as any;

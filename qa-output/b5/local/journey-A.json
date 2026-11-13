@@ -1,0 +1,324 @@
+{
+ "base": "http://<host>",
+ "at": "2026-11-13T05:52:10.627Z",
+ "outcomes": {
+  "A": {
+   "org": "A",
+   "label": "Fictional Kestrel Freight (Pty) Ltd",
+   "describe": "Substantial control weaknesses: most controls reported absent or informal, several \"I don't know\" answers, one area handed over.",
+   "answers": [
+    {
+     "q": "D1-L-01",
+     "v": "1",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-L-09",
+     "v": "unknown",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-I-01",
+     "v": "no",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-L-03",
+     "v": "0",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-A-07",
+     "v": "1",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-M-03",
+     "v": "0",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-R-05",
+     "v": "no",
+     "multi": false,
+     "fn": "Executive and governance"
+    },
+    {
+     "q": "D1-I-04",
+     "v": "absent",
+     "multi": false,
+     "fn": "Executive and governance"
+    }
+   ],
+   "events": [],
+   "snapshot": {
+    "status": {
+     "interview": "ended",
+     "stopReason": "plan",
+     "stopLabel": "The interview asked everything it needed to",
+     "screensUsed": 109,
+     "limit": null,
+     "pctOfLimit": null,
+     "stages": {
+      "current": "core",
+      "currentLabel": "Core: the confirmations every assessment needs",
+      "core": {
+       "applicableSoFar": 33,
+       "answered": 25,
+       "withFunctions": 1,
+       "declined": 2,
+       "unknownToFunction": 4,
+       "open": 1,
+       "complete": false,
+       "pct": 97
+      },
+      "breadth": {
+       "applicableSoFar": 74,
+       "answered": 58,
+       "withFunctions": 1,
+       "declined": 2,
+       "unknownToFunction": 10,
+       "open": 3,
+       "complete": false,
+       "pct": 96
+      },
+      "functions": [
+       {
+        "fn": "Executive and governance",
+        "open": 0,
+        "answered": 13,
+        "declined": 0,
+        "unknownToFunction": 1,
+        "areas": [
+         "Fraud governance and accountability"
+        ]
+       },
+       {
+        "fn": "Risk and investigations",
+        "open": 0,
+        "answered": 0,
+        "declined": 0,
+        "unknownToFunction": 4,
+        "areas": []
+       },
+       {
+        "fn": "IT and information",
+        "open": 0,
+        "answered": 0,
+        "declined": 0,
+        "unknownToFunction": 3,
+        "areas": []
+       },
+       {
+        "fn": "HR and payroll",
+        "open": 0,
+        "answered": 0,
+        "declined": 0,
+        "unknownToFunction": 2,
+        "areas": []
+       },
+       {
+        "fn": "Finance",
+        "open": 0,
+        "answered": 0,
+        "declined": 2,
+        "unknownToFunction": 2,
+        "areas": []
+       },
+       {
+        "fn": "Operations and sales",
+        "open": 0,
+        "answered": 0,
+        "declined": 0,
+        "unknownToFunction": 2,
+        "areas": []
+       }
+      ],
+      "outstanding": {
+       "withFunctions": 1,
+       "declined": 2,
+       "unknownToFunction": 14,
+       "packagesOpen": 0,
+       "declinedItems": [
+        {
+         "q": "D6-P-09",
+         "title": "No exceptions for seniority",
+         "fn": "Finance",
+         "reason": "Fictional: this control is run by the operations team, not by this function."
+        },
+        {
+         "q": "D9-I-01",
+         "title": "Verification for calls, voice notes and video",
+         "fn": "Finance",
+         "reason": "Fictional: this control is run by the operations team, not by this function."
+        }
+       ]
+      },
+      "consistency": {
+       "eligible": 1,
+       "selected": 0,
+       "answered": 0,
+       "untested": 1,
+       "counts": {},
+       "limitation": "Each cross-check is one further self-reported answer from the organisation about a practice that supports a confirmation it reported in place. It is not a test of operation and it is not evidence. Confirmations that were not selected were not cross-checked, and nothing is concluded about them or extrapolated to them. No score or band is adjusted for any outcome."
+      },
+      "workload": [
+       {
+        "actor": "Respondent",
+        "screens": 109
+       },
+       {
+        "actor": "Finance",
+        "screens": 2
+       },
+       {
+        "actor": "HR and payroll",
+        "screens": 2
+       },
+       {
+        "actor": "IT and information",
+        "screens": 3
+       },
+       {
+        "actor": "Operations and sales",
+        "screens": 2
+       },
+       {
+        "actor": "Risk and investigations",
+        "screens": 4
+       },
+       {
+        "actor": "Executive and governance",
+        "screens": 14
+       }
+      ],
+      "note": "Counts are \"so far\": a later answer can bring further questions into scope or take them out."
+     },
+     "ownerAnswers": 27,
+     "corrections": 1,
+     "followUpSent": false,
+     "assessment": {
+      "outstanding": {
+       "notReached": 3,
+       "withFunctions": 1,
+       "declined": 2,
+       "unknownToFunction": 14,
+       "total": 20
+      },
+      "facets": [
+       {
+        "key": "interview",
+        "label": "Interview",
+        "state": "Completed",
+        "detail": "The respondent has reached every confirmation that applies so far (109 questions answered). A later answer or correction can bring more into scope and reopen it.",
+        "settled": true
+       },
+       {
+        "key": "packages",
+        "label": "Function packages",
+        "state": "Not yet sent",
+        "detail": "1 question is with accountable functions and can be sent once the core stage is complete.",
+        "settled": true
+       },
+       {
+        "key": "information",
+        "label": "Information",
+        "state": "20 outstanding",
+        "detail": "3 not yet reached; 1 with a function; 2 declined by a function; 14 not known by the function. A declined question, an unanswered question and an \"I don't know\" stay outstanding until someone answers; none is treated as in place or as missing.",
+        "settled": false
+       },
+       {
+        "key": "eligibility",
+        "label": "Report eligibility",
+        "state": "Not determined by this assessment",
+        "detail": "Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. This assessment records the information; it makes no order, report or delivery available.",
+        "settled": null
+       }
+      ]
+     },
+     "advisory": {
+      "records": 0,
+      "label": "No Advisory evidence-review records"
+     }
+    },
+    "counts": [
+     [
+      "reported-gaps",
+      56
+     ],
+     [
+      "waiting",
+      92
+     ],
+     [
+      "open-scenarios",
+      13
+     ],
+     [
+      "outstanding",
+      20
+     ]
+    ]
+   },
+   "assessmentReference": "MKFRS-2026-RVA34A0C3A",
+   "orders": {
+    "essential": {
+     "orderReference": "MKORD-2026-752F376C",
+     "text": "Essential: order MKORD-2026-752F376C, ZAR 7 500,00, awaiting payment. Open the private order page"
+    },
+    "comprehensive": {
+     "orderReference": "MKORD-2026-E0CD0BFB",
+     "text": "Comprehensive: order MKORD-2026-E0CD0BFB, ZAR 35 000,00, awaiting payment. Open the private order page"
+    }
+   },
+   "consoleErrors": []
+  }
+ },
+ "log": [
+  {
+   "org": "A",
+   "step": "resumed the existing session at its function packages",
+   "ok": true
+  },
+  {
+   "org": "A",
+   "step": "Executive and governance package answered on its own page (round 1)",
+   "ok": true,
+   "detail": "8 answers"
+  },
+  {
+   "org": "A",
+   "step": "Snapshot shows no score, rating or maturity level",
+   "ok": true
+  },
+  {
+   "org": "A",
+   "step": "paid-report panel shown with restricted-test notice",
+   "ok": true
+  },
+  {
+   "org": "A",
+   "step": "answers submitted and bound to an assessment record",
+   "ok": true,
+   "detail": "MKFRS-2026-RVA34A0C3A"
+  },
+  {
+   "org": "A",
+   "step": "essential order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Essential: order MKORD-2026-752F376C, ZAR 7 500,00, awaiting payment. Open the private order page"
+  },
+  {
+   "org": "A",
+   "step": "comprehensive order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Comprehensive: order MKORD-2026-E0CD0BFB, ZAR 35 000,00, awaiting payment. Open the private order page"
+  }
+ ]
+}

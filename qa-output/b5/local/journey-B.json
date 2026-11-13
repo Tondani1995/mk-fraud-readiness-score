@@ -1,0 +1,270 @@
+{
+ "base": "http://<host>",
+ "at": "2026-11-13T05:48:26.937Z",
+ "outcomes": {
+  "B": {
+   "org": "B",
+   "label": "Fictional Marula Retail Holdings",
+   "describe": "Apparently strong controls: every core confirmation reported in place, while the supporting practices behind them are reported weak, so the answers are inconsistent.",
+   "answers": [],
+   "events": [],
+   "snapshot": {
+    "status": {
+     "interview": "ended",
+     "stopReason": "plan",
+     "stopLabel": "The interview asked everything it needed to",
+     "screensUsed": 156,
+     "limit": null,
+     "pctOfLimit": null,
+     "stages": {
+      "current": "complete",
+      "currentLabel": "Every applicable confirmation has been reached: answered, with a function or listed as outstanding",
+      "core": {
+       "applicableSoFar": 47,
+       "answered": 47,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 0,
+       "open": 0,
+       "complete": true,
+       "pct": 100
+      },
+      "breadth": {
+       "applicableSoFar": 95,
+       "answered": 95,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 0,
+       "open": 0,
+       "complete": true,
+       "pct": 100
+      },
+      "functions": [
+       {
+        "fn": "Executive and governance",
+        "open": 0,
+        "answered": 1,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Risk and investigations",
+        "open": 0,
+        "answered": 15,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Legal, compliance and ethics",
+        "open": 0,
+        "answered": 3,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Procurement",
+        "open": 0,
+        "answered": 12,
+        "declined": 0,
+        "unknownToFunction": 2,
+        "areas": []
+       },
+       {
+        "fn": "HR and payroll",
+        "open": 0,
+        "answered": 14,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Finance",
+        "open": 0,
+        "answered": 3,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       },
+       {
+        "fn": "Operations and sales",
+        "open": 0,
+        "answered": 6,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "areas": []
+       }
+      ],
+      "outstanding": {
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 2,
+       "packagesOpen": 0,
+       "declinedItems": []
+      },
+      "consistency": {
+       "eligible": 63,
+       "selected": 10,
+       "answered": 10,
+       "untested": 53,
+       "counts": {
+        "conflicting": 7,
+        "partial-operation": 2,
+        "not-yet-operating": 1
+       },
+       "limitation": "Each cross-check is one further self-reported answer from the organisation about a practice that supports a confirmation it reported in place. It is not a test of operation and it is not evidence. Confirmations that were not selected were not cross-checked, and nothing is concluded about them or extrapolated to them. No score or band is adjusted for any outcome."
+      },
+      "workload": [
+       {
+        "actor": "Respondent",
+        "screens": 156
+       },
+       {
+        "actor": "Finance",
+        "screens": 3
+       },
+       {
+        "actor": "Procurement",
+        "screens": 14
+       },
+       {
+        "actor": "HR and payroll",
+        "screens": 14
+       },
+       {
+        "actor": "Operations and sales",
+        "screens": 6
+       },
+       {
+        "actor": "Risk and investigations",
+        "screens": 15
+       },
+       {
+        "actor": "Executive and governance",
+        "screens": 1
+       },
+       {
+        "actor": "Legal, compliance and ethics",
+        "screens": 3
+       }
+      ],
+      "note": "Counts are \"so far\": a later answer can bring further questions into scope or take them out."
+     },
+     "ownerAnswers": 56,
+     "corrections": 1,
+     "followUpSent": true,
+     "assessment": {
+      "outstanding": {
+       "notReached": 0,
+       "withFunctions": 0,
+       "declined": 0,
+       "unknownToFunction": 2,
+       "total": 2
+      },
+      "facets": [
+       {
+        "key": "interview",
+        "label": "Interview",
+        "state": "Completed",
+        "detail": "The respondent has reached every confirmation that applies so far (156 questions answered). A later answer or correction can bring more into scope and reopen it.",
+        "settled": true
+       },
+       {
+        "key": "packages",
+        "label": "Function packages",
+        "state": "Returned",
+        "detail": "3 sends so far; 0 questions are still open, 54 answered, 0 declined and 2 answered \"I don't know\" by the function.",
+        "settled": true
+       },
+       {
+        "key": "information",
+        "label": "Information",
+        "state": "2 outstanding",
+        "detail": "2 not known by the function. A declined question, an unanswered question and an \"I don't know\" stay outstanding until someone answers; none is treated as in place or as missing.",
+        "settled": false
+       },
+       {
+        "key": "eligibility",
+        "label": "Report eligibility",
+        "state": "Not determined by this assessment",
+        "detail": "Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. This assessment records the information; it makes no order, report or delivery available.",
+        "settled": null
+       }
+      ]
+     },
+     "advisory": {
+      "records": 0,
+      "label": "No Advisory evidence-review records"
+     }
+    },
+    "counts": [
+     [
+      "reported-gaps",
+      46
+     ],
+     [
+      "waiting",
+      2
+     ],
+     [
+      "open-scenarios",
+      0
+     ],
+     [
+      "outstanding",
+      2
+     ]
+    ]
+   },
+   "assessmentReference": "MKFRS-2026-RVA661F4AC",
+   "orders": {
+    "essential": {
+     "orderReference": "MKORD-2026-29DEED58",
+     "text": "Essential: order MKORD-2026-29DEED58, ZAR 7 500,00, awaiting payment. Open the private order page"
+    },
+    "comprehensive": {
+     "orderReference": "MKORD-2026-4EB44B2C",
+     "text": "Comprehensive: order MKORD-2026-4EB44B2C, ZAR 35 000,00, awaiting payment. Open the private order page"
+    }
+   },
+   "consoleErrors": []
+  }
+ },
+ "log": [
+  {
+   "org": "B",
+   "step": "resumed the existing session at its function packages",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "Snapshot shows no score, rating or maturity level",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "paid-report panel shown with restricted-test notice",
+   "ok": true
+  },
+  {
+   "org": "B",
+   "step": "answers submitted and bound to an assessment record",
+   "ok": true,
+   "detail": "MKFRS-2026-RVA661F4AC"
+  },
+  {
+   "org": "B",
+   "step": "essential order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Essential: order MKORD-2026-29DEED58, ZAR 7 500,00, awaiting payment. Open the private order page"
+  },
+  {
+   "org": "B",
+   "step": "comprehensive order placed through the existing paid-order route",
+   "ok": true,
+   "detail": "Comprehensive: order MKORD-2026-4EB44B2C, ZAR 35 000,00, awaiting payment. Open the private order page"
+  }
+ ]
+}
