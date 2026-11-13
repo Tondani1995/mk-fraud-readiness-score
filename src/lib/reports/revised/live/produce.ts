@@ -43,7 +43,8 @@ const WRITER_SYSTEM = [
   '4. Never type a number, count or percentage, in digits or in words. Insert every figure as a slot: `[[REF]]` for the value or `[[REF|w]]` for a number in words. Headings follow the same rule.',
   '5. Never write an internal reference in the prose: no FINDING-…, PATHWAY-…, THEME-…, PRIORITY-…, BLUEPRINT-…, DECISION-…, STAGE-…, MEASURE-…, POSITION-…, AREA-… and no question codes such as D6-P-09. Refs appear only inside `<!-- refs: -->` comments and `[[...]]` slots.',
   '6. Place each planned exhibit on its own line exactly as written in the plan, for example `[[exhibit:contents]]`.',
-  '7. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
+  '7. Only refs listed in the brief\'s "Facts (insert as slots)" table may appear inside [[ ]]. Theme, finding, pathway, priority, blueprint, decision, stage, measure, role, area, legal and position refs are NEVER slots: describe them in words and cite them only in the <!-- refs: --> comment. Write [[N-AREAS|w]], never "ten areas"; write a stage as "within the first ninety days" only if the brief gives that wording, otherwise "in the proposed first stage".',
+  '8. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
   '',
   'LENGTH (mandatory): an Essential manuscript is 3,800 to 4,500 words and a Comprehensive manuscript 4,800 to 5,800 words. Give each finding three or four connected paragraphs (what the organisation reported, how fraud could exploit it in its operations, what good practice looks like, and what to do first), each theme two or three paragraphs, each pathway three paragraphs, and each priority, blueprint and decision at least two paragraphs. A short manuscript is rejected.',
   '',
@@ -70,11 +71,52 @@ export function normaliseManuscriptLayout(md: string): string {
 export const MINIMUM_WORDS: Record<'essential' | 'comprehensive', number> = { essential: 3000, comprehensive: 3800 };
 
 type Acceptance = { pass: boolean; issues: { code: string; section: string; line: number; detail: string }[] };
-function accept(validation: ManuscriptValidation, product: 'essential' | 'comprehensive'): Acceptance {
+export function accept(validation: ManuscriptValidation, product: 'essential' | 'comprehensive'): Acceptance {
   const issues = validation.issues.filter((i) => i.blocking).map((i) => ({ code: i.code, section: i.section, line: i.line, detail: i.detail }));
   const words = Number(validation.stats?.words ?? 0);
   if (words < MINIMUM_WORDS[product]) issues.push({ code: 'TOO-SHORT', section: 'all', line: 0, detail: `The manuscript has ${words} words; it must have at least ${MINIMUM_WORDS[product]} and should reach the length the format rules set. Develop every unit to the paragraph counts given.` });
   return { pass: issues.length === 0, issues };
+}
+
+/**
+ * Surgical repair: only the lines the validator flagged are sent back, each with its problems, and the writer returns
+ * a corrected replacement for each line. The rest of the manuscript is kept exactly as written, so length and
+ * structure are preserved. Used when every issue is tied to a line; a length shortfall uses the full repair.
+ */
+export function lineRepairPrompt(brief: string, manuscript: string, acceptance: Acceptance): { prompt: string; lines: number[] } {
+  const rows = manuscript.split('\n');
+  const byLine = new Map<number, string[]>();
+  // Heading issues are reported at the section marker; the line to correct is the heading that follows it.
+  const target = (n: number) => {
+    if (!/^<!--\s*section:/.test(rows[n - 1] ?? '')) return n;
+    for (let k = n; k < rows.length; k++) if (/^#\s/.test(rows[k])) return k + 1;
+    return n;
+  };
+  for (const i of acceptance.issues) if (i.line > 0) { const n = target(i.line); byLine.set(n, [...(byLine.get(n) ?? []), `${i.code}: ${i.detail}`]); }
+  const lines = [...byLine.keys()].sort((a, b) => a - b);
+  const items = lines.map((n) => `### LINE ${n}\nCurrent text:\n${rows[n - 1] ?? ''}\nProblems:\n${byLine.get(n)!.map((x) => `- ${x}`).join('\n')}`).join('\n\n');
+  return {
+    lines,
+    prompt: `${brief}\n\n## Lines to correct\n\nThe manuscript passed every other check. Correct only these lines. Keep each line's meaning, length and Markdown prefix (#, ## or none). Use [[REF]] slots only for refs in the Facts table; describe themes, findings, stages and other items in words. Never type a count or figure; never write an internal identifier in prose.\n\n${items}\n\n## Output\n\nReturn only a JSON array, one object per line above: [{"line": <number>, "text": "<the corrected full line>"}].`
+  };
+}
+
+export function applyLineRepair(manuscript: string, lines: number[], reply: string): string | null {
+  const start = reply.indexOf('['); const end = reply.lastIndexOf(']');
+  if (start < 0 || end <= start) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(reply.slice(start, end + 1)); } catch { return null; }
+  if (!Array.isArray(parsed)) return null;
+  const rows = manuscript.split('\n');
+  for (const item of parsed as { line?: unknown; text?: unknown }[]) {
+    const n = Number(item?.line);
+    if (!lines.includes(n) || typeof item.text !== 'string' || item.text.includes('\n')) continue;
+    // A corrected line keeps its kind: a heading stays a heading of the same level, prose stays prose.
+    const level = (x: string) => (x.match(/^(#+)\s/)?.[1].length ?? 0);
+    if (level(item.text) !== level(rows[n - 1] ?? '') || /^<!--/.test(item.text)) continue;
+    rows[n - 1] = item.text;
+  }
+  return rows.join('\n');
 }
 
 function repairPrompt(brief: string, manuscript: string, acceptance: Acceptance): string {
@@ -189,9 +231,17 @@ export async function produceRevisedArtefacts(input: {
     // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
     // the writer still writes every word, and the result faces the same validator.
     let repaired: Awaited<ReturnType<ManuscriptWriter>>;
+    const surgical = acceptance.issues.every((i) => i.line > 0) && acceptance.issues.length <= 60;
     try {
-      repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels, effort: 'low' });
-      repaired = { ...repaired, text: normaliseManuscriptLayout(repaired.text) };
+      if (surgical) {
+        const { prompt, lines } = lineRepairPrompt(brief, written.text, acceptance);
+        const reply = await writer({ system: WRITER_SYSTEM, prompt, model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+        const patched = applyLineRepair(written.text, lines, reply.text);
+        repaired = { ...reply, text: normaliseManuscriptLayout(patched ?? written.text) };
+      } else {
+        repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: selection.requestedModel, fallbackModels: selection.fallbackModels });
+        repaired = { ...repaired, text: normaliseManuscriptLayout(repaired.text) };
+      }
     } catch (error) {
       throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
         stage: 'repair', requestedModel: selection.requestedModel, providerCalls: 2, firstPass,
