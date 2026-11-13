@@ -143,17 +143,25 @@ async function runOrg(browser, org) {
   const shot = (name) => page.screenshot({ path: path.join(OUT, 'shots', `${org.key}-${name}.png`), fullPage: true }).catch(() => {});
   const result = { org: org.key, label: org.label, describe: org.describe, answers: [], events: [] };
 
+  const resumeFile = path.join(OUT, '.secrets', `${org.key}-links.json`);
+  let linksToken; let links;
+  const resuming = process.env.B5_RESUME === '1' && fs.existsSync(resumeFile);
+  if (resuming) {
+    ({ linksToken, links } = JSON.parse(fs.readFileSync(resumeFile, 'utf8')));
+    note(org.key, 'resumed the existing session at its function packages', true);
+  } else {
   // Start through the start form.
   await page.goto(`${BASE}/review`, { waitUntil: 'networkidle' });
   await page.fill('#review-org', org.label);
   await page.check('[data-review-start-form] input[type=checkbox]');
   await Promise.all([page.waitForURL(/\/review\/s\/[A-Za-z0-9_-]+$/, { timeout: 60000 }), page.click('[data-review-start-form] button[type=submit]')]);
-  const linksToken = page.url().split('/').pop();
-  const links = await page.$$eval('[data-link] a', (as) => Object.fromEntries(as.map((a) => [a.closest('[data-link]').getAttribute('data-link'), a.getAttribute('href').split('/').pop()])));
+  linksToken = page.url().split('/').pop();
+  links = await page.$$eval('[data-link] a', (as) => Object.fromEntries(as.map((a) => [a.closest('[data-link]').getAttribute('data-link'), a.getAttribute('href').split('/').pop()])));
   fs.writeFileSync(path.join(OUT, '.secrets', `${org.key}-links.json`), JSON.stringify({ linksToken, links }, null, 1));
-  const R = links.respondent;
+  const R0 = links.respondent;
   note(org.key, 'session created through /review', Boolean(R), `links page with ${Object.keys(links).length} role links`);
 
+  const R = R0;
   await page.goto(`${BASE}/review/s/${R}`, { waitUntil: 'networkidle' });
   await page.click('button:has-text("Begin the interview")');
   const decide = (qid, values, multi) => choose(org, qid, values, multi);
@@ -229,13 +237,18 @@ async function runOrg(browser, org) {
     }
   }
 
+  }
+  const R = links.respondent;
+  const decide = (qid, values, multi) => choose(org, qid, values, multi);
+
   // Snapshot: send the open questions to their accountable functions, then answer each package on its own page.
   // Build 1.6 places "I don't know" answers and handed-over areas in their functions' packages at once; the Snapshot
   // offers a further send only after the core stage completes. Each round: send if offered, then work through every
   // function package that has questions waiting, until a round answers nothing.
   for (let round = 1; round <= 4; round++) {
     await page.goto(`${BASE}/review/s/${R}/snapshot`, { waitUntil: 'networkidle' });
-    const send = await page.$('[data-review-staged-send] button, [data-review-send-owners] button');
+    const sendCandidate = await page.$('[data-review-staged-send] button, [data-review-send-owners] button');
+    const send = sendCandidate && await sendCandidate.isEnabled() ? sendCandidate : null;
     if (send) {
       await send.click();
       await page.waitForSelector('[data-review-packages]', { timeout: 30000 }).catch(() => {});
