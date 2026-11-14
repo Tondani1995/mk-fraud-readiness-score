@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { replay } from '../../src/lib/readiness-review/session.ts';
+import { buildStagedReportInput } from '../../src/lib/readiness-review/report-input.ts';
+import { canonicalDigest } from '../../src/lib/readiness-review/canonical.ts';
 import { generateRevisedManualReport } from '../../src/lib/reports/revised/live/manual-generation.ts';
 import { REVISED_TIME_BUDGET } from '../../src/lib/reports/revised/live/produce.ts';
 import { reconcileAudits } from '../../src/lib/reports/revised/live/checkpoints.ts';
@@ -130,12 +132,12 @@ const helpers = () => ({
   makeError: (reason, message, status) => Object.assign(new Error(message), { reason, status })
 });
 const doubleFor = (name, product, opts = {}) => { const pk = () => fixturePack(FX[name], product); return writerDouble({ fp: () => pk().fp, plan: () => pk().plan, ...opts }); };
-const run = async ({ name = 'marula', product = 'essential', db = store(), writer, now, layout, env = ENV, attemptId = crypto.randomUUID() } = {}) => {
+const run = async ({ name = 'marula', product = 'essential', db = store(), writer, now, layout, env = ENV, attemptId = crypto.randomUUID(), order, replayWith } = {}) => {
   const w = writer ?? doubleFor(name, product);
   const tracked = [];
   let out = null, error = null;
   try {
-    out = await generateRevisedManualReport({ db, attemptId, versionNumber: 1, technicalReference: 'tr', order: orderFor(name, product), stage: () => {}, track: (t) => tracked.push(t), helpers: helpers(), writer: w.writer, replay: replayFor(name), now, layout, env });
+    out = await generateRevisedManualReport({ db, attemptId, versionNumber: 1, technicalReference: 'tr', order: order ?? orderFor(name, product), stage: () => {}, track: (t) => tracked.push(t), helpers: helpers(), writer: w.writer, replay: replayWith ?? replayFor(name), now, layout, env });
   } catch (e) { error = e; }
   return { out, error, db, w, tracked, attemptId };
 };
@@ -337,6 +339,17 @@ await T('GF-27', 'A composed manuscript is superseded by the report it became: a
   const before = db.S.calls.length;
   const third = await run({ db });
   return [second.w.calls.length === 0 && !!third.out && stages(db, before) === 'writer', `retry composed with ${second.w.calls.length} calls; next ${stages(db, before)}`];
+});
+
+await T('GF-28', 'DR-04: an assessment with fewer than half of its applicable scenarios counted is refused before any reservation or AI call', async () => {
+  const rec = { ...FX.kestrel.f.record, actions: FX.kestrel.f.record.actions.slice(0, 120) };
+  const staged = buildStagedReportInput(replay(rec));
+  const base = orderFor('kestrel', 'essential');
+  const order = { ...base, binding: { ...base.binding, inputDigest: canonicalDigest(staged), logDigest: staged.lineage.logDigest, actionCount: 120 } };
+  const r = await run({ name: 'kestrel', product: 'essential', order, replayWith: async () => replay(rec) });
+  const failure = String(r.db.S.runs.filter((x) => x.status === 'failed').at(-1)?.failure ?? '');
+  return [r.error?.reason === 'generation_coverage_insufficient' && r.error?.status === 409 && r.w.calls.length === 0 && r.db.S.calls.length === 0 && r.db.S.uploads === 0 && /coverage_insufficient/.test(failure),
+    `${r.error?.reason} (${r.error?.status}); reserved ${r.db.S.calls.length}; AI calls ${r.w.calls.length}`];
 });
 
 await closePublicationBrowser();

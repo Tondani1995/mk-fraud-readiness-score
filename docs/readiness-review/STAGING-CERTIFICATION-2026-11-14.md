@@ -387,3 +387,29 @@ Older unscored Fact Packs keep their earlier wording unchanged.
 - A locally rendered Kestrel Essential PDF (15 pages, contents verified) shows the panel and the conclusion page as intended.
 
 **Not done.** The four hosted test reports were produced before this change and say "no score". A scored hosted report needs a generation run, which needs a campaign budget. The Snapshot still issues no score; DR-02 concerns reports.
+
+### 11.10 DR-04 implemented: at least half covered before sale and release (14 November 2026)
+
+Implemented on the review branch only. Local evidence; no AI call, deployment or database change.
+
+**The rule.** A report can be sold and released only when at least half of the applicable scenarios are counted in the score, meaning every core answer is known. It uses the same base as the score (`reportCoverage`, minimum 0.5; exactly half meets it). Kestrel meets it at 57 of 69 (83%), Marula at 90 of 90.
+
+**Where it is enforced.**
+- **Sale.** The order bridge (`commercial-bridge.ts`) checks coverage after the interview has ended and before anything is bound. When the rule is not met, it refuses with `coverage_insufficient` (409). The order panel on the Snapshot shows the customer this message: "A paid report needs complete answers for at least half of the fraud scenarios that apply. N of M have them now. Answer the outstanding questions, then request the report again."
+- **Release.** Generation refuses before any reservation or AI call (`coverage_insufficient`, 409, with "do not retry" guidance for the operator). A report that cannot be generated cannot be released, and answers are fixed once an order is bound. This also holds back any order bound before the rule existed.
+- **Disclosure.** Outstanding answers are disclosed in the report (the conclusion's outstanding sentence and the outstanding-information reconciliation) and are kept out of the score.
+- **Audit.** The audit package records the coverage.
+
+**Tests.**
+- Coverage: 5 of 5 (`coverage-tests.mjs`). These cover:
+  - both organisations meeting the rule;
+  - the boundary at exactly half;
+  - the bridge on shortened replays of the real Kestrel answer log: 22% and 37% refused, 58% and the full session accepted;
+  - the customer message and the operator guidance.
+- Fulfilment GF-28: a 37%-covered session is refused with nothing reserved, no AI call and nothing stored.
+- Unchanged: fulfilment 28 of 28, score 12 of 12, writer contract 7 of 7, resume 8 of 8, staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8, reconciliation 10 of 10, and excellence 88 of 92. TypeScript is clean.
+
+**Not done.**
+- The Snapshot does not state the requirement before the customer opens the order form; they see it only if they are refused.
+- The hosted failure-path suite (`b5-failure-path-tests.mjs`) was not run, because it needs a deployment.
+- The earlier candidate sufficiency rules (0.2) remain reported, not enforced; DR-04 supersedes them as the enforced rule.

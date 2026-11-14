@@ -1,0 +1,32 @@
+[
+  {
+    "id": "CV-01",
+    "ok": true,
+    "name": "Both test organisations meet the rule: Kestrel 57 of 69 (83%), Marula 90 of 90",
+    "detail": "Kestrel 0.8261, Marula 1"
+  },
+  {
+    "id": "CV-02",
+    "ok": true,
+    "name": "\"At least half\": exactly half meets the rule, just under does not; nothing applicable or no score does not",
+    "detail": "boundary holds"
+  },
+  {
+    "id": "CV-03",
+    "ok": true,
+    "name": "The order bridge refuses shortened Kestrel sessions below half (22%, 37%) and accepts 58% and the full session",
+    "detail": "80 actions 22% coverage_insufficient; 120 actions 37% coverage_insufficient; 160 actions 58% accepted; 321 actions 83% accepted"
+  },
+  {
+    "id": "CV-04",
+    "ok": true,
+    "name": "The customer message states the rule and the current count, and tells them what to do",
+    "detail": "A paid report needs complete answers for at least half of the fraud scenarios that apply. 25 of 68 have them now. Answer the outstanding questions, then request the report again."
+  },
+  {
+    "id": "CV-05",
+    "ok": true,
+    "name": "The operator guidance says the report cannot be produced or released, that no AI call was made, and not to retry",
+    "detail": "Fewer than half of the fraud scenarios that apply have every core answer known, so this report cannot be produced or released (DR-04). No AI call was made. Do not retry until the organisation has answered more."
+  }
+]

@@ -4,6 +4,8 @@ import { sessionForCommercialBinding } from './service';
 import { requireRevisedCommercial } from './commercial-environment';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
+import { buildRevisedReport } from '@/lib/reports/revised/evidence-model';
+import { revisedScore, reportCoverage, coverageShortfallMessage } from '@/lib/reports/revised/score';
 import { FRAUD_READINESS_TERMS_VERSION, PRIVACY_NOTICE_VERSION as FRAUD_READINESS_PRIVACY_NOTICE_VERSION } from '@/lib/legal/fraud-readiness-terms';
 
 /**
@@ -33,7 +35,7 @@ export type BindingResult = {
 };
 
 export class BindingRefused extends Error {
-  readonly code: 'invalid_request' | 'interview_not_complete' | 'not_staged' | 'answers_changed' | 'disabled';
+  readonly code: 'invalid_request' | 'interview_not_complete' | 'not_staged' | 'answers_changed' | 'disabled' | 'coverage_insufficient';
   readonly status: number;
   constructor(code: BindingRefused['code'], message: string, status = 409) {
     super(message);
@@ -41,6 +43,12 @@ export class BindingRefused extends Error {
     this.code = code;
     this.status = status;
   }
+}
+
+/** The DR-04 coverage check on a staged assessment, as a refusal (or null when it is met). */
+export function coverageRefusal(input: ReturnType<typeof buildStagedReportInput>): BindingRefused | null {
+  const coverage = reportCoverage(revisedScore(buildRevisedReport(input)));
+  return coverage.meets ? null : new BindingRefused('coverage_insufficient', coverageShortfallMessage(coverage));
 }
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
@@ -75,6 +83,10 @@ export async function bindSessionForPaidReport(token: string, request: BindingRe
   if (interview?.settled !== true) {
     throw new BindingRefused('interview_not_complete', 'Finish the assessment interview before requesting a paid report.');
   }
+  // DR-04: a report is sold only when at least half of the scenarios that apply have every core answer known, the same
+  // base as the score. Checked before anything is bound, so an assessment that falls short is never ordered.
+  const refusal = coverageRefusal(input);
+  if (refusal) throw refusal;
   const inputDigest = canonicalDigest(input);
   const logDigest = input.lineage.logDigest;
   const outstanding = Number(input.assessmentStatus.outstanding?.total ?? 0);

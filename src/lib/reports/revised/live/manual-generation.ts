@@ -241,11 +241,11 @@ const REASON: Record<RevisedGenerationError['code'], string> = {
   manuscript_rejected: 'generation_failed', render_failed: 'pdf_render_failed', publication_held: 'pdf_publication_held', call_ceiling_reached: 'generation_call_ceiling_reached',
   campaign_budget_missing: 'generation_budget_missing', campaign_budget_exhausted: 'generation_budget_exhausted', cost_not_bounded: 'generation_cost_not_bounded',
   accounting_unavailable: 'generation_accounting_unavailable', history_unavailable: 'generation_history_unavailable', audit_unavailable: 'generation_audit_unavailable',
-  score_not_computable: 'generation_score_not_computable'
+  score_not_computable: 'generation_score_not_computable', coverage_insufficient: 'generation_coverage_insufficient'
 };
 const STATUS: Record<RevisedGenerationError['code'], number> = {
   answers_changed_since_binding: 409, provider_failed: 502, provider_timeout: 504, time_budget_exhausted: 503, manuscript_rejected: 502, render_failed: 502, publication_held: 502,
-  call_ceiling_reached: 409, campaign_budget_missing: 409, campaign_budget_exhausted: 409, cost_not_bounded: 409, accounting_unavailable: 503, history_unavailable: 503, audit_unavailable: 503, score_not_computable: 409
+  call_ceiling_reached: 409, campaign_budget_missing: 409, campaign_budget_exhausted: 409, cost_not_bounded: 409, accounting_unavailable: 503, history_unavailable: 503, audit_unavailable: 503, score_not_computable: 409, coverage_insufficient: 409
 };
 
 /**

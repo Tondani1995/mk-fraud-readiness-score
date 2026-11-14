@@ -6,7 +6,7 @@ import { RESTRICTED_TEST_REPORT_LABEL } from '@/lib/readiness-review/commercial-
 import { NARRATIVE_FALLBACK_MODELS, PRIMARY_NARRATIVE_MODEL } from '@/lib/reports/ai-model-policy';
 import { buildRevisedReport, REVISED_REPORT_MODEL_VERSION } from '../evidence-model';
 import { positionStatements } from '../position';
-import { revisedScore, scoredPosition, REVISED_SCORE_VERSION } from '../score';
+import { revisedScore, scoredPosition, reportCoverage, REVISED_SCORE_VERSION } from '../score';
 import { buildRevisedFactPack, REVISED_FACT_PACK_VERSION, type RevisedFactPack } from '../manuscript/fact-pack';
 import { buildRevisedStoryPlan, REVISED_STORY_PLAN_VERSION, type RevisedStoryPlan } from '../manuscript/story-plan';
 import { renderWriterBrief } from '../manuscript/writer-brief';
@@ -63,7 +63,8 @@ export const REVISED_OPERATOR_GUIDANCE: Record<RevisedGenerationError['code'], s
   accounting_unavailable: 'The AI call ledger could not be reached, so no AI call was made. Retry when the review store is available.',
   history_unavailable: 'The generation history could not be read, so no AI call was made. Retry when the review store is available.',
   audit_unavailable: 'The audit package could not be stored, so no report was composed or finalised. Retry when the review store is available; the calls already made are counted.',
-  score_not_computable: 'No fraud scenario that applies has every core answer known, so no score can be stated and no report was produced. No AI call was made. The assessment needs more answers.'
+  score_not_computable: 'No fraud scenario that applies has every core answer known, so no score can be stated and no report was produced. No AI call was made. The assessment needs more answers.',
+  coverage_insufficient: 'Fewer than half of the fraud scenarios that apply have every core answer known, so this report cannot be produced or released (DR-04). No AI call was made. Do not retry until the organisation has answered more.'
 };
 
 export const WRITER_SYSTEM = [
@@ -224,7 +225,7 @@ export function factPackContentDigest(fp: RevisedFactPack): string {
 export class RevisedGenerationError extends Error {
   readonly code: 'answers_changed_since_binding' | 'provider_failed' | 'provider_timeout' | 'time_budget_exhausted' | 'manuscript_rejected' | 'render_failed'
     | 'publication_held' | 'call_ceiling_reached' | 'campaign_budget_missing' | 'campaign_budget_exhausted' | 'cost_not_bounded' | 'accounting_unavailable'
-    | 'history_unavailable' | 'audit_unavailable' | 'score_not_computable';
+    | 'history_unavailable' | 'audit_unavailable' | 'score_not_computable' | 'coverage_insufficient';
   readonly diagnostics: Record<string, unknown>;
   constructor(code: RevisedGenerationError['code'], message: string, diagnostics: Record<string, unknown> = {}) {
     super(message);
@@ -347,6 +348,10 @@ export async function produceRevisedArtefacts(input: {
   // state, so the report is refused here, before any AI call.
   const score = revisedScore(report);
   if (!score) throw new RevisedGenerationError('score_not_computable', REVISED_OPERATOR_GUIDANCE.score_not_computable, { stage: 'score', calls: 0 });
+  // DR-04: at least half of the scenarios that apply must be counted before a report is produced or released. This also
+  // holds back orders bound before the rule existed.
+  const coverage = reportCoverage(score);
+  if (!coverage.meets) throw new RevisedGenerationError('coverage_insufficient', REVISED_OPERATOR_GUIDANCE.coverage_insufficient, { stage: 'coverage', calls: 0, counted: coverage.counted, applicable: coverage.applicable, share: coverage.share });
   const position = scoredPosition(positionStatements(report, { score: null }), score);
   const product = order.product;
   const factPack = buildRevisedFactPack({
@@ -506,6 +511,7 @@ export async function produceRevisedArtefacts(input: {
     workbookSha256: workbook?.sha256 ?? null,
     validation: { pass: validation.pass, words: validation.stats?.words ?? null, warnings: validation.issues.filter((i) => !i.blocking).map((i) => i.code) },
     lengthGate: { mode: gate, shortfall: acceptance.shortfall, releaseBlocker: acceptance.shortfall ? `Manuscript of ${acceptance.shortfall.words} words is below the ${acceptance.shortfall.minimum}-word minimum; not releasable to a customer.` : null },
+    coverage: { minimum: 0.5, counted: coverage.counted, applicable: coverage.applicable, share: coverage.share },
     scoring: { method: REVISED_SCORE_VERSION, percent: score.percent, exact: score.exact, applicable: score.applicable, counted: score.counted, notCounted: score.notCounted, credit: score.credit, byKind: score.byKind },
     restricted: RESTRICTED_TEST_REPORT_LABEL,
     ai

@@ -105,3 +105,24 @@ export function scoredPosition<T extends { key: string; label: string; value: st
     return p;
   });
 }
+
+/**
+ * Coverage for sale and release (owner decision DR-04, 14 November 2026): a report can be sold and released with
+ * answers outstanding only when at least half of the assessment is covered, measured on the same base as the score:
+ * the applicable scenarios counted (every core answer known) out of the scenarios that apply.
+ */
+export const REPORT_COVERAGE_MINIMUM = 0.5;
+export type ReportCoverage = { counted: number; applicable: number; share: number; meets: boolean };
+export function reportCoverage(s: RevisedScore | null, applicableWhenUnscored = 0): ReportCoverage {
+  const counted = s?.counted ?? 0;
+  const applicable = s?.applicable ?? applicableWhenUnscored;
+  const share = applicable > 0 ? counted / applicable : 0;
+  return { counted, applicable, share: Number(share.toFixed(4)), meets: applicable > 0 && share >= REPORT_COVERAGE_MINIMUM };
+}
+
+/** The customer-facing reason a paid report cannot yet be requested. */
+export function coverageShortfallMessage(c: ReportCoverage): string {
+  return c.counted === 0
+    ? 'A paid report needs complete answers for at least half of the fraud scenarios that apply, and none has complete answers yet. Answer the outstanding questions, then request the report again.'
+    : `A paid report needs complete answers for at least half of the fraud scenarios that apply. ${c.counted} of ${c.applicable} have them now. Answer the outstanding questions, then request the report again.`;
+}

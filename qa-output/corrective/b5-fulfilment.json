@@ -160,5 +160,11 @@
     "ok": true,
     "name": "A composed manuscript is superseded by the report it became: a later retry writes afresh instead of composing it again",
     "detail": "retry composed with 0 calls; next writer"
+  },
+  {
+    "id": "GF-28",
+    "ok": true,
+    "name": "DR-04: an assessment with fewer than half of its applicable scenarios counted is refused before any reservation or AI call",
+    "detail": "generation_coverage_insufficient (409); reserved 0; AI calls 0"
   }
 ]
