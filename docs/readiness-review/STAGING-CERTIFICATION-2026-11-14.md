@@ -277,3 +277,16 @@ The observation in 11.5 is fixed. Local evidence only; nothing was spent and no 
 The retry paths that should resume still do (GF-10, GF-11, GF-12, GF-22). Staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8 and reconciliation 10 of 10 all pass, and TypeScript is clean.
 
 **Cost consequence.** A new version always costs at least one writer call (about US$0.02 actual, US$0.11 reserved), and usually a repair as well, since no first draft has yet passed on its own. Before this fix, a new version on Kestrel Comprehensive or Marula Essential would have cost one repair.
+
+### 11.7 Fix: the "Deterministic report generation started" note is removed (owner request, 14 November 2026; DR-12)
+
+The note was written by the shared database function `start_manual_report_generation` (migration 0023), so it appeared for every manual attempt, including AI-written revised reports.
+
+**Change.** New migration `20261114170000_neutral_generation_started_note.sql` redefines the function with the note "Report generation started." That is true for every generation path. The function differs from 0023 by that one line. The `generation_started` event type is kept, because monitoring and the order timeline use it. The metadata, security definer, search path and grants (service role only) are unchanged. Events already recorded are history and are not rewritten. The comment in `manual-generation.ts` and DR-12 in the decision register are updated.
+
+**Applied to the isolated test database `zuqegvsfhzgcydyivnqv` only.** It is verified there:
+- The function no longer contains "Deterministic".
+- Grants are still `postgres` and `service_role` only.
+- A check inside a transaction that was then rolled back queued a temporary attempt on a test order and started it. The function recorded exactly one `generation_started` event reading "Report generation started.", and nothing persisted afterwards.
+
+Production keeps the old note until this migration is released with the candidate, which needs separate approval.

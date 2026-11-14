@@ -207,9 +207,8 @@ export async function generateRevisedManualReport(input: {
     await recordOperatorEvent(db, order, 'revised_audit_link_pending', `Report ${completed.report.report_reference} is committed and its audit package is stored, but the link between them could not be recorded. It is linked automatically on the next generation request for this order, or by running the audit reconciliation; no AI call is needed.`, { attemptId: input.attemptId, reportId: completed.report.id, error: error instanceof Error ? error.message.slice(0, 200) : 'unknown', restrictedTest: true });
   }
 
-  // The shared start function records "Deterministic report generation started" for every manual attempt. For a revised
-  // report that is wrong: it is AI-written. An accurate operator event is added beside it (the shared function is left
-  // unchanged; correcting its note is a migration on the production path, decision register DR-12).
+  // The shared start function records a neutral "Report generation started" (DR-12, migration 20261114170000). This
+  // event says how the revised report was actually written: which models, how many AI calls, and any resumed work.
   await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order),
     { generationMode: 'ai', calls: artefacts.ai.calls, callIds: artefacts.ai.callIds, writerModel: artefacts.ai.models.writer, repairModel: artefacts.ai.repairUsed ? artefacts.ai.models.repair : null, finalModel: artefacts.ai.model, repairUsed: artefacts.ai.repairUsed, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: true });
 
