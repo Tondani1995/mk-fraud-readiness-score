@@ -240,3 +240,15 @@ The difference is visible and matches the entitlements. Whether it justifies the
 ### 11.4 What this round does not change
 
 Production and paying-customer release remain unapproved. The owner decisions in section 8 are still open, as are person-bound sign-in (DR-08), background fulfilment (DR-14), the production console containment, and the human verification items. Nothing was merged, deployed to production, emailed or delivered, and no real payment was made. Evidence: `outputs/staging-certification-2026-11-14/hosted/round-2-b5-live-3/`.
+
+### 11.5 Campaign closed on the Preview (14 November 2026, after round 2)
+
+The owner deleted the branch Preview variable `MK_REVISED_CALL_CAMPAIGN`. Empty commit `0211c5b6` redeployed the branch: Preview `dpl_F1kQSup35cadnXmVbWStynfCor1U`, READY, serving the branch alias.
+
+**Fail-closed check, with no cost.** One operator regenerate was sent for Marula Essential (`MKORD-2026-19433AAB`). It would have resumed from a stored draft, so it would have attempted exactly one repair call. The request was refused in 12 seconds with HTTP 409 and `generation_budget_missing`: "No approved test campaign budget is in force, so no AI call can be made."
+
+The ledger records no call for that attempt, and no call at all after the check began. It still holds 9 calls in total, and `b5-live-3` is still at 4 calls and US$0.459. No report was created. The order received only the requested, started and failed events.
+
+The share link used for the check was revoked (verified: it now redirects to sign-in), and the local copy was deleted. The 2 calls and US$1.04 left in `b5-live-3` can no longer be reached from the Preview unless a campaign variable is set again and the branch is redeployed.
+
+**Observation for the owner (not changed).** A stored draft remains a resume point after a later attempt has repaired it successfully. As a result, an operator "regenerate" on Kestrel Comprehensive or Marula Essential would repair the 14 November round 1 draft again rather than ask the writer for a fresh one. That is harmless while the inputs are identical, but it is worth a decision before a customer release.
