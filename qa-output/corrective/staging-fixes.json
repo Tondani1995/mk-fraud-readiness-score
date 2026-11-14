@@ -1,0 +1,38 @@
+[
+  {
+    "id": "SF-01",
+    "ok": true,
+    "name": "Kestrel position panel carries the shared account, including the 4 scenarios whose applicability is outstanding",
+    "detail": "Of the 69 fraud scenarios that apply, the organisation's answers report every core control in place for 2, a core control as a gap in 55 and core answers still outstanding in 12. Whether 4 further scenarios apply depends on answers that are outstanding; they are not counted as applying, and nothing is concluded about their contr"
+  },
+  {
+    "id": "SF-02",
+    "ok": true,
+    "name": "Marula position panel carries the qualified account: 4 questioned, 86 with no conflict under the reviewed rules, which does not establish operation",
+    "detail": "Of the 90 fraud scenarios that apply, the organisation's answers report every core control in place for 90 (for 4 of these the answers raise a question or cannot both be right; for the other 86 the an"
+  },
+  {
+    "id": "SF-03",
+    "ok": true,
+    "name": "An executive section without the account slot is blocked (ACCOUNT-MISSING at its first paragraph); with it, the manuscript passes",
+    "detail": "with slot: pass true; without: ACCOUNT-MISSING at line 16 (The number that applies here is [[N-APPLY]]. New b…)"
+  },
+  {
+    "id": "SF-04",
+    "ok": true,
+    "name": "The line repair can fix it: rewriting the flagged paragraph to include the slot makes the manuscript pass",
+    "detail": "no blocking issues"
+  },
+  {
+    "id": "SF-05",
+    "ok": true,
+    "name": "Older Fact Packs without the account (12 November prototypes) are unaffected: no ACCOUNT-MISSING, panel keeps its earlier sentence",
+    "detail": "validator pass true"
+  },
+  {
+    "id": "SF-06",
+    "ok": true,
+    "name": "The operator event names the writer and the repair model separately, and says when no AI call was made",
+    "detail": "Revised report (restricted test) written by openai/gpt-5-mini and repaired by openai/gpt-5.6-terra (2 AI calls); validated against the repor"
+  }
+]

@@ -140,3 +140,31 @@ My HTTP client's timeout error printed the Preview access cookie into the sessio
 
 - The US$ figure is an estimated reservation, not a guaranteed billing ceiling (here it over-reserved about 6.5 times; prompt-cache writes are priced at the input rate).
 - The request deadline is not uniform: provider calls, layout pass starts and storage start are bounded. Start-up, upload, verification and finalisation rely on the platform limit and reconciliation.
+
+## 10. Fixes made after certification (14 November 2026), and the proposed second campaign
+
+Owner approved the fixes on 14 November. Local evidence only; nothing was spent and no report was regenerated.
+
+| Defect | Fix | Evidence (local, exact bound fixtures) |
+|---|---|---|
+| 1. Position panel not on the shared account | `compose.ts` uses the position statement's text, which is the shared scenario account, whenever the Fact Pack carries it; older Fact Packs keep the earlier sentence. Composer 0.3 | SF-01: the Kestrel panel shows all 69 + 4 categories, including "Whether 4 further scenarios apply depends on answers that are outstanding". SF-02: the Marula panel carries "which does not establish that the controls operate". SF-05: 12 November prototypes unaffected |
+| 2. Executive opening paraphrased the account | New blocking validator rule `ACCOUNT-MISSING`: the executive section must contain `[[T-SCENARIO-ACCOUNT]]`, reported against its first paragraph so the existing line repair can fix it. The writer contract (rule 12) and the writer brief say so. Validator 0.3, pipeline 0.3 | SF-03: blocked without the slot, passes with it. SF-04: the line repair fixes it. Fulfilment 22 of 22 unchanged |
+| 5. Operator event named the wrong model | `revisedGenerationNote` names the writer and, separately, the repair model; says when no AI call was made (resumed from a stored manuscript) or when a stored draft was repaired; records both model ids and the ledger call ids | SF-06 |
+
+Not changed (outside these fixes): writer reliability and manuscript length (defects 3 and 4). The new rule adds one more way a first draft can fail, but it is line-repairable within the existing single repair.
+
+**Proposed second campaign (for owner approval; nothing created).** `b5-live-2` stays closed at 5 calls and US$0.27; it is not reset.
+
+The cases still open each resume from a stored checkpoint where one exists:
+
+| Case | What it needs | Worst-case reservation |
+|---|---|---|
+| Kestrel Comprehensive | Its full repair only (draft stored) | about US$0.78 |
+| Marula Comprehensive | Writer, plus a repair if needed | US$0.11 + up to US$0.79 |
+| Marula Essential | Its repair only (draft stored) | up to US$0.76 |
+
+A US$1.00 budget cannot hold the two Comprehensives in sequence (about US$1.02 at the second repair, even after the first settles).
+
+**Proposal:** a new campaign `b5-live-3` with **6 calls and US$1.50**, run one case at a time in the order Kestrel Comprehensive, Marula Comprehensive, Marula Essential. That leaves room for one bounded retry. Expected actual spend is about US$0.40 to US$0.50 at the 14 November rates.
+
+The same stop rules apply, and the same accepted limitation: the dollar figure is an estimated reservation, not a guaranteed billing ceiling.

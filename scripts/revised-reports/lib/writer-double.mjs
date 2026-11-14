@@ -56,7 +56,8 @@ export function deterministicManuscript(fp, plan, opts = {}) {
     const req = s.requiredFacts.filter((r) => fp.facts[r]);
     L.push(`<!-- section: ${s.id} -->`, `# ${clean(s.title).replace(/[.?]$/, '')} sets out where the organisation stands and what follows`, '');
     const nPara = /EXEC$/.test(s.id) ? 4 : /CONCLUSION$/.test(s.id) ? 2 : s.units?.length ? 1 : 2;
-    if (/EXEC$/.test(s.id) && texts.length) L.push(`[[${texts[0]}]]`, `<!-- refs: ${texts[0]} -->`, '');
+    const account = texts.includes('T-SCENARIO-ACCOUNT') ? 'T-SCENARIO-ACCOUNT' : texts[0];
+    if (/EXEC$/.test(s.id) && account) L.push(`[[${account}]]`, `<!-- refs: ${account} -->`, '');
     for (let i = 0; i < nPara; i++) L.push(...para(req));
     for (const e of s.exhibits) L.push(`[[exhibit:${e}]]`, '');
     for (const u of s.units ?? []) {

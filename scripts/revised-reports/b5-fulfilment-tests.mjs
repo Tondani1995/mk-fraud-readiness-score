@@ -149,7 +149,7 @@ await T('GF-01', 'Operator generation succeeds with one call reserved before dis
   const keys = ['manuscript', 'factPack', 'storyPlan', 'writerBrief', 'validation', 'ai', 'versions', 'boundInput', 'resumeMeta'];
   const ok = r.out?.auditStatus === 'linked' && r.w.calls.length === 1 && ledger(r.db) === 'writer:succeeded' && keys.every((k) => pkg[k])
     && pkg.boundInput.inputDigest === FX.marula.f.inputDigest && r.db.S.checkpoints.some((c) => c.stage === 'linked' && c.attemptId === r.attemptId && c.reportId === r.out.reportId)
-    && r.db.S.finalised === 1 && /AI writer/.test(r.db.S.events.find((e) => e.event_type === 'revised_report_generated')?.note ?? '') && !/sk-[A-Za-z0-9]{10}|service_role|Bearer /.test(JSON.stringify(pkg));
+    && r.db.S.finalised === 1 && /written by openai\/gpt-5-mini \(1 AI call\)/.test(r.db.S.events.find((e) => e.event_type === 'revised_report_generated')?.note ?? '') && !/sk-[A-Za-z0-9]{10}|service_role|Bearer /.test(JSON.stringify(pkg));
   return [ok, r.error ? `${r.error.reason}: ${r.error.message}` : `ledger ${ledger(r.db)}; package ${Object.keys(pkg).length} keys; audit ${r.out.auditStatus}`];
 });
 await T('GF-02', 'Kestrel Comprehensive completes with its workbook and passes the publication gates', async () => {
