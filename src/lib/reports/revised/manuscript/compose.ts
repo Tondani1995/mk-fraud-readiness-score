@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.1';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.2';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -26,7 +26,14 @@ export type ComposeInput = { md: string; fp: RevisedFactPack; plan: RevisedStory
   /** B5 restricted test: replaces the prototype notice on the cover, footer and back cover. Implies `prototype`. */
   restrictedNotice?: string;
   /** Sections that follow on from the previous page instead of starting a new one, because the previous section would otherwise end on a near-empty page. */
-  flowSections?: string[] };
+  flowSections?: string[];
+  /** Headings that start a new page because the layout pass found them stranded at the foot of one: a section id, or `${sectionId}::${normalised unit heading}`. */
+  breakBefore?: string[];
+  /** Units that would start a new page by design (control blueprints) but follow on, because the previous page would otherwise be near empty. */
+  flowUnits?: string[];
+  /** Tighter contents rows, when the contents would otherwise run a few rows onto a near-empty page. */
+  compactContents?: boolean };
+export const layoutKey = (sectionId: string, unitHeading: string) => `${sectionId}::${unitHeading.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim().toLowerCase()}`;
 
 export function composeRevisedReportHtml(input: ComposeInput): { html: string; sections: { id: string; heading: string; units: string[] }[] } {
   const { fp, plan } = input;
@@ -42,7 +49,7 @@ export function composeRevisedReportHtml(input: ComposeInput): { html: string; s
   for (const s of parsed.sections) {
     const ps = plan.sections.find((x) => x.id === s.id);
     outline.push({ id: s.id, heading: fillSlots(s.heading, fp).text, units: s.blocks.filter((b) => b.type === 'h2').map((b) => fillSlots(b.text, fp).text) });
-    body.push(sectionHtml(s, ps?.units ?? [], input, ps?.newPage !== false && !(input.flowSections ?? []).includes(s.id), parsed.sections, outline));
+    body.push(sectionHtml(s, ps?.units ?? [], input, (ps?.newPage !== false && !(input.flowSections ?? []).includes(s.id)) || (input.breakBefore ?? []).includes(s.id), parsed.sections, outline));
   }
   body.push(backCover(input));
   const html = `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>${esc(product === 'essential' ? 'Fraud Readiness Report' : 'Fraud Readiness Strategy and Control Blueprint')}: ${esc(fp.organisation.name)}</title>
@@ -90,7 +97,8 @@ function sectionHtml(s: ParsedSection, units: { id: string; ref: string; exhibit
       const label = u ? unitLabel(u.ref, fp) : '';
       const next = s.blocks[i + 1];
       const lead = next && next.type === 'p' ? `<p>${prose(next.text, fp)}</p>` : '';
-      const pageStart = /TARGET$/.test(s.id) && unitIndex > 0;
+      const key = layoutKey(s.id, fillSlots(b.text, fp).text);
+      const pageStart = (/TARGET$/.test(s.id) && unitIndex > 0 && !(input.flowUnits ?? []).includes(key)) || (input.breakBefore ?? []).includes(key);
       out.push(`<div class="keep${pageStart ? ' page-start' : ''}">${label ? `<div class="unit-label">${esc(label)}</div>` : ''}<h2>${prose(b.text, fp)}</h2>${lead}</div>`);
       if (lead) i++;
       continue;
@@ -154,7 +162,7 @@ function contents(input: ComposeInput, all: ParsedSection[]): string {
       for (const h of s.blocks.filter((b) => b.type === 'h2')) rows.push(`<div class="sub"><span class="t">${prose(h.text, fp)}</span><span class="n">${pageMap?.[`${s.id}::${fillSlots(h.text, fp).text}`] ?? ''}</span></div>`);
     }
   }
-  return `<div class="contents">${rows.join('')}</div>`;
+  return `<div class="contents${input.compactContents ? ' compact' : ''}">${rows.join('')}</div>`;
 }
 
 function position(fp: RevisedFactPack): string {
@@ -200,25 +208,26 @@ function methodStatus(input: ComposeInput): string {
 }
 
 function profile(fp: RevisedFactPack): string {
-  const max = Math.max(...fp.areas.map((a) => a.apply + a.notExpected), 1);
+  const max = Math.max(...fp.areas.map((a) => a.apply + a.notExpected + (a.pending ?? 0)), 1);
   // No area figure exists when no score is issued: the column and its caption sentence are then left out entirely.
   const figures = fp.areas.some((a) => a.figure !== null);
   const rows = fp.areas.map((a) => {
     const w = (n: number) => `${((n / max) * 100).toFixed(2)}%`;
     const seg = (cls: string, n: number) => (n > 0 ? `<span class="${cls}" style="width:${w(n)}"></span>` : '');
     const held = a.confirmed + a.qualified;
-    return `<tr><td class="strong" style="width:52mm">${esc(a.name)}</td><td style="width:70mm"><div class="bar">${seg('seg-held', a.confirmed)}${seg('seg-qual', a.qualified)}${seg('seg-open', a.unresolved)}${seg('seg-gap', a.gap)}${seg('seg-out', a.outstanding)}</div></td><td class="num" style="width:24mm">${held} of ${a.apply}</td>${figures ? `<td class="num muted" style="width:18mm">${a.figure === null ? '' : a.figure.toFixed(1)}</td>` : ''}</tr>`;
+    return `<tr><td class="strong" style="width:52mm">${esc(a.name)}</td><td style="width:70mm"><div class="bar">${seg('seg-held', a.confirmed)}${seg('seg-qual', a.qualified)}${seg('seg-open', a.unresolved)}${seg('seg-gap', a.gap)}${seg('seg-out', a.outstanding)}${seg('seg-pend', a.pending ?? 0)}</div></td><td class="num" style="width:24mm">${held} of ${a.apply}</td>${figures ? `<td class="num muted" style="width:18mm">${a.figure === null ? '' : a.figure.toFixed(1)}</td>` : ''}</tr>`;
   }).join('');
   return `<div class="exhibit"><div class="exhibit-title">Readiness profile: fraud scenarios by area</div>
 <table class="profile"><thead><tr><th>Area</th><th>Scenarios that apply</th><th class="num">Core controls in place</th>${figures ? '<th class="num">Test figure</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
-<div class="legend"><span><i class="seg-held"></i>Core controls reported in place</span><span><i class="seg-qual"></i>In place, related practice weaker</span><span><i class="seg-open"></i>Answers to settle or clarify</span><span><i class="seg-gap"></i>Core control reported as a gap</span>${fp.areas.some((a) => a.outstanding) ? '<span><i class="seg-out"></i>Answers outstanding</span>' : ''}</div>
-<div class="caption">Each bar shows the fraud scenarios in the method that apply to the organisation in that area, by what its answers report about the controls that stop them. Areas appear in the method's order.${figures ? ' Test figures are the calculated result for each area, shown for traceability; they are not scores and carry no band.' : ''}</div></div>`;
+<div class="legend"><span><i class="seg-held"></i>Core controls reported in place</span><span><i class="seg-qual"></i>In place, related practice weaker</span><span><i class="seg-open"></i>Answers to settle or clarify</span><span><i class="seg-gap"></i>Core control reported as a gap</span>${fp.areas.some((a) => a.outstanding) ? '<span><i class="seg-out"></i>Answers outstanding</span>' : ''}${fp.areas.some((a) => a.pending) ? '<span><i class="seg-pend"></i>Not yet established (outside the count)</span>' : ''}</div>
+<div class="caption">Each bar shows the fraud scenarios in the method that apply to the organisation in that area, by what its answers report about the controls that stop them. Areas appear in the method's order.${fp.areas.some((a) => a.pending) ? ' A scenario whose applicability depends on an outstanding answer, or that was not reached, is shown outside the count: it is not treated as applying, in place or missing.' : ''}${figures ? ' Test figures are the calculated result for each area, shown for traceability; they are not scores and carry no band.' : ''}</div></div>`;
 }
 
 function stageFor(fp: RevisedFactPack, f: FindingFact): string {
   const p = fp.priorities.find((x) => x.findingRefs.includes(f.ref));
   if (p) return p.stage.replace(/, proposed$/, '') + ' (proposed)';
-  return fp.product === 'essential' ? 'In the workbook action register' : 'In the twelve-month programme';
+  // Essential is PDF-only (product contract): nothing points at a workbook the customer does not receive.
+  return fp.product === 'essential' ? 'After the first responses' : 'In the twelve-month programme';
 }
 
 function findingStrip(fp: RevisedFactPack, ref: string): string {
@@ -237,7 +246,7 @@ function pathwayPanel(fp: RevisedFactPack, ref: string): string {
 
 function priorities(fp: RevisedFactPack): string {
   const rows = fp.priorities.map((p) => `<tr><td class="strong" style="width:40mm">${esc(p.title)}</td><td style="width:27mm">${esc(p.accountable)}</td><td style="width:27mm">${esc(p.practicalOwner)}</td><td style="width:20mm">${esc(p.stage.replace(/, proposed$/, ''))}</td><td>${esc(typeset(p.measure))}</td></tr>`).join('');
-  return `<div class="exhibit flowing"><div class="exhibit-title">First responses</div><table><thead><tr><th>Response</th><th>Accountable executive</th><th>Practical owner</th><th>Proposed stage</th><th>Success measure</th></tr></thead><tbody>${rows}</tbody></table><div class="caption">Responses are listed in the order the work should start, which is not a ranking of fraud risk. Stages are proposals for management's own plan, not deadlines. Full specifications, records and failure responses are in the supporting workbook.</div></div>`;
+  return `<div class="exhibit flowing"><div class="exhibit-title">First responses</div><table><thead><tr><th>Response</th><th>Accountable executive</th><th>Practical owner</th><th>Proposed stage</th><th>Success measure</th></tr></thead><tbody>${rows}</tbody></table><div class="caption">Responses are listed in the order the work should start, which is not a ranking of fraud risk. Stages are proposals for management's own plan, not deadlines.${fp.product === 'essential' ? '' : ' Full specifications, records and failure responses are in the supporting workbook.'}</div></div>`;
 }
 
 function stages(fp: RevisedFactPack): string {
@@ -247,7 +256,7 @@ function stages(fp: RevisedFactPack): string {
     const w = fp.product === 'essential' ? 'Proposed stage' : s.window;
     return `<div class="stage"><div class="k">${esc(k)}</div><div class="w">${esc(w)}</div><div class="p">${esc(typeset(s.purpose))}</div><ul class="plain">${s.outcomes.slice(0, 6).map((o) => `<li>${esc(typeset(o))}</li>`).join('')}</ul><div class="o"><span class="label" style="display:block">Owners</span>${esc(s.owners.length > 5 ? 'Every area owner, coordinated by the fraud risk lead and reporting to the chief executive' : s.owners.join(', '))}</div></div>`;
   }).join('');
-  return `<div class="exhibit"><div class="exhibit-title">${fp.product === 'essential' ? 'The first ninety days, in proposed stages' : 'The twelve-month programme, in proposed stages'}</div><div class="stages n${n}">${cols}</div><div class="caption">Windows are proposals for management's own plan. They are not deadlines, contractual dates or estimates of how long any control takes to design, put in place or show to be working. Every action, with its deliverable and completion test, is in the supporting workbook.</div></div>`;
+  return `<div class="exhibit"><div class="exhibit-title">${fp.product === 'essential' ? 'The first ninety days, in proposed stages' : 'The twelve-month programme, in proposed stages'}</div><div class="stages n${n}">${cols}</div><div class="caption">Windows are proposals for management's own plan. They are not deadlines, contractual dates or estimates of how long any control takes to design, put in place or show to be working.${fp.product === 'essential' ? '' : ' Every action, with its deliverable and completion test, is in the supporting workbook.'}</div></div>`;
 }
 
 function themeMap(fp: RevisedFactPack): string {

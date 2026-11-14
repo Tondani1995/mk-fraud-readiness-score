@@ -30,13 +30,15 @@ async function browser() {
   return browserPromise;
 }
 
-export async function renderPublicationPdf(html: string): Promise<{ pdf: Buffer; sha256: string }> {
+/** `timeoutMs` bounds both loading and printing, so a render cannot outlast the caller's deadline. */
+export async function renderPublicationPdf(html: string, options: { timeoutMs?: number } = {}): Promise<{ pdf: Buffer; sha256: string }> {
+  const timeout = Math.max(1_000, Math.min(options.timeoutMs ?? 300_000, 300_000));
   const b = await browser();
   const page = await b.newPage();
   try {
-    await page.setContent(html, { waitUntil: 'load', timeout: 300_000 });
+    await page.setContent(html, { waitUntil: 'load', timeout });
     await page.evaluate(() => (document as any).fonts.ready);
-    const pdf = Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true, outline: true, tagged: true, timeout: 300_000 }));
+    const pdf = Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true, outline: true, tagged: true, timeout }));
     return { pdf, sha256: crypto.createHash('sha256').update(pdf).digest('hex') };
   } finally {
     await page.close();

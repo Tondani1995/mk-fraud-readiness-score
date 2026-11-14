@@ -15,7 +15,7 @@ import { MK_LOGO_PRIMARY_SVG, MK_LOGO_REVERSED_SVG, MK_LOGO_ASPECT_RATIO } from 
  * depends on whatever fonts the rendering machine happens to have. Earlier report renders fell back to Open Sans,
  * Arial, Inter or Liberation Sans for exactly that reason.
  */
-export const MK_PUBLICATION_VERSION = 'mk-publication-1.0';
+export const MK_PUBLICATION_VERSION = 'mk-publication-1.1';
 
 export const MK_PUB = {
   navy: '#001030', navy2: '#1D3658', blue: '#324A5F', ink: '#1E293B', text: '#334155', slate: '#475569', muted: '#7C8A9B', faint: '#94A3B8',
@@ -125,6 +125,7 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .contents .row .n{width:12mm;text-align:right;font-size:8.6pt;color:${P.navy2};font-weight:500}
 .contents .sub{display:flex;padding:.9mm 0 .9mm 46mm}
 .contents .sub .t{flex:1;font-size:7.6pt;line-height:1.45;color:${P.text}}
+.contents.compact .row{padding:1.1mm 0}.contents.compact .sub{padding:.3mm 0 .3mm 46mm}.contents.compact .row .t,.contents.compact .sub .t{line-height:1.3}
 .contents .sub .n{width:12mm;text-align:right;font-size:7.6pt;color:${P.muted}}
 /* Position panel */
 .position{display:grid;grid-template-columns:1fr 1fr;border-top:.9pt solid ${P.navy}}
@@ -138,7 +139,7 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .profile td{padding:1.55mm 2.4mm 1.55mm 0;font-size:7.9pt}
 .profile .bar{display:flex;height:3.6mm;background:transparent}
 .profile .bar span{display:block;height:100%}
-.seg-held{background:${P.navy}}.seg-qual{background:${P.tone}}.seg-open{background:${P.sageDeep}}.seg-gap{background:${P.absent}}.seg-out{background:${P.white};border:.5pt dashed ${P.slate}}
+.seg-held{background:${P.navy}}.seg-qual{background:${P.tone}}.seg-open{background:${P.sageDeep}}.seg-gap{background:${P.absent}}.seg-out{background:${P.white};border:.5pt dashed ${P.slate}}.seg-pend{background:${P.white};border:.5pt dotted ${P.slate}}
 .legend{display:flex;flex-wrap:wrap;gap:2mm 6mm;margin-top:3mm;font-size:7pt;color:${P.slate}}
 .legend i{display:inline-block;width:3mm;height:3mm;margin-right:1.6mm;vertical-align:-.4mm}
 /* Fact strip */
