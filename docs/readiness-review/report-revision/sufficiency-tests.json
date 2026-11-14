@@ -15,7 +15,7 @@
   "id": "SA-03",
   "ok": true,
   "name": "Declined function package: every confirmation answered but one function declining its whole package fails the Comprehensive (the defect MK reproduced); the Essential, which rests on confirmations, still meets and discloses it",
-  "detail": "confirmations answered 108 of 108; Procurement declined 11 of 11 (8 of them practices, listed as outstanding); Essential meets; Comprehensive fails CB-2,CP-1"
+  "detail": "confirmations answered 108 of 108; Procurement declined 11 of 11 (11 of them practices, listed as outstanding); Essential meets; Comprehensive fails CB-2,CP-1"
  },
  {
   "id": "SA-04",

@@ -1,0 +1,733 @@
+{
+  "generated": "2026-11-13",
+  "organisations": {
+    "kestrel": {
+      "controls": 56,
+      "complete": 25,
+      "pending": [
+        {
+          "id": "D1-B-07",
+          "key": "Route for allegations against senior people",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-B-01",
+          "key": "Board receives fraud reporting",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-G-03",
+          "key": "Local accountability kept",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-P-07",
+          "key": "Fraud response plan",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-L-01",
+          "key": "Section 34 reporting duty known",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-L-03",
+          "key": "Adequate procedures against bribery",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-A-07",
+          "key": "Approved delegation of authority",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-M-03",
+          "key": "Lessons applied",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-R-05",
+          "key": "Fidelity or crime insurance",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D1-I-04",
+          "key": "Confidential data kept out of public AI",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D2-K-01",
+          "key": "Risks mapped to controls",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D2-K-03",
+          "key": "Key controls tested",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D2-M-02",
+          "key": "Updated when the business changes",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-B-01",
+          "key": "Bribery prohibited",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-H-01",
+          "key": "Gifts rule with a limit",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-C-09",
+          "key": "No falsifying records for the organisation",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-T-02",
+          "key": "Leaders follow the same rules",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-C-04",
+          "key": "Code accessible to staff",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D3-P-01",
+          "key": "Pressure considered when setting targets",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-P-02",
+          "key": "Two authorisers for every payment",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-P-05",
+          "key": "New beneficiaries confirmed by call-back",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-R-02",
+          "key": "Reconciliations independent",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-A-03",
+          "key": "Mandates checked at the bank",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-F-01",
+          "key": "Manipulation risk considered",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D6-J-01",
+          "key": "Manual journals approved",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-P-01",
+          "key": "Identities kept confidential",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-P-02",
+          "key": "Retaliation prohibited and punished",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-E-01",
+          "key": "Evidence preserved first",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-A-01",
+          "key": "Looks for fraud proactively",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-P-04",
+          "key": "Disclosures acknowledged in time",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-O-01",
+          "key": "Decisions on set criteria",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        }
+      ]
+    },
+    "marula": {
+      "controls": 47,
+      "complete": 44,
+      "pending": [
+        {
+          "id": "D4-K-03",
+          "key": "Invoices checked against contract rates",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D7-K-03",
+          "key": "Claim evidence verified",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        },
+        {
+          "id": "D10-W-03",
+          "key": "Open to outsiders",
+          "missing": [
+            "activities",
+            "measure",
+            "onFailure"
+          ]
+        }
+      ]
+    }
+  },
+  "distinct": [
+    {
+      "id": "D1-A-07",
+      "key": "Approved delegation of authority",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-B-01",
+      "key": "Board receives fraud reporting",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-B-07",
+      "key": "Route for allegations against senior people",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-G-03",
+      "key": "Local accountability kept",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-I-04",
+      "key": "Confidential data kept out of public AI",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-L-01",
+      "key": "Section 34 reporting duty known",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-L-03",
+      "key": "Adequate procedures against bribery",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-M-03",
+      "key": "Lessons applied",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-P-07",
+      "key": "Fraud response plan",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D1-R-05",
+      "key": "Fidelity or crime insurance",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D2-K-01",
+      "key": "Risks mapped to controls",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D2-K-03",
+      "key": "Key controls tested",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D2-M-02",
+      "key": "Updated when the business changes",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-B-01",
+      "key": "Bribery prohibited",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-C-04",
+      "key": "Code accessible to staff",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-C-09",
+      "key": "No falsifying records for the organisation",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-H-01",
+      "key": "Gifts rule with a limit",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-P-01",
+      "key": "Pressure considered when setting targets",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D3-T-02",
+      "key": "Leaders follow the same rules",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D4-K-03",
+      "key": "Invoices checked against contract rates",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "marula"
+      ]
+    },
+    {
+      "id": "D6-A-03",
+      "key": "Mandates checked at the bank",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D6-F-01",
+      "key": "Manipulation risk considered",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D6-J-01",
+      "key": "Manual journals approved",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D6-P-02",
+      "key": "Two authorisers for every payment",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D6-P-05",
+      "key": "New beneficiaries confirmed by call-back",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D6-R-02",
+      "key": "Reconciliations independent",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D7-K-03",
+      "key": "Claim evidence verified",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "marula"
+      ]
+    },
+    {
+      "id": "D10-A-01",
+      "key": "Looks for fraud proactively",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-E-01",
+      "key": "Evidence preserved first",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-O-01",
+      "key": "Decisions on set criteria",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-P-01",
+      "key": "Identities kept confidential",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-P-02",
+      "key": "Retaliation prohibited and punished",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-P-04",
+      "key": "Disclosures acknowledged in time",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "kestrel"
+      ]
+    },
+    {
+      "id": "D10-W-03",
+      "key": "Open to outsiders",
+      "missing": [
+        "activities",
+        "measure",
+        "onFailure"
+      ],
+      "in": [
+        "marula"
+      ]
+    }
+  ]
+}

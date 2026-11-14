@@ -1,0 +1,38 @@
+[
+  {
+    "id": "PG-00",
+    "ok": true,
+    "name": "A stable document passes every required gate",
+    "detail": "2 passes; PG-HEADINGS:true PG-CONVERGED:true PG-CONTENTS:true"
+  },
+  {
+    "id": "PG-01",
+    "ok": true,
+    "name": "A heading missing from the PDF fails PG-HEADINGS and the report is held",
+    "detail": "1 heading(s) not found in the PDF: ESS-PROFILE | Contents page numbers not verified"
+  },
+  {
+    "id": "PG-02",
+    "ok": true,
+    "name": "A page map that moves on every render exhausts the passes, is reported as not converged and is held",
+    "detail": "4 renders; Page map did not converge within the layout passes: moved:ESS-CONCLUSION | Contents page numbers not verified"
+  },
+  {
+    "id": "PG-03",
+    "ok": true,
+    "name": "Deadline before any complete PDF: the layout stops with LayoutDeadline (the caller records a render failure and the retry recomposes)",
+    "detail": "LayoutDeadline; renders 0"
+  },
+  {
+    "id": "PG-04",
+    "ok": true,
+    "name": "Deadline during the page-number passes: the last complete PDF is returned, reported as not converged, and held",
+    "detail": "4 passes before the deadline; PG-CONVERGED, PG-CONTENTS"
+  },
+  {
+    "id": "PG-05",
+    "ok": true,
+    "name": "Advisory findings (near-empty pages, moved headings) are recorded but never reported as verified",
+    "detail": "[{\"id\":\"PA-SPARSE\",\"detail\":\"Near-empty page(s): 7\"},{\"id\":\"PA-BREAKS\",\"detail\":\"1 heading(s) moved to a new page to avoid stranding\"}]"
+  }
+]

@@ -1,0 +1,112 @@
+[
+  {
+    "runId": "8d6f64e3-71ad-408a-b0b2-6ae276d257bf",
+    "product": "comprehensive",
+    "words": 6031,
+    "rejectedFor": "manuscript_rejected",
+    "before": {
+      "pages": 31,
+      "stranded": [],
+      "sparse": [],
+      "notFound": [],
+      "contentsNumbers": null
+    },
+    "after": {
+      "pages": 31,
+      "stranded": [],
+      "sparse": [],
+      "notFound": [],
+      "contentsNumbers": null
+    },
+    "gates": [
+      "PG-HEADINGS:true",
+      "PG-CONVERGED:true",
+      "PG-CONTENTS:true"
+    ],
+    "advisory": [],
+    "layout": {
+      "passes": 2,
+      "flowSections": [],
+      "flowUnits": [],
+      "breakBefore": [],
+      "compactContents": false
+    }
+  },
+  {
+    "runId": "896b8e6c-977f-422b-81b2-c809c32e7b8b",
+    "product": "essential",
+    "words": 3930,
+    "rejectedFor": "manuscript_rejected",
+    "before": {
+      "pages": 21,
+      "stranded": [],
+      "sparse": [
+        "p3 (146)",
+        "p19 (102)"
+      ],
+      "notFound": [],
+      "contentsNumbers": 4
+    },
+    "after": {
+      "pages": 19,
+      "stranded": [],
+      "sparse": [],
+      "notFound": [],
+      "contentsNumbers": 22
+    },
+    "gates": [
+      "PG-HEADINGS:true",
+      "PG-CONVERGED:true",
+      "PG-CONTENTS:true"
+    ],
+    "advisory": [],
+    "layout": {
+      "passes": 3,
+      "flowSections": [
+        "ESS-CONCLUSION"
+      ],
+      "flowUnits": [],
+      "breakBefore": [],
+      "compactContents": true
+    }
+  },
+  {
+    "runId": "ff637bbf-fdb6-40a2-a5a8-71208a67b3f1",
+    "product": "essential",
+    "words": 3611,
+    "rejectedFor": "manuscript_rejected",
+    "before": {
+      "pages": 20,
+      "stranded": [],
+      "sparse": [
+        "p3 (148)"
+      ],
+      "notFound": [],
+      "contentsNumbers": 6
+    },
+    "after": {
+      "pages": 19,
+      "stranded": [],
+      "sparse": [],
+      "notFound": [],
+      "contentsNumbers": 22
+    },
+    "gates": [
+      "PG-HEADINGS:true",
+      "PG-CONVERGED:true",
+      "PG-CONTENTS:true"
+    ],
+    "advisory": [],
+    "layout": {
+      "passes": 3,
+      "flowSections": [],
+      "flowUnits": [
+        "ESS-EXEC::the operating pattern is driven by absent verification routes that the requester controls and by uncertainty about control ownership",
+        "ESS-EXEC::management should settle open questions quickly and prioritise control designs that prevent requests being acted on the requester's word",
+        "ESS-EXEC::no score or approved readiness conclusion is issued with this report and management should treat the material as advisory"
+      ],
+      "breakBefore": [],
+      "compactContents": true
+    }
+  }
+]

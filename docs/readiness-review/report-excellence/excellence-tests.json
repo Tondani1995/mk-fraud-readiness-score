@@ -1,6 +1,6 @@
 {
  "gates": 92,
- "passed": 92,
+ "passed": 88,
  "acceptance": {
   "id": "AT-AI-01",
   "name": "production AI manuscript run",
@@ -12,20 +12,8 @@
   {
    "id": "G01 P3/essential",
    "name": "manuscript passes factual and editorial validation",
-   "pass": true,
-   "detail": {
-    "words": 3566,
-    "paragraphs": 65,
-    "refsPerParagraph": 2.31,
-    "mechanical": {
-     "ok": true,
-     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 3566,
-     "reportFindings": [],
-     "slotFindings": [],
-     "repairTargets": []
-    }
-   }
+   "pass": false,
+   "detail": "ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed."
   },
   {
    "id": "G02 P3/essential",
@@ -216,20 +204,8 @@
   {
    "id": "G01 P4/essential",
    "name": "manuscript passes factual and editorial validation",
-   "pass": true,
-   "detail": {
-    "words": 2558,
-    "paragraphs": 59,
-    "refsPerParagraph": 2.25,
-    "mechanical": {
-     "ok": true,
-     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 2558,
-     "reportFindings": [],
-     "slotFindings": [],
-     "repairTargets": []
-    }
-   }
+   "pass": false,
+   "detail": "ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (the workbook). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed."
   },
   {
    "id": "G02 P4/essential",
@@ -420,20 +396,8 @@
   {
    "id": "G01 P5/essential",
    "name": "manuscript passes factual and editorial validation",
-   "pass": true,
-   "detail": {
-    "words": 3132,
-    "paragraphs": 64,
-    "refsPerParagraph": 2.39,
-    "mechanical": {
-     "ok": true,
-     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 3132,
-     "reportFindings": [],
-     "slotFindings": [],
-     "repairTargets": []
-    }
-   }
+   "pass": false,
+   "detail": "ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed."
   },
   {
    "id": "G02 P5/essential",
@@ -624,20 +588,8 @@
   {
    "id": "G01 P6b/essential",
    "name": "manuscript passes factual and editorial validation",
-   "pass": true,
-   "detail": {
-    "words": 4442,
-    "paragraphs": 70,
-    "refsPerParagraph": 2.44,
-    "mechanical": {
-     "ok": true,
-     "version": "mk-reporting-bible-1.1-mechanical-language-v1",
-     "totalWords": 4442,
-     "reportFindings": [],
-     "slotFindings": [],
-     "repairTargets": []
-    }
-   }
+   "pass": false,
+   "detail": "ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed.; ENTITLEMENT The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed."
   },
   {
    "id": "G02 P6b/essential",

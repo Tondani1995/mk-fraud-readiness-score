@@ -1,0 +1,62 @@
+[
+  {
+    "id": "RC-01",
+    "ok": true,
+    "name": "Both fixtures replay to the bound report input: the input and log digests equal the values stored in the commercial binding",
+    "detail": "[{\"ref\":\"MKFRS-2026-RV9C289E5F\",\"input\":true,\"log\":true,\"actions\":true},{\"ref\":\"MKFRS-2026-RV05BD5748\",\"input\":true,\"log\":true,\"actions\":true}]"
+  },
+  {
+    "id": "RC-02",
+    "ok": true,
+    "name": "Kestrel: the assessment's 20 outstanding are 16 questions asked and not answered (13 control, 3 applicability) plus 3 confirmations and 1 scenario those answers hold back; the recomputation matches the engine unit by unit",
+    "detail": "{\"notReached\":3,\"withFunctions\":1,\"declined\":1,\"unknownToFunction\":15,\"total\":20}; questions {\"control\":13,\"applicability\":3}; held back D5-B-02,D7-C-02,D8-T-01,FS-D10-01"
+  },
+  {
+    "id": "RC-03",
+    "ok": true,
+    "name": "Marula: the assessment's 2 outstanding are one control question (D4-P-01) and one context question (D4-O-07); both appear in the report register",
+    "detail": "The assessment records 2 outstanding. Two questions were asked and not answered (one control question, one context question)."
+  },
+  {
+    "id": "RC-04",
+    "ok": true,
+    "name": "Every question in the ledger is in the report's outstanding register with its reason, function and type, and nothing else is",
+    "detail": "16 and 2 rows"
+  },
+  {
+    "id": "RC-05",
+    "ok": true,
+    "name": "Kestrel's 73 scenarios in the picture partition exactly: 55 gap, 2 reported in place, 12 with core answers outstanding, 4 whose applicability is outstanding; 69 are counted as applying",
+    "detail": "Of the 69 fraud scenarios that apply, the organisation's answers report every core control in place for 2, a core control as a gap in 55 and core answers still outstanding in 12. Whether 4 further scenarios apply depends on answers that are outstanding; they are not counted as applying, and nothing is concluded about their controls."
+  },
+  {
+    "id": "RC-06",
+    "ok": true,
+    "name": "Marula's 90 scenarios partition exactly: 71 confirmed and 15 qualified (86 with no conflict found under the reviewed rules), 1 contradiction and 3 to clarify; one convention states 90 reported in place with 4 questioned",
+    "detail": "Of the 90 fraud scenarios that apply, the organisation's answers report every core control in place for 90 (for 4 of these the answers raise a question or cannot both be right; for the other 86 the answers compared under the reviewed rules show no conflict, though 15 of them have a related practice reported weaker, which does not establish that the controls operate) and no core control as a gap."
+  },
+  {
+    "id": "RC-07",
+    "ok": true,
+    "name": "No scenario whose applicability is outstanding is read as a control in place or missing: it has no finding, no risk, no register control from it, and the answer that would settle it is listed as outstanding",
+    "detail": "four scenarios, none read as present or absent"
+  },
+  {
+    "id": "RC-08",
+    "ok": true,
+    "name": "The position statement, the Fact Pack and the workbook summary carry the same account; the Fact Pack fails closed if the account does not balance",
+    "detail": "one account everywhere"
+  },
+  {
+    "id": "RC-09",
+    "ok": true,
+    "name": "The area profile keeps pending scenarios outside the count, and no area with one reads as stable",
+    "detail": "{\"D5\":1,\"D7\":1,\"D8\":1,\"D10\":1}"
+  },
+  {
+    "id": "RC-10",
+    "ok": true,
+    "name": "Live state stays distinct from the bound prefix: an action appended after binding changes the log digest, and the bound prefix still reproduces the stored digests",
+    "detail": "appended action changes the live log; prefix digest 7a372eafc47b"
+  }
+]

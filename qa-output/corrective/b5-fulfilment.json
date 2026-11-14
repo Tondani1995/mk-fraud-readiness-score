@@ -1,0 +1,134 @@
+[
+  {
+    "id": "GF-01",
+    "ok": true,
+    "name": "Operator generation succeeds with one call reserved before dispatch and settled after; the validated checkpoint holds the full audit package; the report is linked to it",
+    "detail": "ledger writer:succeeded; package 11 keys; audit linked"
+  },
+  {
+    "id": "GF-02",
+    "ok": true,
+    "name": "Kestrel Comprehensive completes with its workbook and passes the publication gates",
+    "detail": "uploads 2; advisories []"
+  },
+  {
+    "id": "GF-03",
+    "ok": true,
+    "name": "The worker's automatic trigger is refused before anything is reserved or called",
+    "detail": "revised_requires_operator; reserved 0"
+  },
+  {
+    "id": "GF-04",
+    "ok": true,
+    "name": "History unavailable (error, network failure, malformed, incomplete): refused before any reservation or call",
+    "detail": "[{\"f\":\"error\",\"reason\":\"generation_history_unavailable\",\"status\":503,\"reserved\":0,\"calls\":0},{\"f\":\"throw\",\"reason\":\"generation_history_unavailable\",\"status\":503,\"reserved\":0,\"calls\":0},{\"f\":\"malformed\",\"reason\":\"generation_history_unavailable\",\"status\":503,\"reserved\":0,\"calls\":0},{\"f\":\"incomplete\",\"reason\":\"generation_history_unavailable\",\"status\":503,\"reserved\":0,\"calls\":0}]"
+  },
+  {
+    "id": "GF-05",
+    "ok": true,
+    "name": "Ledger unavailable at reservation (error, network failure, malformed): no call is made",
+    "detail": "[{\"f\":\"error\",\"reason\":\"generation_accounting_unavailable\",\"calls\":0,\"uploads\":0},{\"f\":\"throw\",\"reason\":\"generation_accounting_unavailable\",\"calls\":0,\"uploads\":0},{\"f\":\"malformed\",\"reason\":\"generation_accounting_unavailable\",\"calls\":0,\"uploads\":0}]"
+  },
+  {
+    "id": "GF-06",
+    "ok": true,
+    "name": "No approved campaign budget: no call is made",
+    "detail": "generation_budget_missing; generation_budget_missing"
+  },
+  {
+    "id": "GF-07",
+    "ok": true,
+    "name": "Provider failure: the call stays counted at its worst case (failed, cost unknown); the retry succeeds",
+    "detail": "first generation_failed; ledger writer:failed,writer:succeeded"
+  },
+  {
+    "id": "GF-08",
+    "ok": true,
+    "name": "Provider timeout: the call is settled as indeterminate and stays charged at its worst case",
+    "detail": "generation_timed_out; ledger writer:indeterminate"
+  },
+  {
+    "id": "GF-09",
+    "ok": true,
+    "name": "Rejection after the permitted repair: exactly two calls in the ledger, the draft stored, nothing validated or composed",
+    "detail": "ledger writer:succeeded,repair:succeeded; checkpoints drafted"
+  },
+  {
+    "id": "GF-10",
+    "ok": true,
+    "name": "Deadline: a slow draft leaves no time for the repair; the draft is stored; the retry repairs it with one call (two in the ledger, never three)",
+    "detail": "first generation_timed_out after 1 call; retry generated with 1; ledger writer:succeeded,repair:succeeded"
+  },
+  {
+    "id": "GF-11",
+    "ok": true,
+    "name": "Storage failure after validation: nothing finalised; the retry composes the stored manuscript with no AI call",
+    "detail": "first storage_upload_failed; retry generated with 0 AI calls; ledger writer:succeeded"
+  },
+  {
+    "id": "GF-12",
+    "ok": true,
+    "name": "Render failure: its call is in the ledger regardless of the failure record; the retry composes with no AI call",
+    "detail": "first pdf_render_failed; ledger writer:succeeded; retry calls 0"
+  },
+  {
+    "id": "GF-13",
+    "ok": true,
+    "name": "The order allowance is lifetime: it does not reset after a successful report (ceiling lowered to 2 for the test)",
+    "detail": "first generated; second generation_call_ceiling_reached after 1 call; ledger writer:succeeded,writer:succeeded"
+  },
+  {
+    "id": "GF-14",
+    "ok": true,
+    "name": "Campaign cost: a call whose worst case does not fit the remaining budget is not made",
+    "detail": "generation_budget_exhausted"
+  },
+  {
+    "id": "GF-15",
+    "ok": true,
+    "name": "Settlement write fails: the call stays reserved (counted at worst case) and the report still completes",
+    "detail": "ledger writer:reserved"
+  },
+  {
+    "id": "GF-16",
+    "ok": true,
+    "name": "Audit package cannot be stored: no PDF is stored and nothing is finalised; the calls are counted",
+    "detail": "generation_audit_unavailable; uploads 0; finalised 0"
+  },
+  {
+    "id": "GF-17",
+    "ok": true,
+    "name": "Lost response on the audit write: the retry finds the stored package and the report completes once",
+    "detail": "one validated checkpoint; one report"
+  },
+  {
+    "id": "GF-18",
+    "ok": true,
+    "name": "Audit link denied after the report is committed: success is returned as pending, never a second report; recovery links it with no AI call",
+    "detail": "pending_link; pending event true; finalised 1; recovered [true]"
+  },
+  {
+    "id": "GF-19",
+    "ok": true,
+    "name": "A repeated request on the same attempt cannot produce a second report from that attempt",
+    "detail": "again: generation_audit_unavailable; finalised 1"
+  },
+  {
+    "id": "GF-20",
+    "ok": true,
+    "name": "Finalisation failure is reported to the existing handler (uploaded, invoked, not committed)",
+    "detail": "{\"reason\":\"report_persistence_failed\",\"pdfUploaded\":true,\"finalisationCommitted\":false}"
+  },
+  {
+    "id": "GF-21",
+    "ok": true,
+    "name": "Answers changed since binding: refused before any reservation or call",
+    "detail": "generation_failed 409"
+  },
+  {
+    "id": "GF-22",
+    "ok": true,
+    "name": "Publication gate: a PDF whose headings or contents numbers are not verified is held, not stored; the retry recomposes with no AI call",
+    "detail": "first pdf_publication_held; uploads after both 1; retry calls 0"
+  }
+]

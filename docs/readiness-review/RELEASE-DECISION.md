@@ -1,3 +1,5 @@
+> **Superseded on 13 November 2026 by `RELEASE-READINESS.md`.** The statements below about no database, no commercial path, no deployment and a universal 95-screen limit are stale and must not be used as the current handoff. They are kept as the 11 November record.
+
 # Release decision
 
 **Decision: not releasable. Candidate ready for MK review on the fictional local harness, with the six independent review findings corrected (`INDEPENDENT-REVIEW-RESPONSE.md`).**

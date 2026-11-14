@@ -1,0 +1,50 @@
+[
+  {
+    "id": "GL-01",
+    "ok": true,
+    "name": "No approved campaign, no paid call: nothing is reserved",
+    "detail": "campaign_budget_missing; campaign_budget_missing"
+  },
+  {
+    "id": "GL-02",
+    "ok": true,
+    "name": "The order ceiling is lifetime (every attempt and report version) and clamped to the approved bound of 6",
+    "detail": "ORD-B allowed 6 of 8 with ceiling 10 requested; ORD-C allowed 2 of 3 with ceiling 2"
+  },
+  {
+    "id": "GL-03",
+    "ok": true,
+    "name": "Campaign calls and cost: worst case charged until settled; a known lower cost frees headroom; an indeterminate call stays at worst case",
+    "detail": "0.6 allowed; second 0.6 refused (campaign_cost_exhausted); after settling at 0.05 a 0.6 fits; indeterminate keeps 0.6 so 0.4 is refused (campaign_cost_exhausted); zero cost refused (cost_not_bounded)"
+  },
+  {
+    "id": "GL-04",
+    "ok": true,
+    "name": "Campaign call count is enforced",
+    "detail": "allowed, allowed, campaign_calls_exhausted"
+  },
+  {
+    "id": "GL-05",
+    "ok": true,
+    "name": "Concurrent reservations for the last unit of an order: exactly one succeeds",
+    "detail": "1 of 6 concurrent requests allowed; ORD-H holds 6"
+  },
+  {
+    "id": "GL-06",
+    "ok": true,
+    "name": "Append-only: a settled call cannot change, reservation fields cannot change, nothing can be deleted; budgets and checkpoints are immutable",
+    "detail": "every change refused; a second settlement is a no-op"
+  },
+  {
+    "id": "GL-07",
+    "ok": true,
+    "name": "Checkpoints are idempotent per attempt and stage; a different payload is detected; unlinked audits are listed until linked",
+    "detail": "first new; repeat matches true; different payload matches false; unlinked 1 then 0"
+  },
+  {
+    "id": "GL-08",
+    "ok": true,
+    "name": "Only the service role can execute the functions or touch the tables",
+    "detail": "[{\"rolname\":\"anon\",\"f\":false,\"t\":false},{\"rolname\":\"authenticated\",\"f\":false,\"t\":false},{\"rolname\":\"service_role\",\"f\":true,\"t\":false}]"
+  }
+]
