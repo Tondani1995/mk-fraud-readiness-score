@@ -209,7 +209,7 @@ export async function generateRevisedManualReport(input: {
 
   // The shared start function records a neutral "Report generation started" (DR-12, migration 20261114170000). This
   // event says how the revised report was actually written: which models, how many AI calls, and any resumed work.
-  await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order),
+  await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order, (artefacts.provenance as any)?.scoring?.percent ?? null),
     { generationMode: 'ai', calls: artefacts.ai.calls, callIds: artefacts.ai.callIds, writerModel: artefacts.ai.models.writer, repairModel: artefacts.ai.repairUsed ? artefacts.ai.models.repair : null, finalModel: artefacts.ai.model, repairUsed: artefacts.ai.repairUsed, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: true });
 
   // Report-run lineage in the review store: which bound input produced which report. Recorded after commit, and a
@@ -240,11 +240,12 @@ const REASON: Record<RevisedGenerationError['code'], string> = {
   answers_changed_since_binding: 'generation_failed', provider_failed: 'generation_failed', provider_timeout: 'generation_timed_out', time_budget_exhausted: 'generation_timed_out',
   manuscript_rejected: 'generation_failed', render_failed: 'pdf_render_failed', publication_held: 'pdf_publication_held', call_ceiling_reached: 'generation_call_ceiling_reached',
   campaign_budget_missing: 'generation_budget_missing', campaign_budget_exhausted: 'generation_budget_exhausted', cost_not_bounded: 'generation_cost_not_bounded',
-  accounting_unavailable: 'generation_accounting_unavailable', history_unavailable: 'generation_history_unavailable', audit_unavailable: 'generation_audit_unavailable'
+  accounting_unavailable: 'generation_accounting_unavailable', history_unavailable: 'generation_history_unavailable', audit_unavailable: 'generation_audit_unavailable',
+  score_not_computable: 'generation_score_not_computable'
 };
 const STATUS: Record<RevisedGenerationError['code'], number> = {
   answers_changed_since_binding: 409, provider_failed: 502, provider_timeout: 504, time_budget_exhausted: 503, manuscript_rejected: 502, render_failed: 502, publication_held: 502,
-  call_ceiling_reached: 409, campaign_budget_missing: 409, campaign_budget_exhausted: 409, cost_not_bounded: 409, accounting_unavailable: 503, history_unavailable: 503, audit_unavailable: 503
+  call_ceiling_reached: 409, campaign_budget_missing: 409, campaign_budget_exhausted: 409, cost_not_bounded: 409, accounting_unavailable: 503, history_unavailable: 503, audit_unavailable: 503, score_not_computable: 409
 };
 
 /**
@@ -252,7 +253,7 @@ const STATUS: Record<RevisedGenerationError['code'], number> = {
  * repair was used, the AI calls made by this attempt, and a resumed attempt's starting point (staging certification,
  * 14 November 2026, defect 5: the earlier note named the last model used as the writer).
  */
-export function revisedGenerationNote(ai: { models: { writer: string; repair: string }; calls: number; repairUsed: boolean; resumedFrom: 'repair' | 'compose' | null }, order: { binding: { engineBuild: string; outstandingTotal: number } }): string {
+export function revisedGenerationNote(ai: { models: { writer: string; repair: string }; calls: number; repairUsed: boolean; resumedFrom: 'repair' | 'compose' | null }, order: { binding: { engineBuild: string; outstandingTotal: number } }, scorePercent: number | null = null): string {
   const how = ai.resumedFrom === 'compose'
     ? 'composed from the validated manuscript stored by an earlier attempt, with no AI call in this attempt'
     : ai.resumedFrom === 'repair'
@@ -260,7 +261,7 @@ export function revisedGenerationNote(ai: { models: { writer: string; repair: st
       : ai.repairUsed
         ? `written by ${ai.models.writer} and repaired by ${ai.models.repair} (${ai.calls} AI calls)`
         : `written by ${ai.models.writer} (${ai.calls} AI call${ai.calls === 1 ? '' : 's'})`;
-  return `Revised report (restricted test) ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; no score issued; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
+  return `Revised report (restricted test) ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; ${scorePercent === null ? 'no score issued' : `MK Fraud Readiness score ${scorePercent}%, no readiness label`}; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
 }
 
 /** An operator-facing order event; a failure to record it never affects the report. */

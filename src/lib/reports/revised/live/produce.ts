@@ -2,10 +2,11 @@ import crypto from 'node:crypto';
 import { canonicalDigest } from '@/lib/readiness-review/canonical';
 import { buildStagedReportInput, STAGED_REPORT_INPUT_CONTRACT } from '@/lib/readiness-review/report-input';
 import { replayStoredSession } from '@/lib/readiness-review/service';
-import { RESTRICTED_TEST_LABEL } from '@/lib/readiness-review/commercial-environment';
+import { RESTRICTED_TEST_REPORT_LABEL } from '@/lib/readiness-review/commercial-environment';
 import { NARRATIVE_FALLBACK_MODELS, PRIMARY_NARRATIVE_MODEL } from '@/lib/reports/ai-model-policy';
 import { buildRevisedReport, REVISED_REPORT_MODEL_VERSION } from '../evidence-model';
 import { positionStatements } from '../position';
+import { revisedScore, scoredPosition, REVISED_SCORE_VERSION } from '../score';
 import { buildRevisedFactPack, REVISED_FACT_PACK_VERSION, type RevisedFactPack } from '../manuscript/fact-pack';
 import { buildRevisedStoryPlan, REVISED_STORY_PLAN_VERSION, type RevisedStoryPlan } from '../manuscript/story-plan';
 import { renderWriterBrief } from '../manuscript/writer-brief';
@@ -26,13 +27,13 @@ import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type ResumeMode, type 
  * Fail-closed rules:
  *   - the report is rebuilt from the log exactly as bound (truncated to the bound position) and both digests must
  *     match the binding, so it can only reflect the answers the organisation submitted;
- *   - no score is calculated or shown: the revised method is unapproved (methodology-dispatch.ts);
+ *   - the MK Fraud Readiness score (score.ts, DR-02) is calculated and shown; no readiness label, band or pass mark is;
  *   - one provider call per generation; a manuscript that fails validation is never composed and nothing is
  *     substituted for it (Bible 5.2: no template fallback); a retry is a new, separately recorded generation;
  *   - every artefact carries the restricted-test label.
  */
 
-export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.4';
+export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.5';
 /** One writing call, plus at most one repair call that returns the validator's exact issues to the writer. */
 export const REVISED_PROVIDER_CALL_CEILING = 2;
 /**
@@ -61,7 +62,8 @@ export const REVISED_OPERATOR_GUIDANCE: Record<RevisedGenerationError['code'], s
   cost_not_bounded: 'The configured AI model has no recorded price, so its cost cannot be bounded and it is not called.',
   accounting_unavailable: 'The AI call ledger could not be reached, so no AI call was made. Retry when the review store is available.',
   history_unavailable: 'The generation history could not be read, so no AI call was made. Retry when the review store is available.',
-  audit_unavailable: 'The audit package could not be stored, so no report was composed or finalised. Retry when the review store is available; the calls already made are counted.'
+  audit_unavailable: 'The audit package could not be stored, so no report was composed or finalised. Retry when the review store is available; the calls already made are counted.',
+  score_not_computable: 'No fraud scenario that applies has every core answer known, so no score can be stated and no report was produced. No AI call was made. The assessment needs more answers.'
 };
 
 export const WRITER_SYSTEM = [
@@ -81,6 +83,7 @@ export const WRITER_SYSTEM = [
   '11. Vary how recommendations open. Use "management should" at most five times and "the organisation should" at most five times in the whole manuscript; otherwise name the accountable role ("The chief financial officer should …") or state the action directly.',
   '12. The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly, as a sentence of its own. Do not restate those scenario counts in your own words anywhere in that section.',
   `13. Some words read as mechanical when repeated, and the validator counts them across the whole manuscript. Stay within these limits: ${MECHANICAL_TERM_FAMILIES.filter((f) => f.family !== 'management should').map((f) => { const n = Math.max(1, f.perReportAllowance - 1); return `"${f.family}" at most ${n === 1 ? 'once' : `${n} times`} in the whole manuscript and ${f.perSlotAllowance === 1 ? 'once' : `${f.perSlotAllowance} times`} in any paragraph`; }).join('; ')} ("management should" is limited by rule 11). The brief uses "recorded" often; do not copy it. Write "documented", "kept on file" or "logged", or say what the position is.`,
+  '15. When the Facts table lists [[T-CONCLUSION]], the conclusion section opens with [[T-CONCLUSION]] as its first paragraph, followed by [[T-CONCLUSION-OUTSTANDING]] as a sentence of its own when that is listed; write the section heading as `# [[T-CONCLUSION-HEADING]]`. Elsewhere, state the score only as [[N-SCORE]] per cent. Never call the organisation ready, never say readiness is achieved, and never attach a band, level, grade or pass mark to the score.',
   '14. When you discuss a decision, blueprint, stage or measure, describe it in words (for example "the decision on who approves supplier changes"); never write its reference such as DECISION-02, and keep the <!-- refs: --> line after that paragraph like every other.',
   '8. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
   '',
@@ -100,6 +103,7 @@ export const WRITER_SYSTEM = [
   '- every paragraph: three to five sentences, followed by its <!-- refs: --> line; no number word before a counted noun; no internal reference;',
   '- each section: its unit headings and its paragraph count and word budget from the Story Plan;',
   '- the executive section: [[T-SCENARIO-ACCOUNT]] as a sentence of its own in the first paragraph;',
+  '- the conclusion section, when [[T-CONCLUSION]] is listed: it opens the first paragraph, with [[T-CONCLUSION-OUTSTANDING]] after it when listed;',
   '- the word limits in rule 13, counted across the whole manuscript.',
   'When the task asks for corrected lines only, return exactly the format that task sets.'
 ].join('\n');
@@ -220,7 +224,7 @@ export function factPackContentDigest(fp: RevisedFactPack): string {
 export class RevisedGenerationError extends Error {
   readonly code: 'answers_changed_since_binding' | 'provider_failed' | 'provider_timeout' | 'time_budget_exhausted' | 'manuscript_rejected' | 'render_failed'
     | 'publication_held' | 'call_ceiling_reached' | 'campaign_budget_missing' | 'campaign_budget_exhausted' | 'cost_not_bounded' | 'accounting_unavailable'
-    | 'history_unavailable' | 'audit_unavailable';
+    | 'history_unavailable' | 'audit_unavailable' | 'score_not_computable';
   readonly diagnostics: Record<string, unknown>;
   constructor(code: RevisedGenerationError['code'], message: string, diagnostics: Record<string, unknown> = {}) {
     super(message);
@@ -339,22 +343,25 @@ export async function produceRevisedArtefacts(input: {
 
   // 2. Analysis, Fact Pack and Story Plan. No figure: the revised method is unapproved.
   const report = buildRevisedReport(staged);
-  const position = positionStatements(report, { score: null }).map((p) => p.key === 'calculated'
-    ? { ...p, label: 'Score', value: 'Not issued', text: 'No score is calculated. The revised scoring method has not been approved by MK, so this report issues no score, maturity level or band.' }
-    : p);
+  // The MK Fraud Readiness score (DR-02). Every report carries one; when no scenario can be counted there is nothing to
+  // state, so the report is refused here, before any AI call.
+  const score = revisedScore(report);
+  if (!score) throw new RevisedGenerationError('score_not_computable', REVISED_OPERATOR_GUIDANCE.score_not_computable, { stage: 'score', calls: 0 });
+  const position = scoredPosition(positionStatements(report, { score: null }), score);
   const product = order.product;
   const factPack = buildRevisedFactPack({
     report, product, organisationName: order.organisationName, assessmentReference: order.assessmentReference,
     generatedAt: now.toISOString(), profile: staged.profile.map((p: any) => ({ id: p.id, label: p.label, value: p.value })), position,
-    figure: { overall: null, areas: [], label: 'No score issued: the revised method is not approved by MK.' }
+    figure: { overall: null, areas: [], label: `MK Fraud Readiness score: ${score.percent}%.` },
+    score
   });
   const plan = buildRevisedStoryPlan(factPack);
-  const brief = renderWriterBrief(factPack, plan, { editionLabel: 'RESTRICTED TEST: answers entered through the test deployment; revised method not approved; no score issued.' });
+  const brief = renderWriterBrief(factPack, plan, { editionLabel: 'RESTRICTED TEST: answers entered through the test deployment; not for customer release.' });
   const fpDigest = factPackContentDigest(factPack);
   const versions = {
     pipeline: REVISED_LIVE_PIPELINE_VERSION, model: REVISED_REPORT_MODEL_VERSION, factPack: REVISED_FACT_PACK_VERSION, storyPlan: REVISED_STORY_PLAN_VERSION,
     validator: MANUSCRIPT_VALIDATOR_VERSION, composer: REVISED_COMPOSER_VERSION, layout: PUBLICATION_LAYOUT_VERSION, workbook: BIBLE_WORKBOOK_VERSION,
-    accounting: REVISED_ACCOUNTING_VERSION, checkpoints: CHECKPOINT_VERSION
+    accounting: REVISED_ACCOUNTING_VERSION, checkpoints: CHECKPOINT_VERSION, score: REVISED_SCORE_VERSION
   };
   const boundInput = { inputContract: `${STAGED_REPORT_INPUT_CONTRACT.name}@${STAGED_REPORT_INPUT_CONTRACT.version}`, inputDigest, logDigest: staged.lineage.logDigest, actionCount: order.binding.actionCount, sessionId: order.binding.sessionId, orderReference: order.orderReference, assessmentReference: order.assessmentReference };
 
@@ -468,7 +475,7 @@ export async function produceRevisedArtefacts(input: {
   let pdf: Buffer;
   let layout: LayoutRecord;
   try {
-    ({ pdf, layout } = await (input.layout ?? layoutPublication)({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: true, restrictedNotice: RESTRICTED_TEST_LABEL },
+    ({ pdf, layout } = await (input.layout ?? layoutPublication)({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: true, restrictedNotice: RESTRICTED_TEST_REPORT_LABEL },
       { deadlineAt: deadlineAt - REVISED_TIME_BUDGET.minStoreMs, clock, minPassMs: REVISED_TIME_BUDGET.minRenderPassMs }));
   } catch (error) {
     throw new RevisedGenerationError('render_failed', REVISED_OPERATOR_GUIDANCE.render_failed, { stage: 'render', calls, callIds, resumable: 'compose', error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });
@@ -481,7 +488,7 @@ export async function produceRevisedArtefacts(input: {
 
   let workbook: RevisedArtefacts['workbook'] = null;
   if (product === 'comprehensive') {
-    const built = await buildBibleWorkbook('comprehensive', report, factPack, { notice: 'RESTRICTED TEST. Answers were entered through the restricted test deployment. The revised method is not approved by MK, so no score, maturity level or band is issued. Control specifications, scenario structures and decision options are draft MK advisory content awaiting approval.' });
+    const built = await buildBibleWorkbook('comprehensive', report, factPack, { notice: `RESTRICTED TEST. Answers were entered through the restricted test deployment; not for customer release. The MK Fraud Readiness score is ${score.percent}% on the organisation's own answers; no readiness level, band or pass mark is issued.` });
     workbook = {
       bytes: built.bytes, sha256: built.sha256, sheets: built.sheets,
       fileName: `${input.reportReference.replace(/[^A-Za-z0-9._-]+/g, '-')}-registers.xlsx`,
@@ -499,8 +506,8 @@ export async function produceRevisedArtefacts(input: {
     workbookSha256: workbook?.sha256 ?? null,
     validation: { pass: validation.pass, words: validation.stats?.words ?? null, warnings: validation.issues.filter((i) => !i.blocking).map((i) => i.code) },
     lengthGate: { mode: gate, shortfall: acceptance.shortfall, releaseBlocker: acceptance.shortfall ? `Manuscript of ${acceptance.shortfall.words} words is below the ${acceptance.shortfall.minimum}-word minimum; not releasable to a customer.` : null },
-    scoring: 'withheld: revised method not approved',
-    restricted: RESTRICTED_TEST_LABEL,
+    scoring: { method: REVISED_SCORE_VERSION, percent: score.percent, exact: score.exact, applicable: score.applicable, counted: score.counted, notCounted: score.notCounted, credit: score.credit, byKind: score.byKind },
+    restricted: RESTRICTED_TEST_REPORT_LABEL,
     ai
   };
   return { pdf, workbook, manuscript: written.text, validation, factPack, plan, provenance, ai, auditPackage: { ...auditPackage, provenance }, gates };

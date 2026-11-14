@@ -6,6 +6,7 @@ import { SCENARIO_STRUCTURES, SCENARIO_STRUCTURE_VERSION, type ScenarioStructure
 import { DECISION_OPTIONS, DECISION_OPTIONS_VERSION, decisionTypeOf, type DecisionOptionSet } from './decision-options';
 import { controlContent } from '../control-content/index';
 import { scenarioAccount } from '../position';
+import { scoreConclusion, type RevisedScore } from '../score';
 import { METHOD_SETS_NO_ESCALATION } from '../evidence-model';
 
 /**
@@ -20,7 +21,7 @@ import { METHOD_SETS_NO_ESCALATION } from '../evidence-model';
  * Selection is by stated rules only. MK has not approved a prioritisation method (decision P-13), so no rule here
  * ranks fraud risk, assigns materiality or uses the method's information-gathering tier as importance.
  */
-export const REVISED_FACT_PACK_VERSION = 'revised-fact-pack-0.2';
+export const REVISED_FACT_PACK_VERSION = 'revised-fact-pack-0.3';
 export type Product = 'essential' | 'comprehensive';
 
 export type Fact = { ref: string; label: string; value: string | number; words?: string; source: string };
@@ -97,6 +98,8 @@ export function buildRevisedFactPack(input: {
   report: RevisedReport; product: Product; organisationName: string; assessmentReference: string; generatedAt: string;
   profile: { id: string; label: string; value: unknown }[]; position: { key: string; label: string; value: string; text: string }[];
   figure: { overall: number | null; areas: { area: string; value: number }[]; label: string };
+  /** The MK Fraud Readiness score (DR-02). Absent for older and fixture packs, which keep their earlier wording. */
+  score?: RevisedScore | null;
 }): RevisedFactPack {
   const { report: r, product } = input;
   const facts: Record<string, Fact> = {};
@@ -136,6 +139,18 @@ export function buildRevisedFactPack(input: {
   fact('N-CONTROLS', 'Controls the full register acts on', r.controls.length, 'controls');
   fact('N-PUT', 'Controls to put in place', r.controls.filter((c) => c.purpose === 'put-in-place').length, 'controls.purpose');
   fact('N-STRENGTHEN', 'Related practices to strengthen', r.controls.filter((c) => c.purpose === 'strengthen').length, 'controls.purpose');
+  // The MK Fraud Readiness score and the agreed conclusion (DR-02, points 4, 5 and 7). The conclusion paragraph and the
+  // outstanding sentence are complete sentences, inserted by slot so the agreed wording is never paraphrased.
+  if (input.score) {
+    const sc = input.score;
+    const c = scoreConclusion(input.organisationName, sc);
+    fact('N-SCORE', 'MK Fraud Readiness score, per cent (0 to 100), on the organisation\'s own answers', sc.percent, 'score.percent');
+    fact('N-SCORE-COUNTED', 'Scenarios counted in the score (every core answer known)', sc.counted, 'score.counted');
+    fact('N-SCORE-NOT-COUNTED', 'Scenarios that apply but are not yet counted in the score', sc.notCounted, 'score.notCounted');
+    fact('T-CONCLUSION-HEADING', 'The conclusion section\'s heading, as MK set it', c.heading, 'scoreConclusion.heading');
+    fact('T-CONCLUSION', 'The score conclusion, as MK set it', c.paragraph, 'scoreConclusion.paragraph');
+    if (c.outstanding) fact('T-CONCLUSION-OUTSTANDING', 'What is not yet counted in the score, as MK set it', c.outstanding, 'scoreConclusion.outstanding');
+  }
   if (input.figure.overall !== null) fact('FIX-SCORE', 'Calculated test result (test fixture, not an approved score)', Number(input.figure.overall.toFixed(1)), 'fixture.overall');
 
   // ---- Areas: the shape of the environment, in the method's order.
@@ -425,14 +440,16 @@ export function buildRevisedFactPack(input: {
       'Independent evidence review and validation belong to MK Advisory, which is scoped and priced separately.'
     ],
     prohibited: [
-      'Any score, maturity band or readiness level other than the labelled calculated test result',
+      input.score
+        ? 'Any score other than the MK Fraud Readiness score in the Facts table; any maturity band, readiness level, grade or pass mark; any statement that the organisation is ready or protected against fraud'
+        : 'Any score, maturity band or readiness level other than the labelled calculated test result',
       'Any statement that a risk is high, critical, the most material or the highest priority',
       'Any claim that a control was tested, verified, validated or confirmed by MK',
       'Any incident, loss, Rand amount, supplier, system or person not in the Fact Pack',
       'Any scenario, finding, control, decision option or owner not in the Fact Pack'
     ],
     pending: [
-      { ref: 'PENDING-CONCLUSION', requirement: 'Approved readiness conclusion (Bible 10.1 and 13.1: score and maturity)', status: 'Withheld until MK approves a readiness method (D-1).' },
+      ...(input.score ? [] : [{ ref: 'PENDING-CONCLUSION', requirement: 'Approved readiness conclusion (Bible 10.1 and 13.1: score and maturity)', status: 'Withheld until MK approves a readiness method (D-1).' }]),
       { ref: 'PENDING-PRIORITY', requirement: 'Priority of findings and risks (Bible 9 and 11.2: what matters most)', status: 'Stated selection rules only until MK approves a prioritisation method (P-13 to P-15).' },
       { ref: 'PENDING-CONTENT', requirement: 'Approved control, scenario and decision content (Bible 3.1)', status: `Drafts for MK approval: control-content-library-0.1, ${SCENARIO_STRUCTURE_VERSION}, ${DECISION_OPTIONS_VERSION}.` }
     ]

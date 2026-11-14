@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.3';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.4';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -38,6 +38,11 @@ export const layoutKey = (sectionId: string, unitHeading: string) => `${sectionI
 export function composeRevisedReportHtml(input: ComposeInput): { html: string; sections: { id: string; heading: string; units: string[] }[] } {
   const { fp, plan } = input;
   const parsed = parseManuscript(input.md);
+  // A scored report's conclusion carries the heading MK set (DR-02 point 7), in the section and on the contents page,
+  // whatever heading the writer chose. Fixed copy, like an exhibit; the writer's paragraphs are untouched.
+  if (typeof fp.facts['T-CONCLUSION-HEADING']?.value === 'string') {
+    for (const s of parsed.sections) if (/CONCLUSION$/.test(s.id)) s.heading = '[[T-CONCLUSION-HEADING]]';
+  }
   const product = fp.product;
   const titleOf = (id: string) => plan.sections.find((s) => s.id === id)?.title ?? '';
   const footerLeft = `Confidential${input.restrictedNotice ? '  ·  RESTRICTED TEST, not for customer release' : input.prototype ? '  ·  Fictional prototype for MK review, not a customer report' : `  ·  Prepared for ${fp.organisation.name}`}`;
@@ -171,7 +176,8 @@ function position(fp: RevisedFactPack): string {
   const text: Record<string, (p: { value: string; text: string }) => string> = {
     // When no score is issued (the revised method is unapproved), the cell states exactly that and nothing implies a
     // calculated result exists.
-    calculated: (p) => (/not (issued|calculated)/i.test(p.value) ? p.text : 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.'),
+    // A scored report (DR-02) shows the MK Fraud Readiness score with its own explanation.
+    calculated: (p) => (fp.facts['N-SCORE'] || /not (issued|calculated)/i.test(p.value) ? p.text : 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.'),
     inconsistencies: (p) => p.text,
     interpretation: (p) => {
       // The shared scenario account (position.ts scenarioAccount), the same sentence the executive summary, workbook and
@@ -183,7 +189,7 @@ function position(fp: RevisedFactPack): string {
       const held = n('N-REPORTED-HELD'), apply = n('N-APPLY'), settle = n('N-SETTLE'), outs = n('N-OUTSTANDING-SCHEMES'), gap = n('N-GAP');
       return `On its own answers, the organisation reports the core control in place for ${held} of the ${apply} fraud scenarios that apply${settle ? `; ${settle} more have answers to settle or clarify` : ''}${outs ? `; ${outs} cannot yet be read because answers are outstanding` : ''}; and ${gap} ${gap === 1 ? 'has' : 'have'} a core control reported as a gap.`;
     },
-    conclusion: () => 'MK states its readiness conclusion here under its approved readiness method. Until then the report sets out what the answers establish.'
+    conclusion: (p) => (fp.facts['N-SCORE'] ? p.text : 'MK states its readiness conclusion here under its approved readiness method. Until then the report sets out what the answers establish.')
   };
   const keys = ['calculated', 'inconsistencies', 'interpretation', 'conclusion'];
   const cells = fp.position.map((p, i) => {
@@ -193,7 +199,9 @@ function position(fp: RevisedFactPack): string {
     return `<div class="cell${i === 3 ? ' pending' : ''}"><div class="label">${esc(p.label)}</div><div class="v">${esc(value)}${fixture ? ' <span class="tag">Test fixture</span>' : ''}</div><div class="x">${esc(typeset(text[key] ? text[key](p) : p.text))}</div></div>`;
   }).join('');
   const scored = !/not (issued|calculated)/i.test(fp.position[0]?.value ?? '');
-  const caption = scored
+  const caption = fp.facts['N-SCORE']
+    ? 'The four statements are kept separate: the score is arithmetic on the organisation\'s own answers, the inconsistencies and the interpretation come from those answers, and no readiness label is issued.'
+    : scored
     ? 'The four statements are kept separate: the calculated result is arithmetic, the inconsistencies and the interpretation come from the organisation\'s own answers, and the readiness conclusion is MK\'s.'
     : 'The four statements are kept separate: no score is issued, the inconsistencies and the interpretation come from the organisation\'s own answers, and the readiness conclusion is MK\'s.';
   return `<div class="exhibit"><div class="exhibit-title">What the assessment establishes</div><div class="position">${cells}</div><div class="caption">${caption}</div></div>`;

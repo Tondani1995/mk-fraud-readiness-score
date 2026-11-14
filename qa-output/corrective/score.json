@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SC-01",
+    "ok": true,
+    "name": "Kestrel scores 4% (2 of 57 counted scenarios in place; 12 not yet counted) and Marula 94% (84.25 of 90)",
+    "detail": "Kestrel 4% (2/57, 12 not counted); Marula 94% (84.25/90)"
+  },
+  {
+    "id": "SC-02",
+    "ok": true,
+    "name": "Credit is exactly DR-02: in place 1, weaker related practice 0.75, contradicted (raise a question or cannot both be right) 0.5, gap 0",
+    "detail": "(1 + 0.75 + 0.5 + 0) / 4 = 56.25% -> 56%"
+  },
+  {
+    "id": "SC-03",
+    "ok": true,
+    "name": "Not counted: outstanding core answers, scenarios not reached, applicability pending and not expected at the size",
+    "detail": "counted 4, applicable 13, not counted 9, 75%"
+  },
+  {
+    "id": "SC-04",
+    "ok": true,
+    "name": "No countable scenario: no score, and the pipeline refuses before any AI call (409, do not retry)",
+    "detail": "null"
+  },
+  {
+    "id": "SC-05",
+    "ok": true,
+    "name": "The conclusion is the agreed wording exactly; the outstanding sentence appears only when scenarios are held back",
+    "detail": "16 questions were not answered, so 12 scenarios are not yet counted; the score may change once they are settled."
+  },
+  {
+    "id": "SC-06",
+    "ok": true,
+    "name": "The composed report: agreed conclusion heading in the section and on the contents page; conclusion opens with the agreed paragraph; panel shows the score and \"No readiness label\"",
+    "detail": "Where Fictional Kestrel Freight (Pty) Ltd stands and what to address next On its own answers, Fictional Kestrel Freight (Pty) Ltd scores 4% under the MK Fraud R"
+  },
+  {
+    "id": "SC-07",
+    "ok": true,
+    "name": "Validator: a conclusion without the agreed wording is blocked at its first paragraph and the line repair fixes it; the outstanding sentence is required when it exists",
+    "detail": "with: true; without: 2 issue(s) at line 172; after line repair: true; outstanding missing: 1"
+  },
+  {
+    "id": "SC-08",
+    "ok": true,
+    "name": "Validator: calling the organisation ready, or readiness achieved, is blocked; ordinary uses of \"ready\" are not",
+    "detail": "bad 1,1,1,1; good 0,0,0"
+  },
+  {
+    "id": "SC-09",
+    "ok": true,
+    "name": "Older unscored packs keep their wording: no conclusion requirement, and the panel still says the score is not issued",
+    "detail": "validator true"
+  },
+  {
+    "id": "SC-10",
+    "ok": true,
+    "name": "Workbook Read me carries the score and the readiness-conclusion statement; no workbook row says no score is issued",
+    "detail": "Score: 94%; Readiness conclusion: No readiness label"
+  },
+  {
+    "id": "SC-11",
+    "ok": true,
+    "name": "Operator note states the score and that no readiness label is issued; the Snapshot label is unchanged and the report label drops \"no readiness score\"",
+    "detail": "method MK-READINESS-REVIEW-1.6 (draft, not approved); MK Fraud Readiness score 4%, no readiness label; 20 items outstand"
+  },
+  {
+    "id": "SC-12",
+    "ok": true,
+    "name": "Scored position statements: the score replaces the fixture result; inconsistencies and interpretation are unchanged",
+    "detail": "Under the MK Fraud Readiness method, on the organisation's own answers, across the 57 scenarios whose core answers are k"
+  }
+]

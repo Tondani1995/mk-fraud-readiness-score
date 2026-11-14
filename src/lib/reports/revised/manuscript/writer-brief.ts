@@ -63,6 +63,10 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, o
   L.push('- Facts whose ref starts with T- are complete sentences. Insert them as a sentence of their own, never inside another sentence.');
   L.push('- The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly. Do not restate those scenario counts in your own words.');
   L.push('- A scenario whose applicability is outstanding is not counted as applying. Never describe its controls as in place or missing.');
+  if (typeof fp.facts['T-CONCLUSION']?.value === 'string') {
+    L.push('- This report carries the MK Fraud Readiness score ([[N-SCORE]] per cent). The conclusion section opens with [[T-CONCLUSION]] exactly, as its first paragraph' + (typeof fp.facts['T-CONCLUSION-OUTSTANDING']?.value === 'string' ? ', followed by [[T-CONCLUSION-OUTSTANDING]] as a sentence of its own' : '') + '; its heading is `# [[T-CONCLUSION-HEADING]]`. Do not restate the score or the conclusion in your own words.');
+    L.push('- Never call the organisation ready, never say readiness is achieved, and never attach a band, level, grade or pass mark to the score.');
+  }
   L.push('', '## Organisation', '', `- Name: ${o.name}`, `- Reference: ${o.reference}`, `- Industry: ${o.industry ?? 'not given'}`, `- People: ${o.people ?? 'not given'}`, `- Turnover: ${o.turnover ?? 'not given'}`, `- Type: ${o.type ?? 'not given'}`, `- Final oversight: ${o.oversight}${o.oversightKnown ? ' (its own answer)' : ' (not identified)'}`);
   L.push('', '## Position statements (four-position separation)', '');
   for (const p of fp.position) L.push(`- **${p.ref}** ${p.label}: ${p.value}. ${p.text}`);

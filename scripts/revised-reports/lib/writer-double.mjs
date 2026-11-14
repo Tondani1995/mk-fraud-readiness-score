@@ -58,6 +58,11 @@ export function deterministicManuscript(fp, plan, opts = {}) {
     const nPara = /EXEC$/.test(s.id) ? 4 : /CONCLUSION$/.test(s.id) ? 2 : s.units?.length ? 1 : 2;
     const account = texts.includes('T-SCENARIO-ACCOUNT') ? 'T-SCENARIO-ACCOUNT' : texts[0];
     if (/EXEC$/.test(s.id) && account) L.push(`[[${account}]]`, `<!-- refs: ${account} -->`, '');
+    // A scored pack (DR-02): the conclusion opens with the agreed wording, by slot, as the writer contract requires.
+    if (/CONCLUSION$/.test(s.id) && texts.includes('T-CONCLUSION')) {
+      const extra = texts.includes('T-CONCLUSION-OUTSTANDING') ? ' [[T-CONCLUSION-OUTSTANDING]]' : '';
+      L.push(`[[T-CONCLUSION]]${extra}`, `<!-- refs: T-CONCLUSION${extra ? ', T-CONCLUSION-OUTSTANDING' : ''}, N-SCORE -->`, '');
+    }
     for (let i = 0; i < nPara; i++) L.push(...para(req));
     for (const e of s.exhibits) L.push(`[[exhibit:${e}]]`, '');
     for (const u of s.units ?? []) {

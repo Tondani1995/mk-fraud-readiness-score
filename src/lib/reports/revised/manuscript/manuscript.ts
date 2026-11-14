@@ -12,7 +12,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * movements or exhibits, label headings, mechanical cadence, fragments, repeated contrasts). A manuscript that fails
  * a blocking check is not composed.
  */
-export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.3';
+export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.4';
 
 export type Block = { type: 'h2' | 'h3' | 'p' | 'exhibit'; text: string; refs: string[]; line: number };
 export type ParsedSection = { id: string; heading: string; blocks: Block[]; line: number };
@@ -96,6 +96,9 @@ const PROHIBITED: { code: string; re: RegExp; detail: string }[] = [
   { code: 'BAND', re: /\b(Reactive|Structured|Strategic)\b|(?<![.!?]\s)(?<!^)\bDeveloping\b|\bmaturity band\b(?! or)/g, detail: 'A maturity band is stated.' },
   { code: 'RANKING', re: /\b(most material|material (?:fraud )?exposure|highest[- ]priority|top priority|critical risks?|high[- ]priority|ranked (?:first|highest)|matters? most|most important risks?|the biggest risk|most serious)\b/gi, detail: 'Ranking or materiality language without an approved method.' },
   { code: 'ASSURANCE', re: /\b(MK|we) (?:has |have )?(?:tested|verified|validated|confirmed|examined)\b|\b(independently verified|evidence-based|evidence-linked|has been verified|have been verified|has been validated|have been validated|was tested by|were tested by)\b/gi, detail: 'A claim of testing, verification or validation.' },
+  // DR-02 point 5: no report concludes that an organisation is ready. Narrow on purpose: it names the organisation as
+  // ready, never the word on its own ("ready to act", "readiness").
+  { code: 'READY', re: /\b(?:the )?(?:organisation|company|business|group)(?:'s)? (?:is|was|are) (?:(?:now|fully|largely|broadly|already) )*(?:fraud[- ])?ready\b|\breadiness (?:is|has been) (?:achieved|attained|reached)\b/gi, detail: 'A statement that the organisation is ready; no report concludes readiness.' },
   { code: 'EM-DASH', re: /—|\s–\s/g, detail: 'An em dash, or an en dash used as a dash.' },
   { code: 'RAW-ID', re: /\b(D\d+-[A-Z]-\d+|FS-D\d+-\d+|(?:FINDING|PRIORITY|PATHWAY|BLUEPRINT|DECISION|STAGE|MEASURE|POSITION|AREA)-[A-Z0-9-]+|THEME-[A-Z0-9-]+|OBJ-X-\d+)\b/g, detail: 'An internal identifier in customer prose.' },
   { code: 'ENGINE', re: /\b(recorded condition|recorded weakness|hard gate|cap event|the engine|the model (?:identified|selected)|generated interpretation|aggregate maturity|named record|fact pack|story plan|test-injected)\b/gi, detail: 'Engine or internal language.' }
@@ -216,6 +219,14 @@ export function validateManuscript(md: string, fp: RevisedFactPack, plan: Revise
     add('ACCOUNT-MISSING', 'factual', true, exec.id, first?.line ?? exec.line, 'The executive section must state the scenario account: insert [[T-SCENARIO-ACCOUNT]] as a sentence of its own in this paragraph, in place of any counts restated in your own words.');
   }
   const concl = parsed.sections.find((s) => /CONCLUSION$/.test(s.id));
+  // DR-02 point 7: a scored report opens its conclusion with the agreed wording, by slot, never paraphrased. Reported at
+  // the conclusion's first paragraph so the line repair can fix it.
+  if (concl && typeof fp.facts['T-CONCLUSION']?.value === 'string') {
+    const paras = concl.blocks.filter((b) => b.type === 'p');
+    const first = paras[0];
+    if (!first || !first.text.includes('[[T-CONCLUSION]]')) add('CONCLUSION-MISSING', 'factual', true, concl.id, first?.line ?? concl.line, 'The conclusion must open with the score conclusion: insert [[T-CONCLUSION]] as the first paragraph, in place of any score or position restated in your own words.');
+    if (typeof fp.facts['T-CONCLUSION-OUTSTANDING']?.value === 'string' && !paras.some((b) => b.text.includes('[[T-CONCLUSION-OUTSTANDING]]'))) add('CONCLUSION-MISSING', 'factual', true, concl.id, first?.line ?? concl.line, 'The conclusion must say what is not yet counted in the score: insert [[T-CONCLUSION-OUTSTANDING]] as a sentence of its own after [[T-CONCLUSION]].');
+  }
   if (!concl || concl.blocks.filter((b) => b.type === 'p').length < 2) add('CONCLUSION-NARRATIVE', 'editorial', true, concl?.id ?? '', 0, 'The conclusion has fewer than two narrative paragraphs.');
   const mechanical = analyseMechanicalLanguage(slotsForMech);
   const mech = mechanical as unknown as { reportFindings?: { family: string; count: number; allowance: number }[]; pass?: boolean };

@@ -340,3 +340,50 @@ Why this cost a full repair every time: "recorded" overuse is reported against t
 - Unchanged: fulfilment 27 of 27, resume rules 8 of 8, staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8, reconciliation 10 of 10, and excellence 88 of 92 (the same four DR-17 gaps as before). TypeScript is clean.
 
 **Not yet shown.** Whether gpt-5-mini's first drafts now pass can only be measured with real calls, and the Preview has no campaign budget. A measuring run would be one "Create New Version" on each of the four orders, one at a time. Each records `firstPass` in its audit package. A passing draft costs one writer call (about US$0.02); a failing one also takes a repair. A campaign of 8 calls and US$2.00 estimated reservation would hold that run, including one full repair, with expected spend of about US$0.10 to US$0.60. This needs owner approval, a budget row, the Preview variable and a redeploy.
+
+### 11.9 DR-02 implemented: the MK Fraud Readiness score and the agreed conclusion (14 November 2026)
+
+Implemented on the review branch only. Local evidence; no AI call, deployment or database change.
+
+**The score** (`src/lib/reports/revised/score.ts`, `mk-fraud-readiness-score-1.0`):
+- **Calculation:** a whole-number percentage over the scenarios that apply and whose core answers are all known.
+- **Credit:** a scenario with every core control reported in place earns 1. With a related practice reported weaker it earns 0.75. Where the answers are contradicted it earns 0.5, and a core control reported as a gap earns 0.
+- **Not counted:** scenarios with outstanding core answers, scenarios not reached in the interview, scenarios whose applicability is pending, and scenarios not expected at the organisation's size.
+- **No countable scenario:** generation is refused before any AI call (`score_not_computable`, 409).
+- **Results on the test organisations:** Kestrel 4% (2 of 57 counted, 12 not yet counted); Marula 94% (84.25 of 90).
+
+**Two readings of the decision, made explicit so they can be changed in one place:**
+1. "Contradicted" covers every scenario the report's shared account describes as "the answers raise a question or cannot both be right". That is a direct contradiction, a control lacking an input it needs, and a question to clarify. All earn half credit (`SCORE_CREDIT`). For Marula that is 4 scenarios.
+2. The agreed outstanding sentence is used when questions are unanswered and scenarios are held back. When scenarios are held back only because the interview did not reach them, no question is unanswered. In that case the sentence names that reason instead ("N scenarios were not reached in the interview, so they are not yet counted; the score may change once they are answered."). When questions are unanswered but hold back no scenario (Marula: 2 questions), the sentence is left out; those questions are still disclosed in the outstanding-information reconciliation.
+
+**Where the score and conclusion now appear:**
+- **Position panel:** "Score 4%" with its basis. The conclusion cell reads "No readiness label": no band, level or pass mark, and not a finding of protection.
+- **Fact Pack (0.3):** `N-SCORE`, `N-SCORE-COUNTED` and `N-SCORE-NOT-COUNTED`, plus the agreed heading, paragraph and outstanding sentence as `T-` facts inserted by slot. The pending "approved readiness conclusion" requirement is removed for scored packs.
+- **Story Plan (0.3):** the conclusion opens with the agreed wording.
+- **Composer (0.4):** the conclusion heading is the agreed one, in the section and on the contents page.
+- **Validator (0.4):**
+  - `CONCLUSION-MISSING` (blocking, line-repairable) requires the agreed paragraph, and the outstanding sentence when it exists.
+  - `READY` blocks any statement that the organisation is ready or that readiness is achieved. It matched nothing in the eight real AI drafts and finals.
+- **Writer:** prompt rule 15, brief lines and the self-check.
+- **Workbook Read me:** carries the score.
+- **Operator event:** states the score and that no readiness label is issued.
+- **Audit package:** records the score's inputs and version.
+- **Restricted label:** reports use a new label without "no readiness score is issued". The Snapshot keeps its label, which is still true for it.
+
+Older unscored Fact Packs keep their earlier wording unchanged.
+
+**Tests.**
+- Score: 12 of 12 (`score-tests.mjs`). These cover:
+  - both organisations' scores and the exact credit;
+  - the exclusion rules and the refusal when no scenario can be counted;
+  - the agreed wording, word for word;
+  - the composed report and its panel;
+  - `CONCLUSION-MISSING` with its line repair;
+  - `READY`, with good and bad examples;
+  - unscored packs left unchanged;
+  - the workbook, the operator note and the labels.
+- The test fixtures now build the Fact Pack exactly as the pipeline does (scored).
+- Unchanged: fulfilment 27 of 27, writer contract 7 of 7, resume 8 of 8, staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8, reconciliation 10 of 10, and excellence 88 of 92. TypeScript is clean.
+- A locally rendered Kestrel Essential PDF (15 pages, contents verified) shows the panel and the conclusion page as intended.
+
+**Not done.** The four hosted test reports were produced before this change and say "no score". A scored hosted report needs a generation run, which needs a campaign budget. The Snapshot still issues no score; DR-02 concerns reports.

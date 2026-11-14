@@ -7,13 +7,30 @@ import type { RevisedFactPack, Product } from './fact-pack';
  * exhibits the composer places in it, and the management takeaway it must leave. The writer may improve headings and
  * expression; it may not reorder the movements, the findings, the pathways, the priorities or the stages.
  */
-export const REVISED_STORY_PLAN_VERSION = 'revised-story-plan-0.2';
+export const REVISED_STORY_PLAN_VERSION = 'revised-story-plan-0.3';
 
 export type PlanSection = {
   id: string; movement: string; title: string; purpose: string; takeaway: string; next: string | null;
   requiredFacts: string[]; exhibits: string[]; newPage: boolean; units?: { id: string; ref: string; exhibit?: string }[];
 };
 export type RevisedStoryPlan = { version: typeof REVISED_STORY_PLAN_VERSION; product: Product; sections: PlanSection[]; pageTarget: { default: [number, number]; acceptable: [number, number]; hardMax: number } };
+
+/**
+ * A scored report (DR-02) opens its conclusion with the agreed score conclusion, inserted by slot, and closes on the
+ * responses the report sets out first. Earlier unscored packs keep their plan unchanged.
+ */
+function withScoredConclusion(fp: RevisedFactPack, sections: PlanSection[]): PlanSection[] {
+  if (typeof fp.facts['T-CONCLUSION']?.value !== 'string') return sections;
+  const outstanding = typeof fp.facts['T-CONCLUSION-OUTSTANDING']?.value === 'string';
+  const opening = `Open with [[T-CONCLUSION]] as the first paragraph${outstanding ? ', with [[T-CONCLUSION-OUTSTANDING]] as the sentence after it' : ''}. `;
+  return sections.map((s) => !/CONCLUSION$/.test(s.id) ? s : {
+    ...s,
+    purpose: opening + (fp.product === 'essential'
+      ? 'Then close in narrative: the responses this report sets out first, what should be true within ninety days, and the sensible next step.'
+      : 'Then close in narrative: the transition required, the responses this report sets out first, what success looks like by ninety days and by twelve months, and when Advisory would add value.'),
+    requiredFacts: ['T-CONCLUSION', ...(outstanding ? ['T-CONCLUSION-OUTSTANDING'] : []), ...s.requiredFacts]
+  });
+}
 
 export function buildRevisedStoryPlan(fp: RevisedFactPack): RevisedStoryPlan {
   const themeIds = fp.themes.map((t) => t.ref);
@@ -32,7 +49,7 @@ export function buildRevisedStoryPlan(fp: RevisedFactPack): RevisedStoryPlan {
       { id: 'ESS-BASIS', movement: 'Basis', title: 'Basis of this report', purpose: 'One concise page: self-reported basis, how unknowns are treated, no independent validation, what is pending MK\'s approval.', takeaway: 'The boundary, stated once.', next: 'ESS-CONCLUSION', requiredFacts: ['N-PAIRS'], exhibits: [], newPage: false },
       { id: 'ESS-CONCLUSION', movement: '6. Management conclusion', title: 'Management conclusion', purpose: 'Close in narrative: what the organisation should recognise, which few changes matter most, what should be true within ninety days, and the sensible next step.', takeaway: 'A useful close, not a list.', next: null, requiredFacts: [], exhibits: [], newPage: true }
     ];
-    return { version: REVISED_STORY_PLAN_VERSION, product: 'essential', sections, pageTarget: { default: [18, 22], acceptable: [16, 24], hardMax: 26 } };
+    return { version: REVISED_STORY_PLAN_VERSION, product: 'essential', sections: withScoredConclusion(fp, sections), pageTarget: { default: [18, 22], acceptable: [16, 24], hardMax: 26 } };
   }
   const blueprintIds = fp.blueprints.map((b) => b.ref);
   const decisionIds = fp.decisions.map((d) => d.ref);
@@ -51,5 +68,5 @@ export function buildRevisedStoryPlan(fp: RevisedFactPack): RevisedStoryPlan {
     { id: 'COMP-BASIS', movement: 'Basis', title: 'Methodology and limitations', purpose: 'Concise product boundary and how the position is read, including what awaits MK\'s approval.', takeaway: 'The boundary, stated once.', next: 'COMP-CONCLUSION', requiredFacts: [], exhibits: [], newPage: false },
     { id: 'COMP-CONCLUSION', movement: 'Conclusion', title: 'Management conclusion', purpose: 'Where the organisation is, the transition required, the foundations that matter most, what success looks like by ninety days and by twelve months, and when Advisory would add value.', takeaway: 'A useful close.', next: null, requiredFacts: [], exhibits: [], newPage: true }
   ];
-  return { version: REVISED_STORY_PLAN_VERSION, product: 'comprehensive', sections, pageTarget: { default: [28, 34], acceptable: [26, 36], hardMax: 38 } };
+  return { version: REVISED_STORY_PLAN_VERSION, product: 'comprehensive', sections: withScoredConclusion(fp, sections), pageTarget: { default: [28, 34], acceptable: [26, 36], hardMax: 38 } };
 }

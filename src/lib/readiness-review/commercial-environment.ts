@@ -59,3 +59,9 @@ export function requireRevisedCommercial(env: NodeJS.ProcessEnv = process.env): 
 
 /** The label every restricted-test artefact carries. */
 export const RESTRICTED_TEST_LABEL = 'RESTRICTED TEST · Fictional organisation entered through the test deployment · Revised method not approved by MK: no readiness score is issued · Not for customer release';
+
+/**
+ * The label a restricted-test revised REPORT carries. Reports now carry the MK Fraud Readiness score (DR-02), so they no
+ * longer say that no score is issued; the Snapshot keeps RESTRICTED_TEST_LABEL, which is still true for it.
+ */
+export const RESTRICTED_TEST_REPORT_LABEL = 'RESTRICTED TEST · Fictional organisation entered through the test deployment · Not for customer release';
