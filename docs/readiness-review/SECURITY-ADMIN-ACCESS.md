@@ -1,5 +1,7 @@
 # Operator console access: finding, containment and the person-bound decision (13 November 2026)
 
+> **Withdrawn, 14 November 2026.** The owner confirmed that the console answering on mkfraud.co.za is the preferred, intended setup, and that no release should change it. The containment described below has been removed from the candidate (`src/middleware.ts` restored to match production `main`; `admin-surface.ts`, its tests and `security-containment-74b16d35.patch` deleted). This document is kept as a record only.
+
 This change is security-only and is kept separate from the reporting, fulfilment and presentation changes so that it can be reviewed on its own. Files: `src/lib/auth/admin-surface.ts` (new), `src/middleware.ts`, `scripts/admin-surface-gate-tests.mjs` (new).
 
 ## 1. Finding (confirmed from source and project configuration; not probed)
