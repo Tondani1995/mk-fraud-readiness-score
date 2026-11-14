@@ -28,6 +28,7 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, o
     ? '- Deliverable: this report is a PDF only. Never refer to a workbook, spreadsheet, supporting register or action register; the customer does not receive one.'
     : '- Deliverable: this report comes with a supporting workbook that holds every register; refer to it where the report discusses a selection.');
   L.push('- Facts whose ref starts with T- are complete sentences. Insert them as a sentence of their own, never inside another sentence.');
+  L.push('- The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly. Do not restate those scenario counts in your own words.');
   L.push('- A scenario whose applicability is outstanding is not counted as applying. Never describe its controls as in place or missing.');
   L.push('', '## Organisation', '', `- Name: ${o.name}`, `- Reference: ${o.reference}`, `- Industry: ${o.industry ?? 'not given'}`, `- People: ${o.people ?? 'not given'}`, `- Turnover: ${o.turnover ?? 'not given'}`, `- Type: ${o.type ?? 'not given'}`, `- Final oversight: ${o.oversight}${o.oversightKnown ? ' (its own answer)' : ' (not identified)'}`);
   L.push('', '## Position statements (four-position separation)', '');

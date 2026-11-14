@@ -208,9 +208,8 @@ export async function generateRevisedManualReport(input: {
   // The shared start function records "Deterministic report generation started" for every manual attempt. For a revised
   // report that is wrong: it is AI-written. An accurate operator event is added beside it (the shared function is left
   // unchanged; correcting its note is a migration on the production path, decision register DR-12).
-  await recordOperatorEvent(db, order, 'revised_report_generated',
-    `Revised report (restricted test) written by the AI writer ${artefacts.ai.model ?? artefacts.ai.requestedModel}${artefacts.ai.repairUsed ? ', repaired by the repair model' : ''} in ${artefacts.ai.calls} call${artefacts.ai.calls === 1 ? '' : 's'}${artefacts.ai.resumedFrom ? ` (resumed from ${artefacts.ai.resumedFrom})` : ''}; validated against the report checks; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; no score issued; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`,
-    { generationMode: 'ai', calls: artefacts.ai.calls, repairUsed: artefacts.ai.repairUsed, model: artefacts.ai.model, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: true });
+  await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order),
+    { generationMode: 'ai', calls: artefacts.ai.calls, callIds: artefacts.ai.callIds, writerModel: artefacts.ai.models.writer, repairModel: artefacts.ai.repairUsed ? artefacts.ai.models.repair : null, finalModel: artefacts.ai.model, repairUsed: artefacts.ai.repairUsed, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: true });
 
   // Report-run lineage in the review store: which bound input produced which report. Recorded after commit, and a
   // failure here never undoes a committed paid report.
@@ -246,6 +245,22 @@ const STATUS: Record<RevisedGenerationError['code'], number> = {
   answers_changed_since_binding: 409, provider_failed: 502, provider_timeout: 504, time_budget_exhausted: 503, manuscript_rejected: 502, render_failed: 502, publication_held: 502,
   call_ceiling_reached: 409, campaign_budget_missing: 409, campaign_budget_exhausted: 409, cost_not_bounded: 409, accounting_unavailable: 503, history_unavailable: 503, audit_unavailable: 503
 };
+
+/**
+ * The operator's account of how a revised report was written: the writer model and, separately, the repair model when a
+ * repair was used, the AI calls made by this attempt, and a resumed attempt's starting point (staging certification,
+ * 14 November 2026, defect 5: the earlier note named the last model used as the writer).
+ */
+export function revisedGenerationNote(ai: { models: { writer: string; repair: string }; calls: number; repairUsed: boolean; resumedFrom: 'repair' | 'compose' | null }, order: { binding: { engineBuild: string; outstandingTotal: number } }): string {
+  const how = ai.resumedFrom === 'compose'
+    ? 'composed from the validated manuscript stored by an earlier attempt, with no AI call in this attempt'
+    : ai.resumedFrom === 'repair'
+      ? `repaired by ${ai.models.repair} from the draft stored by an earlier attempt (${ai.calls} AI call${ai.calls === 1 ? '' : 's'} in this attempt)`
+      : ai.repairUsed
+        ? `written by ${ai.models.writer} and repaired by ${ai.models.repair} (${ai.calls} AI calls)`
+        : `written by ${ai.models.writer} (${ai.calls} AI call${ai.calls === 1 ? '' : 's'})`;
+  return `Revised report (restricted test) ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; no score issued; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
+}
 
 /** An operator-facing order event; a failure to record it never affects the report. */
 async function recordOperatorEvent(db: any, order: RevisedOrderContext, eventType: string, note: string, metadata: Record<string, unknown>) {

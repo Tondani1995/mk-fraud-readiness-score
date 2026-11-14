@@ -12,7 +12,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * movements or exhibits, label headings, mechanical cadence, fragments, repeated contrasts). A manuscript that fails
  * a blocking check is not composed.
  */
-export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.2';
+export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.3';
 
 export type Block = { type: 'h2' | 'h3' | 'p' | 'exhibit'; text: string; refs: string[]; line: number };
 export type ParsedSection = { id: string; heading: string; blocks: Block[]; line: number };
@@ -208,6 +208,13 @@ export function validateManuscript(md: string, fp: RevisedFactPack, plan: Revise
   // Editorial thresholds.
   const exec = parsed.sections.find((s) => /EXEC$/.test(s.id));
   if (!exec || exec.blocks.filter((b) => b.type === 'p').length < 3) add('EXEC-NARRATIVE', 'editorial', true, exec?.id ?? '', 0, 'The executive section has fewer than three narrative paragraphs.');
+  // The executive section states the scenario account in the report's one convention, by its slot, so that the opening
+  // never accounts for only some of the scenarios (staging certification, 14 November 2026, defect 2). Reported against
+  // the section's first paragraph, which the line repair can rewrite to include the slot.
+  if (exec && typeof fp.facts['T-SCENARIO-ACCOUNT']?.value === 'string' && !exec.blocks.some((b) => b.type === 'p' && b.text.includes('[[T-SCENARIO-ACCOUNT]]'))) {
+    const first = exec.blocks.find((b) => b.type === 'p');
+    add('ACCOUNT-MISSING', 'factual', true, exec.id, first?.line ?? exec.line, 'The executive section must state the scenario account: insert [[T-SCENARIO-ACCOUNT]] as a sentence of its own in this paragraph, in place of any counts restated in your own words.');
+  }
   const concl = parsed.sections.find((s) => /CONCLUSION$/.test(s.id));
   if (!concl || concl.blocks.filter((b) => b.type === 'p').length < 2) add('CONCLUSION-NARRATIVE', 'editorial', true, concl?.id ?? '', 0, 'The conclusion has fewer than two narrative paragraphs.');
   const mechanical = analyseMechanicalLanguage(slotsForMech);

@@ -31,7 +31,7 @@ import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type StoredCheckpoint 
  *   - every artefact carries the restricted-test label.
  */
 
-export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.2';
+export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.3';
 /** One writing call, plus at most one repair call that returns the validator's exact issues to the writer. */
 export const REVISED_PROVIDER_CALL_CEILING = 2;
 /**
@@ -77,6 +77,7 @@ const WRITER_SYSTEM = [
   '9. Never rank or grade risks: no MK prioritisation method is approved. Do not write "matters most", "where it matters most", "most material", "material exposure", "highest priority", "high priority", "top priority", "critical risk", "most important risk", "the biggest risk" or "most serious". Say "the controls this report sets out first" instead.',
   '10. Never write "independently verified", "verified", "validated", "tested", "examined", "evidence-based" or "evidence-linked", even inside a recommendation: nothing in this report was tested. Describe a control instead, for example "checked by a second person who did not raise the request".',
   '11. Vary how recommendations open. Use "management should" at most five times and "the organisation should" at most five times in the whole manuscript; otherwise name the accountable role ("The chief financial officer should …") or state the action directly.',
+  '12. The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly, as a sentence of its own. Do not restate those scenario counts in your own words anywhere in that section.',
   '8. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
   '',
   'LENGTH (mandatory): an Essential manuscript is 3,800 to 4,500 words and a Comprehensive manuscript 4,800 to 5,800 words. Give each finding three or four connected paragraphs (what the organisation reported, how fraud could exploit it in its operations, what good practice looks like, and what to do first), each theme two or three paragraphs, each pathway three paragraphs, and each priority, blueprint and decision at least two paragraphs. A short manuscript is rejected.',

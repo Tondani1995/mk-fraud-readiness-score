@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.2';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.3';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -173,8 +173,12 @@ function position(fp: RevisedFactPack): string {
     // calculated result exists.
     calculated: (p) => (/not (issued|calculated)/i.test(p.value) ? p.text : 'The arithmetic result of the answers under the method\'s scoring frame, shown for traceability. It carries no band.'),
     inconsistencies: (p) => p.text,
-    interpretation: () => {
-      // Same counts, same framing as the executive summary: held, open to settle, outstanding and gap add up to the total.
+    interpretation: (p) => {
+      // The shared scenario account (position.ts scenarioAccount), the same sentence the executive summary, workbook and
+      // position statement use: every category including scenarios whose applicability is pending, and the qualification
+      // that no conflict found does not establish operation (staging certification, 14 November 2026, defect 1).
+      if (typeof fp.facts['T-SCENARIO-ACCOUNT']?.value === 'string') return p.text;
+      // Older Fact Packs without the account: same counts, same framing as before.
       const n = (r: string) => Number(fp.facts[r]?.value ?? 0);
       const held = n('N-REPORTED-HELD'), apply = n('N-APPLY'), settle = n('N-SETTLE'), outs = n('N-OUTSTANDING-SCHEMES'), gap = n('N-GAP');
       return `On its own answers, the organisation reports the core control in place for ${held} of the ${apply} fraud scenarios that apply${settle ? `; ${settle} more have answers to settle or clarify` : ''}${outs ? `; ${outs} cannot yet be read because answers are outstanding` : ''}; and ${gap} ${gap === 1 ? 'has' : 'have'} a core control reported as a gap.`;
