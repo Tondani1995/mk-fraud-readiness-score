@@ -413,3 +413,40 @@ Implemented on the review branch only. Local evidence; no AI call, deployment or
 - The Snapshot does not state the requirement before the customer opens the order form; they see it only if they are refused.
 - The hosted failure-path suite (`b5-failure-path-tests.mjs`) was not run, because it needs a deployment.
 - The earlier candidate sufficiency rules (0.2) remain reported, not enforced; DR-04 supersedes them as the enforced rule.
+
+### 11.11 DR-01 switch-over implemented (14 November 2026)
+
+Implemented on the review branch only. Local evidence; nothing deployed, and no variable changed.
+
+**One switch, effective only where the revised review can run** (`src/lib/website/readiness-release.ts`, `revisedReleaseEffective`). It takes effect when two things hold:
+- the build selects the review track (`NEXT_PUBLIC_MK_READINESS_TRACK=review`, the owner's release switch); and
+- the review is available in that environment (`reviewHarnessStatus`).
+
+The revised track still refuses every production runtime and the production databases. So setting the switch in production today changes nothing: new customers keep the scored assessment and are never left without one. Lifting that refusal is the release step itself, and needs separate approval.
+
+**When the switch is effective:**
+
+| Surface | Behaviour |
+|---|---|
+| `/score/start` (every website link) | Leads to the revised review. Before this change the redirect followed the track flag alone, which would have led production visitors to a page that does not run there |
+| Scored start routes (`adaptive/start`, `assessments/start`) | Refuse new starts: 410 `scored_assessment_closed`, pointing to `/review` |
+| Paid-order route | Refuses a previous-method assessment (409) after token validation and before any order is created. Revised assessments (`assessment_mode = readiness_review`) order through the same route and are unaffected. An unreadable mode is refused |
+| Scored Snapshot | Stays available, labelled "Produced under the previous MK Fraud Readiness method", with a short notice |
+| Report order page | Explains that the previous method takes no new orders, with links to start a new assessment and back to the Snapshot |
+| Order status page | Existing orders and their reports stay available, labelled as the previous method |
+
+The token check (`tokens.ts`) and the scoring routes are unchanged. The mode is read by a separate query.
+
+**Tests.**
+- Switch-over: 8 of 8 (`switch-over-tests.mjs`). These cover:
+  - the switch under each condition (on, legacy, production runtime, production database, review not configured);
+  - mode handling, including unknown and unreadable modes;
+  - the placement of each guard;
+  - the labels and the wording.
+- The route-reading suites give the same results before and after: five pass (product contract, conversion, copy, commercial experience, brand guardrail). Four fail identically before and after, for missing files and an unrelated copy assertion. TypeScript is clean.
+
+**Not done.**
+- Not seen in a browser. It needs the switch on with the review database and a scored test assessment.
+- The admin console does not label previous-method records.
+- Production monitors that start a scored assessment will see 410 once the switch takes effect in production, so they need updating at release.
+- Already-issued PDFs and emails are unchanged.

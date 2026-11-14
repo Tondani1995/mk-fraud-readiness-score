@@ -4,11 +4,14 @@ import { parseAdaptiveStartInput, startAdaptiveAssessment } from '@/lib/adaptive
 import { recordProductionMonitorEvent } from '@/lib/monitoring/production-monitor';
 import { isAuthorisedSyntheticMonitorRequest } from '@/lib/monitoring/signatures';
 import { safeErrorCategory } from '@/lib/monitoring/privacy';
+import { revisedReleaseEffective, SCORED_START_CLOSED } from '@/lib/website/readiness-release';
 
 const GENERIC_START_ERROR =
   'We could not start your assessment right now. Please try again. If the problem continues, contact hello@mkfraud.co.za.';
 
 export async function POST(request: Request) {
+  // DR-01: the scored assessment takes no new starts once the revised review has replaced it.
+  if (revisedReleaseEffective()) return NextResponse.json({ ok: false, code: SCORED_START_CLOSED.code, errors: [SCORED_START_CLOSED.message], next: SCORED_START_CLOSED.next }, { status: 410 });
   let body: unknown;
   try {
     body = await request.json();

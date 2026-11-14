@@ -6,7 +6,7 @@ import { SectionShell } from '@/components/ui/SectionShell';
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { parseProductIntent } from '@/lib/commercial/product-intent';
 import { redirect } from 'next/navigation';
-import { readinessTrack } from '@/lib/website/readiness-track';
+import { revisedReleaseEffective } from '@/lib/website/readiness-release';
 
 function selectedProductContext(tier: 'essential' | 'comprehensive') {
   const product = COMMERCIAL_CATALOGUE[tier];
@@ -21,8 +21,9 @@ export default async function StartAssessmentPage(props: {
   searchParams?: Promise<{ embed?: string; product?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  // New visitors enter the unscored review track only in a build that selects it; issued scored records are untouched.
-  if (readinessTrack() === 'review') redirect('/review');
+  // DR-01: new visitors enter the revised review only where the release switch is on and the review can run here;
+  // otherwise they keep the scored assessment. Issued scored records are untouched.
+  if (revisedReleaseEffective()) redirect('/review');
   if (searchParams?.embed === '1') redirect('/score/start');
 
   const productIntent = parseProductIntent(searchParams?.product);

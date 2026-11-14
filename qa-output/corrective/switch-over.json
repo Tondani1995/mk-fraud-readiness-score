@@ -1,0 +1,50 @@
+[
+  {
+    "id": "SW-01",
+    "ok": true,
+    "name": "The switch takes effect only with the review track selected AND the review able to run here",
+    "detail": "{\"on\":true,\"legacy\":false,\"productionRuntime\":false,\"productionDatabase\":false,\"reviewNotConfigured\":false}"
+  },
+  {
+    "id": "SW-02",
+    "ok": true,
+    "name": "Only the revised mode counts as the current method; every other or unknown mode is the previous method",
+    "detail": "readiness_review current; adaptive, legacy_fixed, unknown previous"
+  },
+  {
+    "id": "SW-03",
+    "ok": true,
+    "name": "The mode lookup returns the stored mode and throws on a read error (callers then refuse or label as previous)",
+    "detail": "mode readiness_review; error throws true; missing -> previous"
+  },
+  {
+    "id": "SW-04",
+    "ok": true,
+    "name": "Both scored start routes refuse new starts (410, with the next step) before reading the request",
+    "detail": "adaptive and accountless start routes"
+  },
+  {
+    "id": "SW-05",
+    "ok": true,
+    "name": "The paid-order route refuses a previous-method assessment after token validation and before any order is created; an unreadable mode is refused",
+    "detail": "guard placed between validation and order creation"
+  },
+  {
+    "id": "SW-06",
+    "ok": true,
+    "name": "/score/start sends new visitors to the revised review only when the switch is effective (never on the track flag alone)",
+    "detail": "redirect is guarded"
+  },
+  {
+    "id": "SW-07",
+    "ok": true,
+    "name": "Earlier results are labelled, not removed: the Snapshot carries the previous-method label and notice, the order page explains and links to a new assessment, the order status page carries the label",
+    "detail": "Snapshot, order and order status pages"
+  },
+  {
+    "id": "SW-08",
+    "ok": true,
+    "name": "Customer wording follows the MK writing standard: no em dashes, no score claims, a clear next step",
+    "detail": "Produced under the previous MK Fraud Readiness method"
+  }
+]

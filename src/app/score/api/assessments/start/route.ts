@@ -3,6 +3,7 @@ import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { parseStartAssessmentInput } from '@/lib/respondent/validation';
 import { startAccountlessAssessment } from '@/lib/respondent/start-assessment';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { revisedReleaseEffective, SCORED_START_CLOSED } from '@/lib/website/readiness-release';
 
 function publicBaseUrlFor(request: Request) {
   const forwardedHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
@@ -16,6 +17,8 @@ function publicBaseUrlFor(request: Request) {
 export async function POST(request: Request) {
   const frozen = await getRc1OperationFreezeResponse('assessment_start');
   if (frozen) return frozen;
+  // DR-01: the scored assessment takes no new starts once the revised review has replaced it.
+  if (revisedReleaseEffective()) return NextResponse.json({ ok: false, code: SCORED_START_CLOSED.code, errors: [SCORED_START_CLOSED.message], next: SCORED_START_CLOSED.next }, { status: 410 });
 
   let body: unknown;
   try {

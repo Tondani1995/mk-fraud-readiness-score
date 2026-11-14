@@ -4,6 +4,8 @@ import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { createPaidOrderForAssessment } from '@/lib/commercial/order-service';
 import { isSelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 import { parseInvoiceRequest } from '@/lib/commercial/invoice-details';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { assessmentModeOf, isPreviousMethodMode, revisedReleaseEffective, SCORED_ORDER_CLOSED_MESSAGE } from '@/lib/website/readiness-release';
 
 /**
  * Creates a paid order for the tier the customer chose.
@@ -47,6 +49,14 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
   });
 
   if (!validation.ok) return deny(['Private snapshot link required.'], 403);
+
+  // DR-01: once the revised review has replaced the scored assessment, a previous-method assessment takes no new order.
+  // Revised assessments order through this same route and are unaffected. An unreadable mode is refused, never assumed.
+  if (revisedReleaseEffective()) {
+    let mode: string | null = null;
+    try { mode = await assessmentModeOf(createSupabaseServiceClient(), validation.assessment.id); } catch { return deny([SCORED_ORDER_CLOSED_MESSAGE], 409); }
+    if (isPreviousMethodMode(mode)) return deny([SCORED_ORDER_CLOSED_MESSAGE], 409);
+  }
 
   const result = await createPaidOrderForAssessment({
     tier: body.tier,
