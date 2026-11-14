@@ -1,6 +1,8 @@
 # Controlled staging certification: decision package (14 November 2026)
 
-**Outcome: partial certification.** The staging boundary, the non-chargeable hosted journey and its failure paths, the durable call ledger, the audit checkpoints, the publication gates and private delivery all passed on the protected Preview. One of the four authorised reports was produced (Kestrel Essential v2). Marula Essential was rejected by validation after its repair. Kestrel Comprehensive was stopped by the campaign ledger before its repair call, and under your stop rule the run ended there; Marula Comprehensive was not attempted.
+**Update, round 2 (`b5-live-3`, section 11): all four authorised reports now exist on the corrected code.** Kestrel Comprehensive, Marula Comprehensive and Marula Essential were generated, verified and kept private in 4 calls and US$0.459 recorded. The recommendation is unchanged: no-go for production or a customer cohort.
+
+**Outcome of round 1: partial certification.** The staging boundary, the non-chargeable hosted journey and its failure paths, the durable call ledger, the audit checkpoints, the publication gates and private delivery all passed on the protected Preview. One of the four authorised reports was produced (Kestrel Essential v2). Marula Essential was rejected by validation after its repair. Kestrel Comprehensive was stopped by the campaign ledger before its repair call, and under your stop rule the run ended there; Marula Comprehensive was not attempted.
 
 **Recommendation: no-go for production or a customer cohort. Next milestone: a second restricted campaign after four bounded fixes (section 7).**
 
@@ -168,3 +170,73 @@ A US$1.00 budget cannot hold the two Comprehensives in sequence (about US$1.02 a
 **Proposal:** a new campaign `b5-live-3` with **6 calls and US$1.50**, run one case at a time in the order Kestrel Comprehensive, Marula Comprehensive, Marula Essential. That leaves room for one bounded retry. Expected actual spend is about US$0.40 to US$0.50 at the 14 November rates.
 
 The same stop rules apply, and the same accepted limitation: the dollar figure is an estimated reservation, not a guaranteed billing ceiling.
+
+## 11. Round 2: campaign `b5-live-3` (14 November 2026)
+
+**Approved by the owner on 14 November:** 6 calls and US$1.50 estimated, cases run one at a time, same stop rules. `b5-live-2` stays closed at 5 calls and US$0.2695; it was not reset.
+
+**Set-up.** The budget row was inserted on the isolated database `zuqegvsfhzgcydyivnqv` (09:28 UTC). The owner set the branch Preview variable to `b5-live-3`. Empty commit `8637345a` redeployed the branch: Preview `dpl_4aukEkhz4nkGHVPJbe5KTATSTwW4`, READY, with the branch alias. `main` is untouched at `74b16d35`. A new share link was created for the run, kept in a git-excluded folder, never printed, and revoked at the end (verified: it now redirects to sign-in). The local copy was deleted.
+
+### 11.1 Results
+
+| Case | Order | Report | Calls (this attempt) | Recorded | Pages | Manuscript words (minimum) | Result |
+|---|---|---|---|---|---|---|---|
+| Kestrel Comprehensive | `MKORD-2026-69BC67C1` | `RPT-MKFRS-2026-RV9C289E5F-COMP-V1` | 1: full repair of the draft stored in round 1 | US$0.1369 | 28 | 3,869 (3,800) | Generated, 82 s |
+| Marula Comprehensive | `MKORD-2026-A7D23AC3` | `RPT-MKFRS-2026-RV05BD5748-COMP-V2` | 2: writer, then full repair | US$0.1997 | 34 | 5,868 (3,800) | Generated, 183 s |
+| Marula Essential | `MKORD-2026-19433AAB` | `RPT-MKFRS-2026-RV05BD5748-V2` | 1: full repair of the draft stored in round 1 | US$0.1224 | 22 | 3,653 (3,000) | Generated, 71 s |
+
+No case was rejected, so the optional retry was not used. No stop rule fired.
+
+**Verification on each report**, from the database, storage and the deployed console:
+- The attempt is REPORT_READY.
+- The audit checkpoints run drafted, validated, linked, and no audit package is left unlinked.
+- The PDF bytes in storage match the recorded checksum. For the two Comprehensives, the workbook bytes also match.
+- The operator download route returns identical bytes for all three PDFs and both workbooks.
+- A request for the Marula Essential workbook is refused (`storage_path_mismatch`), because Essential is PDF-only.
+- A cross-order download is refused (`report_order_mismatch`).
+- Anonymous access to every stored object is refused.
+- Every order is still `payment_received`, with no email, notification or delivery event and no delivery field set.
+- Each operator event names the models correctly:
+  - Marula Comprehensive: "written by openai/gpt-5-mini and repaired by openai/gpt-5.6-terra (2 AI calls)".
+  - The two resumed cases: "repaired by openai/gpt-5.6-terra from the draft stored by an earlier attempt (1 AI call in this attempt)".
+
+**Content checks.** The checks below were scripted on the extracted text, and the opening pages were read as rendered images.
+- All three reports contain the shared scenario account sentence. In Kestrel it carries the pending scenarios. In Marula it carries "which does not establish that the controls operate".
+- The Kestrel position panel now carries the shared account, including "Whether 4 further scenarios apply depends on answers that are outstanding". Fix 1 is confirmed live.
+- Each report issues no score, band or readiness conclusion.
+- No report contains library-gap wording, the old score caption, "stand without question", or an em dash.
+- The restricted-test label appears on every page.
+- Poppins is embedded.
+- Outstanding items reconcile: 20 for Kestrel and 2 for Marula, matching the order events.
+- The Marula Essential report has no workbook reference.
+- Both Comprehensive workbooks have 8 sheets. In each, the account matches the PDF, the risk-register scope is stated, and the edition notice is present.
+
+### 11.2 Calls, costs and allowance
+
+| Measure | Value |
+|---|---|
+| Calls reserved | **4 of 6**, all settled as succeeded: 1 writer call (gpt-5-mini) and 3 full repairs (gpt-5.6-terra). No failed, indeterminate or unsettled calls, and no refusals |
+| Recorded cost | **US$0.4590** of US$1.50 |
+| Unused | 2 calls and US$1.041 |
+| Worst-case reservations | US$2.41 for the 4 calls, about 5.3 times recorded. A full repair reserved US$0.755 to US$0.776 against US$0.122 to US$0.180 actual |
+| Estimated against recorded | The repairs wrote 56,445 prompt-cache tokens, priced in the record at the input rate. At the cache-write rate implied in round 1 (about 1.25 times input), the run costs about US$0.031 more, about US$0.49. The gateway bill could not be read (403) and should be checked in the Vercel dashboard |
+| Both campaigns together | 9 calls, US$0.7285 recorded (about US$0.78 with cache writes at their own rate) |
+
+### 11.3 Quality findings
+
+**Resolved by the round 1 fixes, confirmed on actual reports.** These were defects 1, 2 and 5 in section 6 (position panel, executive account, model names).
+
+**Still open:**
+1. **Writer reliability.** None of the four first drafts across both rounds passed validation (3 in round 1, plus Marula Comprehensive here). Every report produced so far depended on the gpt-5.6-terra repair, and on a full repair rather than a line repair in all three cases here. The pipeline is reliable *with* the repair. Cost per report stays low (US$0.12 to US$0.20), but the cheap-writer economics are not yet proven.
+2. **Length is above minimum but below target.** Kestrel Comprehensive (3,869 words) clears the 3,800 minimum by 69 words and is well below the writer's 4,800 to 5,800 target. Marula Essential (3,653) is below its 3,800 to 4,500 target. Neither is a blocker under the rules.
+3. **Legacy operator note.** "Deterministic report generation started" still appears beside the corrected event. It comes from the shared fulfilment path (DR-12) and is unchanged.
+
+**Essential against Comprehensive (now reviewable, Marula).**
+- Essential: 22 pages and 3,653 manuscript words, PDF only, with no workbook reference.
+- Comprehensive: 34 pages and 5,868 words, plus an 8-sheet workbook (risk register, control and implementation blueprints, management decisions, question traceability). The Comprehensive PDF names the workbook as the source for every item.
+
+The difference is visible and matches the entitlements. Whether it justifies the price gap is an owner judgement.
+
+### 11.4 What this round does not change
+
+Production and paying-customer release remain unapproved. The owner decisions in section 8 are still open, as are person-bound sign-in (DR-08), background fulfilment (DR-14), the production console containment, and the human verification items. Nothing was merged, deployed to production, emailed or delivered, and no real payment was made. Evidence: `outputs/staging-certification-2026-11-14/hosted/round-2-b5-live-3/`.
