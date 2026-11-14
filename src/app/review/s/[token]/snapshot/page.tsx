@@ -18,7 +18,7 @@ export default async function ReviewSnapshotPage({ params }: { params: Promise<{
     const result = await snapshotFor(token);
     return (
       <>
-        <SnapshotDocument view={result.view} token={token} role={result.role} managementToken={result.tokens?.management ?? null} />
+        <SnapshotDocument view={result.view} token={token} role={result.role} managementToken={result.tokens?.management ?? null} restrictedOrdering={revisedCommercialStatus().enabled} />
         {revisedCommercialStatus().enabled && (
           <div className="mx-auto max-w-5xl px-4 pb-16">
             <RevisedPaidReportPanel token={token} organisationLabel={result.view.organisationLabel}

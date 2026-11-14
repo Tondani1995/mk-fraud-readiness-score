@@ -20,7 +20,7 @@ import { FileReviewStore, StoreConflict, StoreOutcomeUnknown, type ReviewStore, 
 import { reviewDatabaseConfig, reviewStoreKind } from './database-config';
 import { DatabaseReviewStore } from './database-store';
 import { exportView, managementView, ownerView, respondentView, reviewerView, snapshotView } from './view-model';
-import { createReviewEngine } from './engine';
+import { createReviewEngine, isStagedEngine } from './engine';
 
 /**
  * Server-side orchestration for the review track: one store, one cached live session per session, and a queue per
@@ -124,7 +124,7 @@ export type RoleView =
   | { role: 'owner'; view: ReturnType<typeof ownerView> }
   | { role: 'reviewer'; view: ReturnType<typeof reviewerView> }
   | { role: 'management'; view: ReturnType<typeof managementView> }
-  | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[] } };
+  | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[]; staged: boolean; storedInDatabase: boolean } };
 
 export async function viewFor(tokenValue: string): Promise<RoleView> {
   const entry = await resolve(tokenValue);
@@ -143,7 +143,7 @@ export async function viewFor(tokenValue: string): Promise<RoleView> {
     }
     if (entry.role === 'reviewer') return { role: 'reviewer', view: reviewerView(live) };
     if (entry.role === 'management') return { role: 'management', view: managementView(live) };
-    return { role: 'links', view: { organisationLabel: live.record.organisationLabel, sessionId: live.record.sessionId, tokens: live.record.tokens, functions: Object.entries(live.record.tokens.owners).map(([fn, t]) => ({ fn, slug: ownerFunctionSlug(fn), token: t })) } };
+    return { role: 'links', view: { organisationLabel: live.record.organisationLabel, sessionId: live.record.sessionId, tokens: live.record.tokens, functions: Object.entries(live.record.tokens.owners).map(([fn, t]) => ({ fn, slug: ownerFunctionSlug(fn), token: t })), staged: isStagedEngine(live.engine), storedInDatabase: reviewStoreKind() === 'database' } };
   });
 }
 

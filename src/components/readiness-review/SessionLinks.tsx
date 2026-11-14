@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-type Links = { organisationLabel: string; sessionId: string; tokens: { respondent: string; management: string; reviewer: string }; functions: { fn: string; slug: string; token: string }[] };
+type Links = { organisationLabel: string; sessionId: string; tokens: { respondent: string; management: string; reviewer: string }; functions: { fn: string; slug: string; token: string }[]; staged?: boolean; storedInDatabase?: boolean };
 
 /** Stand-in for invitations and sign-in in the fictional harness. A production service would authenticate each role. */
 export function SessionLinks({ view }: { view: Links }) {
@@ -15,11 +15,11 @@ export function SessionLinks({ view }: { view: Links }) {
       <p className="clarity-eyebrow">Fictional review session</p>
       <h1 className="mt-3 text-3xl font-semibold text-mk-ink">{view.organisationLabel}</h1>
       <p className="mt-4 text-base leading-7 text-mk-ink">
-        Each person involved in a review gets a different link. In a production service these would be invitations with sign-in; here they are plain links on this computer, so treat
+        Each person involved in a review gets a different link. In a production service these would be invitations with sign-in; here they are plain links{view.storedInDatabase ? ' to answers held in an isolated test database' : ' on this computer'}, so treat
         them as a way to look at each role, not as security.
       </p>
       <ul className="mt-6 rounded-md border border-mk-line bg-white px-5">
-        {row('Respondent: complete the interview', `/review/s/${view.tokens.respondent}`, 'The person who answers for the organisation, within the limit of 95 screens.', 'respondent')}
+        {row('Respondent: complete the interview', `/review/s/${view.tokens.respondent}`, view.staged ? 'The person who answers for the organisation, through the core and breadth stages; the interview can be stopped and resumed.' : 'The person who answers for the organisation, within the limit of 95 screens.', 'respondent')}
         {row('Management view', `/review/s/${view.tokens.management}`, 'What needs an answer, evidence or remediation, and who acts next.', 'management')}
         {row('MK reviewer workspace', `/review/s/${view.tokens.reviewer}`, 'Evidence and conclusions recorded against the exact answer version.', 'reviewer')}
       </ul>

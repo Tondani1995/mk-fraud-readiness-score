@@ -97,7 +97,11 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
 }
 
 /** What MK offers, stated from the catalogue. The Snapshot never recommends a paid engagement. */
-export function WorkingWithMk() {
+/**
+ * `restrictedOrdering`: the restricted test lets a paid report be requested from these answers (the panel below the
+ * Snapshot). The wording then says so, instead of saying the reports cannot be ordered here (independent review, section 2).
+ */
+export function WorkingWithMk({ restrictedOrdering = false }: { restrictedOrdering?: boolean } = {}) {
   return (
     <section aria-labelledby="working-with-mk" className="mt-12 rounded-md border border-mk-line bg-white p-5" data-review-commercial>
       <h2 id="working-with-mk" className="text-xl font-semibold text-mk-ink">Working with MK</h2>
@@ -120,8 +124,9 @@ export function WorkingWithMk() {
         <div className="border-t border-mk-line pt-3">
           <dt className="font-medium text-mk-ink">Essential and Comprehensive reports</dt>
           <dd className="text-mk-muted">
-            Essential ({storefrontPriceLabel('essential')}) and Comprehensive ({storefrontPriceLabel('comprehensive')}) are currently produced from MK&rsquo;s scored assessment. They are not
-            produced from this Snapshot and cannot be ordered from it while that decision is open.
+            {restrictedOrdering
+              ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be requested from these answers below, for restricted testing only. A report produced this way carries no score and no readiness conclusion, and is not released to a customer.`
+              : `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) are currently produced from MK\u2019s scored assessment. They are not produced from this Snapshot and cannot be ordered from it while that decision is open.`}
           </dd>
         </div>
       </dl>
@@ -141,7 +146,7 @@ export function OwnerPackagesNote({ packages, columns = 2 }: { packages: Snapsho
   );
 }
 
-export function StatusPanel({ status }: { status: Snapshot['status'] }) {
+export function StatusPanel({ status, restrictedOrdering = false }: { status: Snapshot['status']; restrictedOrdering?: boolean }) {
   return (
     <dl className="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border border-mk-line bg-white p-5 text-sm leading-6 md:grid-cols-3" data-review-status>
       <div>
@@ -158,7 +163,7 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
         <dt className="font-medium text-mk-ink">Answers</dt>
         <dd className="text-mk-muted">Every answer is the organisation&rsquo;s own statement, given by the respondent or an accountable function. Nothing has been tested or verified.</dd>
       </div>
-      <AssessmentStatus assessment={status.assessment} />
+      <AssessmentStatus assessment={status.assessment} restrictedOrdering={restrictedOrdering} />
       {status.stages && <StageOutstanding stages={status.stages} />}
     </dl>
   );
@@ -168,7 +173,7 @@ export function StatusPanel({ status }: { status: Snapshot['status'] }) {
  * The four status statements, kept separate so that none implies another: an interview can be completed while
  * information is outstanding, and neither decides whether a commercial report is eligible.
  */
-export function AssessmentStatus({ assessment }: { assessment: Snapshot['status']['assessment'] }) {
+export function AssessmentStatus({ assessment, restrictedOrdering = false }: { assessment: Snapshot['status']['assessment']; restrictedOrdering?: boolean }) {
   return (
     <div className="md:col-span-3 border-t border-mk-line pt-4" data-review-assessment-status>
       <dt className="font-medium text-mk-ink">Where the assessment stands</dt>
@@ -178,7 +183,7 @@ export function AssessmentStatus({ assessment }: { assessment: Snapshot['status'
             <li key={f.key} className="rounded-md border border-mk-line p-3" data-status-facet={f.key} data-settled={f.settled === null ? 'n/a' : String(f.settled)}>
               <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{f.label}</p>
               <p className="mt-1 font-medium text-mk-ink">{f.state}</p>
-              <p className="mt-1 text-mk-muted">{f.detail}</p>
+              <p className="mt-1 text-mk-muted">{restrictedOrdering && f.key === 'eligibility' ? 'Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. In this restricted test a report can be requested from these answers; it is produced for MK\u2019s review and is not released to a customer.' : f.detail}</p>
             </li>
           ))}
         </ul>
@@ -244,7 +249,7 @@ function StageOutstanding({ stages }: { stages: NonNullable<Snapshot['status']['
   );
 }
 
-export function SnapshotDocument({ view, token, role, managementToken }: { view: Snapshot; token: string; role: string; managementToken?: string | null }) {
+export function SnapshotDocument({ view, token, role, managementToken, restrictedOrdering = false }: { view: Snapshot; token: string; role: string; managementToken?: string | null; restrictedOrdering?: boolean }) {
   const nav = [
     ['gaps', 'Reported gaps'],
     ['waiting', 'Waiting for an owner'],
@@ -264,7 +269,7 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
           material scenarios are still open. A control that was not asked is shown as not yet established, never as in place or missing.
         </p>
       </header>
-      <div className="mt-6"><StatusPanel status={view.status} /></div>
+      <div className="mt-6"><StatusPanel status={view.status} restrictedOrdering={restrictedOrdering} /></div>
       <div className="mt-6"><CountCards counts={view.counts} /></div>
       <nav aria-label="Snapshot sections" className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm">
         {nav.map(([id, label]) => <a key={id} href={`#${id}`} className="min-h-11 py-2 text-mk-navy underline underline-offset-4">{label}</a>)}
@@ -284,7 +289,7 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
         )}
         <ControlList items={view.waiting} empty="No question is waiting for an owner." showOwner />
       </Section>
-      <Section id="open" title={`Material scenarios still open (${view.openScenarios.length})`} intro="Failure scenarios that apply or may apply where the deciding fact or control is not yet established. Tiers set the order in which the interview asks; they are a proposal awaiting MK approval and are not a risk rating.">
+      <Section id="open" title={`Material scenarios not yet established (${view.openScenarios.length})`} intro="Failure scenarios that apply or may apply where the deciding fact or control is not yet established. Tiers set the order in which the interview asks; they are a proposal awaiting MK approval and are not a risk rating.">
         <ScenarioList items={view.openScenarios} />
       </Section>
       <Section id="in-place" title={`Reported in place (${view.reportedInPlace.length})`} intro="Controls the organisation reported as in place across everything they should cover. Self-reported; listed so that nothing reported is hidden.">
@@ -347,7 +352,7 @@ export function SnapshotDocument({ view, token, role, managementToken }: { view:
           </div>
         </div>
       </Section>
-      <WorkingWithMk />
+      <WorkingWithMk restrictedOrdering={restrictedOrdering} />
     </article>
   );
 }
