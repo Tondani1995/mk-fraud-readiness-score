@@ -22,13 +22,14 @@ export default function ReviewStartPage() {
             : 'The review has two stages. In the first, one person answers for the organisation in an interview of at most 95 screens. The interview establishes which fraud exposures apply and asks directly about the controls that matter most for them. Where that person does not know an answer, the question goes to the function that would know.'}
         </p>
         <p>
-          The first stage ends with a Snapshot. It lists the gaps the organisation reported, the questions waiting for an owner and the material scenarios that are still open. It
-          contains no score and makes no prediction about controls that were not asked.
+          {staged
+            ? 'The first part ends with a Snapshot. It lists the gaps the organisation reported, the questions waiting for an owner and the material scenarios not yet established. It contains no score and makes no prediction about controls that were not asked.'
+            : 'The first stage ends with a Snapshot. It lists the gaps the organisation reported, the questions waiting for an owner and the material scenarios that are still open. It contains no score and makes no prediction about controls that were not asked.'}
         </p>
         <p>
           {staged
             ? 'In the second part, accountable functions answer their own questions on their own pages, and management sees what needs an answer or remediation and who acts next.'
-            : 'In the second stage, accountable functions answer their own questions outside the 95-screen limit, and management sees what needs an answer or remediation and who acts next.'}
+            : 'In the second stage, accountable functions answer their own questions outside the 95-screen limit, and management sees what needs an answer or remediation and who acts next.'}{' '}
           The assessment is complete when the interview is completed and its outstanding information is answered; anything declined, unanswered or not known stays listed as outstanding.
           Whether a report can be issued with information outstanding is an MK commercial decision. Evidence review is not part of the assessment; it is a separate Advisory service.
         </p>
