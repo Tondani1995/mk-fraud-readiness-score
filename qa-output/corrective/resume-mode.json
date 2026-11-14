@@ -1,0 +1,50 @@
+[
+  {
+    "id": "RM-01",
+    "ok": true,
+    "name": "Fresh mode never resumes, even with a current draft and a current unlinked manuscript",
+    "detail": "resume default: compose"
+  },
+  {
+    "id": "RM-02",
+    "ok": true,
+    "name": "The 14 November case: a draft repaired into a report is superseded",
+    "detail": "none"
+  },
+  {
+    "id": "RM-03",
+    "ok": true,
+    "name": "A draft written after the latest report is still resumed",
+    "detail": "repair from C"
+  },
+  {
+    "id": "RM-04",
+    "ok": true,
+    "name": "A late-recovered link dates from its validated manuscript and does not supersede a later draft",
+    "detail": "repair from C"
+  },
+  {
+    "id": "RM-05",
+    "ok": true,
+    "name": "A manuscript composed into a report by a later attempt is superseded by that report",
+    "detail": "none"
+  },
+  {
+    "id": "RM-06",
+    "ok": true,
+    "name": "Only the same Fact Pack qualifies (unchanged rule)",
+    "detail": "other Fact Pack ignored"
+  },
+  {
+    "id": "RM-07",
+    "ok": true,
+    "name": "History with a missing or unreadable time is malformed, never treated as empty",
+    "detail": "malformed, malformed"
+  },
+  {
+    "id": "RM-08",
+    "ok": true,
+    "name": "The review store returns Postgres time strings; they parse",
+    "detail": "both formats parse"
+  }
+]

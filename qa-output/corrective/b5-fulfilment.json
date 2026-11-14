@@ -130,5 +130,35 @@
     "ok": true,
     "name": "Publication gate: a PDF whose headings or contents numbers are not verified is held, not stored; the retry recomposes with no AI call",
     "detail": "first pdf_publication_held; uploads after both 1; retry calls 0"
+  },
+  {
+    "id": "GF-23",
+    "ok": true,
+    "name": "Create New Version after a report repaired from a stored draft: the writer drafts afresh; the old draft is not repaired again",
+    "detail": "setup writer,repair,repair; new version writer; mode fresh, resumed null"
+  },
+  {
+    "id": "GF-24",
+    "ok": true,
+    "name": "Retry after a report: a superseded draft is not repaired again; the retry is written afresh",
+    "detail": "retry writer; resumed null"
+  },
+  {
+    "id": "GF-25",
+    "ok": true,
+    "name": "Create New Version ignores a current stored draft that a retry would repair",
+    "detail": "new version writer"
+  },
+  {
+    "id": "GF-26",
+    "ok": true,
+    "name": "Create New Version ignores a validated manuscript that never became a report (a retry composes it with no call)",
+    "detail": "first storage_upload_failed; ledger writer,writer"
+  },
+  {
+    "id": "GF-27",
+    "ok": true,
+    "name": "A composed manuscript is superseded by the report it became: a later retry writes afresh instead of composing it again",
+    "detail": "retry composed with 0 calls; next writer"
   }
 ]

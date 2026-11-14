@@ -15,8 +15,41 @@ export const WRITER_CONTRACT = [
   'Calm, precise, practical, authoritative and non-accusatory. Conditional language for possible fraud events. Explain controls in operating terms.',
   'State the self-assessment boundary once, in the executive or basis section. Do not repeat it on every finding.',
   'Do not invent a finding, risk, scenario, control, option, owner, incident, amount, supplier, system or person. Do not rank risks, call any risk high, critical, most material or highest priority, or state a maturity band. Do not claim that anything was tested, verified or validated.',
-  'Do not expose question identifiers, internal references or engine language ("recorded condition", "hard gate", "the engine", "the model").'
+  'Do not expose question identifiers, internal references or engine language ("recorded condition", "hard gate", "the engine", "the model").',
+  'Headings never contain a count in any form, in digits or in words. Write "The findings this report develops", never "Seven findings"; "Patterns across the assessment", never "Two management-level patterns"; "Readiness across the assessed areas", never "ten assessed areas".',
+  'The facts below often use the word "recorded". Do not carry it into the prose: say what the position is ("monitoring is reactive"), or write "documented", "kept on file" or "logged".'
 ];
+
+/**
+ * Length budgets (14 November 2026). Every hosted first draft so far had about the planned number of paragraphs but
+ * paragraphs of 30 to 43 words, so the manuscript ran 2,400 to 2,900 words against a 3,800 to 5,800 target. The brief
+ * therefore gives each section a paragraph count and a word budget, sized so the whole manuscript lands inside the
+ * product's target band.
+ */
+export const LENGTH_TARGET: Record<'essential' | 'comprehensive', { min: number; max: number; aim: number }> = {
+  essential: { min: 3800, max: 4500, aim: 4150 },
+  comprehensive: { min: 4800, max: 5800, aim: 5300 }
+};
+const PER_UNIT: Record<string, number> = { THEMES: 3, FINDINGS: 4, PATHWAYS: 3, TARGET: 3, DECISIONS: 3 };
+const UNITLESS: Record<string, number> = { ORIENT: 1, EXEC: 5, PROFILE: 4, SCOPE: 3, OPMODEL: 4, PROGRAMME: 4, SCORECARD: 4, BASIS: 4, CONCLUSION: 4 };
+export type SectionBudget = { id: string; paragraphs: number; words: number; units: number };
+export function sectionBudgets(fp: RevisedFactPack, plan: RevisedStoryPlan): { sections: SectionBudget[]; wordsPerParagraph: number; total: number } {
+  const kind = (id: string) => id.replace(/^(ESS|COMP)-/, '');
+  const paragraphsFor = (s: RevisedStoryPlan['sections'][number]) => {
+    const k = kind(s.id);
+    const units = (s.units ?? []).length;
+    if (units && PER_UNIT[k]) return units * PER_UNIT[k];
+    if (k === 'PRIORITIES') return Math.max(4, (fp.priorities ?? []).length * 2);
+    if (k === 'ROADMAP') return Math.max(4, (fp.roadmap ?? []).length * 2);
+    return UNITLESS[k] ?? (units ? units * 3 : 3);
+  };
+  const counted = plan.sections.map((s) => ({ id: s.id, paragraphs: paragraphsFor(s), units: (s.units ?? []).length }));
+  const target = LENGTH_TARGET[fp.product === 'essential' ? 'essential' : 'comprehensive'];
+  const paragraphs = counted.reduce((n, s) => n + s.paragraphs, 0);
+  const wordsPerParagraph = Math.min(110, Math.max(50, Math.round(target.aim / paragraphs / 5) * 5));
+  const sections = counted.map((s) => ({ ...s, words: Math.round((s.paragraphs * wordsPerParagraph) / 10) * 10 }));
+  return { sections, wordsPerParagraph, total: sections.reduce((n, s) => n + s.words, 0) };
+}
 
 export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, options: { editionLabel?: string } = {}): string {
   const L: string[] = [];
@@ -75,10 +108,19 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, o
   L.push('', '## Boundary', '', ...fp.boundary.map((x) => `- ${x}`));
   L.push('', '## Prohibited claims', '', ...fp.prohibited.map((x) => `- ${x}`));
   L.push('', '## Requirements pending MK approval (keep visible, do not fill)', '', ...fp.pending.map((x) => `- **${x.ref}** ${x.requirement}: ${x.status}`));
+  const budget = sectionBudgets(fp, plan);
+  const target = LENGTH_TARGET[fp.product === 'essential' ? 'essential' : 'comprehensive'];
+  L.push('', '## Length', '', `- The manuscript must run ${target.min.toLocaleString('en-GB')} to ${target.max.toLocaleString('en-GB')} words of prose. Aim for about ${budget.total.toLocaleString('en-GB')}.`,
+    `- Write every paragraph as three to five full sentences, about ${budget.wordsPerParagraph} words. Earlier drafts had the right number of paragraphs but paragraphs of thirty to forty words, and were rejected as too short.`,
+    '- Each section below states its paragraphs and word budget. Meet each budget; do not save words in one section for another.');
   L.push('', '## Story Plan', '');
+  const bySection = new Map(budget.sections.map((b) => [b.id, b]));
   for (const s of plan.sections) {
     L.push(`### ${s.id}: ${s.title} (${s.movement})`, '', `- Purpose: ${s.purpose}`, `- Takeaway: ${s.takeaway}`, `- Required facts: ${s.requiredFacts.join(', ') || 'none'}`, `- Exhibits: ${s.exhibits.map((e) => `[[exhibit:${e}]]`).join(', ') || 'none'}`);
     if (s.units) L.push(`- Units: ${s.units.map((u) => `${u.id} (${u.ref}${u.exhibit ? `, [[exhibit:${u.exhibit}]]` : ''})`).join('; ')}`);
+    if (s.units?.length) L.push(`- Unit headings: exactly ${s.units.length} \`## \` heading${s.units.length === 1 ? '' : 's'}, one per unit, each a claim${s.units.length === 1 ? ' (a single unit still has its own heading)' : ''}`);
+    const b = bySection.get(s.id);
+    if (b) L.push(`- Length: ${b.paragraphs} paragraph${b.paragraphs === 1 ? '' : 's'}, about ${b.words} words${b.units ? ` (${Math.round(b.paragraphs / b.units)} per unit)` : ''}`);
     L.push(`- Next: ${s.next ?? 'end'}`, '');
   }
   return L.join('\n') + '\n';

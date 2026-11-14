@@ -1,0 +1,44 @@
+[
+  {
+    "id": "WC-01",
+    "ok": true,
+    "name": "Every section budget lands the whole manuscript inside the product band, at 50 to 110 words a paragraph",
+    "detail": "kestrel essential 4240 (65/para); kestrel comprehensive 5280 (60/para); marula essential 4360 (55/para); marula comprehensive 5250 (50/para)"
+  },
+  {
+    "id": "WC-02",
+    "ok": true,
+    "name": "The brief gives every planned section a Length line, and every unit section its exact unit-heading count",
+    "detail": "[{\"c\":\"kestrel essential\",\"missing\":[],\"length\":true},{\"c\":\"kestrel comprehensive\",\"missing\":[],\"length\":true},{\"c\":\"marula essential\",\"missing\":[],\"length\":true},{\"c\":\"marula comprehensive\",\"missing\":[],\"length\":true}]"
+  },
+  {
+    "id": "WC-03",
+    "ok": true,
+    "name": "Rule 13 states each counted word family below the validator allowance; \"management should\" is left to rule 11 (at most five)",
+    "detail": "recorded 4/5; self-assessed 1/2; approved response 1/2; condition/weakness narration 1/2"
+  },
+  {
+    "id": "WC-04",
+    "ok": true,
+    "name": "The heading examples agree with the validator: the \"never\" headings are rejected as typed counts, the suggested ones pass",
+    "detail": "bad 1,1,1; good 0,0,0; \"two related questions\" rejected: true"
+  },
+  {
+    "id": "WC-05",
+    "ok": true,
+    "name": "Rule 9 lists the ranking phrase a hosted draft used (\"matter most\"), and every phrase it lists is one the validator rejects",
+    "detail": "13 of 13 listed phrases rejected by the validator"
+  },
+  {
+    "id": "WC-06",
+    "ok": true,
+    "name": "The whole-manuscript self-check does not override the line-repair format; the brief warns against copying \"recorded\"",
+    "detail": "system prompt 6782 chars"
+  },
+  {
+    "id": "WC-07",
+    "ok": true,
+    "name": "The deterministic manuscript still passes the validator on all four cases (contract change only; validation unchanged)",
+    "detail": "kestrel essential: pass; kestrel comprehensive: pass; marula essential: pass; marula comprehensive: pass"
+  }
+]

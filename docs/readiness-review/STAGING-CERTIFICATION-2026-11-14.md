@@ -290,3 +290,53 @@ The note was written by the shared database function `start_manual_report_genera
 - A check inside a transaction that was then rolled back queued a temporary attempt on a test order and started it. The function recorded exactly one `generation_started` event reading "Report generation started.", and nothing persisted afterwards.
 
 Production keeps the old note until this migration is released with the candidate, which needs separate approval.
+
+### 11.8 Writer improvement: first drafts (owner request, 14 November 2026)
+
+**Diagnosis, from the four stored first drafts.** Each draft was re-validated locally against a Fact Pack rebuilt to the same content digest as the hosted one (verified), with no AI call.
+
+| Failure | Drafts | Detail |
+|---|---|---|
+| Thin paragraphs | 4 of 4 | 2,413 to 2,941 words against a 3,800 to 5,800 target. Paragraph counts were close to plan, but paragraphs averaged 30 to 43 words; the repaired finals averaged about 58. On the test deployment the length rule only records the shortfall, but it would block a customer release |
+| Counts typed as words | 4 of 4 | Mostly in headings ("Seven findings", "Two management-level patterns", "ten assessed areas"); also "two related questions" in prose |
+| "recorded" overused | 4 of 4 | 6 to 17 uses against an allowance of 5. The briefs themselves use the word 6 to 23 times |
+| Scenario account missing | 3 of 4 | Round 1 drafts only; fixed earlier (rule 12) |
+| Decisions section | 1 of 4 | Raw "DECISION-02", paragraphs without references, "matter most" |
+| Unit heading missing | 1 of 4 | A single-unit pathways section |
+
+Why this cost a full repair every time: "recorded" overuse is reported against the whole manuscript rather than a line, and a missing unit heading is structural. Either rules out the cheaper line repair.
+
+**Changes (prompt and brief only; the validator and its thresholds are unchanged).**
+- **Brief.** A Length section and, for every Story Plan section, a paragraph count and a word budget. The budgets are sized so the whole manuscript lands inside the product's band at 50 to 110 words a paragraph. For the four cases they give:
+
+  | Case | Budget |
+  |---|---|
+  | Kestrel Essential | 4,240 words, 65 a paragraph |
+  | Kestrel Comprehensive | 5,280 words, 60 a paragraph |
+  | Marula Essential | 4,360 words, 55 a paragraph |
+  | Marula Comprehensive | 5,250 words, 50 a paragraph |
+
+  Every unit section also gets an exact unit-heading count, plus contract lines against counts in headings and against copying "recorded" (`writer-brief.ts`).
+- **System prompt.**
+  - Rule 4 names the counted nouns, with the rejected "two related questions" form.
+  - New rule 4a: headings never contain a count, with examples.
+  - Rule 9 adds "matter most" and "ranked first".
+  - New rule 13 states the word-family limits, generated from the validator's own allowances minus one, so they cannot drift. "management should" stays under rule 11.
+  - New rule 14: describe decisions in words and keep their reference lines.
+  - The length rule now requires three to five sentences a paragraph and points to the budgets.
+  - A self-check runs before a whole manuscript is returned. It is scoped so that it never overrides the line-repair JSON format.
+
+  Pipeline 0.4 (`produce.ts`).
+
+**Tests.**
+- Writer contract: 7 of 7 (`writer-contract-tests.mjs`). It checks that:
+  - the budgets fall inside the band;
+  - every section has its Length and unit-heading lines;
+  - the rule 13 limits sit below the validator allowances;
+  - the heading examples agree with the validator (the "never" headings are rejected, the suggested ones pass);
+  - every listed ranking phrase is one the validator rejects;
+  - the self-check leaves the line-repair format alone;
+  - the deterministic manuscript still passes on all four cases.
+- Unchanged: fulfilment 27 of 27, resume rules 8 of 8, staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8, reconciliation 10 of 10, and excellence 88 of 92 (the same four DR-17 gaps as before). TypeScript is clean.
+
+**Not yet shown.** Whether gpt-5-mini's first drafts now pass can only be measured with real calls, and the Preview has no campaign budget. A measuring run would be one "Create New Version" on each of the four orders, one at a time. Each records `firstPass` in its audit package. A passing draft costs one writer call (about US$0.02); a failing one also takes a repair. A campaign of 8 calls and US$2.00 estimated reservation would hold that run, including one full repair, with expected spend of about US$0.10 to US$0.60. This needs owner approval, a budget row, the Preview variable and a redeploy.
