@@ -8,7 +8,7 @@ import type { RevisedStoryPlan } from './story-plan';
  */
 export const WRITER_CONTRACT = [
   'Write the whole manuscript in Markdown. Start each planned section with the line `<!-- section: ID -->` and keep the planned order. Use `#` for the section heading, `##` for each unit (theme, finding, pathway, blueprint or decision) and `###` sparingly.',
-  'Every heading states a claim, not a label. Every paragraph is followed on its own line by `<!-- refs: REF, REF -->` naming the facts it relies on.',
+  'Every heading states a claim, not a label, in at most 16 words. Every paragraph is followed on its own line by `<!-- refs: REF, REF -->` naming the facts it relies on.',
   'Never type a count, percentage or figure. Insert facts as slots: `[[REF]]` for the value, `[[REF|w]]` for a number in words (one to ten).',
   'Place exhibits on their own line exactly as planned, for example `[[exhibit:profile]]` or `[[exhibit:finding:FINDING-01]]`.',
   'South African and UK English. No em dashes. Connected paragraphs; no fragments, no one-line dramatic paragraphs, no clipped rhythm, no repeated "not X, but Y" constructions.',
@@ -24,13 +24,18 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, o
   L.push(`# Writer brief: ${fp.product === 'essential' ? 'Essential' : 'Comprehensive'} manuscript for ${o.name}`);
   L.push('', `Fact Pack ${fp.version} (${fp.sha256.slice(0, 12)}), Story Plan ${plan.version}, Reporting Bible 1.1. ${options.editionLabel ?? 'FICTIONAL PROTOTYPE.'}`);
   L.push('', '## Contract', '', ...WRITER_CONTRACT.map((x) => `- ${x}`));
+  L.push(fp.product === 'essential'
+    ? '- Deliverable: this report is a PDF only. Never refer to a workbook, spreadsheet, supporting register or action register; the customer does not receive one.'
+    : '- Deliverable: this report comes with a supporting workbook that holds every register; refer to it where the report discusses a selection.');
+  L.push('- Facts whose ref starts with T- are complete sentences. Insert them as a sentence of their own, never inside another sentence.');
+  L.push('- A scenario whose applicability is outstanding is not counted as applying. Never describe its controls as in place or missing.');
   L.push('', '## Organisation', '', `- Name: ${o.name}`, `- Reference: ${o.reference}`, `- Industry: ${o.industry ?? 'not given'}`, `- People: ${o.people ?? 'not given'}`, `- Turnover: ${o.turnover ?? 'not given'}`, `- Type: ${o.type ?? 'not given'}`, `- Final oversight: ${o.oversight}${o.oversightKnown ? ' (its own answer)' : ' (not identified)'}`);
   L.push('', '## Position statements (four-position separation)', '');
   for (const p of fp.position) L.push(`- **${p.ref}** ${p.label}: ${p.value}. ${p.text}`);
   L.push('', '## Facts (insert as slots)', '', '| Ref | Fact | Value |', '|---|---|---|');
   for (const f of Object.values(fp.facts)) L.push(`| ${f.ref} | ${f.label} | ${f.value} |`);
-  L.push('', '## Areas', '', '| Ref | Area | Apply | Held | Weaker related | To settle | Gap | Outstanding | Pattern |', '|---|---|---|---|---|---|---|---|---|');
-  for (const a of fp.areas) L.push(`| ${a.ref} | ${a.name} | ${a.apply} | ${a.confirmed} | ${a.qualified} | ${a.unresolved} | ${a.gap} | ${a.outstanding} | ${a.pattern} |`);
+  L.push('', '## Areas', '', '| Ref | Area | Apply | Held | Weaker related | To settle | Gap | Outstanding | Not yet established | Pattern |', '|---|---|---|---|---|---|---|---|---|---|');
+  for (const a of fp.areas) L.push(`| ${a.ref} | ${a.name} | ${a.apply} | ${a.confirmed} | ${a.qualified} | ${a.unresolved} | ${a.gap} | ${a.outstanding} | ${a.pending} | ${a.pattern} |`);
   L.push('', '## Themes (in report order)', '');
   for (const t of fp.themes) L.push(`### ${t.ref}: ${t.title}`, '', `- Kind: ${t.kind}`, `- Basis: ${t.basis}`, `- Areas: ${t.areas.join('; ')}`, `- Controls: ${t.controls.join('; ') || 'see basis'}`, `- Facts: ${t.factRefs.join(', ')}`, '');
   L.push('## Findings (in report order)', '', `Selection rule: ${fp.selectionRules.findings}`, '');

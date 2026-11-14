@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import type { RevisedReport, ControlBlueprint } from '../evidence-model';
+import { scenarioAccount } from '../position';
 import type { RevisedFactPack, Product } from './fact-pack';
 import { accountableFor, cycleText, escalationOf, independentCheckOf, populationOf, slaOf } from './fact-pack';
 import { MK_PUB } from '../../design/mk-publication';
@@ -16,7 +17,7 @@ import { controlContent } from '../control-content/index';
  * protection on every text cell (Bible 20.3). Rows are built from the same revised report model and Fact Pack as the
  * PDF, so counts reconcile; the Read me sheet records the reconciliation.
  */
-export const BIBLE_WORKBOOK_VERSION = 'bible-workbook-0.1';
+export const BIBLE_WORKBOOK_VERSION = 'bible-workbook-0.2';
 
 export const ESSENTIAL_SHEETS = ['Read me', 'Findings', 'Risks', 'Control Actions', 'Proof of Progress', 'Roadmap', 'Question Trace', 'Control Improvements'] as const;
 export const COMPREHENSIVE_SHEETS = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'] as const;
@@ -47,7 +48,20 @@ function questionTrace(r: RevisedReport) {
   return rows;
 }
 
-export function bibleWorkbookSheets(product: Product, r: RevisedReport, fp: RevisedFactPack): Sheet[] {
+/**
+ * Why the Risk Register has fewer rows than Material Findings (independent review C-2): a risk row is written only for a
+ * scenario whose core control is reported as a gap or whose answers cannot both be right. A finding where the core control
+ * is reported in place and a related practice is weaker, or a question needs clarifying, is a material finding without a
+ * risk row. Whether those findings should also carry risk rows is reserved to MK (decision register DR-07); this text
+ * states the current rule and does not change it.
+ */
+export function riskRegisterScope(r: RevisedReport): string {
+  const noRisk = r.findings.filter((f) => !f.riskRef).length;
+  return `${r.risks.length} risk ${r.risks.length === 1 ? 'row' : 'rows'} for ${r.findings.length} material ${r.findings.length === 1 ? 'finding' : 'findings'}. A risk row is written for each scenario whose core control is reported as a gap or whose answers cannot both be right.${noRisk ? ` The other ${noRisk} ${noRisk === 1 ? 'finding reports' : 'findings report'} the core control in place with a related practice weaker or a question to clarify; ${noRisk === 1 ? 'it is' : 'they are'} in Material Findings without a risk row, and the risk they describe is not assessed as lower for that reason.` : ''}`;
+}
+
+export function bibleWorkbookSheets(product: Product, r: RevisedReport, fp: RevisedFactPack, options: { notice?: string } = {}): Sheet[] {
+  const riskScope = riskRegisterScope(r);
   const discussed = new Set(fp.findings.map((f) => f.findingRef));
   const prioritised = new Set(fp.priorities.map((p: any) => p.controlRef).filter(Boolean));
   const blueprinted = new Set(fp.blueprints.map((b) => b.controlRef));
@@ -69,7 +83,8 @@ export function bibleWorkbookSheets(product: Product, r: RevisedReport, fp: Revi
     { field: 'Basis', value: 'The organisation\'s own answers to the MK Fraud Readiness assessment. MK has not examined documents, interviewed staff or tested controls; the records listed are records management should maintain, not evidence MK has reviewed. Independent examination belongs to MK Advisory.' },
     { field: 'How to read', value: product === 'essential' ? 'Start with Findings, then Control Improvements for the operating detail of each control, Control Actions and Roadmap for the plan, and Proof of Progress for the records that will show the controls working.' : 'Start with Summary, then Material Findings and Risk Register, then Control Blueprints, Management Decisions and the Implementation Blueprint.' },
     ...pos.map((p) => ({ field: p.label, value: p.value.replace(/,\s*test fixture$/i, ' (test fixture)') })),
-    { field: 'Prototype notice', value: 'Fictional organisation. The calculated result is a labelled test fixture; no readiness level or band is issued (MK decision D-1). The order of work follows explicit candidate factors (D-3). Control specifications, scenario structures and decision options are draft MK advisory content (D-5). Service levels are proposals for management to set.' },
+    { field: 'Edition notice', value: options.notice ?? 'Fictional organisation. The calculated result is a labelled test fixture; no readiness level or band is issued (MK decision D-1). The order of work follows explicit candidate factors (D-3). Control specifications, scenario structures and decision options are draft MK advisory content (D-5).' },
+    ...(product === 'comprehensive' ? [{ field: 'Risk Register scope', value: riskScope }] : []),
     { field: 'Sheets', value: sheets.join(', ') },
     ...Object.entries(counts).map(([k, v]) => ({ field: `Rows: ${k}`, value: String(v) })),
     { field: 'Versions', value: `${BIBLE_WORKBOOK_VERSION}; ${fp.version}; ${Object.values(fp.contentVersions).join('; ')}` }
@@ -126,7 +141,8 @@ export function bibleWorkbookSheets(product: Product, r: RevisedReport, fp: Revi
   }
   const summary = [
     ...pos.map((p) => ({ field: p.label, value: `${p.value.replace(/,\s*test fixture$/i, ' (test fixture)')}. ${p.text}` })),
-    { field: 'Fraud scenarios that apply', value: String(r.schemes.length) },
+    { field: 'Fraud scenarios', value: scenarioAccount(r).sentence },
+    { field: 'Information outstanding', value: r.ledger.reconciliation.statement },
     { field: 'Material findings discussed in the report', value: `${fp.findings.length} of ${r.findings.length}` },
     { field: 'Control blueprints in the report', value: `${fp.blueprints.length}; every control has a full specification in Control Blueprints (${specs.length})` },
     { field: 'Leadership decisions', value: String(fp.decisions.length) },
@@ -157,8 +173,8 @@ export function bibleWorkbookSheets(product: Product, r: RevisedReport, fp: Revi
 
 const colLetter = (n: number) => { let s = ''; n += 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 
-export async function buildBibleWorkbook(product: Product, r: RevisedReport, fp: RevisedFactPack) {
-  const sheets = bibleWorkbookSheets(product, r, fp);
+export async function buildBibleWorkbook(product: Product, r: RevisedReport, fp: RevisedFactPack, options: { notice?: string } = {}) {
+  const sheets = bibleWorkbookSheets(product, r, fp, options);
   const { default: writeXlsxFile } = await import('write-excel-file/node');
   const header = (c: Col) => ({ value: c.header, fontWeight: 'bold', color: '#FFFFFF', backgroundColor: c.technical ? MK_PUB.slate : MK_PUB.navy, wrap: true, alignVertical: 'center', height: 30 });
   const book = await (writeXlsxFile as any)(sheets.map((sh) => ({

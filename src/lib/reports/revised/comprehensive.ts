@@ -1,8 +1,8 @@
 import { renderComprehensiveManagementReportHtml } from '@/lib/reports/comprehensive/render-comprehensive-html';
-import { AREA_SHORT, INCONSISTENT, KIND_LABEL, PURPOSE_LABEL, joinList, methodOrder, type ControlBlueprint, type RevisedReport, type SchemeView } from './evidence-model';
+import { METHOD_SETS_NO_ESCALATION, AREA_SHORT, INCONSISTENT, KIND_LABEL, PURPOSE_LABEL, joinList, methodOrder, type ControlBlueprint, type RevisedReport, type SchemeView } from './evidence-model';
 import { controlName } from './answer-text';
 import { CONTROL_CONTENT_VERSION } from './control-content/index';
-import type { PositionStatement } from './position';
+import { scenarioAccount, type PositionStatement } from './position';
 
 /**
  * FICTIONAL INTEGRATION PROTOTYPE. The Comprehensive report from the revised report model.
@@ -92,7 +92,7 @@ export function buildRevisedComprehensive(input: {
     : `<div class="pos4">${position.map((p) => `<div><div class="l">${esc(p.label)}</div><div class="v">${esc(p.value)}</div><div class="t">${esc(p.text)}</div></div>`).join('')}</div>`;
 
   // ---- Cover.
-  const judgement = `On its own answers, the organisation reports the controls in place for ${reportedInPlace} of the ${S.length} fraud scenarios that apply and a control reported as a gap in ${gapSchemes.length}${inconsistent.length || clarify.length ? `; ${joinList([inconsistent.length ? `${inconsistent.length} ${inconsistent.length === 1 ? 'has' : 'have'} answers to settle` : '', clarify.length ? `${clarify.length} ${clarify.length === 1 ? 'raises a question' : 'raise questions'} the answers do not settle` : ''].filter(Boolean))}` : ''}.`;
+  const judgement = scenarioAccount(r).sentence;
   const strip = `<div class="proto">${esc(input.banner)}</div>`;
   pages.push(`<section class="page page--navy">${strip}
     <div style="font-size:7.2pt;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-weight:600">MK Fraud Insights</div>
@@ -259,7 +259,7 @@ export function buildRevisedComprehensive(input: {
     <table><thead><tr><th style="width:30%">Owner</th><th style="width:12%">Measures</th><th style="width:58%">Most common operating cycles</th></tr></thead>
     <tbody>${programmes.map((p) => `<tr><td><strong>${esc(p.role)}</strong></td><td class="tight">${p.controls.length}</td><td class="small">${esc(cycles(p.controls))}</td></tr>`).join('')}</tbody></table>
     ${interp('Conclusion', [
-      `On its own answers, ${input.organisationName} reports the controls in place for ${reportedInPlace} of ${S.length} fraud scenarios and a control reported as a gap in ${gapSchemes.length}.`,
+      scenarioAccount(r).sentence,
       resolveRows.length ? `The first task is to ${joinList([inconsistent.length ? `settle the answers for ${plural(inconsistent.length, 'scenario', 'scenarios')}` : '', clarify.length ? `answer the ${plural(clarify.length, 'open question', 'open questions')}` : ''].filter(Boolean))}.` : '',
       'MK has not approved a readiness method, so the report draws no readiness conclusion and does not rank fraud risks; it sets out what each scenario needs, who owns it, the records to keep and how management will know each control is working.'
     ].filter(Boolean).join(' '))}`);
@@ -276,13 +276,13 @@ export function buildRevisedComprehensive(input: {
       <div class="top"><div><span class="id">${esc(c.ref)}</span> <span class="nm">${esc(c.key)}</span></div><div class="mt">${esc(c.ownerRole)} · ${esc(c.schemeRefs.join(', '))}</div></div>
       <div class="g2">
         <div><div class="h">Reported today</div>${esc(c.reported)}${c.answeredBy !== 'the respondent' ? ` <span class="muted">(answered by ${esc(c.answeredBy)})</span>` : ''}</div>
-        <div><div class="h">Target operating practice</div>${c.target ? esc(c.target) : '<span class="muted">Not yet in the library.</span>'}</div>
+        <div><div class="h">Target operating practice</div>${c.target ? esc(c.target) : '<span class="muted">As the method\'s standard describes.</span>'}</div>
       </div>
       <div style="margin-top:1.6mm"><div class="h">Implementation activities</div><ol>${c.activities.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></div>
       <div class="g3">
         <div><div class="h">Records to keep${c.recordRefs.length ? ` · ${esc(c.recordRefs.join(', '))}` : ''}</div>${esc(c.recordName ? c.recordName.charAt(0).toUpperCase() + c.recordName.slice(1) : 'Not named')}<div class="muted">Cycle: ${esc(c.operatingCycle)}</div></div>
         <div><div class="h">Success measure · ${esc(c.ref.replace('C', 'M'))}</div>${esc(c.successMeasure)}</div>
-        <div><div class="h">If it fails</div>${esc(c.onFailure ?? 'Not yet in the library.')}</div>
+        <div><div class="h">If it fails</div>${esc(c.onFailure ?? METHOD_SETS_NO_ESCALATION)}</div>
       </div>
     </div>`;
   const purposes: ControlBlueprint['purpose'][] = ['resolve-answer', 'put-in-place', 'strengthen'];

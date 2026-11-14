@@ -5,6 +5,8 @@ import type { RevisedReport, ControlBlueprint, Finding } from '../evidence-model
 import { SCENARIO_STRUCTURES, SCENARIO_STRUCTURE_VERSION, type ScenarioStructure } from './scenario-structures';
 import { DECISION_OPTIONS, DECISION_OPTIONS_VERSION, decisionTypeOf, type DecisionOptionSet } from './decision-options';
 import { controlContent } from '../control-content/index';
+import { scenarioAccount } from '../position';
+import { METHOD_SETS_NO_ESCALATION } from '../evidence-model';
 
 /**
  * Narrative Fact Pack for the revised assessment (Reporting Bible v1.1, sections 3.2 and 16, stage 3).
@@ -18,13 +20,15 @@ import { controlContent } from '../control-content/index';
  * Selection is by stated rules only. MK has not approved a prioritisation method (decision P-13), so no rule here
  * ranks fraud risk, assigns materiality or uses the method's information-gathering tier as importance.
  */
-export const REVISED_FACT_PACK_VERSION = 'revised-fact-pack-0.1';
+export const REVISED_FACT_PACK_VERSION = 'revised-fact-pack-0.2';
 export type Product = 'essential' | 'comprehensive';
 
 export type Fact = { ref: string; label: string; value: string | number; words?: string; source: string };
 export type AreaFact = {
   ref: string; code: string; name: string; apply: number; confirmed: number; qualified: number; unresolved: number; gap: number;
-  outstanding: number; notExpected: number; figure: number | null; pattern: 'held' | 'open' | 'mixed' | 'not-assessed';
+  outstanding: number; notExpected: number;
+  /** Scenarios whose position is not yet established (applicability outstanding, or not reached); never counted as applying or in place. */
+  pending: number; figure: number | null; pattern: 'held' | 'open' | 'mixed' | 'not-assessed';
 };
 export type ThemeFact = {
   ref: string; kind: 'answers' | 'structure' | 'cross' | 'area' | 'uncertainty' | 'held' | 'doubt'; title: string; basis: string; areas: string[];
@@ -107,7 +111,16 @@ export function buildRevisedFactPack(input: {
 
   // ---- Assessment-level counts.
   const by = r.summary.byKind as Record<string, number>;
-  fact('N-APPLY', 'Fraud scenarios that apply to the organisation', r.summary.applicable, 'summary.applicable');
+  const acct = scenarioAccount(r);
+  if (!acct.balanced) throw new Error('scenario_account_unbalanced');
+  fact('N-APPLY', 'Fraud scenarios that apply to the organisation', acct.applicable, 'scenarioAccount.applicable');
+  fact('N-APPLY-PENDING', 'Further scenarios whose applicability depends on an outstanding answer (not counted as applying)', acct.applicabilityPending, 'scenarioAccount.applicabilityPending');
+  fact('N-NOT-REACHED', 'Scenarios that apply but were not reached in the interview', acct.notReached, 'scenarioAccount.notReached');
+  fact('N-REPORTED-IN-PLACE', 'Scenarios with every core control reported in place, including those whose answers raise a question', acct.reportedInPlace, 'scenarioAccount.reportedInPlace');
+  fact('N-IN-PLACE-QUESTIONED', 'Of those, scenarios whose answers raise a question or cannot both be right', acct.inPlaceWithQuestion, 'scenarioAccount.inPlaceWithQuestion');
+  fact('T-SCENARIO-ACCOUNT', 'The account of every scenario, in the report\'s one convention', acct.sentence, 'scenarioAccount.sentence');
+  fact('N-ASSESSMENT-OUTSTANDING', 'Outstanding information as the assessment counts it (questions and the rows they hold back)', r.ledger.reconciliation.assessment.total, 'ledger.reconciliation.assessment.total');
+  fact('T-OUTSTANDING-RECONCILIATION', 'How the assessment\'s outstanding count relates to the questions listed', r.ledger.reconciliation.statement, 'ledger.reconciliation.statement');
   fact('N-HELD', 'Scenarios with every core control reported in place', by.confirmed ?? 0, 'summary.byKind.confirmed');
   fact('N-QUALIFIED', 'Scenarios with the core control in place and a related practice reported weaker', by.qualified ?? 0, 'summary.byKind.qualified');
   fact('N-GAP', 'Scenarios with a core control reported as a gap', by.gap ?? 0, 'summary.byKind.gap');
@@ -131,11 +144,11 @@ export function buildRevisedFactPack(input: {
     const xs = r.schemes.filter((s) => s.area === code);
     const n = (k: string[]) => xs.filter((s) => k.includes(s.kind)).length;
     const a: AreaFact = {
-      ref: `AREA-${code}`, code, name: xs[0].areaName, apply: xs.filter((s) => s.kind !== 'not-expected').length,
+      ref: `AREA-${code}`, code, name: xs[0].areaName, apply: xs.filter((s) => s.kind !== 'not-expected' && s.kind !== 'none').length,
       confirmed: n(['confirmed']), qualified: n(['qualified']), unresolved: n(['contradiction', 'dependency', 'clarify']), gap: n(['gap']),
-      outstanding: n(['outstanding']), notExpected: n(['not-expected']), figure: input.figure.areas.find((x) => x.area === code)?.value ?? null, pattern: 'mixed'
+      outstanding: n(['outstanding']), notExpected: n(['not-expected']), pending: n(['none']), figure: input.figure.areas.find((x) => x.area === code)?.value ?? null, pattern: 'mixed'
     };
-    a.pattern = a.apply === 0 ? 'not-assessed' : a.gap === 0 && a.unresolved === 0 && a.outstanding === 0 ? 'held' : a.gap >= Math.ceil(a.apply * 0.75) ? 'open' : 'mixed';
+    a.pattern = a.apply === 0 && a.pending === 0 ? 'not-assessed' : a.gap === 0 && a.unresolved === 0 && a.outstanding === 0 && a.pending === 0 && a.apply > 0 ? 'held' : a.gap >= Math.ceil(a.apply * 0.75) ? 'open' : 'mixed';
     fact(`${a.ref}-APPLY`, `${a.name}: scenarios that apply`, a.apply, `schemes[area=${code}]`);
     fact(`${a.ref}-HELD`, `${a.name}: scenarios with the core controls reported in place`, a.confirmed + a.qualified, `schemes[area=${code}]`);
     fact(`${a.ref}-GAP`, `${a.name}: scenarios with a core control reported as a gap`, a.gap, `schemes[area=${code}]`);
@@ -258,7 +271,7 @@ export function buildRevisedFactPack(input: {
     };
   });
   fact('N-FINDINGS', 'Findings developed in this report', findings.length, 'selection');
-  fact('N-FINDINGS-REGISTER', 'Findings in the full register (workbook)', r.findings.length, 'findings');
+  fact('N-FINDINGS-REGISTER', product === 'essential' ? 'Findings the analysis identified' : 'Findings in the full register (workbook)', r.findings.length, 'findings');
 
   // ---- Fraud pathways: findings with an approved structure, one per theme where possible.
   const maxPathways = product === 'essential' ? 3 : 4;
@@ -306,7 +319,7 @@ export function buildRevisedFactPack(input: {
       objective: joinList((fs.length ? fs.map((f) => f.title) : c.schemeNames).map((t) => t.replace(/\.$/, ''))),
       accountable: accountableFor(c.ownerRole), processOwner: c.ownerRole, population: cc.population ? cc.population.charAt(0).toUpperCase() + cc.population.slice(1) : c.key, frequency: cycleText(c.operatingCycle),
       record: c.recordText ?? c.records ?? 'Not named in the library', independentCheck: independentCheckOf(c), escalation: escalationOf(c),
-      sla: slaOf(c), measure: c.successMeasure, onFailure: c.onFailure ?? 'Not set in the library',
+      sla: slaOf(c), measure: c.successMeasure, onFailure: c.onFailure ?? METHOD_SETS_NO_ESCALATION,
       connected: [...new Set(fs.flatMap((f) => f.controlRefs).filter((x) => x !== c.ref).map((x) => C.get(x)?.key).filter((x): x is string => !!x))].slice(0, 4),
       activities: c.activities, archetype: c.archetype, sources: c.contentSources, findingRefs: fs.map((f) => f.ref)
     };
@@ -342,7 +355,7 @@ export function buildRevisedFactPack(input: {
       { ref: 'PHASE-EMBED', label: 'Embed', window: 'Months 4 to 6, proposed', purpose: 'Extend to the remaining selected scenarios and strengthen the further defences, with regular reporting.', outcomes: ['Remaining selected controls put in place', 'Related practices strengthened', 'Monthly status reporting running'], owners: [...new Set(actionsIn([4, 5]).map((a) => a.ownerRole))], items: actionsIn([4, 5]).map((a) => ({ text: a.action, owner: a.ownerRole, deliverable: a.deliverable })) },
       { ref: 'PHASE-MATURE', label: 'Mature', window: 'Months 7 to 12, proposed', purpose: 'Measure each control over a full cycle, refresh the scenarios and report to the oversight body.', outcomes: ['Each control measured over a full cycle', 'Scenarios refreshed against the assessment', `Status reported to ${lc(oversight)} at each meeting`], owners: [...new Set(actionsIn([6]).map((a) => a.ownerRole))], items: actionsIn([6]).map((a) => ({ text: a.action, owner: a.ownerRole, deliverable: a.deliverable })) }
     ];
-  fact('N-ACTIONS', 'Actions in the full action register (workbook)', r.actions.length, 'actions');
+  fact('N-ACTIONS', product === 'essential' ? 'Actions the analysis identified' : 'Actions in the full action register (workbook)', r.actions.length, 'actions');
 
   // ---- Scorecard.
   const scorecard: MeasureFact[] = [
@@ -366,7 +379,7 @@ export function buildRevisedFactPack(input: {
   ];
 
   // ---- Outstanding information.
-  const outstanding = r.outstanding.map((o) => ({ key: o.key, fn: o.fn, reason: o.reasonText, scenario: o.schemeName }));
+  const outstanding = r.outstanding.map((o) => ({ key: o.key, fn: o.fn, reason: o.reasonText, scenario: o.schemeName, itemType: o.itemTypeText, holdsBack: o.holdsBack }));
   // South African legal context: the method's own guidance (bank help or question text) that names a statute, chosen
   // by the topic of the findings, pathways and priorities the report discusses. Context only: it states what the law
   // provides, never that the organisation has breached it. Bills and drafts are excluded.

@@ -6,6 +6,7 @@ import { classifyRelation, relationLabel, UNRESOLVED, type Relation } from './re
 import { consolidatedRole, oversightBody, roleMap } from './roles';
 import { evaluateInformationSufficiency, type ItemState, type SufficiencyResult } from './information-sufficiency';
 import { controlContent, CONTROL_CONTENT_VERSION } from './control-content/index';
+import { buildOutstandingLedger, ITEM_TYPE_LABEL, type LedgerItemType, type OutstandingLedger } from './outstanding-ledger';
 
 /**
  * FICTIONAL INTEGRATION PROTOTYPE. Not used by any customer path.
@@ -28,7 +29,7 @@ import { controlContent, CONTROL_CONTENT_VERSION } from './control-content/index
  *  - Information sufficiency is evaluated per promised deliverable (information-sufficiency-candidate-0.2).
  */
 
-export const REVISED_REPORT_MODEL_VERSION = 'revised-report-model-prototype-0.3.0';
+export const REVISED_REPORT_MODEL_VERSION = 'revised-report-model-prototype-0.4.0';
 export const REVISED_METHOD_LABEL = 'Review bank 1.3 (draft, not approved by MK)';
 
 type Cov = {
@@ -97,7 +98,7 @@ export type SchemeView = {
 export const KIND_LABEL: Record<SchemeKind, string> = {
   contradiction: 'Answers that cannot both be right', dependency: 'Control lacks an input it needs', clarify: 'Question to clarify',
   gap: 'Control reported as a gap', qualified: 'Control in place; related practice weaker', confirmed: 'Controls reported in place',
-  outstanding: 'Answers outstanding', 'not-expected': 'Not expected at this size', none: 'Not yet reached'
+  outstanding: 'Answers outstanding', 'not-expected': 'Not expected at this size', none: 'Position not yet established'
 };
 /** Unresolved inconsistencies: the reported control cannot be treated as covering the scenario until they are settled. */
 export const INCONSISTENT: SchemeKind[] = ['contradiction', 'dependency'];
@@ -115,6 +116,9 @@ function outstandingOf(c: ControlRecord): boolean {
   return !!c.answer && (c.answer.value === 'unknown' || (Array.isArray(c.answer.value) && (c.answer.value as unknown[]).includes('unknown')));
 }
 const NOT_APPLICABLE_STATES = ['outofscope', 'proportion', 'precluded', 'retired'];
+/** Customer wording where MK's control-content library has no entry yet (independent review E-2). */
+export const METHOD_SETS_NO_MEASURE = 'The method sets no separate success measure for this control; the in-place answer is the target.';
+export const METHOD_SETS_NO_ESCALATION = 'The method sets no separate escalation for this control; failures go to its accountable executive.';
 
 export type RevisedAnalysis = ReturnType<typeof analyseStagedInput>;
 
@@ -187,7 +191,9 @@ export function analyseStagedInput(input: StagedReportInput) {
     .sort(methodOrder);
   schemes.forEach((s, i) => { s.ref = pad('S', i + 1); });
 
-  const outstandingItems = controls.filter((c) => c.type === 'practice' && c.state !== 'outofscope' && isOutstanding(c)).map((c) => {
+  // Every question asked and not answered, whatever its type: a context or applicability fact answered "I don't know" is
+  // outstanding information as much as a control question is (independent review R-1). Nothing here is read as a control.
+  const outstandingItems = controls.filter((c) => c.state !== 'outofscope' && isOutstanding(c)).map((c) => {
     const d = declined.get(c.id);
     const reason = d ? 'declined' as const : c.answer && c.answer.value === 'unknown' ? (c.answer.by && c.answer.by !== 'Respondent' ? 'not-known-by-function' as const : 'not-known-by-respondent' as const) : 'waiting' as const;
     return { c, view: view(c), reason, fn: d?.function ?? c.waiting?.function ?? (c.answer?.by !== 'Respondent' ? c.answer?.by : null) ?? null, declineReason: d?.declineReason ?? null };
@@ -227,7 +233,7 @@ export type ControlBlueprint = {
   /** The control-content library (advisory content). */
   target: string | null; contentStatus: 'library' | 'not-in-library'; archetype: string | null; contentSources: string[];
   recordName: string | null; recordText: string | null; recordRefs: string[]; ownerRole: string; methodOwner: string | null;
-  answeredBy: string; prerequisiteRefs: string[]; dependentRefs: string[]; operatingCycle: string; activities: string[]; successMeasure: string; onFailure: string | null;
+  answeredBy: string; prerequisiteRefs: string[]; dependentRefs: string[]; operatingCycle: string; activities: string[]; successMeasure: string; onFailure: string | null; contentPending: string[];
   contentGaps: ContentGap[]; questionText: string; answerLabel: string | null; area: string;
 };
 export type RecordItem = { ref: string; name: string; text: string; controlRefs: string[]; ownerRoles: string[] };
@@ -235,7 +241,7 @@ export type Action = { ref: string; phase: number; phaseTitle: string; window: s
 export type Measure = { ref: string; measure: string; cycle: string; controlRefs: string[]; ownerRole: string; programme: string };
 export type Decision = { ref: string; decision: string; why: string; recommendedDirection: string; ownerRole: string; when: string; consequenceOfDelay: string; schemeRefs: string[] };
 export type RelationRow = Relation & { schemeRef: string; schemeName: string; confirmationName: string; confirmationReported: string; practiceName: string; practiceReported: string; label: string };
-export type OutstandingRow = { ref: string; id: string; key: string; reason: string; reasonText: string; fn: string | null; declineReason: string | null; role: string | null; schemeRef: string | null; schemeName: string | null; question: string };
+export type OutstandingRow = { ref: string; id: string; key: string; itemType: LedgerItemType; itemTypeText: string; holdsBack: number; reason: string; reasonText: string; fn: string | null; declineReason: string | null; role: string | null; schemeRef: string | null; schemeName: string | null; question: string };
 export type ConnectedWeakness = { name: string; areas: string[]; gaps: { key: string; area: string; state: string }[]; inPlace: number; asked: number };
 
 /**
@@ -327,10 +333,12 @@ export function buildRevisedReport(input: StagedReportInput) {
     const activities = unique([
       ...(purpose === 'resolve-answer' ? ['Establish which of the conflicting answers reflects how the process runs, and correct the record.'] : []),
       ...(prerequisiteRefs.length ? [`Put the input it needs in place first: ${joinList([...e.needs].map((id) => lc(controlName(id))))} (${prerequisiteRefs.join(', ')}).`] : []),
-      ...(lib.status === 'library' ? lib.activities : [`Agree the design with the ${lc(v.ownerRole)} against the method's standard. The control-content library has no entry for this control yet.`])
+      ...(lib.status === 'library' ? lib.activities : [`Agree the design with the ${lc(v.ownerRole)} against the method's standard.`])
     ]);
     const successMeasure = lib.measure
-      ?? (v.format === 'anchored' && v.standard ? `Not yet in the library. The method's level 4 description is the target: ${lc(noStop(v.standard))}.` : 'Not yet in the library. The method describes this control only by its in-place answer.');
+      ?? (v.format === 'anchored' && v.standard ? `The control operates as the method's target practice describes: ${lc(noStop(v.standard))}.` : METHOD_SETS_NO_MEASURE);
+    // Content the library does not yet hold is recorded for MK's approval, never described to the customer as missing.
+    const contentPending = lib.status === 'library' ? [] : ['activities', ...(lib.measure ? [] : ['measure']), ...(lib.onFailure ? [] : ['onFailure'])];
     void dc;
     return {
       ref, id: v.id, key: v.key, purpose, schemeRefs: e.schemes.map((s) => s.ref), schemeNames: e.schemes.map((s) => s.name), reported: v.reported, stateShort: v.stateShort,
@@ -339,7 +347,7 @@ export function buildRevisedReport(input: StagedReportInput) {
       recordName: lib.recordName, recordText, recordRefs, ownerRole: v.ownerRole, methodOwner: v.methodOwner, answeredBy: v.answeredBy,
       prerequisiteRefs, dependentRefs,
       operatingCycle: lib.cycle ?? (CYCLE_WORDS.test(`${v.standard ?? ''} ${v.questionText}`) ? 'As the method\'s standard states' : 'Not stated by the method'),
-      activities, successMeasure, onFailure: lib.onFailure, contentGaps: v.contentGaps, questionText: v.questionText, answerLabel: v.answerLabel, area: a.byId.get(v.id)?.domain?.id ?? ''
+      activities, successMeasure, onFailure: lib.onFailure, contentPending, contentGaps: v.contentGaps, questionText: v.questionText, answerLabel: v.answerLabel, area: a.byId.get(v.id)?.domain?.id ?? ''
     };
   });
   const refOf = (id: string) => controlRef.get(id);
@@ -537,9 +545,11 @@ export function buildRevisedReport(input: StagedReportInput) {
     ...r, schemeRef: s.ref, schemeName: s.name, confirmationName: controlName(r.confirmation), confirmationReported: viewOf(r.confirmation).reported,
     practiceName: controlName(r.practice), practiceReported: viewOf(r.practice).reported, label: relationLabel(r)
   })));
+  const ledger: OutstandingLedger = buildOutstandingLedger(input);
   const outstanding: OutstandingRow[] = a.outstandingItems.map((o, i) => {
     const s = schemes.find((x) => x.id === o.c.scenario?.id);
-    return { ref: pad('O', i + 1), id: o.c.id, key: o.view.key, reason: o.reason, reasonText: REASON_TEXT[o.reason], fn: o.fn, declineReason: o.declineReason, role: o.c.role ?? null, schemeRef: s?.ref ?? null, schemeName: s?.name ?? null, question: o.c.text };
+    const itemType: LedgerItemType = o.c.type === 'applicability' ? 'applicability' : o.c.type === 'context' ? 'context' : 'control';
+    return { ref: pad('O', i + 1), id: o.c.id, key: o.view.key, itemType, itemTypeText: ITEM_TYPE_LABEL[itemType], holdsBack: ledger.questions.find((q) => q.id === o.c.id)?.holdsBack.length ?? 0, reason: o.reason, reasonText: REASON_TEXT[o.reason], fn: o.fn, declineReason: o.declineReason, role: o.c.role ?? null, schemeRef: s?.ref ?? null, schemeName: s?.name ?? null, question: o.c.text };
   });
   const answeredById = new Map(a.controls.map((c) => [c.id, c]));
   const connected: ConnectedWeakness[] = COV.crossObjectives.map((o) => {
@@ -588,8 +598,12 @@ export function buildRevisedReport(input: StagedReportInput) {
     crossChecksAsked: (a.consistency.checks ?? []).length, crossCheckEligible: a.consistency.eligible,
     conclusion: 'MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result.'
   };
+  const applicabilityPending = ledger.scenarios.filter((u) => u.reason === 'applicability-outstanding' && schemes.some((x) => x.id === u.id && x.kind === 'none'));
   const summary = {
-    applicable: schemes.length, notExpected: count('not-expected'), tier1: schemes.filter((s) => s.tier === 1).length,
+    // A scenario whose applicability is itself outstanding is not counted as applying (independent review R-1): it is
+    // counted separately, with the answer that would settle it, and never read as a control in place or missing.
+    applicable: schemes.length - applicabilityPending.length - count('not-expected'), applicabilityPending: applicabilityPending.length, inPicture: schemes.length,
+    notReached: count('none') - applicabilityPending.length, notExpected: count('not-expected'), tier1: schemes.filter((s) => s.tier === 1).length,
     byKind: Object.fromEntries((Object.keys(KIND_LABEL) as SchemeKind[]).map((k) => [k, count(k)])) as Record<SchemeKind, number>,
     tier1Gap: schemes.filter((s) => s.tier === 1 && s.kind === 'gap').length,
     relations: Object.fromEntries(['direct-contradiction', 'necessary-dependency', 'complementary-weakness', 'untested-practice', 'missing-information', 'not-established'].map((k) => [k, relationRows.filter((r) => r.type === k).length])),
@@ -599,7 +613,7 @@ export function buildRevisedReport(input: StagedReportInput) {
 
   return {
     version: REVISED_REPORT_MODEL_VERSION, methodLabel: REVISED_METHOD_LABEL, oversight, oversightKnown: !!governance, schemes, findings, risks, controls: controlsReg, records, actions, phases: phasesUsed, measures, decisions,
-    relations: relationRows, outstanding, connected, roles, contentGaps: gapsRegister, sufficiency, position, summary, consistency: a.consistency, analysis: a
+    relations: relationRows, outstanding, ledger, connected, roles, contentGaps: gapsRegister, sufficiency, position, summary, consistency: a.consistency, analysis: a
   };
 }
 

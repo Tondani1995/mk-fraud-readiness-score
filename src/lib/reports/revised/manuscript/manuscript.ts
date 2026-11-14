@@ -12,7 +12,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * movements or exhibits, label headings, mechanical cadence, fragments, repeated contrasts). A manuscript that fails
  * a blocking check is not composed.
  */
-export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.1';
+export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.2';
 
 export type Block = { type: 'h2' | 'h3' | 'p' | 'exhibit'; text: string; refs: string[]; line: number };
 export type ParsedSection = { id: string; heading: string; blocks: Block[]; line: number };
@@ -100,6 +100,27 @@ const PROHIBITED: { code: string; re: RegExp; detail: string }[] = [
   { code: 'RAW-ID', re: /\b(D\d+-[A-Z]-\d+|FS-D\d+-\d+|(?:FINDING|PRIORITY|PATHWAY|BLUEPRINT|DECISION|STAGE|MEASURE|POSITION|AREA)-[A-Z0-9-]+|THEME-[A-Z0-9-]+|OBJ-X-\d+)\b/g, detail: 'An internal identifier in customer prose.' },
   { code: 'ENGINE', re: /\b(recorded condition|recorded weakness|hard gate|cap event|the engine|the model (?:identified|selected)|generated interpretation|aggregate maturity|named record|fact pack|story plan|test-injected)\b/gi, detail: 'Engine or internal language.' }
 ];
+/**
+ * Essential is PDF-only. These patterns catch a promise of a supplied artefact the customer does not receive (a
+ * supporting workbook, an accompanying register, "the workbook", something "supplied with this report"). They do not
+ * catch advice about the organisation's own records ("retain its own spreadsheet of authorised supplier changes",
+ * "maintain an action register for remediation work"), which is legitimate control advice (independent review F3).
+ */
+export const ESSENTIAL_ARTEFACT_PROMISES: { id: string; re: RegExp }[] = [
+  { id: 'accompanying artefact', re: /\b(?:supporting|accompanying|attached|enclosed|separate|companion|supplementary)\s+(?:work ?books?|spreadsheets?|excel(?:\s+(?:file|workbook))?|registers?|annex(?:es)?|appendix|appendices)\b/i },
+  { id: 'the workbook', re: /\bthe\s+work ?books?\b/i },
+  { id: 'consult a supplied artefact', re: /\b(?:see|refer to|consult)\s+the\s+(?:spreadsheet|excel file|registers?)\b|\bin\s+the\s+(?:full|wider|complete)\s+(?:action\s+|findings?\s+|risk\s+|control\s+)?registers?\b/i },
+  { id: 'supplied with this report', re: /\b(?:work ?books?|spreadsheets?|excel file|registers?|annex|appendix)\b[^.]{0,60}?\b(?:accompan(?:ies|ying)|supplied with|provided with|included with|delivered with|attached to|that comes with)\s+(?:this|the)\s+report\b/i },
+  { id: "the report's own artefact", re: /\b(?:this report'?s|the report'?s|MK'?s|our)\s+(?:work ?books?|spreadsheets?|(?:action\s+)?registers?|appendix|annex)\b/i },
+  { id: 'the wider register', re: /\bthe\s+(?:full|wider)\s+(?:action\s+|findings?\s+|risk\s+|control\s+)?register\b/i }
+];
+export function essentialArtefactPromise(line: string): string | null {
+  const t = line.replace(/\[\[[^\]]+\]\]/g, '0');
+  return ESSENTIAL_ARTEFACT_PROMISES.find((p) => p.re.test(t))?.id ?? null;
+}
+
+/** Headings above this length set over three lines at the publication's heading size. */
+export const HEADING_MAX_WORDS = 16;
 const COUNT_WORDS = /\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:[a-z-]+\s+){0,2}?(findings|themes|patterns|routes|pathways|responses|decisions|controls|scenarios|questions|areas|gaps|blueprints)\b/gi;
 const CONTRAST = /\b(?:is|was|are|were) not [^.;:]{1,80}[;,] (?:it|they|this) (?:is|are|was|were)\b|\bnot [^.;:,]{1,60}, but\b/gi;
 const BOUNDARY = /\b(self-reported|self-assessed|own answers|not independently verified)\b/gi;
@@ -127,6 +148,15 @@ export function validateManuscript(md: string, fp: RevisedFactPack, plan: Revise
     if (ps.units && h2.length !== ps.units.length) add('UNITS', 'editorial', true, s.id, s.line, `${h2.length} unit headings for ${ps.units.length} planned units.`);
     for (const e of ex) if (!['contents', 'position', 'profile', 'priorities', 'roadmap-90', 'roadmap-12', 'theme-map', 'operating-model', 'scorecard', 'method-status'].includes(e) && !/^(finding|pathway|blueprint|decision):[A-Z0-9-]+$/.test(e)) add('EXHIBIT-UNKNOWN', 'editorial', true, s.id, s.line, `Unknown exhibit ${e}.`);
   }
+  // Essential is PDF-only by product contract (independent review E-1): no reference to a workbook, spreadsheet or
+  // supporting register the customer does not receive. Blocking, and repairable line by line.
+  if (fp.product === 'essential') {
+    md.split('\n').forEach((t, i) => {
+      if (/^\s*<!--|^\s*\[\[exhibit:/.test(t)) return;
+      const hit = essentialArtefactPromise(t);
+      if (hit) add('ENTITLEMENT', 'editorial', true, '', i + 1, `The Essential report is PDF-only; this line promises an artefact it does not include (${hit}). Advice that the organisation keep its own records is allowed.`);
+    });
+  }
   for (const s of parsed.sections) {
     const heads = [s.heading, ...s.blocks.filter((b) => b.type !== 'p' && b.type !== 'exhibit').map((b) => b.text)];
     for (const h of heads) {
@@ -134,6 +164,9 @@ export function validateManuscript(md: string, fp: RevisedFactPack, plan: Revise
       if (/^(Finding|Material finding|Scenario|Pathway|Theme|Blueprint|Priority|Decision|Section)\s*\d*$/i.test(h.replace(/\[\[[^\]]+\]\]/g, '').trim())) add('LABEL-HEADING', 'editorial', true, s.id, s.line, `Heading "${h}" is a label, not a claim.`);
       const { unknown } = fillSlots(h, fp);
       for (const u of unknown) add('SLOT-UNKNOWN', 'factual', true, s.id, s.line, `Unknown slot ${u} in a heading.`);
+      // Independent review Q7: claim headings of three or four lines. Recorded as a warning (not blocking) so it never adds a paid repair.
+      const hw = fillSlots(h, fp).text.split(/\s+/).filter(Boolean).length;
+      if (hw > HEADING_MAX_WORDS) add('HEADING-LENGTH', 'editorial', false, s.id, s.line, `A heading of ${hw} words (guide ${HEADING_MAX_WORDS}).`);
       const hc = h.replace(/\[\[[^\]]+\]\]/g, '').match(COUNT_WORDS);
       if (hc) add('TYPED-COUNT', 'factual', true, s.id, s.line, `Counts typed in a heading: ${hc.join(', ')}.`);
       for (const p of PROHIBITED) if (new RegExp(p.re.source, p.re.flags).test(fillSlots(h, fp).text)) add(p.code, 'factual', true, s.id, s.line, `${p.detail} Heading: "${h}"`);

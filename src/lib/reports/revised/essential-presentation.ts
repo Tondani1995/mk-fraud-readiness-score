@@ -1,7 +1,7 @@
 import type { EssentialReportPresentationModel, EssentialPage } from '@/lib/reports/essential/presentation-model';
 import { AREA_SHORT, INCONSISTENT, joinList, methodOrder, outstandingPhrase, schemeWhere, type ControlView, type RevisedReport, type SchemeView } from './evidence-model';
 import { controlContent } from './control-content/index';
-import type { PositionStatement } from './position';
+import { scenarioAccount, type PositionStatement } from './position';
 
 /**
  * FICTIONAL INTEGRATION PROTOTYPE. The Essential report's content from the revised report model, in the existing
@@ -60,12 +60,12 @@ export function buildRevisedEssentialPresentation(input: {
   const questionOf = (s: SchemeView) => s.relations.find((x) => x.type === 'not-established' && x.question)?.question ?? '';
 
   // ---- Cover: what the answers indicate, in one sentence, the same form for every organisation.
-  const judgement = `On its own answers, the organisation reports the controls in place for ${reportedInPlace} of the ${S.length} fraud scenarios that apply${gapSchemes.length ? ` and a control reported as a gap in ${gapSchemes.length}` : ''}${inconsistent.length || clarify.length ? `; ${joinList([inconsistent.length ? `${inconsistent.length} ${inconsistent.length === 1 ? 'has' : 'have'} answers to settle` : '', clarify.length ? `${clarify.length} ${clarify.length === 1 ? 'raises a question' : 'raise questions'} the answers do not settle` : ''].filter(Boolean))}` : ''}.`;
+  const judgement = scenarioAccount(r).sentence;
 
   // ---- Page 2 commentary: what was asked and answered. The four statements carry the position.
   const cov = suff.coverage;
   const overview = [
-    `${S.length} fraud scenarios apply to the organisation${k['not-expected'] ? `, and the method does not ask about ${k['not-expected']} more at its size` : ''}.`,
+    scenarioAccount(r).sentence,
     `${suff.stages.core === 'complete' && suff.stages.breadth === 'complete' ? 'The core and breadth stages are complete' : `The core stage is ${suff.stages.core} and the breadth stage is ${suff.stages.breadth}`}: ${cov.all.answered} of the ${cov.all.applicable} confirmations that apply were answered${out.length ? `, and ${plural(out.length, 'question is', 'questions are')} outstanding (${outstandingPhrase(out)})` : ', and no question is outstanding'}.`,
     `Area figures below are calculated test results from the same research simulation, shown in the method's order; they are not scores and do not rank the areas.`
   ].join(' ');
@@ -247,7 +247,7 @@ export function buildRevisedEssentialPresentation(input: {
   ].slice(0, 6);
 
   const conclusion = [
-    `On its own answers, ${org} reports the controls in place for ${reportedInPlace} of ${S.length} fraud scenarios${gapSchemes.length ? ` and a control reported as a gap in ${gapSchemes.length}, across ${plural(gapAreas.length, 'area', 'areas')}` : ''}.`,
+    `${scenarioAccount(r).sentence}${gapSchemes.length ? ` The gaps sit across ${plural(gapAreas.length, 'area', 'areas')}.` : ''}`,
     inconsistent.length || clarify.length ? `Before the reported position is relied on, management should ${joinList([inconsistent.length ? `settle the answers for ${plural(inconsistent.length, 'scenario', 'scenarios')}` : '', clarify.length ? `answer the ${plural(clarify.length, 'open question', 'open questions')}` : ''].filter(Boolean))}.` : '',
     'MK has not approved a readiness method, so this report draws no readiness conclusion and does not rank fraud risks; the order of the remaining work is management\'s decision, and the supporting register lists every scenario, control and record behind this report.'
   ].filter(Boolean).join(' ');
