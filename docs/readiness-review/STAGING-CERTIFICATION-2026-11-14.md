@@ -352,7 +352,7 @@ Implemented on the review branch only. Local evidence; no AI call, deployment or
 - **No countable scenario:** generation is refused before any AI call (`score_not_computable`, 409).
 - **Results on the test organisations:** Kestrel 4% (2 of 57 counted, 12 not yet counted); Marula 94% (84.25 of 90).
 
-**Two readings of the decision, made explicit so they can be changed in one place:**
+**Two readings of the decision, confirmed by the owner on 14 November 2026 ("Both stand"):**
 1. "Contradicted" covers every scenario the report's shared account describes as "the answers raise a question or cannot both be right". That is a direct contradiction, a control lacking an input it needs, and a question to clarify. All earn half credit (`SCORE_CREDIT`). For Marula that is 4 scenarios.
 2. The agreed outstanding sentence is used when questions are unanswered and scenarios are held back. When scenarios are held back only because the interview did not reach them, no question is unanswered. In that case the sentence names that reason instead ("N scenarios were not reached in the interview, so they are not yet counted; the score may change once they are answered."). When questions are unanswered but hold back no scenario (Marula: 2 questions), the sentence is left out; those questions are still disclosed in the outstanding-information reconciliation.
 
