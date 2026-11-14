@@ -10,10 +10,12 @@ import { buildRevisedFactPack, REVISED_FACT_PACK_VERSION, type RevisedFactPack }
 import { buildRevisedStoryPlan, REVISED_STORY_PLAN_VERSION, type RevisedStoryPlan } from '../manuscript/story-plan';
 import { renderWriterBrief } from '../manuscript/writer-brief';
 import { validateManuscript, MANUSCRIPT_VALIDATOR_VERSION, type ManuscriptValidation } from '../manuscript/manuscript';
-import { composeRevisedReportHtml, REVISED_COMPOSER_VERSION } from '../manuscript/compose';
-import { renderPublicationPdf } from '../manuscript/render';
+import { REVISED_COMPOSER_VERSION } from '../manuscript/compose';
+import { layoutPublication, PUBLICATION_LAYOUT_VERSION, type LayoutRecord } from '../manuscript/layout';
 import { buildBibleWorkbook, BIBLE_WORKBOOK_VERSION } from '../manuscript/workbook-bible';
 import type { RevisedOrderContext } from './order';
+import { AccountingRefusal, costFromUsage, MAX_OUTPUT_TOKENS, REVISED_ACCOUNTING_VERSION, worstCaseCostUsd, type CallAccounting } from './accounting';
+import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type StoredCheckpoint } from './checkpoints';
 
 /**
  * B5: one paid report for a revised assessment, from the stored answer log to PDF (and, for Comprehensive, the
@@ -29,9 +31,37 @@ import type { RevisedOrderContext } from './order';
  *   - every artefact carries the restricted-test label.
  */
 
-export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.1';
+export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.2';
 /** One writing call, plus at most one repair call that returns the validator's exact issues to the writer. */
 export const REVISED_PROVIDER_CALL_CEILING = 2;
+/**
+ * Deadline for one generation request, enforced end to end (independent review: the Comprehensive used 257 s of a
+ * 300 s route). Measured from the start of the revised branch:
+ *   - a paid call is started only if it leaves `reserveAfterWritingMs` for everything after it, and is aborted when its
+ *     share runs out;
+ *   - layout starts only with `minLayoutMs` left, and each render pass is given only the time remaining;
+ *   - storage starts only with `minStoreMs` left.
+ * A step that cannot fit stops the attempt before it starts, with a checkpoint to resume from, rather than being killed
+ * by the platform part-way through. This is a deadline inside a synchronous request; it is not background fulfilment.
+ */
+export const REVISED_TIME_BUDGET = { totalMs: 270_000, reserveAfterWritingMs: 75_000, minWriterMs: 75_000, minRepairMs: 45_000, maxCallMs: 200_000, minLayoutMs: 45_000, minRenderPassMs: 10_000, minStoreMs: 20_000 } as const;
+/** What an operator should do, by failure code (shown in the console and recorded with the attempt). */
+export const REVISED_OPERATOR_GUIDANCE: Record<RevisedGenerationError['code'], string> = {
+  answers_changed_since_binding: 'The stored answers no longer match the submitted assessment. Do not retry; investigate the binding.',
+  provider_failed: 'The AI service returned an error. Retry generation; the call is counted in the order allowance.',
+  provider_timeout: 'The AI service did not answer within the time available. Retry generation; the call is counted, and any stored draft is reused.',
+  time_budget_exhausted: 'Not enough time remained for the next step. Retry generation; it resumes from the last stored checkpoint.',
+  manuscript_rejected: 'The manuscript failed the report checks after its permitted repair. Retry generation, or review the recorded issues.',
+  render_failed: 'The PDF could not be laid out. Retry generation; the stored validated manuscript is reused without an AI call.',
+  publication_held: 'The PDF failed its publication checks and was not stored. Retry recomposes the stored manuscript without an AI call; if it is held again, the layout needs engineering attention.',
+  call_ceiling_reached: 'This order has used its lifetime AI call allowance. Do not retry; ask MK to review the recorded attempts.',
+  campaign_budget_missing: 'No approved test campaign budget is in force, so no AI call can be made. An owner must approve one.',
+  campaign_budget_exhausted: 'The approved test campaign has used its call or cost allowance. Do not retry; ask the owner.',
+  cost_not_bounded: 'The configured AI model has no recorded price, so its cost cannot be bounded and it is not called.',
+  accounting_unavailable: 'The AI call ledger could not be reached, so no AI call was made. Retry when the review store is available.',
+  history_unavailable: 'The generation history could not be read, so no AI call was made. Retry when the review store is available.',
+  audit_unavailable: 'The audit package could not be stored, so no report was composed or finalised. Retry when the review store is available; the calls already made are counted.'
+};
 
 const WRITER_SYSTEM = [
   'You are the MK Fraud Insights report writer. Follow the writer contract in the brief exactly. Your output is checked by an automatic validator; any breach of the format rules below rejects the whole manuscript.',
@@ -164,8 +194,20 @@ function repairPrompt(brief: string, manuscript: string, acceptance: Acceptance)
   return `${brief}\n\n## Your previous manuscript\n\n${manuscript}\n\n## The validator rejected it for these reasons\n\n${issues}\n\n## Task\n\nReturn the complete corrected manuscript, every planned section in order, fixing every issue above and keeping the format rules. Replace each typed figure with its [[REF]] slot, add the missing <!-- refs: --> line after each paragraph, and remove every internal reference from the prose. Return only the manuscript.`;
 }
 
+/** Where a retry starts, from the order's stored checkpoints (see checkpoints.ts). */
+export type RevisedResumePoint = { stage: 'repair' | 'compose'; fromAttempt: string; manuscript: string; meta: ResumeMeta };
+
+/** The Fact Pack's content digest, without its generation time: two attempts on the same bound input agree on it. */
+export function factPackContentDigest(fp: RevisedFactPack): string {
+  const { generatedAt: _g, sha256: _s, ...content } = fp as RevisedFactPack & { generatedAt?: string };
+  void _g; void _s;
+  return crypto.createHash('sha256').update(JSON.stringify(content)).digest('hex');
+}
+
 export class RevisedGenerationError extends Error {
-  readonly code: 'answers_changed_since_binding' | 'provider_failed' | 'manuscript_rejected' | 'render_failed';
+  readonly code: 'answers_changed_since_binding' | 'provider_failed' | 'provider_timeout' | 'time_budget_exhausted' | 'manuscript_rejected' | 'render_failed'
+    | 'publication_held' | 'call_ceiling_reached' | 'campaign_budget_missing' | 'campaign_budget_exhausted' | 'cost_not_bounded' | 'accounting_unavailable'
+    | 'history_unavailable' | 'audit_unavailable';
   readonly diagnostics: Record<string, unknown>;
   constructor(code: RevisedGenerationError['code'], message: string, diagnostics: Record<string, unknown> = {}) {
     super(message);
@@ -175,12 +217,12 @@ export class RevisedGenerationError extends Error {
   }
 }
 
-export type ManuscriptWriter = (input: { system: string; prompt: string; model: string; fallbackModels: readonly string[]; effort?: 'low' }) => Promise<{
+export type ManuscriptWriter = (input: { system: string; prompt: string; model: string; fallbackModels: readonly string[]; effort?: 'low'; signal?: AbortSignal; maxOutputTokens?: number }) => Promise<{
   text: string; provider: string | null; model: string | null; usage: Record<string, unknown> | null; latencyMs: number;
 }>;
 
 /** The production writer: one call through the Vercel AI Gateway (OIDC on Vercel, or AI_GATEWAY_API_KEY). */
-export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, effort }) => {
+export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt, model, effort, signal, maxOutputTokens }) => {
   const { generateText } = await import('ai');
   const started = Date.now();
   const result: any = await generateText({
@@ -188,7 +230,9 @@ export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt
     system,
     prompt,
     maxRetries: 0,
-    abortSignal: AbortSignal.timeout(200_000),
+    // The cap bounds the cost reserved for the call; it is well above a full manuscript.
+    maxOutputTokens: maxOutputTokens ?? MAX_OUTPUT_TOKENS.writer,
+    abortSignal: signal ?? AbortSignal.timeout(REVISED_TIME_BUDGET.maxCallMs),
     // Only the named model, served by its own provider: no model fallback list is given to the gateway.
     providerOptions: { gateway: { only: [model.split('/')[0]] }, ...(effort ? { openai: { reasoningEffort: effort } } : {}) } as any
   });
@@ -202,6 +246,29 @@ export const gatewayManuscriptWriter: ManuscriptWriter = async ({ system, prompt
   };
 };
 
+/** Publication gates every revised PDF must pass before it is stored (independent review of the corrective pass, F6). */
+export type PublicationGates = {
+  pass: boolean;
+  /** Required: every section and unit heading located in the final PDF, and the contents page numbers (where the report has a contents page) checked against it after the layout converged. */
+  required: { id: string; pass: boolean; detail: string }[];
+  /** Advisory: recorded and shown to the operator; never described as verified when present. */
+  advisory: { id: string; detail: string }[];
+};
+export function publicationGates(layout: LayoutRecord, hasContentsPage: boolean): PublicationGates {
+  const missing = layout.missing.filter((m) => !m.startsWith('moved:'));
+  const moved = layout.missing.filter((m) => m.startsWith('moved:'));
+  const required = [
+    { id: 'PG-HEADINGS', pass: missing.length === 0, detail: missing.length ? `${missing.length} heading(s) not found in the PDF: ${missing.slice(0, 5).join('; ')}` : 'Every section and unit heading found in the PDF' },
+    { id: 'PG-CONVERGED', pass: moved.length === 0, detail: moved.length ? `Page map did not converge within the layout passes: ${moved.slice(0, 5).join('; ')}` : `Page map stable after ${layout.passes} pass(es)` },
+    { id: 'PG-CONTENTS', pass: !hasContentsPage || layout.contentsComplete, detail: hasContentsPage ? (layout.contentsComplete ? 'Contents page numbers match the final PDF' : 'Contents page numbers not verified') : 'No contents page in this product' }
+  ];
+  const advisory = [
+    ...(layout.sparsePages.length ? [{ id: 'PA-SPARSE', detail: `Near-empty page(s): ${layout.sparsePages.join(', ')}` }] : []),
+    ...(layout.breakBefore.length ? [{ id: 'PA-BREAKS', detail: `${layout.breakBefore.length} heading(s) moved to a new page to avoid stranding` }] : [])
+  ];
+  return { pass: required.every((g) => g.pass), required, advisory };
+}
+
 export type RevisedArtefacts = {
   pdf: Buffer;
   workbook: { bytes: Buffer; sha256: string; fileName: string; mimeType: string; sheets: { name: string; rows: number; columns: number }[] } | null;
@@ -210,8 +277,13 @@ export type RevisedArtefacts = {
   factPack: RevisedFactPack;
   plan: RevisedStoryPlan;
   provenance: Record<string, unknown>;
-  ai: { requestedModel: string; models: RevisedModelPlan; repairUsed: boolean; provider: string | null; model: string | null; usage: unknown; latencyMs: number; calls: number; firstPass: { pass: boolean; blocking: number; words: number | null } };
+  auditPackage: Record<string, unknown>;
+  gates: PublicationGates;
+  ai: { requestedModel: string; models: RevisedModelPlan; resumedFrom: 'repair' | 'compose' | null; repairUsed: boolean; provider: string | null; model: string | null; usage: unknown; latencyMs: number; calls: number; callIds: string[]; firstPass: { pass: boolean; blocking: number; words: number | null } };
 };
+
+/** Checkpoint hook supplied by the caller (manual-generation.ts), which knows the order, attempt and store. */
+export type CheckpointWriter = (cp: { stage: 'drafted' | 'validated'; factPackDigest: string; manuscript: string; auditPackage: Record<string, unknown> }) => Promise<void>;
 
 const dateLabel = (d: Date) => d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Johannesburg' });
 
@@ -219,14 +291,28 @@ export async function produceRevisedArtefacts(input: {
   order: RevisedOrderContext;
   reportReference: string;
   versionNumber: number;
+  /** Required: every paid call is reserved here first. */
+  accounting: CallAccounting;
+  /** Required: the validated manuscript and its audit package are stored through this before anything is composed. */
+  checkpoint: CheckpointWriter;
   writer?: ManuscriptWriter;
   now?: Date;
+  /** Epoch ms by which the artefacts must be ready for storage and finalisation. */
+  deadlineAt?: number;
+  /** The order's stored checkpoints on this bound input; a retry resumes from the latest usable one on the same Fact Pack. */
+  history: StoredCheckpoint[];
+  /** Test seam: the clock used for the deadline. */
+  clock?: () => number;
+  /** Test seam: the bound session replay (defaults to the review store). */
+  replay?: typeof replayStoredSession;
+  /** Test seam: the layout (defaults to the hosted multi-pass layout). */
+  layout?: typeof layoutPublication;
 }): Promise<RevisedArtefacts> {
   const { order } = input;
   const now = input.now ?? new Date();
 
   // 1. The bound answers, rebuilt from the stored log.
-  const live = await replayStoredSession(order.binding.sessionId, order.binding.actionCount);
+  const live = await (input.replay ?? replayStoredSession)(order.binding.sessionId, order.binding.actionCount);
   const staged = buildStagedReportInput(live);
   const inputDigest = canonicalDigest(staged);
   if (inputDigest !== order.binding.inputDigest || staged.lineage.logDigest !== order.binding.logDigest) {
@@ -249,55 +335,93 @@ export async function produceRevisedArtefacts(input: {
   });
   const plan = buildRevisedStoryPlan(factPack);
   const brief = renderWriterBrief(factPack, plan, { editionLabel: 'RESTRICTED TEST: answers entered through the test deployment; revised method not approved; no score issued.' });
+  const fpDigest = factPackContentDigest(factPack);
+  const versions = {
+    pipeline: REVISED_LIVE_PIPELINE_VERSION, model: REVISED_REPORT_MODEL_VERSION, factPack: REVISED_FACT_PACK_VERSION, storyPlan: REVISED_STORY_PLAN_VERSION,
+    validator: MANUSCRIPT_VALIDATOR_VERSION, composer: REVISED_COMPOSER_VERSION, layout: PUBLICATION_LAYOUT_VERSION, workbook: BIBLE_WORKBOOK_VERSION,
+    accounting: REVISED_ACCOUNTING_VERSION, checkpoints: CHECKPOINT_VERSION
+  };
+  const boundInput = { inputContract: `${STAGED_REPORT_INPUT_CONTRACT.name}@${STAGED_REPORT_INPUT_CONTRACT.version}`, inputDigest, logDigest: staged.lineage.logDigest, actionCount: order.binding.actionCount, sessionId: order.binding.sessionId, orderReference: order.orderReference, assessmentReference: order.assessmentReference };
 
-  // 3. One manuscript from the configured model. No fallback content.
+  // 3. The manuscript. Every paid call is reserved in the ledger before it is made and settled afterwards; a resumed
+  // attempt starts from the last stored checkpoint on the same Fact Pack.
   const models = revisedModelPlan();
   const writer = input.writer ?? gatewayManuscriptWriter;
+  const clock = input.clock ?? Date.now;
+  const deadlineAt = input.deadlineAt ?? clock() + REVISED_TIME_BUDGET.totalMs;
+  const resume: RevisedResumePoint | null = resumeFrom(input.history, fpDigest);
+  const callIds: string[] = [];
+  let calls = 0;
+  const REFUSAL_CODE = { order_ceiling_reached: 'call_ceiling_reached', campaign_budget_missing: 'campaign_budget_missing', campaign_calls_exhausted: 'campaign_budget_exhausted', campaign_cost_exhausted: 'campaign_budget_exhausted', cost_not_bounded: 'cost_not_bounded', accounting_unavailable: 'accounting_unavailable' } as const;
+  const call = async (stage: 'writer' | 'repair', model: string, prompt: string, maxOutputTokens: number, minMs: number) => {
+    const available = deadlineAt - clock() - REVISED_TIME_BUDGET.reserveAfterWritingMs;
+    if (available < minMs) throw new RevisedGenerationError('time_budget_exhausted', REVISED_OPERATOR_GUIDANCE.time_budget_exhausted, { stage, calls, availableMs: Math.max(0, available), requiredMs: minMs });
+    const reservedCostUsd = worstCaseCostUsd(model, WRITER_SYSTEM.length + prompt.length, maxOutputTokens);
+    if (reservedCostUsd === null) throw new RevisedGenerationError('cost_not_bounded', REVISED_OPERATOR_GUIDANCE.cost_not_bounded, { stage, model, calls });
+    let reservation;
+    try {
+      reservation = await input.accounting.reserve({ stage, model, maxOutputTokens, reservedCostUsd });
+    } catch (error) {
+      const reason = error instanceof AccountingRefusal ? error.reason : 'accounting_unavailable';
+      const code = REFUSAL_CODE[reason];
+      throw new RevisedGenerationError(code, REVISED_OPERATOR_GUIDANCE[code], { stage, model, calls, refusal: reason, ...(error instanceof AccountingRefusal ? { ledger: error.detail } : {}) });
+    }
+    callIds.push(reservation.callId);
+    calls += 1;
+    try {
+      const out = await writer({ system: WRITER_SYSTEM, prompt, model, fallbackModels: [], signal: AbortSignal.timeout(Math.min(available, REVISED_TIME_BUDGET.maxCallMs)), maxOutputTokens });
+      await input.accounting.settle(reservation.callId, 'succeeded', out.usage, costFromUsage(model, out.usage));
+      return out;
+    } catch (error) {
+      const timeout = error instanceof Error && /abort|timeout/i.test(`${error.name} ${error.message}`);
+      // The outcome of a failed or timed-out call is unknown to us: it stays charged at its worst case.
+      await input.accounting.settle(reservation.callId, timeout ? 'indeterminate' : 'failed', null, null);
+      throw new RevisedGenerationError(timeout ? 'provider_timeout' : 'provider_failed', timeout ? REVISED_OPERATOR_GUIDANCE.provider_timeout : REVISED_OPERATOR_GUIDANCE.provider_failed, {
+        stage, models, calls, callIds, error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown'
+      });
+    }
+  };
+
   let written: Awaited<ReturnType<ManuscriptWriter>>;
-  try {
-    written = await writer({ system: WRITER_SYSTEM, prompt: brief, model: models.writer, fallbackModels: [] });
+  if (resume) {
+    written = { text: resume.manuscript, provider: resume.meta.provider, model: resume.meta.model, usage: null, latencyMs: 0 };
+  } else {
+    written = await call('writer', models.writer, brief, MAX_OUTPUT_TOKENS.writer, REVISED_TIME_BUDGET.minWriterMs);
     written = { ...written, text: normaliseManuscriptLayout(written.text) };
-  } catch (error) {
-    throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a manuscript. Nothing was composed; retry generation.', {
-      stage: 'writer', requestedModel: models.writer, models, providerCalls: 1,
-      error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown'
-    });
   }
-  let calls = 1;
   let validation = validateManuscript(written.text, factPack, plan);
   const gate = lengthGateMode();
   let acceptance = accept(validation, product, gate);
-  const firstPass = { pass: acceptance.pass, blocking: acceptance.issues.length, words: validation.stats?.words ?? null };
+  const firstPass = resume?.meta.firstPass ?? { pass: acceptance.pass, blocking: acceptance.issues.length, words: validation.stats?.words ?? null };
+  if (resume?.stage === 'compose' && !acceptance.pass) {
+    // A validated manuscript that no longer passes on the rebuilt Fact Pack is never composed.
+    throw new RevisedGenerationError('manuscript_rejected', REVISED_OPERATOR_GUIDANCE.manuscript_rejected, { stage: 'resume_validation', calls, blocking: acceptance.issues.map((i) => `${i.code}@${i.section}:${i.line}`).slice(0, 30) });
+  }
   if (!acceptance.pass && calls < REVISED_PROVIDER_CALL_CEILING) {
+    // Keep the draft so that a retry can repair it rather than write it again. A failure to store it costs only that
+    // convenience; it is recorded and the attempt continues.
+    if (!resume) {
+      await input.checkpoint({ stage: 'drafted', factPackDigest: fpDigest, manuscript: written.text, auditPackage: { resumeMeta: { provider: written.provider, model: written.model, firstPass } } })
+        .catch((error) => console.warn('revised_draft_checkpoint_not_stored', { message: error instanceof Error ? error.message : 'unknown' }));
+    }
     // One repair: the same writer receives its manuscript and the validator's exact issues. Not a template fallback:
     // the writer still writes every word, and the result faces the same validator.
-    let repaired: Awaited<ReturnType<ManuscriptWriter>>;
-    // Structural issues (unit or section counts) cannot be fixed one line at a time: they take the full repair.
     const STRUCTURAL = new Set(['UNITS', 'STRUCTURE', 'HEADING-MISSING', 'EXHIBIT-MISSING']);
     const surgical = acceptance.issues.every((i) => i.line > 0 && !STRUCTURAL.has(i.code)) && acceptance.issues.length <= 60;
-    try {
-      if (surgical) {
-        const { prompt, lines } = lineRepairPrompt(brief, written.text, acceptance);
-        const reply = await writer({ system: WRITER_SYSTEM, prompt, model: models.repair, fallbackModels: [] });
-        const patched = applyLineRepair(written.text, lines, reply.text);
-        repaired = { ...reply, text: normaliseManuscriptLayout(patched ?? written.text) };
-      } else {
-        repaired = await writer({ system: WRITER_SYSTEM, prompt: repairPrompt(brief, written.text, acceptance), model: models.repair, fallbackModels: [] });
-        repaired = { ...repaired, text: normaliseManuscriptLayout(repaired.text) };
-      }
-    } catch (error) {
-      throw new RevisedGenerationError('provider_failed', 'The AI manuscript service did not return a repaired manuscript. Nothing was composed; retry generation.', {
-        stage: 'repair', requestedModel: models.repair, models, providerCalls: 2, firstPass,
-        error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown', rejectedManuscript: written.text
-      });
+    let repaired: Awaited<ReturnType<ManuscriptWriter>>;
+    if (surgical) {
+      const { prompt, lines } = lineRepairPrompt(brief, written.text, acceptance);
+      const reply = await call('repair', models.repair, prompt, MAX_OUTPUT_TOKENS.repairLines, REVISED_TIME_BUDGET.minRepairMs);
+      repaired = { ...reply, text: normaliseManuscriptLayout(applyLineRepair(written.text, lines, reply.text) ?? written.text) };
+    } else {
+      const reply = await call('repair', models.repair, repairPrompt(brief, written.text, acceptance), MAX_OUTPUT_TOKENS.repairFull, REVISED_TIME_BUDGET.minRepairMs);
+      repaired = { ...reply, text: normaliseManuscriptLayout(reply.text) };
     }
-    calls += 1;
-    const usage = { first: written.usage, repair: repaired.usage };
-    written = { ...repaired, usage, latencyMs: written.latencyMs + repaired.latencyMs };
+    written = { ...repaired, usage: { first: written.usage, repair: repaired.usage }, latencyMs: written.latencyMs + repaired.latencyMs };
     validation = validateManuscript(written.text, factPack, plan);
     acceptance = accept(validation, product, gate);
   }
-  const ai = { requestedModel: models.writer, models, repairUsed: calls > 1, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, firstPass };
+  const ai = { requestedModel: models.writer, models, resumedFrom: resume?.stage ?? null, repairUsed: calls > 1 || resume?.stage === 'repair', provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs, calls, callIds, firstPass };
   if (!acceptance.pass) {
     throw new RevisedGenerationError('manuscript_rejected', 'The AI manuscript failed validation and was not composed. Retry generation.', {
       stage: 'manuscript_validation', ...ai,
@@ -308,18 +432,41 @@ export async function produceRevisedArtefacts(input: {
     });
   }
 
-  // 4. Composition and rendering in the MK publication system, labelled as a restricted test.
-  let pdf: Buffer;
+  // 4. The audit package, stored before anything is composed (independent review F2). Without it no report is produced.
+  const auditPackage: Record<string, unknown> = {
+    schemaVersion: 'revised-audit-package-v2', versions, boundInput, manuscript: written.text, factPack, storyPlan: plan, writerBrief: brief,
+    validation: { pass: validation.pass, stats: validation.stats ?? null, issues: validation.issues },
+    ai: { models, calls, callIds, resumedFrom: resume?.stage ?? null, resumedFromAttempt: resume?.fromAttempt ?? null, firstPass, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs },
+    resumeMeta: { provider: written.provider, model: written.model, firstPass },
+    lengthGate: { mode: gate, shortfall: acceptance.shortfall }
+  };
+  // Every attempt stores its own validated checkpoint, including one resumed from an earlier attempt's manuscript.
   try {
-    const { html } = composeRevisedReportHtml({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: true, restrictedNotice: RESTRICTED_TEST_LABEL });
-    pdf = (await renderPublicationPdf(html)).pdf;
+    await input.checkpoint({ stage: 'validated', factPackDigest: fpDigest, manuscript: written.text, auditPackage });
   } catch (error) {
-    throw new RevisedGenerationError('render_failed', 'The PDF could not be rendered.', { stage: 'render', error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });
+    throw new RevisedGenerationError('audit_unavailable', REVISED_OPERATOR_GUIDANCE.audit_unavailable, { stage: 'audit_checkpoint', ...ai, error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });
+  }
+
+  // 5. Composition and layout in the MK publication system, inside the request deadline, then the publication gates.
+  const layoutAvailable = deadlineAt - clock();
+  if (layoutAvailable < REVISED_TIME_BUDGET.minLayoutMs) throw new RevisedGenerationError('time_budget_exhausted', REVISED_OPERATOR_GUIDANCE.time_budget_exhausted, { stage: 'layout', calls, availableMs: Math.max(0, layoutAvailable), requiredMs: REVISED_TIME_BUDGET.minLayoutMs });
+  let pdf: Buffer;
+  let layout: LayoutRecord;
+  try {
+    ({ pdf, layout } = await (input.layout ?? layoutPublication)({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: true, restrictedNotice: RESTRICTED_TEST_LABEL },
+      { deadlineAt: deadlineAt - REVISED_TIME_BUDGET.minStoreMs, clock, minPassMs: REVISED_TIME_BUDGET.minRenderPassMs }));
+  } catch (error) {
+    throw new RevisedGenerationError('render_failed', REVISED_OPERATOR_GUIDANCE.render_failed, { stage: 'render', calls, callIds, resumable: 'compose', error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });
+  }
+  const hasContentsPage = plan.sections.some((s) => s.exhibits.includes('contents'));
+  const gates = publicationGates(layout, hasContentsPage);
+  if (!gates.pass) {
+    throw new RevisedGenerationError('publication_held', REVISED_OPERATOR_GUIDANCE.publication_held, { stage: 'publication_gates', calls, callIds, resumable: 'compose', gates, layout: { passes: layout.passes, pages: layout.pages, missing: layout.missing } });
   }
 
   let workbook: RevisedArtefacts['workbook'] = null;
   if (product === 'comprehensive') {
-    const built = await buildBibleWorkbook('comprehensive', report, factPack);
+    const built = await buildBibleWorkbook('comprehensive', report, factPack, { notice: 'RESTRICTED TEST. Answers were entered through the restricted test deployment. The revised method is not approved by MK, so no score, maturity level or band is issued. Control specifications, scenario structures and decision options are draft MK advisory content awaiting approval.' });
     workbook = {
       bytes: built.bytes, sha256: built.sha256, sheets: built.sheets,
       fileName: `${input.reportReference.replace(/[^A-Za-z0-9._-]+/g, '-')}-registers.xlsx`,
@@ -328,11 +475,10 @@ export async function produceRevisedArtefacts(input: {
   }
 
   const provenance = {
-    pipeline: REVISED_LIVE_PIPELINE_VERSION,
-    inputContract: `${STAGED_REPORT_INPUT_CONTRACT.name}@${STAGED_REPORT_INPUT_CONTRACT.version}`,
-    inputDigest, logDigest: staged.lineage.logDigest, actionCount: order.binding.actionCount, sessionId: order.binding.sessionId,
-    versions: { model: REVISED_REPORT_MODEL_VERSION, factPack: REVISED_FACT_PACK_VERSION, storyPlan: REVISED_STORY_PLAN_VERSION, validator: MANUSCRIPT_VALIDATOR_VERSION, composer: REVISED_COMPOSER_VERSION, workbook: BIBLE_WORKBOOK_VERSION },
-    factPackSha256: factPack.sha256,
+    pipeline: REVISED_LIVE_PIPELINE_VERSION, ...boundInput, versions,
+    layout: { passes: layout.passes, pages: layout.pages, contentsComplete: layout.contentsComplete, missing: layout.missing, flowSections: layout.flowSections, breakBefore: layout.breakBefore, sparsePages: layout.sparsePages },
+    publicationGates: gates,
+    factPackSha256: factPack.sha256, factPackContentDigest: fpDigest,
     manuscriptSha256: crypto.createHash('sha256').update(written.text).digest('hex'),
     pdfSha256: crypto.createHash('sha256').update(pdf).digest('hex'),
     workbookSha256: workbook?.sha256 ?? null,
@@ -342,5 +488,5 @@ export async function produceRevisedArtefacts(input: {
     restricted: RESTRICTED_TEST_LABEL,
     ai
   };
-  return { pdf, workbook, manuscript: written.text, validation, factPack, plan, provenance, ai };
+  return { pdf, workbook, manuscript: written.text, validation, factPack, plan, provenance, ai, auditPackage: { ...auditPackage, provenance }, gates };
 }
