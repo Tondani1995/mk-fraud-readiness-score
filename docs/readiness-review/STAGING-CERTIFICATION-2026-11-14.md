@@ -450,3 +450,11 @@ The token check (`tokens.ts`) and the scoring routes are unchanged. The mode is 
 - The admin console does not label previous-method records.
 - Production monitors that start a scored assessment will see 410 once the switch takes effect in production, so they need updating at release.
 - Already-issued PDFs and emails are unchanged.
+
+### 11.12 DR-13 resolved: no email wording needed (14 November 2026)
+
+The owner confirmed that fulfilment is manual, so no report-ready email is sent. Verified on the review branch:
+- The console's send-email action refuses every report (`manual_customer_delivery_required`).
+- Nothing calls the report-ready template (`buildReportReadyMessage`), whose "has passed our quality review" sentence would be false for a revised report.
+
+No code changed. If email delivery is ever enabled, that sentence must change first. With this, every build item from the owner decisions is done on the review branch.
