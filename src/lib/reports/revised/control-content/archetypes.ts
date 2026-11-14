@@ -1,5 +1,5 @@
 /**
- * FICTIONAL INTEGRATION PROTOTYPE. Control-content library, draft 0.1 for MK's approval: the reusable part.
+ * Control-content library, version 0.2, approved by MK on 14 November 2026 (see index.ts): the reusable part.
  *
  * MK's direction of 12 November (second direction), item 5: 688 practice questions in the draft bank have no level
  * descriptions or named records, and the reports must not fill that gap with generic text or with 688 unrelated
