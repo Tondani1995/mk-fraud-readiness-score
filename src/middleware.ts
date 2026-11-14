@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { adminHostAllowed, isAdminSurface } from '@/lib/auth/admin-surface';
 
 const WEBSITE_ADMIN_COOKIE = 'mk_admin_token';
 const RECOVERY_ENTRY_PATH = '/score/api/qa/recovery-v10-v12-vhutshilo';
@@ -32,6 +33,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  // The operator console answers only on deployment-protected hosts (see admin-surface.ts). Every other host gets a
+  // plain 404 that does not reveal the console exists.
+  if (isAdminSurface(pathname) && !adminHostAllowed(request.nextUrl.hostname)) {
+    return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  }
+
   if (pathname === '/score/api/readiness-runtime-check' || pathname === '/score/api/internal/uat-start-check') {
     return NextResponse.json({ ok: false }, { status: 404 });
   }
@@ -56,6 +63,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/score/admin',
+    '/score/admin/:path*',
+    '/score/api/admin/:path*',
+    '/score/api/commercial/orders/:path*',
     '/score/api/readiness-runtime-check',
     '/score/api/internal/uat-start-check',
     '/score/api/qa/recovery-v10-v12-vhutshilo'
