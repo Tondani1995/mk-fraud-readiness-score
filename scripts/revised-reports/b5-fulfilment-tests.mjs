@@ -40,7 +40,7 @@ const replayFor = (name) => async () => replay(FX[name].f.record);
  * is lost). Budgets: { campaign: { maxCalls, maxCostUsd } }.
  */
 function store({ budgets = { 'local-doubles': { maxCalls: 50, maxCostUsd: 25 } }, faults = {}, trigger = 'admin_generate', failUpload = false, failFinalise = false } = {}) {
-  const S = { calls: [], checkpoints: [], runs: [], events: [], attempts: new Map(), finalised: 0, uploads: 0, log: [] };
+  const S = { calls: [], checkpoints: [], runs: [], events: [], attempts: new Map(), finalised: 0, uploads: 0, log: [], trigger };
   const fault = (k) => faults[k];
   const once = new Set();
   const committedCost = (camp) => S.calls.filter((c) => c.campaign === camp).reduce((m, c) => m + (['succeeded', 'failed'].includes(c.status) && c.settledCost !== null ? c.settledCost : c.reservedCost), 0);
@@ -110,7 +110,7 @@ function store({ budgets = { 'local-doubles': { maxCalls: 50, maxCostUsd: 25 } }
       insert: async (row) => { if (table === 'order_events') S.events.push(row); return { error: null }; },
       select: () => chain, eq: (k, v) => { filters[k] = v; return chain; }, order: () => chain, limit: () => chain,
       maybeSingle: async () => {
-        if (table === 'manual_report_generation_attempts') return { data: { trigger_source: trigger, ...(S.attempts.get(filters.id) ?? { status: 'started', output_report_id: null }) }, error: null };
+        if (table === 'manual_report_generation_attempts') return { data: { trigger_source: S.trigger, ...(S.attempts.get(filters.id) ?? { status: 'started', output_report_id: null }) }, error: null };
         if (table === 'report_templates') return { data: { id: 'template-1', template_code: 't', version_number: 1 }, error: null };
         return { data: null, error: null };
       },
@@ -282,6 +282,61 @@ await T('GF-22', 'Publication gate: a PDF whose headings or contents numbers are
   const held = db.S.events.find((e) => e.event_type === 'revised_publication_held');
   const second = await run({ db });
   return [first.error?.reason === 'pdf_publication_held' && db.S.uploads === 1 && !!held && !!second.out && second.w.calls.length === 0, `first ${first.error?.reason}; uploads after both ${db.S.uploads}; retry calls ${second.w.calls.length}`];
+});
+
+// "Create New Version" (admin_regenerate) is written afresh, and a draft or manuscript that a later report has superseded
+// is never reused (14 November 2026: a regenerate re-repaired the round 1 draft).
+const stages = (db, from = 0) => db.S.calls.slice(from).map((c) => c.stage).join(',');
+const validatedOf = (db, attemptId) => db.S.checkpoints.find((c) => c.stage === 'validated' && c.attemptId === attemptId)?.auditPackage?.ai ?? {};
+const draftThenRepair = async () => {
+  const db = store({ trigger: 'admin_generate' });
+  const first = await run({ db, writer: doubleFor('marula', 'essential', { mode: 'reject' }) });
+  db.S.trigger = 'admin_retry';
+  const second = await run({ db });
+  return { db, first, second };
+};
+await T('GF-23', 'Create New Version after a report repaired from a stored draft: the writer drafts afresh; the old draft is not repaired again', async () => {
+  const { db, first, second } = await draftThenRepair();
+  const before = db.S.calls.length;
+  db.S.trigger = 'admin_regenerate';
+  const third = await run({ db });
+  const ai = validatedOf(db, third.attemptId);
+  const note = db.S.events.filter((e) => e.event_type === 'revised_report_generated').at(-1)?.note ?? '';
+  const ok = !!first.error && validatedOf(db, second.attemptId).resumedFrom === 'repair' && !!third.out && stages(db, before) === 'writer'
+    && ai.resumeMode === 'fresh' && ai.resumedFrom === null && /written by openai\/gpt-5-mini \(1 AI call\)/.test(note) && !/stored by an earlier attempt/.test(note);
+  return [ok, `setup ${stages(db, 0).split(',').slice(0, before).join(',')}; new version ${stages(db, before)}; mode ${ai.resumeMode}, resumed ${ai.resumedFrom}`];
+});
+await T('GF-24', 'Retry after a report: a superseded draft is not repaired again; the retry is written afresh', async () => {
+  const { db } = await draftThenRepair();
+  const before = db.S.calls.length;
+  const third = await run({ db });
+  const ai = validatedOf(db, third.attemptId);
+  return [!!third.out && stages(db, before) === 'writer' && ai.resumeMode === 'resume' && ai.resumedFrom === null, `retry ${stages(db, before)}; resumed ${ai.resumedFrom}`];
+});
+await T('GF-25', 'Create New Version ignores a current stored draft that a retry would repair', async () => {
+  const db = store({ trigger: 'admin_generate' });
+  await run({ db, writer: doubleFor('marula', 'essential', { mode: 'reject' }) });
+  const before = db.S.calls.length;
+  db.S.trigger = 'admin_regenerate';
+  const second = await run({ db });
+  return [!!second.out && stages(db, before) === 'writer' && validatedOf(db, second.attemptId).resumedFrom === null, `new version ${stages(db, before)}`];
+});
+await T('GF-26', 'Create New Version ignores a validated manuscript that never became a report (a retry composes it with no call)', async () => {
+  const db = store({ failUpload: true });
+  const first = await run({ db });
+  db.storage = store().storage;
+  db.S.trigger = 'admin_regenerate';
+  const second = await run({ db });
+  return [!!first.error && !!second.out && second.w.calls.length === 1 && stages(db) === 'writer,writer' && validatedOf(db, second.attemptId).resumedFrom === null, `first ${first.error?.reason}; ledger ${stages(db)}`];
+});
+await T('GF-27', 'A composed manuscript is superseded by the report it became: a later retry writes afresh instead of composing it again', async () => {
+  const db = store({ failUpload: true });
+  await run({ db });
+  db.storage = store().storage;
+  const second = await run({ db });
+  const before = db.S.calls.length;
+  const third = await run({ db });
+  return [second.w.calls.length === 0 && !!third.out && stages(db, before) === 'writer', `retry composed with ${second.w.calls.length} calls; next ${stages(db, before)}`];
 });
 
 await closePublicationBrowser();

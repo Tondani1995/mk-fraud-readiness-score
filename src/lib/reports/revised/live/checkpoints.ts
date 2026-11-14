@@ -14,7 +14,7 @@ import crypto from 'node:crypto';
  * Writes are idempotent per attempt and stage and retried a bounded number of times, so a lost response is repaired by
  * the retry; a different payload for the same attempt and stage is a conflict, never overwritten.
  */
-export const CHECKPOINT_VERSION = 'revised-checkpoints-1.0';
+export const CHECKPOINT_VERSION = 'revised-checkpoints-1.1';
 
 export type ResumeMeta = { provider: string | null; model: string | null; firstPass: { pass: boolean; blocking: number; words: number | null } };
 export type StoredCheckpoint = { attemptId: string; stage: 'drafted' | 'validated' | 'linked'; factPackDigest: string | null; manuscript: string | null; reportId: string | null; resumeMeta: ResumeMeta | null; createdAt: string };
@@ -63,18 +63,33 @@ export async function loadCheckpoints(db: any, scope: Omit<CheckpointScope, 'att
   for (const c of data as any[]) {
     if (!c || typeof c.attemptId !== 'string' || !['drafted', 'validated', 'linked'].includes(c.stage)) throw new CheckpointUnavailable('The generation history is malformed.', { malformed: true });
     if (c.stage !== 'linked' && (typeof c.manuscript !== 'string' || typeof c.factPackDigest !== 'string')) throw new CheckpointUnavailable('The generation history is incomplete.', { incomplete: true, attemptId: c.attemptId });
+    // Supersession (below) compares times, so a checkpoint without a readable time is malformed history, never ignored.
+    if (typeof c.createdAt !== 'string' || !Number.isFinite(Date.parse(c.createdAt))) throw new CheckpointUnavailable('The generation history is malformed.', { malformed: true, attemptId: c.attemptId });
   }
   return data as StoredCheckpoint[];
 }
 
 /**
- * Where a retry starts: the latest validated manuscript that never became a report (compose, no AI call), otherwise the
- * latest draft whose attempt never validated (repair, one call). Only checkpoints made on the same Fact Pack qualify.
+ * Where an attempt starts.
+ *
+ *   fresh   (operator "Create New Version", `admin_regenerate`): never resumes. The writer drafts the new version from
+ *           the bound input, whatever is stored.
+ *   resume  (generate and retry): the latest validated manuscript that never became a report (compose, no AI call),
+ *           otherwise the latest draft whose attempt never validated (repair, one call). Only checkpoints made on the
+ *           same Fact Pack qualify, and only those made after the order's latest report: once a report has been produced,
+ *           every earlier draft and manuscript is superseded and is never repaired or composed again.
  */
-export function resumeFrom(checkpoints: StoredCheckpoint[], factPackDigest: string) {
+export type ResumeMode = 'fresh' | 'resume';
+export function resumeFrom(checkpoints: StoredCheckpoint[], factPackDigest: string, mode: ResumeMode = 'resume') {
+  if (mode === 'fresh') return null;
   const linked = new Set(checkpoints.filter((c) => c.stage === 'linked').map((c) => c.attemptId));
   const validated = new Set(checkpoints.filter((c) => c.stage === 'validated').map((c) => c.attemptId));
-  const usable = (c: StoredCheckpoint) => c.factPackDigest === factPackDigest && !linked.has(c.attemptId) && c.resumeMeta;
+  // A report dates from its validated manuscript, which is stored before anything is composed. The link can be written
+  // much later (`reconcileAudits` recovers lost links), and must not make drafts written after the report look stale.
+  const reportTime = (l: StoredCheckpoint) => Date.parse((checkpoints.find((c) => c.stage === 'validated' && c.attemptId === l.attemptId) ?? l).createdAt);
+  const lastReportAt = Math.max(-Infinity, ...checkpoints.filter((c) => c.stage === 'linked').map(reportTime));
+  const current = (c: StoredCheckpoint) => Date.parse(c.createdAt) > lastReportAt;
+  const usable = (c: StoredCheckpoint) => c.factPackDigest === factPackDigest && !linked.has(c.attemptId) && c.resumeMeta && current(c);
   const v = checkpoints.find((c) => c.stage === 'validated' && usable(c));
   if (v) return { stage: 'compose' as const, fromAttempt: v.attemptId, manuscript: v.manuscript!, meta: v.resumeMeta! };
   const d = checkpoints.find((c) => c.stage === 'drafted' && usable(c) && !validated.has(c.attemptId));

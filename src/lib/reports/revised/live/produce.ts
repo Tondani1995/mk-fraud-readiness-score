@@ -15,7 +15,7 @@ import { layoutPublication, PUBLICATION_LAYOUT_VERSION, type LayoutRecord } from
 import { buildBibleWorkbook, BIBLE_WORKBOOK_VERSION } from '../manuscript/workbook-bible';
 import type { RevisedOrderContext } from './order';
 import { AccountingRefusal, costFromUsage, MAX_OUTPUT_TOKENS, REVISED_ACCOUNTING_VERSION, worstCaseCostUsd, type CallAccounting } from './accounting';
-import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type StoredCheckpoint } from './checkpoints';
+import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type ResumeMode, type StoredCheckpoint } from './checkpoints';
 
 /**
  * B5: one paid report for a revised assessment, from the stored answer log to PDF (and, for Comprehensive, the
@@ -302,6 +302,8 @@ export async function produceRevisedArtefacts(input: {
   deadlineAt?: number;
   /** The order's stored checkpoints on this bound input; a retry resumes from the latest usable one on the same Fact Pack. */
   history: StoredCheckpoint[];
+  /** 'fresh' for a new version (operator "Create New Version"): the writer drafts it and nothing stored is reused. */
+  resumeMode?: ResumeMode;
   /** Test seam: the clock used for the deadline. */
   clock?: () => number;
   /** Test seam: the bound session replay (defaults to the review store). */
@@ -350,7 +352,7 @@ export async function produceRevisedArtefacts(input: {
   const writer = input.writer ?? gatewayManuscriptWriter;
   const clock = input.clock ?? Date.now;
   const deadlineAt = input.deadlineAt ?? clock() + REVISED_TIME_BUDGET.totalMs;
-  const resume: RevisedResumePoint | null = resumeFrom(input.history, fpDigest);
+  const resume: RevisedResumePoint | null = resumeFrom(input.history, fpDigest, input.resumeMode ?? 'resume');
   const callIds: string[] = [];
   let calls = 0;
   const REFUSAL_CODE = { order_ceiling_reached: 'call_ceiling_reached', campaign_budget_missing: 'campaign_budget_missing', campaign_calls_exhausted: 'campaign_budget_exhausted', campaign_cost_exhausted: 'campaign_budget_exhausted', cost_not_bounded: 'cost_not_bounded', accounting_unavailable: 'accounting_unavailable' } as const;
@@ -437,7 +439,7 @@ export async function produceRevisedArtefacts(input: {
   const auditPackage: Record<string, unknown> = {
     schemaVersion: 'revised-audit-package-v2', versions, boundInput, manuscript: written.text, factPack, storyPlan: plan, writerBrief: brief,
     validation: { pass: validation.pass, stats: validation.stats ?? null, issues: validation.issues },
-    ai: { models, calls, callIds, resumedFrom: resume?.stage ?? null, resumedFromAttempt: resume?.fromAttempt ?? null, firstPass, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs },
+    ai: { models, calls, callIds, resumeMode: input.resumeMode ?? 'resume', resumedFrom: resume?.stage ?? null, resumedFromAttempt: resume?.fromAttempt ?? null, firstPass, provider: written.provider, model: written.model, usage: written.usage, latencyMs: written.latencyMs },
     resumeMeta: { provider: written.provider, model: written.model, firstPass },
     lengthGate: { mode: gate, shortfall: acceptance.shortfall }
   };

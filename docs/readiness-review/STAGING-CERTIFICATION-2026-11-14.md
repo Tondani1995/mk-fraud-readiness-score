@@ -252,3 +252,28 @@ The ledger records no call for that attempt, and no call at all after the check 
 The share link used for the check was revoked (verified: it now redirects to sign-in), and the local copy was deleted. The 2 calls and US$1.04 left in `b5-live-3` can no longer be reached from the Preview unless a campaign variable is set again and the branch is redeployed.
 
 **Observation for the owner (not changed).** A stored draft remains a resume point after a later attempt has repaired it successfully. As a result, an operator "regenerate" on Kestrel Comprehensive or Marula Essential would repair the 14 November round 1 draft again rather than ask the writer for a fresh one. That is harmless while the inputs are identical, but it is worth a decision before a customer release.
+
+### 11.6 Fix: "Create New Version" writes a fresh draft (owner request, 14 November 2026)
+
+The observation in 11.5 is fixed. Local evidence only; nothing was spent and no report was regenerated.
+
+| Change | Where |
+|---|---|
+| "Create New Version" (`admin_regenerate`) never resumes. The writer drafts the new version from the bound input, whatever drafts or manuscripts are stored. Generate and retry still resume | `resumeFrom(…, mode)` in `checkpoints.ts`; `resumeMode` passed from `manual-generation.ts` |
+| A report supersedes every earlier draft and manuscript on the same inputs, so a retry after a report also writes afresh instead of re-repairing or recomposing old work. The same applied latently to a manuscript composed into a report, which previously stayed reusable | `resumeFrom` |
+| A report dates from its validated manuscript, not its link, so a link recovered late does not supersede a draft written after that report | `resumeFrom` |
+| A checkpoint without a readable time is malformed history and refused, never treated as empty | `loadCheckpoints` |
+| The audit package records `resumeMode` (`fresh` or `resume`). Checkpoints 1.1 | `produce.ts` |
+
+**Tests.**
+- Resume rules: 8 of 8 (`resume-mode-tests.mjs`). This includes the actual 14 November case and the Postgres time formats.
+- Fulfilment: 27 of 27, with five new cases (GF-23 to GF-27):
+  - a new version after a draft-repaired report is written afresh;
+  - a retry after a report is written afresh;
+  - a new version ignores a current draft;
+  - a new version ignores an unlinked validated manuscript;
+  - a composed manuscript is superseded by its report.
+
+The retry paths that should resume still do (GF-10, GF-11, GF-12, GF-22). Staging fixes 6 of 6, entitlement 4 of 4, publication gates 6 of 6, layout 8 of 8 and reconciliation 10 of 10 all pass, and TypeScript is clean.
+
+**Cost consequence.** A new version always costs at least one writer call (about US$0.02 actual, US$0.11 reserved), and usually a repair as well, since no first draft has yet passed on its own. Before this fix, a new version on Kestrel Comprehensive or Marula Essential would have cost one repair.

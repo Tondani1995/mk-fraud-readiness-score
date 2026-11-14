@@ -99,6 +99,8 @@ export async function generateRevisedManualReport(input: {
     artefacts = await produceRevisedArtefacts({
       order, reportReference, versionNumber: input.versionNumber, writer: input.writer, replay: input.replay, layout: input.layout,
       deadlineAt: startedAt + REVISED_TIME_BUDGET.totalMs, clock: input.now, history, accounting,
+      // "Create New Version" is written afresh; generate and retry resume from the latest current checkpoint.
+      resumeMode: attemptRow.trigger_source === 'admin_regenerate' ? 'fresh' : 'resume',
       checkpoint: (cp) => recordCheckpoint(db, scope, cp).then(() => undefined)
     });
   } catch (error) {
