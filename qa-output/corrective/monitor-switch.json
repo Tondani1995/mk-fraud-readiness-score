@@ -1,0 +1,50 @@
+[
+  {
+    "id": "MS-01",
+    "ok": true,
+    "name": "No revised checks while the scored assessment is still the start (track not selected)",
+    "detail": "{}"
+  },
+  {
+    "id": "MS-02",
+    "ok": true,
+    "name": "All healthy: production mode on, bridge switch on, budget with room for a report",
+    "detail": "{\"review_production_mode\":\"PASS:review_production_mode_on\",\"review_bridge_switch\":\"PASS:review_bridge_on\",\"review_generation_budget\":\"PASS:review_budget_available\"}"
+  },
+  {
+    "id": "MS-03",
+    "ok": true,
+    "name": "Track selected without production mode fails: customers would silently stay on the scored assessment",
+    "detail": "FAIL:review_production_mode_off_not-configured"
+  },
+  {
+    "id": "MS-04",
+    "ok": true,
+    "name": "Database switch off or unreadable fails",
+    "detail": "FAIL:review_bridge_off; FAIL:review_bridge_query_failed"
+  },
+  {
+    "id": "MS-05",
+    "ok": true,
+    "name": "Budget: missing, unconfigured or exhausted fails; low warns (room for less than one full repair)",
+    "detail": "FAIL:review_budget_missing; FAIL:review_budget_unconfigured; FAIL:review_budget_exhausted; WARN:review_budget_low; FAIL:review_budget_query_failed"
+  },
+  {
+    "id": "MS-06",
+    "ok": true,
+    "name": "Outside production a misconfiguration warns instead of failing",
+    "detail": "{\"review_production_mode\":\"WARN:review_production_mode_off_not-configured\",\"review_bridge_switch\":\"WARN:review_bridge_off\",\"review_generation_budget\":\"PASS:review_budget_available\"}"
+  },
+  {
+    "id": "MS-07",
+    "ok": true,
+    "name": "The readiness run adds the /review start page check and the revised checks; review alerts are P1",
+    "detail": "wired and prioritised"
+  },
+  {
+    "id": "MS-08",
+    "ok": true,
+    "name": "The signed synthetic start creates a labelled fictional session (no options: never real), returns no links, and runs before the request body is read",
+    "detail": "signed path checked"
+  }
+]

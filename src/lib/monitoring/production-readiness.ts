@@ -4,6 +4,8 @@ import { FRAUD_READINESS_TERMS_VERSION, PRIVACY_NOTICE_VERSION } from '@/lib/leg
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { isValidGaMeasurementId, isValidDeploymentSha, EXPECTED_PRODUCTION, EXPECTED_PUBLIC_PRODUCTS, EXPECTED_ADVISORY_PRICE_FROM_CENTS, READINESS_REQUIRED_ENVIRONMENT, READINESS_OPTIONAL_MONITOR_ENVIRONMENT, overallStatusFromChecks, type ReadinessCheck, type ReadinessEvaluation, type MonitoringStatus } from './contracts';
 
+import { reviewProductionStatus } from '@/lib/readiness-review/commercial-environment';
+
 type QueryResult = { data: any; error: unknown };
 
 export type ReadinessContext = {
@@ -191,6 +193,38 @@ async function publicRouteCheck(
   }
 }
 
+/** A full repair's worst-case reservation (US$): below this the next report may be refused for budget. */
+const REVIEW_BUDGET_WARN_USD = 0.8;
+
+/**
+ * The revised review, once the switch-over selects it (NEXT_PUBLIC_MK_READINESS_TRACK=review). New customers then
+ * start there, so it is checked as the scored start was: production mode is on, the database switch accepts binding,
+ * the approved AI budget exists with room for a report, and the start page loads. Track selected without production
+ * mode is a failure: customers would stay on the scored assessment without anyone noticing.
+ */
+export async function revisedReviewChecks(checks: ReadinessCheck[], db: any, env: NodeJS.ProcessEnv, production: boolean) {
+  if (env.NEXT_PUBLIC_MK_READINESS_TRACK !== 'review') return;
+  const mode = reviewProductionStatus(env);
+  addCheck(checks, 'review_production_mode', 'review', mode.enabled ? 'PASS' : production ? 'FAIL' : 'WARN', mode.enabled ? 'review_production_mode_on' : `review_production_mode_off_${mode.reason}`);
+  const bridge = await querySafely(() => db.rpc('review_commercial_bridge_enabled'));
+  addCheck(checks, 'review_bridge_switch', 'review', bridge.error ? 'FAIL' : bridge.data === true ? 'PASS' : production ? 'FAIL' : 'WARN', bridge.error ? 'review_bridge_query_failed' : bridge.data === true ? 'review_bridge_on' : 'review_bridge_off');
+  const campaign = env.MK_REVISED_CALL_CAMPAIGN?.trim();
+  if (!campaign) {
+    addCheck(checks, 'review_generation_budget', 'review', production ? 'FAIL' : 'WARN', 'review_budget_unconfigured');
+    return;
+  }
+  const accounting = await querySafely(() => db.rpc('review_generation_accounting', { p_order: 'MKORD-MONITOR', p_campaign: campaign }));
+  const c = accounting.data?.campaign;
+  if (accounting.error || !c) {
+    addCheck(checks, 'review_generation_budget', 'review', 'FAIL', accounting.error ? 'review_budget_query_failed' : 'review_budget_missing');
+    return;
+  }
+  const callsLeft = Number(c.maxCalls) - Number(c.calls);
+  const costLeft = Number(c.maxCostUsd) - Number(c.committedUsd);
+  addCheck(checks, 'review_generation_budget', 'review', callsLeft < 1 || costLeft <= 0 ? 'FAIL' : callsLeft < 2 || costLeft < REVIEW_BUDGET_WARN_USD ? 'WARN' : 'PASS',
+    callsLeft < 1 || costLeft <= 0 ? 'review_budget_exhausted' : callsLeft < 2 || costLeft < REVIEW_BUDGET_WARN_USD ? 'review_budget_low' : 'review_budget_available');
+}
+
 async function publicChecks(checks: ReadinessCheck[], context: ReadinessContext, production: boolean) {
   const origin = context.origin?.trim();
   if (!origin) {
@@ -201,6 +235,7 @@ async function publicChecks(checks: ReadinessCheck[], context: ReadinessContext,
   await Promise.all([
     publicRouteCheck(checks, fetchImpl, origin, '/', 'public_home', 'public_route', production),
     publicRouteCheck(checks, fetchImpl, origin, '/score/start', 'public_score_start', 'public_route', production),
+    ...(context.env ?? process.env).NEXT_PUBLIC_MK_READINESS_TRACK === 'review' ? [publicRouteCheck(checks, fetchImpl, origin, '/review', 'public_review_start', 'public_route', production)] : [],
     publicRouteCheck(checks, fetchImpl, origin, '/fraud-readiness', 'public_fraud_readiness', 'public_route', production),
     publicRouteCheck(checks, fetchImpl, origin, '/sitemap.xml', 'sitemap', 'seo', production, (body) => body.includes('/fraud-readiness') && !body.includes('/fraud-readiness-score')),
     publicRouteCheck(checks, fetchImpl, origin, '/robots.txt', 'robots', 'seo', production, (body) => body.includes('/sitemap.xml')),
@@ -324,6 +359,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   });
   addCheck(checks, 'internal_monitor_heartbeat', 'dependency', heartbeatReadiness.status, heartbeatReadiness.safeCode);
 
+  await revisedReviewChecks(checks, db, env, production);
   await publicChecks(checks, context, production);
   for (const check of checks) {
     if (unavailableKeys.has(check.key)) {

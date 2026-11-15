@@ -31,8 +31,10 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 | 4 | **Database switch.** `insert into readiness_review.environment_flags (flag_key, flag_value, set_by) values ('commercial_bridge', 'production', '<owner, date>');` | Yes, delete the row |
 | 5 | **Vercel Production variables:** `MK_READINESS_REVIEW_MODE=production`, `MK_READINESS_REVIEW_STORE=database`, `MK_READINESS_REVIEW_DB_URL`, `MK_READINESS_REVIEW_DB_SERVICE_KEY` and `MK_READINESS_REVIEW_DB_PROJECT_REF` (the production project), `MK_READINESS_REVIEW_ENGINE=1.6`, `MK_REVISED_CALL_CAMPAIGN=<step 3>`. **Do not** set `MK_READINESS_REVIEW_HARNESS`, `MK_REVISED_COMMERCIAL_PATH` or `MK_READINESS_REVIEW_FAULTS`, or production mode stays off | Yes |
 | 6 | **Switch-over:** `NEXT_PUBLIC_MK_READINESS_TRACK=review` (build-time), then deploy. `/score/start` then leads to the revised review; scored starts and scored orders are refused; earlier results are labelled as the previous method | Yes, unset and redeploy |
-| 7 | **Monitors.** The production monitor and the synthetic start check use the scored start, which returns 410 after step 6. Point them at the revised start | Yes |
+| 7 | **Monitors.** Built: once the switch-over is on, the readiness endpoint adds `/review` and three checks (production mode on, database switch on, AI budget with room for a report), all P1. In Checkly, change the synthetic start from `POST /score/api/adaptive/start` to `POST /review/api/sessions`, with the same signed `x-mk-synthetic-monitor-run` header and an expected 201 with `{"ok":true,"synthetic":true}`. It creates a labelled fictional session ("MK synthetic monitor …"), never a real one, and returns no links. The scored start returns 410 after step 6 | Yes, point Checkly back |
 | 8 | **First live check.** One real or MK-internal assessment through to an operator-generated report, verified as in the staging certification: ledger, checksums, score on the cover, gates and private storage. No email is sent; fulfilment is manual | n/a |
+
+**Every production deploy** also updates the scored assessment's activation pin (the existing procedure), until the scored start is retired.
 
 **Rollback.** Unset `NEXT_PUBLIC_MK_READINESS_TRACK` and `MK_READINESS_REVIEW_MODE`, delete the database flag, and redeploy. New customers return to the scored assessment immediately. Data already in the review store stays where it is, append-only.
 
@@ -41,4 +43,4 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 - **Methodology label.** Resolved (DR-18). The method is approved as `MK-FRAUD-READINESS-1.0`.
 - **First drafts.** No writer first draft has passed without a repair. In production the length minimum blocks, so a short draft needs the full repair (about US$0.15 to US$0.20 a report at current prices).
 - **Private role links.** Real organisations enter through private role links, with no account (DR-09, accepted risk).
-- **Not seen in production.** The admin console does not label previous-method records. Physical-device, screen-reader and native-Excel checks have not been done.
+- **Not seen in production.** Physical-device, screen-reader and native-Excel checks have not been done.

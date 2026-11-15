@@ -559,3 +559,17 @@ Score tests: 14 of 14 (SC-14 covers the new credit). Every other suite is unchan
 - Review contract: 23 of 23. C-06 now allows exactly the Snapshot's score and still bans bands, confidence and prediction.
 - Fulfilment: 28 of 28. Reconciliation: 10 of 10, with the fingerprints intact.
 - All other suites unchanged; brand and copy checks clean; TypeScript clean.
+
+### 11.16 Monitors for the switch-over; two items dropped (15 November 2026)
+
+**Owner decisions.**
+- **Reviewer workspace: not needed.** The console is all MK needs for Essential and Comprehensive, as today. The reviewer workspace serves Advisory evidence review only, and stays unused.
+- **Admin labels: not needed.** No labels for previous-method records in the admin console. The customer-page labels (DR-01) stay.
+
+**Monitors (built).** Once `NEXT_PUBLIC_MK_READINESS_TRACK=review`:
+- **Readiness endpoint:** adds a `/review` start-page check and three revised-track checks. Production mode on fails if the track is selected without it, since customers would silently stay on the scored assessment. The database bridge switch must be on. The approved AI budget must exist: missing, unconfigured or exhausted fails, and less than one full repair's worth warns.
+- **Priority:** review checks and the revised start route are P1, as the scored start was.
+- **Signed synthetic start:** `POST /review/api/sessions` with the existing `x-mk-synthetic-monitor-run` header creates a labelled fictional session, never a real one, returns no links, and records a monitor event on failure. Unsigned requests are unchanged.
+- **Checkly:** the synthetic start must be repointed at release; the exact change is in the checklist.
+
+**Tests.** Monitor switch-over 8 of 8 (`monitor-switch-tests.mjs`). The production monitoring contract tests pass before and after. All other suites unchanged; TypeScript clean.
