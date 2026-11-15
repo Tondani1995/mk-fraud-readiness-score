@@ -168,6 +168,14 @@ export async function snapshotFor(tokenValue: string) {
   });
 }
 
+/** The Snapshot for a session by its id, for MK's console (the console's own access check applies; no link is needed). */
+export async function snapshotForSession(sessionId: string) {
+  return serial(sessionId, async () => {
+    const live = await liveFor(sessionId);
+    return { view: snapshotView(live), interviewComplete: !live.respondentStep };
+  });
+}
+
 /**
  * B5: the live session behind a respondent or management link, read under the session's write queue so the log
  * position returned is the one the caller binds. Owner, reviewer and links roles cannot bind a session to an order.

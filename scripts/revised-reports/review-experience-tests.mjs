@@ -4,7 +4,7 @@
 //   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/revised-reports/review-experience-tests.mjs
 import fs from 'node:fs';
 import { validateContact } from '../../src/lib/readiness-review/contacts.ts';
-import { reviewNoticeMessage } from '../../src/lib/readiness-review/review-notifications.ts';
+import { reviewConsoleUrl, reviewNoticeMessage } from '../../src/lib/readiness-review/review-notifications.ts';
 import { overallProgress } from '../../src/lib/readiness-review/progress.ts';
 
 const results = [];
@@ -19,10 +19,13 @@ await T('RX-01', 'Contact: name and a valid work email are required, role is opt
     && refused({ fullName: '', email: 'a@b.co' }) && refused({ fullName: 'A', email: 'not-an-email' }) && refused(null);
   return [pass, JSON.stringify(ok)];
 });
-await T('RX-02', 'MK notifications name the person and organisation, never include a review link, and escape what the respondent typed', async () => {
+await T('RX-02', 'MK notifications name the person and organisation, link to the console page, never include the private review link, and escape what the respondent typed', async () => {
   const contact = { fullName: 'A <b>Person</b>', email: 'a@b.co', roleTitle: 'CFO' };
-  const kinds = ['started', 'completed', 'stalled'].map((kind) => reviewNoticeMessage({ kind, organisationLabel: 'Org & Co', contact, actionCount: 12, lastActivityAt: '2026-11-15T10:00:00Z', inactiveHours: 24 }));
-  const noLink = kinds.every((m) => !/\/review\/s\/|https?:\/\//.test(m.text + m.html));
+  const consoleUrl = reviewConsoleUrl('abcdef0123456789');
+  const kinds = ['started', 'completed', 'stalled'].map((kind) => reviewNoticeMessage({ kind, organisationLabel: 'Org & Co', contact, actionCount: 12, lastActivityAt: '2026-11-15T10:00:00Z', inactiveHours: 24, consoleUrl }));
+  // The console link (behind the console's own access check) is in every email; the respondent's private link never is.
+  const noLink = kinds.every((m) => !/\/review\/s\//.test(m.text + m.html) && m.text.includes(`Open in the console: ${consoleUrl}`) && m.html.includes(`href="${consoleUrl}"`))
+    && /\/score\/admin\/reviews\/abcdef0123456789$/.test(consoleUrl);
   const escaped = kinds.every((m) => m.html.includes('A &lt;b&gt;Person&lt;/b&gt;') && m.html.includes('Org &amp; Co') && !m.html.includes('<b>Person'));
   const subjects = kinds.map((m) => m.subject);
   return [noLink && escaped && /started/.test(subjects[0]) && /completed/.test(subjects[1]) && /stalled/.test(subjects[2]) && kinds.every((m) => !m.text.includes('—')), subjects.join(' | ')];

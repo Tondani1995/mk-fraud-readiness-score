@@ -28,7 +28,15 @@ export type ReviewNotice = {
   actionCount?: number;
   lastActivityAt?: string;
   inactiveHours?: number;
+  /** MK's console page for this review (the console's access check applies; it is not the respondent's private link). */
+  consoleUrl?: string;
 };
+
+/** The console page for a review, on the same base address as the order emails' console links. */
+export function reviewConsoleUrl(sessionId: string) {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://mkfraud.co.za';
+  return `${base.replace(/\/$/, '')}/score/admin/reviews/${encodeURIComponent(sessionId)}`;
+}
 
 export function reviewNoticeMessage(n: ReviewNotice) {
   const who = `${n.contact.fullName}${n.contact.roleTitle ? `, ${n.contact.roleTitle}` : ''}`;
@@ -50,10 +58,11 @@ export function reviewNoticeMessage(n: ReviewNotice) {
     ...(n.actionCount !== undefined ? [['Answers recorded', String(n.actionCount)] as [string, string]] : []),
     ...(n.lastActivityAt ? [['Last activity', new Date(n.lastActivityAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC'] as [string, string]] : [])
   ];
-  const text = `${lead}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nThe respondent's private review link is not included in this email.`;
+  const consoleLine = n.consoleUrl ? `\n\nOpen in the console: ${n.consoleUrl}` : '';
+  const text = `${lead}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}${consoleLine}\n\nThe respondent's private review link is not included in this email.`;
   const html = `<p>${escape(lead)}</p><table cellpadding="4" style="border-collapse:collapse">${rows
     .map(([k, v]) => `<tr><td style="color:#475569">${escape(k)}</td><td>${escape(v)}</td></tr>`)
-    .join('')}</table><p style="color:#475569">The respondent's private review link is not included in this email.</p>`;
+    .join('')}</table>${n.consoleUrl ? `<p><a href="${escape(n.consoleUrl)}" style="color:#001030;font-weight:600">Open in the console</a></p>` : ''}<p style="color:#475569">The respondent's private review link is not included in this email.</p>`;
   return { subject, text, html };
 }
 
@@ -67,7 +76,7 @@ export async function sendReviewNotice(sessionId: string, notice: ReviewNotice):
   try {
     const claimed = await claimNotification(sessionId, notice.kind, notice.kind === 'stalled' ? notice.actionCount ?? null : null);
     if (!claimed) return { sent: false, reason: 'already_sent' };
-    const message = reviewNoticeMessage(notice);
+    const message = reviewNoticeMessage({ ...notice, consoleUrl: notice.consoleUrl ?? reviewConsoleUrl(sessionId) });
     const result = await sendEmail({
       audience: 'internal',
       from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
