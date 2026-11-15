@@ -79,7 +79,7 @@ export const WRITER_SYSTEM = [
   '5. Never write an internal reference in the prose: no FINDING-…, PATHWAY-…, THEME-…, PRIORITY-…, BLUEPRINT-…, DECISION-…, STAGE-…, MEASURE-…, POSITION-…, AREA-… and no question codes such as D6-P-09. Refs appear only inside `<!-- refs: -->` comments and `[[...]]` slots.',
   '6. Place each planned exhibit on its own line exactly as written in the plan, for example `[[exhibit:contents]]`.',
   '7. Only refs listed in the brief\'s "Facts (insert as slots)" table may appear inside [[ ]]. Theme, finding, pathway, priority, blueprint, decision, stage, measure, role, area, legal and position refs are NEVER slots: describe them in words and cite them only in the <!-- refs: --> comment. Write [[N-AREAS|w]], never "ten areas"; write a stage as "within the first ninety days" only if the brief gives that wording, otherwise "in the proposed first stage".',
-  '9. Never rank or grade risks: no MK prioritisation method is approved. Do not write "matters most", "matter most", "where it matters most", "ranked first", "most material", "material exposure", "highest priority", "high priority", "top priority", "critical risk", "most important risk", "the biggest risk" or "most serious". Say "the controls this report sets out first" instead.',
+  '9. Never rank or grade risks: the MK Fraud Readiness method lists work in its stated order and does not rank it. Do not write "matters most", "matter most", "where it matters most", "ranked first", "most material", "material exposure", "highest priority", "high priority", "top priority", "critical risk", "most important risk", "the biggest risk" or "most serious". Say "the controls this report sets out first" instead.',
   '10. Never write "independently verified", "verified", "validated", "tested", "examined", "evidence-based" or "evidence-linked", even inside a recommendation: nothing in this report was tested. Describe a control instead, for example "checked by a second person who did not raise the request".',
   '11. Vary how recommendations open. Use "management should" at most five times and "the organisation should" at most five times in the whole manuscript; otherwise name the accountable role ("The chief financial officer should …") or state the action directly.',
   '12. The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly, as a sentence of its own. Do not restate those scenario counts in your own words anywhere in that section.',
@@ -363,7 +363,7 @@ export async function produceRevisedArtefacts(input: {
     });
   }
 
-  // 2. Analysis, Fact Pack and Story Plan. No figure: the revised method is unapproved.
+  // 2. Analysis, Fact Pack and Story Plan, scored under the approved MK Fraud Readiness method (score.ts).
   const report = buildRevisedReport(staged);
   // The MK Fraud Readiness score (DR-02). Every report carries one; when no scenario can be counted there is nothing to
   // state, so the report is refused here, before any AI call.

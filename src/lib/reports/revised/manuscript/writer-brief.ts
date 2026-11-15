@@ -111,7 +111,7 @@ export function renderWriterBrief(fp: RevisedFactPack, plan: RevisedStoryPlan, o
   if (fp.outstanding.length) { L.push('', '## Outstanding questions', ''); for (const x of fp.outstanding) L.push(`- ${x.key}: ${x.reason}${x.fn ? ` (${x.fn})` : ''}${x.scenario ? `; affects "${x.scenario}"` : ''}`); }
   L.push('', '## Boundary', '', ...fp.boundary.map((x) => `- ${x}`));
   L.push('', '## Prohibited claims', '', ...fp.prohibited.map((x) => `- ${x}`));
-  L.push('', '## Requirements pending MK approval (keep visible, do not fill)', '', ...fp.pending.map((x) => `- **${x.ref}** ${x.requirement}: ${x.status}`));
+  if (fp.pending.length) L.push('', '## Requirements pending MK approval (keep visible, do not fill)', '', ...fp.pending.map((x) => `- **${x.ref}** ${x.requirement}: ${x.status}`));
   const budget = sectionBudgets(fp, plan);
   const target = LENGTH_TARGET[fp.product === 'essential' ? 'essential' : 'comprehensive'];
   L.push('', '## Length', '', `- The manuscript must run ${target.min.toLocaleString('en-GB')} to ${target.max.toLocaleString('en-GB')} words of prose. Aim for about ${budget.total.toLocaleString('en-GB')}.`,

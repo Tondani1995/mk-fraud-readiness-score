@@ -113,7 +113,7 @@ await T('SC-10', 'Workbook Read me carries the score and the readiness-conclusio
 await T('SC-11', 'Operator note states the score and that no readiness label is issued; the Snapshot label is unchanged and the report label drops "no readiness score"', async () => {
   const note = revisedGenerationNote({ models: { writer: 'w', repair: 'r' }, calls: 1, repairUsed: false, resumedFrom: null }, { binding: { engineBuild: '1.6', outstandingTotal: 20 } }, 4);
   const ok = /MK Fraud Readiness score 4%, no readiness label/.test(note) && !/no score issued/.test(note)
-    && /no readiness score is issued/.test(RESTRICTED_TEST_LABEL) && !/score/i.test(RESTRICTED_TEST_REPORT_LABEL) && /Not for customer release/.test(RESTRICTED_TEST_REPORT_LABEL);
+    && !/not approved|no readiness score/i.test(RESTRICTED_TEST_LABEL) && !/score/i.test(RESTRICTED_TEST_REPORT_LABEL) && /Not for customer release/.test(RESTRICTED_TEST_REPORT_LABEL);
   return [ok, note.slice(note.indexOf('method'), note.indexOf('method') + 120)];
 });
 await T('SC-12', 'Scored position statements: the score replaces the fixture result; inconsistencies and interpretation are unchanged', async () => {

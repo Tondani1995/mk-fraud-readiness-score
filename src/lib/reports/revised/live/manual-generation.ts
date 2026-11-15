@@ -266,7 +266,7 @@ export function revisedGenerationNote(ai: { models: { writer: string; repair: st
       : ai.repairUsed
         ? `written by ${ai.models.writer} and repaired by ${ai.models.repair} (${ai.calls} AI calls)`
         : `written by ${ai.models.writer} (${ai.calls} AI call${ai.calls === 1 ? '' : 's'})`;
-  return `Revised report${customer ? '' : ' (restricted test)'} ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; ${scorePercent === null ? 'no score issued' : `MK Fraud Readiness score ${scorePercent}%, no readiness label`}; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
+  return `Revised report${customer ? '' : ' (restricted test)'} ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK Fraud Readiness method (approved by MK)' : order.binding.engineBuild}; ${scorePercent === null ? 'no score issued' : `MK Fraud Readiness score ${scorePercent}%, no readiness label`}; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
 }
 
 /** An operator-facing order event; a failure to record it never affects the report. */

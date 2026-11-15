@@ -94,7 +94,7 @@ export function reportEdition(env: NodeJS.ProcessEnv = process.env): ReportEditi
 }
 
 /** The label every restricted-test artefact carries. */
-export const RESTRICTED_TEST_LABEL = 'RESTRICTED TEST · Fictional organisation entered through the test deployment · Revised method not approved by MK: no readiness score is issued · Not for customer release';
+export const RESTRICTED_TEST_LABEL = 'RESTRICTED TEST · Fictional organisation entered through the test deployment · Not for customer release';
 
 /**
  * The label a restricted-test revised REPORT carries. Reports now carry the MK Fraud Readiness score (DR-02), so they no

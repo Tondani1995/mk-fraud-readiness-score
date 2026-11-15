@@ -76,3 +76,16 @@ export const READINESS_REVIEW_CONTRACT = {
 } as const;
 
 export type ReadinessReviewContract = typeof READINESS_REVIEW_CONTRACT;
+
+/**
+ * The method's approval (owner, 15 November 2026). The `approval` strings inside READINESS_REVIEW_CONTRACT are copied
+ * into every staged report input and so into its fingerprint: editing them would make every bound order fail its
+ * answers-unchanged check. They stay as recorded at the time and are never shown; this record is the current status.
+ */
+export const REVISED_METHOD_APPROVAL = {
+  status: 'approved',
+  approvedBy: 'MK',
+  approvedOn: '2026-11-15',
+  label: 'MK Fraud Readiness method (staged review build 1.6, review bank 1.3), approved by MK',
+  scope: 'The review method, its question bank and classifications, the MK Fraud Readiness score (DR-02) and the coverage rule (DR-04).'
+} as const;

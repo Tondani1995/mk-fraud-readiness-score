@@ -63,7 +63,7 @@
     "id": "SC-11",
     "ok": true,
     "name": "Operator note states the score and that no readiness label is issued; the Snapshot label is unchanged and the report label drops \"no readiness score\"",
-    "detail": "method MK-READINESS-REVIEW-1.6 (draft, not approved); MK Fraud Readiness score 4%, no readiness label; 20 items outstand"
+    "detail": "method MK Fraud Readiness method (approved by MK); MK Fraud Readiness score 4%, no readiness label; 20 items outstanding"
   },
   {
     "id": "SC-12",

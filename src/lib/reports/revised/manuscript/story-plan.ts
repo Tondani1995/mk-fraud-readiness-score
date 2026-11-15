@@ -29,6 +29,12 @@ function withScoredConclusion(fp: RevisedFactPack, sections: PlanSection[]): Pla
       ? 'Then close in narrative: the responses this report sets out first, what should be true within ninety days, and the sensible next step.'
       : 'Then close in narrative: the transition required, the responses this report sets out first, what success looks like by ninety days and by twelve months, and when Advisory would add value.'),
     requiredFacts: ['T-CONCLUSION', ...(outstanding ? ['T-CONCLUSION-OUTSTANDING'] : []), ...s.requiredFacts]
+  }).map((s) => !/BASIS$/.test(s.id) ? s : {
+    // The method is approved (15 November 2026): the basis explains how the score is read, not what awaits approval.
+    ...s,
+    purpose: fp.product === 'essential'
+      ? 'One concise page: the self-reported basis, how unanswered questions are treated, how the MK Fraud Readiness score is calculated and what it does not show, and that nothing was independently tested.'
+      : 'Concise product boundary and how the position is read, including how the MK Fraud Readiness score is calculated and what it does not show.'
   });
 }
 

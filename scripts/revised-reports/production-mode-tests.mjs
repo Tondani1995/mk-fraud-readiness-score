@@ -92,7 +92,7 @@ await T('PM-08', 'Snapshot wording: live ordering states the half-covered rule a
   const page = fs.readFileSync('src/app/review/s/[token]/snapshot/page.tsx', 'utf8');
   const live = doc.slice(doc.indexOf("ordering === 'live'"), doc.indexOf(": ordering === 'restricted-test'"));
   const ok = /COVERAGE_RULE/.test(live) && !/restricted/i.test(live) && /carries the MK Fraud Readiness score/.test(live) && !/carries no score/.test(doc)
-    && /notice=\{ordering === 'restricted-test' \? RESTRICTED_TEST_LABEL : undefined\}/.test(page) && /commercial\.mode === 'production' \? 'live'/.test(page) && !/—/.test(doc) && /no readiness score is issued/.test(RESTRICTED_TEST_LABEL);
+    && /notice=\{ordering === 'restricted-test' \? RESTRICTED_TEST_LABEL : undefined\}/.test(page) && /commercial\.mode === 'production' \? 'live'/.test(page) && !/—/.test(doc) && !/not approved|no readiness score/i.test(RESTRICTED_TEST_LABEL);
   return [ok, 'live, restricted-test and none'];
 });
 await T('PM-09', 'The database switch accepts "production" but no migration ever sets it', async () => {

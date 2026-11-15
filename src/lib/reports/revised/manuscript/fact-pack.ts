@@ -448,7 +448,9 @@ export function buildRevisedFactPack(input: {
       'Any incident, loss, Rand amount, supplier, system or person not in the Fact Pack',
       'Any scenario, finding, control, decision option or owner not in the Fact Pack'
     ],
-    pending: [
+    // Approved method (owner, 15 November 2026): a scored pack has nothing pending. Priority is settled as listing
+    // without ranking (DR-05) and the control content is approved (DR-10). Unscored packs keep their earlier list.
+    pending: input.score ? [] : [
       ...(input.score ? [] : [{ ref: 'PENDING-CONCLUSION', requirement: 'Approved readiness conclusion (Bible 10.1 and 13.1: score and maturity)', status: 'Withheld until MK approves a readiness method (D-1).' }]),
       { ref: 'PENDING-PRIORITY', requirement: 'Priority of findings and risks (Bible 9 and 11.2: what matters most)', status: 'Stated selection rules only until MK approves a prioritisation method (P-13 to P-15).' },
       { ref: 'PENDING-CONTENT', requirement: 'Approved control, scenario and decision content (Bible 3.1)', status: `Drafts for MK approval: control-content-library-0.1, ${SCENARIO_STRUCTURE_VERSION}, ${DECISION_OPTIONS_VERSION}.` }

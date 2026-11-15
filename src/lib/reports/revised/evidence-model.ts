@@ -30,7 +30,7 @@ import { buildOutstandingLedger, ITEM_TYPE_LABEL, type LedgerItemType, type Outs
  */
 
 export const REVISED_REPORT_MODEL_VERSION = 'revised-report-model-prototype-0.4.0';
-export const REVISED_METHOD_LABEL = 'Review bank 1.3 (draft, not approved by MK)';
+export const REVISED_METHOD_LABEL = 'MK Fraud Readiness method, review bank 1.3 (approved by MK)';
 
 type Cov = {
   scenarios: { id: string; domain: string; name: string; tier: number; how?: string | null; why?: string | null }[];
@@ -395,7 +395,7 @@ export function buildRevisedReport(input: StagedReportInput) {
         currentPosition: s.kind === 'gap' ? s.confirmationGaps.map((v) => v.reported).join(' ') : un.map((r) => r.statement).join(' '),
         treatment: controlRefs.map((r) => `${r} ${controlsReg.find((c) => c.ref === r)?.key ?? ''}`.trim()).join('; '),
         ownerRole: lead ? lead.ownerRole : AREA_LEAD.get(s.area) ?? 'Senior management',
-        rating: 'Not rated. MK has not approved a method for rating likelihood, impact or priority.'
+        rating: 'Not rated. The MK Fraud Readiness method does not rate likelihood, impact or priority.'
       });
     }
   }
@@ -526,7 +526,7 @@ export function buildRevisedReport(input: StagedReportInput) {
     });
     dec({
       decision: 'Decide the order in which the open scenarios are addressed, using explicit factors.',
-      why: 'MK has not approved a method for rating fraud risks, so this report does not rank them, and neither its order nor the method\'s tiers is a ranking.',
+      why: 'The MK Fraud Readiness method does not rank fraud risks, so neither this report\'s order nor the method\'s tiers is a ranking.',
       recommendedDirection: 'Settle conflicting answers and open questions first. Then weigh, for each scenario, how far its control is reported in place, whether money, pay, cash or stock can leave without it, how much activity passes through the process, whether another control would detect a loss, and how many other scenarios the same control serves. The finding register gives the facts the assessment holds for the first and last of these; management supplies the rest.',
       ownerRole: 'Chief executive', when: 'Before design work starts.', consequenceOfDelay: 'Effort is spread across every scenario at once, or follows the order of this report, which is not a ranking.', schemeRefs: openSchemes.filter((s) => s.kind === 'gap').map((s) => s.ref)
     });
@@ -596,7 +596,7 @@ export function buildRevisedReport(input: StagedReportInput) {
     contradictions: count('contradiction'), dependencies: count('dependency'), clarifications: count('clarify'),
     pairsCompared: compared, pairsNotReviewed: relationRows.filter((r) => r.basis === 'not-reviewed').length,
     crossChecksAsked: (a.consistency.checks ?? []).length, crossCheckEligible: a.consistency.eligible,
-    conclusion: 'MK has not approved a readiness method, band or threshold, so no readiness conclusion is drawn from the answers or from the calculated test result.'
+    conclusion: 'No readiness conclusion is drawn: the MK Fraud Readiness method sets no readiness band, level or pass mark.'
   };
   const applicabilityPending = ledger.scenarios.filter((u) => u.reason === 'applicability-outstanding' && schemes.some((x) => x.id === u.id && x.kind === 'none'));
   const summary = {

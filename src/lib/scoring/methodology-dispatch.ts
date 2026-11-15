@@ -27,7 +27,7 @@ export type MethodologyFamily = 'mfrs-fixed' | 'mfrs-adaptive' | 'revised-review
 
 export const REVISED_METHODOLOGY_STATUS = {
   active: false,
-  reason: 'No revised scoring method is approved by MK. The revised family is registered so that it can never fall through to an MFRS calculator, and it refuses to score.'
+  reason: 'The revised method is scored by its own MK Fraud Readiness score (src/lib/reports/revised/score.ts), never by an MFRS calculator. The revised family is registered here so that it can never fall through to one, and this dispatch refuses to score it.'
 } as const;
 
 export class RevisedMethodologyInactive extends Error {}
