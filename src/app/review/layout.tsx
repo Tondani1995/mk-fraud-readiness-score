@@ -29,7 +29,8 @@ export default function ReviewLayout({ children }: { children: React.ReactNode }
             Exit
           </a>
         </div>
-        {harness.enabled && (
+        {/* The fictional-harness notice is for the test environments only; production shows none. */}
+        {harness.enabled && harness.reason !== 'production' && (
           <p className="border-t border-mk-line bg-mk-cream px-4 py-2 text-center text-xs leading-5 text-mk-ink sm:text-sm" data-harness-notice>
             {harnessNotice()}
           </p>

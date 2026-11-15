@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { canonicalDigest } from '@/lib/readiness-review/canonical';
 import { buildStagedReportInput, STAGED_REPORT_INPUT_CONTRACT } from '@/lib/readiness-review/report-input';
 import { replayStoredSession } from '@/lib/readiness-review/service';
-import { RESTRICTED_TEST_REPORT_LABEL } from '@/lib/readiness-review/commercial-environment';
+import { RESTRICTED_TEST_REPORT_LABEL, type ReportEdition } from '@/lib/readiness-review/commercial-environment';
 import { NARRATIVE_FALLBACK_MODELS, PRIMARY_NARRATIVE_MODEL } from '@/lib/reports/ai-model-policy';
 import { buildRevisedReport, REVISED_REPORT_MODEL_VERSION } from '../evidence-model';
 import { positionStatements } from '../position';
@@ -213,6 +213,24 @@ function repairPrompt(brief: string, manuscript: string, acceptance: Acceptance)
   return `${brief}\n\n## Your previous manuscript\n\n${manuscript}\n\n## The validator rejected it for these reasons\n\n${issues}\n\n## Task\n\nReturn the complete corrected manuscript, every planned section in order, fixing every issue above and keeping the format rules. Replace each typed figure with its [[REF]] slot, add the missing <!-- refs: --> line after each paragraph, and remove every internal reference from the prose. Return only the manuscript.`;
 }
 
+/**
+ * How each edition presents itself. A restricted test is labelled on every page and carries the prototype notices; a
+ * customer edition (production mode only, commercial-environment.ts) carries neither and is prepared for the
+ * organisation. Validation, gates, ledger, audit package and score are identical in both.
+ */
+export function editionPresentation(edition: ReportEdition, scorePercent: number) {
+  const customer = edition === 'customer';
+  return {
+    prototype: !customer,
+    restrictedNotice: customer ? undefined : RESTRICTED_TEST_REPORT_LABEL,
+    briefLabel: customer ? 'Customer edition: written for the organisation from its own answers.' : 'RESTRICTED TEST: answers entered through the test deployment; not for customer release.',
+    workbookNotice: (customer ? '' : 'RESTRICTED TEST. Answers were entered through the restricted test deployment; not for customer release. ')
+      + `The MK Fraud Readiness score is ${scorePercent}% on the organisation's own answers; no readiness level, band or pass mark is issued.`,
+    restricted: customer ? null : RESTRICTED_TEST_REPORT_LABEL,
+    tag: customer ? '' : ' (restricted test)'
+  };
+}
+
 /** Where a retry starts, from the order's stored checkpoints (see checkpoints.ts). */
 export type RevisedResumePoint = { stage: 'repair' | 'compose'; fromAttempt: string; manuscript: string; meta: ResumeMeta };
 
@@ -322,6 +340,8 @@ export async function produceRevisedArtefacts(input: {
   history: StoredCheckpoint[];
   /** 'fresh' for a new version (operator "Create New Version"): the writer drafts it and nothing stored is reused. */
   resumeMode?: ResumeMode;
+  /** 'customer' only in production mode; every other environment produces a labelled restricted test. */
+  edition?: ReportEdition;
   /** Test seam: the clock used for the deadline. */
   clock?: () => number;
   /** Test seam: the bound session replay (defaults to the review store). */
@@ -354,6 +374,7 @@ export async function produceRevisedArtefacts(input: {
   const coverage = reportCoverage(score);
   if (!coverage.meets) throw new RevisedGenerationError('coverage_insufficient', REVISED_OPERATOR_GUIDANCE.coverage_insufficient, { stage: 'coverage', calls: 0, counted: coverage.counted, applicable: coverage.applicable, share: coverage.share });
   const position = scoredPosition(positionStatements(report, { score: null }), score);
+  const edition = editionPresentation(input.edition ?? 'restricted-test', score.percent);
   const product = order.product;
   const factPack = buildRevisedFactPack({
     report, product, organisationName: order.organisationName, assessmentReference: order.assessmentReference,
@@ -362,7 +383,7 @@ export async function produceRevisedArtefacts(input: {
     score
   });
   const plan = buildRevisedStoryPlan(factPack);
-  const brief = renderWriterBrief(factPack, plan, { editionLabel: 'RESTRICTED TEST: answers entered through the test deployment; not for customer release.' });
+  const brief = renderWriterBrief(factPack, plan, { editionLabel: edition.briefLabel });
   const fpDigest = factPackContentDigest(factPack);
   const versions = {
     pipeline: REVISED_LIVE_PIPELINE_VERSION, model: REVISED_REPORT_MODEL_VERSION, factPack: REVISED_FACT_PACK_VERSION, storyPlan: REVISED_STORY_PLAN_VERSION,
@@ -481,7 +502,7 @@ export async function produceRevisedArtefacts(input: {
   let pdf: Buffer;
   let layout: LayoutRecord;
   try {
-    ({ pdf, layout } = await (input.layout ?? layoutPublication)({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: true, restrictedNotice: RESTRICTED_TEST_REPORT_LABEL },
+    ({ pdf, layout } = await (input.layout ?? layoutPublication)({ md: written.text, fp: factPack, plan, dateLabel: dateLabel(now), prototype: edition.prototype, restrictedNotice: edition.restrictedNotice },
       { deadlineAt: deadlineAt - REVISED_TIME_BUDGET.minStoreMs, clock, minPassMs: REVISED_TIME_BUDGET.minRenderPassMs }));
   } catch (error) {
     throw new RevisedGenerationError('render_failed', REVISED_OPERATOR_GUIDANCE.render_failed, { stage: 'render', calls, callIds, resumable: 'compose', error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });
@@ -494,7 +515,7 @@ export async function produceRevisedArtefacts(input: {
 
   let workbook: RevisedArtefacts['workbook'] = null;
   if (product === 'comprehensive') {
-    const built = await buildBibleWorkbook('comprehensive', report, factPack, { notice: `RESTRICTED TEST. Answers were entered through the restricted test deployment; not for customer release. The MK Fraud Readiness score is ${score.percent}% on the organisation's own answers; no readiness level, band or pass mark is issued.` });
+    const built = await buildBibleWorkbook('comprehensive', report, factPack, { notice: edition.workbookNotice });
     workbook = {
       bytes: built.bytes, sha256: built.sha256, sheets: built.sheets,
       fileName: `${input.reportReference.replace(/[^A-Za-z0-9._-]+/g, '-')}-registers.xlsx`,
@@ -514,7 +535,7 @@ export async function produceRevisedArtefacts(input: {
     lengthGate: { mode: gate, shortfall: acceptance.shortfall, releaseBlocker: acceptance.shortfall ? `Manuscript of ${acceptance.shortfall.words} words is below the ${acceptance.shortfall.minimum}-word minimum; not releasable to a customer.` : null },
     coverage: { minimum: 0.5, counted: coverage.counted, applicable: coverage.applicable, share: coverage.share },
     scoring: { method: REVISED_SCORE_VERSION, percent: score.percent, exact: score.exact, applicable: score.applicable, counted: score.counted, notCounted: score.notCounted, credit: score.credit, byKind: score.byKind },
-    restricted: RESTRICTED_TEST_REPORT_LABEL,
+    restricted: edition.restricted, edition: input.edition ?? 'restricted-test',
     ai
   };
   return { pdf, workbook, manuscript: written.text, validation, factPack, plan, provenance, ai, auditPackage: { ...auditPackage, provenance }, gates };

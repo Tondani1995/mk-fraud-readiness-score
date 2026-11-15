@@ -98,10 +98,13 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
 
 /** What MK offers, stated from the catalogue. The Snapshot never recommends a paid engagement. */
 /**
- * `restrictedOrdering`: the restricted test lets a paid report be requested from these answers (the panel below the
+ * `ordering`: 'live' in production mode, 'restricted-test' where the restricted test lets a paid report be requested from these answers (the panel below the
  * Snapshot). The wording then says so, instead of saying the reports cannot be ordered here (independent review, section 2).
  */
-export function WorkingWithMk({ restrictedOrdering = false }: { restrictedOrdering?: boolean } = {}) {
+export type SnapshotOrdering = 'none' | 'restricted-test' | 'live';
+const COVERAGE_RULE = 'A paid report can be requested once complete answers cover at least half of the fraud scenarios that apply.';
+
+export function WorkingWithMk({ ordering = 'none' }: { ordering?: SnapshotOrdering } = {}) {
   return (
     <section aria-labelledby="working-with-mk" className="mt-12 rounded-md border border-mk-line bg-white p-5" data-review-commercial>
       <h2 id="working-with-mk" className="text-xl font-semibold text-mk-ink">Working with MK</h2>
@@ -124,8 +127,10 @@ export function WorkingWithMk({ restrictedOrdering = false }: { restrictedOrderi
         <div className="border-t border-mk-line pt-3">
           <dt className="font-medium text-mk-ink">Essential and Comprehensive reports</dt>
           <dd className="text-mk-muted">
-            {restrictedOrdering
-              ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be requested from these answers below, for restricted testing only. A report produced this way carries no score and no readiness conclusion, and is not released to a customer.`
+            {ordering === 'live'
+              ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be ordered below and are written from the answers you have already given, so you do not answer again. Each carries the MK Fraud Readiness score. ${COVERAGE_RULE}`
+              : ordering === 'restricted-test'
+              ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be requested from these answers below, for restricted testing only. A report produced this way carries the MK Fraud Readiness score and is not released to a customer. ${COVERAGE_RULE}`
               : `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) are currently produced from MK\u2019s scored assessment. They are not produced from this Snapshot and cannot be ordered from it while that decision is open.`}
           </dd>
         </div>
@@ -146,7 +151,7 @@ export function OwnerPackagesNote({ packages, columns = 2 }: { packages: Snapsho
   );
 }
 
-export function StatusPanel({ status, restrictedOrdering = false }: { status: Snapshot['status']; restrictedOrdering?: boolean }) {
+export function StatusPanel({ status, ordering = 'none' }: { status: Snapshot['status']; ordering?: SnapshotOrdering }) {
   return (
     <dl className="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border border-mk-line bg-white p-5 text-sm leading-6 md:grid-cols-3" data-review-status>
       <div>
@@ -163,7 +168,7 @@ export function StatusPanel({ status, restrictedOrdering = false }: { status: Sn
         <dt className="font-medium text-mk-ink">Answers</dt>
         <dd className="text-mk-muted">Every answer is the organisation&rsquo;s own statement, given by the respondent or an accountable function. Nothing has been tested or verified.</dd>
       </div>
-      <AssessmentStatus assessment={status.assessment} restrictedOrdering={restrictedOrdering} />
+      <AssessmentStatus assessment={status.assessment} ordering={ordering} />
       {status.stages && <StageOutstanding stages={status.stages} />}
     </dl>
   );
@@ -173,7 +178,7 @@ export function StatusPanel({ status, restrictedOrdering = false }: { status: Sn
  * The four status statements, kept separate so that none implies another: an interview can be completed while
  * information is outstanding, and neither decides whether a commercial report is eligible.
  */
-export function AssessmentStatus({ assessment, restrictedOrdering = false }: { assessment: Snapshot['status']['assessment']; restrictedOrdering?: boolean }) {
+export function AssessmentStatus({ assessment, ordering = 'none' }: { assessment: Snapshot['status']['assessment']; ordering?: SnapshotOrdering }) {
   return (
     <div className="md:col-span-3 border-t border-mk-line pt-4" data-review-assessment-status>
       <dt className="font-medium text-mk-ink">Where the assessment stands</dt>
@@ -183,7 +188,7 @@ export function AssessmentStatus({ assessment, restrictedOrdering = false }: { a
             <li key={f.key} className="rounded-md border border-mk-line p-3" data-status-facet={f.key} data-settled={f.settled === null ? 'n/a' : String(f.settled)}>
               <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{f.label}</p>
               <p className="mt-1 font-medium text-mk-ink">{f.state}</p>
-              <p className="mt-1 text-mk-muted">{restrictedOrdering && f.key === 'eligibility' ? 'Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. In this restricted test a report can be requested from these answers; it is produced for MK\u2019s review and is not released to a customer.' : f.detail}</p>
+              <p className="mt-1 text-mk-muted">{ordering !== 'none' && f.key === 'eligibility' ? (ordering === 'live' ? COVERAGE_RULE : `${COVERAGE_RULE} In this restricted test the report is produced for MK\u2019s review and is not released to a customer.`) : f.detail}</p>
             </li>
           ))}
         </ul>
@@ -249,7 +254,7 @@ function StageOutstanding({ stages }: { stages: NonNullable<Snapshot['status']['
   );
 }
 
-export function SnapshotDocument({ view, token, role, managementToken, restrictedOrdering = false }: { view: Snapshot; token: string; role: string; managementToken?: string | null; restrictedOrdering?: boolean }) {
+export function SnapshotDocument({ view, token, role, managementToken, ordering = 'none' }: { view: Snapshot; token: string; role: string; managementToken?: string | null; ordering?: SnapshotOrdering }) {
   const nav = [
     ['gaps', 'Reported gaps'],
     ['waiting', 'Waiting for an owner'],
@@ -269,7 +274,7 @@ export function SnapshotDocument({ view, token, role, managementToken, restricte
           material scenarios are still open. A control that was not asked is shown as not yet established, never as in place or missing.
         </p>
       </header>
-      <div className="mt-6"><StatusPanel status={view.status} restrictedOrdering={restrictedOrdering} /></div>
+      <div className="mt-6"><StatusPanel status={view.status} ordering={ordering} /></div>
       <div className="mt-6"><CountCards counts={view.counts} /></div>
       <nav aria-label="Snapshot sections" className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm">
         {nav.map(([id, label]) => <a key={id} href={`#${id}`} className="min-h-11 py-2 text-mk-navy underline underline-offset-4">{label}</a>)}
@@ -352,7 +357,7 @@ export function SnapshotDocument({ view, token, role, managementToken, restricte
           </div>
         </div>
       </Section>
-      <WorkingWithMk restrictedOrdering={restrictedOrdering} />
+      <WorkingWithMk ordering={ordering} />
     </article>
   );
 }

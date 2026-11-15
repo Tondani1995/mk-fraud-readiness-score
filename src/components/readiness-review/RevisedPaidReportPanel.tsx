@@ -12,7 +12,7 @@ type Tier = 'essential' | 'comprehensive';
 type Bound = { assessmentReference: string; snapshotToken: string; outstanding: number };
 type Ordered = { orderReference: string; amountDisplay: string; productName: string; tier: Tier };
 
-export function RevisedPaidReportPanel(props: { token: string; organisationLabel: string; prices: Record<Tier, string>; notice: string }) {
+export function RevisedPaidReportPanel(props: { token: string; organisationLabel: string; prices: Record<Tier, string>; notice?: string }) {
   const [form, setForm] = useState({ organisationLegalName: props.organisationLabel, contactName: '', contactEmail: '', contactRole: '', acceptTerms: false });
   const [bound, setBound] = useState<Bound | null>(null);
   const [orders, setOrders] = useState<Ordered[]>([]);
@@ -59,7 +59,7 @@ export function RevisedPaidReportPanel(props: { token: string; organisationLabel
   const field = 'mt-1 block w-full rounded-md border border-mk-line px-3 py-2 text-sm text-mk-ink';
   return (
     <section className="mt-10 rounded-md border border-mk-line bg-white p-5" data-revised-paid-report aria-labelledby="revised-paid-report">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-amber-700" data-restricted-notice>{props.notice}</p>
+      {props.notice ? <p className="text-xs font-semibold uppercase tracking-[.12em] text-amber-700" data-restricted-notice>{props.notice}</p> : null}
       <h2 id="revised-paid-report" className="mt-2 text-xl font-semibold text-mk-ink">Request a paid report from these answers</h2>
       <p className="mt-2 text-sm leading-6 text-mk-muted">
         Essential ({props.prices.essential}) and Comprehensive ({props.prices.comprehensive}) are written from the answers you have already given. You do not answer again.

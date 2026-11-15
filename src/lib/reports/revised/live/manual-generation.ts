@@ -3,6 +3,7 @@ import { buildReportReference } from '@/lib/reports/report-reference';
 import { COMPREHENSIVE_REPORT_TYPE } from '@/lib/reports/report-entitlement';
 import { produceRevisedArtefacts, RevisedGenerationError, REVISED_LIVE_PIPELINE_VERSION, REVISED_OPERATOR_GUIDANCE, REVISED_TIME_BUDGET, type ManuscriptWriter } from './produce';
 import { databaseAccounting, orderCallCeiling, type CallAccounting } from './accounting';
+import { reportEdition } from '@/lib/readiness-review/commercial-environment';
 import { CheckpointUnavailable, loadCheckpoints, reconcileAudits, recordCheckpoint, type StoredCheckpoint } from './checkpoints';
 import type { RevisedOrderContext } from './order';
 
@@ -45,6 +46,9 @@ export async function generateRevisedManualReport(input: {
   env?: Record<string, string | undefined>;
 }) {
   const { db, order, helpers } = input;
+  const env = input.env ?? process.env;
+  // A customer edition only in production mode (commercial-environment.ts); everywhere else a labelled restricted test.
+  const customerEdition = reportEdition(env as NodeJS.ProcessEnv) === 'customer';
   const startedAt = (input.now ?? Date.now)();
 
   // A revised report is never produced, released or delivered automatically: it is a restricted test edition and every
@@ -73,9 +77,8 @@ export async function generateRevisedManualReport(input: {
     throw helpers.makeError('generation_history_unavailable', REVISED_OPERATOR_GUIDANCE.history_unavailable, 503);
   }
   if (recovered.linked.length) {
-    await recordOperatorEvent(db, order, 'revised_audit_link_recovered', `Linked ${recovered.linked.length} stored audit package(s) to their committed report(s); no AI call was made.`, { linked: recovered.linked, restrictedTest: true });
+    await recordOperatorEvent(db, order, 'revised_audit_link_recovered', `Linked ${recovered.linked.length} stored audit package(s) to their committed report(s); no AI call was made.`, { linked: recovered.linked, restrictedTest: !customerEdition });
   }
-  const env = input.env ?? process.env;
   const accounting: CallAccounting = databaseAccounting(db, { campaign: env.MK_REVISED_CALL_CAMPAIGN?.trim() || null, ...scope, orderCeiling: orderCallCeiling(env) });
   const reportType = order.reportType;
   const isComprehensive = reportType === COMPREHENSIVE_REPORT_TYPE;
@@ -101,7 +104,9 @@ export async function generateRevisedManualReport(input: {
       deadlineAt: startedAt + REVISED_TIME_BUDGET.totalMs, clock: input.now, history, accounting,
       // "Create New Version" is written afresh; generate and retry resume from the latest current checkpoint.
       resumeMode: attemptRow.trigger_source === 'admin_regenerate' ? 'fresh' : 'resume',
-      checkpoint: (cp) => recordCheckpoint(db, scope, cp).then(() => undefined)
+      checkpoint: (cp) => recordCheckpoint(db, scope, cp).then(() => undefined),
+      // A customer edition only in production mode; everywhere else a labelled restricted test.
+      edition: customerEdition ? 'customer' : 'restricted-test'
     });
   } catch (error) {
     // A rejected manuscript is kept only in the review store's failed-run record (database, service role only), for
@@ -123,7 +128,7 @@ export async function generateRevisedManualReport(input: {
     });
     await recordReviewRun(db, order, 'failed', null, `${String((diagnostics as any).code)}: ${JSON.stringify(diagnostics).slice(0, 4000)}${typeof rejectedManuscript === 'string' ? `\n---rejected manuscript---\n${rejectedManuscript.slice(0, 80000)}` : ''}`, input.attemptId);
     if (error instanceof RevisedGenerationError) {
-      if (error.code === 'publication_held') await recordOperatorEvent(db, order, 'revised_publication_held', `The revised PDF failed its publication checks and was not stored: ${((diagnostics as any).gates?.required ?? []).filter((g: any) => !g.pass).map((g: any) => g.detail).join('; ')}. Retry recomposes the stored manuscript without an AI call.`, { attemptId: input.attemptId, restrictedTest: true });
+      if (error.code === 'publication_held') await recordOperatorEvent(db, order, 'revised_publication_held', `The revised PDF failed its publication checks and was not stored: ${((diagnostics as any).gates?.required ?? []).filter((g: any) => !g.pass).map((g: any) => g.detail).join('; ')}. Retry recomposes the stored manuscript without an AI call.`, { attemptId: input.attemptId, restrictedTest: !customerEdition });
       throw helpers.makeError(REASON[error.code], error.message, STATUS[error.code]);
     }
     throw error;
@@ -204,13 +209,13 @@ export async function generateRevisedManualReport(input: {
     await recordCheckpoint(db, scope, { stage: 'linked', reportId: completed.report.id });
   } catch (error) {
     auditStatus = 'pending_link';
-    await recordOperatorEvent(db, order, 'revised_audit_link_pending', `Report ${completed.report.report_reference} is committed and its audit package is stored, but the link between them could not be recorded. It is linked automatically on the next generation request for this order, or by running the audit reconciliation; no AI call is needed.`, { attemptId: input.attemptId, reportId: completed.report.id, error: error instanceof Error ? error.message.slice(0, 200) : 'unknown', restrictedTest: true });
+    await recordOperatorEvent(db, order, 'revised_audit_link_pending', `Report ${completed.report.report_reference} is committed and its audit package is stored, but the link between them could not be recorded. It is linked automatically on the next generation request for this order, or by running the audit reconciliation; no AI call is needed.`, { attemptId: input.attemptId, reportId: completed.report.id, error: error instanceof Error ? error.message.slice(0, 200) : 'unknown', restrictedTest: !customerEdition });
   }
 
   // The shared start function records a neutral "Report generation started" (DR-12, migration 20261114170000). This
   // event says how the revised report was actually written: which models, how many AI calls, and any resumed work.
-  await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order, (artefacts.provenance as any)?.scoring?.percent ?? null),
-    { generationMode: 'ai', calls: artefacts.ai.calls, callIds: artefacts.ai.callIds, writerModel: artefacts.ai.models.writer, repairModel: artefacts.ai.repairUsed ? artefacts.ai.models.repair : null, finalModel: artefacts.ai.model, repairUsed: artefacts.ai.repairUsed, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: true });
+  await recordOperatorEvent(db, order, 'revised_report_generated', revisedGenerationNote(artefacts.ai, order, (artefacts.provenance as any)?.scoring?.percent ?? null, customerEdition),
+    { generationMode: 'ai', calls: artefacts.ai.calls, callIds: artefacts.ai.callIds, writerModel: artefacts.ai.models.writer, repairModel: artefacts.ai.repairUsed ? artefacts.ai.models.repair : null, finalModel: artefacts.ai.model, repairUsed: artefacts.ai.repairUsed, resumedFrom: artefacts.ai.resumedFrom ?? null, attemptId: input.attemptId, restrictedTest: !customerEdition });
 
   // Report-run lineage in the review store: which bound input produced which report. Recorded after commit, and a
   // failure here never undoes a committed paid report.
@@ -230,8 +235,8 @@ export async function generateRevisedManualReport(input: {
     auditStatus,
     publicationAdvisories: artefacts.gates.advisory,
     message: auditStatus === 'linked'
-      ? `Report version ${completed.report.version_number} generated and stored (restricted test). It passed the publication checks; it is not released or delivered.`
-      : `Report version ${completed.report.version_number} generated and stored (restricted test). Its audit link is pending and will be recorded without an AI call; it is not released or delivered.`
+      ? `Report version ${completed.report.version_number} generated and stored${customerEdition ? '' : ' (restricted test)'}. It passed the publication checks; it is not released or delivered.`
+      : `Report version ${completed.report.version_number} generated and stored${customerEdition ? '' : ' (restricted test)'}. Its audit link is pending and will be recorded without an AI call; it is not released or delivered.`
   };
 }
 
@@ -253,7 +258,7 @@ const STATUS: Record<RevisedGenerationError['code'], number> = {
  * repair was used, the AI calls made by this attempt, and a resumed attempt's starting point (staging certification,
  * 14 November 2026, defect 5: the earlier note named the last model used as the writer).
  */
-export function revisedGenerationNote(ai: { models: { writer: string; repair: string }; calls: number; repairUsed: boolean; resumedFrom: 'repair' | 'compose' | null }, order: { binding: { engineBuild: string; outstandingTotal: number } }, scorePercent: number | null = null): string {
+export function revisedGenerationNote(ai: { models: { writer: string; repair: string }; calls: number; repairUsed: boolean; resumedFrom: 'repair' | 'compose' | null }, order: { binding: { engineBuild: string; outstandingTotal: number } }, scorePercent: number | null = null, customer = false): string {
   const how = ai.resumedFrom === 'compose'
     ? 'composed from the validated manuscript stored by an earlier attempt, with no AI call in this attempt'
     : ai.resumedFrom === 'repair'
@@ -261,7 +266,7 @@ export function revisedGenerationNote(ai: { models: { writer: string; repair: st
       : ai.repairUsed
         ? `written by ${ai.models.writer} and repaired by ${ai.models.repair} (${ai.calls} AI calls)`
         : `written by ${ai.models.writer} (${ai.calls} AI call${ai.calls === 1 ? '' : 's'})`;
-  return `Revised report (restricted test) ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; ${scorePercent === null ? 'no score issued' : `MK Fraud Readiness score ${scorePercent}%, no readiness label`}; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
+  return `Revised report${customer ? '' : ' (restricted test)'} ${how}; validated against the report checks and the publication gates; method ${order.binding.engineBuild === '1.6' ? 'MK-READINESS-REVIEW-1.6 (draft, not approved)' : order.binding.engineBuild}; ${scorePercent === null ? 'no score issued' : `MK Fraud Readiness score ${scorePercent}%, no readiness label`}; ${order.binding.outstandingTotal} items outstanding at submission. Not released or delivered: an operator decides.`;
 }
 
 /** An operator-facing order event; a failure to record it never affects the report. */
