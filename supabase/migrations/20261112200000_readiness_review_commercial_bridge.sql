@@ -45,7 +45,8 @@ declare
   v_synthetic_ref text;
   v_adaptive boolean := new.adaptive_result_status is not null;
   v_visibility_blocked boolean := new.adaptive_result_status = 'INSUFFICIENT_VISIBILITY';
-  v_revised boolean := new.adaptive_result_status = 'REVISED_UNSCORED';
+  -- coalesce: a run with no adaptive status (legacy fixed) is not revised; NULL would fail the mode check below.
+  v_revised boolean := coalesce(new.adaptive_result_status = 'REVISED_UNSCORED', false);
 begin
   if tg_op = 'DELETE' then
     v_cleanup_ref := pg_catalog.current_setting('rc1.synthetic_cleanup_ref', true);
