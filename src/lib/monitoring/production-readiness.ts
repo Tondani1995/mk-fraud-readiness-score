@@ -219,6 +219,11 @@ export async function revisedReviewChecks(checks: ReadinessCheck[], db: any, env
     addCheck(checks, 'review_generation_budget', 'review', 'FAIL', accounting.error ? 'review_budget_query_failed' : 'review_budget_missing');
     return;
   }
+  if (c.maxCalls == null && c.maxCostUsd == null) {
+    // DR-15: production runs one uncapped campaign; the per-order limit is the only cap.
+    addCheck(checks, 'review_generation_budget', 'review', 'PASS', 'review_budget_uncapped');
+    return;
+  }
   const callsLeft = Number(c.maxCalls) - Number(c.calls);
   const costLeft = Number(c.maxCostUsd) - Number(c.committedUsd);
   addCheck(checks, 'review_generation_budget', 'review', callsLeft < 1 || costLeft <= 0 ? 'FAIL' : callsLeft < 2 || costLeft < REVIEW_BUDGET_WARN_USD ? 'WARN' : 'PASS',

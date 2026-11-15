@@ -44,6 +44,10 @@ await T('MS-05', 'Budget: missing, unconfigured or exhausted fails; low warns (r
     && exhausted.review_generation_budget === 'FAIL:review_budget_exhausted' && low.review_generation_budget === 'WARN:review_budget_low' && failed.review_generation_budget === 'FAIL:review_budget_query_failed';
   return [ok, [missing, unconfigured, exhausted, low, failed].map((x) => x.review_generation_budget).join('; ')];
 });
+await T('MS-09', 'DR-15: an uncapped production campaign passes (the per-order limit is the only cap)', async () => {
+  const out = await run(PROD, fakeDb({ campaign: { calls: 900, maxCalls: null, maxCostUsd: null, committedUsd: 400 } }));
+  return [out.review_generation_budget === 'PASS:review_budget_uncapped', out.review_generation_budget];
+});
 await T('MS-06', 'Outside production a misconfiguration warns instead of failing', async () => {
   const out = await run({ ...PROD, MK_READINESS_REVIEW_MODE: undefined }, fakeDb({ bridge: false }), false);
   return [out.review_production_mode.startsWith('WARN') && out.review_bridge_switch.startsWith('WARN'), JSON.stringify(out)];
