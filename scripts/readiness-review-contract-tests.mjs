@@ -119,12 +119,22 @@ await T('C-05', 'Every output is derived from the same report: export views equa
   return [ok, `gaps ${c['reported-gaps']}/${r.issues.length}, waiting ${c.waiting}/${r.waiting.length}, open ${c['open-scenarios']}/${r.unresolvedMaterial.length}, export views identical: ${sameSnap && sameMan}`];
 });
 
-await T('C-06', 'No view or export carries a score, maturity band, confidence or predicted state field', async () => {
+// Updated 15 November 2026 (owner decision DR-02, approved method): the Snapshot carries the MK Fraud Readiness score
+// under exactly one key, `score`, computed by the report's own calculation. No other view gains a score, and no view
+// carries a maturity band, confidence, prediction, estimate, probability or weight.
+await T('C-06', 'Only the Snapshot carries the MK Fraud Readiness score (one key, `score`); no view or export carries a maturity band, confidence or predicted state field', async () => {
   const live = newSession();
   runInterview(live);
-  const keys = [...keysDeep({ r: respondentView(live), s: snapshotView(live), m: managementView(live), v: reviewerView(live), e: exportView(live).views })];
-  const bad = keys.filter((k) => /score|maturity|confidence|band|predict|estimate|probab|weight/i.test(k));
-  return [bad.length === 0, bad.length ? `found ${bad.join(', ')}` : `${keys.length} distinct keys checked`];
+  const snap = snapshotView(live);
+  const others = [...keysDeep({ r: respondentView(live), m: managementView(live), v: reviewerView(live) })];
+  const { score: _snapScore, ...snapRest } = snap;
+  const views = exportView(live).views;
+  const { score: _exportScore, ...exportSnapshotRest } = views.snapshot;
+  const snapKeys = [...keysDeep(snapRest)];
+  const exportKeys = [...keysDeep({ ...views, snapshot: exportSnapshotRest })];
+  const bad = [...others, ...snapKeys, ...exportKeys].filter((k) => /score|maturity|confidence|band|predict|estimate|probab|weight/i.test(k));
+  const scoreKeys = Object.keys(snap.score ?? {}).filter((k) => /maturity|confidence|band|predict|estimate|probab|weight/i.test(k));
+  return [bad.length === 0 && 'score' in snap && scoreKeys.length === 0, bad.length || scoreKeys.length ? `found ${[...bad, ...scoreKeys].join(', ')}` : `${others.length + snapKeys.length} distinct keys checked; Snapshot score keys: ${Object.keys(snap.score ?? {}).join(', ')}`];
 });
 
 await T('C-07', 'Mixed payroll and payment routes: several selected modes are recorded as such; ["unknown"] waits for an owner', async () => {

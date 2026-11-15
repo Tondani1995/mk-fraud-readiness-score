@@ -16,7 +16,7 @@ export function ManagementDocument({ view, token }: { view: Management; token: s
   return (
     <article className="mx-auto max-w-6xl px-4 py-8 sm:px-6" data-review-management>
       <header>
-        <p className="clarity-eyebrow">Management view · fictional session</p>
+        <p className="clarity-eyebrow">{view.fictional ? 'Management view · fictional session' : 'Management view'}</p>
         <h1 className="mt-3 text-3xl font-semibold text-mk-ink">{view.organisationLabel}</h1>
         <p className="mt-4 max-w-3xl text-base leading-7 text-mk-ink">
           This view groups the open work by what it needs next. Questions waiting for an answer are not failed controls, and controls the organisation reported in place are its own

@@ -102,6 +102,33 @@ await T('PM-09', 'The database switch accepts "production" but no migration ever
   return [/flag_value in \('restricted_test', 'production'\)/.test(sw) && inserts.length === 0 && /grant execute on function public\.review_commercial_bridge_enabled\(\) to service_role/.test(sw), `migrations that insert the flag: ${inserts.length}`];
 });
 
+await T('PM-10', 'Starting a review: production mode requires terms acceptance and creates a real session; every other environment stays fictional whatever the caller sends', async () => {
+  const route = fs.readFileSync('src/app/review/api/sessions/route.ts', 'utf8');
+  const service = fs.readFileSync('src/lib/readiness-review/service.ts', 'utf8');
+  const form = fs.readFileSync('src/components/readiness-review/ReviewStartForm.tsx', 'utf8');
+  const ok = /if \(production && body\?\.termsAccepted !== true\)/.test(route) && /if \(!production && body\?\.fictionalConfirmed !== true\)/.test(route) && /createSession\(String\(body\?\.organisationLabel \?\? ''\), \{ fictional: !production \}\)/.test(route)
+    && /const fictional = reviewHarnessStatus\(\)\.reason === 'production' \? options\.fictional === false \? false : true : true;/.test(service)
+    && /termsAccepted: true/.test(form) && /assessment terms/.test(form) && /'Organisation name'/.test(form);
+  return [ok, 'route, service and form'];
+});
+await T('PM-11', 'A real organisation sees no fictional wording and never receives the MK reviewer link; the export is not named fictional', async () => {
+  const service = fs.readFileSync('src/lib/readiness-review/service.ts', 'utf8');
+  const links = fs.readFileSync('src/components/readiness-review/SessionLinks.tsx', 'utf8');
+  const mgmt = fs.readFileSync('src/components/readiness-review/ManagementDocument.tsx', 'utf8');
+  const snap = fs.readFileSync('src/components/readiness-review/SnapshotDocument.tsx', 'utf8');
+  const exp = fs.readFileSync('src/app/review/api/s/[token]/export/route.ts', 'utf8');
+  const start = fs.readFileSync('src/app/review/page.tsx', 'utf8');
+  const ok = /tokens: live\.record\.fictional \? live\.record\.tokens : \{ \.\.\.live\.record\.tokens, reviewer: '' \}/.test(service) && /view\.tokens\.reviewer \? row\('MK reviewer workspace'/.test(links)
+    && /view\.fictional === false \? 'Fraud Readiness review' : 'Fictional review session'/.test(links) && /view\.fictional \? 'Management view · fictional session' : 'Management view'/.test(mgmt)
+    && /view\.fictional \? 'Fraud Readiness Snapshot · fictional session' : 'Fraud Readiness Snapshot'/.test(snap) && !/In this fictional harness each function/.test(snap)
+    && /body\.session\.fictional \? 'fictional-review' : 'fraud-readiness-review'/.test(exp) && /'Start your Fraud Readiness review'/.test(start) && /ReviewStartForm production=\{production\}/.test(start);
+  return [ok, 'links, management, Snapshot, export and start page'];
+});
+await T('PM-12', 'The database accepts a real session only under the production switch; no migration sets that switch', async () => {
+  const m = fs.readFileSync('supabase/migrations/20261115110000_readiness_review_real_sessions.sql', 'utf8');
+  return [/drop constraint sessions_fictional_check/.test(m) && /flag_key = 'commercial_bridge' and flag_value = 'production'/.test(m) && /raise exception 'review_real_session_refused'/.test(m) && !/insert\s+into\s+readiness_review\.environment_flags/i.test(m.replace(/^\s*--.*$/gm, '')), 'trigger, refusal and no flag insert'];
+});
+
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length} of ${results.length} passed`);

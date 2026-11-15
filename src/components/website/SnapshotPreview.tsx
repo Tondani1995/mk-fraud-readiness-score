@@ -89,7 +89,7 @@ export function SnapshotPreview({ compact = false, story = false }: { compact?: 
 }
 
 /**
- * Unscored preview for the review track. Every figure comes from a fictional organisation run through the review
+ * Preview for the review track (lists only; the private Snapshot also carries the score). Every figure comes from a fictional organisation run through the review
  * engine (src/lib/readiness-review/fixtures/preview-example.json); no score, position or bar is shown because the
  * service produces none.
  */
@@ -130,7 +130,7 @@ function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: bo
         </div>
       )}
       <p className="mt-3 text-xs leading-relaxed text-mk-muted">
-        Fictional example produced by the review method. No score is calculated; your private Snapshot reflects only your own answers.
+        Fictional example produced by the review method. Your private Snapshot also carries your MK Fraud Readiness score, and reflects only your own answers.
       </p>
     </section>
   );

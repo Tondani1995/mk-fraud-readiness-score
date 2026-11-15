@@ -6,6 +6,10 @@
  */
 import { isStagedEngine, type EngineInstance, type EngineQuestion, type EngineStep } from './engine';
 import { READINESS_REVIEW_CONTRACT } from './contract';
+import { buildStagedReportInput } from './report-input';
+import { buildRevisedReport } from '@/lib/reports/revised/evidence-model';
+import { scenarioAccount } from '@/lib/reports/revised/position';
+import { revisedScore, reportCoverage, scoreConclusion } from '@/lib/reports/revised/score';
 import type { LiveSession, StoredAction } from './session';
 import { ownerFunctionSlug } from './session';
 import {
@@ -290,6 +294,8 @@ export function assessmentStatusView(report: any, stages: StageProgressView | nu
         settled: total === 0
       },
       {
+        // This text is part of the fingerprinted report input (report-input.ts reads assessmentStatus): it must not change,
+        // or every bound order fails its answers-unchanged check. The Snapshot shows the current rule instead.
         key: 'eligibility', label: 'Report eligibility', state: 'Not determined by this assessment',
         detail: 'Whether a paid report can be issued, and with how much information outstanding, is an MK commercial rule that has not been set. This assessment records the information; it makes no order, report or delivery available.',
         settled: null
@@ -587,6 +593,30 @@ function stagedSendView(e: EngineInstance, report: any): StagedSendView | null {
   };
 }
 
+/**
+ * The MK Fraud Readiness score on the Snapshot (approved method, 15 November 2026): the same calculation, the same key
+ * figures and the same scenario account as the paid report (score.ts, position.ts), from the answers so far. A session
+ * that cannot yet be read as a staged report input, or that has no countable scenario, shows no score and says why.
+ */
+export type SnapshotScore =
+  | { available: true; percent: number; counted: number; applicable: number; gapScenarios: number; outstandingQuestions: number; notCounted: number; account: string; notCountedSentence: string | null; coverageMet: boolean }
+  | { available: false; reason: 'not-staged' | 'nothing-countable' };
+export function snapshotScore(live: LiveSession): SnapshotScore {
+  let report: ReturnType<typeof buildRevisedReport>;
+  try {
+    report = buildRevisedReport(buildStagedReportInput(live));
+  } catch {
+    return { available: false, reason: 'not-staged' };
+  }
+  const s = revisedScore(report);
+  if (!s) return { available: false, reason: 'nothing-countable' };
+  const acct = scenarioAccount(report);
+  return {
+    available: true, percent: s.percent, counted: s.counted, applicable: s.applicable, gapScenarios: acct.gap, outstandingQuestions: s.outstandingQuestions,
+    notCounted: s.notCounted, account: acct.sentence, notCountedSentence: scoreConclusion(live.record.organisationLabel, s).outstanding, coverageMet: reportCoverage(s).meets
+  };
+}
+
 export function snapshotView(live: LiveSession) {
   const e = live.engine;
   const report = reportFor(live);
@@ -607,12 +637,14 @@ export function snapshotView(live: LiveSession) {
   const counts: CountView[] = [
     { key: 'reported-gaps', label: 'Reported gaps', value: report.issues.length, definition: 'Controls the respondent reported as not in place, partly in place, or set out but not yet working. These are self-reported and have not been verified.', denominator: `of ${reported.length} controls with a reported answer` },
     { key: 'waiting', label: 'Waiting for an owner', value: report.waiting.length, definition: 'Questions that now sit with an accountable function: answered “I don’t know”, sent with the rest of an area, not reached in the interview and sent as second-stage follow-up, opened by an owner’s answer, or applicable only if a fact still with an owner holds. Each item says which.', denominator: null },
-    { key: 'open-scenarios', label: 'Material scenarios not yet established', value: report.unresolvedMaterial.length, definition: 'Tier 1 and tier 2 failure scenarios that apply or may apply, where the deciding fact or control is not yet established. A count of none means every such scenario has its deciding answers; it does not mean there are no concerns. Reported gaps are counted above, and answers that conflict or rest on weaker related practices are identified in the report analysis. Tiers are a proposed priority for asking, not a risk rating.', denominator: `of ${material.length} material scenarios that apply or may apply` },
+    { key: 'open-scenarios', label: 'Material scenarios not yet established', value: report.unresolvedMaterial.length, definition: 'Tier 1 and tier 2 fraud scenarios that apply or may apply, where the deciding fact or control is not yet established. A count of none means every such scenario has its deciding answers; it does not mean there are no concerns. Reported gaps are counted above, and answers that conflict or rest on weaker related practices are identified in the report analysis. Tiers are a proposed priority for asking, not a risk rating.', denominator: `of ${material.length} material scenarios that apply or may apply` },
     { key: 'outstanding', label: 'Information outstanding', value: statusOutstanding.total, definition: 'Questions asked and not yet answered: waiting for an accountable function, declined by a function, answered “I don’t know” by the function, or confirmations not yet reached. None is treated as in place or as missing.', denominator: null }
   ];
   return {
     organisationLabel: live.record.organisationLabel,
     asOf: live.asOf,
+    fictional: (live.record as { fictional?: boolean }).fictional === true,
+    score: snapshotScore(live),
     status: statusView(report),
     staged: stagedSendView(e, report),
     counts,
@@ -749,6 +781,7 @@ export function managementView(live: LiveSession) {
   snapshot.waiting.forEach((w: any) => addAnswer(w.ownerFunction ?? 'Executive and governance', w.id, w.title, w.via));
   snapshot.openScenarios.forEach((s: any) => addAnswer(s.accountableFunction ?? 'Executive and governance', s.id, s.name, s.whyOpen));
   return {
+    fictional: (live.record as { fictional?: boolean }).fictional === true,
     organisationLabel: live.record.organisationLabel,
     asOf: live.asOf,
     status: snapshot.status,

@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   try {
     const { token } = await params;
     const body = await exportFor(token);
-    return reviewJson(body, { headers: { 'Content-Disposition': `attachment; filename="fictional-review-${body.session.sessionId.slice(0, 8)}.json"` } });
+    return reviewJson(body, { headers: { 'Content-Disposition': `attachment; filename="${body.session.fictional ? 'fictional-review' : 'fraud-readiness-review'}-${body.session.sessionId.slice(0, 8)}.json"` } });
   } catch (error) {
     return reviewError(error);
   }

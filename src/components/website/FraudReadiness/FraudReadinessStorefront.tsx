@@ -133,9 +133,7 @@ export function FraudReadinessStorefront() {
               description={essential.summary}
               features={[...essential.includes].slice(0, 4)}
               action={
-                review ? (
-                  <p className="text-sm leading-6 text-mk-muted" data-paid-unavailable>{REVIEW_STOREFRONT.paidUnavailable}</p>
-                ) : (<Button
+                (<Button
                   asChild
                   size="lg"
                   className="w-full rounded-brand bg-mk-navy text-white hover:bg-mk-navy"
@@ -156,9 +154,7 @@ export function FraudReadinessStorefront() {
               features={[...comprehensive.includes].slice(0, 5)}
               
               action={
-                review ? (
-                  <p className="text-sm leading-6 text-mk-muted" data-paid-unavailable>{REVIEW_STOREFRONT.paidUnavailable}</p>
-                ) : (<Button
+                (<Button
                   asChild
                   size="lg"
                   className="w-full rounded-brand bg-white text-mk-navy hover:bg-mk-surface"

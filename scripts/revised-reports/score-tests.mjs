@@ -156,6 +156,16 @@ await T('SC-15', 'The cover carries the score, as the earlier MFRS reports did (
   return [ok, t.slice(t.indexOf('33%'), t.indexOf('33%') + 110)];
 });
 
+await T('SC-16', 'The Snapshot carries the same score, key figures and scenario account as the report, from the same calculation', async () => {
+  const { replay } = await import('../../src/lib/readiness-review/session.ts');
+  const { snapshotView } = await import('../../src/lib/readiness-review/view-model.ts');
+  const { scenarioAccount } = await import('../../src/lib/reports/revised/position.ts');
+  const out = [K, M].map((x) => { const v = snapshotView(replay(x.f.record)).score; const s = revisedScore(x.report); return { v, s, acct: scenarioAccount(x.report) }; });
+  const ok = out.every(({ v, s, acct }) => v.available && v.percent === s.percent && v.counted === s.counted && v.applicable === s.applicable && v.gapScenarios === acct.gap && v.outstandingQuestions === s.outstandingQuestions && v.account === acct.sentence)
+    && out[0].v.percent === 33 && out[1].v.percent === 94 && /16 questions were not answered, so 12 scenarios are not yet counted/.test(out[0].v.notCountedSentence ?? '') && out[1].v.notCountedSentence === null;
+  return [ok, `Snapshot Kestrel ${out[0].v.percent}% (report ${out[0].s.percent}%), Marula ${out[1].v.percent}% (report ${out[1].s.percent}%)`];
+});
+
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length} of ${results.length} passed`);

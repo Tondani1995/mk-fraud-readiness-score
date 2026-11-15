@@ -1,8 +1,12 @@
 import Link from 'next/link';
 
-type Links = { organisationLabel: string; sessionId: string; tokens: { respondent: string; management: string; reviewer: string }; functions: { fn: string; slug: string; token: string }[]; staged?: boolean; storedInDatabase?: boolean };
+type Links = { organisationLabel: string; sessionId: string; tokens: { respondent: string; management: string; reviewer: string }; functions: { fn: string; slug: string; token: string }[]; staged?: boolean; storedInDatabase?: boolean; fictional?: boolean };
 
-/** Stand-in for invitations and sign-in in the fictional harness. A production service would authenticate each role. */
+/**
+ * The session's private role links. In the fictional harness every role is shown, so each can be inspected. For a real
+ * organisation (production mode) each person enters through their own private link with no account (DR-09), and the MK
+ * reviewer workspace is not listed: it is MK's.
+ */
 export function SessionLinks({ view }: { view: Links }) {
   const row = (label: string, href: string, text: string, data: string) => (
     <li className="border-b border-mk-line py-4 last:border-0" data-link={data}>
@@ -12,16 +16,23 @@ export function SessionLinks({ view }: { view: Links }) {
   );
   return (
     <article className="mx-auto max-w-4xl px-4 py-8 sm:px-6" data-review-links>
-      <p className="clarity-eyebrow">Fictional review session</p>
+      <p className="clarity-eyebrow">{view.fictional === false ? 'Fraud Readiness review' : 'Fictional review session'}</p>
       <h1 className="mt-3 text-3xl font-semibold text-mk-ink">{view.organisationLabel}</h1>
-      <p className="mt-4 text-base leading-7 text-mk-ink">
+      {view.fictional === false ? (
+        <p className="mt-4 text-base leading-7 text-mk-ink">
+          Each person involved in this review has their own private link. Anyone who holds a link can act in that role, so keep this page private and send each link only to the
+          person it is for. Bookmark this page: it is how you return to every link.
+        </p>
+      ) : (
+        <p className="mt-4 text-base leading-7 text-mk-ink">
         Each person involved in a review gets a different link. In a production service these would be invitations with sign-in; here they are plain links{view.storedInDatabase ? ' to answers held in an isolated test database' : ' on this computer'}, so treat
         them as a way to look at each role, not as security.
       </p>
+      )}
       <ul className="mt-6 rounded-md border border-mk-line bg-white px-5">
         {row('Respondent: complete the interview', `/review/s/${view.tokens.respondent}`, view.staged ? 'The person who answers for the organisation, through the core and breadth stages; the interview can be stopped and resumed.' : 'The person who answers for the organisation, within the limit of 95 screens.', 'respondent')}
         {row('Management view', `/review/s/${view.tokens.management}`, 'What needs an answer, evidence or remediation, and who acts next.', 'management')}
-        {row('MK reviewer workspace', `/review/s/${view.tokens.reviewer}`, 'Evidence and conclusions recorded against the exact answer version.', 'reviewer')}
+        {view.tokens.reviewer ? row('MK reviewer workspace', `/review/s/${view.tokens.reviewer}`, 'Evidence and conclusions recorded against the exact answer version.', 'reviewer') : null}
       </ul>
       <h2 className="mt-8 text-lg font-semibold text-mk-ink">Accountable functions</h2>
       <p className="mt-2 text-sm leading-6 text-mk-muted">Each function sees only its own questions. A package fills when the respondent answers &ldquo;I don&rsquo;t know&rdquo; or when open questions are sent after the interview.</p>

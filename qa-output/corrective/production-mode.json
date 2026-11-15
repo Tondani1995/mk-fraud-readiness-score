@@ -52,5 +52,23 @@
     "ok": true,
     "name": "The database switch accepts \"production\" but no migration ever sets it",
     "detail": "migrations that insert the flag: 0"
+  },
+  {
+    "id": "PM-10",
+    "ok": true,
+    "name": "Starting a review: production mode requires terms acceptance and creates a real session; every other environment stays fictional whatever the caller sends",
+    "detail": "route, service and form"
+  },
+  {
+    "id": "PM-11",
+    "ok": true,
+    "name": "A real organisation sees no fictional wording and never receives the MK reviewer link; the export is not named fictional",
+    "detail": "links, management, Snapshot, export and start page"
+  },
+  {
+    "id": "PM-12",
+    "ok": true,
+    "name": "The database accepts a real session only under the production switch; no migration sets that switch",
+    "detail": "trigger, refusal and no flag insert"
   }
 ]

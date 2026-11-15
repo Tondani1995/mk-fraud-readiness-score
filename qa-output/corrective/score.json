@@ -88,5 +88,11 @@
     "ok": true,
     "name": "The cover carries the score, as the earlier MFRS reports did (\"35.55 / 100\" above a rule), as a percentage and without a band; unscored packs keep the plain cover",
     "detail": "33% MK Fraud Readiness score On the organisation's own answers. Not a readiness label. Fictional Kestrel Freig"
+  },
+  {
+    "id": "SC-16",
+    "ok": true,
+    "name": "The Snapshot carries the same score, key figures and scenario account as the report, from the same calculation",
+    "detail": "Snapshot Kestrel 33% (report 33%), Marula 94% (report 94%)"
   }
 ]

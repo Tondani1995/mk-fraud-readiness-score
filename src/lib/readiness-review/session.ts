@@ -64,8 +64,11 @@ export type SessionRecord = {
   /** Absent only on records written under contracts 1.0.0 to 1.2.0; see validateRecordRuleset. */
   ruleset?: RecordedRuleset;
   organisationLabel: string;
-  /** Every session in this candidate is fictional; the harness refuses to store anything else. */
-  fictional: true;
+  /**
+   * Fictional in every test environment. A real organisation's session (false) is created only in production mode, and
+   * the database accepts one only when its own switch is set to production (migration 20261115110000).
+   */
+  fictional: boolean;
   tokens: SessionTokens;
   actions: StoredAction[];
 };
@@ -101,7 +104,7 @@ export function currentRuleset(build: string = '1.5'): RecordedRuleset {
 }
 
 /** A new, empty session record bound to this build's complete ruleset. */
-export function newSessionRecord(input: { sessionId: string; createdAt: string; organisationLabel: string; tokens: SessionTokens; build?: '1.5' | '1.6' }): SessionRecord {
+export function newSessionRecord(input: { sessionId: string; createdAt: string; organisationLabel: string; tokens: SessionTokens; build?: '1.5' | '1.6'; fictional?: boolean }): SessionRecord {
   const ruleset = currentRuleset(input.build ?? '1.5');
   return {
     sessionId: input.sessionId,
@@ -111,7 +114,7 @@ export function newSessionRecord(input: { sessionId: string; createdAt: string; 
     bankVersion: ruleset.bank.version,
     ruleset,
     organisationLabel: input.organisationLabel,
-    fictional: true,
+    fictional: input.fictional ?? true,
     tokens: input.tokens,
     actions: []
   };

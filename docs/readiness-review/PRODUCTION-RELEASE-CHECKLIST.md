@@ -11,7 +11,9 @@ The revised review, the paid-report bridge and generation run in production only
 3. Answers are kept in the database store (`MK_READINESS_REVIEW_STORE=database`), never the file harness.
 4. The review store and the application database are the same project.
 5. No test setting is present (`MK_READINESS_REVIEW_HARNESS`, `MK_REVISED_COMMERCIAL_PATH`, `MK_READINESS_REVIEW_FAULTS`).
-6. In the database, binding needs the flag `readiness_review.environment_flags ('commercial_bridge', 'production')`. No migration sets this flag.
+6. In the database, binding needs the flag `readiness_review.environment_flags ('commercial_bridge', 'production')`. No migration sets this flag. The same flag is the only way the database accepts a real (non-fictional) review session.
+
+In production mode a real organisation starts its review by entering its name and accepting the assessment terms. Its links page gives each person a private link and omits the MK reviewer workspace, which is MK's. No page calls the session fictional. MK still needs its own route into the reviewer workspace for Advisory work.
 
 In production mode, reports are customer editions:
 - No "RESTRICTED TEST" label and no prototype notices; the footer reads "Prepared for …".
@@ -24,7 +26,7 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 | Step | What | Reversible? |
 |---|---|---|
 | 1 | **Merge.** `review/mk-integrated-readiness` into `main` is a fast-forward (123 commits ahead, 0 behind, about 300 files). Review the diff by area first: report pipeline, review store, website switch-over, migrations | Yes, revert the merge |
-| 2 | **Production migrations**, in order, on the production project only: `20261111100000_readiness_review_store`, `20261112200000_readiness_review_commercial_bridge`, `20261113090000_readiness_review_owner_decline_action`, `20261113150000_readiness_review_generation_ledger`, `20261114170000_neutral_generation_started_note`, `20261115090000_readiness_review_production_switch` | Additive; the bridge stays off until step 4 |
+| 2 | **Production migrations**, in order, on the production project only: `20261111100000_readiness_review_store`, `20261112200000_readiness_review_commercial_bridge`, `20261113090000_readiness_review_owner_decline_action`, `20261113150000_readiness_review_generation_ledger`, `20261114170000_neutral_generation_started_note`, `20261115090000_readiness_review_production_switch`, `20261115100000_readiness_review_method_approved`, `20261115110000_readiness_review_real_sessions` | Additive; the bridge and real sessions stay off until step 4 |
 | 3 | **Production AI budget.** Insert one row in `readiness_review.generation_budgets` (campaign name, calls, US$ reservation, approved by). The table is append-only | A new campaign replaces it |
 | 4 | **Database switch.** `insert into readiness_review.environment_flags (flag_key, flag_value, set_by) values ('commercial_bridge', 'production', '<owner, date>');` | Yes, delete the row |
 | 5 | **Vercel Production variables:** `MK_READINESS_REVIEW_MODE=production`, `MK_READINESS_REVIEW_STORE=database`, `MK_READINESS_REVIEW_DB_URL`, `MK_READINESS_REVIEW_DB_SERVICE_KEY` and `MK_READINESS_REVIEW_DB_PROJECT_REF` (the production project), `MK_READINESS_REVIEW_ENGINE=1.6`, `MK_REVISED_CALL_CAMPAIGN=<step 3>`. **Do not** set `MK_READINESS_REVIEW_HARNESS`, `MK_REVISED_COMMERCIAL_PATH` or `MK_READINESS_REVIEW_FAULTS`, or production mode stays off | Yes |
@@ -36,7 +38,7 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 
 ## Known points to accept or settle before step 6
 
-- **Methodology label.** The methodology row created by the bridge migration, and the operator note, still call the method "MK-READINESS-REVIEW-1.6 (draft, not approved)". The scoring frame is decided (DR-02), but the bank, classifications and method keep their own status (DR-10).
+- **Methodology label.** Resolved (DR-18). The method is approved as `MK-FRAUD-READINESS-1.0`.
 - **First drafts.** No writer first draft has passed without a repair. In production the length minimum blocks, so a short draft needs the full repair (about US$0.15 to US$0.20 a report at current prices).
 - **Private role links.** Real organisations enter through private role links, with no account (DR-09, accepted risk).
 - **Not seen in production.** The admin console does not label previous-method records. Physical-device, screen-reader and native-Excel checks have not been done.

@@ -11,7 +11,9 @@ function date(at: string) {
 }
 
 export function tierLabel(tier: number) {
-  return tier === 1 ? 'Tier 1: asked first' : tier === 2 ? 'Tier 2: asked while room remains' : 'Tier 3: contributory';
+  // Tiers set the order in which the interview asks; they are not a ranking. The staged interview has no screen limit,
+  // so tier 2 is "asked next", not "asked while room remains".
+  return tier === 1 ? 'Tier 1: asked first' : tier === 2 ? 'Tier 2: asked next' : 'Tier 3: contributory';
 }
 
 export function CountCards({ counts }: { counts: CountView[] }) {
@@ -75,7 +77,8 @@ export function ScenarioList({ items }: { items: Scenario[] }) {
       {items.map((s) => (
         <li key={s.id} className="p-4 text-sm leading-6" data-scenario={s.id} data-scenario-status={s.status}>
           <p className="font-medium text-mk-ink">{s.name}</p>
-          <p className="text-mk-muted">{tierLabel(s.tier)} · {s.id}</p>
+          {/* The scenario identifier stays in data-scenario for traceability; customers see no internal codes. */}
+          <p className="text-mk-muted">{tierLabel(s.tier)}</p>
           <p className="text-mk-ink">{s.whyOpen}.</p>
           {s.established && <p className="text-mk-muted">So far: {s.established.toLowerCase()}.</p>}
           {s.decidingFacts.length > 0 && <p className="text-mk-muted">Still to establish: {s.decidingFacts.map((f: { title: string }) => f.title).join('; ')}.</p>}
@@ -131,7 +134,7 @@ export function WorkingWithMk({ ordering = 'none' }: { ordering?: SnapshotOrderi
               ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be ordered below and are written from the answers you have already given, so you do not answer again. Each carries the MK Fraud Readiness score. ${COVERAGE_RULE}`
               : ordering === 'restricted-test'
               ? `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) can be requested from these answers below, for restricted testing only. A report produced this way carries the MK Fraud Readiness score and is not released to a customer. ${COVERAGE_RULE}`
-              : `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) are currently produced from MK\u2019s scored assessment. They are not produced from this Snapshot and cannot be ordered from it while that decision is open.`}
+              : `Essential (${storefrontPriceLabel('essential')}) and Comprehensive (${storefrontPriceLabel('comprehensive')}) are written from these answers and carry the MK Fraud Readiness score. Ordering from this Snapshot is not open here. ${COVERAGE_RULE}`}
           </dd>
         </div>
       </dl>
@@ -146,7 +149,7 @@ export function OwnerPackagesNote({ packages, columns = 2 }: { packages: Snapsho
     <div className="rounded-md border border-mk-line bg-white p-4" data-review-packages>
       <p className="font-medium">Questions with accountable functions</p>
       <ul className={`mt-2 grid gap-1 ${columns === 2 ? 'sm:grid-cols-2' : ''}`}>{packages.map((p) => <li key={p.slug}>{p.fn}: {p.count} waiting</li>)}</ul>
-      <p className="mt-2 text-mk-muted">In this fictional harness each function opens its package from the session links page, which stands in for an invitation and sign-in.</p>
+      <p className="mt-2 text-mk-muted">Each function opens its own questions through its private link on the session links page.</p>
     </div>
   );
 }
@@ -187,8 +190,10 @@ export function AssessmentStatus({ assessment, ordering = 'none' }: { assessment
           {assessment.facets.map((f) => (
             <li key={f.key} className="rounded-md border border-mk-line p-3" data-status-facet={f.key} data-settled={f.settled === null ? 'n/a' : String(f.settled)}>
               <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{f.label}</p>
-              <p className="mt-1 font-medium text-mk-ink">{f.state}</p>
-              <p className="mt-1 text-mk-muted">{ordering !== 'none' && f.key === 'eligibility' ? (ordering === 'live' ? COVERAGE_RULE : `${COVERAGE_RULE} In this restricted test the report is produced for MK\u2019s review and is not released to a customer.`) : f.detail}</p>
+              {/* The eligibility facet's stored wording is fingerprinted in the report input and predates the coverage rule (DR-04);
+                  the Snapshot states the current rule. */}
+              <p className="mt-1 font-medium text-mk-ink">{f.key === 'eligibility' ? 'Set by the coverage rule' : f.state}</p>
+              <p className="mt-1 text-mk-muted">{f.key === 'eligibility' ? (ordering === 'restricted-test' ? `${COVERAGE_RULE} In this restricted test the report is produced for MK\u2019s review and is not released to a customer.` : ordering === 'live' ? COVERAGE_RULE : `${COVERAGE_RULE} This page records the information; it does not place an order.`) : f.detail}</p>
             </li>
           ))}
         </ul>
@@ -254,6 +259,54 @@ function StageOutstanding({ stages }: { stages: NonNullable<Snapshot['status']['
   );
 }
 
+/**
+ * The MK Fraud Readiness score, as the paid report states it (same calculation and key figures), on the organisation's
+ * answers so far. No band, level or pass mark: the method issues no readiness label (DR-02).
+ */
+export function SnapshotScore({ score }: { score: Snapshot['score'] }) {
+  if (!score.available) {
+    return (
+      <section aria-labelledby="snapshot-score-title" className="border-y border-mk-line py-5" data-snapshot-score="none">
+        <p id="snapshot-score-title" className="text-xs font-semibold uppercase tracking-[.12em] text-mk-slate">MK Fraud Readiness score</p>
+        <p className="mt-2 max-w-3xl text-base leading-7 text-mk-ink">
+          {score.reason === 'nothing-countable'
+            ? 'No score yet. No fraud scenario that applies has every core answer known so far, and the score appears once the outstanding questions are answered.'
+            : 'No score yet. The score appears once the interview has completed its first stage.'}
+        </p>
+      </section>
+    );
+  }
+  const figures: [string, string][] = [
+    ['Scenarios counted in the score', `${score.counted} of ${score.applicable}`],
+    ['Scenarios with a core control gap', String(score.gapScenarios)],
+    ['Questions not answered', String(score.outstandingQuestions)]
+  ];
+  return (
+    <section aria-labelledby="snapshot-score-title" className="border-y border-mk-line py-5" data-snapshot-score>
+      <div className="grid gap-6 md:grid-cols-[minmax(0,13rem)_1fr] md:items-end">
+        <div>
+          <p id="snapshot-score-title" className="text-xs font-semibold uppercase tracking-[.12em] text-mk-slate">MK Fraud Readiness score</p>
+          <p className="mt-2 text-5xl font-semibold tabular-nums text-mk-navy" data-snapshot-score-value>{score.percent}%</p>
+          <p className="mt-2 text-sm leading-6 text-mk-slate">On the organisation&rsquo;s own answers. Not a readiness label; nothing was tested.</p>
+        </div>
+        <dl className="grid gap-4 sm:grid-cols-3 md:border-l md:border-mk-line md:pl-6">
+          {figures.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-sm leading-5 text-mk-slate">{label}</dt>
+              <dd className="mt-1 text-2xl font-medium tabular-nums text-mk-navy">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <p className="mt-5 max-w-3xl text-base leading-7 text-mk-ink" data-snapshot-account>{score.account}</p>
+      {score.notCountedSentence && <p className="mt-2 max-w-3xl text-base leading-7 text-mk-ink">{score.notCountedSentence}</p>}
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-mk-slate">
+        The score counts each scenario whose core answers are all known: a core control reported in place counts in full, partly in place counts a half and set out but not yet working counts a quarter, with less credit where answers conflict or a related practice is weaker.
+      </p>
+    </section>
+  );
+}
+
 export function SnapshotDocument({ view, token, role, managementToken, ordering = 'none' }: { view: Snapshot; token: string; role: string; managementToken?: string | null; ordering?: SnapshotOrdering }) {
   const nav = [
     ['gaps', 'Reported gaps'],
@@ -266,14 +319,16 @@ export function SnapshotDocument({ view, token, role, managementToken, ordering 
   return (
     <article className="mx-auto max-w-6xl px-4 py-8 sm:px-6" data-review-snapshot>
       <header>
-        <p className="clarity-eyebrow">Fraud Readiness Snapshot · fictional session</p>
+        <p className="clarity-eyebrow">{view.fictional ? 'Fraud Readiness Snapshot · fictional session' : 'Fraud Readiness Snapshot'}</p>
         <h1 className="mt-3 text-3xl font-semibold text-mk-ink">Fraud Readiness Snapshot</h1>
         <p className="mt-2 text-base text-mk-ink">Prepared for {view.organisationLabel} · as at {date(view.asOf)}</p>
         <p className="mt-4 max-w-3xl text-base leading-7 text-mk-ink">
-          Nothing in this Snapshot is a score, a rating or a prediction. It records what the organisation reported, which questions are waiting for the people who would know and which
-          material scenarios are still open. A control that was not asked is shown as not yet established, never as in place or missing.
+          This Snapshot records what the organisation reported, which questions are waiting for the people who would know and which material scenarios are still open, and reads those
+          answers under the MK Fraud Readiness method. The score is not a rating, a prediction or a readiness label. A control that was not asked is shown as not yet established, never as
+          in place or missing.
         </p>
       </header>
+      <div className="mt-6"><SnapshotScore score={view.score} /></div>
       <div className="mt-6"><StatusPanel status={view.status} ordering={ordering} /></div>
       <div className="mt-6"><CountCards counts={view.counts} /></div>
       <nav aria-label="Snapshot sections" className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm">

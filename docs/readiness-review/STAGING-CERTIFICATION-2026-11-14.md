@@ -529,3 +529,33 @@ The tile is rendered by the composer (0.6). It was checked on a local render of 
 - **Marula:** 94%, unchanged.
 
 Score tests: 14 of 14 (SC-14 covers the new credit). Every other suite is unchanged. The hosted Kestrel v3 report still shows 4%; a new version with 33% and the score tile needs an AI call.
+
+### 11.15 Method approved (DR-18); Snapshot on the new method; real organisations can start (15 November 2026)
+
+**Method approved (owner).**
+- **Database:** a new methodology version, `MK-FRAUD-READINESS-1.0`, with status approved. A database guard forbids changing a methodology row once an assessment uses it, so earlier bindings keep `MK-READINESS-REVIEW-1.6` (draft), the version they were bound under. The bridge binds new assessments to the approved version. On the isolated database the function was verified identical except for that version and the score run's reason wording.
+- **Code:** the method label, the risk-rating and conclusion wording, the pending-approval items (none for a scored pack), the basis section (it now explains the score), writer rule 9, the operator note, the method-dispatch message and the test label are all updated.
+- **Left as recorded:** the review contract's `approval` strings, which are copied into every fingerprinted report input.
+
+**Snapshot on the new method, to MK's standards** (viewed locally with the Kestrel and Marula sessions, desktop and phone):
+- **Score:** the Snapshot carries the MK Fraud Readiness score from the report's own calculation, with the same key figures, the same scenario account and the "not yet counted" sentence. Kestrel shows 33% and Marula 94%, matching the reports (SC-16).
+- **Removed:** "Nothing in this Snapshot is a score". Internal scenario codes are no longer shown (they stay in data attributes). The tier label "asked while room remains", which described the old 95-screen interview, now reads "asked next". The "fictional session" eyebrow now appears only for fictional sessions.
+- **Eligibility:** it states the half-covered rule. The stored facet wording is fingerprinted and unchanged: an attempt to change it broke every bound order in the tests and was reverted, so the Snapshot overrides it on display.
+- **Website and review-page copy** (review track) no longer claims the Snapshot or review is unscored, that paid reports are unavailable, or that the interview has 95 screens. The storefront offers Essential and Comprehensive again. The AI disclosure now says the Snapshot uses no generative AI and that paid reports are drafted with it, with every figure inserted from the facts and each report checked and released by MK.
+- **Checks:** Poppins throughout, no em dashes, no console errors, no sideways scroll at phone width.
+
+**Real organisations in production mode.**
+- **Database:** sessions could only ever be fictional. A new migration lets the database accept a real session only under the production switch; the test database still refuses one (verified, rolled back).
+- **Start:** a real organisation enters its name and accepts the assessment terms.
+- **Links page:** gives private links and never the MK reviewer workspace.
+- **Wording:** the management view, Snapshot and export no longer say "fictional" for a real session.
+- **Not changed:** the reviewer label inside replayed records (`MK reviewer (fictional harness)`), because it feeds the replay.
+
+**Flagged, not changed:** the product catalogue's "Prioritised management actions" and "Critical weaknesses" oversell slightly against the no-ranking rule (DR-05).
+
+**Tests:**
+- Production mode: 12 of 12, with three new tests for real sessions.
+- Score: 16 of 16. The Snapshot matches the report.
+- Review contract: 23 of 23. C-06 now allows exactly the Snapshot's score and still bans bands, confidence and prediction.
+- Fulfilment: 28 of 28. Reconciliation: 10 of 10, with the fingerprints intact.
+- All other suites unchanged; brand and copy checks clean; TypeScript clean.

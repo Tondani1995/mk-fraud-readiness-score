@@ -97,8 +97,11 @@ async function persist(live: LiveSession, actions: StoredAction[], expectedLengt
 
 export type CreatedSession = { sessionId: string; tokens: SessionRecord['tokens'] };
 
-export async function createSession(organisationLabel: string): Promise<CreatedSession> {
-  const label = organisationLabel.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Fictional organisation';
+export async function createSession(organisationLabel: string, options: { fictional?: boolean } = {}): Promise<CreatedSession> {
+  // A real session only in production mode; everywhere else the session is fictional, whatever the caller asks.
+  const fictional = reviewHarnessStatus().reason === 'production' ? options.fictional === false ? false : true : true;
+  const label = organisationLabel.replace(/\s+/g, ' ').trim().slice(0, 80) || (fictional ? 'Fictional organisation' : '');
+  if (!label) throw new ActionRejected('invalid_input', 'Enter the organisation\'s name.');
   const sessionId = randomUUID().replace(/-/g, '');
   const at = new Date().toISOString();
   const functions = createReviewEngine({ now: at }).FUNCTIONS;
@@ -107,6 +110,7 @@ export async function createSession(organisationLabel: string): Promise<CreatedS
     sessionId,
     createdAt: at,
     organisationLabel: label,
+    fictional,
     tokens: { respondent: token(), management: token(), reviewer: token(), links: token(), owners: Object.fromEntries(functions.map((fn) => [fn, token()])) }
   });
   const live = replay(record);
@@ -124,7 +128,7 @@ export type RoleView =
   | { role: 'owner'; view: ReturnType<typeof ownerView> }
   | { role: 'reviewer'; view: ReturnType<typeof reviewerView> }
   | { role: 'management'; view: ReturnType<typeof managementView> }
-  | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[]; staged: boolean; storedInDatabase: boolean } };
+  | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[]; staged: boolean; storedInDatabase: boolean; fictional: boolean } };
 
 export async function viewFor(tokenValue: string): Promise<RoleView> {
   const entry = await resolve(tokenValue);
@@ -143,7 +147,8 @@ export async function viewFor(tokenValue: string): Promise<RoleView> {
     }
     if (entry.role === 'reviewer') return { role: 'reviewer', view: reviewerView(live) };
     if (entry.role === 'management') return { role: 'management', view: managementView(live) };
-    return { role: 'links', view: { organisationLabel: live.record.organisationLabel, sessionId: live.record.sessionId, tokens: live.record.tokens, functions: Object.entries(live.record.tokens.owners).map(([fn, t]) => ({ fn, slug: ownerFunctionSlug(fn), token: t })), staged: isStagedEngine(live.engine), storedInDatabase: reviewStoreKind() === 'database' } };
+    // A real organisation's links page never carries the MK reviewer link: that workspace is MK's, not the customer's.
+    return { role: 'links', view: { organisationLabel: live.record.organisationLabel, sessionId: live.record.sessionId, fictional: live.record.fictional, tokens: live.record.fictional ? live.record.tokens : { ...live.record.tokens, reviewer: '' }, functions: Object.entries(live.record.tokens.owners).map(([fn, t]) => ({ fn, slug: ownerFunctionSlug(fn), token: t })), staged: isStagedEngine(live.engine), storedInDatabase: reviewStoreKind() === 'database' } };
   });
 }
 
