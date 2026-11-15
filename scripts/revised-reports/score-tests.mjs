@@ -122,6 +122,18 @@ await T('SC-12', 'Scored position statements: the score replaces the fixture res
   return [out[0].value === '4%' && out[0].label === 'Score' && /12 further scenarios are not yet counted/.test(out[0].text) && out[1] === base[1] && out[2] === base[2] && out[3].value === 'No readiness label', out[0].text.slice(0, 120)];
 });
 
+await T('SC-13', 'The executive summary opens with the score tile, as the earlier MFRS reports did: score, counted scenarios, gaps, unanswered questions, and no band', async () => {
+  const { fp, plan } = fixturePack(K, 'essential');
+  const html = composeRevisedReportHtml({ md: deterministicManuscript(fp, plan), fp, plan, dateLabel: '15 November 2026', prototype: true, restrictedNotice: RESTRICTED_TEST_REPORT_LABEL }).html;
+  const exec = html.slice(html.indexOf('id="ESS-EXEC"'), html.indexOf('id="ESS-PROFILE"'));
+  const tile = plain(exec.slice(exec.indexOf('data-score-panel'), exec.indexOf('</div></div></div>') + 18));
+  const unscored = fixturePack(K, 'essential', { scored: false });
+  const htmlU = composeRevisedReportHtml({ md: deterministicManuscript(unscored.fp, unscored.plan), fp: unscored.fp, plan: unscored.plan, dateLabel: '15 November 2026', prototype: true }).html;
+  const ok = exec.indexOf('data-score-panel') > exec.indexOf('<h1>') && /MK Fraud Readiness score 4%/.test(tile) && /57 of 69/.test(tile) && /Scenarios with a core control gap 55/.test(tile) && /Questions not answered 16/.test(tile)
+    && /Not a readiness label/.test(tile) && !/Reactive|Structured|Strategic|band/i.test(tile) && !/data-score-panel/.test(htmlU);
+  return [ok, tile.slice(0, 200)];
+});
+
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length} of ${results.length} passed`);

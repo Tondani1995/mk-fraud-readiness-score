@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.5';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.6';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -88,10 +88,24 @@ function backCover(input: ComposeInput): string {
 </div></section>`;
 }
 
+function scorePanel(fp: RevisedFactPack): string {
+  const n = (r: string) => Number(fp.facts[r]?.value ?? 0);
+  const metrics: [string, string][] = [
+    ['Scenarios counted in the score', `${n('N-SCORE-COUNTED')} of ${n('N-APPLY')}`],
+    ['Scenarios with a core control gap', String(n('N-GAP'))],
+    ['Questions not answered', String(n('N-OUTSTANDING'))]
+  ];
+  return `<div class="score-panel" data-score-panel><div class="tile"><div class="label">MK Fraud Readiness score</div><div class="num">${n('N-SCORE')}%</div><div class="sub">On the organisation's own answers. Not a readiness label; nothing was tested.</div></div>`
+    + `<div class="metrics">${metrics.map(([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div></div>`;
+}
+
 function sectionHtml(s: ParsedSection, units: { id: string; ref: string; exhibit?: string }[], input: ComposeInput, newPage: boolean, all: ParsedSection[], outline: { id: string; heading: string; units: string[] }[]): string {
   const { fp, plan } = input;
   const ps = plan.sections.find((x) => x.id === s.id);
   const out: string[] = [`<section class="section ${newPage ? 'newpage' : 'flow'}" id="${esc(s.id)}">`, `<div class="keep"><div class="eyebrow">${esc(ps?.title ?? '')}</div>`, `<h1>${prose(s.heading, fp)}</h1>`];
+  // A scored report opens its executive summary with the score, as the earlier MFRS reports did (score tile and key
+  // figures), without a band: no readiness label is issued (DR-02 point 5). Composer-rendered from the Fact Pack.
+  if (/EXEC$/.test(s.id) && fp.facts['N-SCORE']) out.push(scorePanel(fp));
   let headOpen = true;
   let unitIndex = -1;
   let firstPara = true;

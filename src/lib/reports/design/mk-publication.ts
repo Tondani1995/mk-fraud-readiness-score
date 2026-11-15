@@ -128,6 +128,14 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .contents.compact .row{padding:1.1mm 0}.contents.compact .sub{padding:.3mm 0 .3mm 46mm}.contents.compact .row .t,.contents.compact .sub .t{line-height:1.3}
 .contents .sub .n{width:12mm;text-align:right;font-size:7.6pt;color:${P.muted}}
 /* Position panel */
+.score-panel{display:grid;grid-template-columns:46mm 1fr;gap:7mm;align-items:stretch;border-top:.9pt solid ${P.navy};border-bottom:.5pt solid ${P.rule};padding:4.5mm 0 4.5mm;margin:1mm 0 6mm}
+.score-panel .tile .label{font-size:6.8pt;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:${P.navy}}
+.score-panel .tile .num{font-size:40pt;font-weight:600;line-height:1;color:${P.navy};margin:2.2mm 0 1.6mm;font-variant-numeric:tabular-nums}
+.score-panel .tile .sub{font-size:7.6pt;line-height:1.45;color:${P.slate}}
+.score-panel .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;border-left:.5pt solid ${P.rule}}
+.score-panel .metrics div{padding:0 0 0 5mm;display:flex;flex-direction:column;justify-content:flex-end}
+.score-panel .metrics span{font-size:7.4pt;line-height:1.35;color:${P.slate}}
+.score-panel .metrics strong{font-size:15pt;font-weight:500;color:${P.navy};margin-top:1.4mm;font-variant-numeric:tabular-nums}
 .position{display:grid;grid-template-columns:1fr 1fr;border-top:.9pt solid ${P.navy}}
 .position .cell{padding:4mm 5mm 4.2mm 0;border-bottom:.5pt solid ${P.rule}}
 .position .cell:nth-child(odd){border-right:.5pt solid ${P.rule}}

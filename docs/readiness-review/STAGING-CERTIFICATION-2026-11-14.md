@@ -504,3 +504,22 @@ No report was stored, released or emailed. Evidence: `outputs/staging-certificat
 The audit checkpoints run drafted, then validated (first attempt), then validated and linked (this attempt). Evidence is in `round-3-b5-live-4/K-ess/`. The share link was revoked (verified) and deleted.
 
 **Open for MK:** this report is ready for MK's review against the 34-point scorecard. Marula Comprehensive still has no scored hosted report; a new attempt needs new allowance.
+
+### 11.14 Score placement, and how Kestrel's 4% arises (15 November 2026)
+
+**Placement (owner: "it needs to appear like the old reports").** In the earlier MFRS reports the score was not on the cover. It was a large tile opening the executive summary ("Reported readiness", the number, "out of 100", a band), followed by key figures. Scored revised reports now open their executive summary the same way, without a band (DR-02 point 5):
+
+| Element | Content |
+|---|---|
+| Tile | "MK Fraud Readiness score", the percentage, "On the organisation's own answers. Not a readiness label; nothing was tested." |
+| Key figures | Scenarios counted in the score (57 of 69); scenarios with a core control gap (55); questions not answered (16) |
+
+The tile is rendered by the composer (0.6). It was checked on a local render of the stored Kestrel manuscript (18 pages, contents verified) and in score test SC-13. The hosted Kestrel v3 report predates the tile. A hosted copy with the tile needs a new version, which is written fresh and so costs an AI call.
+
+**How 4% arises.**
+- Kestrel has 57 counted scenarios with 58 core-control answers: 2 fully in place, 33 partly in place, 21 absent and 2 designed but not yet operating.
+- The report's existing convention treats a core control that is only partly in place, or designed but not operating, as a gap. So 55 of the 57 scenarios earn nothing, and the score is 2 ÷ 57 = 3.5%, rounded to 4%.
+- DR-02 sets credit for contradicted controls (0.5) and controls with a weaker related practice (0.75). It does not say how a partly-in-place or designed-only core control should count. The implementation scored them as 0 by inheriting the gap convention. That was a reading, not a decision, and it was not flagged when the readings were confirmed.
+- For comparison, with partly in place at 0.5 and designed at 0.25 (illustrative only), Kestrel would score about 33%. Marula is unaffected, because all 95 of its core-control answers are fully in place.
+
+**This is an owner decision on the scoring frame.** It is open.

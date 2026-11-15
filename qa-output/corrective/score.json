@@ -70,5 +70,11 @@
     "ok": true,
     "name": "Scored position statements: the score replaces the fixture result; inconsistencies and interpretation are unchanged",
     "detail": "Under the MK Fraud Readiness method, on the organisation's own answers, across the 57 scenarios whose core answers are k"
+  },
+  {
+    "id": "SC-13",
+    "ok": true,
+    "name": "The executive summary opens with the score tile, as the earlier MFRS reports did: score, counted scenarios, gaps, unanswered questions, and no band",
+    "detail": "data-score-panel> MK Fraud Readiness score 4% On the organisation's own answers. Not a readiness label; nothing was tested. Scenarios counted in the score 57 of 69 Scenarios with a core control gap 55"
   }
 ]
