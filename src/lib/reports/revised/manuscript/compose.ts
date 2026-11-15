@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.6';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.7';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -67,10 +67,15 @@ export function composeRevisedReportHtml(input: ComposeInput): { html: string; s
 function cover(input: ComposeInput): string {
   const { fp } = input;
   const essential = fp.product === 'essential';
-  return `<section class="cover"><div class="inner">
+  // A scored report carries its score on the cover, as the earlier MFRS reports did ("35.55 / 100" above a rule), here
+  // as a percentage and without a band: no readiness label is issued (DR-02 points 4 and 5).
+  const scored = fp.facts['N-SCORE'] !== undefined;
+  const score = scored ? `<div class="score" data-cover-score><div class="n">${Number(fp.facts['N-SCORE'].value)}%</div><div class="l"><b>MK Fraud Readiness score</b><span>On the organisation's own answers. Not a readiness label.</span></div></div>` : '';
+  return `<section class="cover${scored ? ' scored' : ''}"><div class="inner">
 <div class="brand">${mkLogo('reversed', 27)}</div>
 <div class="kicker">${essential ? 'Fraud Readiness · Essential' : 'Fraud Readiness · Comprehensive'}</div>
 <h1 class="title">${essential ? 'Fraud Readiness Report' : 'Fraud Readiness Strategy and Control Blueprint'}</h1>
+${score}
 <div class="org">${esc(fp.organisation.name)}</div>
 <div class="meta">Assessment reference ${esc(fp.organisation.reference)}<br>${esc(input.dateLabel)}<br>Confidential. Prepared for the management of ${esc(fp.organisation.name)}.</div>
 ${input.restrictedNotice ? `<div class="proto">${esc(input.restrictedNotice)}</div>` : input.prototype ? `<div class="proto">Fictional prototype for MK review. The organisation is fictional, calculated figures are labelled test results, and this is not a customer report or a certified paid report.</div>` : ''}

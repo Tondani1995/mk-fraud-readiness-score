@@ -143,6 +143,19 @@ await T('SC-14', 'DR-02 point 8: a core control partly in place earns 0.5, desig
   return [ok1 && mixed === 0.75 && withUnknown === 0.25 && s.credit === 1.75 && s.percent === 44, `mixed ${mixed}; designed + unknown ${withUnknown}; (1 + 0.5 + 0.25 + 0) / 4 = ${s.exact}%`];
 });
 
+await T('SC-15', 'The cover carries the score, as the earlier MFRS reports did ("35.55 / 100" above a rule), as a percentage and without a band; unscored packs keep the plain cover', async () => {
+  const { fp, plan } = fixturePack(K, 'essential');
+  const html = composeRevisedReportHtml({ md: deterministicManuscript(fp, plan), fp, plan, dateLabel: '15 November 2026', prototype: true, restrictedNotice: RESTRICTED_TEST_REPORT_LABEL }).html;
+  const cover = html.slice(html.indexOf('<section class="cover'), html.indexOf('</section>', html.indexOf('<section class="cover')));
+  const u = fixturePack(K, 'essential', { scored: false });
+  const htmlU = composeRevisedReportHtml({ md: deterministicManuscript(u.fp, u.plan), fp: u.fp, plan: u.plan, dateLabel: '15 November 2026', prototype: true }).html;
+  const coverU = htmlU.slice(htmlU.indexOf('<section class="cover'), htmlU.indexOf('</section>', htmlU.indexOf('<section class="cover')));
+  const t = plain(cover);
+  const ok = /class="cover scored"/.test(cover) && /data-cover-score/.test(cover) && /33% MK Fraud Readiness score/.test(t) && /Not a readiness label/.test(t) && !/Reactive|Structured|Strategic|band/i.test(t)
+    && !/data-cover-score/.test(coverU) && !/class="cover scored"/.test(coverU);
+  return [ok, t.slice(t.indexOf('33%'), t.indexOf('33%') + 110)];
+});
+
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length} of ${results.length} passed`);

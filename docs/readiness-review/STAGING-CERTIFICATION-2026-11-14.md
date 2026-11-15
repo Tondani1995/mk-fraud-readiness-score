@@ -507,7 +507,7 @@ The audit checkpoints run drafted, then validated (first attempt), then validate
 
 ### 11.14 Score placement, and how Kestrel's 4% arises (15 November 2026)
 
-**Placement (owner: "it needs to appear like the old reports").** In the earlier MFRS reports the score was not on the cover. It was a large tile opening the executive summary ("Reported readiness", the number, "out of 100", a band), followed by key figures. Scored revised reports now open their executive summary the same way, without a band (DR-02 point 5):
+**Placement (owner: "it needs to appear like the old reports").** *Correction, 15 November 2026: the next sentence was wrong.* It was based on one older template (`templates/report-template.ts`), not on the reports customers received. The MFRS Essential and Comprehensive renderers (`essential/render-essential-html.ts`, `comprehensive/render-narrative-html.ts`) and real issued PDFs (for example `outputs/essential-analytical-exhibit-owner-review/essential-owner-review.pdf` and `outputs/comprehensive-c5-live/CASE-05-interpreted.pdf`) put the score on the cover: "35.55 / 100", large, above a rule, with the maturity band beside it. Scored revised reports now do the same (composer 0.7): the percentage, large, above a rule, with "MK Fraud Readiness score" and "On the organisation's own answers. Not a readiness label." beside it, and no band. The executive summary tile below is kept. ~~In the earlier MFRS reports the score was not on the cover.~~ The older template had a large tile opening the executive summary ("Reported readiness", the number, "out of 100", a band), followed by key figures. Scored revised reports now open their executive summary the same way, without a band (DR-02 point 5):
 
 | Element | Content |
 |---|---|

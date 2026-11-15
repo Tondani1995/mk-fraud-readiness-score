@@ -111,6 +111,13 @@ ul.plain li:before{content:'';position:absolute;left:0;top:2.1mm;width:1.5mm;hei
 .cover h1.title{position:absolute;top:110mm;left:0;font-size:31pt;line-height:1.12;font-weight:500;color:${P.white};max-width:150mm;margin:0;letter-spacing:-.01em}
 .cover .org{position:absolute;top:160mm;left:0;font-size:13.5pt;font-weight:500;color:${P.white};max-width:150mm;line-height:1.35}
 .cover .meta{position:absolute;top:176mm;left:0;font-size:8pt;line-height:1.75;color:#B9C6D6}
+.cover .score{position:absolute;top:150mm;left:0;right:0;display:flex;align-items:flex-end;gap:8mm;border-top:.9pt solid ${P.sage};padding-top:5mm}
+.cover .score .n{font-size:40pt;font-weight:600;line-height:.9;color:${P.white};font-variant-numeric:tabular-nums}
+.cover .score .l{padding-bottom:1mm}
+.cover .score .l b{display:block;font-size:7.2pt;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:${P.white}}
+.cover .score .l span{display:block;font-size:7.4pt;line-height:1.5;color:#B9C6D6;margin-top:1.2mm}
+.cover.scored .org{top:179mm}
+.cover.scored .meta{top:195mm}
 .cover .proto{position:absolute;bottom:22mm;left:0;width:118mm;border:.6pt solid ${P.sage};padding:3.2mm 4mm;font-size:7.2pt;line-height:1.55;color:${P.sage}}
 .cover .foot{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;border-top:.5pt solid rgba(169,212,206,.35);padding-top:3.2mm;font-size:6.6pt;letter-spacing:.14em;text-transform:uppercase;color:#8EA0B6}
 .cover.back{break-before:page;break-after:auto}
