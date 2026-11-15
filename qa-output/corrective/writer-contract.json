@@ -33,12 +33,18 @@
     "id": "WC-06",
     "ok": true,
     "name": "The whole-manuscript self-check does not override the line-repair format; the brief warns against copying \"recorded\"",
-    "detail": "system prompt 7387 chars"
+    "detail": "system prompt 7527 chars"
   },
   {
     "id": "WC-07",
     "ok": true,
     "name": "The deterministic manuscript still passes the validator on all four cases (contract change only; validation unchanged)",
     "detail": "kestrel essential: pass; kestrel comprehensive: pass; marula essential: pass; marula comprehensive: pass"
+  },
+  {
+    "id": "WC-08",
+    "ok": true,
+    "name": "The system prompt never names a conditional slot: the outstanding sentence appears only in a brief whose Fact Pack has it (scored test run, 15 November 2026)",
+    "detail": "Kestrel brief names it: true; Marula brief names it: false"
   }
 ]

@@ -4,7 +4,7 @@
 // organisation names; no model call.
 //   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/revised-reports/writer-contract-tests.mjs
 import fs from 'node:fs';
-import { loadFixture } from './lib/b5-fixtures.mjs';
+import { loadFixture, fixturePack } from './lib/b5-fixtures.mjs';
 import { deterministicManuscript } from './lib/writer-double.mjs';
 import { positionStatements } from '../../src/lib/reports/revised/position.ts';
 import { buildRevisedFactPack } from '../../src/lib/reports/revised/manuscript/fact-pack.ts';
@@ -80,6 +80,16 @@ await T('WC-06', 'The whole-manuscript self-check does not override the line-rep
 await T('WC-07', 'The deterministic manuscript still passes the validator on all four cases (contract change only; validation unchanged)', async () => {
   const out = CASES.map(([n, p]) => { const { fp, plan } = pack(n, p); const v = validateManuscript(deterministicManuscript(fp, plan), fp, plan); return `${n} ${p}: ${v.pass ? 'pass' : v.issues.filter((i) => i.blocking).map((i) => i.code).join(',')}`; });
   return [out.every((x) => x.endsWith('pass')), out.join('; ')];
+});
+
+await T('WC-08', 'The system prompt never names a conditional slot: the outstanding sentence appears only in a brief whose Fact Pack has it (scored test run, 15 November 2026)', async () => {
+  const { fp: k, plan: kp } = fixturePack(FX.kestrel, 'essential');
+  const { fp: m, plan: mp } = fixturePack(FX.marula, 'comprehensive');
+  const kb = renderWriterBrief(k, kp), mb = renderWriterBrief(m, mp);
+  const ok = !/T-CONCLUSION-OUTSTANDING/.test(WRITER_SYSTEM) && /Never use a slot the Facts table does not list/.test(WRITER_SYSTEM)
+    && /"management should": at most five times/.test(WRITER_SYSTEM)
+    && kb.includes('[[T-CONCLUSION-OUTSTANDING]]') && !mb.includes('T-CONCLUSION-OUTSTANDING');
+  return [ok, `Kestrel brief names it: ${kb.includes('[[T-CONCLUSION-OUTSTANDING]]')}; Marula brief names it: ${mb.includes('T-CONCLUSION-OUTSTANDING')}`];
 });
 
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);

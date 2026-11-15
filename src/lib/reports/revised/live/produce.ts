@@ -33,7 +33,7 @@ import { CHECKPOINT_VERSION, resumeFrom, type ResumeMeta, type ResumeMode, type 
  *   - every artefact carries the restricted-test label.
  */
 
-export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.5';
+export const REVISED_LIVE_PIPELINE_VERSION = 'revised-live-pipeline-0.6';
 /** One writing call, plus at most one repair call that returns the validator's exact issues to the writer. */
 export const REVISED_PROVIDER_CALL_CEILING = 2;
 /**
@@ -84,7 +84,7 @@ export const WRITER_SYSTEM = [
   '11. Vary how recommendations open. Use "management should" at most five times and "the organisation should" at most five times in the whole manuscript; otherwise name the accountable role ("The chief financial officer should …") or state the action directly.',
   '12. The first paragraph of the executive section must contain [[T-SCENARIO-ACCOUNT]] exactly, as a sentence of its own. Do not restate those scenario counts in your own words anywhere in that section.',
   `13. Some words read as mechanical when repeated, and the validator counts them across the whole manuscript. Stay within these limits: ${MECHANICAL_TERM_FAMILIES.filter((f) => f.family !== 'management should').map((f) => { const n = Math.max(1, f.perReportAllowance - 1); return `"${f.family}" at most ${n === 1 ? 'once' : `${n} times`} in the whole manuscript and ${f.perSlotAllowance === 1 ? 'once' : `${f.perSlotAllowance} times`} in any paragraph`; }).join('; ')} ("management should" is limited by rule 11). The brief uses "recorded" often; do not copy it. Write "documented", "kept on file" or "logged", or say what the position is.`,
-  '15. When the Facts table lists [[T-CONCLUSION]], the conclusion section opens with [[T-CONCLUSION]] as its first paragraph, followed by [[T-CONCLUSION-OUTSTANDING]] as a sentence of its own when that is listed; write the section heading as `# [[T-CONCLUSION-HEADING]]`. Elsewhere, state the score only as [[N-SCORE]] per cent. Never call the organisation ready, never say readiness is achieved, and never attach a band, level, grade or pass mark to the score.',
+  '15. When the Facts table lists [[T-CONCLUSION]], the conclusion section opens with [[T-CONCLUSION]] as its first paragraph, followed by any further conclusion sentence the brief names for that section, and no other; write the section heading as `# [[T-CONCLUSION-HEADING]]`. Never use a slot the Facts table does not list. Elsewhere, state the score only as [[N-SCORE]] per cent. Never call the organisation ready, never say readiness is achieved, and never attach a band, level, grade or pass mark to the score.',
   '14. When you discuss a decision, blueprint, stage or measure, describe it in words (for example "the decision on who approves supplier changes"); never write its reference such as DECISION-02, and keep the <!-- refs: --> line after that paragraph like every other.',
   '8. Never use internal process words in the prose: not "fact pack", "story plan", "the engine", "recorded condition", "hard gate" or "the model". Say "the organisation\'s answers" or "this assessment" instead.',
   '',
@@ -104,7 +104,8 @@ export const WRITER_SYSTEM = [
   '- every paragraph: three to five sentences, followed by its <!-- refs: --> line; no number word before a counted noun; no internal reference;',
   '- each section: its unit headings and its paragraph count and word budget from the Story Plan;',
   '- the executive section: [[T-SCENARIO-ACCOUNT]] as a sentence of its own in the first paragraph;',
-  '- the conclusion section, when [[T-CONCLUSION]] is listed: it opens the first paragraph, with [[T-CONCLUSION-OUTSTANDING]] after it when listed;',
+  '- the conclusion section, when [[T-CONCLUSION]] is listed: it opens the first paragraph, followed only by the conclusion sentence the brief names, if any;',
+  '- "management should": at most five times in the whole manuscript (rule 11);',
   '- the word limits in rule 13, counted across the whole manuscript.',
   'When the task asks for corrected lines only, return exactly the format that task sets.'
 ].join('\n');

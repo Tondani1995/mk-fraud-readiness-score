@@ -458,3 +458,34 @@ The owner confirmed that fulfilment is manual, so no report-ready email is sent.
 - Nothing calls the report-ready template (`buildReportReadyMessage`), whose "has passed our quality review" sentence would be false for a revised report.
 
 No code changed. If email delivery is ever enabled, that sentence must change first. With this, every build item from the owner decisions is done on the review branch.
+
+### 11.13 Round 3: scored test run, campaign `b5-live-4` (15 November 2026)
+
+**Approved by the owner on 14 November:** 4 calls and US$1.80 reserved, for two scored reports written fresh ("Create New Version"): Kestrel Essential (`MKORD-2026-0DE9E75D`) and Marula Comprehensive (`MKORD-2026-A7D23AC3`). Both orders were at 2 of their 6 lifetime calls. The owner set the Preview variable, and the Preview was redeployed at `08ccb07f`, later `8a6f2fc7` and `6b45b2db` for the layout fixes below.
+
+**Spend.** 4 of 4 calls; US$0.2286 recorded against US$1.22 reserved; no failed or unsettled calls. The campaign is exhausted, and the ledger refuses any further call.
+
+| Case | Calls | Recorded | Outcome |
+|---|---|---|---|
+| Kestrel Essential | writer + **line** repair | US$0.0425 | Manuscript validated. PDF held twice by the publication check; not stored |
+| Marula Comprehensive | writer + full repair | US$0.1861 | Rejected after the repair |
+
+**What went wrong, and what is fixed (no AI cost):**
+1. **Hosted PDF did not match two headings.** The writer used a non-breaking hyphen ("caller‑supplied", "call‑back"). The hosted renderer dropped or substituted that glyph, so the publication check could not find the headings and held the PDF. Locally the same heading matched after the first fix (`8a6f2fc7`, layout 1.2), but the Preview held it again.
+   - **Fix (`6b45b2db`):** the composer now prints Unicode hyphens as a plain hyphen, and headings are matched on letters and digits only (layout 1.3, composer 0.5).
+   - The fix was reproduced locally, and LT-HYPHEN was added (layout 9 of 9).
+   - Kestrel Essential was **not** retried. Two consecutive failed attempts on one case is a stop rule. A retry would compose the stored, validated manuscript with no AI call.
+2. **Marula Comprehensive was rejected for an unknown slot.**
+   - The system prompt named `[[T-CONCLUSION-OUTSTANDING]]` unconditionally, so the writer and the repair model inserted it. Marula holds back no scenarios, so its Fact Pack has no such fact.
+   - **Fix:** the system prompt no longer names any conditional slot; only the brief does, when the fact exists. The self-check now also counts "management should", which the repaired manuscript used 12 times against an allowance of 8. Pipeline 0.6; writer contract test WC-08 added (8 of 8).
+
+**Writer: measured on two fresh drafts.**
+- Neither first draft passed. Kestrel's needed only the cheap line repair, the first time a draft has avoided the full repair.
+- "recorded" fell to 0 uses in Marula's repaired manuscript, against 6 to 17 in earlier drafts.
+- Marula's first draft ran 3,555 words, against 2,855 for the same case before the brief budgets. That is a 25% gain, but still below the 3,800 minimum and the 5,250 budget.
+
+**Still to do for a scored hosted report:**
+- Kestrel Essential: a retry costs nothing, but needs the owner's word under the stop rule.
+- Marula Comprehensive: a new attempt needs new allowance.
+
+No report was stored, released or emailed. Evidence: `outputs/staging-certification-2026-11-14/hosted/round-3-b5-live-4/`. The share link used was revoked (verified: it redirects to sign-in) and deleted.
