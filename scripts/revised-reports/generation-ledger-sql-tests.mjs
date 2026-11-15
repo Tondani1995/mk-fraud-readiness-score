@@ -16,6 +16,7 @@ const c = new pg.Client({ connectionString: url }); await c.connect();
 for (const r of ['anon', 'authenticated', 'service_role']) await c.query(`do $$ begin if not exists (select 1 from pg_roles where rolname = '${r}') then create role ${r} nologin; end if; end $$`);
 await c.query(fs.readFileSync('supabase/migrations/20261111100000_readiness_review_store.sql', 'utf8'));
 await c.query(fs.readFileSync('supabase/migrations/20261113150000_readiness_review_generation_ledger.sql', 'utf8'));
+await c.query(fs.readFileSync('supabase/migrations/20261115130000_readiness_review_order_ceiling_15.sql', 'utf8'));
 
 const results = [];
 const T = async (id, name, fn) => { try { const [ok, detail] = await fn(); results.push({ id, ok, name, detail }); } catch (e) { results.push({ id, ok: false, name, detail: String(e.message).slice(0, 300) }); } };
@@ -30,14 +31,14 @@ await T('GL-01', 'No approved campaign, no paid call: nothing is reserved', asyn
   const b = await reserve({ campaign: 'not-approved', orderReference: 'ORD-A', reservedCostUsd: 0.1 });
   return [!a.allowed && a.reason === 'campaign_budget_missing' && !b.allowed && b.reason === 'campaign_budget_missing' && (await count()) === 0, `${a.reason}; ${b.reason}`];
 });
-await T('GL-02', 'The order ceiling is lifetime (every attempt and report version) and clamped to the approved bound of 6', async () => {
+await T('GL-02', 'The order ceiling is lifetime (every attempt and report version) and clamped to the approved bound of 15 (DR-15, 15 November 2026)', async () => {
   await budget('order-test', 50, 25);
   const got = [];
-  for (let i = 0; i < 8; i++) got.push(await reserve({ campaign: 'order-test', orderReference: 'ORD-B', attemptId: `att-${i}`, reservedCostUsd: 0.01, orderCeiling: 10 }));
+  for (let i = 0; i < 17; i++) got.push(await reserve({ campaign: 'order-test', orderReference: 'ORD-B', attemptId: `att-${i}`, reservedCostUsd: 0.01, orderCeiling: 20 }));
   const allowed = got.filter((x) => x.allowed).length;
   const lower = [];
   for (let i = 0; i < 3; i++) lower.push(await reserve({ campaign: 'order-test', orderReference: 'ORD-C', reservedCostUsd: 0.01, orderCeiling: 2 }));
-  return [allowed === 6 && got[6].reason === 'order_ceiling_reached' && got[6].orderCeiling === 6 && lower.filter((x) => x.allowed).length === 2, `ORD-B allowed ${allowed} of 8 with ceiling 10 requested; ORD-C allowed ${lower.filter((x) => x.allowed).length} of 3 with ceiling 2`];
+  return [allowed === 15 && got[15].reason === 'order_ceiling_reached' && got[15].orderCeiling === 15 && lower.filter((x) => x.allowed).length === 2, `ORD-B allowed ${allowed} of 17 with ceiling 20 requested; ORD-C allowed ${lower.filter((x) => x.allowed).length} of 3 with ceiling 2`];
 });
 await T('GL-03', 'Campaign calls and cost: worst case charged until settled; a known lower cost frees headroom; an indeterminate call stays at worst case', async () => {
   await budget('cost-test', 10, 1.0);
@@ -59,11 +60,11 @@ await T('GL-04', 'Campaign call count is enforced', async () => {
 });
 await T('GL-05', 'Concurrent reservations for the last unit of an order: exactly one succeeds', async () => {
   await budget('race-test', 50, 25);
-  for (let i = 0; i < 5; i++) await reserve({ campaign: 'race-test', orderReference: 'ORD-H', reservedCostUsd: 0.01 });
+  for (let i = 0; i < 14; i++) await reserve({ campaign: 'race-test', orderReference: 'ORD-H', reservedCostUsd: 0.01 });
   const clients = await Promise.all(Array.from({ length: 6 }, async () => { const x = new pg.Client({ connectionString: url }); await x.connect(); return x; }));
   const out = await Promise.all(clients.map((x) => reserve({ campaign: 'race-test', orderReference: 'ORD-H', reservedCostUsd: 0.01 }, x)));
   await Promise.all(clients.map((x) => x.end()));
-  return [out.filter((x) => x.allowed).length === 1 && (await count(`order_reference = 'ORD-H'`)) === 6, `${out.filter((x) => x.allowed).length} of 6 concurrent requests allowed; ORD-H holds ${await count(`order_reference = 'ORD-H'`)}`];
+  return [out.filter((x) => x.allowed).length === 1 && (await count(`order_reference = 'ORD-H'`)) === 15, `${out.filter((x) => x.allowed).length} of 6 concurrent requests allowed; ORD-H holds ${await count(`order_reference = 'ORD-H'`)}`];
 });
 await T('GL-06', 'Append-only: a settled call cannot change, reservation fields cannot change, nothing can be deleted; budgets and checkpoints are immutable', async () => {
   const errs = [];
@@ -96,6 +97,18 @@ await T('GL-08', 'Only the service role can execute the functions or touch the t
   const q = await c.query(`select r.rolname, has_function_privilege(r.rolname, 'public.review_reserve_generation_call(jsonb)', 'execute') f, has_table_privilege(r.rolname, 'readiness_review.generation_calls', 'select') t from pg_roles r where r.rolname in ('anon','authenticated','service_role')`);
   const m = Object.fromEntries(q.rows.map((r) => [r.rolname, r]));
   return [!m.anon.f && !m.authenticated.f && m.service_role.f && !m.anon.t && !m.authenticated.t, JSON.stringify(q.rows)];
+});
+
+await T('GL-09', 'DR-15: an uncapped campaign (both limits null) skips the campaign totals but not the order limit; half-capped rows are refused', async () => {
+  await c.query(`insert into readiness_review.generation_budgets (campaign, max_calls, max_cost_usd, approved_by) values ('uncapped-test', null, null, 'test')`);
+  const got = [];
+  for (let i = 0; i < 16; i++) got.push(await reserve({ campaign: 'uncapped-test', orderReference: 'ORD-U', attemptId: `u-${i}`, reservedCostUsd: 20 }));
+  const allowed = got.filter((x) => x.allowed).length;
+  let halfRefused = false;
+  try { await c.query(`insert into readiness_review.generation_budgets (campaign, max_calls, max_cost_usd, approved_by) values ('half-test', 10, null, 'test')`); } catch { halfRefused = true; }
+  const acct = (await c.query(`select public.review_generation_accounting('ORD-U', 'uncapped-test') a`)).rows[0].a;
+  return [allowed === 15 && got[15].reason === 'order_ceiling_reached' && got[0].maxCalls === null && halfRefused && acct.campaign.maxCalls === null && Number(acct.campaign.calls) === 15,
+    `${allowed} of 16 at US$20 each (US$300 committed); then ${got[15].reason}; half-capped refused ${halfRefused}`];
 });
 
 await c.end();

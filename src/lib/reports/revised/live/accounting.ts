@@ -7,8 +7,8 @@
  *
  *   order     every call ever reserved for the order, across attempts and report versions (a lifetime limit), at most
  *             APPROVED_ORDER_CALL_CEILING; MK_REVISED_ORDER_CALL_CEILING may lower it, never raise it;
- *   campaign  an owner-approved number of calls and cost (`generation_budgets`). Without an approved campaign no paid
- *             call is possible. Cost is charged at the call's worst case until its usage is known; a call whose
+ *   campaign  an owner-approved number of calls and cost (`generation_budgets`), or an uncapped campaign (both null:
+ *             DR-15, no overall production budget). Without an approved campaign row no paid call is possible. Cost is charged at the call's worst case until its usage is known; a call whose
  *             outcome is unknown (timeout, crash, lost response) stays at its worst case.
  *
  * If the store cannot be reached, answers with an error or answers with something malformed, the call is refused:
@@ -17,7 +17,7 @@
 export const REVISED_ACCOUNTING_VERSION = 'revised-accounting-1.0';
 
 /** The approved bound on AI calls per order over its lifetime (all attempts and report versions). */
-export const APPROVED_ORDER_CALL_CEILING = 6;
+export const APPROVED_ORDER_CALL_CEILING = 15;
 
 /** The order ceiling in force: the approved bound, or a lower configured value. An unreadable setting gives the minimum. */
 export function orderCallCeiling(env: Record<string, string | undefined> = process.env): number {
@@ -74,7 +74,8 @@ export class AccountingRefusal extends Error {
   }
 }
 
-export type Reservation = { callId: string; orderCalls: number; orderCeiling: number; campaignCalls: number; maxCalls: number; committedUsd: number; maxCostUsd: number };
+/** maxCalls and maxCostUsd are null for an uncapped campaign. */
+export type Reservation = { callId: string; orderCalls: number; orderCeiling: number; campaignCalls: number; maxCalls: number | null; committedUsd: number; maxCostUsd: number | null };
 export type CallAccounting = {
   /** Reserves one paid call; throws AccountingRefusal when it is not allowed or cannot be accounted for. */
   reserve(request: { stage: 'writer' | 'repair'; model: string; maxOutputTokens: number; reservedCostUsd: number }): Promise<Reservation>;
@@ -104,7 +105,7 @@ export function databaseAccounting(db: any, scope: { campaign: string | null; or
         throw new AccountingRefusal(data.reason, data);
       }
       if (typeof data.callId !== 'string' || !UUID.test(data.callId)) throw new AccountingRefusal('accounting_unavailable', { malformed: true });
-      return { callId: data.callId, orderCalls: Number(data.orderCalls), orderCeiling: Number(data.orderCeiling), campaignCalls: Number(data.campaignCalls), maxCalls: Number(data.maxCalls), committedUsd: Number(data.committedUsd), maxCostUsd: Number(data.maxCostUsd) };
+      return { callId: data.callId, orderCalls: Number(data.orderCalls), orderCeiling: Number(data.orderCeiling), campaignCalls: Number(data.campaignCalls), maxCalls: data.maxCalls == null ? null : Number(data.maxCalls), committedUsd: Number(data.committedUsd), maxCostUsd: data.maxCostUsd == null ? null : Number(data.maxCostUsd) };
     },
     async settle(callId, outcome, usage, costUsd) {
       try {

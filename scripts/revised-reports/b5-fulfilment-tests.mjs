@@ -39,7 +39,7 @@ const replayFor = (name) => async () => replay(FX[name].f.record);
 /**
  * In-memory review store. `faults` injects failures by function: 'error' (an error response), 'throw' (a network
  * failure), 'malformed', 'incomplete', 'deny' (every write refused), 'lost' (the write commits but the first response
- * is lost). Budgets: { campaign: { maxCalls, maxCostUsd } }.
+ * is lost). Budgets: { campaign: { maxCalls, maxCostUsd } }; both null is an uncapped campaign (DR-15).
  */
 function store({ budgets = { 'local-doubles': { maxCalls: 50, maxCostUsd: 25 } }, faults = {}, trigger = 'admin_generate', failUpload = false, failFinalise = false } = {}) {
   const S = { calls: [], checkpoints: [], runs: [], events: [], attempts: new Map(), finalised: 0, uploads: 0, log: [], trigger };
@@ -54,12 +54,12 @@ function store({ budgets = { 'local-doubles': { maxCalls: 50, maxCostUsd: 25 } }
       const b = budgets[p.campaign];
       if (!p.campaign || !b) return { data: { allowed: false, reason: 'campaign_budget_missing' }, error: null };
       if (!(p.reservedCostUsd > 0)) return { data: { allowed: false, reason: 'cost_not_bounded' }, error: null };
-      const ceiling = Math.min(Math.max(p.orderCeiling ?? 6, 1), 6);
+      const ceiling = Math.min(Math.max(p.orderCeiling ?? 15, 1), 15);
       const orderCalls = S.calls.filter((c) => c.order === p.orderReference).length;
       if (orderCalls >= ceiling) return { data: { allowed: false, reason: 'order_ceiling_reached', orderCalls, orderCeiling: ceiling }, error: null };
       const campCalls = S.calls.filter((c) => c.campaign === p.campaign).length;
-      if (campCalls + 1 > b.maxCalls) return { data: { allowed: false, reason: 'campaign_calls_exhausted' }, error: null };
-      if (committedCost(p.campaign) + p.reservedCostUsd > b.maxCostUsd) return { data: { allowed: false, reason: 'campaign_cost_exhausted' }, error: null };
+      if (b.maxCalls !== null && campCalls + 1 > b.maxCalls) return { data: { allowed: false, reason: 'campaign_calls_exhausted' }, error: null };
+      if (b.maxCostUsd !== null && committedCost(p.campaign) + p.reservedCostUsd > b.maxCostUsd) return { data: { allowed: false, reason: 'campaign_cost_exhausted' }, error: null };
       const callId = crypto.randomUUID();
       S.calls.push({ callId, campaign: p.campaign, order: p.orderReference, attempt: p.attemptId, stage: p.stage, model: p.model, reservedCost: p.reservedCostUsd, status: 'reserved', settledCost: null });
       return { data: { allowed: true, callId, orderCalls: orderCalls + 1, orderCeiling: ceiling, campaignCalls: campCalls + 1, maxCalls: b.maxCalls, committedUsd: committedCost(p.campaign), maxCostUsd: b.maxCostUsd }, error: null };
@@ -350,6 +350,17 @@ await T('GF-28', 'DR-04: an assessment with fewer than half of its applicable sc
   const failure = String(r.db.S.runs.filter((x) => x.status === 'failed').at(-1)?.failure ?? '');
   return [r.error?.reason === 'generation_coverage_insufficient' && r.error?.status === 409 && r.w.calls.length === 0 && r.db.S.calls.length === 0 && r.db.S.uploads === 0 && /coverage_insufficient/.test(failure),
     `${r.error?.reason} (${r.error?.status}); reserved ${r.db.S.calls.length}; AI calls ${r.w.calls.length}`];
+});
+
+await T('GF-29', 'DR-15 (15 November 2026): an uncapped campaign has no call or cost total; the per-order limit of 15 is the only cap', async () => {
+  const db = store({ budgets: { 'local-doubles': { maxCalls: null, maxCostUsd: null } } });
+  const ok = await run({ db });
+  const reserve = (n) => db.rpc('review_reserve_generation_call', { p: { campaign: 'local-doubles', orderReference: 'MKORD-CEILING', inputDigest: 'a'.repeat(64), attemptId: `a-${n}`, stage: 'writer', model: 'openai/gpt-5-mini', maxOutputTokens: 1, reservedCostUsd: 5 } });
+  const got = [];
+  for (let i = 0; i < 16; i++) got.push((await reserve(i)).data);
+  const allowed = got.filter((x) => x.allowed).length;
+  return [!!ok.out && allowed === 15 && got[15].reason === 'order_ceiling_reached' && got[15].orderCeiling === 15 && got[0].maxCalls === null,
+    `report ${ok.out ? 'generated' : ok.error?.reason}; ${allowed} of 16 reserved at US$5 each, then ${got[15].reason}`];
 });
 
 await closePublicationBrowser();
