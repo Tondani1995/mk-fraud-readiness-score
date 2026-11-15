@@ -1,4 +1,5 @@
 import { StoreUnavailable } from './store';
+import { reviewProductionStatus } from './commercial-environment';
 
 /**
  * Which store the review track uses, and where the database store may point. The database store is opt-in, server
@@ -34,7 +35,7 @@ export function reviewDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Revi
   if (!local && (parsed.protocol !== 'https:' || parsed.host !== `${projectRef}.supabase.co`)) {
     throw new DatabaseConfigRefused('The review database address does not belong to the declared project. Nothing was stored.');
   }
-  if (SHARED_SUPABASE_PROJECT_REFS.includes(projectRef)) {
+  if (SHARED_SUPABASE_PROJECT_REFS.includes(projectRef) && !reviewProductionStatus(env).enabled) {
     throw new DatabaseConfigRefused('The review store does not use the project that preview and production share until staging isolation is resolved. Nothing was stored.');
   }
   return { url: parsed.origin, serviceKey, projectRef };
