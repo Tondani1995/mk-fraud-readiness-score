@@ -489,3 +489,18 @@ No code changed. If email delivery is ever enabled, that sentence must change fi
 - Marula Comprehensive: a new attempt needs new allowance.
 
 No report was stored, released or emailed. Evidence: `outputs/staging-certification-2026-11-14/hosted/round-3-b5-live-4/`. The share link used was revoked (verified: it redirects to sign-in) and deleted.
+
+**Update, 15 November 2026: the first scored hosted report.** With the owner's go-ahead under the stop rule, Kestrel Essential was retried on the Preview at `c186c28c`, which includes both hyphen fixes. The retry composed the stored, validated manuscript with **no AI call**: the ledger is unchanged at 4 calls and US$0.2286.
+
+| Check | Result |
+|---|---|
+| Report | `RPT-MKFRS-2026-RV9C289E5F-V3`, version 3, 18 pages, 4,901 words in the PDF; stored checksum matches (`a14885bd…`) |
+| Score and conclusion | "scores 4%"; the agreed heading in the section and on the contents page; the agreed paragraph; "16 questions were not answered, so 12 scenarios are not yet counted"; panel "No readiness label" |
+| Residue | No "no score is issued" or "Not issued"; hyphens print plain ("caller-supplied") |
+| Entitlement | No workbook reference (Essential is PDF-only) |
+| Operator event | "composed from the validated manuscript stored by an earlier attempt, with no AI call in this attempt; … MK Fraud Readiness score 4%, no readiness label" |
+| Delivery path | Console download returns identical bytes; a cross-order request is refused (`report_order_mismatch`); anonymous storage access is refused; the order is still `payment_received`; no email or delivery event |
+
+The audit checkpoints run drafted, then validated (first attempt), then validated and linked (this attempt). Evidence is in `round-3-b5-live-4/K-ess/`. The share link was revoked (verified) and deleted.
+
+**Open for MK:** this report is ready for MK's review against the 34-point scorecard. Marula Comprehensive still has no scored hosted report; a new attempt needs new allowance.
