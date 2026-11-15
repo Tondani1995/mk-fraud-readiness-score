@@ -17,7 +17,7 @@ import { renderPublicationPdf } from './render';
  * and body line below 10pt), so a contents page that runs on cannot be mistaken for the heading it lists. The page
  * map is checked against the final PDF, and the record says what was changed so an operator can see it.
  */
-export const PUBLICATION_LAYOUT_VERSION = 'publication-layout-1.2';
+export const PUBLICATION_LAYOUT_VERSION = 'publication-layout-1.3';
 /** A page with less body text than this, ending a section or unit, is near empty. */
 export const SPARSE_PAGE_CHARS = 700;
 /** A heading followed by less text than this on its page (under about a line and a half) is stranded. A heading kept with
@@ -79,9 +79,15 @@ export async function pdfPageTexts(pdf: Uint8Array): Promise<PageText[]> {
   return pages;
 }
 
+/**
+ * Headings are found by their letters and digits alone. The hosted renderer can drop or substitute a glyph (a
+ * non-breaking hyphen was held twice on 15 November 2026 although it matched locally), and a heading must never be
+ * reported missing because of punctuation or spacing the PDF text renders differently.
+ */
+const letters = (s: string) => s.replace(/[^\p{L}\p{N}]/gu, '');
 const findPage = (pages: PageText[], heading: string, from = 1) => {
-  const h = key48(heading);
-  for (let i = Math.max(1, from); i < pages.length; i++) if (pages[i].heads.includes(h)) return i + 1;
+  const h = letters(norm(heading)).slice(0, 40);
+  for (let i = Math.max(1, from); i < pages.length; i++) if (letters(pages[i].heads).includes(h)) return i + 1;
   return null;
 };
 /** Body text after the heading on its page (running heads and folios already removed). */

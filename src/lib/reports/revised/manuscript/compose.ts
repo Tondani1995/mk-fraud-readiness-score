@@ -10,7 +10,7 @@ import type { RevisedStoryPlan } from './story-plan';
  * typography, inserts deterministic exhibits from the Fact Pack and places the prototype label. It writes no
  * analysis: every sentence of prose comes from the manuscript, and every exhibit value comes from the Fact Pack.
  */
-export const REVISED_COMPOSER_VERSION = 'revised-composer-0.4';
+export const REVISED_COMPOSER_VERSION = 'revised-composer-0.5';
 
 const AREA_SHORT: Record<string, string> = { D1: 'Governance', D2: 'Risk assessment', D3: 'Ethics', D4: 'Third parties', D5: 'People and payroll', D6: 'Finance', D7: 'Customers', D8: 'Assets and stock', D9: 'Digital', D10: 'Detection' };
 const KIND_TEXT: Record<string, string> = { contradiction: 'Answers that cannot both be right', dependency: 'A control lacking an input it needs', clarify: 'A question the answers leave open', gap: 'A core control reported as a gap', qualified: 'Core control in place; related practice weaker' };
@@ -37,7 +37,9 @@ export const layoutKey = (sectionId: string, unitHeading: string) => `${sectionI
 
 export function composeRevisedReportHtml(input: ComposeInput): { html: string; sections: { id: string; heading: string; units: string[] }[] } {
   const { fp, plan } = input;
-  const parsed = parseManuscript(input.md);
+  // Unicode hyphens (U+2010, U+2011) print as a plain hyphen: same meaning, and a glyph every font carries. The hosted
+  // renderer did not reliably render or extract the non-breaking hyphen (scored test run, 15 November 2026).
+  const parsed = parseManuscript(input.md.replace(/[\u2010\u2011]/g, '-'));
   // A scored report's conclusion carries the heading MK set (DR-02 point 7), in the section and on the contents page,
   // whatever heading the writer chose. Fixed copy, like an exhibit; the writer's paragraphs are untouched.
   if (typeof fp.facts['T-CONCLUSION-HEADING']?.value === 'string') {
