@@ -103,7 +103,10 @@ export function ReviewQuestion({
                 name={`${ids}-${step.q}`}
                 value={c.value}
                 checked={on}
-                onChange={() => {
+                // A tap always counts, including on the answer already selected (keeping an earlier answer): a radio
+                // reports no change when it is already checked, so the tap is taken from the click, not the change.
+                onChange={() => undefined}
+                onClick={() => {
                   if (saving) return;
                   setChosen(c.value);
                   onSubmit(c.value);

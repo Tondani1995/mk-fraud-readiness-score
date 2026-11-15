@@ -312,8 +312,47 @@ export function SnapshotScore({ score }: { score: Snapshot['score'] }) {
  * start to finish, so there are no functions, packages or stages to report. The score comes first, then the gaps the
  * organisation reported, then what is still open, with the detail kept below.
  */
+/** The customer Snapshot's lists: what was asked and what was answered, grouped by area, with no internal status wording. */
+function LiveControlList({ items, empty, note }: { items: ControlItem[]; empty: string; note?: string }) {
+  if (!items.length) return <p className="mt-3 text-sm text-mk-muted">{empty}</p>;
+  return (
+    <div className="mt-4 space-y-5">
+      {groupByArea(items).map(([area, group]) => (
+        <div key={area}>
+          <h3 className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">{area} ({group.length})</h3>
+          <ul className="mt-2 divide-y divide-mk-line rounded-md border border-mk-line bg-white">
+            {group.map((c) => (
+              <li key={c.id} className="p-4 text-sm leading-6" data-control={c.id}>
+                <p className="font-medium text-mk-ink">{c.title}</p>
+                <p className="text-mk-muted">{note ?? c.stateLabel}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LiveScenarioList({ items }: { items: Scenario[] }) {
+  if (!items.length) return <p className="mt-3 text-sm text-mk-muted">Every scenario that applies has been established.</p>;
+  return (
+    <ul className="mt-4 divide-y divide-mk-line rounded-md border border-mk-line bg-white">
+      {items.map((sc) => (
+        <li key={sc.id} className="p-4 text-sm leading-6" data-scenario={sc.id}>
+          <p className="font-medium text-mk-ink">{sc.name}</p>
+          {sc.decidingFacts.length > 0 && <p className="text-mk-muted">Still to establish: {sc.decidingFacts.map((f: { title: string }) => f.title).join('; ')}.</p>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function LiveSnapshot({ view }: { view: Snapshot }) {
-  const unknown = view.waiting.length;
+  // Only the questions the respondent answered "I don't know"; questions whose scope depends on those answers stay with
+  // the open scenarios below.
+  const unknownItems = view.waiting.filter((w: ControlItem & { provenance?: WaitingProvenance }) => w.provenance?.kind === 'respondent-unknown');
+  const unknown = unknownItems.length;
   return (
     <article className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14" data-review-snapshot data-snapshot-layout="live">
       <header>
@@ -326,18 +365,18 @@ function LiveSnapshot({ view }: { view: Snapshot }) {
       </header>
       <div className="mt-8"><SnapshotScore score={view.score} /></div>
       <Section id="gaps" title={`Gaps you reported (${view.reportedGaps.length})`} intro="Controls you reported as not in place, partly in place, or set out but not yet working.">
-        <ControlList items={view.reportedGaps} empty="No gaps were reported among the controls that were asked." />
+        <LiveControlList items={view.reportedGaps} empty="No gaps were reported among the controls that were asked." />
       </Section>
       <Section id="unknown" title={`Answered \u201cI don\u2019t know\u201d (${unknown})`} intro="These questions stay open. They are not counted in the score, and answering them later can change it.">
-        <ControlList items={view.waiting} empty="You answered every question." />
+        <LiveControlList items={unknownItems} empty="You answered every question." note="You answered \u201cI don\u2019t know\u201d." />
       </Section>
       <Section id="open" title={`Scenarios not yet established (${view.openScenarios.length})`} intro="Fraud scenarios that apply or may apply where a deciding answer is still open.">
-        <ScenarioList items={view.openScenarios} />
+        <LiveScenarioList items={view.openScenarios} />
       </Section>
       <Section id="in-place" title={`Reported in place (${view.reportedInPlace.length})`}>
         <details className="mt-3">
           <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-navy underline underline-offset-4">Show the controls you reported in place</summary>
-          <ControlList items={view.reportedInPlace} empty="None reported in place." />
+          <LiveControlList items={view.reportedInPlace} empty="None reported in place." />
         </details>
       </Section>
       <Section id="scope" title="About your organisation">

@@ -42,7 +42,7 @@ await T('RX-04', 'The interview has no orientation, hand-offs, optional detail, 
   const banned = ['respondent.assignArea', 'Begin the interview', 'Core stage', 'Breadth stage', 'data-review-detail', 'ReviewAreaRail', 'Stop the interview'];
   const found = banned.filter((b) => interview.includes(b) || question.includes(b));
   const noText = !/<textarea|type="text"/.test(question);
-  const savesOnChoose = /onChange=\{\(\) => \{\s*if \(saving\) return;\s*setChosen\(c\.value\);\s*onSubmit\(c\.value\);/.test(question);
+  const savesOnChoose = /onClick=\{\(\) => \{\s*if \(saving\) return;\s*setChosen\(c\.value\);\s*onSubmit\(c\.value\);/.test(question);
   return [found.length === 0 && noText && savesOnChoose && /% complete/.test(interview) && /minutes left|'minute' : 'minutes'/.test(interview), found.length ? `still present: ${found.join(', ')}` : 'clean'];
 });
 await T('RX-05', 'Start: production asks for name, work email, organisation and optional role, links to the live terms and goes straight to the interview', async () => {
@@ -55,8 +55,8 @@ await T('RX-05', 'Start: production asks for name, work email, organisation and 
 });
 await T('RX-06', 'The production Snapshot has no functions, packages, owner links or stage tables; MK is told on completion and stalled reviews ride the hourly job', async () => {
   const doc = fs.readFileSync('src/components/readiness-review/SnapshotDocument.tsx', 'utf8');
-  const live = doc.slice(doc.indexOf('function LiveSnapshot'), doc.indexOf('export function SnapshotDocument'));
-  const banned = ['SendToOwners', 'OwnerPackagesNote', 'StageOutstanding', 'StatusPanel', 'managementToken', 'accountable function', 'Waiting for an owner'];
+  const live = doc.slice(doc.indexOf('function LiveControlList'), doc.indexOf('export function SnapshotDocument'));
+  const banned = ['SendToOwners', 'OwnerPackagesNote', 'StageOutstanding', 'StatusPanel', 'managementToken', 'accountable function', 'Waiting for an owner', '<ControlList', '<ScenarioList', 'view.waiting}'];
   const found = banned.filter((b) => live.includes(b));
   const action = fs.readFileSync('src/app/review/api/s/[token]/route.ts', 'utf8');
   const cron = fs.readFileSync('src/app/score/api/internal/adaptive-stalled-leads/route.ts', 'utf8');
