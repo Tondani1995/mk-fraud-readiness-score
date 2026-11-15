@@ -5,6 +5,7 @@
 //   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/revised-reports/production-mode-tests.mjs
 import fs from 'node:fs';
 import { reviewProductionStatus, revisedCommercialStatus, reportEdition, RESTRICTED_TEST_LABEL, RESTRICTED_TEST_REPORT_LABEL } from '../../src/lib/readiness-review/commercial-environment.ts';
+import { reviewDatabaseConfig, DatabaseConfigRefused } from '../../src/lib/readiness-review/database-config.ts';
 import { reviewHarnessStatus, reviewHarnessFaultsEnabled, reviewEngineBuild } from '../../src/lib/readiness-review/harness.ts';
 import { revisedReleaseEffective } from '../../src/lib/website/readiness-release.ts';
 import { editionPresentation, lengthGateMode } from '../../src/lib/reports/revised/live/produce.ts';
@@ -100,6 +101,19 @@ await T('PM-09', 'The database switch accepts "production" but no migration ever
   const sw = fs.readFileSync(`${dir}/20261115090000_readiness_review_production_switch.sql`, 'utf8');
   const inserts = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).filter((f) => /insert\s+into\s+readiness_review\.environment_flags/i.test(fs.readFileSync(`${dir}/${f}`, 'utf8').replace(/^\s*--.*$/gm, '')));
   return [/flag_value in \('restricted_test', 'production'\)/.test(sw) && inserts.length === 0 && /grant execute on function public\.review_commercial_bridge_enabled\(\) to service_role/.test(sw), `migrations that insert the flag: ${inserts.length}`];
+});
+
+await T('PM-13', 'The review store binds to the production project only in production mode; everywhere else it is refused, and a malformed address is refused in every mode', async () => {
+  const store = { MK_READINESS_REVIEW_DB_URL: PROD_URL, MK_READINESS_REVIEW_DB_SERVICE_KEY: 'k' };
+  const tryConfig = (env) => { try { return reviewDatabaseConfig(env).projectRef; } catch (e) { return e instanceof DatabaseConfigRefused ? 'refused' : `error ${e.message}`; } };
+  const inProduction = tryConfig({ ...PROD, ...store });
+  const preview = tryConfig({ ...PROD, ...store, VERCEL_ENV: 'preview' });
+  const noMode = tryConfig({ ...PROD, ...store, MK_READINESS_REVIEW_MODE: undefined });
+  const testFlag = tryConfig({ ...PROD, ...store, MK_READINESS_REVIEW_HARNESS: 'fictional-local' });
+  const bareHost = tryConfig({ ...PROD, ...store, MK_READINESS_REVIEW_DB_URL: 'iszihmmbgsfefawqmnwo.supabase.co' });
+  const isolated = tryConfig({ ...RESTRICTED, MK_READINESS_REVIEW_DB_URL: TEST_URL, MK_READINESS_REVIEW_DB_SERVICE_KEY: 'k' });
+  return [inProduction === 'iszihmmbgsfefawqmnwo' && preview === 'refused' && noMode === 'refused' && testFlag === 'refused' && bareHost === 'refused' && isolated === 'zuqegvsfhzgcydyivnqv',
+    JSON.stringify({ inProduction, preview, noMode, testFlag, bareHost, isolated })];
 });
 
 await T('PM-10', 'Starting a review: production mode requires terms acceptance and creates a real session; every other environment stays fictional whatever the caller sends', async () => {
