@@ -17,7 +17,7 @@ import { renderPublicationPdf } from './render';
  * and body line below 10pt), so a contents page that runs on cannot be mistaken for the heading it lists. The page
  * map is checked against the final PDF, and the record says what was changed so an operator can see it.
  */
-export const PUBLICATION_LAYOUT_VERSION = 'publication-layout-1.1';
+export const PUBLICATION_LAYOUT_VERSION = 'publication-layout-1.2';
 /** A page with less body text than this, ending a section or unit, is near empty. */
 export const SPARSE_PAGE_CHARS = 700;
 /** A heading followed by less text than this on its page (under about a line and a half) is stranded. A heading kept with
@@ -34,7 +34,14 @@ export type LayoutRecord = {
 type Outline = { id: string; heading: string; units: string[] }[];
 type Plan = { flowSections: string[]; breakBefore: string[]; flowUnits: string[]; compactContents: boolean };
 
-export const norm = (s: string) => s.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim().toLowerCase();
+/**
+ * Text normalisation for matching headings against the PDF's own text. Hyphen variants (non-breaking, figure, minus,
+ * soft) fold to a plain hyphen with no spaces around it: a writer's "caller\u2011supplied" is extracted from the PDF
+ * in separate pieces when the font falls back for that glyph, and the pieces are joined with spaces (scored test run,
+ * 15 November 2026: two headings held as "not found"). Applied to both sides, so a match never depends on the glyph.
+ */
+export const norm = (s: string) => s.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\u00AD/g, '').replace(/[\u2010\u2011\u2012\u2212\uFE63\uFF0D]/g, '-')
+  .replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
 const key48 = (h: string) => norm(h).slice(0, 48);
 
 /** Running heads and footers, read from the document's own @page rules, so they are not mistaken for body text. */

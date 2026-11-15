@@ -97,6 +97,21 @@ for (const c of cases) {
   if (after.stranded.length) console.log('   stranded', after.stranded.join(' | '));
   if (after.sparse.length) console.log('   sparse', after.sparse.join(' | '));
 }
+{
+  // Scored test run, 15 November 2026: headings with a non-breaking hyphen (U+2011) were held as "not found" because the
+  // PDF text splits at that glyph. Unit and section headings with hyphen variants must be found and the contents verified.
+  const K = loadFixture('kestrel');
+  const { fp, plan } = fixturePack(K, 'essential');
+  const md = deterministicManuscript(fp, plan);
+  const units = md.split('\n').filter((l) => l.startsWith('## '));
+  const md2 = md.replace(units[0], '## Help desk resets are called back to caller\u2011supplied numbers, which risks account takeover')
+    .replace(units[1], '## New beneficiaries must be confirmed by call\u2010back to numbers already on record');
+  const laid = await layoutPublication({ md: md2, fp, plan, dateLabel: '15 November 2026', prototype: true });
+  const ok = laid.layout.contentsComplete && laid.layout.missing.length === 0;
+  results.push({ id: 'LT-HYPHEN', ok, missing: laid.layout.missing });
+  console.log(`${ok ? 'PASS' : 'FAIL'} LT-HYPHEN: headings with non-breaking and plain Unicode hyphens are found; contents verified ${laid.layout.contentsComplete}; missing ${laid.layout.missing.length}`);
+}
+
 await closePublicationBrowser();
 fs.writeFileSync(path.join(OUT, 'layout-results.json'), JSON.stringify(results, null, 2));
 const failed = results.filter((r) => !r.ok);
