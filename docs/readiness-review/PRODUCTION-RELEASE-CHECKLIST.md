@@ -1,6 +1,6 @@
 # Production release checklist: revised Fraud Readiness review (15 November 2026)
 
-Nothing in this document has been done in production. Every step below needs the owner's explicit go-ahead at the time. Production today runs `main` at `74b16d35`, with the scored MFRS assessment.
+**Released, 15 November 2026.** Every step below was done with the owner's go-ahead, and the revised review is live for new customers. The record of what was done is under "Release record" at the end; the steps are kept as written for a future rollback or re-run. Before the release, production ran `main` at `74b16d35` with the scored MFRS assessment.
 
 ## What production mode is
 
@@ -34,7 +34,7 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 | 7 | **Monitors.** Built: once the switch-over is on, the readiness endpoint adds `/review` and three checks (production mode on, database switch on, AI campaign present; an uncapped campaign passes), all P1. In Checkly, change the synthetic start from `POST /score/api/adaptive/start` to `POST /review/api/sessions`, with the same signed `x-mk-synthetic-monitor-run` header and an expected 201 with `{"ok":true,"synthetic":true}`. It creates a labelled fictional session ("MK synthetic monitor …"), never a real one, and returns no links. The scored start returns 410 after step 6 | Yes, point Checkly back |
 | 8 | **First live check.** One real or MK-internal assessment through to an operator-generated report, verified as in the staging certification: ledger, checksums, score on the cover, gates and private storage. No email is sent; fulfilment is manual | n/a |
 
-**Every production deploy** also updates the scored assessment's activation pin (the existing procedure), until the scored start is retired.
+**Scored start pin: retired** (after the release, 15 November 2026). After the switch-over the scored start refuses every new start (410) before it reads its activation policy, so a deploy no longer needs the `customer_start` pin rebound. The readiness checks `adaptive_activation_exists` and `adaptive_activation_binding` report `scored_start_retired` while the switch-over is effective (test MS-10). Before a switch-over, or after a rollback, the pin applies again as before.
 
 **Rollback.** Unset `NEXT_PUBLIC_MK_READINESS_TRACK` and `MK_READINESS_REVIEW_MODE`, delete the database flag, and redeploy. New customers return to the scored assessment immediately. Data already in the review store stays where it is, append-only.
 
@@ -44,3 +44,18 @@ The score, coverage rule, ledger, audit package and publication gates are the sa
 - **First drafts.** No writer first draft has passed without a repair. In production the length minimum blocks, so a short draft needs the full repair (about US$0.15 to US$0.20 a report at current prices).
 - **Private role links.** Real organisations enter through private role links, with no account (DR-09, accepted risk).
 - **Not seen in production.** Physical-device, screen-reader and native-Excel checks have not been done.
+
+## Release record (15 November 2026)
+
+| Step | Done | Evidence |
+|---|---|---|
+| 1 Merge | PR #83 (`97de3274`) fast-forwarded `main`; follow-ups PR #84 (`c026dee9`: 15 AI calls per report, score-run guard fix) and PR #85 (`d341a36c`: review store accepts the production project in production mode) | Production deployments READY on each commit |
+| 2 Migrations | All eight, plus `20261115130000_readiness_review_order_ceiling_15`, applied to the production project | Functions, constraints and triggers match the tested database by checksum. One defect found and fixed before applying: the score-run guard refused runs with no adaptive status (NULL not coalesced) |
+| 3 AI campaign | Standing, uncapped campaign `mk-production` (DR-15, revised) | `review_generation_accounting` returns no call or cost totals |
+| 4 Database switch | `environment_flags ('commercial_bridge','production')`, set by "MK owner, 15 November 2026 (release step 4)" | `review_commercial_bridge_enabled()` is true |
+| 5 Vercel variables | Set by the owner. Two values needed correcting: the review database address must be the full `https://` project URL, and the service key must be the production project's key (the first value was the isolated test database's key) | Supabase edge logs showed 401 `UNAUTHORIZED_INVALID_API_KEY` until corrected |
+| 8 Live check (run before 6) | MK-internal review through `/review`: assessment `MKFRS-2026-RV873FDA9F`, Essential order `MKORD-2026-1D43D751`, report `RPT-MKFRS-2026-RV873FDA9F-V1` | 16/16 journey steps; 2 AI calls, US$0.045; validated customer edition; score 32% on the cover; private bucket, storage verified; checksum of the downloaded PDF matches |
+| 6 Switch-over | `NEXT_PUBLIC_MK_READINESS_TRACK=review`, redeployed | `/score/start` redirects to `/review`; both scored start routes return 410; storefront shows the review copy |
+| 7 Monitors | Checkly "Customer Journey" now opens `/score/start`, expects `/review`, then makes the signed `POST /review/api/sessions` (201, `ok` and `synthetic` true) | Test run passed and created one fictional "MK synthetic monitor" session; "Signed Readiness" passed after the switch-over |
+
+The previous-method label on earlier scored results was not seen on a live page (the only valid earlier result link belongs to a customer); it rests on tests SW-02 and SW-07, as the owner accepted. The isolated test database (`zuqegvsfhzgcydyivnqv`, "mk-review-store-temp") was paused after the release; the restricted test on Preview needs it restored before it can run again.

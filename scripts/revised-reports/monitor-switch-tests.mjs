@@ -4,7 +4,7 @@
 // Pure checks with a fake database and source order; no network or deployment.
 //   node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/revised-reports/monitor-switch-tests.mjs
 import fs from 'node:fs';
-import { revisedReviewChecks } from '../../src/lib/monitoring/production-readiness.ts';
+import { revisedReviewChecks, evaluateProductionReadiness } from '../../src/lib/monitoring/production-readiness.ts';
 
 const results = [];
 const T = async (id, name, fn) => { try { const [ok, detail] = await fn(); results.push({ id, ok, name, detail }); } catch (e) { results.push({ id, ok: false, name, detail: String(e?.stack ?? e).split('\n').slice(0, 3).join(' ') }); } };
@@ -47,6 +47,19 @@ await T('MS-05', 'Budget: missing, unconfigured or exhausted fails; low warns (r
 await T('MS-09', 'DR-15: an uncapped production campaign passes (the per-order limit is the only cap)', async () => {
   const out = await run(PROD, fakeDb({ campaign: { calls: 900, maxCalls: null, maxCostUsd: null, committedUsd: 400 } }));
   return [out.review_generation_budget === 'PASS:review_budget_uncapped', out.review_generation_budget];
+});
+await T('MS-10', 'The scored start pin is retired after the switch-over: a deploy on a new commit passes the activation checks; before the switch-over a stale pin still fails', async () => {
+  const OLD = 'a'.repeat(40), NEW = 'b'.repeat(40);
+  const rows = { adaptive_activation_policies: [{ policy_key: 'customer_start', environment: 'production', supabase_project: 'iszihmmbgsfefawqmnwo', enabled: true, activation_sha: OLD, graph_version: 'g', graph_fingerprint: 'f' }] };
+  const db = {
+    from(table) { const q = { select: () => q, eq: () => q, in: () => q, limit: () => q, maybeSingle: async () => ({ data: rows[table]?.[0] ?? null, error: null }), then: (ok, ko) => Promise.resolve({ data: rows[table] ?? [], error: null }).then(ok, ko) }; return q; },
+    rpc: fakeDb().rpc
+  };
+  const env = { ...PROD, VERCEL_GIT_COMMIT_SHA: NEW, NEXT_PUBLIC_SUPABASE_URL: 'https://iszihmmbgsfefawqmnwo.supabase.co' };
+  const keyOf = async (e) => { const r = await evaluateProductionReadiness({ db, env: e, origin: null }); const c = Object.fromEntries(r.checks.map((x) => [x.key, `${x.status}:${x.safeCode}`])); return [c.adaptive_activation_exists, c.adaptive_activation_binding].join(' / '); };
+  const after = await keyOf(env);
+  const before = await keyOf({ ...env, NEXT_PUBLIC_MK_READINESS_TRACK: undefined });
+  return [after === 'PASS:scored_start_retired / PASS:scored_start_retired' && before === 'PASS:adaptive_policy_present / FAIL:adaptive_policy_binding_checked', `after: ${after}; before: ${before}`];
 });
 await T('MS-06', 'Outside production a misconfiguration warns instead of failing', async () => {
   const out = await run({ ...PROD, MK_READINESS_REVIEW_MODE: undefined }, fakeDb({ bridge: false }), false);

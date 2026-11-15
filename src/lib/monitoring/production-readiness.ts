@@ -307,7 +307,14 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   addCheck(checks, 'database_reachable', 'dependency', dbReachable ? 'PASS' : 'FAIL', dbReachable ? 'database_query_completed' : 'database_query_failed');
 
   const policy = activation.data;
-  if (activation.error) {
+  // After the switch-over (DR-01) the scored start refuses every new start (410) before it reads its activation policy,
+  // so the policy no longer gates anything a customer can reach. Its deployment pin is retired: a deploy no longer needs
+  // the policy rebound, and the two activation checks report the retirement instead of failing on the old pin. The
+  // policy row stays as the record of the last scored activation. Before the switch-over the checks are unchanged.
+  const scoredStartRetired = env.NEXT_PUBLIC_MK_READINESS_TRACK === 'review' && reviewProductionStatus(env).enabled;
+  if (scoredStartRetired) {
+    addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'PASS', 'scored_start_retired');
+  } else if (activation.error) {
     addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'FAIL', 'adaptive_policy_query_unavailable');
   } else if (!policy) {
     addCheck(checks, 'adaptive_activation_exists', 'adaptive', 'FAIL', 'adaptive_policy_missing');
@@ -316,7 +323,9 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
   }
   const adaptiveActivationSha = isValidDeploymentSha(policy?.activation_sha) ? policy.activation_sha.toLowerCase() : null;
   const adaptiveActivationAligned = Boolean(deploymentSha && adaptiveActivationSha && deploymentSha === adaptiveActivationSha);
-  if (!activation.error && policy) {
+  if (scoredStartRetired) {
+    addCheck(checks, 'adaptive_activation_binding', 'adaptive', 'PASS', 'scored_start_retired');
+  } else if (!activation.error && policy) {
     addCheck(checks, 'adaptive_activation_binding', 'adaptive', adaptiveActivationBindingMatches(policy, contract) ? 'PASS' : 'FAIL', 'adaptive_policy_binding_checked');
   }
 
