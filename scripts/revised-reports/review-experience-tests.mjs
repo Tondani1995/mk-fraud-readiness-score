@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import { validateContact } from '../../src/lib/readiness-review/contacts.ts';
 import { reviewConsoleUrl, reviewNoticeMessage } from '../../src/lib/readiness-review/review-notifications.ts';
 import { overallProgress } from '../../src/lib/readiness-review/progress.ts';
+import { checkNarrative, dataNarrative } from '../../src/lib/readiness-review/snapshot-narrative.ts';
+import { recommend } from '../../src/lib/readiness-review/snapshot-brief.ts';
 
 const results = [];
 const T = async (id, name, fn) => { try { const [ok, detail] = await fn(); results.push({ id, ok, name, detail }); } catch (e) { results.push({ id, ok: false, name, detail: String(e?.stack ?? e).split('\n').slice(0, 3).join(' ') }); } };
@@ -45,7 +47,7 @@ await T('RX-04', 'The interview has no orientation, hand-offs, optional detail, 
   const banned = ['respondent.assignArea', 'Begin the interview', 'Core stage', 'Breadth stage', 'data-review-detail', 'ReviewAreaRail', 'Stop the interview'];
   const found = banned.filter((b) => interview.includes(b) || question.includes(b));
   const noText = !/<textarea|type="text"/.test(question);
-  const savesOnChoose = /onClick=\{\(\) => \{\s*if \(saving\) return;\s*setChosen\(c\.value\);\s*onSubmit\(c\.value\);/.test(question);
+  const savesOnChoose = /const pick = \(value: string\) => \{\s*if \(saving\) return;\s*setChosen\(value\);\s*onSubmit\(value\);/.test(question) && /onClick=\{\(\) => pick\(c\.value\)\}/.test(question);
   return [found.length === 0 && noText && savesOnChoose && /% complete/.test(interview) && /minutes left|'minute' : 'minutes'/.test(interview), found.length ? `still present: ${found.join(', ')}` : 'clean'];
 });
 await T('RX-05', 'Start: production asks for name, work email, organisation and optional role, links to the live terms and goes straight to the interview', async () => {
@@ -73,6 +75,29 @@ await T('RX-07', 'The local customer preview never applies on a deployment and n
   const ok = /status\.reason === 'fictional-local' && process\.env\.MK_READINESS_REVIEW_CUSTOMER_PREVIEW === '1' && !process\.env\.VERCEL/.test(harness)
     && /fictional: reviewHarnessStatus\(\)\.reason !== 'production'/.test(route) && /contact && contactsAvailable\(\)/.test(route);
   return [ok, ok ? 'local harness only; sessions stay fictional; no contact stored without the database' : 'guard missing'];
+});
+const BRIEF = {
+  organisation: 'Example Co', score: { percent: 41, counted: 87, applicable: 94, gapScenarios: 77, coverageMet: true }, scenariosInPlace: 10, unknown: 10,
+  controlsAsked: 120, gapsReported: 82, inPlaceReported: 13, areasWithGaps: 10, strongest: { name: 'Assets, cash and inventory', inPlace: 2 },
+  areas: [{ name: 'Third parties and supply chain', gaps: 12, inPlace: 1, unknown: 1, gapTitles: ['Supplier bank changes confirmed'] }, { name: 'Finance, banking and financial reporting', gaps: 11, inPlace: 2, unknown: 0, gapTitles: ['Payments released by two people'] }, { name: 'Fraud governance and accountability', gaps: 9, inPlace: 0, unknown: 2, gapTitles: [] }],
+  recommendation: { tier: 'comprehensive', reason: '' }
+};
+await T('RX-08', 'Snapshot narrative: the data narrative always passes the checks; an invented figure, an assurance claim, ranking language or an em dash is refused', async () => {
+  const data = dataNarrative(BRIEF);
+  const ok = checkNarrative(data, BRIEF);
+  const base = { ...data };
+  const invented = checkNarrative({ ...base, diagnosis: base.diagnosis + ' Losses could reach 250 cases.' }, BRIEF);
+  const assurance = checkNarrative({ ...base, strength: 'Your controls give full assurance over supplier payments in this area.' }, BRIEF);
+  const ranking = checkNarrative({ ...base, implication: 'This result is ranked well below peers, so management should act now on the gaps it reported.' }, BRIEF);
+  const dash = checkNarrative({ ...base, headline: 'Core controls are partly in place \u2014 with gaps' }, BRIEF);
+  const pass = ok.length === 0 && invented.some((p) => /250/.test(p)) && assurance.some((p) => /claim/.test(p)) && ranking.some((p) => /claim/.test(p)) && dash.some((p) => /em dash/.test(p));
+  return [pass, JSON.stringify({ ok, invented: invented[0], assurance: assurance[0], ranking: ranking[0], dash: dash[0] })];
+});
+await T('RX-09', 'Recommendation from the answers: Advisory when coverage falls short, Comprehensive when gaps are widespread, Essential when concentrated', async () => {
+  const adv = recommend({ percent: 20, counted: 10, applicable: 90, gapScenarios: 8, coverageMet: false }, 3).tier;
+  const comp = recommend({ percent: 41, counted: 87, applicable: 94, gapScenarios: 77, coverageMet: true }, 10).tier;
+  const ess = recommend({ percent: 82, counted: 80, applicable: 85, gapScenarios: 12, coverageMet: true }, 3).tier;
+  return [adv === 'advisory' && comp === 'comprehensive' && ess === 'essential', `${adv} / ${comp} / ${ess}`];
 });
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
