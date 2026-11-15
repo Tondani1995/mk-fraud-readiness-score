@@ -1,0 +1,142 @@
+{
+ "fictional": true,
+ "generated": "2026-11-11T12:00:00Z",
+ "aiManuscriptStage": "not run on either side",
+ "results": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "before": {
+    "score": 70.84,
+    "maturity": "Developing",
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1155
+    }
+   },
+   "after": {
+    "fixtureScore": 55.5,
+    "fixtureBand": "Developing",
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 2074
+    },
+    "existingBuilderValidation": {
+     "ok": false,
+     "issues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "CUSTOMER_WORD_ENVELOPE"
+     ],
+     "words": 663
+    },
+    "essentialIdLeaks": []
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "before": {
+    "score": 88.2,
+    "maturity": "Strategic",
+    "essentialValidation": {
+     "ok": false,
+     "issues": [
+      "CUSTOMER_WORD_ENVELOPE"
+     ],
+     "words": 892
+    }
+   },
+   "after": {
+    "fixtureScore": 87.8,
+    "fixtureBand": "Strategic",
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1966
+    },
+    "existingBuilderValidation": {
+     "ok": false,
+     "issues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS"
+     ],
+     "words": 1079
+    },
+    "essentialIdLeaks": []
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "before": {
+    "score": 77.51,
+    "maturity": "Developing",
+    "essentialValidation": {
+     "ok": false,
+     "issues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "NO_CUSTOMER_TRUNCATION_ELLIPSIS"
+     ],
+     "words": 924
+    }
+   },
+   "after": {
+    "fixtureScore": 78.5,
+    "fixtureBand": "Structured",
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1834
+    },
+    "existingBuilderValidation": {
+     "ok": false,
+     "issues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "CUSTOMER_WORD_ENVELOPE"
+     ],
+     "words": 878
+    },
+    "essentialIdLeaks": []
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "before": {
+    "score": 70.71,
+    "maturity": "Developing",
+    "essentialValidation": {
+     "ok": false,
+     "issues": [
+      "NO_CUSTOMER_TRUNCATION_ELLIPSIS"
+     ],
+     "words": 1074
+    }
+   },
+   "after": {
+    "fixtureScore": 55.1,
+    "fixtureBand": "Developing",
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 2132
+    },
+    "existingBuilderValidation": {
+     "ok": false,
+     "issues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "CUSTOMER_WORD_ENVELOPE"
+     ],
+     "words": 671
+    },
+    "essentialIdLeaks": []
+   }
+  }
+ }
+}

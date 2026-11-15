@@ -1,0 +1,265 @@
+{
+ "method": "Text indicators from pdftotext per page. Prose words: blocks of 30 or more words with two or more sentences. Structured page: more than 55% of lines of five words or fewer and under 120 prose words. Mechanical phrases: Bible 5.2 template constructions and the generic measures and activity lines MK rejected. Internal identifiers: question, scenario and register codes. Indicators, not a quality score.",
+ "documents": {
+  "Previous live: Essential (V10 whole manuscript, Vhutshilo, Aug 2026)": {
+   "pages": 25,
+   "fonts": [
+    "OpenSans"
+   ],
+   "proseWords": 3704,
+   "structuredPages": 8,
+   "structuredShare": 0.35,
+   "appendixPages": 2,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 51,
+   "emDashes": 38
+  },
+  "Previous live: Comprehensive (V3 preview, Motheo, Sep 2026)": {
+   "pages": 22,
+   "fonts": [
+    "OpenSans"
+   ],
+   "proseWords": 3315,
+   "structuredPages": 2,
+   "structuredShare": 0.1,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 4,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P3 Essential": {
+   "pages": 8,
+   "fonts": [
+    "Inter",
+    "LiberationSans"
+   ],
+   "proseWords": 837,
+   "structuredPages": 3,
+   "structuredShare": 0.5,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P3 Comprehensive": {
+   "pages": 65,
+   "fonts": [
+    "LiberationSans",
+    "Inter"
+   ],
+   "proseWords": 9086,
+   "structuredPages": 21,
+   "structuredShare": 0.33,
+   "appendixPages": 11,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 188,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P3 Essential": {
+   "pages": 20,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 3265,
+   "structuredPages": 3,
+   "structuredShare": 0.17,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P3 Comprehensive": {
+   "pages": 31,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 3357,
+   "structuredPages": 11,
+   "structuredShare": 0.38,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P4 Essential": {
+   "pages": 8,
+   "fonts": [
+    "Inter",
+    "LiberationSans"
+   ],
+   "proseWords": 774,
+   "structuredPages": 3,
+   "structuredShare": 0.5,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P4 Comprehensive": {
+   "pages": 26,
+   "fonts": [
+    "LiberationSans",
+    "Inter"
+   ],
+   "proseWords": 2075,
+   "structuredPages": 11,
+   "structuredShare": 0.46,
+   "appendixPages": 11,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 29,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P4 Essential": {
+   "pages": 19,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 2227,
+   "structuredPages": 5,
+   "structuredShare": 0.29,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P4 Comprehensive": {
+   "pages": 28,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 3299,
+   "structuredPages": 11,
+   "structuredShare": 0.42,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P5 Essential": {
+   "pages": 8,
+   "fonts": [
+    "Inter",
+    "LiberationSans"
+   ],
+   "proseWords": 845,
+   "structuredPages": 3,
+   "structuredShare": 0.5,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P5 Comprehensive": {
+   "pages": 64,
+   "fonts": [
+    "LiberationSans",
+    "Inter"
+   ],
+   "proseWords": 8762,
+   "structuredPages": 22,
+   "structuredShare": 0.35,
+   "appendixPages": 11,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 187,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P5 Essential": {
+   "pages": 20,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 2706,
+   "structuredPages": 3,
+   "structuredShare": 0.17,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P5 Comprehensive": {
+   "pages": 31,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 3781,
+   "structuredPages": 10,
+   "structuredShare": 0.34,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P6b Essential": {
+   "pages": 8,
+   "fonts": [
+    "Inter",
+    "LiberationSans"
+   ],
+   "proseWords": 838,
+   "structuredPages": 3,
+   "structuredShare": 0.5,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Revised prototype 55ea176: P6b Comprehensive": {
+   "pages": 51,
+   "fonts": [
+    "LiberationSans",
+    "Inter"
+   ],
+   "proseWords": 6188,
+   "structuredPages": 22,
+   "structuredShare": 0.45,
+   "appendixPages": 11,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 90,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P6b Essential": {
+   "pages": 21,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 4400,
+   "structuredPages": 3,
+   "structuredShare": 0.16,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  },
+  "Improved: P6b Comprehensive": {
+   "pages": 33,
+   "fonts": [
+    "Poppins"
+   ],
+   "proseWords": 4308,
+   "structuredPages": 10,
+   "structuredShare": 0.32,
+   "appendixPages": 0,
+   "mechanicalPhrases": 0,
+   "internalIdentifiers": 0,
+   "maturityBandMentions": 0,
+   "emDashes": 0
+  }
+ }
+}

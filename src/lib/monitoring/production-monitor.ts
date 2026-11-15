@@ -231,7 +231,8 @@ export async function readProductionFunnelMetrics(db: any, since: string) {
 const readFunnelMetrics = readProductionFunnelMetrics;
 
 function routePriority(route: string | null | undefined, category: string) {
-  if (category.includes('adaptive') || category.includes('database') || category.includes('public_home') || category.includes('public_score_start') || category.includes('public_fraud_readiness') || route?.includes('/adaptive/start') || route?.includes('/adaptive/submit')) return 'P1' as const;
+  // The revised review is where new customers start after the switch-over (DR-01): its checks and start route are P1.
+  if (category.includes('adaptive') || category === 'review' || category.includes('database') || category.includes('public_home') || category.includes('public_score_start') || category.includes('public_review_start') || category.includes('public_fraud_readiness') || route?.includes('/adaptive/start') || route?.includes('/adaptive/submit') || route?.includes('/review/api/sessions')) return 'P1' as const;
   if (route?.includes('/adaptive/') || category.includes('snapshot') || category.includes('provider') || category.includes('runtime')) return 'P2' as const;
   return 'P3' as const;
 }

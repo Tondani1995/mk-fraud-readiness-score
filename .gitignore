@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Owner-review generated PDFs are private artefacts, not repository content.
 outputs/**/*.pdf
+
+# Fictional local harness for the readiness review track (never committed)
+.readiness-review-harness/

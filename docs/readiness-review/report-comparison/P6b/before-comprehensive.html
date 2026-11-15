@@ -1,0 +1,719 @@
+<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>MK Fraud Readiness Comprehensive: Fictional Retail Group (overstated confirmations)</title><style>
+:root{
+  --navy-900:#0B1B33;--navy-700:#142F4C;--navy-500:#2C4A6B;--navy-300:#8FA3B5;
+  --ink:#1A2634;--muted:#5A6B7C;--rule:#D9E1E7;--rule-soft:#EDF1F4;
+  --cream:#FBF9F5;--white:#FFFFFF;--brass:#C9A227;--brass-soft:#F0E6C8;
+  --weak:#A32020;--mid:#B8761F;--strong:#1F6B4A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);
+  font-size:9.4pt;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+@page{size:A4;margin:16mm 14mm 18mm 14mm}
+
+/* fixed core page */
+.page{width:182mm;height:263mm;position:relative;overflow:hidden;page-break-before:always;display:flex;flex-direction:column}
+.page--navy{background:var(--navy-900);color:#fff;margin:-16mm -14mm;padding:26mm 20mm 20mm;width:210mm;height:297mm}
+.q{font-size:6.8pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass)}
+h1{font-size:18pt;line-height:1.18;font-weight:700;color:var(--navy-900);letter-spacing:-.01em;margin-top:2.5mm}
+h2{font-size:10.5pt;font-weight:700;color:var(--navy-700);margin:5mm 0 2.5mm}
+h3{font-size:9.4pt;font-weight:700;color:var(--navy-900);margin-bottom:1.5mm}
+p{max-width:168mm}
+.lede{font-size:10.2pt;line-height:1.5;max-width:165mm}
+.cap{font-size:7pt;color:var(--muted)}
+.muted{color:var(--muted)}
+.gap{height:5mm}.sp{flex:1}
+ul{margin:1mm 0 0 4mm}li{margin:.8mm 0}
+
+/* flowing register section */
+.reg{page-break-before:always}
+/* Breaks are declared on the leading edge only. A page that also broke after
+   itself produced two breaks against any section that breaks before itself, and
+   the browser emitted an empty page between them. The first section must not
+   break, or the document opens on a blank sheet. */
+.page:first-of-type,section:first-of-type{page-break-before:avoid}
+.reg-head{border-top:2.5px solid var(--navy-900);padding-top:3mm;margin-bottom:4mm}
+.reg-head .n{font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);font-weight:700}
+.reg-head h1{margin-top:1.5mm;font-size:15pt}
+.reg-note{font-size:7.4pt;color:var(--muted);margin-top:2mm;max-width:168mm}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:7.1pt;margin-top:2.5mm}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+th{background:var(--navy-700);color:#fff;font-size:6.2pt;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;text-align:left;padding:1.6mm 1.8mm;vertical-align:bottom}
+td{padding:1.5mm 1.8mm;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.3}
+tbody tr:nth-child(even) td{background:var(--rule-soft)}
+td.id{font-size:6.8pt;color:var(--muted);white-space:nowrap}
+td.tight{white-space:nowrap}
+.tag{display:inline-block;font-size:6.2pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:.6mm 1.4mm;border-radius:1mm;background:var(--rule-soft);color:var(--navy-700)}
+.tag.crit{background:#FBEDED;color:var(--weak)}
+.tag.gate{background:var(--brass-soft);color:#7a6011}
+
+/* core exhibits */
+.stats{display:flex;gap:8mm;border-top:2px solid var(--navy-900);border-bottom:1px solid var(--rule);padding:4mm 0;margin-top:3mm}
+.stats .s{flex:1}
+.stats .n{font-size:21pt;font-weight:700;color:var(--navy-900);line-height:1;letter-spacing:-.02em}
+.stats .l{font-size:6.6pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.4mm;line-height:1.35}
+.bars{width:100%;font-size:7.8pt;margin-top:2mm}
+.bars .row{display:flex;align-items:center;gap:2.5mm;padding:1.2mm 0;border-bottom:1px solid var(--rule-soft)}
+.bars .nm{width:58mm}.bars .track{flex:1;height:6px;background:var(--rule-soft);position:relative}
+.bars .fill{position:absolute;left:0;top:0;bottom:0;background:var(--navy-500)}
+.bars .fill.weak{background:var(--weak)}.bars .fill.strong{background:var(--strong)}
+.bars .val{width:14mm;text-align:right;font-weight:600}
+.bars .band{width:20mm;text-align:right;color:var(--muted);font-size:6.8pt}
+.prog{border-top:2px solid var(--navy-900);padding-top:2.5mm;margin-bottom:4mm;page-break-inside:avoid}
+.prog .hd{display:flex;justify-content:space-between;align-items:baseline}
+.prog .qn{font-size:8pt;color:var(--navy-500);margin:1mm 0 1.5mm;font-style:italic}
+.prog .meta{font-size:6.8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.panel{background:var(--cream);border-left:3px solid var(--navy-700);padding:3.5mm 4.5mm;margin-top:3mm}
+.panel .l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--navy-700);margin-bottom:1.5mm}
+.interp{border-left:3px solid var(--brass);background:#FDFBF4;padding:3.5mm 4.5mm;margin-top:4mm}
+.interp-l{font-size:6.6pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7a6011;margin-bottom:1.5mm}
+.interp--pending p{font-size:7.6pt}
+.toc{font-size:8.6pt;margin-top:4mm}
+.toc .row{display:flex;justify-content:space-between;padding:1.6mm 0;border-bottom:1px solid var(--rule-soft)}
+.toc .row.head{font-weight:700;color:var(--navy-900);border-bottom-color:var(--rule);margin-top:3mm}
+.toc .sec{color:var(--muted);font-size:7.2pt;letter-spacing:.1em;text-transform:uppercase}
+.note{font-size:7.2pt;color:var(--muted);line-height:1.5;max-width:168mm}
+</style></head><body><div style="position:fixed;top:0;left:0;right:0;z-index:9;background:#5a4a12;color:#fff;font:600 7.5pt/1.4 sans-serif;padding:1.2mm 4mm;text-align:center">FICTIONAL COMPARISON. MFRS V1.2 answers derived from a fictional organisation; scored by the existing calculator. Not a customer report.</div><section class="page page--navy">
+    <div style="font-size:7.2pt;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-weight:600">MK Fraud Insights</div>
+    <div style="height:16mm"></div>
+    <div style="font-size:7.6pt;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)">Comprehensive Fraud Readiness Report</div>
+    <h1 style="color:#fff;font-size:27pt;line-height:1.16;max-width:165mm;margin-top:6mm">Fraud exposure, target control environment and implementation programme</h1>
+    <div class="sp"></div>
+    <div style="border-top:2px solid var(--brass);padding-top:5mm;display:flex;gap:12mm;align-items:flex-end">
+      <div><div style="font-size:34pt;font-weight:700;line-height:.9">88.20</div><div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:2mm">Readiness / 100</div></div>
+      <div><div style="font-size:15pt;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Strategic</div><div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:2mm">Maturity band</div></div>
+    </div>
+    <div style="height:9mm"></div>
+    <div style="font-size:7pt;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55)">Prepared for</div>
+    <div style="font-size:15pt;font-weight:600;margin-top:2mm">Fictional Retail Group (overstated confirmations)</div>
+    <div style="font-size:8pt;color:rgba(255,255,255,.7);margin-top:3mm">Assessment reference · FX-P6b</div>
+    
+    <div style="height:6mm"></div>
+    <div style="font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)">Confidential · Automated analysis · Not independently reviewed</div>
+  </section><section class="page">
+    <div class="q">How to read this report</div>
+    <h1>Contents</h1>
+    <div class="toc">
+      <div class="row head"><span>Management report</span><span class="sec">Sections 1–10</span></div>
+      <div class="row"><span>1 · Where the organisation stands</span></div><div class="row"><span>2 · What is driving the position</span></div><div class="row"><span>3 · What management should confirm</span></div><div class="row"><span>4 · Assurance coverage across the control environment</span></div><div class="row"><span>5 · Deep-dive assurance priorities</span></div><div class="row"><span>6 · Control resilience tests</span></div><div class="row"><span>7 · Who owns sustainment</span></div><div class="row"><span>8 · Decisions leadership must make</span></div><div class="row"><span>9 · What should happen over 12 months</span></div><div class="row"><span>10 · How management will know the position remains dependable</span></div>
+      <div class="row head"><span>Analytical registers</span><span class="sec">Appendices A–F</span></div>
+      <div class="row"><span>A · Finding register</span><span class="muted">3 entries</span></div><div class="row"><span>B · Fraud risk register</span><span class="muted">3 entries</span></div><div class="row"><span>C · Control blueprint register</span><span class="muted">3 entries</span></div><div class="row"><span>D · Evidence requirement register</span><span class="muted">12 entries</span></div><div class="row"><span>E · 12-month action and assurance register</span><span class="muted">7 entries</span></div><div class="row"><span>F · Measurement register</span><span class="muted">3 entries</span></div>
+    </div>
+    <div class="panel"><div class="l">The two halves of this report</div>
+      <p class="note">Sections 1–10 are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections. They contain every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
+    </div>
+    <div class="panel"><div class="l">Basis of this report</div><p class="note">This report is produced by automated analysis of the recorded MK Fraud Readiness assessment. It has not been independently reviewed. No evidence has been examined, no control has been tested for operating effectiveness, no personnel have been interviewed, and no assurance opinion is given. Assessment positions are self-reported by the organisation. Recommended control designs, evidence requirements and operating measures are MK methodology: what good practice requires, not observations of what the organisation currently does.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">1 · Where the organisation stands</div>
+    <h1>The assessed readiness position</h1>
+    <div class="stats">
+      <div class="s"><div class="n">88.20</div><div class="l">Readiness score out of 100</div></div>
+      <div class="s"><div class="n">Strategic</div><div class="l">Maturity band</div></div>
+      <div class="s"><div class="n">10</div><div class="l">Domains assessed</div></div>
+      <div class="s"><div class="n">3</div><div class="l">Material findings</div></div>
+      <div class="s"><div class="n">3</div><div class="l">Control designs recommended</div></div>
+    </div>
+    <h2>Domain readiness profile</h2>
+    <div class="bars"><div class="row">
+      <div class="nm">Fraud Leadership and Governance</div>
+      <div class="track"><div class="fill " style="width:90.67%"></div></div>
+      <div class="val">90.67</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Fraud Risk Identification</div>
+      <div class="track"><div class="fill " style="width:89.74%"></div></div>
+      <div class="val">89.74</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Operational Fraud Controls</div>
+      <div class="track"><div class="fill " style="width:88.57%"></div></div>
+      <div class="val">88.57</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Fraud Detection Capability</div>
+      <div class="track"><div class="fill " style="width:87.06%"></div></div>
+      <div class="val">87.06</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Fraud Incident Response</div>
+      <div class="track"><div class="fill " style="width:87.69%"></div></div>
+      <div class="val">87.69</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Whistleblowing and Reporting Culture</div>
+      <div class="track"><div class="fill " style="width:88.33%"></div></div>
+      <div class="val">88.33</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Third-Party and Supply Chain Fraud Risk</div>
+      <div class="track"><div class="fill " style="width:85.88%"></div></div>
+      <div class="val">85.88</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Digital and Identity Fraud Risk</div>
+      <div class="track"><div class="fill " style="width:87.57%"></div></div>
+      <div class="val">87.57</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Fraud Culture and Awareness</div>
+      <div class="track"><div class="fill " style="width:85.56%"></div></div>
+      <div class="val">85.56</div><div class="band">Strategic</div></div><div class="row">
+      <div class="nm">Continuous Improvement and Fraud Risk Monitoring</div>
+      <div class="track"><div class="fill " style="width:90.48%"></div></div>
+      <div class="val">90.48</div><div class="band">Strategic</div></div></div>
+    <div class="cap" style="margin-top:2mm">Ordered as assessed. Positions are self-reported through the assessment and have not been independently verified.</div>
+    <div class="interp interp--pending"><div class="interp-l">Executive interpretation</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">2 · What is driving the position</div>
+    <h1>The patterns beneath the score</h1>
+    <p class="lede">The assessment produced 3 material findings. They resolve into 3 connected patterns, ordered by how much of the organisation's critical control population each one affects.</p>
+    <table>
+      <thead><tr><th style="width:29%">Pattern</th><th style="width:9%">Findings</th><th style="width:9%">Critical</th><th style="width:9%">Hard gate</th><th style="width:44%">Management question this raises</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Detection and exception review</strong><div class="cap" style="margin-top:.8mm">Fraud Detection Capability</div></td>
+        <td class="tight">1</td>
+        <td class="tight"><span class="tag crit">1</span></td>
+        <td class="tight"><span class="tag gate">1</span></td>
+        <td>Would unusual activity be seen and challenged in time?</td></tr><tr>
+        <td><strong>Supplier and payment integrity</strong><div class="cap" style="margin-top:.8mm">Third-Party and Supply Chain Fraud Risk</div></td>
+        <td class="tight">1</td>
+        <td class="tight"><span class="tag crit">1</span></td>
+        <td class="tight">Not recorded</td>
+        <td>Can value be redirected before anyone independently challenges it?</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong><div class="cap" style="margin-top:.8mm">Fraud Culture and Awareness</div></td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td>Do people recognise fraud, and does the control environment learn?</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Every finding behind these patterns is listed in Appendix A.</div>
+    <div class="interp interp--pending"><div class="interp-l">Why this matters</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">3 · What management should confirm</div>
+    <h1>Exposure by control family</h1>
+    <p class="lede">3 fraud risks arise from the assessed position. They concentrate in 3 exposure families.</p>
+    <table>
+      <thead><tr><th style="width:30%">Exposure family</th><th style="width:10%">Risks</th><th style="width:16%">Domains affected</th><th style="width:44%">What the organisation is exposed to</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Detection and exception review</strong></td>
+        <td class="tight">1</td>
+        <td>D4</td>
+        <td>Would unusual activity be seen and challenged in time?</td></tr><tr>
+        <td><strong>Supplier and payment integrity</strong></td>
+        <td class="tight">1</td>
+        <td>D7</td>
+        <td>Can value be redirected before anyone independently challenges it?</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td>D9</td>
+        <td>Do people recognise fraud, and does the control environment learn?</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Full risk statements, causes and treatment directions are in Appendix B. Risks are derived from assessed control positions; no likelihood or monetary value is assigned, because the assessment does not support one.</div>
+    <div class="interp interp--pending"><div class="interp-l">Management implication</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">3 · What management should confirm</div>
+    <h1>The control programmes</h1>
+    <p class="lede">The 3 recommended control designs group into 3 programmes. Each is one coherent piece of work with one accountable executive.</p>
+    <table>
+      <thead><tr><th style="width:30%">Programme</th><th style="width:9%">Controls</th><th style="width:10%">Evidence</th><th style="width:9%">Measures</th><th style="width:22%">Accountable</th><th style="width:20%">Horizon</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Detection and exception review</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">4</td>
+        <td class="tight">1</td>
+        <td>Chief Financial Officer</td>
+        <td>90 days</td></tr><tr>
+        <td><strong>Supplier and payment integrity</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">4</td>
+        <td class="tight">1</td>
+        <td>Chief Financial Officer</td>
+        <td>60 days</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">4</td>
+        <td class="tight">1</td>
+        <td>Chief People Officer</td>
+        <td>60 days</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Individual control designs are in Appendix C; the evidence each requires is in Appendix D.</div>
+    <div class="interp interp--pending"><div class="interp-l">Control programme synthesis</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+      <div class="q">3 · What management should confirm</div>
+      <h1>Programme detail</h1>
+      <div class="prog">
+        <div class="hd"><h3>Detection and exception review</h3><span class="meta">1 controls</span></div>
+        <div class="qn">Would unusual activity be seen and challenged in time?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: Chief Financial Officer</div>
+               <div class="cap"><strong>Evidence expected</strong> · 4 items across 1 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 90 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 1</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-D4-Q03</div>
+      </div><div class="prog">
+        <div class="hd"><h3>Supplier and payment integrity</h3><span class="meta">1 controls</span></div>
+        <div class="qn">Can value be redirected before anyone independently challenges it?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: Chief Financial Officer</div>
+               <div class="cap"><strong>Evidence expected</strong> · 4 items across 1 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 60 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 1</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-D7-Q01</div>
+      </div><div class="prog">
+        <div class="hd"><h3>Culture and continuous improvement</h3><span class="meta">1 controls</span></div>
+        <div class="qn">Do people recognise fraud, and does the control environment learn?</div>
+        <div class="grid2">
+          <div><div class="cap"><strong>Accountable</strong>: Chief People Officer</div>
+               <div class="cap"><strong>Evidence expected</strong> · 4 items across 1 controls</div></div>
+          <div><div class="cap"><strong>Delivery horizon</strong>: 60 days</div>
+               <div class="cap"><strong>Effectiveness measures</strong> · 1</div></div>
+        </div>
+        <div class="cap" style="margin-top:1.5mm">Controls: CI-D9-Q02</div>
+      </div>
+      <div class="sp"></div>
+    </section><section class="reg">
+    <div class="reg-head"><div class="n">Section 4</div><h1>Assurance coverage across the control environment</h1><div class="reg-note">Every assessed domain, with the posture it warrants. This is not a list of weaknesses: most domains here are working, and the map exists so management can see the whole environment rather than only the areas receiving deeper attention.</div></div>
+    <table>
+      <thead><tr><th style="width:20%">Domain</th><th style="width:9%">Position</th><th style="width:12%">Posture</th><th style="width:21%">Capability to preserve or confirm</th><th style="width:20%">Management proof</th><th style="width:18%">Deterioration signal / rhythm</th></tr></thead>
+      <tbody><tr>
+        <td>Fraud Leadership and Governance</td>
+        <td class="tight"><strong>90.67</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Fraud Risk Identification</td>
+        <td class="tight"><strong>89.74</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Operational Fraud Controls</td>
+        <td class="tight"><strong>88.57</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Fraud Detection Capability</td>
+        <td class="tight"><strong>87.06</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Deep-dive priority</td>
+        <td>Sustain fraud detection capability readiness</td>
+        <td>Rule and data-check catalogue with scenario linkage,Execution logs and results,Source reconciliation evidence,Monthly tuning record with true/false positive outcomes</td>
+        <td>A priority scenario with no operating check, or rules unexecuted for a full cycle.<div class="cap" style="margin-top:.8mm">Scheduled rule execution at least monthly; monthly tuning review</div><div class="id" style="margin-top:.8mm">AP-01, CI-D4-Q03</div></td></tr><tr>
+        <td>Fraud Incident Response</td>
+        <td class="tight"><strong>87.69</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Whistleblowing and Reporting Culture</td>
+        <td class="tight"><strong>88.33</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Third-Party and Supply Chain Fraud Risk</td>
+        <td class="tight"><strong>85.88</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Deep-dive priority</td>
+        <td>Sustain third-party and supply chain fraud risk readiness</td>
+        <td>Third-party risk rating,Identity and beneficial-ownership verification,Sanctions/adverse/conflict screening,High-risk approval</td>
+        <td>Any engagement before due diligence or unresolved ownership, sanctions or conflict match.<div class="cap" style="margin-top:.8mm">Before engagement; annual refresh for high-risk third parties</div><div class="id" style="margin-top:.8mm">AP-02, CI-D7-Q01</div></td></tr><tr>
+        <td>Digital and Identity Fraud Risk</td>
+        <td class="tight"><strong>87.57</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td>Fraud Culture and Awareness</td>
+        <td class="tight"><strong>85.56</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Deep-dive priority</td>
+        <td>Sustain fraud culture and awareness readiness</td>
+        <td>Induction fraud module content,Completion records reconciled to the joiner population,Contractor coverage evidence,Overdue escalation log</td>
+        <td>Any joiner in a high-risk role granted access before completing induction fraud content.<div class="cap" style="margin-top:.8mm">On every joiner, within the defined completion period</div><div class="id" style="margin-top:.8mm">AP-03, CI-D9-Q02</div></td></tr><tr>
+        <td>Continuous Improvement and Fraud Risk Monitoring</td>
+        <td class="tight"><strong>90.48</strong><div class="cap">Strategic</div></td>
+        <td class="cap">Maintain</td>
+        <td><span class="cap">Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.</span></td>
+        <td><span class="muted">Not recorded</span></td>
+        <td><span class="muted">Not recorded</span></td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Section 5</div><h1>Deep-dive assurance priorities</h1><div class="reg-note">These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:19%">Capability</th><th style="width:22%">Evidence management should hold</th><th style="width:18%">Depends on</th><th style="width:18%">Deterioration trigger</th><th style="width:14%">Owner / cadence</th></tr></thead>
+      <tbody><tr>
+        <td class="id">AP-01<div>resilience dependency</div></td>
+        <td>Sustain fraud detection capability readiness<div class="cap" style="margin-top:.8mm">Preserve alert ownership, review discipline and timely escalation as detection coverage evolves.</div></td>
+        <td>Rule and data-check catalogue with scenario linkage,Execution logs and results,Source reconciliation evidence,Monthly tuning record with true/false positive outcomes<div class="cap" style="margin-top:.8mm">Management or an independent function selects a sample across the review period and confirms the retained proof supports the recorded position.</div></td>
+        <td><ul><li>Reliable transactional data access</li><li>Exception review process</li></ul></td>
+        <td>A priority scenario with no operating check, or rules unexecuted for a full cycle.<div class="cap" style="margin-top:.8mm">All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</div></td>
+        <td>CFO / Chief Technology Officer<div class="cap" style="margin-top:.8mm">Scheduled rule execution at least monthly; monthly tuning review</div></td></tr><tr>
+        <td class="id">AP-02<div>resilience dependency</div></td>
+        <td>Sustain third-party and supply chain fraud risk readiness<div class="cap" style="margin-top:.8mm">Preserve supplier due diligence and ownership checks before engagement.</div></td>
+        <td>Third-party risk rating,Identity and beneficial-ownership verification,Sanctions/adverse/conflict screening,High-risk approval<div class="cap" style="margin-top:.8mm">Management or an independent function selects a sample across the review period and confirms the retained proof supports the recorded position.</div></td>
+        <td><ul><li>Third-party inventory</li><li>Conflict-of-interest declarations</li></ul></td>
+        <td>Any engagement before due diligence or unresolved ownership, sanctions or conflict match.<div class="cap" style="margin-top:.8mm">100% of new third parties have completed risk-tiered due diligence before engagement.</div></td>
+        <td>CFO / COO<div class="cap" style="margin-top:.8mm">Before engagement; annual refresh for high-risk third parties</div></td></tr><tr>
+        <td class="id">AP-03<div>resilience dependency</div></td>
+        <td>Sustain fraud culture and awareness readiness<div class="cap" style="margin-top:.8mm">Preserve role-specific fraud awareness and timely reinforcement for higher-risk roles.</div></td>
+        <td>Induction fraud module content,Completion records reconciled to the joiner population,Contractor coverage evidence,Overdue escalation log<div class="cap" style="margin-top:.8mm">Management or an independent function selects a sample across the review period and confirms the retained proof supports the recorded position.</div></td>
+        <td><ul><li>HR joiner data</li><li>Fraud policy</li></ul></td>
+        <td>Any joiner in a high-risk role granted access before completing induction fraud content.<div class="cap" style="margin-top:.8mm">At least 95% of joiners complete the fraud induction module within the defined period.</div></td>
+        <td>Chief People Officer<div class="cap" style="margin-top:.8mm">On every joiner, within the defined completion period</div></td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Section 6</div><h1>Control resilience tests</h1><div class="reg-note">Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.</div></div>
+    <table>
+      <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
+      <tbody><tr>
+        <td>Sustain fraud detection capability readiness<div class="cap" style="margin-top:.8mm">Fraud Detection Capability</div></td>
+        <td><ul><li>Reliable transactional data access</li><li>Exception review process</li></ul></td>
+        <td>A priority scenario with no operating check, or rules unexecuted for a full cycle.</td>
+        <td>Rule and data-check catalogue with scenario linkage,Execution logs and results,Source reconciliation evidence,Monthly tuning record with true/false positive outcomes</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td>
+        <td class="cap">Scheduled rule execution at least monthly; monthly tuning review<div class="id" style="margin-top:.8mm">AP-01</div></td></tr><tr>
+        <td>Sustain third-party and supply chain fraud risk readiness<div class="cap" style="margin-top:.8mm">Third-Party and Supply Chain Fraud Risk</div></td>
+        <td><ul><li>Third-party inventory</li><li>Conflict-of-interest declarations</li></ul></td>
+        <td>Any engagement before due diligence or unresolved ownership, sanctions or conflict match.</td>
+        <td>Third-party risk rating,Identity and beneficial-ownership verification,Sanctions/adverse/conflict screening,High-risk approval</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td>
+        <td class="cap">Before engagement; annual refresh for high-risk third parties<div class="id" style="margin-top:.8mm">AP-02</div></td></tr><tr>
+        <td>Sustain fraud culture and awareness readiness<div class="cap" style="margin-top:.8mm">Fraud Culture and Awareness</div></td>
+        <td><ul><li>HR joiner data</li><li>Fraud policy</li></ul></td>
+        <td>Any joiner in a high-risk role granted access before completing induction fraud content.</td>
+        <td>Induction fraud module content,Completion records reconciled to the joiner population,Contractor coverage evidence,Overdue escalation log</td>
+        <td>At least 95% of joiners complete the fraud induction module within the defined period.</td>
+        <td class="cap">On every joiner, within the defined completion period<div class="id" style="margin-top:.8mm">AP-03</div></td></tr></tbody>
+    </table>
+  </section><section class="page">
+    <div class="q">7 · Who owns sustainment</div>
+    <h1>The governance model</h1>
+    <p class="lede">Accountability is expressed as roles, not individuals. The assessment does not identify people, and this report does not infer them.</p>
+    <table>
+      <thead><tr><th style="width:26%">Role</th><th style="width:16%">Standing</th><th style="width:9%">Controls</th><th style="width:9%">Decisions</th><th style="width:10%">Evidence</th><th style="width:30%">Escalation responsibility</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Chief Financial Officer</strong></td>
+        <td class="cap">executive accountability</td>
+        <td class="tight">2</td>
+        <td class="tight">2</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Chief People Officer</strong></td>
+        <td class="cap">executive accountability</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Risk function</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">4</td>
+        <td>A priority scenario with no operating check, or rules unexecuted for a full cycle.</td></tr><tr>
+        <td><strong>Procurement and vendor management</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">4</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>People, learning and ethics</strong></td>
+        <td class="cap">process ownership</td>
+        <td class="tight">1</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">4</td>
+        <td><span class="muted">Not recorded</span></td></tr><tr>
+        <td><strong>Compliance</strong></td>
+        <td class="cap">oversight</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td class="tight">Not recorded</td>
+        <td>Any engagement before due diligence or unresolved ownership, sanctions or conflict match.</td></tr></tbody>
+    </table>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">8 · Decisions leadership must make</div>
+    <h1>The decision agenda</h1>
+    <table>
+      <thead><tr><th style="width:22%">Decision</th><th style="width:22%">Why now</th><th style="width:22%">Recommended direction</th><th style="width:16%">Owner</th><th style="width:18%">Consequence of delay</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Approve independent validation of the strongest self-reported control claims.</strong></td>
+        <td>A clean assessment remains decision-useful only if leadership verifies operation across the complete population.</td>
+        <td>Commission a risk-based operating-effectiveness review using the evidence checklist.</td>
+        <td>Chief Financial Officer<div class="cap">60 days</div></td>
+        <td>The clean result remains an unverified assertion and may create false comfort.</td></tr><tr>
+        <td><strong>Approve a fixed fraud-risk implementation and control-effectiveness review cadence.</strong></td>
+        <td>The linked registers require continuing governance to become a managed programme.</td>
+        <td>Require monthly implementation reporting and quarterly control-effectiveness review through the organisation’s management and oversight route.</td>
+        <td>Chief Financial Officer<div class="cap">60 days</div></td>
+        <td>Actions lose momentum, exceptions remain open and management receives the control position too late to intervene.</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">A recommended direction is MK methodology. The decision remains management's.</div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">9 · What should happen over 12 months</div>
+    <h1>The 12-month sustainment programme</h1>
+    <p class="lede">3 confirmation actions, followed by 2 embed-and-evidence checkpoints, and 2 assure-and-review checkpoints across the 12-month sustainment programme. 7 programme objects in total, each with an owner, a deliverable and a test that shows it is complete.</p>
+    <table>
+      <thead><tr><th style="width:13%">Horizon</th><th style="width:16%">Work type</th><th style="width:8%">Count</th><th style="width:63%">Programmes advanced in this horizon</th></tr></thead>
+      <tbody><tr>
+        <td><strong>60 days</strong></td>
+        <td class="cap">Confirm</td>
+        <td class="tight">2</td>
+        <td>Supplier and payment integrity · Culture and continuous improvement</td></tr><tr>
+        <td><strong>90 days</strong></td>
+        <td class="cap">Confirm</td>
+        <td class="tight">1</td>
+        <td>Detection and exception review</td></tr><tr>
+        <td><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td class="tight">2</td>
+        <td>Detection and exception review · Supplier and payment integrity</td></tr><tr>
+        <td><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td class="tight">2</td>
+        <td>Detection and exception review · Supplier and payment integrity</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">Every programme item, with its dependency and completion criterion, is in Appendix E.</div>
+    <div class="interp interp--pending"><div class="interp-l">Implementation synthesis</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="page">
+    <div class="q">10 · How management will know the position remains dependable</div>
+    <h1>The measurement framework</h1>
+    <p class="lede">Each programme carries effectiveness measures drawn from the control designs behind it. These are the signals management should expect to see, not a claim that they exist today.</p>
+    <table>
+      <thead><tr><th style="width:34%">Programme</th><th style="width:12%">Measures</th><th style="width:12%">Controls</th><th style="width:42%">Accountable for reporting</th></tr></thead>
+      <tbody><tr>
+        <td><strong>Detection and exception review</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">1</td>
+        <td>Chief Financial Officer</td></tr><tr>
+        <td><strong>Supplier and payment integrity</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">1</td>
+        <td>Chief Financial Officer</td></tr><tr>
+        <td><strong>Culture and continuous improvement</strong></td>
+        <td class="tight">1</td>
+        <td class="tight">1</td>
+        <td>Chief People Officer</td></tr></tbody>
+    </table>
+    <div class="cap" style="margin-top:2mm">The individual measures are in Appendix F.</div>
+    <div class="interp interp--pending"><div class="interp-l">Conclusion</div><p class="muted">Management interpretation is added at generation. The analysis on this page stands without it.</p></div>
+    <div class="sp"></div>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix A</div><h1>Finding register</h1><div class="reg-note">Every material finding the assessment produced. &quot;Assessment indication&quot; is what the responses record; it is self-reported and has not been verified.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:13%">Domain</th><th style="width:22%">Assessment indication</th><th style="width:10%">Materiality</th><th style="width:23%">Fraud mechanism</th><th style="width:12%">Risk</th><th style="width:11%">Control</th></tr></thead>
+      <tbody><tr>
+        <td class="id">MF-D4-Q03<div>D4-Q03</div></td>
+        <td>Fraud Detection Capability</td>
+        <td>Consistently operating<div class="cap" style="margin-top:.8mm">This is an assurance priority, not a failed control. The strong self-reported response should be validated with operating evidence.</div></td>
+        <td>assurance priority <span class="tag gate">gate</span></td>
+        <td>Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</td>
+        <td class="id">RISK-CONTROL-D4-Q03</td>
+        <td class="id">CI-D4-Q03</td></tr><tr>
+        <td class="id">MF-D7-Q01<div>D7-Q01</div></td>
+        <td>Third-Party and Supply Chain Fraud Risk</td>
+        <td>Consistently operating<div class="cap" style="margin-top:.8mm">This is an assurance priority, not a failed control. The strong self-reported response should be validated with operating evidence.</div></td>
+        <td>assurance priority <span class="tag crit">critical</span></td>
+        <td>Unverified third parties can conceal related parties, fictitious businesses or integrity concerns before receiving access or funds.</td>
+        <td class="id">RISK-SUPPLIER-ONBOARDING</td>
+        <td class="id">CI-D7-Q01</td></tr><tr>
+        <td class="id">MF-D9-Q02<div>D9-Q02</div></td>
+        <td>Fraud Culture and Awareness</td>
+        <td>Consistently operating<div class="cap" style="margin-top:.8mm">This is an assurance priority, not a failed control. The strong self-reported response should be validated with operating evidence.</div></td>
+        <td>assurance priority</td>
+        <td>New joiners learn behaviour from whoever trains them, so without a formal baseline an existing workaround or bypass is transmitted as normal practice.</td>
+        <td class="id">RISK-CONTROL-D9-Q02</td>
+        <td class="id">CI-D9-Q02</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix B</div><h1>Fraud risk register</h1><div class="reg-note">Risks implied by the assessed control positions. No likelihood, monetary value or incident frequency is assigned, because the assessment does not support one.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:33%">Risk</th><th style="width:19%">Current control position</th><th style="width:26%">Required treatment</th><th style="width:13%">Owner role</th></tr></thead>
+      <tbody><tr>
+        <td class="id">RISK-CONTROL-D4-Q03<div>MF-D4-Q03</div></td>
+        <td><strong>Because the self-reported control position has not yet been independently validated with operating evidence, there is a risk that the reported control may not operate consistently across the full population, at the required frequency or under pressure. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.</strong></td>
+        <td>Fraud Detection Capability: Consistently operating: Operating consistently in practice</td>
+        <td>Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: The monitoring owner must maintain a rule catalogue in which every test names the fraud scenario it addresses, the data source, the threshold and the reviewing role; tests include duplicate and near-duplicate payments, supplier and employee bank-detail or address matches, unusual approval pairings, dormant-account reactivation and threshold-adjacent transaction clustering; results reconcile to source control totals and rules are tuned monthly from confirmed true and false positives.</td>
+        <td>CFO / Chief Technology Officer</td></tr><tr>
+        <td class="id">RISK-SUPPLIER-ONBOARDING<div>MF-D7-Q01</div></td>
+        <td><strong>Because independent operating evidence has not yet validated that risk-tiered third-party due diligence is completed for the full population before engagement, there is a risk that the reported third-party due-diligence process may not operate consistently across the full population, at the required frequency or under pressure. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.</strong></td>
+        <td>Third-Party and Supply Chain Fraud Risk: Consistently operating: Operating consistently in practice</td>
+        <td>Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: The vendor-risk owner risk-rates every proposed third party, verifies legal identity and beneficial ownership from independent sources, screens sanctions/adverse and employee conflicts, documents capability and bank ownership, and requires Compliance approval for high-risk cases before contract signature or system activation.</td>
+        <td>CFO / COO</td></tr><tr>
+        <td class="id">RISK-CONTROL-D9-Q02<div>MF-D9-Q02</div></td>
+        <td><strong>Because the self-reported control position has not yet been independently validated with operating evidence, there is a risk that the reported control may not operate consistently across the full population, at the required frequency or under pressure. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.</strong></td>
+        <td>Fraud Culture and Awareness: Consistently operating: Operating consistently in practice</td>
+        <td>Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: The People lead must include a fraud module in induction covering the fraud policy and prohibited conduct, how and where to report, the protection from retaliation, the consequences of dishonest conduct, and the fraud risks specific to the joiner’s role; completion is required within a defined period of the start date, tracked against the joiner population from the HR system, extended to contractors with equivalent system or asset access, and overdue completion escalates to the hiring manager.</td>
+        <td>Chief People Officer</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix C</div><h1>Control blueprint register</h1><div class="reg-note">Recommended control standard for each finding. This is MK methodology: what good practice requires, not a description of what the organisation currently operates. The assessed state column records what the organisation reported for that control.</div></div>
+    <div class="panel"><div class="l">Assessed state key</div><ul><li>Consistently operating: Operating consistently in practice.; self-assessed and not independently verified.</li></ul></div>
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:21%">Objective</th><th style="width:24%">Recommended design</th><th style="width:9%">Assessed</th><th style="width:14%">Owner / oversight</th><th style="width:10%">Frequency</th><th style="width:13%">Effectiveness test</th></tr></thead>
+      <tbody><tr>
+        <td class="id">CI-D4-Q03<div>D4-Q03</div><div>90 days</div></td>
+        <td><strong>Validate that &quot;Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions&quot; operates to its exact expected standard.</strong></td>
+        <td>Independently validate that &quot;Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions&quot; operates to the expected standard (A maintained catalogue of rules and data checks maps each test to a fraud scenario, runs against reconciled data, and is tuned from confirmed outcomes.) across the complete population, required frequency and under pressure. This does not assert a control defect; if validation identifies one, apply the recommended control design: The monitoring owner must maintain a rule catalogue in which every test names the fraud scenario it addresses, the data source, the threshold and the reviewing role; tests include duplicate and near-duplicate payments, supplier and employee bank-detail or address matches, unusual approval pairings, dormant-account reactivation and threshold-adjacent transaction clustering; results reconcile to source control totals and rules are tuned monthly from confirmed true and false positives.</td>
+          <td class="tight"><span class="tag">State 1</span></td>
+        <td>Fraud analytics owner<div class="cap">Head of Risk / Internal Audit</div></td>
+        <td>Scheduled rule execution at least monthly; monthly tuning review</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td></tr><tr>
+        <td class="id">CI-D7-Q01<div>D7-Q01</div><div>60 days</div></td>
+        <td><strong>Validate that &quot;Suppliers, contractors or other third parties are subject to due diligence before being engaged&quot; operates to its exact expected standard.</strong></td>
+        <td>Independently validate that &quot;Suppliers, contractors or other third parties are subject to due diligence before being engaged&quot; operates to the expected standard (All third parties receive proportionate identity, ownership, sanctions/conflict and capability checks before contracting, with enhanced approval for high-risk relationships.) across the complete population, required frequency and under pressure. This does not assert a control defect; if validation identifies one, apply the recommended control design: The vendor-risk owner risk-rates every proposed third party, verifies legal identity and beneficial ownership from independent sources, screens sanctions/adverse and employee conflicts, documents capability and bank ownership, and requires Compliance approval for high-risk cases before contract signature or system activation.</td>
+          <td class="tight"><span class="tag">State 1</span></td>
+        <td>Procurement / Vendor Risk<div class="cap">Compliance / Risk</div></td>
+        <td>Before engagement; annual refresh for high-risk third parties</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td></tr><tr>
+        <td class="id">CI-D9-Q02<div>D9-Q02</div><div>60 days</div></td>
+        <td><strong>Validate that &quot;Fraud awareness is included in employee onboarding or induction&quot; operates to its exact expected standard.</strong></td>
+        <td>Independently validate that &quot;Fraud awareness is included in employee onboarding or induction&quot; operates to the expected standard (Induction includes fraud content covering policy, reporting routes, consequences and role-relevant risks, is completed within a defined period of joining, and covers contractors where they hold equivalent access.) across the complete population, required frequency and under pressure. This does not assert a control defect; if validation identifies one, apply the recommended control design: The People lead must include a fraud module in induction covering the fraud policy and prohibited conduct, how and where to report, the protection from retaliation, the consequences of dishonest conduct, and the fraud risks specific to the joiner’s role; completion is required within a defined period of the start date, tracked against the joiner population from the HR system, extended to contractors with equivalent system or asset access, and overdue completion escalates to the hiring manager.</td>
+          <td class="tight"><span class="tag">State 1</span></td>
+        <td>Human Resources / Learning and Development<div class="cap">Risk / Compliance</div></td>
+        <td>On every joiner, within the defined completion period</td>
+        <td>At least 95% of joiners complete the fraud induction module within the defined period.</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix D</div><h1>Evidence requirement register</h1><div class="reg-note">What management should be able to produce for each recommended control. No evidence has been requested, received or examined.</div></div>
+    <h3 style="margin-top:5mm;border-top:1.5px solid var(--navy-700);padding-top:2.5mm">Detection and exception review</h3>
+      <table>
+        <thead><tr><th style="width:10%">Control</th><th style="width:22%">Evidence required</th><th style="width:26%">What it should prove</th><th style="width:24%">Minimum acceptable characteristic</th><th style="width:18%">Owner / recency</th></tr></thead>
+        <tbody><tr>
+          <td class="id">CI-D4-Q03</td>
+          <td><strong>Execution logs and results</strong></td>
+          <td>Whether the execution logs and results provides operating evidence that Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions is implemented across the complete in-scope population.</td>
+          <td>Each rule states scenario, source, threshold and reviewer</td>
+          <td>Fraud analytics owner<div class="cap">Scheduled rule execution at least monthly; monthly tuning review</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Monthly tuning record with true/false positive outcomes</strong></td>
+          <td>Whether the monthly tuning record with true/false positive outcomes provides operating evidence that Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions is implemented across the complete in-scope population.</td>
+          <td>Each rule states scenario, source, threshold and reviewer</td>
+          <td>Fraud analytics owner<div class="cap">Scheduled rule execution at least monthly; monthly tuning review</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Rule and data-check catalogue with scenario linkage</strong></td>
+          <td>Whether the rule and data-check catalogue with scenario linkage provides operating evidence that Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions is implemented across the complete in-scope population.</td>
+          <td>Each rule states scenario, source, threshold and reviewer</td>
+          <td>Fraud analytics owner<div class="cap">Scheduled rule execution at least monthly; monthly tuning review</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Source reconciliation evidence</strong></td>
+          <td>Whether the source reconciliation evidence provides operating evidence that Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions is implemented across the complete in-scope population.</td>
+          <td>Each rule states scenario, source, threshold and reviewer</td>
+          <td>Fraud analytics owner<div class="cap">Scheduled rule execution at least monthly; monthly tuning review</div></td></tr></tbody>
+      </table><h3 style="margin-top:5mm;border-top:1.5px solid var(--navy-700);padding-top:2.5mm">Supplier and payment integrity</h3>
+      <table>
+        <thead><tr><th style="width:10%">Control</th><th style="width:22%">Evidence required</th><th style="width:26%">What it should prove</th><th style="width:24%">Minimum acceptable characteristic</th><th style="width:18%">Owner / recency</th></tr></thead>
+        <tbody><tr>
+          <td class="id">CI-D7-Q01</td>
+          <td><strong>High-risk approval</strong></td>
+          <td>Whether the high-risk approval provides operating evidence that Suppliers, contractors or other third parties are subject to due diligence before being engaged is implemented across the complete in-scope population.</td>
+          <td>Documents match resolution and approver</td>
+          <td>Procurement / Vendor Risk<div class="cap">Before engagement; annual refresh for high-risk third parties</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Identity and beneficial-ownership verification</strong></td>
+          <td>Whether the identity and beneficial-ownership verification provides operating evidence that Suppliers, contractors or other third parties are subject to due diligence before being engaged is implemented across the complete in-scope population.</td>
+          <td>Documents match resolution and approver</td>
+          <td>Procurement / Vendor Risk<div class="cap">Before engagement; annual refresh for high-risk third parties</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Sanctions/adverse/conflict screening</strong></td>
+          <td>Whether the sanctions/adverse/conflict screening provides operating evidence that Suppliers, contractors or other third parties are subject to due diligence before being engaged is implemented across the complete in-scope population.</td>
+          <td>Documents match resolution and approver</td>
+          <td>Procurement / Vendor Risk<div class="cap">Before engagement; annual refresh for high-risk third parties</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Third-party risk rating</strong></td>
+          <td>Whether the third-party risk rating provides operating evidence that Suppliers, contractors or other third parties are subject to due diligence before being engaged is implemented across the complete in-scope population.</td>
+          <td>Documents match resolution and approver</td>
+          <td>Procurement / Vendor Risk<div class="cap">Before engagement; annual refresh for high-risk third parties</div></td></tr></tbody>
+      </table><h3 style="margin-top:5mm;border-top:1.5px solid var(--navy-700);padding-top:2.5mm">Culture and continuous improvement</h3>
+      <table>
+        <thead><tr><th style="width:10%">Control</th><th style="width:22%">Evidence required</th><th style="width:26%">What it should prove</th><th style="width:24%">Minimum acceptable characteristic</th><th style="width:18%">Owner / recency</th></tr></thead>
+        <tbody><tr>
+          <td class="id">CI-D9-Q02</td>
+          <td><strong>Completion records reconciled to the joiner population</strong></td>
+          <td>Whether the completion records reconciled to the joiner population provides operating evidence that Fraud awareness is included in employee onboarding or induction is implemented across the complete in-scope population.</td>
+          <td>Covers contractors with equivalent access</td>
+          <td>Human Resources / Learning and Development<div class="cap">On every joiner, within the defined completion period</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Contractor coverage evidence</strong></td>
+          <td>Whether the contractor coverage evidence provides operating evidence that Fraud awareness is included in employee onboarding or induction is implemented across the complete in-scope population.</td>
+          <td>Covers contractors with equivalent access</td>
+          <td>Human Resources / Learning and Development<div class="cap">On every joiner, within the defined completion period</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Induction fraud module content</strong></td>
+          <td>Whether the induction fraud module content provides operating evidence that Fraud awareness is included in employee onboarding or induction is implemented across the complete in-scope population.</td>
+          <td>Covers contractors with equivalent access</td>
+          <td>Human Resources / Learning and Development<div class="cap">On every joiner, within the defined completion period</div></td></tr><tr>
+          <td class="id"></td>
+          <td><strong>Overdue escalation log</strong></td>
+          <td>Whether the overdue escalation log provides operating evidence that Fraud awareness is included in employee onboarding or induction is implemented across the complete in-scope population.</td>
+          <td>Covers contractors with equivalent access</td>
+          <td>Human Resources / Learning and Development<div class="cap">On every joiner, within the defined completion period</div></td></tr></tbody>
+      </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix E</div><h1>12-month action and assurance register</h1><div class="reg-note">The full twelve-month programme. Not every row is initial implementation: later horizons operate each control through its required cycle and then review whether it is still effective. The work type on each row says which it is.</div></div>
+    <table>
+      <thead><tr><th style="width:9%">Horizon</th><th style="width:11%">Work type</th><th style="width:24%">Action</th><th style="width:14%">Owner</th><th style="width:21%">Completion criterion</th><th style="width:21%">Effectiveness measure</th></tr></thead>
+      <tbody><tr>
+        <td class="tight"><strong>60 days</strong></td>
+        <td class="cap">Confirm</td>
+        <td>Independently validate that &quot;Suppliers, contractors or other third parties are subject to due diligence before being engaged&quot; holds across the complete population and record whether every minimum evidence characteristic is met.</td>
+        <td>CFO / COO</td>
+        <td>High-risk approval; Identity and beneficial-ownership verification; Sanctions/adverse/conflict screening; Third-party risk rating</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td></tr><tr>
+        <td class="tight"><strong>60 days</strong></td>
+        <td class="cap">Confirm</td>
+        <td>Independently validate that &quot;Fraud awareness is included in employee onboarding or induction&quot; holds across the complete population and record whether every minimum evidence characteristic is met.</td>
+        <td>Chief People Officer</td>
+        <td>Completion records reconciled to the joiner population; Contractor coverage evidence; Induction fraud module content; Overdue escalation log</td>
+        <td>At least 95% of joiners complete the fraud induction module within the defined period.</td></tr><tr>
+        <td class="tight"><strong>90 days</strong></td>
+        <td class="cap">Confirm</td>
+        <td>Independently validate that &quot;Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions&quot; holds across the complete population and record whether every minimum evidence characteristic is met.</td>
+        <td>CFO / Chief Technology Officer</td>
+        <td>Execution logs and results; Monthly tuning record with true/false positive outcomes; Rule and data-check catalogue with scenario linkage; Source reconciliation evidence</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Scheduled rule execution at least monthly; monthly tuning review), with a management sample and any exceptions recorded.</td>
+        <td>CFO / Chief Technology Officer</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td></tr><tr>
+        <td class="tight"><strong>3-6 months</strong></td>
+        <td class="cap">Embed &amp; evidence</td>
+        <td>Retained evidence covering one full operating cycle (Before engagement; annual refresh for high-risk third parties), with a management sample and any exceptions recorded.</td>
+        <td>CFO / COO</td>
+        <td>The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-D4-Q03 covering effectiveness, exception trend and dependency, evidenced against: All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td>
+        <td>CFO / Chief Technology Officer</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td>
+        <td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td></tr><tr>
+        <td class="tight"><strong>6-12 months</strong></td>
+        <td class="cap">Assure &amp; review</td>
+        <td>A management or assurance review of CI-D7-Q01 covering effectiveness, exception trend and dependency, evidenced against: 100% of new third parties have completed risk-tiered due diligence before engagement.</td>
+        <td>CFO / COO</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td>
+        <td>100% of new third parties have completed risk-tiered due diligence before engagement.</td></tr></tbody>
+    </table>
+  </section><section class="reg">
+    <div class="reg-head"><div class="n">Appendix F</div><h1>Measurement register</h1><div class="reg-note">The effectiveness test behind each recommended control, grouped by programme. These are the signals management should expect once the control operates.</div></div>
+    <div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Detection and exception review</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>All priority fraud scenarios have at least one operating data check, with monthly tuning completed.</td><td class="id">CI-D4-Q03</td></tr></tbody>
+        </table>
+      </div><div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Supplier and payment integrity</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>100% of new third parties have completed risk-tiered due diligence before engagement.</td><td class="id">CI-D7-Q01</td></tr></tbody>
+        </table>
+      </div><div style="page-break-inside:avoid;margin-bottom:4mm">
+        <h3 style="margin-top:3mm">Culture and continuous improvement</h3>
+        <table style="margin-top:1.5mm">
+          <thead><tr><th style="width:70%">Measure</th><th style="width:30%">Controls it covers</th></tr></thead>
+          <tbody><tr><td>At least 95% of joiners complete the fraud induction module within the defined period.</td><td class="id">CI-D9-Q02</td></tr></tbody>
+        </table>
+      </div>
+  </section></body></html>

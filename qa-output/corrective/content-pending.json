@@ -1,0 +1,16 @@
+{
+  "generated": "2026-11-13",
+  "organisations": {
+    "kestrel": {
+      "controls": 56,
+      "complete": 56,
+      "pending": []
+    },
+    "marula": {
+      "controls": 47,
+      "complete": 47,
+      "pending": []
+    }
+  },
+  "distinct": []
+}

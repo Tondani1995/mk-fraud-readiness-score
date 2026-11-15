@@ -1,0 +1,615 @@
+{
+ "fictional": true,
+ "generated": "2026-11-12T12:00:00Z",
+ "aiManuscriptStage": "not run on either side",
+ "results": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "corrected": {
+    "fixtureScore": 55.5,
+    "fixtureBand": "Developing",
+    "r1": {
+     "rule": "R-1 prototype convention: the calculated figure does not lead the cover when unresolved self-reported inconsistencies affect at least 3 schemes, or at least 10% of the tier 1 schemes reported covered.",
+     "unresolved": 0,
+     "tier1Reported": 21,
+     "substantial": false
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "gap": 58,
+      "qualified": 1,
+      "confirmed": 47,
+      "outstanding": 0,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 22,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 0
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1887
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 59
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 58
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 106
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 47
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 126
+     },
+     {
+      "letter": "F",
+      "title": "Measurement register",
+      "count": 106
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 1
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 11
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 7
+     },
+     {
+      "name": "Schemes",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 59
+     },
+     {
+      "name": "Risks",
+      "rows": 58
+     },
+     {
+      "name": "Controls",
+      "rows": 106
+     },
+     {
+      "name": "Records",
+      "rows": 47
+     },
+     {
+      "name": "Actions",
+      "rows": 126
+     },
+     {
+      "name": "Measures",
+      "rows": 106
+     },
+     {
+      "name": "Decisions",
+      "rows": 3
+     },
+     {
+      "name": "Relationships",
+      "rows": 1
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Roles",
+      "rows": 11
+     },
+     {
+      "name": "Content gaps",
+      "rows": 66
+     },
+     {
+      "name": "Traceability",
+      "rows": 106
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "corrected": {
+    "fixtureScore": 87.8,
+    "fixtureBand": "Strategic",
+    "r1": {
+     "rule": "R-1 prototype convention: the calculated figure does not lead the cover when unresolved self-reported inconsistencies affect at least 3 schemes, or at least 10% of the tier 1 schemes reported covered.",
+     "unresolved": 6,
+     "tier1Reported": 43,
+     "substantial": true
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 2,
+      "dependency": 4,
+      "gap": 4,
+      "qualified": 15,
+      "confirmed": 81,
+      "outstanding": 0,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 0,
+     "relations": {
+      "direct-contradiction": 2,
+      "necessary-dependency": 5,
+      "complementary-weakness": 49,
+      "untested-practice": 0,
+      "missing-information": 0
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1950
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 25
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 10
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 64
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 15
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 88
+     },
+     {
+      "letter": "F",
+      "title": "Measurement register",
+      "count": 64
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 56
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 13
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 7
+     },
+     {
+      "name": "Schemes",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 25
+     },
+     {
+      "name": "Risks",
+      "rows": 10
+     },
+     {
+      "name": "Controls",
+      "rows": 64
+     },
+     {
+      "name": "Records",
+      "rows": 15
+     },
+     {
+      "name": "Actions",
+      "rows": 88
+     },
+     {
+      "name": "Measures",
+      "rows": 64
+     },
+     {
+      "name": "Decisions",
+      "rows": 4
+     },
+     {
+      "name": "Relationships",
+      "rows": 56
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Roles",
+      "rows": 13
+     },
+     {
+      "name": "Content gaps",
+      "rows": 52
+     },
+     {
+      "name": "Traceability",
+      "rows": 64
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "corrected": {
+    "fixtureScore": 78.5,
+    "fixtureBand": "Structured",
+    "r1": {
+     "rule": "R-1 prototype convention: the calculated figure does not lead the cover when unresolved self-reported inconsistencies affect at least 3 schemes, or at least 10% of the tier 1 schemes reported covered.",
+     "unresolved": 0,
+     "tier1Reported": 17,
+     "substantial": false
+    },
+    "schemes": {
+     "applicable": 49,
+     "notExpected": 2,
+     "tier1": 21,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "gap": 10,
+      "qualified": 1,
+      "confirmed": 36,
+      "outstanding": 0,
+      "not-expected": 2,
+      "none": 0
+     },
+     "tier1Gap": 4,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 0
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1817
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 11
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 10
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 15
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 9
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 24
+     },
+     {
+      "letter": "F",
+      "title": "Measurement register",
+      "count": 15
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 1
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 0
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 5
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 7
+     },
+     {
+      "name": "Schemes",
+      "rows": 49
+     },
+     {
+      "name": "Findings",
+      "rows": 11
+     },
+     {
+      "name": "Risks",
+      "rows": 10
+     },
+     {
+      "name": "Controls",
+      "rows": 15
+     },
+     {
+      "name": "Records",
+      "rows": 9
+     },
+     {
+      "name": "Actions",
+      "rows": 24
+     },
+     {
+      "name": "Measures",
+      "rows": 15
+     },
+     {
+      "name": "Decisions",
+      "rows": 3
+     },
+     {
+      "name": "Relationships",
+      "rows": 1
+     },
+     {
+      "name": "Outstanding",
+      "rows": 0
+     },
+     {
+      "name": "Roles",
+      "rows": 5
+     },
+     {
+      "name": "Content gaps",
+      "rows": 9
+     },
+     {
+      "name": "Traceability",
+      "rows": 15
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "corrected": {
+    "fixtureScore": 55.1,
+    "fixtureBand": "Developing",
+    "r1": {
+     "rule": "R-1 prototype convention: the calculated figure does not lead the cover when unresolved self-reported inconsistencies affect at least 3 schemes, or at least 10% of the tier 1 schemes reported covered.",
+     "unresolved": 0,
+     "tier1Reported": 21,
+     "substantial": false
+    },
+    "schemes": {
+     "applicable": 106,
+     "notExpected": 0,
+     "tier1": 43,
+     "byKind": {
+      "contradiction": 0,
+      "dependency": 0,
+      "gap": 58,
+      "qualified": 1,
+      "confirmed": 45,
+      "outstanding": 2,
+      "not-expected": 0,
+      "none": 0
+     },
+     "tier1Gap": 22,
+     "relations": {
+      "direct-contradiction": 0,
+      "necessary-dependency": 0,
+      "complementary-weakness": 1,
+      "untested-practice": 0,
+      "missing-information": 3
+     }
+    },
+    "essentialValidation": {
+     "ok": true,
+     "issues": [],
+     "words": 1939
+    },
+    "essentialIdLeaks": [],
+    "comprehensiveIdLeaks": [],
+    "comprehensive": [
+     {
+      "letter": "A",
+      "title": "Finding register",
+      "count": 59
+     },
+     {
+      "letter": "B",
+      "title": "Fraud risk register",
+      "count": 58
+     },
+     {
+      "letter": "C",
+      "title": "Control blueprint register",
+      "count": 103
+     },
+     {
+      "letter": "D",
+      "title": "Records management should maintain",
+      "count": 45
+     },
+     {
+      "letter": "E",
+      "title": "Action register",
+      "count": 128
+     },
+     {
+      "letter": "F",
+      "title": "Measurement register",
+      "count": 103
+     },
+     {
+      "letter": "G",
+      "title": "Answer relationships",
+      "count": 4
+     },
+     {
+      "letter": "H",
+      "title": "Outstanding information",
+      "count": 7
+     },
+     {
+      "letter": "I",
+      "title": "Roles used in this report",
+      "count": 11
+     }
+    ],
+    "workbook": [
+     {
+      "name": "Read me",
+      "rows": 7
+     },
+     {
+      "name": "Schemes",
+      "rows": 106
+     },
+     {
+      "name": "Findings",
+      "rows": 59
+     },
+     {
+      "name": "Risks",
+      "rows": 58
+     },
+     {
+      "name": "Controls",
+      "rows": 103
+     },
+     {
+      "name": "Records",
+      "rows": 45
+     },
+     {
+      "name": "Actions",
+      "rows": 128
+     },
+     {
+      "name": "Measures",
+      "rows": 103
+     },
+     {
+      "name": "Decisions",
+      "rows": 4
+     },
+     {
+      "name": "Relationships",
+      "rows": 4
+     },
+     {
+      "name": "Outstanding",
+      "rows": 7
+     },
+     {
+      "name": "Roles",
+      "rows": 11
+     },
+     {
+      "name": "Content gaps",
+      "rows": 65
+     },
+     {
+      "name": "Traceability",
+      "rows": 103
+     },
+     {
+      "name": "Reconciliation",
+      "rows": 11
+     }
+    ]
+   }
+  }
+ }
+}

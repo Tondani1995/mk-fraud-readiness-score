@@ -1,0 +1,87 @@
+{
+ "product": "comprehensive",
+ "organisation": "Fictional Owner-Managed Firm",
+ "assessmentReference": "FX-P4",
+ "bibleVersion": "1.1",
+ "sourceCommit": "4e936baf99405a9428b6514e42e634dfac481d35",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "7f75ac761e6a92b2df5b0e34ff044151713df36c45fbd844fddbd5a6aed3970d",
+  "manuscript": "f27fdd9897fa900203081115dc5b63ba69d2df09e42650f9ef8c542472459a5d",
+  "html": "0db7a58338a9c0996a9d537e706e639a2baec94638df8d612716920a6e4bf4ad",
+  "pdf": "154104ff605656e48fd9cd3d2a9b5f6c26815622c41c264dadef4ca43fdaa4a2",
+  "workbook": "ae7c7674a05252dd464f1a05f0d7897708817ed3f05f80b6c2704afcbd3e26aa"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 18,
+   "columns": 2
+  },
+  {
+   "name": "Summary",
+   "rows": 10,
+   "columns": 2
+  },
+  {
+   "name": "Material Findings",
+   "rows": 11,
+   "columns": 12
+  },
+  {
+   "name": "Risk Register",
+   "rows": 10,
+   "columns": 8
+  },
+  {
+   "name": "Control Blueprints",
+   "rows": 15,
+   "columns": 22
+  },
+  {
+   "name": "Implementation Blueprint",
+   "rows": 21,
+   "columns": 9
+  },
+  {
+   "name": "Management Decisions",
+   "rows": 9,
+   "columns": 13
+  },
+  {
+   "name": "Question Traceability",
+   "rows": 56,
+   "columns": 10
+  }
+ ],
+ "pages": 28,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "flowSections": [
+  "COMP-TARGET",
+  "COMP-PROGRAMME"
+ ],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

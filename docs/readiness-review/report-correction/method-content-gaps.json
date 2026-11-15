@@ -1,0 +1,94 @@
+{
+ "practiceQuestions": 821,
+ "formats": {
+  "choicePractice": 81,
+  "practice": 605,
+  "anchored": 133,
+  "multi": 2
+ },
+ "byGap": {
+  "no-level-descriptions": 688,
+  "no-records-named": 688,
+  "no-operating-cycle": 593
+ },
+ "byArea": {
+  "D1": {
+   "questions": 74,
+   "anyGap": 70
+  },
+  "D2": {
+   "questions": 66,
+   "anyGap": 58
+  },
+  "D3": {
+   "questions": 84,
+   "anyGap": 78
+  },
+  "D4": {
+   "questions": 140,
+   "anyGap": 128
+  },
+  "D5": {
+   "questions": 115,
+   "anyGap": 104
+  },
+  "D6": {
+   "questions": 78,
+   "anyGap": 67
+  },
+  "D7": {
+   "questions": 69,
+   "anyGap": 56
+  },
+  "D8": {
+   "questions": 68,
+   "anyGap": 55
+  },
+  "D9": {
+   "questions": 62,
+   "anyGap": 54
+  },
+  "D10": {
+   "questions": 65,
+   "anyGap": 57
+  }
+ },
+ "usedInReports": {
+  "P3": {
+   "controls": 106,
+   "withGap": 66,
+   "byGap": {
+    "no-level-descriptions": 59,
+    "no-records-named": 59,
+    "no-operating-cycle": 48
+   }
+  },
+  "P4": {
+   "controls": 15,
+   "withGap": 9,
+   "byGap": {
+    "no-operating-cycle": 9,
+    "no-level-descriptions": 6,
+    "no-records-named": 6
+   }
+  },
+  "P5": {
+   "controls": 103,
+   "withGap": 65,
+   "byGap": {
+    "no-level-descriptions": 58,
+    "no-records-named": 58,
+    "no-operating-cycle": 47
+   }
+  },
+  "P6b": {
+   "controls": 64,
+   "withGap": 52,
+   "byGap": {
+    "no-level-descriptions": 49,
+    "no-records-named": 49,
+    "no-operating-cycle": 39
+   }
+  }
+ }
+}

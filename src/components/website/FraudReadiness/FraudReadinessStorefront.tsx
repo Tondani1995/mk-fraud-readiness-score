@@ -5,6 +5,8 @@ import MethodologyTrust from '@/components/website/MethodologyTrust';
 import { SnapshotPreview } from '@/components/website/SnapshotPreview';
 import { Button } from '@/components/website/ui/button';
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
+import { readinessTrack } from '@/lib/website/readiness-track';
+import { REVIEW_STOREFRONT } from '@/lib/website/review-track-copy';
 
 function formatPrice(priceCents: number | null) {
   if (priceCents === null) return 'Scoped with MK';
@@ -12,6 +14,8 @@ function formatPrice(priceCents: number | null) {
 }
 
 export function FraudReadinessStorefront() {
+  // The review track changes only what is true of it: the hero description, the journey and the paid-tier notice.
+  const review = readinessTrack() === 'review';
   const essential = COMMERCIAL_CATALOGUE.essential;
   const comprehensive = COMMERCIAL_CATALOGUE.comprehensive;
   const advisory = COMMERCIAL_CATALOGUE.advisory;
@@ -32,7 +36,9 @@ export function FraudReadinessStorefront() {
               How fraud-ready is your organisation?
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
-              Complete the free MK Fraud Readiness Assessment and receive a private, self-reported Snapshot of your organisation&apos;s readiness and exposure.
+              {review
+                ? REVIEW_STOREFRONT.heroBody
+                : 'Complete the free MK Fraud Readiness Assessment and receive a private, self-reported Snapshot of your organisation\u2019s readiness and exposure.'}
             </p>
             <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-[#a9d4ce]">
               No evidence uploads, customer records or transaction-level data are required to take part.
@@ -57,11 +63,11 @@ export function FraudReadinessStorefront() {
 
       <section className="border-b border-[#dfd8cb] bg-[#fbfaf7]">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-6 sm:py-12 md:grid-cols-3 lg:px-8 lg:py-16" data-assessment-journey>
-          {[
+          {(review ? REVIEW_STOREFRONT.steps.map(([title, body], i) => [`0${i + 1}`, title, body]) : [
             ['01', 'Diagnose', 'Start with a tailored assessment that asks only what is relevant to your organisation.'],
             ['02', 'Design', 'Use the Snapshot to understand the position, the gaps and the decisions that matter.'],
             ['03', 'Implement', 'Choose a detailed report or a scoped Advisory engagement when you are ready to move.']
-          ].map(([number, title, body]) => (
+          ]).map(([number, title, body]) => (
             <article key={title} className="border-t-2 border-[#001030] pt-5">
               <p className="text-xs font-bold tracking-[0.2em] text-[#6f5537]">{number}</p>
               <h2 className="mt-3 text-xl font-semibold">{title}</h2>
@@ -76,7 +82,7 @@ export function FraudReadinessStorefront() {
           <div className="max-w-2xl">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Support ladder</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">One result. Three ways to use it.</h2>
-            <p className="mt-4 text-base leading-7 text-[#4f5d66]">The Snapshot is the starting point. The next product is chosen by the work you need the result to do.</p>
+            <p className="mt-4 text-base leading-7 text-[#4f5d66]">{review ? REVIEW_STOREFRONT.productsIntro : 'The Snapshot is the starting point. The next product is chosen by the work you need the result to do.'}</p>
           </div>
           <div className="mt-9 grid gap-5 lg:grid-cols-3" aria-label="Fraud readiness support options">
             <ProductTierCard

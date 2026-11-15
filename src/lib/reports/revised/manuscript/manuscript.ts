@@ -1,0 +1,266 @@
+import { analyseMechanicalLanguage } from '../../narrative/mechanical-language';
+import type { RevisedFactPack } from './fact-pack';
+import type { RevisedStoryPlan } from './story-plan';
+
+/**
+ * Manuscript parsing and narrative validation (Reporting Bible v1.1, sections 4, 5, 17, 18 and 21.1; stages 7 to 9).
+ *
+ * FICTIONAL PROTOTYPE. The manuscript is Markdown written under the writer contract: planned sections in order, a
+ * claim heading for each section and unit, every paragraph followed by the references it relies on, every figure
+ * inserted from the Fact Pack as a slot, and exhibits placed by name. Validation has a factual layer (unknown
+ * references, figures typed by the writer, prohibited claims, internal language) and an editorial layer (missing
+ * movements or exhibits, label headings, mechanical cadence, fragments, repeated contrasts). A manuscript that fails
+ * a blocking check is not composed.
+ */
+export const MANUSCRIPT_VALIDATOR_VERSION = 'revised-manuscript-validator-0.4';
+
+export type Block = { type: 'h2' | 'h3' | 'p' | 'exhibit'; text: string; refs: string[]; line: number };
+export type ParsedSection = { id: string; heading: string; blocks: Block[]; line: number };
+export type ParsedManuscript = { header: string; sections: ParsedSection[] };
+
+export function parseManuscript(md: string): ParsedManuscript {
+  const lines = md.replace(/\r/g, '').split('\n');
+  const sections: ParsedSection[] = [];
+  let header = '';
+  let cur: ParsedSection | null = null;
+  let para: string[] = [];
+  let paraLine = 0;
+  const flush = () => {
+    if (!para.length || !cur) { para = []; return; }
+    cur.blocks.push({ type: 'p', text: para.join(' ').trim(), refs: [], line: paraLine });
+    para = [];
+  };
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    const sec = line.match(/^<!--\s*section:\s*([A-Z0-9-]+)\s*-->$/);
+    const refs = line.match(/^<!--\s*refs:\s*(.*?)\s*-->$/);
+    if (sec) { flush(); cur = { id: sec[1], heading: '', blocks: [], line: i + 1 }; sections.push(cur); return; }
+    if (refs) {
+      flush();
+      const last = cur?.blocks[cur.blocks.length - 1];
+      if (last) last.refs = refs[1].split(',').map((x) => x.trim()).filter(Boolean);
+      return;
+    }
+    if (/^<!--.*-->$/.test(line)) { if (!cur) header += line; return; }
+    if (!line) { flush(); return; }
+    if (!cur) return;
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) {
+      flush();
+      if (h[1] === '#') cur.heading = h[2].trim();
+      else cur.blocks.push({ type: h[1] === '##' ? 'h2' : 'h3', text: h[2].trim(), refs: [], line: i + 1 });
+      return;
+    }
+    const ex = line.match(/^\[\[exhibit:([a-z0-9:-]+)\]\]$/i);
+    if (ex) { flush(); cur.blocks.push({ type: 'exhibit', text: ex[1], refs: [], line: i + 1 }); return; }
+    if (!para.length) paraLine = i + 1;
+    para.push(line);
+  });
+  flush();
+  return { header, sections };
+}
+
+const NUMBER_WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+/** Replace `[[REF]]`, `[[REF|w]]` and `[[REF|W]]` with Fact Pack values. Unknown references are left marked. */
+export function fillSlots(text: string, fp: RevisedFactPack): { text: string; unknown: string[] } {
+  const unknown: string[] = [];
+  const out = text.replace(/\[\[([A-Z0-9-]+)(?:\|([wW]))?\]\]/g, (_m, ref: string, mode?: string) => {
+    const f = fp.facts[ref];
+    if (!f) { unknown.push(ref); return `⟦${ref}⟧`; }
+    if (mode && typeof f.value === 'number' && f.value >= 0 && f.value <= 10) {
+      const w = NUMBER_WORDS[f.value];
+      return mode === 'W' ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+    }
+    return typeof f.value === 'number' ? f.value.toLocaleString('en-ZA').replace(/ /g, ' ') : String(f.value);
+  });
+  return { text: out, unknown };
+}
+
+export function knownRefs(fp: RevisedFactPack): Set<string> {
+  return new Set([
+    ...Object.keys(fp.facts), ...fp.position.map((p) => p.ref), ...fp.areas.map((a) => a.ref), ...fp.themes.map((t) => t.ref),
+    ...fp.findings.map((f) => f.ref), ...fp.pathways.map((p) => p.ref), ...fp.priorities.map((p) => p.ref), ...fp.blueprints.map((b) => b.ref),
+    ...fp.decisions.map((d) => d.ref), ...fp.roadmap.map((s) => s.ref), ...fp.scorecard.map((m) => m.ref), ...fp.operatingModel.map((r) => r.ref),
+    ...fp.pending.map((p) => p.ref), ...(fp.legal ?? []).map((l) => l.ref)
+  ]);
+}
+
+export type Issue = { code: string; layer: 'factual' | 'editorial'; blocking: boolean; section: string; line: number; detail: string };
+export type ManuscriptValidation = {
+  validator: typeof MANUSCRIPT_VALIDATOR_VERSION; product: string; pass: boolean; issues: Issue[];
+  stats: { sections: number; paragraphs: number; words: number; headings: number; exhibits: number; refsPerParagraph: number; slots: number; mechanical: unknown; contrasts: number; shortParagraphs: number; boundaryMentions: number; manuscriptTest: Record<string, boolean> };
+};
+
+const ALLOWED_DIGITS = /\b(30|60|90)(?=[\s-](?:day|days)\b)|\b(30|60|90)(?=,\s*60|\s+and\s+90)|\b12(?=[\s-]months?\b)|\bmonths? [47](?: to (?:6|12))?\b|\b(?:4|7) to (?:6|12)\b|\bsection \d+(?= of (?:POPIA|PRECCA|the Protected Disclosures Act)\b)/g;
+const PROHIBITED: { code: string; re: RegExp; detail: string }[] = [
+  { code: 'BAND', re: /\b(Reactive|Structured|Strategic)\b|(?<![.!?]\s)(?<!^)\bDeveloping\b|\bmaturity band\b(?! or)/g, detail: 'A maturity band is stated.' },
+  { code: 'RANKING', re: /\b(most material|material (?:fraud )?exposure|highest[- ]priority|top priority|critical risks?|high[- ]priority|ranked (?:first|highest)|matters? most|most important risks?|the biggest risk|most serious)\b/gi, detail: 'Ranking or materiality language without an approved method.' },
+  { code: 'ASSURANCE', re: /\b(MK|we) (?:has |have )?(?:tested|verified|validated|confirmed|examined)\b|\b(independently verified|evidence-based|evidence-linked|has been verified|have been verified|has been validated|have been validated|was tested by|were tested by)\b/gi, detail: 'A claim of testing, verification or validation.' },
+  // DR-02 point 5: no report concludes that an organisation is ready. Narrow on purpose: it names the organisation as
+  // ready, never the word on its own ("ready to act", "readiness").
+  { code: 'READY', re: /\b(?:the )?(?:organisation|company|business|group)(?:'s)? (?:is|was|are) (?:(?:now|fully|largely|broadly|already) )*(?:fraud[- ])?ready\b|\breadiness (?:is|has been) (?:achieved|attained|reached)\b/gi, detail: 'A statement that the organisation is ready; no report concludes readiness.' },
+  { code: 'EM-DASH', re: /—|\s–\s/g, detail: 'An em dash, or an en dash used as a dash.' },
+  { code: 'RAW-ID', re: /\b(D\d+-[A-Z]-\d+|FS-D\d+-\d+|(?:FINDING|PRIORITY|PATHWAY|BLUEPRINT|DECISION|STAGE|MEASURE|POSITION|AREA)-[A-Z0-9-]+|THEME-[A-Z0-9-]+|OBJ-X-\d+)\b/g, detail: 'An internal identifier in customer prose.' },
+  { code: 'ENGINE', re: /\b(recorded condition|recorded weakness|hard gate|cap event|the engine|the model (?:identified|selected)|generated interpretation|aggregate maturity|named record|fact pack|story plan|test-injected)\b/gi, detail: 'Engine or internal language.' }
+];
+/**
+ * Essential is PDF-only. These patterns catch a promise of a supplied artefact the customer does not receive (a
+ * supporting workbook, an accompanying register, "the workbook", something "supplied with this report"). They do not
+ * catch advice about the organisation's own records ("retain its own spreadsheet of authorised supplier changes",
+ * "maintain an action register for remediation work"), which is legitimate control advice (independent review F3).
+ */
+export const ESSENTIAL_ARTEFACT_PROMISES: { id: string; re: RegExp }[] = [
+  { id: 'accompanying artefact', re: /\b(?:supporting|accompanying|attached|enclosed|separate|companion|supplementary)\s+(?:work ?books?|spreadsheets?|excel(?:\s+(?:file|workbook))?|registers?|annex(?:es)?|appendix|appendices)\b/i },
+  { id: 'the workbook', re: /\bthe\s+work ?books?\b/i },
+  { id: 'consult a supplied artefact', re: /\b(?:see|refer to|consult)\s+the\s+(?:spreadsheet|excel file|registers?)\b|\bin\s+the\s+(?:full|wider|complete)\s+(?:action\s+|findings?\s+|risk\s+|control\s+)?registers?\b/i },
+  { id: 'supplied with this report', re: /\b(?:work ?books?|spreadsheets?|excel file|registers?|annex|appendix)\b[^.]{0,60}?\b(?:accompan(?:ies|ying)|supplied with|provided with|included with|delivered with|attached to|that comes with)\s+(?:this|the)\s+report\b/i },
+  { id: "the report's own artefact", re: /\b(?:this report'?s|the report'?s|MK'?s|our)\s+(?:work ?books?|spreadsheets?|(?:action\s+)?registers?|appendix|annex)\b/i },
+  { id: 'the wider register', re: /\bthe\s+(?:full|wider)\s+(?:action\s+|findings?\s+|risk\s+|control\s+)?register\b/i }
+];
+export function essentialArtefactPromise(line: string): string | null {
+  const t = line.replace(/\[\[[^\]]+\]\]/g, '0');
+  return ESSENTIAL_ARTEFACT_PROMISES.find((p) => p.re.test(t))?.id ?? null;
+}
+
+/** Headings above this length set over three lines at the publication's heading size. */
+export const HEADING_MAX_WORDS = 16;
+const COUNT_WORDS = /\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:[a-z-]+\s+){0,2}?(findings|themes|patterns|routes|pathways|responses|decisions|controls|scenarios|questions|areas|gaps|blueprints)\b/gi;
+const CONTRAST = /\b(?:is|was|are|were) not [^.;:]{1,80}[;,] (?:it|they|this) (?:is|are|was|were)\b|\bnot [^.;:,]{1,60}, but\b/gi;
+const BOUNDARY = /\b(self-reported|self-assessed|own answers|not independently verified)\b/gi;
+
+export function validateManuscript(md: string, fp: RevisedFactPack, plan: RevisedStoryPlan): ManuscriptValidation {
+  const parsed = parseManuscript(md);
+  const known = knownRefs(fp);
+  const issues: Issue[] = [];
+  const add = (code: string, layer: Issue['layer'], blocking: boolean, section: string, line: number, detail: string) => issues.push({ code, layer, blocking, section, line, detail });
+  let words = 0, paragraphs = 0, refsTotal = 0, slots = 0, headings = 0, exhibits = 0, contrasts = 0, shortParagraphs = 0, boundary = 0;
+  const slotsForMech: { slotId: string; prose: string }[] = [];
+
+  // Structure: every planned section, in order.
+  const ids = parsed.sections.map((s) => s.id);
+  const planned = plan.sections.map((s) => s.id);
+  if (ids.join('|') !== planned.join('|')) add('STRUCTURE', 'editorial', true, '', 0, `Sections ${ids.join(', ')} do not match the plan ${planned.join(', ')}.`);
+  for (const ps of plan.sections) {
+    const s = parsed.sections.find((x) => x.id === ps.id);
+    if (!s) continue;
+    if (!s.heading) add('HEADING-MISSING', 'editorial', true, s.id, s.line, 'The section has no heading.');
+    const ex = s.blocks.filter((b) => b.type === 'exhibit').map((b) => b.text);
+    for (const e of ps.exhibits) if (!ex.includes(e)) add('EXHIBIT-MISSING', 'editorial', true, s.id, s.line, `Planned exhibit ${e} is not placed.`);
+    for (const u of ps.units ?? []) if (u.exhibit && !ex.includes(u.exhibit)) add('EXHIBIT-MISSING', 'editorial', true, s.id, s.line, `Planned exhibit ${u.exhibit} is not placed.`);
+    const h2 = s.blocks.filter((b) => b.type === 'h2');
+    if (ps.units && h2.length !== ps.units.length) add('UNITS', 'editorial', true, s.id, s.line, `${h2.length} unit headings for ${ps.units.length} planned units.`);
+    for (const e of ex) if (!['contents', 'position', 'profile', 'priorities', 'roadmap-90', 'roadmap-12', 'theme-map', 'operating-model', 'scorecard', 'method-status'].includes(e) && !/^(finding|pathway|blueprint|decision):[A-Z0-9-]+$/.test(e)) add('EXHIBIT-UNKNOWN', 'editorial', true, s.id, s.line, `Unknown exhibit ${e}.`);
+  }
+  // Essential is PDF-only by product contract (independent review E-1): no reference to a workbook, spreadsheet or
+  // supporting register the customer does not receive. Blocking, and repairable line by line.
+  if (fp.product === 'essential') {
+    md.split('\n').forEach((t, i) => {
+      if (/^\s*<!--|^\s*\[\[exhibit:/.test(t)) return;
+      const hit = essentialArtefactPromise(t);
+      if (hit) add('ENTITLEMENT', 'editorial', true, '', i + 1, `The Essential report is PDF-only; this line promises an artefact it does not include (${hit}). Advice that the organisation keep its own records is allowed.`);
+    });
+  }
+  for (const s of parsed.sections) {
+    const heads = [s.heading, ...s.blocks.filter((b) => b.type !== 'p' && b.type !== 'exhibit').map((b) => b.text)];
+    for (const h of heads) {
+      headings++;
+      if (/^(Finding|Material finding|Scenario|Pathway|Theme|Blueprint|Priority|Decision|Section)\s*\d*$/i.test(h.replace(/\[\[[^\]]+\]\]/g, '').trim())) add('LABEL-HEADING', 'editorial', true, s.id, s.line, `Heading "${h}" is a label, not a claim.`);
+      const { unknown } = fillSlots(h, fp);
+      for (const u of unknown) add('SLOT-UNKNOWN', 'factual', true, s.id, s.line, `Unknown slot ${u} in a heading.`);
+      // Independent review Q7: claim headings of three or four lines. Recorded as a warning (not blocking) so it never adds a paid repair.
+      const hw = fillSlots(h, fp).text.split(/\s+/).filter(Boolean).length;
+      if (hw > HEADING_MAX_WORDS) add('HEADING-LENGTH', 'editorial', false, s.id, s.line, `A heading of ${hw} words (guide ${HEADING_MAX_WORDS}).`);
+      const hc = h.replace(/\[\[[^\]]+\]\]/g, '').match(COUNT_WORDS);
+      if (hc) add('TYPED-COUNT', 'factual', true, s.id, s.line, `Counts typed in a heading: ${hc.join(', ')}.`);
+      for (const p of PROHIBITED) if (new RegExp(p.re.source, p.re.flags).test(fillSlots(h, fp).text)) add(p.code, 'factual', true, s.id, s.line, `${p.detail} Heading: "${h}"`);
+    }
+    for (const b of s.blocks) {
+      if (b.type === 'exhibit') { exhibits++; continue; }
+      if (b.type !== 'p') continue;
+      paragraphs++;
+      const slotCount = (b.text.match(/\[\[[A-Z0-9-]+(?:\|[wW])?\]\]/g) ?? []).length;
+      slots += slotCount;
+      const { text, unknown } = fillSlots(b.text, fp);
+      for (const u of unknown) add('SLOT-UNKNOWN', 'factual', true, s.id, b.line, `Unknown slot ${u}.`);
+      const wc = text.split(/\s+/).filter(Boolean).length;
+      words += wc;
+      slotsForMech.push({ slotId: `${s.id}:${b.line}`, prose: text });
+      if (!b.refs.length) add('NO-PROVENANCE', 'factual', true, s.id, b.line, 'The paragraph has no references.');
+      refsTotal += b.refs.length;
+      for (const r of b.refs) if (!known.has(r)) add('REF-UNKNOWN', 'factual', true, s.id, b.line, `Unknown reference ${r}.`);
+      // Figures typed by the writer: every digit must come from a slot or be a permitted planning term.
+      // A statute citation ("section 34A of PRECCA") is not a figure when the paragraph cites a legal-context fact that
+      // carries exactly that section; any other number is still a typed figure.
+      const lawText = b.refs.map((r) => (fp.legal ?? []).find((l) => l.ref === r)?.text ?? '').join(' ');
+      const typed = b.text.replace(/\[\[[^\]]+\]\]/g, '').replace(ALLOWED_DIGITS, '')
+        .replace(/\bsections?\s+(\d+[A-Z]?)\b/gi, (m, n) => (new RegExp(`\\bsection ${n}\\b`, 'i').test(lawText) ? '' : m));
+      const digits = typed.match(/\d[\d\s,.]*/g);
+      const counted = typed.match(COUNT_WORDS);
+      if (counted) add('TYPED-COUNT', 'factual', true, s.id, b.line, `Counts typed in words instead of inserted from the Fact Pack: ${counted.join(', ')}.`);
+      if (digits) add('TYPED-FIGURE', 'factual', true, s.id, b.line, `Figures typed instead of inserted from the Fact Pack: ${digits.map((d) => d.trim()).join(', ')}.`);
+      for (const p of PROHIBITED) {
+        const m = text.match(new RegExp(p.re.source, p.re.flags));
+        if (m) add(p.code, 'factual', true, s.id, b.line, `${p.detail} Found: ${[...new Set(m)].join(', ')}.`);
+      }
+      const c = text.match(CONTRAST);
+      if (c) contrasts += c.length;
+      boundary += (text.match(BOUNDARY) ?? []).length;
+      if (wc < 14) { shortParagraphs++; add('SHORT-PARAGRAPH', 'editorial', false, s.id, b.line, `A paragraph of ${wc} words.`); }
+    }
+  }
+  // Editorial thresholds.
+  const exec = parsed.sections.find((s) => /EXEC$/.test(s.id));
+  if (!exec || exec.blocks.filter((b) => b.type === 'p').length < 3) add('EXEC-NARRATIVE', 'editorial', true, exec?.id ?? '', 0, 'The executive section has fewer than three narrative paragraphs.');
+  // The executive section states the scenario account in the report's one convention, by its slot, so that the opening
+  // never accounts for only some of the scenarios (staging certification, 14 November 2026, defect 2). Reported against
+  // the section's first paragraph, which the line repair can rewrite to include the slot.
+  if (exec && typeof fp.facts['T-SCENARIO-ACCOUNT']?.value === 'string' && !exec.blocks.some((b) => b.type === 'p' && b.text.includes('[[T-SCENARIO-ACCOUNT]]'))) {
+    const first = exec.blocks.find((b) => b.type === 'p');
+    add('ACCOUNT-MISSING', 'factual', true, exec.id, first?.line ?? exec.line, 'The executive section must state the scenario account: insert [[T-SCENARIO-ACCOUNT]] as a sentence of its own in this paragraph, in place of any counts restated in your own words.');
+  }
+  const concl = parsed.sections.find((s) => /CONCLUSION$/.test(s.id));
+  // DR-02 point 7: a scored report opens its conclusion with the agreed wording, by slot, never paraphrased. Reported at
+  // the conclusion's first paragraph so the line repair can fix it.
+  if (concl && typeof fp.facts['T-CONCLUSION']?.value === 'string') {
+    const paras = concl.blocks.filter((b) => b.type === 'p');
+    const first = paras[0];
+    if (!first || !first.text.includes('[[T-CONCLUSION]]')) add('CONCLUSION-MISSING', 'factual', true, concl.id, first?.line ?? concl.line, 'The conclusion must open with the score conclusion: insert [[T-CONCLUSION]] as the first paragraph, in place of any score or position restated in your own words.');
+    if (typeof fp.facts['T-CONCLUSION-OUTSTANDING']?.value === 'string' && !paras.some((b) => b.text.includes('[[T-CONCLUSION-OUTSTANDING]]'))) add('CONCLUSION-MISSING', 'factual', true, concl.id, first?.line ?? concl.line, 'The conclusion must say what is not yet counted in the score: insert [[T-CONCLUSION-OUTSTANDING]] as a sentence of its own after [[T-CONCLUSION]].');
+  }
+  if (!concl || concl.blocks.filter((b) => b.type === 'p').length < 2) add('CONCLUSION-NARRATIVE', 'editorial', true, concl?.id ?? '', 0, 'The conclusion has fewer than two narrative paragraphs.');
+  const mechanical = analyseMechanicalLanguage(slotsForMech);
+  const mech = mechanical as unknown as { reportFindings?: { family: string; count: number; allowance: number }[]; pass?: boolean };
+  for (const f of mech.reportFindings ?? []) if (f.count > f.allowance) add('MECHANICAL', 'editorial', true, '', 0, `Mechanical family "${f.family}" used ${f.count} times (allowance ${f.allowance}).`);
+  if (contrasts > 4) add('CONTRASTS', 'editorial', true, '', 0, `${contrasts} "not X, but Y" constructions (allowance 4).`);
+  if (boundary > 8) add('BOUNDARY-REPEATED', 'editorial', false, '', 0, `${boundary} mentions of the self-assessment basis (allowance 8).`);
+  // Manuscript test (Bible 5.1): each question has a section that answers it.
+  const has = (re: RegExp) => parsed.sections.some((s) => re.test(s.id) && s.blocks.some((b) => b.type === 'p'));
+  const manuscriptTest = {
+    'Where does the organisation stand?': has(/EXEC$/), 'What does that position mean?': has(/EXEC$|PROFILE$/), 'What patterns drive the result?': has(/THEMES$/),
+    'Which findings matter and why?': has(/FINDINGS$/), 'How could they translate into fraud?': has(/PATHWAYS$/), 'What should management do first?': has(/PRIORITIES$|ROADMAP$|TARGET$|PROGRAMME$/),
+    'What should the organisation become?': has(/ROADMAP$|TARGET$|OPMODEL$|PROGRAMME$/), 'What should management take away?': has(/CONCLUSION$/)
+  };
+  for (const [q, ok] of Object.entries(manuscriptTest)) if (!ok) add('MANUSCRIPT-TEST', 'editorial', true, '', 0, `No section answers "${q}"`);
+  return {
+    validator: MANUSCRIPT_VALIDATOR_VERSION, product: fp.product, pass: !issues.some((i) => i.blocking), issues,
+    stats: { sections: parsed.sections.length, paragraphs, words, headings, exhibits, refsPerParagraph: paragraphs ? Number((refsTotal / paragraphs).toFixed(2)) : 0, slots, mechanical, contrasts, shortParagraphs, boundaryMentions: boundary, manuscriptTest }
+  };
+}
+
+/** The plain-text manuscript (Bible section 5): headings and prose only, slots filled, references and exhibits removed. */
+export function plainManuscript(md: string, fp: RevisedFactPack, plan: RevisedStoryPlan): string {
+  const parsed = parseManuscript(md);
+  const out: string[] = [];
+  for (const s of parsed.sections) {
+    const ps = plan.sections.find((x) => x.id === s.id);
+    out.push(`# ${fillSlots(s.heading, fp).text}`, '');
+    if (ps && ps.title !== s.heading) out.push(`(${ps.title})`, '');
+    for (const b of s.blocks) {
+      if (b.type === 'exhibit') continue;
+      if (b.type === 'h2') out.push(`## ${fillSlots(b.text, fp).text}`, '');
+      else if (b.type === 'h3') out.push(`### ${fillSlots(b.text, fp).text}`, '');
+      else out.push(fillSlots(b.text, fp).text, '');
+    }
+  }
+  return out.join('\n');
+}

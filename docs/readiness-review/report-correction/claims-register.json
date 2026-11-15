@@ -1,0 +1,2191 @@
+{
+ "generated": "from report-comparison (prototype 1, 5fb4dc2) and report-correction",
+ "claims": [
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Staff do not know or understand what is expected",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Donations or sponsorships channel bribes",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A fictitious supplier is created and paid",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Supplier payments are diverted through changed bank details",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A supplier is set up with an account it does not own",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "One person can order and approve payment",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Invoices are paid for goods or services not received or not agreed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "An outsourced provider misuses its access",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A tender is manipulated or purchases are split",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Buyers take kickbacks",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Purchase cards or petty cash are misused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Intermediaries pay bribes or inflate fees",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Procurement anomalies are never noticed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Variations inflate the agreed value",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Salaries are redirected through a fake bank change",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Ghost employees are paid",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Leavers stay on the payroll",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A false identity enters at hiring",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A stand-in or deepfake candidate is appointed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "The payroll payment file is altered after approval",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Cash wages are stolen or paid to ghosts",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Hours and overtime are inflated",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Expenses and advances are abused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Labour brokers invoice for workers who were not there",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "An insider in a high-risk role works unchecked",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Refunds are stolen",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Customer details are changed to divert money or goods",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Credit is obtained with fabricated documents",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Claims are fabricated or inflated",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Sales are not billed or receipts are diverted",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Customers pay fraudsters impersonating the organisation",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Prices are overridden or side deals made",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Agents report fictitious sales",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Vouchers and loyalty points are abused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Customers are wrongly blocked on a fraud flag",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Cash takings are stolen",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Stock is stolen and hidden in the counts",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Portable and fixed assets go missing",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Data leaves on disposed or reissued devices",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Assets or scrap are sold off cheaply or without payment",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Goods are released to an impostor",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Fuel and fleet are misused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Goods go missing in transit",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "High-value materials are stolen by organised groups",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Losses are never tracked",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "An email account is taken over",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A payment instruction received by email is acted on",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A cloned voice or video instruction is obeyed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Customer accounts are taken over",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A security compromise is not notified",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A help desk reset hands an attacker access",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Systems that move money are accessed without strong sign-in",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Personal information is over-exposed or kept too long",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A SIM swap defeats one-time PIN approvals",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "An AI assistant is manipulated by hidden instructions",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "The organisation's own information helps attackers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "The organisation is impersonated to defraud others",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Scheme classification",
+   "claim": "A compromise is not contained quickly",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P3",
+   "category": "Risk rating",
+   "claim": "Priority of 59 fraud risks",
+   "before": "9 Low, 28 Medium, 16 High, 6 Critical",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; MK has approved no rating method (prioritisation proposal)."
+  },
+  {
+   "org": "P3",
+   "category": "Risk rating",
+   "claim": "Likelihood of 59 fraud risks",
+   "before": "36 Moderate, 23 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the answer class; no approved method."
+  },
+  {
+   "org": "P3",
+   "category": "Risk rating",
+   "claim": "Impact of 59 fraud risks",
+   "before": "37 Moderate, 22 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; no approved method."
+  },
+  {
+   "org": "P3",
+   "category": "Timing",
+   "claim": "Target period for 59 findings",
+   "before": "6 30 days, 16 60 days, 37 90 days",
+   "after": "No date; phases ordered by what must be known and decided first",
+   "status": "withheld",
+   "reason": "Derived from tier and answer class."
+  },
+  {
+   "org": "P3",
+   "category": "Difficulty",
+   "claim": "Implementation difficulty for 59 findings",
+   "before": "10 High, 5 Moderate, 44 Low",
+   "after": "Not assessed",
+   "status": "withheld",
+   "reason": "Derived from the number of gaps; no approved method."
+  },
+  {
+   "org": "P3",
+   "category": "Impact wording",
+   "claim": "9 generic impact statements from the prototype's own table",
+   "before": "59 findings",
+   "after": "The method's own description of why the scheme matters, or its linked risks",
+   "status": "withdrawn",
+   "reason": "Not method content."
+  },
+  {
+   "org": "P3",
+   "category": "Operating cycle",
+   "claim": "13 operating frequencies from the prototype's own table",
+   "before": "59 findings",
+   "after": "Stated where the method states one; otherwise \"Not stated by the method\"",
+   "status": "withdrawn",
+   "reason": "Not method content; declared as a content gap."
+  },
+  {
+   "org": "P3",
+   "category": "Timing",
+   "claim": "Deadlines on 5 leadership decisions",
+   "before": "4 30 days, 1 60 days",
+   "after": "What each decision must come before; no date",
+   "status": "withheld",
+   "reason": "No approved basis for deadlines."
+  },
+  {
+   "org": "P3",
+   "category": "Cover judgement",
+   "claim": "Central judgement",
+   "before": "22 of the organisation's 43 first-priority fraud schemes remain open, most of them in procurement and third parties and people and payroll, and 1 control reported in place is not supported in practice.",
+   "after": "58 of the 106 fraud schemes that apply have a control reported as a gap, most of them in digital channels, procurement and people.",
+   "status": "changed",
+   "reason": "Reworded from the corrected classification, without tier-based priority."
+  },
+  {
+   "org": "P3",
+   "category": "Labels",
+   "claim": "\"First-priority\" scheme label",
+   "before": "18 uses",
+   "after": "Tier 1, explained as the stage at which the method confirms a scheme",
+   "status": "withdrawn",
+   "reason": "The tier is an information-gathering stage, not a risk priority."
+  },
+  {
+   "org": "P3",
+   "category": "Calculated figure",
+   "claim": "Overall figure and band",
+   "before": "55.5 Developing, printed as the readiness score",
+   "after": "55.5 Developing, labelled a calculated test fixture",
+   "status": "retained",
+   "reason": "Same figure; relabelled."
+  },
+  {
+   "org": "P3",
+   "category": "Answer wording",
+   "claim": "Standards written as 'the answer to \"<question>\" is yes'",
+   "before": "126 occurrences",
+   "after": "0 occurrences; standards in each format's own terms",
+   "status": "changed",
+   "reason": "Wrong for choice questions and mechanical for practice questions."
+  },
+  {
+   "org": "P3",
+   "category": "Answer wording",
+   "claim": "Measures written as \"every case passes this test: <question>\"",
+   "before": "149 occurrences",
+   "after": "0 occurrences",
+   "status": "changed",
+   "reason": "Questionnaire prompt concatenated into a measure."
+  },
+  {
+   "org": "P3",
+   "category": "Outstanding information",
+   "claim": "Answers outstanding",
+   "before": "0",
+   "after": "0",
+   "status": "retained",
+   "reason": "Same rule as the interface (SS-09)."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "Staff do not know or understand what is expected",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "An email account is taken over",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "A payment instruction received by email is acted on",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "A cloned voice or video instruction is obeyed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "A security compromise is not notified",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "A help desk reset hands an attacker access",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "Systems that move money are accessed without strong sign-in",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "Personal information is over-exposed or kept too long",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "The organisation's own information helps attackers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Scheme classification",
+   "claim": "A compromise is not contained quickly",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P4",
+   "category": "Risk rating",
+   "claim": "Priority of 11 fraud risks",
+   "before": "2 Low, 2 Critical, 2 High, 5 Medium",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; MK has approved no rating method (prioritisation proposal)."
+  },
+  {
+   "org": "P4",
+   "category": "Risk rating",
+   "claim": "Likelihood of 11 fraud risks",
+   "before": "6 Moderate, 5 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the answer class; no approved method."
+  },
+  {
+   "org": "P4",
+   "category": "Risk rating",
+   "claim": "Impact of 11 fraud risks",
+   "before": "7 Moderate, 4 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; no approved method."
+  },
+  {
+   "org": "P4",
+   "category": "Timing",
+   "claim": "Target period for 11 findings",
+   "before": "2 30 days, 2 60 days, 7 90 days",
+   "after": "No date; phases ordered by what must be known and decided first",
+   "status": "withheld",
+   "reason": "Derived from tier and answer class."
+  },
+  {
+   "org": "P4",
+   "category": "Difficulty",
+   "claim": "Implementation difficulty for 11 findings",
+   "before": "9 Low, 1 High, 1 Moderate",
+   "after": "Not assessed",
+   "status": "withheld",
+   "reason": "Derived from the number of gaps; no approved method."
+  },
+  {
+   "org": "P4",
+   "category": "Impact wording",
+   "claim": "4 generic impact statements from the prototype's own table",
+   "before": "11 findings",
+   "after": "The method's own description of why the scheme matters, or its linked risks",
+   "status": "withdrawn",
+   "reason": "Not method content."
+  },
+  {
+   "org": "P4",
+   "category": "Operating cycle",
+   "claim": "4 operating frequencies from the prototype's own table",
+   "before": "11 findings",
+   "after": "Stated where the method states one; otherwise \"Not stated by the method\"",
+   "status": "withdrawn",
+   "reason": "Not method content; declared as a content gap."
+  },
+  {
+   "org": "P4",
+   "category": "Timing",
+   "claim": "Deadlines on 4 leadership decisions",
+   "before": "3 30 days, 1 60 days",
+   "after": "What each decision must come before; no date",
+   "status": "withheld",
+   "reason": "No approved basis for deadlines."
+  },
+  {
+   "org": "P4",
+   "category": "Cover judgement",
+   "claim": "Central judgement",
+   "before": "4 of the organisation's 21 first-priority fraud schemes remain open, most of them in digital and identity, and 1 control reported in place is not supported in practice.",
+   "after": "10 of the 49 fraud schemes that apply have a control reported as a gap, most of them in digital channels.",
+   "status": "changed",
+   "reason": "Reworded from the corrected classification, without tier-based priority."
+  },
+  {
+   "org": "P4",
+   "category": "Labels",
+   "claim": "\"First-priority\" scheme label",
+   "before": "16 uses",
+   "after": "Tier 1, explained as the stage at which the method confirms a scheme",
+   "status": "withdrawn",
+   "reason": "The tier is an information-gathering stage, not a risk priority."
+  },
+  {
+   "org": "P4",
+   "category": "Calculated figure",
+   "claim": "Overall figure and band",
+   "before": "78.5 Structured, printed as the readiness score",
+   "after": "78.5 Structured, labelled a calculated test fixture",
+   "status": "retained",
+   "reason": "Same figure; relabelled."
+  },
+  {
+   "org": "P4",
+   "category": "Answer wording",
+   "claim": "Standards written as 'the answer to \"<question>\" is yes'",
+   "before": "18 occurrences",
+   "after": "0 occurrences; standards in each format's own terms",
+   "status": "changed",
+   "reason": "Wrong for choice questions and mechanical for practice questions."
+  },
+  {
+   "org": "P4",
+   "category": "Answer wording",
+   "claim": "Measures written as \"every case passes this test: <question>\"",
+   "before": "22 occurrences",
+   "after": "0 occurrences",
+   "status": "changed",
+   "reason": "Questionnaire prompt concatenated into a measure."
+  },
+  {
+   "org": "P4",
+   "category": "Outstanding information",
+   "claim": "Answers outstanding",
+   "before": "0",
+   "after": "0",
+   "status": "retained",
+   "reason": "Same rule as the interface (SS-09)."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Staff do not know or understand what is expected",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Donations or sponsorships channel bribes",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A fictitious supplier is created and paid",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Supplier payments are diverted through changed bank details",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A supplier is set up with an account it does not own",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "One person can order and approve payment",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Invoices are paid for goods or services not received or not agreed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "An outsourced provider misuses its access",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Supplier payments are released without two approvals",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A tender is manipulated or purchases are split",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Buyers take kickbacks",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Purchase cards or petty cash are misused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Intermediaries pay bribes or inflate fees",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Procurement anomalies are never noticed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Variations inflate the agreed value",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Salaries are redirected through a fake bank change",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Ghost employees are paid",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Leavers stay on the payroll",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A false identity enters at hiring",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A stand-in or deepfake candidate is appointed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "The payroll payment file is altered after approval",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Cash wages are stolen or paid to ghosts",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Hours and overtime are inflated",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Expenses and advances are abused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Labour brokers invoice for workers who were not there",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "An insider in a high-risk role works unchecked",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Refunds are stolen",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Customer details are changed to divert money or goods",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Credit is obtained with fabricated documents",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Claims are fabricated or inflated",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Sales are not billed or receipts are diverted",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Customers pay fraudsters impersonating the organisation",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Prices are overridden or side deals made",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Agents report fictitious sales",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Vouchers and loyalty points are abused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Customers are wrongly blocked on a fraud flag",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Cash takings are stolen",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Stock is stolen and hidden in the counts",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Data leaves on disposed or reissued devices",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Assets or scrap are sold off cheaply or without payment",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Goods are released to an impostor",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Fuel and fleet are misused",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Goods go missing in transit",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "High-value materials are stolen by organised groups",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Losses are never tracked",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "An email account is taken over",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A payment instruction received by email is acted on",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A cloned voice or video instruction is obeyed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Customer accounts are taken over",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A security compromise is not notified",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A help desk reset hands an attacker access",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Systems that move money are accessed without strong sign-in",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Personal information is over-exposed or kept too long",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A SIM swap defeats one-time PIN approvals",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "An AI assistant is manipulated by hidden instructions",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "The organisation's own information helps attackers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "The organisation is impersonated to defraud others",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "Spoofed email in the organisation's name deceives staff, suppliers or customers",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Scheme classification",
+   "claim": "A compromise is not contained quickly",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P5",
+   "category": "Risk rating",
+   "claim": "Priority of 59 fraud risks",
+   "before": "9 Low, 28 Medium, 16 High, 6 Critical",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; MK has approved no rating method (prioritisation proposal)."
+  },
+  {
+   "org": "P5",
+   "category": "Risk rating",
+   "claim": "Likelihood of 59 fraud risks",
+   "before": "37 Moderate, 22 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the answer class; no approved method."
+  },
+  {
+   "org": "P5",
+   "category": "Risk rating",
+   "claim": "Impact of 59 fraud risks",
+   "before": "37 Moderate, 22 High",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; no approved method."
+  },
+  {
+   "org": "P5",
+   "category": "Timing",
+   "claim": "Target period for 59 findings",
+   "before": "6 30 days, 16 60 days, 37 90 days",
+   "after": "No date; phases ordered by what must be known and decided first",
+   "status": "withheld",
+   "reason": "Derived from tier and answer class."
+  },
+  {
+   "org": "P5",
+   "category": "Difficulty",
+   "claim": "Implementation difficulty for 59 findings",
+   "before": "9 High, 6 Moderate, 44 Low",
+   "after": "Not assessed",
+   "status": "withheld",
+   "reason": "Derived from the number of gaps; no approved method."
+  },
+  {
+   "org": "P5",
+   "category": "Impact wording",
+   "claim": "9 generic impact statements from the prototype's own table",
+   "before": "59 findings",
+   "after": "The method's own description of why the scheme matters, or its linked risks",
+   "status": "withdrawn",
+   "reason": "Not method content."
+  },
+  {
+   "org": "P5",
+   "category": "Operating cycle",
+   "claim": "13 operating frequencies from the prototype's own table",
+   "before": "59 findings",
+   "after": "Stated where the method states one; otherwise \"Not stated by the method\"",
+   "status": "withdrawn",
+   "reason": "Not method content; declared as a content gap."
+  },
+  {
+   "org": "P5",
+   "category": "Timing",
+   "claim": "Deadlines on 6 leadership decisions",
+   "before": "5 30 days, 1 60 days",
+   "after": "What each decision must come before; no date",
+   "status": "withheld",
+   "reason": "No approved basis for deadlines."
+  },
+  {
+   "org": "P5",
+   "category": "Cover judgement",
+   "claim": "Central judgement",
+   "before": "22 of the organisation's 43 first-priority fraud schemes remain open, most of them in procurement and third parties and people and payroll, and 1 control reported in place is not supported in practice.",
+   "after": "58 of the 106 fraud schemes that apply have a control reported as a gap, most of them in digital channels, procurement and people.",
+   "status": "changed",
+   "reason": "Reworded from the corrected classification, without tier-based priority."
+  },
+  {
+   "org": "P5",
+   "category": "Labels",
+   "claim": "\"First-priority\" scheme label",
+   "before": "17 uses",
+   "after": "Tier 1, explained as the stage at which the method confirms a scheme",
+   "status": "withdrawn",
+   "reason": "The tier is an information-gathering stage, not a risk priority."
+  },
+  {
+   "org": "P5",
+   "category": "Calculated figure",
+   "claim": "Overall figure and band",
+   "before": "55.1 Developing, printed as the readiness score",
+   "after": "55.1 Developing, labelled a calculated test fixture",
+   "status": "retained",
+   "reason": "Same figure; relabelled."
+  },
+  {
+   "org": "P5",
+   "category": "Answer wording",
+   "claim": "Standards written as 'the answer to \"<question>\" is yes'",
+   "before": "129 occurrences",
+   "after": "0 occurrences; standards in each format's own terms",
+   "status": "changed",
+   "reason": "Wrong for choice questions and mechanical for practice questions."
+  },
+  {
+   "org": "P5",
+   "category": "Answer wording",
+   "claim": "Measures written as \"every case passes this test: <question>\"",
+   "before": "149 occurrences",
+   "after": "0 occurrences",
+   "status": "changed",
+   "reason": "Questionnaire prompt concatenated into a measure."
+  },
+  {
+   "org": "P5",
+   "category": "Outstanding information",
+   "claim": "Answers outstanding",
+   "before": "7",
+   "after": "7",
+   "status": "retained",
+   "reason": "Same rule as the interface (SS-09)."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "No one is answerable for fraud risk",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Fraud risks are never identified",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "AI-enabled schemes are not considered",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The answers about the scheme cannot both be right",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the two answers describe the same fact and cannot both be true."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Risks above tolerance are left without action",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control reported in place relies on a practice reported weaker",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the method establishes that the reported control uses the weaker practice."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "The assessment goes stale as the business changes",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Bribes are paid or accepted, directly or through others",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Staff do not know or understand what is expected",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Donations or sponsorships channel bribes",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "A fictitious supplier is created and paid",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Invoices are paid for goods or services not received or not agreed",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control reported in place relies on a practice reported weaker",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the method establishes that the reported control uses the weaker practice."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Procurement anomalies are never noticed",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Variations inflate the agreed value",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Salaries are redirected through a fake bank change",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Ghost employees are paid",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Hours and overtime are inflated",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "An insider in a high-risk role works unchecked",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control reported in place relies on a practice reported weaker",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the method establishes that the reported control uses the weaker practice."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "An unauthorised payment leaves the bank",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Refunds are stolen",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Cash takings are stolen",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Stock is stolen and hidden in the counts",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control reported in place relies on a practice reported weaker",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the method establishes that the reported control uses the weaker practice."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Losses are never tracked",
+   "before": "A control that stops the scheme is reported as a gap",
+   "after": "A control that stops the scheme is reported as a gap",
+   "status": "retained",
+   "reason": "Same answers, same classification."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "An email account is taken over",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "Concerns are never reported",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "A reporter is exposed or retaliated against",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The control is reported in place; a further defence is weaker",
+   "status": "withdrawn",
+   "reason": "Reviewed: the weaker practice is a separate defence; the method establishes no dependency, so the confirmation is not disproved."
+  },
+  {
+   "org": "P6b",
+   "category": "Scheme classification",
+   "claim": "An investigation is not independent or fair",
+   "before": "The control reported in place is not supported by its practices",
+   "after": "The answers about the scheme cannot both be right",
+   "status": "changed (narrowed)",
+   "reason": "Reviewed: the two answers describe the same fact and cannot both be true."
+  },
+  {
+   "org": "P6b",
+   "category": "Risk rating",
+   "claim": "Priority of 25 fraud risks",
+   "before": "15 High, 6 Medium, 4 Low",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; MK has approved no rating method (prioritisation proposal)."
+  },
+  {
+   "org": "P6b",
+   "category": "Risk rating",
+   "claim": "Likelihood of 25 fraud risks",
+   "before": "25 Moderate",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the answer class; no approved method."
+  },
+  {
+   "org": "P6b",
+   "category": "Risk rating",
+   "claim": "Impact of 25 fraud risks",
+   "before": "15 High, 10 Moderate",
+   "after": "Not rated",
+   "status": "withheld",
+   "reason": "Derived from the scheme tier; no approved method."
+  },
+  {
+   "org": "P6b",
+   "category": "Timing",
+   "claim": "Target period for 25 findings",
+   "before": "15 30 days, 10 90 days",
+   "after": "No date; phases ordered by what must be known and decided first",
+   "status": "withheld",
+   "reason": "Derived from tier and answer class."
+  },
+  {
+   "org": "P6b",
+   "category": "Difficulty",
+   "claim": "Implementation difficulty for 25 findings",
+   "before": "8 High, 6 Moderate, 11 Low",
+   "after": "Not assessed",
+   "status": "withheld",
+   "reason": "Derived from the number of gaps; no approved method."
+  },
+  {
+   "org": "P6b",
+   "category": "Impact wording",
+   "claim": "9 generic impact statements from the prototype's own table",
+   "before": "25 findings",
+   "after": "The method's own description of why the scheme matters, or its linked risks",
+   "status": "withdrawn",
+   "reason": "Not method content."
+  },
+  {
+   "org": "P6b",
+   "category": "Operating cycle",
+   "claim": "11 operating frequencies from the prototype's own table",
+   "before": "25 findings",
+   "after": "Stated where the method states one; otherwise \"Not stated by the method\"",
+   "status": "withdrawn",
+   "reason": "Not method content; declared as a content gap."
+  },
+  {
+   "org": "P6b",
+   "category": "Timing",
+   "claim": "Deadlines on 5 leadership decisions",
+   "before": "4 30 days, 1 60 days",
+   "after": "What each decision must come before; no date",
+   "status": "withheld",
+   "reason": "No approved basis for deadlines."
+  },
+  {
+   "org": "P6b",
+   "category": "Cover judgement",
+   "claim": "Central judgement",
+   "before": "Every first-priority fraud scheme is reported as covered, but 21 controls relied on are not supported in practice.",
+   "after": "In 6 fraud schemes the organisation's own answers conflict or rely on a practice reported as weaker, and in 4 a control is reported as a gap.",
+   "status": "changed",
+   "reason": "Reworded from the corrected classification, without tier-based priority."
+  },
+  {
+   "org": "P6b",
+   "category": "Labels",
+   "claim": "\"First-priority\" scheme label",
+   "before": "15 uses",
+   "after": "Tier 1, explained as the stage at which the method confirms a scheme",
+   "status": "withdrawn",
+   "reason": "The tier is an information-gathering stage, not a risk priority."
+  },
+  {
+   "org": "P6b",
+   "category": "Calculated figure",
+   "claim": "Overall figure and band",
+   "before": "87.8 Strategic, printed as the readiness score",
+   "after": "87.8 Strategic, labelled a calculated test fixture; not on the cover headline (R-1)",
+   "status": "retained",
+   "reason": "Same figure; R-1 removes it from the cover headline while answers are unresolved."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on Executive accountable for fraud",
+   "before": "Conflicting answer",
+   "after": "Further defence weaker",
+   "status": "changed",
+   "reason": "Reviewed: the further practice is a separate defence."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on AI-enabled fraud covered",
+   "before": "Conflicting answer",
+   "after": "Answers that cannot both be right",
+   "status": "retained",
+   "reason": "Reviewed: the answers cannot both be true."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on New supplier process",
+   "before": "Conflicting answer",
+   "after": "Further defence weaker",
+   "status": "changed",
+   "reason": "Reviewed: the further practice is a separate defence."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on Two authorisers for every payment",
+   "before": "Conflicting answer",
+   "after": "Further defence weaker",
+   "status": "changed",
+   "reason": "Reviewed: the further practice is a separate defence."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on Refunds approved independently",
+   "before": "Conflicting answer",
+   "after": "Further defence weaker",
+   "status": "changed",
+   "reason": "Reviewed: the further practice is a separate defence."
+  },
+  {
+   "org": "P6b",
+   "category": "Cross-check",
+   "claim": "Cross-check on Multi-factor on all email",
+   "before": "Conflicting answer",
+   "after": "Further defence weaker",
+   "status": "changed",
+   "reason": "Reviewed: the further practice is a separate defence."
+  },
+  {
+   "org": "P6b",
+   "category": "Answer wording",
+   "claim": "Standards written as 'the answer to \"<question>\" is yes'",
+   "before": "132 occurrences",
+   "after": "0 occurrences; standards in each format's own terms",
+   "status": "changed",
+   "reason": "Wrong for choice questions and mechanical for practice questions."
+  },
+  {
+   "org": "P6b",
+   "category": "Answer wording",
+   "claim": "Measures written as \"every case passes this test: <question>\"",
+   "before": "130 occurrences",
+   "after": "0 occurrences",
+   "status": "changed",
+   "reason": "Questionnaire prompt concatenated into a measure."
+  },
+  {
+   "org": "P6b",
+   "category": "Outstanding information",
+   "claim": "Answers outstanding",
+   "before": "0",
+   "after": "0",
+   "status": "retained",
+   "reason": "Same rule as the interface (SS-09)."
+  }
+ ],
+ "measures": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "schemesFlaggedUnsupportedOrUnresolved": {
+    "before": 1,
+    "after": 0
+   },
+   "complementaryWeaknessesReported": {
+    "before": 0,
+    "after": 1
+   },
+   "tierDerivedRatings": {
+    "before": 300,
+    "after": 0
+   },
+   "answerIsYesWording": {
+    "before": 126,
+    "after": 0
+   },
+   "promptConcatenations": {
+    "before": 149,
+    "after": 0
+   },
+   "rawMethodIdsInComprehensive": {
+    "before": 691,
+    "after": 0
+   },
+   "distinctOwnerLabels": {
+    "before": 45,
+    "after": 11
+   },
+   "controlRowsComprehensive": {
+    "before": 59,
+    "after": 106,
+    "note": "After: one row per control, deduplicated across schemes; before: one per finding"
+   },
+   "essentialPages": {
+    "before": 8,
+    "after": 8
+   },
+   "essentialWords": {
+    "before": 2074,
+    "after": 1887
+   },
+   "essentialValidator": {
+    "before": true,
+    "after": true
+   },
+   "comprehensivePages": {
+    "before": 72,
+    "after": 54
+   },
+   "comprehensiveManagementPages": {
+    "before": 17,
+    "after": 13
+   },
+   "registersReconciled": {
+    "before": "not checked",
+    "after": "yes"
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "schemesFlaggedUnsupportedOrUnresolved": {
+    "before": 1,
+    "after": 0
+   },
+   "complementaryWeaknessesReported": {
+    "before": 0,
+    "after": 1
+   },
+   "tierDerivedRatings": {
+    "before": 59,
+    "after": 0
+   },
+   "answerIsYesWording": {
+    "before": 18,
+    "after": 0
+   },
+   "promptConcatenations": {
+    "before": 22,
+    "after": 0
+   },
+   "rawMethodIdsInComprehensive": {
+    "before": 150,
+    "after": 0
+   },
+   "distinctOwnerLabels": {
+    "before": 7,
+    "after": 5
+   },
+   "controlRowsComprehensive": {
+    "before": 11,
+    "after": 15,
+    "note": "After: one row per control, deduplicated across schemes; before: one per finding"
+   },
+   "essentialPages": {
+    "before": 8,
+    "after": 8
+   },
+   "essentialWords": {
+    "before": 1834,
+    "after": 1817
+   },
+   "essentialValidator": {
+    "before": true,
+    "after": true
+   },
+   "comprehensivePages": {
+    "before": 27,
+    "after": 24
+   },
+   "comprehensiveManagementPages": {
+    "before": 14,
+    "after": 12
+   },
+   "registersReconciled": {
+    "before": "not checked",
+    "after": "yes"
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "schemesFlaggedUnsupportedOrUnresolved": {
+    "before": 1,
+    "after": 0
+   },
+   "complementaryWeaknessesReported": {
+    "before": 0,
+    "after": 1
+   },
+   "tierDerivedRatings": {
+    "before": 301,
+    "after": 0
+   },
+   "answerIsYesWording": {
+    "before": 129,
+    "after": 0
+   },
+   "promptConcatenations": {
+    "before": 149,
+    "after": 0
+   },
+   "rawMethodIdsInComprehensive": {
+    "before": 690,
+    "after": 0
+   },
+   "distinctOwnerLabels": {
+    "before": 46,
+    "after": 11
+   },
+   "controlRowsComprehensive": {
+    "before": 59,
+    "after": 103,
+    "note": "After: one row per control, deduplicated across schemes; before: one per finding"
+   },
+   "essentialPages": {
+    "before": 8,
+    "after": 8
+   },
+   "essentialWords": {
+    "before": 2132,
+    "after": 1939
+   },
+   "essentialValidator": {
+    "before": true,
+    "after": true
+   },
+   "comprehensivePages": {
+    "before": 72,
+    "after": 52
+   },
+   "comprehensiveManagementPages": {
+    "before": 17,
+    "after": 13
+   },
+   "registersReconciled": {
+    "before": "not checked",
+    "after": "yes"
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "schemesFlaggedUnsupportedOrUnresolved": {
+    "before": 21,
+    "after": 6
+   },
+   "complementaryWeaknessesReported": {
+    "before": 0,
+    "after": 15
+   },
+   "tierDerivedRatings": {
+    "before": 130,
+    "after": 0
+   },
+   "answerIsYesWording": {
+    "before": 132,
+    "after": 0
+   },
+   "promptConcatenations": {
+    "before": 130,
+    "after": 0
+   },
+   "rawMethodIdsInComprehensive": {
+    "before": 301,
+    "after": 0
+   },
+   "distinctOwnerLabels": {
+    "before": 27,
+    "after": 13
+   },
+   "controlRowsComprehensive": {
+    "before": 25,
+    "after": 64,
+    "note": "After: one row per control, deduplicated across schemes; before: one per finding"
+   },
+   "essentialPages": {
+    "before": 8,
+    "after": 8
+   },
+   "essentialWords": {
+    "before": 1966,
+    "after": 1950
+   },
+   "essentialValidator": {
+    "before": true,
+    "after": true
+   },
+   "comprehensivePages": {
+    "before": 45,
+    "after": 45
+   },
+   "comprehensiveManagementPages": {
+    "before": 18,
+    "after": 14
+   },
+   "registersReconciled": {
+    "before": "not checked",
+    "after": "yes"
+   }
+  }
+ }
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "PM-01",
+    "ok": true,
+    "name": "Production mode only with every condition: explicit mode, production runtime, database store, one project, no test setting",
+    "detail": "{\"on\":\"on\",\"noMode\":\"not-configured\",\"preview\":\"not-production-runtime\",\"local\":\"not-production-runtime\",\"fileStore\":\"store-not-database\",\"noDatabase\":\"no-database\",\"mismatch\":\"database-mismatch\",\"harnessFlag\":\"test-settings-present\",\"restrictedFlag\":\"test-settings-present\",\"faultsFlag\":\"test-settings-present\"}"
+  },
+  {
+    "id": "PM-02",
+    "ok": true,
+    "name": "The commercial path: production mode in production; the restricted test unchanged elsewhere and still refused in any production runtime",
+    "detail": "production production; restricted restricted-test; restricted in production runtime production-runtime; restricted on production DB production-database"
+  },
+  {
+    "id": "PM-03",
+    "ok": true,
+    "name": "The review track runs in production mode; the fictional harness never runs in a production runtime; fault injection never in production",
+    "detail": "production production, faults false; harness in production runtime production-runtime; test faults true; engine 1.6"
+  },
+  {
+    "id": "PM-04",
+    "ok": true,
+    "name": "Reports are customer editions only in production mode; the length minimum blocks there and is record-only in the restricted test",
+    "detail": "production customer (block); restricted restricted-test (record)"
+  },
+  {
+    "id": "PM-05",
+    "ok": true,
+    "name": "A customer edition carries no test label, prototype notice or fictional wording; it is prepared for the organisation and keeps the score",
+    "detail": "customer footer: true; restricted label in customer edition: false"
+  },
+  {
+    "id": "PM-06",
+    "ok": true,
+    "name": "The operator note drops \"(restricted test)\" only for a customer edition",
+    "detail": "Revised report written by w (1 AI call); validated against the report checks and"
+  },
+  {
+    "id": "PM-07",
+    "ok": true,
+    "name": "The switch-over takes effect in production mode once the track is selected, and not before",
+    "detail": "mode + track true; track only false; mode only false"
+  },
+  {
+    "id": "PM-08",
+    "ok": true,
+    "name": "Snapshot wording: live ordering states the half-covered rule and has no test wording; the restricted test keeps its label; no em dashes",
+    "detail": "live, restricted-test and none"
+  },
+  {
+    "id": "PM-09",
+    "ok": true,
+    "name": "The database switch accepts \"production\" but no migration ever sets it",
+    "detail": "migrations that insert the flag: 0"
+  },
+  {
+    "id": "PM-10",
+    "ok": true,
+    "name": "Starting a review: production mode requires terms acceptance and creates a real session; every other environment stays fictional whatever the caller sends",
+    "detail": "route, service and form"
+  },
+  {
+    "id": "PM-11",
+    "ok": true,
+    "name": "A real organisation sees no fictional wording and never receives the MK reviewer link; the export is not named fictional",
+    "detail": "links, management, Snapshot, export and start page"
+  },
+  {
+    "id": "PM-12",
+    "ok": true,
+    "name": "The database accepts a real session only under the production switch; no migration sets that switch",
+    "detail": "trigger, refusal and no flag insert"
+  }
+]

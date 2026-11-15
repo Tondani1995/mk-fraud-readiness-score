@@ -1,0 +1,551 @@
+{
+ "tree": "report revision (this delivery), uncommitted working tree on review/mk-integrated-readiness at afa6915 plus this revision",
+ "suites": 158,
+ "pass": 93,
+ "fail": 65,
+ "identicalToAfa6915": true,
+ "groups": {
+  "pre-existing test defect at the baseline": 29,
+  "needs operator input": 3,
+  "dependency-blocked": 24,
+  "environment (test runner)": 9
+ },
+ "causes": {
+  "Freeze or protected-behaviour check already failing at the baseline": 2,
+  "Fixture or behaviour expectation not met at the baseline": 10,
+  "Source-text assertion no longer matching the baseline source (stale test)": 17,
+  "Operator script needing an argument (order reference or pre/post)": 3,
+  "Embedded Postgres cannot start here (initdb EACCES)": 15,
+  "Needs a hosted or local database URL, Supabase keys or a running database": 7,
+  "Needs an AI provider or the manuscript-first path (deterministic fallback disabled by design)": 2,
+  "Rendered-PDF audit findings (timed out in the parallel run)": 1,
+  "Module resolution under the test runner (next/server, extensionless import)": 8
+ },
+ "rows": [
+  {
+   "suite": "certification-freeze-tests",
+   "exit": "1",
+   "cause": "Freeze or protected-behaviour check already failing at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "commercial-pdf-composition-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "comprehensive-deliverables-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "cx-v12-customer-experience-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "essential-customer-residue-contract-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "essential-v7-equivalent-certification",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-comprehensive-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-comprehensive-workbook-tests",
+   "exit": "2",
+   "cause": "Operator script needing an argument (order reference or pre/post)",
+   "group": "needs operator input",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-customer-operability-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-integrated-journey-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-migration-replay-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-review-authority-refs-tests",
+   "exit": "2",
+   "cause": "Operator script needing an argument (order reference or pre/post)",
+   "group": "needs operator input",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "joint-launch-transactional-safety-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-checkpoint-a-response-label-db-integration-tests",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-checkpoint-b-commercial-quality-gate-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-checkpoint-e-ai-narrative-integration-tests",
+   "exit": "1",
+   "cause": "Needs an AI provider or the manuscript-first path (deterministic fallback disabled by design)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-checkpoint-e-migration-replay-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-checkpoint-f-rendered-pdf-tests",
+   "exit": "1",
+   "cause": "Rendered-PDF audit findings (timed out in the parallel run)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase-v7-current-manuscript-first-certification",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-ai-attempt-budget-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-ai-narrative-integrity-tests",
+   "exit": "1",
+   "cause": "Needs an AI provider or the manuscript-first path (deterministic fallback disabled by design)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-ai-settlement-parity-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-autonomous-report-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-delivery-entitlement-wiring-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-delivery-reconciliation-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-pdf-renderer-crash-recovery-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-report-access-eligibility-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-webhook-route-db-test",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase14-workflow-start-reconciliation-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "phase9-manual-eft-order-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "production-email-hmac-bootstrap-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "production-monitor-database-tests",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-application-freeze-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-certification-enablement-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-control-plane-profile-read-tests",
+   "exit": "1",
+   "cause": "Operator script needing an argument (order reference or pre/post)",
+   "group": "needs operator input",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-control-plane-route-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-delivery-entitlement-metadata-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-narrative-domain-scope-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-near-real-time-fulfilment-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-notification-recovery-tests",
+   "exit": "1",
+   "cause": "Fixture or behaviour expectation not met at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-old-schema-freeze-compatibility-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-orphan-remediation-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-prepostflight-disposable-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-preview-development-delivery-db-test",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-replay-matrix-c-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-service-role-privilege-contract-tests",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-staging-postflight-hardening-tests",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-synthetic-cleanup-route-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-synthetic-marking-route-test",
+   "exit": "1",
+   "cause": "Needs a hosted or local database URL, Supabase keys or a running database",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-synthetic-marking-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "rc1-synthetic-notification-contract-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "release-b-durable-fulfilment-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "release-c-email-secure-delivery-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "release-c-order-detail-delivery-truth-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "release-c-runtime-secret-provisioning-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "release-d-operational-alerts-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "snapshot-advisory-notification-tests",
+   "exit": "1",
+   "cause": "Module resolution under the test runner (next/server, extensionless import)",
+   "group": "environment (test runner)",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "synthetic-comprehensive-route-contract-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "v12-essential-productionisation-contract-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "v12-manual-fulfilment-contract-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "v12-premium-experience-recovery-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "v12-stalled-lead-controls-setter-tests",
+   "exit": "1",
+   "cause": "Embedded Postgres cannot start here (initdb EACCES)",
+   "group": "dependency-blocked",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "visual-coherence-contract-tests",
+   "exit": "1",
+   "cause": "Freeze or protected-behaviour check already failing at the baseline",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "website-ai-fraud-methodology-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  },
+  {
+   "suite": "website-indexing-analytics-health-tests",
+   "exit": "1",
+   "cause": "Source-text assertion no longer matching the baseline source (stale test)",
+   "group": "pre-existing test defect at the baseline",
+   "failsAt3f933ac": true,
+   "failsAtAfa6915": true
+  }
+ ],
+ "newSuites": {
+  "relationship-semantics-tests": "9 of 9",
+  "sufficiency-adversarial-tests": "9 of 9",
+  "report-quality-tests": "16 of 16"
+ }
+}

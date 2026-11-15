@@ -7,6 +7,8 @@ import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { buildCachedSnapshotNarrative } from '@/lib/snapshot/narrative-cache';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { assessmentModeOf, isPreviousMethodMode, revisedReleaseEffective, PREVIOUS_METHOD_LABEL, PREVIOUS_METHOD_NOTICE } from '@/lib/website/readiness-release';
 
 type SnapshotPageProps = {
   params: Promise<{ assessmentRef: string }>;
@@ -109,10 +111,20 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
     insights: commercialInsights,
     gatewayAuth: { requestOidcToken: requestHeaders.get('x-vercel-oidc-token') }
   });
-  const methodologyLabel = 'MK Fraud Readiness Methodology';
+  // DR-01: after the switch-over, a result from the previous method stays where it is, labelled as such. An unreadable
+  // mode is labelled as the previous method, the cautious reading.
+  const previousMethod = revisedReleaseEffective()
+    ? await assessmentModeOf(createSupabaseServiceClient(), validation.assessment.id).then(isPreviousMethodMode, () => true)
+    : false;
+  const methodologyLabel = previousMethod ? PREVIOUS_METHOD_LABEL : 'MK Fraud Readiness Methodology';
 
   return (
     <ResultChrome assessmentReference={snapshot.assessmentReference} resultUrl={publicSnapshotUrl}>
+      {previousMethod ? (
+        <section className="mx-auto max-w-[1120px] px-[18px] pt-8 md:px-6" data-previous-method-notice>
+          <p className="border-l-2 border-mk-line bg-mk-surface px-5 py-4 text-sm leading-6 text-mk-slate">{PREVIOUS_METHOD_NOTICE}</p>
+        </section>
+      ) : null}
       <SnapshotResult
         snapshot={snapshot}
         snapshotUrl={publicSnapshotUrl}

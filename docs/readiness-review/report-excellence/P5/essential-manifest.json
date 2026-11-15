@@ -1,0 +1,86 @@
+{
+ "product": "essential",
+ "organisation": "Fictional Retail Group (extensive unanswered information)",
+ "assessmentReference": "FX-P5",
+ "bibleVersion": "1.1",
+ "sourceCommit": "4e936baf99405a9428b6514e42e634dfac481d35",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "0f292539dfa0b06176fa143d83ae0f76c2b4c71483a485bbe5967324b5a5128b",
+  "manuscript": "8de3365a557d449531ebda86efa47a7b273f012d2dd11e5d20e7e42a86695251",
+  "html": "35c28188c318bae076e696824b42bff17df8c35e307b50b70d10276b62881df3",
+  "pdf": "4e3dc01a2b0f1043d59406286a25f478b8eea67fb1a8123546f4c78f5c8c3674",
+  "workbook": "2b5f67f9e9bbe026d0ca33b3b4241678157da69c45f4e7a51d4514eb28e6890c"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 19,
+   "columns": 2
+  },
+  {
+   "name": "Findings",
+   "rows": 59,
+   "columns": 12
+  },
+  {
+   "name": "Risks",
+   "rows": 58,
+   "columns": 8
+  },
+  {
+   "name": "Control Actions",
+   "rows": 43,
+   "columns": 9
+  },
+  {
+   "name": "Proof of Progress",
+   "rows": 102,
+   "columns": 5
+  },
+  {
+   "name": "Roadmap",
+   "rows": 19,
+   "columns": 6
+  },
+  {
+   "name": "Question Trace",
+   "rows": 152,
+   "columns": 10
+  },
+  {
+   "name": "Control Improvements",
+   "rows": 103,
+   "columns": 22
+  }
+ ],
+ "pages": 20,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "flowSections": [
+  "ESS-PATHWAYS"
+ ],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

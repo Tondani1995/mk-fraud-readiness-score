@@ -1,0 +1,65 @@
+[
+ {
+  "report": "Kestrel Essential",
+  "before_deployed": {
+   "pages": 20,
+   "workbook_mentions": 2,
+   "library_residue": 2,
+   "score_caption_residue": 2,
+   "account_sentence": false,
+   "applicability_pending_disclosed": false,
+   "stand_without_question": false
+  },
+  "after_corrected_deterministic": {
+   "pages": 15,
+   "workbook_mentions": 0,
+   "library_residue": 0,
+   "score_caption_residue": 0,
+   "account_sentence": true,
+   "applicability_pending_disclosed": true,
+   "stand_without_question": false
+  }
+ },
+ {
+  "report": "Marula Essential",
+  "before_deployed": {
+   "pages": 23,
+   "workbook_mentions": 6,
+   "library_residue": 0,
+   "score_caption_residue": 0,
+   "account_sentence": false,
+   "applicability_pending_disclosed": false,
+   "stand_without_question": false
+  },
+  "after_corrected_deterministic": {
+   "pages": 17,
+   "workbook_mentions": 0,
+   "library_residue": 0,
+   "score_caption_residue": 0,
+   "account_sentence": true,
+   "applicability_pending_disclosed": false,
+   "stand_without_question": true
+  }
+ },
+ {
+  "report": "Marula Comprehensive",
+  "before_deployed": {
+   "pages": 33,
+   "workbook_mentions": 1,
+   "library_residue": 0,
+   "score_caption_residue": 2,
+   "account_sentence": false,
+   "applicability_pending_disclosed": false,
+   "stand_without_question": false
+  },
+  "after_corrected_deterministic": {
+   "pages": 30,
+   "workbook_mentions": 1,
+   "library_residue": 0,
+   "score_caption_residue": 0,
+   "account_sentence": true,
+   "applicability_pending_disclosed": false,
+   "stand_without_question": true
+  }
+ }
+]

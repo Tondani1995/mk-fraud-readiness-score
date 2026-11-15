@@ -1,0 +1,92 @@
+[
+  {
+    "name": "01-core-stage-desktop",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "02-core-stage-phone",
+    "url": "/review/s/<token>",
+    "width": 390,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "03-breadth-stage-desktop",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "04-snapshot-status",
+    "url": "/review/s/<token>/snapshot",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "05-snapshot-choose-questions",
+    "url": "/review/s/<token>/snapshot",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "06-owner-package-procurement",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "07-owner-decline-form",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "08-owner-package-phone",
+    "url": "/review/s/<token>",
+    "width": 390,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "09-management-outstanding",
+    "url": "/review/s/<token>",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  },
+  {
+    "name": "10-snapshot-waiting-declined",
+    "url": "/review/s/<token>/snapshot",
+    "width": 1440,
+    "ok": true,
+    "missing": [],
+    "present": [],
+    "errors": []
+  }
+]

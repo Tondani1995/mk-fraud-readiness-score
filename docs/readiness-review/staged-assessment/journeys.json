@@ -1,0 +1,1427 @@
+{
+  "generated": "Fictional organisations only. Build 1.6 is inactive for customers and produces no score.",
+  "profiles": {
+    "P1": {
+      "name": "Strong controls",
+      "respondentScreens": 167,
+      "kinds": {
+        "profile": 5,
+        "confirm": 45,
+        "consistency": 10,
+        "scope": 40,
+        "route": 4,
+        "assumptions": 1,
+        "coverage": 62
+      },
+      "coreCompleteAtScreen": 82,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "45/45",
+        "breadth": "59/108"
+      },
+      "atEnd": {
+        "screen": 167,
+        "stage": "complete",
+        "core": "45/45",
+        "breadth": "108/108"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "13/52",
+          "breadth": "13/119"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "29/50",
+          "breadth": "30/115"
+        },
+        {
+          "screen": 75,
+          "stage": "core",
+          "core": "41/46",
+          "breadth": "42/110"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "59/108"
+        },
+        {
+          "screen": 125,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "81/108"
+        },
+        {
+          "screen": 150,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "97/108"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 45,
+          "answered": 45,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        31,
+        11,
+        4,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 12,
+            "gate": 2,
+            "diagnostic": 1
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 1
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Procurement",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 9,
+          "depthKinds": {
+            "coverage": 5,
+            "gate": 1,
+            "diagnostic": 3
+          },
+          "screens": 9,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 8,
+            "gate": 1,
+            "diagnostic": 6
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 1,
+          "depthKinds": {
+            "diagnostic": 1
+          },
+          "screens": 1,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Operations and sales",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 3
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Financial controller (respondent, also holds Finance)",
+          "screens": 168
+        },
+        {
+          "person": "Risk and investigations lead",
+          "screens": 15
+        },
+        {
+          "person": "HR and payroll lead",
+          "screens": 15
+        },
+        {
+          "person": "Procurement lead",
+          "screens": 9
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0
+        }
+      },
+      "consistency": {
+        "eligible": 68,
+        "selected": 10,
+        "tested": 10,
+        "untested": 58,
+        "counts": {
+          "consistent": 10
+        }
+      },
+      "actions": 497
+    },
+    "P2": {
+      "name": "Weak controls",
+      "respondentScreens": 156,
+      "kinds": {
+        "profile": 5,
+        "confirm": 46,
+        "scope": 40,
+        "route": 4,
+        "assumptions": 1,
+        "coverage": 60
+      },
+      "coreCompleteAtScreen": 73,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "46/46",
+        "breadth": "68/106"
+      },
+      "atEnd": {
+        "screen": 156,
+        "stage": "complete",
+        "core": "46/46",
+        "breadth": "106/106"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "14/52",
+          "breadth": "14/116"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "31/48",
+          "breadth": "31/110"
+        },
+        {
+          "screen": 75,
+          "stage": "breadth",
+          "core": "46/46",
+          "breadth": "48/106"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "46/46",
+          "breadth": "68/106"
+        },
+        {
+          "screen": 125,
+          "stage": "breadth",
+          "core": "46/46",
+          "breadth": "85/106"
+        },
+        {
+          "screen": 150,
+          "stage": "breadth",
+          "core": "46/46",
+          "breadth": "103/106"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 46,
+          "answered": 46,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 106,
+          "answered": 106,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        81,
+        5,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 4,
+            "diagnostic": 8,
+            "follow-up": 3
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 8,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 4,
+            "follow-up": 2
+          },
+          "screens": 8,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "IT and information",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 4,
+          "depthKinds": {
+            "diagnostic": 4
+          },
+          "screens": 4,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Procurement",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 14,
+          "depthKinds": {
+            "coverage": 5,
+            "gate": 2,
+            "diagnostic": 5,
+            "follow-up": 2
+          },
+          "screens": 14,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 8,
+            "follow-up": 3,
+            "diagnostic": 4
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "diagnostic": 12,
+            "follow-up": 3
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Operations and sales",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 3,
+            "follow-up": 3,
+            "diagnostic": 9
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Financial controller (respondent, also holds Finance)",
+          "screens": 171
+        },
+        {
+          "person": "Risk and investigations lead",
+          "screens": 15
+        },
+        {
+          "person": "HR and payroll lead",
+          "screens": 15
+        },
+        {
+          "person": "Operations and sales lead",
+          "screens": 15
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 106,
+          "answered": 106,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0
+        }
+      },
+      "consistency": {
+        "eligible": 0,
+        "selected": 0,
+        "tested": 0,
+        "untested": 0,
+        "counts": {}
+      },
+      "actions": 591
+    },
+    "P3": {
+      "name": "Mixed controls",
+      "respondentScreens": 162,
+      "kinds": {
+        "profile": 5,
+        "confirm": 45,
+        "consistency": 5,
+        "scope": 40,
+        "route": 4,
+        "assumptions": 1,
+        "coverage": 62
+      },
+      "coreCompleteAtScreen": 77,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "45/45",
+        "breadth": "64/108"
+      },
+      "atEnd": {
+        "screen": 162,
+        "stage": "complete",
+        "core": "45/45",
+        "breadth": "108/108"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "13/52",
+          "breadth": "13/119"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "29/49",
+          "breadth": "30/114"
+        },
+        {
+          "screen": 75,
+          "stage": "core",
+          "core": "44/46",
+          "breadth": "45/110"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "64/108"
+        },
+        {
+          "screen": 125,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "83/108"
+        },
+        {
+          "screen": 150,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "102/108"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 45,
+          "answered": 45,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        72,
+        4,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 11,
+            "gate": 2,
+            "diagnostic": 2
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 1
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "IT and information",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 4,
+          "depthKinds": {
+            "diagnostic": 4
+          },
+          "screens": 4,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Procurement",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 11,
+          "depthKinds": {
+            "coverage": 3,
+            "gate": 2,
+            "diagnostic": 4,
+            "follow-up": 2
+          },
+          "screens": 0,
+          "declined": 11,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 8,
+            "follow-up": 3,
+            "diagnostic": 4
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 13,
+          "depthKinds": {
+            "diagnostic": 9,
+            "follow-up": 4
+          },
+          "screens": 13,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Operations and sales",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 3,
+            "follow-up": 3,
+            "diagnostic": 9
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Financial controller (respondent, also holds Finance)",
+          "screens": 175
+        },
+        {
+          "person": "Risk and investigations lead",
+          "screens": 15
+        },
+        {
+          "person": "HR and payroll lead",
+          "screens": 15
+        },
+        {
+          "person": "Operations and sales lead",
+          "screens": 15
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 11,
+          "unknownToFunction": 0
+        }
+      },
+      "consistency": {
+        "eligible": 32,
+        "selected": 5,
+        "tested": 5,
+        "untested": 27,
+        "counts": {
+          "consistent": 5
+        }
+      },
+      "actions": 563
+    },
+    "P4": {
+      "name": "Small owner-managed firm (limited applicability)",
+      "respondentScreens": 96,
+      "kinds": {
+        "profile": 5,
+        "confirm": 23,
+        "consistency": 5,
+        "scope": 33,
+        "route": 4,
+        "coverage": 26
+      },
+      "coreCompleteAtScreen": 52,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "23/23",
+        "breadth": "49/50"
+      },
+      "atEnd": {
+        "screen": 96,
+        "stage": "complete",
+        "core": "23/23",
+        "breadth": "49/49"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "12/51",
+          "breadth": "12/116"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "21/23",
+          "breadth": "21/66"
+        },
+        {
+          "screen": 75,
+          "stage": "breadth",
+          "core": "23/23",
+          "breadth": "43/64"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "23/23",
+          "breadth": "49/50"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 23,
+          "answered": 23,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 49,
+          "answered": 49,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        18,
+        3,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 10,
+          "depthKinds": {
+            "coverage": 8,
+            "gate": 2
+          },
+          "screens": 10,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 1,
+          "depthKinds": {
+            "diagnostic": 1
+          },
+          "screens": 1,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "IT and information",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 4,
+          "depthKinds": {
+            "diagnostic": 4
+          },
+          "screens": 4,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 1
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "follow-up": 2,
+            "diagnostic": 1
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Owner-manager (respondent and every function)",
+          "screens": 117
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 49,
+          "answered": 49,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0
+        }
+      },
+      "consistency": {
+        "eligible": 24,
+        "selected": 5,
+        "tested": 5,
+        "untested": 19,
+        "counts": {
+          "consistent": 5
+        }
+      },
+      "actions": 274
+    },
+    "P5": {
+      "name": "Extensive unanswered information (35% \"I don't know\"; two areas delegated)",
+      "respondentScreens": 141,
+      "kinds": {
+        "profile": 5,
+        "confirm": 44,
+        "consistency": 5,
+        "scope": 35,
+        "route": 4,
+        "assumptions": 1,
+        "coverage": 47
+      },
+      "coreCompleteAtScreen": 76,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "45/45",
+        "breadth": "79/108"
+      },
+      "atEnd": {
+        "screen": 141,
+        "stage": "packages",
+        "core": "45/45",
+        "breadth": "108/108"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "13/52",
+          "breadth": "13/119"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "29/49",
+          "breadth": "29/114"
+        },
+        {
+          "screen": 75,
+          "stage": "core",
+          "core": "45/46",
+          "breadth": "45/110"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "79/108"
+        },
+        {
+          "screen": 125,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "98/108"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 45,
+          "answered": 34,
+          "withFunctions": 11,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 66,
+          "withFunctions": 42,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        73,
+        7,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Executive and governance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 2,
+          "depth": 0,
+          "depthKinds": {},
+          "screens": 2,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 6,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 11,
+            "gate": 2,
+            "diagnostic": 2
+          },
+          "screens": 22,
+          "declined": 0,
+          "ownerUnknown": 2
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 2,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 1
+          },
+          "screens": 5,
+          "declined": 0,
+          "ownerUnknown": 1
+        },
+        {
+          "fn": "IT and information",
+          "area": [
+            "D9"
+          ],
+          "areaAnswered": 11,
+          "unknown": 2,
+          "depth": 4,
+          "depthKinds": {
+            "diagnostic": 4
+          },
+          "screens": 17,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Procurement",
+          "area": [
+            "D4"
+          ],
+          "areaAnswered": 10,
+          "unknown": 1,
+          "depth": 14,
+          "depthKinds": {
+            "coverage": 5,
+            "gate": 2,
+            "diagnostic": 5,
+            "follow-up": 2
+          },
+          "screens": 25,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 3,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 8,
+            "follow-up": 3,
+            "diagnostic": 4
+          },
+          "screens": 18,
+          "declined": 0,
+          "ownerUnknown": 1
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 7,
+          "depth": 14,
+          "depthKinds": {
+            "diagnostic": 10,
+            "follow-up": 4
+          },
+          "screens": 21,
+          "declined": 0,
+          "ownerUnknown": 1
+        },
+        {
+          "fn": "Operations and sales",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 5,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 3,
+            "follow-up": 3,
+            "diagnostic": 9
+          },
+          "screens": 20,
+          "declined": 0,
+          "ownerUnknown": 2
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Financial controller (respondent, also holds Finance)",
+          "screens": 162
+        },
+        {
+          "person": "Procurement lead",
+          "screens": 25
+        },
+        {
+          "person": "Risk and investigations lead",
+          "screens": 22
+        },
+        {
+          "person": "Operations and sales lead",
+          "screens": 20
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 106,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 2,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 7
+        }
+      },
+      "consistency": {
+        "eligible": 32,
+        "selected": 5,
+        "tested": 4,
+        "untested": 27,
+        "counts": {
+          "consistent": 4,
+          "missing-information": 1
+        }
+      },
+      "actions": 699
+    },
+    "P6b": {
+      "name": "Overstated confirmations (confirmations in place, supporting practices weak)",
+      "respondentScreens": 167,
+      "kinds": {
+        "profile": 5,
+        "confirm": 45,
+        "consistency": 10,
+        "scope": 40,
+        "route": 4,
+        "assumptions": 1,
+        "coverage": 62
+      },
+      "coreCompleteAtScreen": 82,
+      "at95": {
+        "screen": 95,
+        "stage": "breadth",
+        "core": "45/45",
+        "breadth": "59/108"
+      },
+      "atEnd": {
+        "screen": 167,
+        "stage": "complete",
+        "core": "45/45",
+        "breadth": "108/108"
+      },
+      "milestones": [
+        {
+          "screen": 25,
+          "stage": "core",
+          "core": "13/52",
+          "breadth": "13/119"
+        },
+        {
+          "screen": 50,
+          "stage": "core",
+          "core": "29/50",
+          "breadth": "30/115"
+        },
+        {
+          "screen": 75,
+          "stage": "core",
+          "core": "41/46",
+          "breadth": "42/110"
+        },
+        {
+          "screen": 95,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "59/108"
+        },
+        {
+          "screen": 125,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "81/108"
+        },
+        {
+          "screen": 150,
+          "stage": "breadth",
+          "core": "45/45",
+          "breadth": "97/108"
+        }
+      ],
+      "afterInterview": {
+        "core": {
+          "applicableSoFar": 45,
+          "answered": 45,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        }
+      },
+      "sends": [
+        46,
+        19,
+        0
+      ],
+      "functions": [
+        {
+          "fn": "Executive and governance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 1,
+          "depthKinds": {
+            "diagnostic": 1
+          },
+          "screens": 1,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Risk and investigations",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 9,
+            "gate": 2,
+            "diagnostic": 3,
+            "follow-up": 1
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Legal, compliance and ethics",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 3,
+          "depthKinds": {
+            "coverage": 2,
+            "diagnostic": 1
+          },
+          "screens": 3,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Procurement",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 5,
+            "gate": 2,
+            "follow-up": 2,
+            "diagnostic": 6
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "HR and payroll",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 15,
+          "depthKinds": {
+            "coverage": 8,
+            "gate": 1,
+            "diagnostic": 6
+          },
+          "screens": 15,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Finance",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 5,
+          "depthKinds": {
+            "diagnostic": 4,
+            "follow-up": 1
+          },
+          "screens": 5,
+          "declined": 0,
+          "ownerUnknown": 0
+        },
+        {
+          "fn": "Operations and sales",
+          "area": [],
+          "areaAnswered": 0,
+          "unknown": 0,
+          "depth": 11,
+          "depthKinds": {
+            "coverage": 3,
+            "diagnostic": 6,
+            "follow-up": 2
+          },
+          "screens": 11,
+          "declined": 0,
+          "ownerUnknown": 0
+        }
+      ],
+      "staffing": [
+        {
+          "person": "Financial controller (respondent, also holds Finance)",
+          "screens": 172
+        },
+        {
+          "person": "Risk and investigations lead",
+          "screens": 15
+        },
+        {
+          "person": "Procurement lead",
+          "screens": 15
+        },
+        {
+          "person": "HR and payroll lead",
+          "screens": 15
+        }
+      ],
+      "final": {
+        "stage": "complete",
+        "breadth": {
+          "applicableSoFar": 108,
+          "answered": 108,
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0,
+          "open": 0,
+          "complete": true
+        },
+        "packagesOpen": 0,
+        "outstanding": {
+          "withFunctions": 0,
+          "declined": 0,
+          "unknownToFunction": 0
+        }
+      },
+      "consistency": {
+        "eligible": 67,
+        "selected": 10,
+        "tested": 10,
+        "untested": 57,
+        "counts": {
+          "conflicting": 6,
+          "partial-operation": 1,
+          "narrower-scope": 3
+        }
+      },
+      "actions": 553
+    }
+  },
+  "correction": {
+    "fact": "PR-10",
+    "factText": "Is the organisation part of a group, with a parent company, subsidiaries or sister companies?",
+    "before": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 108,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    },
+    "reopened": {
+      "stage": "core",
+      "core": {
+        "applicableSoFar": 46,
+        "answered": 45,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 1,
+        "complete": false
+      },
+      "breadth": {
+        "applicableSoFar": 109,
+        "answered": 108,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 1,
+        "complete": false
+      },
+      "firstQuestion": "D1-G-03",
+      "firstQuestionText": "Is a senior person in this organisation accountable for fraud risk locally, with it clear which fraud duties stay here and which the group performs?"
+    },
+    "answeredAfter": 1,
+    "after": {
+      "stage": "complete",
+      "breadth": {
+        "applicableSoFar": 109,
+        "answered": 109,
+        "withFunctions": 0,
+        "declined": 0,
+        "unknownToFunction": 0,
+        "open": 0,
+        "complete": true
+      }
+    }
+  }
+}

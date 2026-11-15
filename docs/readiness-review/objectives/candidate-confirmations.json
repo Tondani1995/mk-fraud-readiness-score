@@ -1,0 +1,559 @@
+{
+ "fictional": true,
+ "label": "FICTIONAL RESEARCH: candidates tested, not applied to coverage map 1.3",
+ "candidates": [
+  {
+   "candidate": "D2-I-01",
+   "scheme": {
+    "id": "FS-D2-01",
+    "name": "Fraud risks are never identified",
+    "tier": 1,
+    "how": "Management does not know how fraud could happen in its own processes.",
+    "why": "Whether risks are understood decides whether controls are aimed at the right schemes.",
+    "appliesWhen": null
+   },
+   "confirmationsToday": [
+    {
+     "id": "D2-G-01",
+     "when": null,
+     "key": "Fraud risks assessed",
+     "text": "Has the organisation assessed its fraud risks in the last three years?",
+     "level4": null,
+     "module": "gateway",
+     "enterWhen": null
+    },
+    {
+     "id": "D2-N-04",
+     "when": "D2-G-01=informal,none",
+     "key": "Managers discuss fraud exposure",
+     "text": "Do the managers of high-risk areas, such as payments, procurement and payroll, discuss how fraud could happen in their areas?",
+     "level4": "All managers of high-risk areas discuss fraud risks regularly and record what they agree to do.",
+     "module": "noassess",
+     "enterWhen": {
+      "q": "D2-G-01",
+      "in": [
+       "informal",
+       "none",
+       "unknown"
+      ]
+     }
+    }
+   ],
+   "candidateQuestion": {
+    "key": "Risks described as schemes",
+    "text": "Are fraud risks described as specific schemes, saying who could commit them and how, instead of general labels like 'theft'?",
+    "format": "anchored",
+    "stage": "core",
+    "level4": "Every risk is described as a specific scheme, with the perpetrator, the method and the process it affects.",
+    "module": "identification",
+    "moduleEnterWhen": {
+     "q": "D2-G-01",
+     "in": [
+      "dedicated",
+      "erm"
+     ]
+    },
+    "askWhen": null,
+    "roleToday": {
+     "scenario": "FS-D2-01",
+     "role": "related",
+     "objectives": [
+      "OBJ-D2-identification"
+     ]
+    }
+   },
+   "wordingOverlapWithConfirmations": [
+    {
+     "id": "D2-G-01",
+     "jaccard": 0.11
+    },
+    {
+     "id": "D2-N-04",
+     "jaccard": 0.08
+    }
+   ],
+   "routing": [
+    {
+     "journey": "P1",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P2",
+     "schemeStatus": "gap-reported",
+     "candidateState": "outofscope",
+     "candidateAnswered": false,
+     "aligned": false
+    },
+    {
+     "journey": "P3",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P4",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P5",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P6b",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    }
+   ],
+   "alignedInEveryJourney": false
+  },
+  {
+   "candidate": "D4-P-01",
+   "scheme": {
+    "id": "FS-D4-05",
+    "name": "Invoices are paid for goods or services not received or not agreed",
+    "tier": 1,
+    "how": "Overbilling, fictitious deliveries or inflated rates are paid.",
+    "why": "Invoices paid without checking approval and receipt are how overbilling and fictitious deliveries get paid.",
+    "appliesWhen": {
+     "q": "D4-S-00",
+     "in": [
+      "yes"
+     ]
+    }
+   },
+   "confirmationsToday": [
+    {
+     "id": "D4-V-01",
+     "when": null,
+     "key": "Three-way match",
+     "text": "Before an invoice is paid, is it checked against what was approved, such as an order, quote or contract, and against confirmation that the goods or services were received?",
+     "level4": "Every invoice is checked against an approved order, quote or contract and against confirmation of receipt before payment, and differences are resolved first.",
+     "module": "payment",
+     "enterWhen": {
+      "q": "D4-S-00",
+      "in": [
+       "yes"
+      ]
+     }
+    }
+   ],
+   "candidateQuestion": {
+    "key": "Approved order before commitment",
+    "text": "Is every purchase approved before the organisation commits to it, through a purchase order or another recorded approval?",
+    "format": "anchored",
+    "stage": "core",
+    "level4": "Every purchase is approved by someone with the authority to do so before the organisation commits, and the approval is recorded.",
+    "module": "orders",
+    "moduleEnterWhen": {
+     "q": "D4-S-00",
+     "in": [
+      "yes"
+     ]
+    },
+    "askWhen": null,
+    "roleToday": {
+     "scenario": "FS-D4-05",
+     "role": "related",
+     "objectives": [
+      "OBJ-D4-orders"
+     ]
+    }
+   },
+   "wordingOverlapWithConfirmations": [
+    {
+     "id": "D4-V-01",
+     "jaccard": 0.12
+    }
+   ],
+   "routing": [
+    {
+     "journey": "P1",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P2",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P3",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P4",
+     "schemeStatus": "outofscope",
+     "candidateState": "outofscope",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P5",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P6b",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    }
+   ],
+   "alignedInEveryJourney": true
+  },
+  {
+   "candidate": "D5-V-01",
+   "scheme": {
+    "id": "FS-D5-02",
+    "name": "Ghost employees are paid",
+    "tier": 1,
+    "how": "Fictitious or departed people stay on the payroll.",
+    "why": "A payroll that nobody independent reviews before payment is where ghost employees hide.",
+    "appliesWhen": {
+     "q": "D5-G-01",
+     "in": [
+      "inhouse",
+      "bureau",
+      "group"
+     ]
+    }
+   },
+   "confirmationsToday": [
+    {
+     "id": "D5-P-01",
+     "when": "D5-G-01=inhouse",
+     "key": "Payroll reviewed by another person",
+     "text": "Is each payroll run reviewed before payment by someone who did not prepare it?",
+     "level4": "Every payroll run is reviewed before payment by someone who did not prepare it, and the review is recorded.",
+     "module": "payrun",
+     "enterWhen": {
+      "q": "D5-G-01",
+      "in": [
+       "inhouse"
+      ]
+     }
+    },
+    {
+     "id": "D5-O-05",
+     "when": "D5-G-01=bureau,group",
+     "key": "Payroll report reviewed before payment",
+     "text": "Do you receive and review the payroll report before salaries are paid?",
+     "level4": "The report is reviewed before every pay run by someone who knows the workforce, and differences are resolved before payment.",
+     "module": "oversight",
+     "enterWhen": {
+      "q": "D5-G-01",
+      "in": [
+       "bureau",
+       "group"
+      ]
+     }
+    }
+   ],
+   "candidateQuestion": {
+    "key": "Headcount verification done",
+    "text": "Has the organisation matched the people on payroll to real employees, through a headcount or verification exercise, in the last two years?",
+    "format": "choicePractice",
+    "stage": "detail",
+    "level4": null,
+    "module": "verification",
+    "moduleEnterWhen": {
+     "q": "D5-G-01",
+     "in": [
+      "inhouse",
+      "bureau",
+      "group",
+      "unknown"
+     ]
+    },
+    "askWhen": null,
+    "roleToday": {
+     "scenario": "FS-D5-02",
+     "role": "followup",
+     "objectives": [
+      "OBJ-D5-verification"
+     ]
+    }
+   },
+   "wordingOverlapWithConfirmations": [
+    {
+     "id": "D5-P-01",
+     "jaccard": 0.06
+    },
+    {
+     "id": "D5-O-05",
+     "jaccard": 0.06
+    }
+   ],
+   "routing": [
+    {
+     "journey": "P1",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P2",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P3",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P4",
+     "schemeStatus": "outofscope",
+     "candidateState": "outofscope",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P5",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P6b",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    }
+   ],
+   "alignedInEveryJourney": true
+  },
+  {
+   "candidate": "D5-H-01",
+   "scheme": {
+    "id": "FS-D5-12",
+    "name": "An insider in a high-risk role works unchecked",
+    "tier": 2,
+    "how": "Someone who never hands over work conceals an ongoing fraud.",
+    "why": null,
+    "appliesWhen": {
+     "q": "D5-G-01",
+     "in": [
+      "inhouse",
+      "bureau",
+      "group"
+     ]
+    }
+   },
+   "confirmationsToday": [
+    {
+     "id": "D5-K-01",
+     "when": null,
+     "key": "Block leave required",
+     "text": "Must people in finance, payroll, procurement and other sensitive roles take a block of consecutive leave each year, with someone else doing their work while they are away?",
+     "level4": "Everyone in a sensitive role takes a block of consecutive leave each year, with their work done by someone else, and exceptions are approved.",
+     "module": "leave",
+     "enterWhen": {
+      "q": "D5-G-01",
+      "in": [
+       "inhouse",
+       "bureau",
+       "group",
+       "unknown"
+      ]
+     }
+    }
+   ],
+   "candidateQuestion": {
+    "key": "High-risk roles identified",
+    "text": "Are the organisation's high-risk roles identified, such as those that can move money, change master data, approve payments, handle cash or stock, or manage system access?",
+    "format": "anchored",
+    "stage": "core",
+    "level4": "A maintained list of high-risk roles covers the whole organisation, including roles that can move money, change master data or manage system access.",
+    "module": "highrisk",
+    "moduleEnterWhen": {
+     "q": "D5-G-01",
+     "in": [
+      "inhouse",
+      "bureau",
+      "group",
+      "unknown"
+     ]
+    },
+    "askWhen": null,
+    "roleToday": {
+     "scenario": "FS-D5-12",
+     "role": "followup",
+     "objectives": [
+      "OBJ-D5-highrisk"
+     ]
+    }
+   },
+   "wordingOverlapWithConfirmations": [
+    {
+     "id": "D5-K-01",
+     "jaccard": 0.02
+    }
+   ],
+   "routing": [
+    {
+     "journey": "P1",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P2",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P3",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P4",
+     "schemeStatus": "outofscope",
+     "candidateState": "outofscope",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P5",
+     "schemeStatus": "gap-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    },
+    {
+     "journey": "P6b",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "reported",
+     "candidateAnswered": true,
+     "aligned": true
+    }
+   ],
+   "alignedInEveryJourney": true
+  },
+  {
+   "candidate": "D3-A-03",
+   "scheme": {
+    "id": "FS-D3-10",
+    "name": "Staff do not know or understand what is expected",
+    "tier": 3,
+    "how": "Expectations are not communicated in a way people understand, and nobody checks.",
+    "why": null,
+    "appliesWhen": null
+   },
+   "confirmationsToday": [
+    {
+     "id": "D3-C-04",
+     "when": null,
+     "key": "Code accessible to staff",
+     "text": "Are the organisation's standards of conduct, whether in a written code or not, explained in the languages and places employees actually use, such as induction, the workplace and team meetings?",
+     "level4": null,
+     "module": "code",
+     "enterWhen": null
+    }
+   ],
+   "candidateQuestion": {
+    "key": "Role-specific training",
+    "text": "Do high-risk roles, such as finance, procurement, payroll, sales and IT, receive training on the frauds they are most likely to face?",
+    "format": "anchored",
+    "stage": "core",
+    "level4": "All high-risk roles receive targeted training that is refreshed and tracked.",
+    "module": "training",
+    "moduleEnterWhen": null,
+    "askWhen": null,
+    "roleToday": {
+     "scenario": "FS-D3-10",
+     "role": "related",
+     "objectives": [
+      "OBJ-D3-training"
+     ]
+    }
+   },
+   "wordingOverlapWithConfirmations": [
+    {
+     "id": "D3-C-04",
+     "jaccard": 0.03
+    }
+   ],
+   "routing": [
+    {
+     "journey": "P1",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P2",
+     "schemeStatus": "gap-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P3",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P4",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P5",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    },
+    {
+     "journey": "P6b",
+     "schemeStatus": "confirmed-reported",
+     "candidateState": "unconfirmed",
+     "candidateAnswered": false,
+     "aligned": true
+    }
+   ],
+   "alignedInEveryJourney": true
+  }
+ ]
+}

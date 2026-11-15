@@ -1,0 +1,296 @@
+[
+ {
+  "assessmentReference": "MKFRS-2026-RV6A3F8606",
+  "organisation": "Kestrel Freight (Pty) Ltd (fictional)",
+  "status": "snapshot_available",
+  "orders": [
+   {
+    "ref": "MKORD-2026-AFF20785",
+    "product": "mk_validated_assessment",
+    "status": "awaiting_payment",
+    "amount": 35000
+   },
+   {
+    "ref": "MKORD-2026-9C32E8C3",
+    "product": "essential_self_assessment",
+    "status": "payment_received",
+    "amount": 7500
+   }
+  ],
+  "binding": {
+   "sessionId": "c6d7b273…",
+   "actionCount": 227,
+   "outstandingAtBinding": 56,
+   "boundAt": "2026-11-13T05:34:47.054436+00:00"
+  },
+  "scoreRun": {
+   "status": "completed",
+   "locked": true,
+   "resultStatus": "REVISED_UNSCORED",
+   "overallScore": null,
+   "maturity": null,
+   "inputHashIsBindingDigest": true
+  },
+  "replay": {
+   "inputDigestMatches": true,
+   "logDigestMatches": true,
+   "actionsAfterBinding": 0,
+   "actionsAfterBindingExcluded": true
+  },
+  "answers": {
+   "browserAnswers": 109,
+   "matchedInStoredLog": 109,
+   "unmatched": [],
+   "corrections": "1 of 1 stored as respondent.correct",
+   "declines": "0 of 0 stored as owner.decline",
+   "areaHandoffs": "1 entered; 1 stored as respondent.assignArea",
+   "stopsAndResumes": "1 stop, 1 resume stored"
+  },
+  "input": {
+   "contract": "mk-readiness-report-input@1.3.0",
+   "engineBuild": "1.6",
+   "controls": 902,
+   "outstanding": 56,
+   "interview": "ended",
+   "reportedGaps": 46,
+   "scenarios": 122,
+   "functionPackages": 15,
+   "declined": 0,
+   "areaDelegations": 1
+  },
+  "analysis": {
+   "controlsInRegister": 46,
+   "registerControlsTracedToAnAnswer": 46,
+   "position": [
+    "Calculated test result: Not calculated",
+    "Unresolved inconsistencies: None found",
+    "Provisional management interpretation: 45 with a control reported as a gap",
+    "Approved readiness conclusion: None issued"
+   ]
+  },
+  "factPacks": {
+   "essential": {
+    "sha256": "c6f614cb5540880413dbf019d721b474d9f9dc4a1783295050fcabb96ae72ec5",
+    "sections": 10,
+    "themes": 2,
+    "findings": 5,
+    "pathways": 1,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 4,
+    "outstanding": 25,
+    "owners": 5,
+    "scoreFact": false
+   },
+   "comprehensive": {
+    "sha256": "88212630d784049a3d3c2cfc83d87b380363c152cc6223a7670725ee23ca4b08",
+    "sections": 13,
+    "themes": 2,
+    "findings": 5,
+    "pathways": 1,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 4,
+    "outstanding": 25,
+    "owners": 5,
+    "scoreFact": false
+   }
+  }
+ },
+ {
+  "assessmentReference": "MKFRS-2026-RVA661F4AC",
+  "organisation": "Marula Retail Holdings (Pty) Ltd (fictional)",
+  "status": "snapshot_available",
+  "orders": [
+   {
+    "ref": "MKORD-2026-29DEED58",
+    "product": "essential_self_assessment",
+    "status": "awaiting_payment",
+    "amount": 7500
+   },
+   {
+    "ref": "MKORD-2026-4EB44B2C",
+    "product": "mk_validated_assessment",
+    "status": "awaiting_payment",
+    "amount": 35000
+   }
+  ],
+  "binding": {
+   "sessionId": "4522675a…",
+   "actionCount": 504,
+   "outstandingAtBinding": 2,
+   "boundAt": "2026-11-13T05:48:16.757752+00:00"
+  },
+  "scoreRun": {
+   "status": "completed",
+   "locked": true,
+   "resultStatus": "REVISED_UNSCORED",
+   "overallScore": null,
+   "maturity": null,
+   "inputHashIsBindingDigest": true
+  },
+  "replay": {
+   "inputDigestMatches": true,
+   "logDigestMatches": true,
+   "actionsAfterBinding": 0,
+   "actionsAfterBindingExcluded": true
+  },
+  "answers": {
+   "browserAnswers": 0,
+   "matchedInStoredLog": 0,
+   "unmatched": [],
+   "corrections": "0 of 0 stored as respondent.correct",
+   "declines": "0 of 0 stored as owner.decline",
+   "areaHandoffs": "0 entered; 0 stored as respondent.assignArea",
+   "stopsAndResumes": "1 stop, 1 resume stored"
+  },
+  "input": {
+   "contract": "mk-readiness-report-input@1.3.0",
+   "engineBuild": "1.6",
+   "controls": 902,
+   "outstanding": 2,
+   "interview": "ended",
+   "reportedGaps": 46,
+   "scenarios": 122,
+   "functionPackages": 56,
+   "declined": 0,
+   "areaDelegations": 0
+  },
+  "analysis": {
+   "controlsInRegister": 47,
+   "registerControlsTracedToAnAnswer": 47,
+   "position": [
+    "Calculated test result: Not calculated",
+    "Unresolved inconsistencies: 1 to settle; 3 to clarify",
+    "Provisional management interpretation: 0 with a control reported as a gap",
+    "Approved readiness conclusion: None issued"
+   ]
+  },
+  "factPacks": {
+   "essential": {
+    "sha256": "9b6b997c111d6c0b8d6fe35f99615b3ebffc267e3a95bdc155e0047cb121d448",
+    "sections": 10,
+    "themes": 2,
+    "findings": 7,
+    "pathways": 3,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 5,
+    "outstanding": 1,
+    "owners": 5,
+    "scoreFact": false
+   },
+   "comprehensive": {
+    "sha256": "b1fa92794c8c90c22bad8ee6bbdc772e34d81465b1b540b71f4293c589d3af85",
+    "sections": 13,
+    "themes": 2,
+    "findings": 7,
+    "pathways": 3,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 5,
+    "outstanding": 1,
+    "owners": 5,
+    "scoreFact": false
+   }
+  }
+ },
+ {
+  "assessmentReference": "MKFRS-2026-RVA34A0C3A",
+  "organisation": "Kestrel Freight (Pty) Ltd (fictional)",
+  "status": "snapshot_available",
+  "orders": [
+   {
+    "ref": "MKORD-2026-752F376C",
+    "product": "essential_self_assessment",
+    "status": "awaiting_payment",
+    "amount": 7500
+   },
+   {
+    "ref": "MKORD-2026-E0CD0BFB",
+    "product": "mk_validated_assessment",
+    "status": "awaiting_payment",
+    "amount": 35000
+   }
+  ],
+  "binding": {
+   "sessionId": "62eb818e…",
+   "actionCount": 320,
+   "outstandingAtBinding": 20,
+   "boundAt": "2026-11-13T05:52:01.821766+00:00"
+  },
+  "scoreRun": {
+   "status": "completed",
+   "locked": true,
+   "resultStatus": "REVISED_UNSCORED",
+   "overallScore": null,
+   "maturity": null,
+   "inputHashIsBindingDigest": true
+  },
+  "replay": {
+   "inputDigestMatches": true,
+   "logDigestMatches": true,
+   "actionsAfterBinding": 4,
+   "actionsAfterBindingExcluded": true
+  },
+  "answers": {
+   "browserAnswers": 8,
+   "matchedInStoredLog": 8,
+   "unmatched": [],
+   "corrections": "0 of 0 stored as respondent.correct",
+   "declines": "0 of 0 stored as owner.decline",
+   "areaHandoffs": "0 entered; 1 stored as respondent.assignArea",
+   "stopsAndResumes": "1 stop, 1 resume stored"
+  },
+  "input": {
+   "contract": "mk-readiness-report-input@1.3.0",
+   "engineBuild": "1.6",
+   "controls": 902,
+   "outstanding": 20,
+   "interview": "ended",
+   "reportedGaps": 56,
+   "scenarios": 122,
+   "functionPackages": 29,
+   "declined": 2,
+   "areaDelegations": 1
+  },
+  "analysis": {
+   "controlsInRegister": 56,
+   "registerControlsTracedToAnAnswer": 56,
+   "position": [
+    "Calculated test result: Not calculated",
+    "Unresolved inconsistencies: None found",
+    "Provisional management interpretation: 55 with a control reported as a gap",
+    "Approved readiness conclusion: None issued"
+   ]
+  },
+  "factPacks": {
+   "essential": {
+    "sha256": "a98d854198551ba18c9d37c76b0f1948b1ae039bb233bbfea7cae8bacfefc660",
+    "sections": 10,
+    "themes": 2,
+    "findings": 5,
+    "pathways": 1,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 4,
+    "outstanding": 13,
+    "owners": 5,
+    "scoreFact": false
+   },
+   "comprehensive": {
+    "sha256": "e74ba4a9085404e078acb94aca7518d07ace07591838573340020147f504483a",
+    "sections": 13,
+    "themes": 2,
+    "findings": 5,
+    "pathways": 1,
+    "priorities": 6,
+    "blueprints": 5,
+    "decisions": 4,
+    "outstanding": 13,
+    "owners": 5,
+    "scoreFact": false
+   }
+  }
+ }
+]

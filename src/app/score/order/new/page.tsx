@@ -4,6 +4,8 @@ import { OrderJourney } from '@/components/commercial/OrderJourney';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { COMMERCIAL_CATALOGUE, isSelfServicePaidTier } from '@/lib/commercial/product-catalogue';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { assessmentModeOf, isPreviousMethodMode, revisedReleaseEffective, SCORED_ORDER_CLOSED_MESSAGE } from '@/lib/website/readiness-release';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +47,28 @@ export default async function NewOrderPage(props: OrderPageProps) {
     validation.assessment.current_score_run_id
   );
   if (!snapshot) redirect(snapshotPath);
+
+  // DR-01: after the switch-over a previous-method assessment takes no new order (the paid-order route refuses it too);
+  // the customer is told why and where to start, rather than reaching a checkout that would be refused.
+  if (revisedReleaseEffective()) {
+    const previousMethod = await assessmentModeOf(createSupabaseServiceClient(), validation.assessment.id).then(isPreviousMethodMode, () => true);
+    if (previousMethod) {
+      return (
+        <ResultChrome assessmentReference={snapshot.assessmentReference}>
+          <section className="mx-auto max-w-[1120px] px-[18px] py-16 md:px-6" data-previous-method-order>
+            <p className="text-[12px] uppercase tracking-[0.2em] text-mk-accent">Report orders</p>
+            <h1 className="mt-2.5 max-w-[24ch] text-[26px] font-semibold tracking-normal text-mk-navy md:text-[36px]">Reports now use the current method</h1>
+            <p className="mt-4 max-w-[60ch] text-base leading-7 text-mk-slate">{SCORED_ORDER_CLOSED_MESSAGE}</p>
+            <div className="mt-6 flex flex-wrap gap-4 text-sm font-semibold">
+              <a className="text-mk-navy underline" href="/score/start">Start a new assessment</a>
+              <a className="text-mk-navy underline" href={snapshotPath}>Return to your Snapshot</a>
+            </div>
+          </section>
+          <ResultFooter assessmentReference={snapshot.assessmentReference} />
+        </ResultChrome>
+      );
+    }
+  }
 
   const product = COMMERCIAL_CATALOGUE[tier];
   // Price is resolved once at route entry from the catalogue and never restated, so the amount

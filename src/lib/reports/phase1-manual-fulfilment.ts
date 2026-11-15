@@ -65,6 +65,9 @@ export interface ManualPhase1Dependencies {
   createManualNarrativeAttemptStore?: (input: { db: any; manualGenerationAttemptId: string }) => DurableNarrativeAttemptStore;
   attemptStore?: DurableNarrativeAttemptStore;
   persistManualNarrativeProvenance?: typeof persistManualNarrativeProvenance;
+  /** B5: revised (readiness_review) order resolution and manuscript writer, injectable for provider-free proof. */
+  loadRevisedOrder?: typeof import('./revised/live/order').loadRevisedOrder;
+  revisedManuscriptWriter?: import('./revised/live/produce').ManuscriptWriter;
 }
 
 export type ManualGenerationAction =
@@ -577,6 +580,45 @@ export async function generateManualPhase1Report(
         : await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
       const { error: startError } = startResult;
       if (startError) throw mapRpcFailure(startError, technicalReference);
+    }
+
+    // B5: an order on a revised (readiness_review) assessment takes the revised branch, which shares this attempt,
+    // the private storage path scheme, the stored-object verification, the atomic finalisation RPCs and the failure
+    // handling below. Every other order continues on the existing path unchanged.
+    if (!assessmentScoped && orderReference) {
+      generationStage = 'resolve_revised_order';
+      const doLoadRevisedOrder = dependencies.loadRevisedOrder ?? (await import('./revised/live/order')).loadRevisedOrder;
+      let revisedOrder: Awaited<ReturnType<typeof doLoadRevisedOrder>> = null;
+      try {
+        revisedOrder = await doLoadRevisedOrder(db, orderReference);
+      } catch (error) {
+        throw mapPreflightFailure(error, technicalReference);
+      }
+      if (revisedOrder) {
+        const { generateRevisedManualReport } = await import('./revised/live/manual-generation');
+        return await generateRevisedManualReport({
+          db, attemptId, versionNumber, technicalReference, order: revisedOrder, writer: dependencies.revisedManuscriptWriter,
+          stage: (stage) => { generationStage = stage; },
+          track: (state) => {
+            if (state.storageBucket !== undefined) storageBucket = state.storageBucket;
+            if (state.storagePath !== undefined) storagePath = state.storagePath;
+            if (state.pdfChecksum !== undefined) pdfChecksumForReconciliation = state.pdfChecksum;
+            if (state.registerStoragePath !== undefined) registerStoragePath = state.registerStoragePath;
+            if (state.pdfUploaded) pdfUploaded = true;
+            if (state.registerUploaded) registerUploaded = true;
+            if (state.finalisationInvoked) finalisationInvoked = true;
+            if (state.finalisationCommitted) finalisationCommitted = true;
+            if (state.failureDiagnostics) failureDiagnostics = state.failureDiagnostics;
+          },
+          helpers: {
+            verifyPrivateObject,
+            assertValidPdf,
+            sanitiseReference,
+            recordDiagnostics: (diagnostics) => recordAssessmentGenerationDiagnostics(db, attemptId, diagnostics as any),
+            makeError: (reason, message, status) => new Phase1GenerationError(reason as Phase1GenerationReason, message, status, technicalReference)
+          }
+        });
+      }
     }
 
     generationStage = 'assemble_report';

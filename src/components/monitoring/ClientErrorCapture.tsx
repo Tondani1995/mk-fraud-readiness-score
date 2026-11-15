@@ -2,12 +2,14 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
+import { telemetryPathname } from '@/lib/monitoring/credential-paths';
 
 const MAX_UNIQUE_ERRORS = 20;
 
+/** The page path for telemetry; credential segments in review links are replaced at the source. */
 function routePath() {
   if (typeof window === 'undefined') return '/unknown';
-  return window.location.pathname;
+  return telemetryPathname(window.location.pathname);
 }
 
 export function ClientErrorCapture() {

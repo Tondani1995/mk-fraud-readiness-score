@@ -1,0 +1,178 @@
+{
+ "P6b/essential": {
+  "pass": true,
+  "pages": 21,
+  "words": 4442,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "8b73a86279d2",
+  "workbook": [
+   "Read me 19",
+   "Findings 25",
+   "Risks 5",
+   "Control Actions 43",
+   "Proof of Progress 61",
+   "Roadmap 15",
+   "Question Trace 166",
+   "Control Improvements 63"
+  ]
+ },
+ "P6b/comprehensive": {
+  "pass": true,
+  "pages": 33,
+  "words": 5026,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "d95266db1bd7",
+  "workbook": [
+   "Read me 18",
+   "Summary 10",
+   "Material Findings 25",
+   "Risk Register 5",
+   "Control Blueprints 63",
+   "Implementation Blueprint 48",
+   "Management Decisions 12",
+   "Question Traceability 166"
+  ]
+ },
+ "P3/essential": {
+  "pass": true,
+  "pages": 20,
+  "words": 3566,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "d230509f32c0",
+  "workbook": [
+   "Read me 19",
+   "Findings 59",
+   "Risks 58",
+   "Control Actions 38",
+   "Proof of Progress 105",
+   "Roadmap 19",
+   "Question Trace 155",
+   "Control Improvements 106"
+  ]
+ },
+ "P3/comprehensive": {
+  "pass": true,
+  "pages": 31,
+  "words": 4223,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "807a8aafdaaf",
+  "workbook": [
+   "Read me 18",
+   "Summary 10",
+   "Material Findings 59",
+   "Risk Register 58",
+   "Control Blueprints 106",
+   "Implementation Blueprint 43",
+   "Management Decisions 9",
+   "Question Traceability 155"
+  ]
+ },
+ "P4/essential": {
+  "pass": true,
+  "pages": 19,
+  "words": 2558,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "ebd819b539f6",
+  "workbook": [
+   "Read me 19",
+   "Findings 11",
+   "Risks 10",
+   "Control Actions 16",
+   "Proof of Progress 15",
+   "Roadmap 16",
+   "Question Trace 56",
+   "Control Improvements 15"
+  ]
+ },
+ "P4/comprehensive": {
+  "pass": true,
+  "pages": 28,
+  "words": 2924,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "154104ff6056",
+  "workbook": [
+   "Read me 18",
+   "Summary 10",
+   "Material Findings 11",
+   "Risk Register 10",
+   "Control Blueprints 15",
+   "Implementation Blueprint 21",
+   "Management Decisions 9",
+   "Question Traceability 56"
+  ]
+ },
+ "P5/essential": {
+  "pass": true,
+  "pages": 20,
+  "words": 3132,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "4e3dc01a2b0f",
+  "workbook": [
+   "Read me 19",
+   "Findings 59",
+   "Risks 58",
+   "Control Actions 43",
+   "Proof of Progress 102",
+   "Roadmap 19",
+   "Question Trace 152",
+   "Control Improvements 103"
+  ]
+ },
+ "P5/comprehensive": {
+  "pass": true,
+  "pages": 31,
+  "words": 3687,
+  "fonts": [
+   "Poppins-SemiBold",
+   "Poppins-Medium",
+   "Poppins-Regular"
+  ],
+  "sparsePages": [],
+  "pdf": "c0652c2506b1",
+  "workbook": [
+   "Read me 18",
+   "Summary 10",
+   "Material Findings 59",
+   "Risk Register 58",
+   "Control Blueprints 103",
+   "Implementation Blueprint 48",
+   "Management Decisions 12",
+   "Question Traceability 152"
+  ]
+ }
+}

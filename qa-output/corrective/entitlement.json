@@ -1,0 +1,130 @@
+{
+  "results": [
+    {
+      "id": "EN-00",
+      "ok": true,
+      "name": "The unmodified deterministic Essential manuscript passes",
+      "detail": "0 blocking"
+    },
+    {
+      "id": "EN-01",
+      "ok": true,
+      "name": "Every promise of an artefact Essential does not supply is blocked",
+      "detail": "blocked: Full specifications, records and failure responses | blocked: Every action, with its deliverable and completion  | blocked: See the workbook for the operating detail of each  | blocked: Each action is listed in the action register that  | blocked: The wider register lists every scenario with a con | blocked: A spreadsheet supplied with this report sets out t | blocked: MK's workbook sets out each control in full. | blocked: The remaining findings are in the full register. | blocked: Refer to the spreadsheet for the remaining actions"
+    },
+    {
+      "id": "EN-02",
+      "ok": true,
+      "name": "Advice about the organisation's own records is allowed (including both sentences from the independent probe)",
+      "detail": "allowed: The finance lead should retain its own spreadsheet | allowed: The fraud risk lead should maintain an action regi | allowed: Procurement should keep the contract register curr | allowed: The payroll team should reconcile the spreadsheet  | allowed: Each exception should be recorded in the risk regi | allowed: Teams that excel at supplier verification still ne | allowed: The organisation should keep a register of gifts a"
+    },
+    {
+      "id": "EN-03",
+      "ok": true,
+      "name": "The rule applies to Essential only; Comprehensive, which includes a workbook, may refer to it",
+      "detail": "0 entitlement issues in Comprehensive"
+    }
+  ],
+  "prohibited": [
+    {
+      "sentence": "Full specifications, records and failure responses are in the supporting workbook.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (accompanying artefact). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "Every action, with its deliverable and completion test, is in the workbook action register.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (the workbook). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "See the workbook for the operating detail of each control.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (the workbook). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "Each action is listed in the action register that accompanies this report.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (supplied with this report). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "The wider register lists every scenario with a control reported as a gap.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (the wider register). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "A spreadsheet supplied with this report sets out the controls.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (supplied with this report). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "MK's workbook sets out each control in full.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (the report's own artefact). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "The remaining findings are in the full register.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (consult a supplied artefact). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    },
+    {
+      "sentence": "Refer to the spreadsheet for the remaining actions.",
+      "entitlement": [
+        "The Essential report is PDF-only; this line promises an artefact it does not include (consult a supplied artefact). Advice that the organisation keep its own records is allowed."
+      ],
+      "pass": false
+    }
+  ],
+  "allowed": [
+    {
+      "sentence": "The finance lead should retain its own spreadsheet of authorised supplier changes.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "The fraud risk lead should maintain an action register for management remediation work.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "Procurement should keep the contract register current and review it each quarter.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "The payroll team should reconcile the spreadsheet of starters and leavers to the payroll each month.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "Each exception should be recorded in the risk register with its owner and the date it was closed.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "Teams that excel at supplier verification still need an independent check.",
+      "entitlement": [],
+      "pass": true
+    },
+    {
+      "sentence": "The organisation should keep a register of gifts and declarations that its oversight body reviews.",
+      "entitlement": [],
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+ "product": "essential",
+ "organisation": "Fictional Owner-Managed Firm",
+ "assessmentReference": "FX-P4",
+ "bibleVersion": "1.1",
+ "sourceCommit": "4e936baf99405a9428b6514e42e634dfac481d35",
+ "writer": {
+  "mode": "in-session bounded writer under the writer contract",
+  "productionAiRoute": "not exercised: no provider credentials in this environment (blocked acceptance test)"
+ },
+ "versions": {
+  "factPack": "revised-fact-pack-0.1",
+  "storyPlan": "revised-story-plan-0.1",
+  "validator": "revised-manuscript-validator-0.1",
+  "composer": "revised-composer-0.1",
+  "publication": "mk-publication-1.0",
+  "workbook": "bible-workbook-0.1",
+  "content": {
+   "controls": "control-content-library-0.1",
+   "scenarios": "scenario-structures-0.1",
+   "decisions": "decision-options-0.1",
+   "relationships": "relationship-review-0.2",
+   "sufficiency": "information-sufficiency-candidate-0.2"
+  }
+ },
+ "hashes": {
+  "factPack": "22abca211f869722d8565da4ba7fb757462dc52bcd4f6fa38c232af85c8ff9f3",
+  "manuscript": "4f54aca18d0f3bb73a8533a6cf5e07922576a706d161b46abe89c1b7cc901e29",
+  "html": "a128b20b557a4f724d93e89143b20b155d02b19ed0287ce7e311be8c0c4b740b",
+  "pdf": "ebd819b539f6ff5fb3b07f4a333b6ed5abc7d7dee4505463c56f6cc4d45e9999",
+  "workbook": "47c9b0cf74faaf80df570cdf52b0e49c3f8cd4f7bb350e9487f7eaa7e2e6f025"
+ },
+ "workbookSheets": [
+  {
+   "name": "Read me",
+   "rows": 19,
+   "columns": 2
+  },
+  {
+   "name": "Findings",
+   "rows": 11,
+   "columns": 12
+  },
+  {
+   "name": "Risks",
+   "rows": 10,
+   "columns": 8
+  },
+  {
+   "name": "Control Actions",
+   "rows": 16,
+   "columns": 9
+  },
+  {
+   "name": "Proof of Progress",
+   "rows": 15,
+   "columns": 5
+  },
+  {
+   "name": "Roadmap",
+   "rows": 16,
+   "columns": 6
+  },
+  {
+   "name": "Question Trace",
+   "rows": 56,
+   "columns": 10
+  },
+  {
+   "name": "Control Improvements",
+   "rows": 15,
+   "columns": 22
+  }
+ ],
+ "pages": 19,
+ "fonts": [
+  "Poppins-SemiBold",
+  "Poppins-Medium",
+  "Poppins-Regular"
+ ],
+ "flowSections": [],
+ "generatedLabel": "12 November 2026",
+ "prototype": true
+}

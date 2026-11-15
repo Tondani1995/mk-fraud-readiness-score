@@ -1,0 +1,407 @@
+{
+ "version": "relationship-review-0.1",
+ "status": "Prototype classification for MK review. Not approved by MK.",
+ "method": "Review bank 1.3 and coverage map 1.3 (draft)",
+ "rule": "Each pair is a confirmation reported fully in place and a supporting practice of the same scheme reported as a gap. The type is decided from the wording of both questions, the level or option selected, and the method's own structure (askWhen, dependsBecause, precluded routes and the scheme description). A pair that has not been reviewed is treated as a complementary weakness, which never claims that the confirmation is disproved.",
+ "pairs": [
+  {
+   "scheme": "FS-D1-01",
+   "confirmation": "D1-A-01",
+   "practice": "D1-A-02",
+   "type": "complementary-weakness",
+   "rationale": "D1-A-01 asks whether accountability for fraud risk is formally assigned; D1-A-02 asks whether that person has the authority and budget to act across the organisation. Accountability can be assigned without that authority, so neither answer makes the other untrue. The scheme's own description names both ownership and authority to act, so the scheme is only partly addressed."
+  },
+  {
+   "scheme": "FS-D1-01",
+   "confirmation": "D1-A-01",
+   "practice": "D1-A-04",
+   "type": "complementary-weakness",
+   "rationale": "A dedicated fraud function or provider is a separate resource; formal accountability does not require one."
+  },
+  {
+   "scheme": "FS-D1-01",
+   "confirmation": "D1-A-01",
+   "practice": "D1-R-01",
+   "type": "complementary-weakness",
+   "rationale": "An annual plan or budget for fraud work is a separate practice from assigning accountability."
+  },
+  {
+   "scheme": "FS-D1-01",
+   "confirmation": "D1-A-01",
+   "practice": "D1-R-02",
+   "type": "complementary-weakness",
+   "rationale": "The qualifications of the people leading fraud work are a separate question; the method asks it wherever someone handles fraud risk."
+  },
+  {
+   "scheme": "FS-D2-01",
+   "confirmation": "D2-G-01",
+   "practice": "D2-O-03",
+   "type": "complementary-weakness",
+   "rationale": "Whether management formally accepts the results is asked separately from whether an assessment was done; an assessment can be done without formal acceptance."
+  },
+  {
+   "scheme": "FS-D2-01",
+   "confirmation": "D2-G-01",
+   "practice": "D2-O-04",
+   "type": "complementary-weakness",
+   "rationale": "Participation of process owners is a quality of the assessment, not a condition of having done one."
+  },
+  {
+   "scheme": "FS-D2-01",
+   "confirmation": "D2-G-01",
+   "practice": "D2-I-02",
+   "type": "complementary-weakness",
+   "rationale": "Walking through each high-risk process is a quality of the assessment, not a condition of having done one."
+  },
+  {
+   "scheme": "FS-D2-01",
+   "confirmation": "D2-G-01",
+   "practice": "D2-I-01",
+   "type": "complementary-weakness",
+   "rationale": "Describing risks as specific schemes is a quality of the assessment. The candidate-confirmation review found it distinct but route-conditional; it is not a condition of D2-G-01."
+  },
+  {
+   "scheme": "FS-D2-02",
+   "confirmation": "D2-C-07",
+   "practice": "D2-I-09",
+   "type": "direct-contradiction",
+   "rationale": "D2-C-07 was answered at level 4: AI-enabled schemes are assessed for every relevant process. D2-I-09 asks whether, for each high-risk process, the assessment asks how AI could be used against it, and was answered No. Both describe whether AI misuse is considered process by process, so they cannot both be true.",
+   "statement": "The answers about AI-enabled fraud cannot both be right as given: one says AI-enabled schemes are assessed for every relevant process, the other that the assessment does not ask, process by process, how AI could be used against it."
+  },
+  {
+   "scheme": "FS-D2-02",
+   "confirmation": "D2-C-07",
+   "practice": "D2-K-06",
+   "type": "complementary-weakness",
+   "rationale": "Assessing whether verification controls could be defeated by an AI-generated fake is a control-evaluation step, distinct from identifying AI-enabled schemes in the risk assessment."
+  },
+  {
+   "scheme": "FS-D2-02",
+   "confirmation": "D2-C-07",
+   "practice": "D2-C-09",
+   "type": "complementary-weakness",
+   "rationale": "Misuse of the organisation's own AI tools is a different exposure from AI-enabled fraud aimed at the organisation."
+  },
+  {
+   "scheme": "FS-D2-02",
+   "confirmation": "D2-C-07",
+   "practice": "D2-K-07",
+   "type": "complementary-weakness",
+   "rationale": "A simulated AI attack tests controls; it is not a condition of considering AI-enabled schemes."
+  },
+  {
+   "scheme": "FS-D2-05",
+   "confirmation": "D2-P-01",
+   "practice": "D2-R-01",
+   "type": "necessary-dependency",
+   "rationale": "D2-P-01 decides responses for risks above tolerance. In the method, ratings are compared with the approved tolerance only where risks are rated: D2-R-05 is asked only when D2-R-01 is in place. D2-R-01 was answered No, so the method has no established way of identifying which risks are above tolerance.",
+   "statement": "Responses are reported for every risk above tolerance, but risks are reported as not rated for likelihood and harm. The method identifies risks above tolerance by comparing ratings with the approved tolerance, so the reported response process has no established way of telling which risks are above it."
+  },
+  {
+   "scheme": "FS-D2-06",
+   "confirmation": "D2-M-02",
+   "practice": "D2-D-03",
+   "type": "complementary-weakness",
+   "rationale": "Whether process owners know the risks recorded for their area is a separate practice from updating the assessment when the business changes."
+  },
+  {
+   "scheme": "FS-D2-06",
+   "confirmation": "D2-M-02",
+   "practice": "D2-D-01",
+   "type": "complementary-weakness",
+   "rationale": "The assessment is reported as partly documented; updating on change can operate on a partly documented assessment."
+  },
+  {
+   "scheme": "FS-D3-01",
+   "confirmation": "D3-B-01",
+   "practice": "D3-A-05",
+   "type": "complementary-weakness",
+   "rationale": "Training directors and senior managers on their personal duties is separate from the prohibition itself."
+  },
+  {
+   "scheme": "FS-D3-01",
+   "confirmation": "D3-B-01",
+   "practice": "D3-B-03",
+   "type": "complementary-weakness",
+   "rationale": "Identifying high-risk activities directs extra controls; the prohibition does not depend on it."
+  },
+  {
+   "scheme": "FS-D3-10",
+   "confirmation": "D3-C-04",
+   "practice": "D3-C-01",
+   "type": "complementary-weakness",
+   "rationale": "D3-C-04 asks about standards of conduct 'whether in a written code or not', so it does not depend on a written code."
+  },
+  {
+   "scheme": "FS-D3-10",
+   "confirmation": "D3-C-04",
+   "practice": "D3-M-01",
+   "type": "complementary-weakness",
+   "rationale": "Independent review of the ethics programme is a separate practice."
+  },
+  {
+   "scheme": "FS-D3-10",
+   "confirmation": "D3-C-04",
+   "practice": "D3-M-02",
+   "type": "complementary-weakness",
+   "rationale": "Reporting ethics trends upward is a separate practice."
+  },
+  {
+   "scheme": "FS-D3-10",
+   "confirmation": "D3-C-04",
+   "practice": "D3-A-01",
+   "type": "complementary-weakness",
+   "rationale": "Fraud and ethics training at joining is distinct from explaining conduct standards where employees work; induction is only one of the places D3-C-04 names."
+  },
+  {
+   "scheme": "FS-D4-01",
+   "confirmation": "D4-O-01",
+   "practice": "D4-O-03",
+   "type": "complementary-weakness",
+   "rationale": "D4-O-01 at level 4 says every new supplier goes through set checks and an approval before it can be paid; it does not say the approver is someone other than the person who captured the supplier. D4-O-03 says they are not separated. The approval exists as reported but is not independent, which weakens the defence against an insider without contradicting the answer."
+  },
+  {
+   "scheme": "FS-D4-01",
+   "confirmation": "D4-O-01",
+   "practice": "D4-O-06",
+   "type": "complementary-weakness",
+   "rationale": "Comparing supplier details with employee records is a further check the process may include; level 4 of D4-O-01 does not specify it."
+  },
+  {
+   "scheme": "FS-D4-01",
+   "confirmation": "D4-O-01",
+   "practice": "D4-O-17",
+   "type": "complementary-weakness",
+   "rationale": "Deactivating dormant suppliers is a separate control on the existing supplier file."
+  },
+  {
+   "scheme": "FS-D4-01",
+   "confirmation": "D4-O-01",
+   "practice": "D4-O-15",
+   "type": "complementary-weakness",
+   "rationale": "Periodic re-checking of existing suppliers is a separate control on the existing supplier file."
+  },
+  {
+   "scheme": "FS-D4-01",
+   "confirmation": "D4-O-01",
+   "practice": "D4-O-05",
+   "type": "complementary-weakness",
+   "rationale": "Identifying directors and owners is one of the checks a process may include; level 4 of D4-O-01 does not specify it."
+  },
+  {
+   "scheme": "FS-D4-05",
+   "confirmation": "D4-V-01",
+   "practice": "D4-R-01",
+   "type": "necessary-dependency",
+   "rationale": "D4-V-01 at level 4 checks every invoice against confirmation of receipt before payment. Receipt of goods is recorded by the receiving process (D4-R-01), reported as recorded before payment for most deliveries but not always. The match can only use a receipt that exists, so it can operate as reported only where receipt is recorded first.",
+   "statement": "Three-way match is reported for every invoice, but receipt of goods is reported as recorded before payment for most deliveries only. The match can check an invoice against receipt only where receipt has been recorded, so it cannot operate for every invoice as reported."
+  },
+  {
+   "scheme": "FS-D4-05",
+   "confirmation": "D4-V-01",
+   "practice": "D4-R-03",
+   "type": "necessary-dependency",
+   "rationale": "For services, the method's receiving step is the person receiving the service confirming delivery before payment (D4-R-03), reported as not in place. The match has no confirmation of receipt to check service invoices against.",
+   "statement": "For services, the person receiving the service is reported as not confirming delivery before payment, which is the receipt the match relies on for service invoices. Service invoices cannot be checked against receipt as reported."
+  },
+  {
+   "scheme": "FS-D4-05",
+   "confirmation": "D4-V-01",
+   "practice": "D4-P-01",
+   "type": "complementary-weakness",
+   "rationale": "An approval recorded after commitment still lets an invoice be matched to an approved order; approval before commitment is a separate requirement, as the candidate-confirmation review found."
+  },
+  {
+   "scheme": "FS-D4-13",
+   "confirmation": "D4-K-04",
+   "practice": "D4-K-01",
+   "type": "complementary-weakness",
+   "rationale": "A register of active contracts is a separate control."
+  },
+  {
+   "scheme": "FS-D4-13",
+   "confirmation": "D4-K-04",
+   "practice": "D4-K-05",
+   "type": "complementary-weakness",
+   "rationale": "Escalating large variations adds an approval tier to the approval D4-K-04 reports."
+  },
+  {
+   "scheme": "FS-D4-13",
+   "confirmation": "D4-K-04",
+   "practice": "D4-S-07",
+   "type": "complementary-weakness",
+   "rationale": "D4-K-04 applies 'whether or not there is a written contract', so it does not depend on written contracts."
+  },
+  {
+   "scheme": "FS-D5-01",
+   "confirmation": "D5-M-05",
+   "practice": "D5-M-06",
+   "type": "complementary-weakness",
+   "rationale": "Reviewing the bank-change report before each pay run is a detective layer behind confirming each change; confirmation does not depend on it."
+  },
+  {
+   "scheme": "FS-D5-02",
+   "confirmation": "D5-P-01",
+   "practice": "D5-V-03",
+   "type": "complementary-weakness",
+   "rationale": "Analysing payroll data is a separate detective practice."
+  },
+  {
+   "scheme": "FS-D5-02",
+   "confirmation": "D5-P-01",
+   "practice": "D5-M-02",
+   "type": "complementary-weakness",
+   "rationale": "Checking each new record against a signed appointment is a separate control at set-up; the pay-run review does not depend on it."
+  },
+  {
+   "scheme": "FS-D5-02",
+   "confirmation": "D5-P-01",
+   "practice": "D5-V-09",
+   "type": "complementary-weakness",
+   "rationale": "An internal audit or external review of payroll is a separate assurance practice."
+  },
+  {
+   "scheme": "FS-D5-12",
+   "confirmation": "D5-K-01",
+   "practice": "D5-W-02",
+   "type": "complementary-weakness",
+   "rationale": "A route for managers to raise concerns is a separate practice."
+  },
+  {
+   "scheme": "FS-D5-12",
+   "confirmation": "D5-K-01",
+   "practice": "D5-W-03",
+   "type": "complementary-weakness",
+   "rationale": "Support for employees in financial difficulty is a separate practice."
+  },
+  {
+   "scheme": "FS-D5-12",
+   "confirmation": "D5-K-01",
+   "practice": "D5-H-03",
+   "type": "complementary-weakness",
+   "rationale": "Keeping cover staff from conflicting duties strengthens block leave; leave can be taken without it."
+  },
+  {
+   "scheme": "FS-D5-12",
+   "confirmation": "D5-K-01",
+   "practice": "D5-H-01",
+   "type": "necessary-dependency",
+   "rationale": "Block leave applies to people in sensitive roles, and level 4 and above require everyone in a sensitive role to take it. Which roles are sensitive is established by D5-H-01, reported as known informally only. The requirement can reach every sensitive role only as far as those roles are identified; the candidate-confirmation review reached the same view.",
+   "statement": "Block leave is reported for everyone in a sensitive role, with compliance monitored, but high-risk roles are reported as known informally rather than listed. The requirement can reach only the roles that have been identified."
+  },
+  {
+   "scheme": "FS-D6-01",
+   "confirmation": "D6-P-02",
+   "practice": "D6-P-01",
+   "type": "complementary-weakness",
+   "rationale": "Two authorisers enforced by the bank still require a second person even where the capturer can also authorise; separating capture from authorisation is a further control, not a condition of dual authorisation."
+  },
+  {
+   "scheme": "FS-D7-01",
+   "confirmation": "D7-R-01",
+   "practice": "D7-R-02",
+   "type": "complementary-weakness",
+   "rationale": "Independent approval of refunds and paying refunds only to the original source are separate controls on different steps."
+  },
+  {
+   "scheme": "FS-D8-01",
+   "confirmation": "D8-C-03",
+   "practice": "D8-C-01",
+   "type": "complementary-weakness",
+   "rationale": "Dual control when cash changes hands is a separate control from daily reconciliation."
+  },
+  {
+   "scheme": "FS-D8-01",
+   "confirmation": "D8-C-03",
+   "practice": "D8-C-12",
+   "type": "complementary-weakness",
+   "rationale": "Reconciling takings to sales records can operate whether or not those records are independent of the cashier; an independent record strengthens it."
+  },
+  {
+   "scheme": "FS-D8-01",
+   "confirmation": "D8-C-03",
+   "practice": "D8-C-06",
+   "type": "complementary-weakness",
+   "rationale": "Reconciling deposits to the bank statement is a separate control at the banking step."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-S-04",
+   "type": "necessary-dependency",
+   "rationale": "Independent counts without sight of system quantities find hidden losses only when the count is compared with a stock record, and level 4 of D8-K-02 itself refers to system quantities. D8-S-04 reports that stock is not formally recorded, so there is no record to compare a count with.",
+   "statement": "Counts are reported as independent and blind to system quantities, but stock is reported as not formally recorded. Without a stock record there is nothing to compare a count with, so the counts cannot reveal stock hidden in them as reported."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-I-01",
+   "type": "complementary-weakness",
+   "rationale": "Restricting access to stores is a separate preventive control."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-I-02",
+   "type": "complementary-weakness",
+   "rationale": "Issuing stock against approved requests is a separate preventive control."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-K-03",
+   "type": "complementary-weakness",
+   "rationale": "Investigating count differences before adjusting records is the step that acts on what counts find; the method asks it separately and does not make the count depend on it."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-I-07",
+   "type": "complementary-weakness",
+   "rationale": "Securing high-value items is a separate preventive control."
+  },
+  {
+   "scheme": "FS-D8-02",
+   "confirmation": "D8-K-02",
+   "practice": "D8-I-03",
+   "type": "complementary-weakness",
+   "rationale": "Separating custody from records is a separate control; independent counts can operate without it."
+  },
+  {
+   "scheme": "FS-D9-01",
+   "confirmation": "D9-E-01",
+   "practice": "D9-E-04",
+   "type": "complementary-weakness",
+   "rationale": "Alerts on new mailbox rules and unusual logins detect a takeover that gets past multi-factor authentication; they are a further layer, not a condition of it."
+  },
+  {
+   "scheme": "FS-D10-01",
+   "confirmation": "D10-N-01",
+   "practice": "D10-S-03",
+   "type": "complementary-weakness",
+   "rationale": "Knowing whom to tell, including someone outside the reporting line, does not require a formal channel; an informal route can meet it."
+  },
+  {
+   "scheme": "FS-D10-02",
+   "confirmation": "D10-P-01",
+   "practice": "D10-P-08",
+   "type": "complementary-weakness",
+   "rationale": "Assessing each reporter's risk of retaliation is a separate practice from keeping identities confidential."
+  },
+  {
+   "scheme": "FS-D10-02",
+   "confirmation": "D10-P-02",
+   "practice": "D10-P-08",
+   "type": "complementary-weakness",
+   "rationale": "Assessing each reporter's risk of retaliation is a separate practice from prohibiting retaliation."
+  },
+  {
+   "scheme": "FS-D10-05",
+   "confirmation": "D10-I-04",
+   "practice": "D10-S-02",
+   "type": "direct-contradiction",
+   "rationale": "D10-I-04 at level 4 says every investigation is done by people independent of the area and the people investigated. D10-S-02 says suspected fraud is investigated by line management or HR. Line management investigating its own area is not independent of it. Both can be true only if line managers never investigate matters in their own area, which the answers do not say.",
+   "statement": "The answers about investigations are hard to reconcile: one says every investigation is done by people independent of the area concerned, the other that suspected fraud is investigated by line management or HR. Unless line managers never investigate matters in their own area, both cannot be right."
+  }
+ ]
+}

@@ -1,0 +1,353 @@
+{
+ "fictional": true,
+ "measures": {
+  "P3": {
+   "organisation": "Fictional Retail Group (mixed controls)",
+   "essential": {
+    "before": {
+     "validatorOk": true,
+     "validatorIssues": [],
+     "customerWords": 1155,
+     "schemesOrPathwaysDescribed": 4,
+     "signalsShown": 14,
+     "signalsNamingAControl": 0,
+     "signalsNamingOnlyADomainScore": 14,
+     "falseComfortStatements": 0,
+     "crossCheckStatedWithPopulation": false,
+     "managementOutcomes": 4,
+     "distinctAccountableRoles": 2,
+     "roadmapActions": 6,
+     "roadmapActionsRestatingTheirDeliverable": 1,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 40
+    },
+    "after": {
+     "validatorOk": true,
+     "validatorIssues": [],
+     "customerWords": 2074,
+     "schemesOrPathwaysDescribed": 4,
+     "signalsShown": 18,
+     "signalsNamingAControl": 18,
+     "signalsNamingOnlyADomainScore": 0,
+     "falseComfortStatements": 1,
+     "crossCheckStatedWithPopulation": true,
+     "managementOutcomes": 5,
+     "distinctAccountableRoles": 10,
+     "roadmapActions": 7,
+     "roadmapActionsRestatingTheirDeliverable": 0,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 27
+    }
+   },
+   "comprehensive": {
+    "before": {
+     "findings": 20,
+     "risks": 18,
+     "controlDesigns": 20,
+     "averageWordsPerControlDesign": 48,
+     "distinctProcessOwners": 17,
+     "recordsToMaintain": 20,
+     "decisions": 6,
+     "scenarioPortfolio": 3,
+     "programmeActions": 54,
+     "sustainmentPriorities": 0,
+     "findingsNamingWhoAnswered": 0,
+     "findingsTracedToAnswers": 20,
+     "templateSentencePct": 41,
+     "words": 18553
+    },
+    "after": {
+     "findings": 59,
+     "risks": 59,
+     "controlDesigns": 59,
+     "averageWordsPerControlDesign": 51,
+     "distinctProcessOwners": 42,
+     "recordsToMaintain": 35,
+     "decisions": 5,
+     "scenarioPortfolio": 12,
+     "programmeActions": 143,
+     "sustainmentPriorities": 6,
+     "findingsNamingWhoAnswered": 15,
+     "findingsTracedToAnswers": 59,
+     "templateSentencePct": 28,
+     "words": 40799
+    }
+   },
+   "numbers": {
+    "before": {
+     "score": 70.84,
+     "band": "Developing",
+     "basis": "MFRS V1.2 calculator on derived answers"
+    },
+    "after": {
+     "score": 55.5,
+     "band": "Developing",
+     "basis": "TEST FIXTURE: hypothetical research value (scoring-frame simulation, Option A, midpoint, equal areas, no caps). Not an approved score, band or rating."
+    }
+   }
+  },
+  "P4": {
+   "organisation": "Fictional Owner-Managed Firm",
+   "essential": {
+    "before": {
+     "validatorOk": false,
+     "validatorIssues": [
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "ROADMAP_SEQUENCE_COMPLETENESS",
+      "NO_CUSTOMER_TRUNCATION_ELLIPSIS"
+     ],
+     "customerWords": 924,
+     "schemesOrPathwaysDescribed": 2,
+     "signalsShown": 15,
+     "signalsNamingAControl": 0,
+     "signalsNamingOnlyADomainScore": 15,
+     "falseComfortStatements": 0,
+     "crossCheckStatedWithPopulation": false,
+     "managementOutcomes": 4,
+     "distinctAccountableRoles": 2,
+     "roadmapActions": 4,
+     "roadmapActionsRestatingTheirDeliverable": 2,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 64
+    },
+    "after": {
+     "validatorOk": true,
+     "validatorIssues": [],
+     "customerWords": 1834,
+     "schemesOrPathwaysDescribed": 4,
+     "signalsShown": 12,
+     "signalsNamingAControl": 12,
+     "signalsNamingOnlyADomainScore": 0,
+     "falseComfortStatements": 1,
+     "crossCheckStatedWithPopulation": true,
+     "managementOutcomes": 5,
+     "distinctAccountableRoles": 8,
+     "roadmapActions": 7,
+     "roadmapActionsRestatingTheirDeliverable": 0,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 26
+    }
+   },
+   "comprehensive": {
+    "before": {
+     "findings": 9,
+     "risks": 8,
+     "controlDesigns": 9,
+     "averageWordsPerControlDesign": 57,
+     "distinctProcessOwners": 7,
+     "recordsToMaintain": 9,
+     "decisions": 6,
+     "scenarioPortfolio": 2,
+     "programmeActions": 23,
+     "sustainmentPriorities": 0,
+     "findingsNamingWhoAnswered": 0,
+     "findingsTracedToAnswers": 9,
+     "templateSentencePct": 86,
+     "words": 9125
+    },
+    "after": {
+     "findings": 11,
+     "risks": 11,
+     "controlDesigns": 11,
+     "averageWordsPerControlDesign": 43,
+     "distinctProcessOwners": 6,
+     "recordsToMaintain": 8,
+     "decisions": 4,
+     "scenarioPortfolio": 11,
+     "programmeActions": 31,
+     "sustainmentPriorities": 6,
+     "findingsNamingWhoAnswered": 3,
+     "findingsTracedToAnswers": 11,
+     "templateSentencePct": 73,
+     "words": 10282
+    }
+   },
+   "numbers": {
+    "before": {
+     "score": 77.51,
+     "band": "Developing",
+     "basis": "MFRS V1.2 calculator on derived answers"
+    },
+    "after": {
+     "score": 78.5,
+     "band": "Structured",
+     "basis": "TEST FIXTURE: hypothetical research value (scoring-frame simulation, Option A, midpoint, equal areas, no caps). Not an approved score, band or rating."
+    }
+   }
+  },
+  "P5": {
+   "organisation": "Fictional Retail Group (extensive unanswered information)",
+   "essential": {
+    "before": {
+     "validatorOk": false,
+     "validatorIssues": [
+      "NO_CUSTOMER_TRUNCATION_ELLIPSIS"
+     ],
+     "customerWords": 1074,
+     "schemesOrPathwaysDescribed": 2,
+     "signalsShown": 12,
+     "signalsNamingAControl": 0,
+     "signalsNamingOnlyADomainScore": 12,
+     "falseComfortStatements": 0,
+     "crossCheckStatedWithPopulation": false,
+     "managementOutcomes": 4,
+     "distinctAccountableRoles": 3,
+     "roadmapActions": 5,
+     "roadmapActionsRestatingTheirDeliverable": 3,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 52
+    },
+    "after": {
+     "validatorOk": true,
+     "validatorIssues": [],
+     "customerWords": 2132,
+     "schemesOrPathwaysDescribed": 4,
+     "signalsShown": 18,
+     "signalsNamingAControl": 18,
+     "signalsNamingOnlyADomainScore": 0,
+     "falseComfortStatements": 1,
+     "crossCheckStatedWithPopulation": true,
+     "managementOutcomes": 5,
+     "distinctAccountableRoles": 10,
+     "roadmapActions": 7,
+     "roadmapActionsRestatingTheirDeliverable": 0,
+     "outstandingInformationStated": true,
+     "templateSentencePct": 21
+    }
+   },
+   "comprehensive": {
+    "before": {
+     "findings": 15,
+     "risks": 15,
+     "controlDesigns": 15,
+     "averageWordsPerControlDesign": 49,
+     "distinctProcessOwners": 14,
+     "recordsToMaintain": 15,
+     "decisions": 6,
+     "scenarioPortfolio": 3,
+     "programmeActions": 41,
+     "sustainmentPriorities": 0,
+     "findingsNamingWhoAnswered": 0,
+     "findingsTracedToAnswers": 15,
+     "templateSentencePct": 44,
+     "words": 14915
+    },
+    "after": {
+     "findings": 59,
+     "risks": 59,
+     "controlDesigns": 59,
+     "averageWordsPerControlDesign": 51,
+     "distinctProcessOwners": 42,
+     "recordsToMaintain": 35,
+     "decisions": 6,
+     "scenarioPortfolio": 12,
+     "programmeActions": 142,
+     "sustainmentPriorities": 6,
+     "findingsNamingWhoAnswered": 37,
+     "findingsTracedToAnswers": 59,
+     "templateSentencePct": 28,
+     "words": 40614
+    }
+   },
+   "numbers": {
+    "before": {
+     "score": 70.71,
+     "band": "Developing",
+     "basis": "MFRS V1.2 calculator on derived answers"
+    },
+    "after": {
+     "score": 55.1,
+     "band": "Developing",
+     "basis": "TEST FIXTURE: hypothetical research value (scoring-frame simulation, Option A, midpoint, equal areas, no caps). Not an approved score, band or rating."
+    }
+   }
+  },
+  "P6b": {
+   "organisation": "Fictional Retail Group (overstated confirmations)",
+   "essential": {
+    "before": {
+     "validatorOk": false,
+     "validatorIssues": [
+      "CUSTOMER_WORD_ENVELOPE"
+     ],
+     "customerWords": 892,
+     "schemesOrPathwaysDescribed": 0,
+     "signalsShown": 11,
+     "signalsNamingAControl": 0,
+     "signalsNamingOnlyADomainScore": 11,
+     "falseComfortStatements": 0,
+     "crossCheckStatedWithPopulation": false,
+     "managementOutcomes": 3,
+     "distinctAccountableRoles": 3,
+     "roadmapActions": 3,
+     "roadmapActionsRestatingTheirDeliverable": 0,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 2
+    },
+    "after": {
+     "validatorOk": true,
+     "validatorIssues": [],
+     "customerWords": 1966,
+     "schemesOrPathwaysDescribed": 4,
+     "signalsShown": 21,
+     "signalsNamingAControl": 21,
+     "signalsNamingOnlyADomainScore": 0,
+     "falseComfortStatements": 7,
+     "crossCheckStatedWithPopulation": true,
+     "managementOutcomes": 5,
+     "distinctAccountableRoles": 7,
+     "roadmapActions": 7,
+     "roadmapActionsRestatingTheirDeliverable": 0,
+     "outstandingInformationStated": false,
+     "templateSentencePct": 5
+    }
+   },
+   "comprehensive": {
+    "before": {
+     "findings": 3,
+     "risks": 3,
+     "controlDesigns": 3,
+     "averageWordsPerControlDesign": 131,
+     "distinctProcessOwners": 3,
+     "recordsToMaintain": 3,
+     "decisions": 2,
+     "scenarioPortfolio": 0,
+     "programmeActions": 7,
+     "sustainmentPriorities": 3,
+     "findingsNamingWhoAnswered": 0,
+     "findingsTracedToAnswers": 3,
+     "templateSentencePct": 22,
+     "words": 5131
+    },
+    "after": {
+     "findings": 25,
+     "risks": 25,
+     "controlDesigns": 25,
+     "averageWordsPerControlDesign": 72,
+     "distinctProcessOwners": 21,
+     "recordsToMaintain": 10,
+     "decisions": 5,
+     "scenarioPortfolio": 12,
+     "programmeActions": 59,
+     "sustainmentPriorities": 6,
+     "findingsNamingWhoAnswered": 15,
+     "findingsTracedToAnswers": 25,
+     "templateSentencePct": 26,
+     "words": 21935
+    }
+   },
+   "numbers": {
+    "before": {
+     "score": 88.2,
+     "band": "Strategic",
+     "basis": "MFRS V1.2 calculator on derived answers"
+    },
+    "after": {
+     "score": 87.8,
+     "band": "Strategic",
+     "basis": "TEST FIXTURE: hypothetical research value (scoring-frame simulation, Option A, midpoint, equal areas, no caps). Not an approved score, band or rating."
+    }
+   }
+  }
+ }
+}

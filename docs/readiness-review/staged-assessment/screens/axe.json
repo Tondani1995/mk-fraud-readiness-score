@@ -1,0 +1,297 @@
+{
+ "base": "http://localhost:3216",
+ "axe": "4.12.1",
+ "tags": [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa"
+ ],
+ "rows": [
+  {
+   "name": "core",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 31,
+   "passNodes": 230,
+   "inapplicable": 32
+  },
+  {
+   "name": "breadth",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 4,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(3) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(4) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 31,
+   "passNodes": 179,
+   "inapplicable": 32
+  },
+  {
+   "name": "snapshotReady",
+   "url": "/review/s/:token/snapshot",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 29,
+   "passNodes": 2370,
+   "inapplicable": 34
+  },
+  {
+   "name": "snapshotPackages",
+   "url": "/review/s/:token/snapshot",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 29,
+   "passNodes": 2521,
+   "inapplicable": 34
+  },
+  {
+   "name": "owner",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 4,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(3) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(4) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 27,
+   "passNodes": 171,
+   "inapplicable": 36
+  },
+  {
+   "name": "management",
+   "url": "/review/s/:token",
+   "width": 1440,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 6,
+     "targets": [
+      ".gap-3.flex:nth-child(1) > .w-5.text-center[aria-hidden=\"true\"]",
+      ".gap-3.flex:nth-child(2) > .w-5.text-center[aria-hidden=\"true\"]",
+      ".gap-3.flex:nth-child(3) > .w-5.text-center[aria-hidden=\"true\"]",
+      ".gap-3.flex:nth-child(4) > .w-5.text-center[aria-hidden=\"true\"]",
+      ".gap-3.flex:nth-child(5) > .w-5.text-center[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 30,
+   "passNodes": 328,
+   "inapplicable": 33
+  },
+  {
+   "name": "core",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [],
+   "passes": 27,
+   "passNodes": 176,
+   "inapplicable": 36
+  },
+  {
+   "name": "breadth",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 4,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(3) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(4) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 27,
+   "passNodes": 119,
+   "inapplicable": 36
+  },
+  {
+   "name": "snapshotReady",
+   "url": "/review/s/:token/snapshot",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 8,
+     "targets": [
+      "dl[data-review-status=\"true\"] > div:nth-child(1) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(2) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(3) > dd",
+      ".md\\:col-span-3 > .mt-1 > .text-mk-muted",
+      "th[scope=\"col\"]:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 29,
+   "passNodes": 2362,
+   "inapplicable": 34
+  },
+  {
+   "name": "snapshotPackages",
+   "url": "/review/s/:token/snapshot",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 10,
+     "targets": [
+      "dl[data-review-status=\"true\"] > div:nth-child(1) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(2) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(3) > dd",
+      ".md\\:col-span-3 > .mt-1 > .text-mk-muted",
+      "th[scope=\"col\"]:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 29,
+   "passNodes": 2511,
+   "inapplicable": 34
+  },
+  {
+   "name": "owner",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 4,
+     "targets": [
+      ".answer-slot:nth-child(1) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(2) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(3) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]",
+      ".answer-slot:nth-child(4) > .answer-slot-inner > .answer-option > label > .answer-selector[aria-hidden=\"true\"]"
+     ],
+     "why": [
+      "Element content contains only non-text characters",
+      "Element content contains only non-text characters"
+     ]
+    }
+   ],
+   "passes": 27,
+   "passNodes": 170,
+   "inapplicable": 36
+  },
+  {
+   "name": "management",
+   "url": "/review/s/:token",
+   "width": 390,
+   "state": false,
+   "atRest": true,
+   "violations": [],
+   "incomplete": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "nodes": 16,
+     "targets": [
+      "dl[data-review-status=\"true\"] > div:nth-child(1) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(2) > dd",
+      "dl[data-review-status=\"true\"] > div:nth-child(3) > dd",
+      "dd > p",
+      "th[scope=\"col\"]:nth-child(5)"
+     ],
+     "why": [
+      "Element's background color could not be determined because it's partially obscured by another element",
+      "Element's background color could not be determined because it's partially obscured by another element"
+     ]
+    }
+   ],
+   "passes": 30,
+   "passNodes": 318,
+   "inapplicable": 33
+  }
+ ]
+}

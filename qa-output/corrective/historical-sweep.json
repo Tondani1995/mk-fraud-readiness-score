@@ -1,0 +1,108 @@
+{
+ "ran": "2026-11-13",
+ "suites": 156,
+ "excluded": [
+  "joint-launch:test-review-authority-refs",
+  "joint-launch:test-comprehensive-workbook (both load .env.local credentials)"
+ ],
+ "conditions": "empty environment, outbound HTTP forced through a dead proxy, 300 s per suite, 6 in parallel",
+ "candidate": {
+  "pass": 83,
+  "fail": 73
+ },
+ "baseline_4016c0de": {
+  "pass": 83,
+  "fail": 73
+ },
+ "newFailures": [],
+ "newPasses": [],
+ "failureClasses": {
+  "behaviour or contract failure (pre-existing, same on 4016c0de)": [
+   "reports:test-lineage-scope",
+   "website:test-ai-fraud-methodology",
+   "v12:test-premium-experience-recovery",
+   "v12:test-owner-keyboard-a11y",
+   "phase14:test-webhook-route-db",
+   "phase14:test-atomic-capability-completion",
+   "phase1:test-schema-compatibility",
+   "phase1:test-exact-replay",
+   "phase23:test-payment-db",
+   "phase23:test-browser",
+   "phase23:test-exact-replay",
+   "phase14:test-fifth-remediation",
+   "phase14:test-sixth-remediation",
+   "phase14:test-node24-pdf",
+   "v7:test-checkpoint-b",
+   "rc1:test-certification-enablement",
+   "rc1:test-orphan-remediation",
+   "rc1:test-delivery-entitlement-metadata",
+   "rc1:test-synthetic-cleanup-route",
+   "v7:test-legacy-e",
+   "v7:test-checkpoint-e",
+   "v7:test-legacy-f",
+   "v7:test-checkpoint-f",
+   "v7:test-current-manuscript-contracts",
+   "v7:test-current-manuscript-first",
+   "v7:test-report-hardening",
+   "rc1:test-control-plane-profile-read",
+   "rc1:test-service-role-assessment-start",
+   "rc1:test-near-real-time-fulfilment",
+   "rc1:test-synthetic-notification-contract",
+   "rc1:test-synthetic-marking",
+   "rc1:test-notification-recovery",
+   "rc1:test-notification-claim-db",
+   "rc1:test-narrative-domain-scope",
+   "rc1:test-park-attempt-db",
+   "synthetic:test-route",
+   "pre-g30:test-ai-budget-consistency",
+   "v12:test-productionisation",
+   "phase14:test-ai-settlement-parity",
+   "g30:test-pdf-accessibility",
+   "pdf:test-commercial-composition",
+   "essential:test-retry-postgres"
+  ],
+  "source-text assertion on copy or code changed since the test was written": [
+   "website:test-indexing-analytics",
+   "phase9:test-orders",
+   "v12:test-manual-fulfilment",
+   "release-c:test-email-secure-delivery",
+   "release-c:test-runtime-secret-provisioning"
+  ],
+  "needs a running app or browser server": [
+   "consolidation:test-respondent",
+   "g30:test-keyboard-a11y",
+   "essential:test-retry-browser"
+  ],
+  "missing file, module or tool": [
+   "phase14:test-report-engine",
+   "joint-launch:test-comprehensive",
+   "joint-launch:test",
+   "joint-launch:test-integrated-journey",
+   "joint-launch:test-customer-operability"
+  ],
+  "embedded Postgres cannot start on this Mac (libicudata missing)": [
+   "phase14:test-delivery-reconciliation",
+   "phase14:test-report-access-eligibility",
+   "phase14:test-ai-attempt-budget",
+   "v7:test-checkpoint-e-migration",
+   "release-d:test-operational-alerts",
+   "rc1:test-old-schema-freeze",
+   "rc1:test-prepostflight",
+   "rc1:test-replay-matrix-c",
+   "joint-launch:test-migration-replay",
+   "joint-launch:test-transactional-safety",
+   "joint-launch:test-real-journey"
+  ],
+  "needs Supabase credentials or network (withheld)": [
+   "v7:test-checkpoint-a-db",
+   "release-b:test-durable-fulfilment",
+   "g25:test-adaptive-db"
+  ],
+  "needs a local database URL": [
+   "rc1:test-staging-postflight-hardening",
+   "rc1:test-service-role-contract",
+   "rc1:test-synthetic-marking-route",
+   "rc1:test-preview-development-delivery-db"
+  ]
+ }
+}

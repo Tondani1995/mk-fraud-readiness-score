@@ -1,0 +1,271 @@
+[
+  {
+    "id": "P6b-essential",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 21,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "after": {
+      "pages": 21,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 2,
+      "pages": 21,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": false,
+      "pageMap": 23,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 352
+  },
+  {
+    "id": "P6b-comprehensive",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 33,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "after": {
+      "pages": 33,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 2,
+      "pages": 33,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": false,
+      "pageMap": 36,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 405
+  },
+  {
+    "id": "P3-essential",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 21,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "after": {
+      "pages": 21,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 2,
+      "pages": 21,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": false,
+      "pageMap": 23,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 326
+  },
+  {
+    "id": "P3-comprehensive",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 31,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "after": {
+      "pages": 31,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 2,
+      "pages": 31,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": false,
+      "pageMap": 35,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 395
+  },
+  {
+    "id": "b5-kestrel-essential-deterministic",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 15,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "after": {
+      "pages": 15,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 4,
+      "pages": 15,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": true,
+      "pageMap": 18,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 550
+  },
+  {
+    "id": "b5-kestrel-comprehensive-deterministic",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 28,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "after": {
+      "pages": 27,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 3,
+      "pages": 27,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [
+        "COMP-TARGET::the organisation can act on this area with a clear owner"
+      ],
+      "compactContents": false,
+      "pageMap": 27,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 543
+  },
+  {
+    "id": "b5-marula-essential-deterministic",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 18,
+      "stranded": [],
+      "sparse": [
+        "p3 (190 chars)"
+      ],
+      "hasContents": true
+    },
+    "after": {
+      "pages": 17,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": true
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 3,
+      "pages": 17,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [],
+      "compactContents": true,
+      "pageMap": 22,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 436
+  },
+  {
+    "id": "b5-marula-comprehensive-deterministic",
+    "ok": true,
+    "content": [],
+    "before": {
+      "pages": 31,
+      "stranded": [],
+      "sparse": [
+        "p15 (169 chars)"
+      ],
+      "hasContents": false
+    },
+    "after": {
+      "pages": 30,
+      "stranded": [],
+      "sparse": [],
+      "hasContents": false
+    },
+    "layout": {
+      "version": "publication-layout-1.3",
+      "passes": 3,
+      "pages": 30,
+      "flowSections": [],
+      "breakBefore": [],
+      "flowUnits": [
+        "COMP-TARGET::process owners take part"
+      ],
+      "compactContents": false,
+      "pageMap": 34,
+      "contentsComplete": true,
+      "missing": [],
+      "sparsePages": []
+    },
+    "mapErrors": [],
+    "ms": 594
+  },
+  {
+    "id": "LT-HYPHEN",
+    "ok": true,
+    "missing": []
+  }
+]

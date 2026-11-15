@@ -1,0 +1,44 @@
+[
+  {
+    "id": "AS-01",
+    "ok": true,
+    "name": "Every operator console page and API returns 404 on the custom domains, for reads and writes alike",
+    "detail": "42 requests refused"
+  },
+  {
+    "id": "AS-02",
+    "ok": true,
+    "name": "The same paths pass through unchanged on the exact allowed hosts (the deployment's own hosts and the listed alias), where the existing console behaviour applies",
+    "detail": "all pass through"
+  },
+  {
+    "id": "AS-03",
+    "ok": true,
+    "name": "Public and customer paths on the custom domain are not affected",
+    "detail": "unaffected"
+  },
+  {
+    "id": "AS-04",
+    "ok": true,
+    "name": "No suffix is trusted: an unrelated *.vercel.app host, look-alikes, a local host on Vercel and an empty host are refused",
+    "detail": "6 of 6 refused; unrelated-project.vercel.app via middleware 404"
+  },
+  {
+    "id": "AS-07",
+    "ok": true,
+    "name": "Fail-closed configuration: deployment hosts can be withdrawn, a custom domain in VERCEL_URL is never trusted, and with nothing allowed the console answers nowhere on Vercel",
+    "detail": "withdrawn false; custom domain via VERCEL_URL false; anything allowed with no configuration false"
+  },
+  {
+    "id": "AS-05",
+    "ok": true,
+    "name": "The middleware matcher covers every admin surface the gate names",
+    "detail": "/admin/:path*, /score/admin, /score/admin/:path*, /score/api/admin/:path*, /score/api/commercial/orders/:path*, /score/api/readiness-runtime-check, /score/api/internal/uat-start-check, /score/api/qa/recovery-v10-v12-vhutshilo"
+  },
+  {
+    "id": "AS-06",
+    "ok": true,
+    "name": "Every route that resolves its actor with getAdminSession() sits under a gated path",
+    "detail": "45 files, all gated"
+  }
+]

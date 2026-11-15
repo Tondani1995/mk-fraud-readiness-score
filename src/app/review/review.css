@@ -1,0 +1,12 @@
+/*
+ * Styles the review track needs from the MK brand system, without the redesign's full stylesheet (clarity.css), which
+ * is released separately. The eyebrow follows the MK standard: 12px, weight 600, uppercase, 0.12em tracking, slate.
+ */
+.clarity-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  color: #475569;
+}
