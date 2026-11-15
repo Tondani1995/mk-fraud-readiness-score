@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
-import { reviewEngineBuild, reviewHarnessStatus } from '@/lib/readiness-review/harness';
+import { reviewCustomerExperience, reviewEngineBuild, reviewHarnessStatus } from '@/lib/readiness-review/harness';
 import { reviewStoreKind } from '@/lib/readiness-review/database-config';
 import { ReviewStartForm } from '@/components/readiness-review/ReviewStartForm';
 
 export const dynamic = 'force-dynamic';
 export function generateMetadata() {
-  return { title: reviewHarnessStatus().reason === 'production' ? 'Start your Fraud Readiness review' : 'Start a fictional review' };
+  return { title: reviewCustomerExperience() ? 'Start your Fraud Readiness review' : 'Start a fictional review' };
 }
 
 export default function ReviewStartPage() {
@@ -13,7 +13,21 @@ export default function ReviewStartPage() {
   // Copy follows the build a new session will use: build 1.6 runs in stages with no screen limit; build 1.5 keeps its 95.
   const staged = reviewEngineBuild() === '1.6';
   const database = reviewStoreKind() === 'database';
-  const production = reviewHarnessStatus().reason === 'production';
+  const production = reviewCustomerExperience();
+  if (production) {
+    return (
+      <article className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16" data-review-start>
+        <p className="clarity-eyebrow">Fraud Readiness Assessment</p>
+        <h1 className="mt-3 text-3xl font-semibold text-mk-ink">Assess your organisation&rsquo;s fraud readiness</h1>
+        <p className="mt-4 text-base leading-7 text-mk-ink">
+          Answer each question as things stand in your organisation today. It takes about 15 to 20 minutes, your answers are saved as you go, and your Fraud Readiness Snapshot is
+          ready as soon as you finish.
+        </p>
+        <ReviewStartForm production />
+        <p className="mt-6 text-sm leading-6 text-mk-muted">Keep the link of the page that opens: it returns you to where you stopped.</p>
+      </article>
+    );
+  }
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6" data-review-start>
       <p className="clarity-eyebrow">Fraud Readiness review</p>

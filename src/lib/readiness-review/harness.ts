@@ -50,3 +50,15 @@ export const DATABASE_HARNESS_NOTICE = 'Fictional test harness: answers are stor
 export function harnessNotice() {
   return process.env.MK_READINESS_REVIEW_STORE === 'database' ? DATABASE_HARNESS_NOTICE : HARNESS_NOTICE;
 }
+
+/**
+ * Whether the review shows the customer experience (start form with contact details, straight into the interview, the
+ * customer Snapshot). Always in production mode. Locally, the fictional harness can preview it with
+ * MK_READINESS_REVIEW_CUSTOMER_PREVIEW=1, so the owner can see the customer screens without touching production; it
+ * never applies on a Vercel deployment, and sessions stay fictional (createSession) and store no contact details.
+ */
+export function reviewCustomerExperience(): boolean {
+  const status = reviewHarnessStatus();
+  if (status.reason === 'production') return true;
+  return status.reason === 'fictional-local' && process.env.MK_READINESS_REVIEW_CUSTOMER_PREVIEW === '1' && !process.env.VERCEL;
+}

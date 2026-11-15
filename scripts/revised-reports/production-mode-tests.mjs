@@ -120,9 +120,9 @@ await T('PM-10', 'Starting a review: production mode requires terms acceptance a
   const route = fs.readFileSync('src/app/review/api/sessions/route.ts', 'utf8');
   const service = fs.readFileSync('src/lib/readiness-review/service.ts', 'utf8');
   const form = fs.readFileSync('src/components/readiness-review/ReviewStartForm.tsx', 'utf8');
-  const ok = /if \(production && body\?\.termsAccepted !== true\)/.test(route) && /if \(!production && body\?\.fictionalConfirmed !== true\)/.test(route) && /createSession\(String\(body\?\.organisationLabel \?\? ''\), \{ fictional: !production \}\)/.test(route)
+  const ok = /if \(production && body\?\.termsAccepted !== true\)/.test(route) && /if \(!production && body\?\.fictionalConfirmed !== true\)/.test(route) && /createSession\(String\(body\?\.organisationLabel \?\? ''\), \{ fictional: reviewHarnessStatus\(\)\.reason !== 'production' \}\)/.test(route)
     && /const fictional = reviewHarnessStatus\(\)\.reason === 'production' \? options\.fictional === false \? false : true : true;/.test(service)
-    && /termsAccepted: true/.test(form) && /assessment terms/.test(form) && /'Organisation name'/.test(form);
+    && /termsAccepted: true/.test(form) && /Fraud Readiness Assessment Terms/.test(form) && /'Organisation name'/.test(form);
   return [ok, 'route, service and form'];
 });
 await T('PM-11', 'A real organisation sees no fictional wording and never receives the MK reviewer link; the export is not named fictional', async () => {

@@ -130,6 +130,12 @@ export type RoleView =
   | { role: 'management'; view: ReturnType<typeof managementView> }
   | { role: 'links'; view: { organisationLabel: string; sessionId: string; tokens: SessionRecord['tokens']; functions: { fn: string; slug: string; token: string }[]; staged: boolean; storedInDatabase: boolean; fictional: boolean } };
 
+/** The session and role a link opens, without loading the session. */
+export async function linkSession(tokenValue: string): Promise<{ sessionId: string; role: string }> {
+  const entry = await resolve(tokenValue);
+  return { sessionId: entry.sessionId, role: entry.role };
+}
+
 export async function viewFor(tokenValue: string): Promise<RoleView> {
   const entry = await resolve(tokenValue);
   return serial(entry.sessionId, async () => {

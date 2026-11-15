@@ -12,8 +12,8 @@ type Tier = 'essential' | 'comprehensive';
 type Bound = { assessmentReference: string; snapshotToken: string; outstanding: number };
 type Ordered = { orderReference: string; amountDisplay: string; productName: string; tier: Tier };
 
-export function RevisedPaidReportPanel(props: { token: string; organisationLabel: string; prices: Record<Tier, string>; notice?: string }) {
-  const [form, setForm] = useState({ organisationLegalName: props.organisationLabel, contactName: '', contactEmail: '', contactRole: '', acceptTerms: false });
+export function RevisedPaidReportPanel(props: { token: string; organisationLabel: string; prices: Record<Tier, string>; notice?: string; contact?: { fullName: string; email: string; roleTitle: string | null } | null }) {
+  const [form, setForm] = useState({ organisationLegalName: props.organisationLabel, contactName: props.contact?.fullName ?? '', contactEmail: props.contact?.email ?? '', contactRole: props.contact?.roleTitle ?? '', acceptTerms: false });
   const [bound, setBound] = useState<Bound | null>(null);
   const [orders, setOrders] = useState<Ordered[]>([]);
   const [busy, setBusy] = useState(false);

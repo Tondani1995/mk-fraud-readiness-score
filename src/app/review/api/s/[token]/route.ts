@@ -1,4 +1,6 @@
-import { submit, viewFor } from '@/lib/readiness-review/service';
+import { linkSession, submit, viewFor } from '@/lib/readiness-review/service';
+import { reviewHarnessStatus } from '@/lib/readiness-review/harness';
+import { notifyReviewCompleted } from '@/lib/readiness-review/review-notifications';
 import { readJson, reviewError, reviewJson } from '@/lib/readiness-review/http';
 import { reviewHarnessFaultsEnabled } from '@/lib/readiness-review/harness';
 
@@ -29,7 +31,14 @@ export async function POST(request: Request, { params }: Context) {
       // Fault injection exists only for the save-failure regression and only when both harness flags are set.
       simulateFailure: reviewHarnessFaultsEnabled() && body?.simulateFailure === true
     });
-    return reviewJson({ ...result, current: await viewFor(token) });
+    const current = await viewFor(token);
+    // The respondent has just finished: MK is told once (real sessions in production only; the notice is claimed in the
+    // database, so a repeated finish never sends twice).
+    if (current.role === 'respondent' && !current.view.step && !current.view.canResume && reviewHarnessStatus().reason === 'production') {
+      const { sessionId } = await linkSession(token);
+      await notifyReviewCompleted(sessionId);
+    }
+    return reviewJson({ ...result, current });
   } catch (error) {
     return reviewError(error);
   }

@@ -307,7 +307,62 @@ export function SnapshotScore({ score }: { score: Snapshot['score'] }) {
   );
 }
 
-export function SnapshotDocument({ view, token, role, managementToken, ordering = 'none' }: { view: Snapshot; token: string; role: string; managementToken?: string | null; ordering?: SnapshotOrdering }) {
+/**
+ * The Snapshot a real organisation sees in production (owner direction, 15 November 2026): one person answered from
+ * start to finish, so there are no functions, packages or stages to report. The score comes first, then the gaps the
+ * organisation reported, then what is still open, with the detail kept below.
+ */
+function LiveSnapshot({ view }: { view: Snapshot }) {
+  const unknown = view.waiting.length;
+  return (
+    <article className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14" data-review-snapshot data-snapshot-layout="live">
+      <header>
+        <p className="clarity-eyebrow">Fraud Readiness Snapshot</p>
+        <h1 className="mt-3 text-3xl font-semibold text-mk-ink">{view.organisationLabel}</h1>
+        <p className="mt-2 text-base text-mk-muted">As at {date(view.asOf)}</p>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-mk-ink">
+          This Snapshot reads your answers under the MK Fraud Readiness method. Your answers are your own statements; nothing has been tested or verified.
+        </p>
+      </header>
+      <div className="mt-8"><SnapshotScore score={view.score} /></div>
+      <Section id="gaps" title={`Gaps you reported (${view.reportedGaps.length})`} intro="Controls you reported as not in place, partly in place, or set out but not yet working.">
+        <ControlList items={view.reportedGaps} empty="No gaps were reported among the controls that were asked." />
+      </Section>
+      <Section id="unknown" title={`Answered \u201cI don\u2019t know\u201d (${unknown})`} intro="These questions stay open. They are not counted in the score, and answering them later can change it.">
+        <ControlList items={view.waiting} empty="You answered every question." />
+      </Section>
+      <Section id="open" title={`Scenarios not yet established (${view.openScenarios.length})`} intro="Fraud scenarios that apply or may apply where a deciding answer is still open.">
+        <ScenarioList items={view.openScenarios} />
+      </Section>
+      <Section id="in-place" title={`Reported in place (${view.reportedInPlace.length})`}>
+        <details className="mt-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-navy underline underline-offset-4">Show the controls you reported in place</summary>
+          <ControlList items={view.reportedInPlace} empty="None reported in place." />
+        </details>
+      </Section>
+      <Section id="scope" title="About your organisation">
+        <details className="mt-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-mk-navy underline underline-offset-4">Show the answers that set the scope</summary>
+          <dl className="mt-2 space-y-2 text-sm leading-6">
+            {view.profile.map((p: { id: string; text: string; label: string }) => (
+              <div key={p.id}><dt className="text-mk-muted">{p.text}</dt><dd className="text-mk-ink">{p.label}</dd></div>
+            ))}
+          </dl>
+        </details>
+      </Section>
+      <section aria-labelledby="reports-heading" className="mt-12 border-t border-mk-line pt-8" data-review-commercial>
+        <h2 id="reports-heading" className="text-xl font-semibold text-mk-ink">Reports from these answers</h2>
+        <p className="mt-2 max-w-3xl text-base leading-7 text-mk-ink">
+          Essential ({storefrontPriceLabel('essential')}) and Comprehensive ({storefrontPriceLabel('comprehensive')}) are written from the answers you have already given, so you
+          do not answer again, and each carries your MK Fraud Readiness score. {COVERAGE_RULE} Advisory work with MK, including evidence review, is scoped separately from{' '}
+          {storefrontPriceLabel('advisory')} per engagement.
+        </p>
+      </section>
+    </article>
+  );
+}
+
+export function SnapshotDocument({ view, token, role, managementToken, ordering = 'none', customer = false }: { view: Snapshot; token: string; role: string; managementToken?: string | null; ordering?: SnapshotOrdering; customer?: boolean }) {
   const nav = [
     ['gaps', 'Reported gaps'],
     ['waiting', 'Waiting for an owner'],
@@ -316,6 +371,7 @@ export function SnapshotDocument({ view, token, role, managementToken, ordering 
     ['scope', 'Scope and assumptions'],
     ['next', 'Next steps']
   ];
+  if (customer || (ordering === 'live' && !view.fictional)) return <LiveSnapshot view={view} />;
   return (
     <article className="mx-auto max-w-6xl px-4 py-8 sm:px-6" data-review-snapshot>
       <header>
