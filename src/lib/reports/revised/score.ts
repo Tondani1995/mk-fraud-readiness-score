@@ -10,8 +10,10 @@ import { scenarioAccount } from './position';
  *   (2) scenarios whose applicability is still outstanding do not count, and nor do scenarios the method does not ask
  *       about at the organisation's size (they do not apply);
  *   (3) a scenario whose core controls are all reported in place earns full credit; with a related practice reported
- *       weaker it earns three-quarters; where the answers are contradicted it earns half; a core control reported as a
- *       gap earns nothing.
+ *       weaker it earns three-quarters; where the answers are contradicted it earns half;
+ *   (8) a scenario with a core control reported short of in place (owner decision, 15 November 2026) earns the average
+ *       of its core controls' credit: in place 1, partly in place 0.5, designed but not yet operating 0.25, absent 0.
+ *       Only core controls whose answer is known are averaged (point 1).
  *
  * Contradicted means every scenario the shared account describes as "the answers raise a question or cannot both be
  * right": a direct contradiction, a control that lacks an input it needs, and a question to clarify. They are grouped
@@ -20,7 +22,7 @@ import { scenarioAccount } from './position';
  * The score is never a readiness label: no band, level or pass mark is attached to it, and no report says an
  * organisation is ready (DR-02 point 5).
  */
-export const REVISED_SCORE_VERSION = 'mk-fraud-readiness-score-1.0';
+export const REVISED_SCORE_VERSION = 'mk-fraud-readiness-score-1.1';
 
 export const SCORE_CREDIT = {
   confirmed: 1,
@@ -30,6 +32,15 @@ export const SCORE_CREDIT = {
   clarify: 0.5,
   gap: 0
 } as const;
+
+/** Credit for one core control in a scenario reported short of in place (DR-02 point 8). */
+export const CONTROL_CREDIT: Record<string, number> = { full: 1, partial: 0.5, designed: 0.25, absent: 0 };
+
+/** A gap scenario's credit: the average over its core controls whose answer is known. */
+export function gapScenarioCredit(confirmations: { cls: string | null }[]): number {
+  const known = confirmations.filter((c) => c.cls !== null && c.cls in CONTROL_CREDIT);
+  return known.length ? known.reduce((n, c) => n + CONTROL_CREDIT[c.cls as string], 0) / known.length : 0;
+}
 
 export type RevisedScore = {
   version: string;
@@ -59,7 +70,12 @@ export function revisedScore(r: RevisedReport): RevisedScore | null {
   // The counted scenarios are exactly the account's reported-in-place and gap scenarios; anything else is a defect.
   if (counted !== acct.reportedInPlace + acct.gap) throw new Error('score_partition_mismatch');
   if (counted === 0) return null;
-  const credit = (Object.keys(SCORE_CREDIT) as (keyof typeof SCORE_CREDIT)[]).reduce((n, kind) => n + byKind[kind] * SCORE_CREDIT[kind], 0);
+  // Scenarios whose core controls are all in place earn their kind's credit; gap scenarios earn their core controls'
+  // average credit (point 8). Every gap scenario must be present with its core controls, or the score is not stated.
+  const gapSchemes = (r.schemes as { kind: string; confirmations?: { cls: string | null }[] }[]).filter((x) => x.kind === 'gap');
+  if (gapSchemes.length !== byKind.gap || gapSchemes.some((x) => !Array.isArray(x.confirmations))) throw new Error('score_gap_detail_missing');
+  const gapCredit = gapSchemes.reduce((n, x) => n + gapScenarioCredit(x.confirmations!), 0);
+  const credit = (Object.keys(SCORE_CREDIT) as (keyof typeof SCORE_CREDIT)[]).filter((kind) => kind !== 'gap').reduce((n, kind) => n + byKind[kind] * SCORE_CREDIT[kind], 0) + gapCredit;
   const exact = (100 * credit) / counted;
   return {
     version: REVISED_SCORE_VERSION, percent: Math.round(exact), exact: Number(exact.toFixed(4)),

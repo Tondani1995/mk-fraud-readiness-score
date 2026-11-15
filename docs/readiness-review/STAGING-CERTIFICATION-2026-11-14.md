@@ -523,3 +523,9 @@ The tile is rendered by the composer (0.6). It was checked on a local render of 
 - For comparison, with partly in place at 0.5 and designed at 0.25 (illustrative only), Kestrel would score about 33%. Marula is unaffected, because all 95 of its core-control answers are fully in place.
 
 **This is an owner decision on the scoring frame.** It is open.
+
+**Decided by the owner, 15 November 2026 (DR-02 point 8):** a core control reported partly in place earns 0.5, one designed but not yet operating earns 0.25, and an absent one earns 0. A scenario with a core control short of in place earns the average of its known core controls' credit. Implemented as score 1.1 (`CONTROL_CREDIT`, `gapScenarioCredit`).
+- **Kestrel:** 33% (18.75 of 57). One of its scenarios has two core controls, which are averaged.
+- **Marula:** 94%, unchanged.
+
+Score tests: 14 of 14 (SC-14 covers the new credit). Every other suite is unchanged. The hosted Kestrel v3 report still shows 4%; a new version with 33% and the score tile needs an AI call.

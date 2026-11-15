@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import { loadFixture, fixturePack } from './lib/b5-fixtures.mjs';
 import { deterministicManuscript } from './lib/writer-double.mjs';
-import { revisedScore, scoreConclusion, scoredPosition, SCORE_CREDIT } from '../../src/lib/reports/revised/score.ts';
+import { revisedScore, scoreConclusion, scoredPosition, SCORE_CREDIT, CONTROL_CREDIT, gapScenarioCredit } from '../../src/lib/reports/revised/score.ts';
 import { validateManuscript } from '../../src/lib/reports/revised/manuscript/manuscript.ts';
 import { composeRevisedReportHtml } from '../../src/lib/reports/revised/manuscript/compose.ts';
 import { bibleWorkbookSheets } from '../../src/lib/reports/revised/manuscript/workbook-bible.ts';
@@ -20,16 +20,17 @@ const M = loadFixture('marula');
 const KORG = K.f.record.organisationLabel;
 
 /** A synthetic report: only what revisedScore and the scenario account read. */
-const synthetic = (byKind, { applicabilityPending = 0, notReached = 0, outstandingQuestions = 0 } = {}) => {
+const synthetic = (byKind, { applicabilityPending = 0, notReached = 0, outstandingQuestions = 0, gapControls = [] } = {}) => {
   const kinds = { confirmed: 0, qualified: 0, clarify: 0, contradiction: 0, dependency: 0, gap: 0, outstanding: 0, 'not-expected': 0, none: 0, ...byKind };
   kinds.none = (kinds.none ?? 0) + applicabilityPending + notReached;
   const inPicture = Object.values(kinds).reduce((n, v) => n + v, 0);
-  return { schemes: Array.from({ length: inPicture }), outstanding: Array.from({ length: outstandingQuestions }), position: {}, summary: { byKind: kinds, applicabilityPending, notReached, inPicture } };
+  const schemes = Object.entries(kinds).flatMap(([kind, n]) => Array.from({ length: n }, () => ({ kind, confirmations: kind === 'gap' ? (gapControls.shift() ?? [{ cls: 'absent' }]) : [] })));
+  return { schemes, outstanding: Array.from({ length: outstandingQuestions }), position: {}, summary: { byKind: kinds, applicabilityPending, notReached, inPicture } };
 };
 
-await T('SC-01', 'Kestrel scores 4% (2 of 57 counted scenarios in place; 12 not yet counted) and Marula 94% (84.25 of 90)', async () => {
+await T('SC-01', 'Kestrel scores 33% (18.75 of 57: 2 in place, partly-in-place and designed-only core controls at 0.5 and 0.25; 12 not yet counted) and Marula 94% (84.25 of 90)', async () => {
   const k = revisedScore(K.report), m = revisedScore(M.report);
-  const ok = k.percent === 4 && k.counted === 57 && k.notCounted === 12 && k.applicable === 69 && k.outstandingQuestions === 16 && k.credit === 2
+  const ok = k.percent === 33 && k.counted === 57 && k.notCounted === 12 && k.applicable === 69 && k.outstandingQuestions === 16 && k.credit === 18.75
     && m.percent === 94 && m.counted === 90 && m.notCounted === 0 && m.credit === 84.25 && m.byKind.qualified === 15 && m.byKind.contradiction + m.byKind.clarify + m.byKind.dependency === 4;
   return [ok, `Kestrel ${k.percent}% (${k.credit}/${k.counted}, ${k.notCounted} not counted); Marula ${m.percent}% (${m.credit}/${m.counted})`];
 });
@@ -48,7 +49,7 @@ await T('SC-04', 'No countable scenario: no score, and the pipeline refuses befo
 });
 await T('SC-05', 'The conclusion is the agreed wording exactly; the outstanding sentence appears only when scenarios are held back', async () => {
   const k = scoreConclusion(KORG, revisedScore(K.report));
-  const agreed = `On its own answers, ${KORG} scores 4% under the MK Fraud Readiness method, across the 69 fraud scenarios that apply to it. The score shows how far the core controls the organisation reports in place cover those scenarios. It is not a finding that the organisation is protected against fraud, and it does not confirm that any control operates as described, because nothing in this assessment was tested. The responses this report sets out first are where the score can move most directly.`;
+  const agreed = `On its own answers, ${KORG} scores 33% under the MK Fraud Readiness method, across the 69 fraud scenarios that apply to it. The score shows how far the core controls the organisation reports in place cover those scenarios. It is not a finding that the organisation is protected against fraud, and it does not confirm that any control operates as described, because nothing in this assessment was tested. The responses this report sets out first are where the score can move most directly.`;
   const m = scoreConclusion('Marula', revisedScore(M.report));
   const one = scoreConclusion('X', revisedScore(synthetic({ confirmed: 1, outstanding: 1 }, { outstandingQuestions: 1 })));
   const reached = scoreConclusion('X', revisedScore(synthetic({ confirmed: 1 }, { notReached: 2 })));
@@ -66,7 +67,7 @@ await T('SC-06', 'The composed report: agreed conclusion heading in the section 
   const conclusion = t.slice(t.lastIndexOf(heading));
   const ok = (t.match(new RegExp(heading.replace(/[()]/g, '\\$&'), 'g')) ?? []).length >= 2
     && conclusion.includes(fp.facts['T-CONCLUSION'].value.slice(0, 120)) && conclusion.includes('16 questions were not answered, so 12 scenarios are not yet counted')
-    && /Score 4%/.test(t) && /No readiness label/.test(t) && /no readiness label is issued/.test(t)
+    && /Score 33%/.test(t) && /No readiness label/.test(t) && /no readiness label is issued/.test(t)
     && !/no score is issued|Not issued|no readiness score is issued/i.test(t);
   return [ok, conclusion.slice(0, 160)];
 });
@@ -119,7 +120,7 @@ await T('SC-12', 'Scored position statements: the score replaces the fixture res
   const s = revisedScore(K.report);
   const base = [{ key: 'calculated', label: 'x', value: 'x', text: 'x' }, { key: 'inconsistencies', label: 'i', value: 'i', text: 'i' }, { key: 'interpretation', label: 'p', value: 'p', text: 'p' }, { key: 'conclusion', label: 'c', value: 'c', text: 'c' }];
   const out = scoredPosition(base, s);
-  return [out[0].value === '4%' && out[0].label === 'Score' && /12 further scenarios are not yet counted/.test(out[0].text) && out[1] === base[1] && out[2] === base[2] && out[3].value === 'No readiness label', out[0].text.slice(0, 120)];
+  return [out[0].value === '33%' && out[0].label === 'Score' && /12 further scenarios are not yet counted/.test(out[0].text) && out[1] === base[1] && out[2] === base[2] && out[3].value === 'No readiness label', out[0].text.slice(0, 120)];
 });
 
 await T('SC-13', 'The executive summary opens with the score tile, as the earlier MFRS reports did: score, counted scenarios, gaps, unanswered questions, and no band', async () => {
@@ -129,9 +130,17 @@ await T('SC-13', 'The executive summary opens with the score tile, as the earlie
   const tile = plain(exec.slice(exec.indexOf('data-score-panel'), exec.indexOf('</div></div></div>') + 18));
   const unscored = fixturePack(K, 'essential', { scored: false });
   const htmlU = composeRevisedReportHtml({ md: deterministicManuscript(unscored.fp, unscored.plan), fp: unscored.fp, plan: unscored.plan, dateLabel: '15 November 2026', prototype: true }).html;
-  const ok = exec.indexOf('data-score-panel') > exec.indexOf('<h1>') && /MK Fraud Readiness score 4%/.test(tile) && /57 of 69/.test(tile) && /Scenarios with a core control gap 55/.test(tile) && /Questions not answered 16/.test(tile)
+  const ok = exec.indexOf('data-score-panel') > exec.indexOf('<h1>') && /MK Fraud Readiness score 33%/.test(tile) && /57 of 69/.test(tile) && /Scenarios with a core control gap 55/.test(tile) && /Questions not answered 16/.test(tile)
     && /Not a readiness label/.test(tile) && !/Reactive|Structured|Strategic|band/i.test(tile) && !/data-score-panel/.test(htmlU);
   return [ok, tile.slice(0, 200)];
+});
+
+await T('SC-14', 'DR-02 point 8: a core control partly in place earns 0.5, designed but not operating 0.25, absent 0; a scenario averages its known core controls', async () => {
+  const ok1 = CONTROL_CREDIT.full === 1 && CONTROL_CREDIT.partial === 0.5 && CONTROL_CREDIT.designed === 0.25 && CONTROL_CREDIT.absent === 0;
+  const mixed = gapScenarioCredit([{ cls: 'full' }, { cls: 'partial' }]);
+  const withUnknown = gapScenarioCredit([{ cls: 'designed' }, { cls: null }]);
+  const s = revisedScore(synthetic({ confirmed: 1, gap: 3 }, { gapControls: [[{ cls: 'partial' }], [{ cls: 'designed' }], [{ cls: 'absent' }]] }));
+  return [ok1 && mixed === 0.75 && withUnknown === 0.25 && s.credit === 1.75 && s.percent === 44, `mixed ${mixed}; designed + unknown ${withUnknown}; (1 + 0.5 + 0.25 + 0) / 4 = ${s.exact}%`];
 });
 
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);

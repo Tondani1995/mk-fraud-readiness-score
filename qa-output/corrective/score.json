@@ -2,8 +2,8 @@
   {
     "id": "SC-01",
     "ok": true,
-    "name": "Kestrel scores 4% (2 of 57 counted scenarios in place; 12 not yet counted) and Marula 94% (84.25 of 90)",
-    "detail": "Kestrel 4% (2/57, 12 not counted); Marula 94% (84.25/90)"
+    "name": "Kestrel scores 33% (18.75 of 57: 2 in place, partly-in-place and designed-only core controls at 0.5 and 0.25; 12 not yet counted) and Marula 94% (84.25 of 90)",
+    "detail": "Kestrel 33% (18.75/57, 12 not counted); Marula 94% (84.25/90)"
   },
   {
     "id": "SC-02",
@@ -33,7 +33,7 @@
     "id": "SC-06",
     "ok": true,
     "name": "The composed report: agreed conclusion heading in the section and on the contents page; conclusion opens with the agreed paragraph; panel shows the score and \"No readiness label\"",
-    "detail": "Where Fictional Kestrel Freight (Pty) Ltd stands and what to address next On its own answers, Fictional Kestrel Freight (Pty) Ltd scores 4% under the MK Fraud R"
+    "detail": "Where Fictional Kestrel Freight (Pty) Ltd stands and what to address next On its own answers, Fictional Kestrel Freight (Pty) Ltd scores 33% under the MK Fraud "
   },
   {
     "id": "SC-07",
@@ -75,6 +75,12 @@
     "id": "SC-13",
     "ok": true,
     "name": "The executive summary opens with the score tile, as the earlier MFRS reports did: score, counted scenarios, gaps, unanswered questions, and no band",
-    "detail": "data-score-panel> MK Fraud Readiness score 4% On the organisation's own answers. Not a readiness label; nothing was tested. Scenarios counted in the score 57 of 69 Scenarios with a core control gap 55"
+    "detail": "data-score-panel> MK Fraud Readiness score 33% On the organisation's own answers. Not a readiness label; nothing was tested. Scenarios counted in the score 57 of 69 Scenarios with a core control gap 5"
+  },
+  {
+    "id": "SC-14",
+    "ok": true,
+    "name": "DR-02 point 8: a core control partly in place earns 0.5, designed but not operating 0.25, absent 0; a scenario averages its known core controls",
+    "detail": "mixed 0.75; designed + unknown 0.25; (1 + 0.5 + 0.25 + 0) / 4 = 43.75%"
   }
 ]
