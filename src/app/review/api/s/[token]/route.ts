@@ -1,4 +1,7 @@
-import { linkSession, submit, viewFor } from '@/lib/readiness-review/service';
+import { after } from 'next/server';
+import { linkSession, snapshotForSession, submit, viewFor } from '@/lib/readiness-review/service';
+import { buildSnapshotBrief } from '@/lib/readiness-review/snapshot-brief';
+import { snapshotNarrative } from '@/lib/readiness-review/snapshot-narrative';
 import { reviewHarnessStatus } from '@/lib/readiness-review/harness';
 import { notifyReviewCompleted } from '@/lib/readiness-review/review-notifications';
 import { readJson, reviewError, reviewJson } from '@/lib/readiness-review/http';
@@ -37,6 +40,14 @@ export async function POST(request: Request, { params }: Context) {
     if (current.role === 'respondent' && !current.view.step && !current.view.canResume && reviewHarnessStatus().reason === 'production') {
       const { sessionId } = await linkSession(token);
       await notifyReviewCompleted(sessionId);
+      // Write the Snapshot narrative now, after the response, so it is usually ready before the Snapshot is opened.
+      const oidc = request.headers.get('x-vercel-oidc-token');
+      after(async () => {
+        try {
+          const snap = await snapshotForSession(sessionId);
+          await snapshotNarrative(sessionId, buildSnapshotBrief(snap.view), { requestOidcToken: oidc, generate: true });
+        } catch { /* the Snapshot writes it on first view instead */ }
+      });
     }
     return reviewJson({ ...result, current });
   } catch (error) {
