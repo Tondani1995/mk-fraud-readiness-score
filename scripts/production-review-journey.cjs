@@ -26,12 +26,28 @@ const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1000003
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  // A fourth argument "desktop" runs at MacBook size; the default is a phone.
+  const desktop = process.argv[4] === 'desktop';
+  const ctx = await browser.newContext(desktop ? { viewport: { width: 1440, height: 900 } } : { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
   const shot = (name) => page.screenshot({ path: path.join(OUT, 'shots', `${name}.png`), fullPage: false }).catch(() => {});
   try {
+    const resume = process.argv[5] === 'resume';
+    if (resume) {
+      // Reopens the review this script started earlier (link kept in .secrets) and finishes it; no new review is created.
+      const saved = JSON.parse(fs.readFileSync(path.join(OUT, '.secrets', 'respondent.json'), 'utf8')).respondent;
+      await page.goto(`${BASE}/review/s/${saved}`, { waitUntil: 'networkidle' });
+      for (let i = 0; i < 40 && !(await page.$('[data-review-complete]')); i++) {
+        const q = await page.getAttribute('[data-question-stage]', 'data-question-id');
+        const l = page.locator('[data-question-stage] label:has(input[type=radio])');
+        if (await l.count()) await l.first().click(); else { await page.locator('[data-review-multi] input[type=checkbox]').first().check(); await page.click('[data-review-multi] button:has-text("Continue")'); }
+        await page.waitForFunction((prev) => document.querySelector('[data-review-complete]') || (document.querySelector('[data-question-stage]')?.getAttribute('data-question-id') !== prev && !document.querySelector('.review-leave')), q, { timeout: 30000 });
+      }
+      note('resumed the earlier live review and finished it', Boolean(await page.$('[data-review-complete]')));
+    }
+    if (!resume) {
     await page.goto(`${BASE}/review`, { waitUntil: 'networkidle' });
     await shot('01-start');
     await page.fill('input[name=fullName]', CONTACT.fullName);
@@ -90,28 +106,49 @@ const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1000003
     const values = await page.locator('[data-question-stage] input[type=radio]').evaluateAll((els) => els.map((e) => e.value));
     const other = values.findIndex((v) => v !== checked && v !== 'unknown');
     await labels.nth(other).click();
-    await page.waitForFunction(() => document.querySelector('[data-review-complete]') || document.querySelector('[data-question-stage]'), null, { timeout: 30000 });
+    // The changed question slides out first; wait until it has gone.
+    await page.waitForFunction((prev) => document.querySelector('[data-review-complete]') || (document.querySelector('[data-question-stage]')?.getAttribute('data-question-id') !== prev && !document.querySelector('.review-leave')), first, { timeout: 30000 });
     // A change can bring a question into scope; answer anything that follows.
     for (let i = 0; i < 40 && !(await page.$('[data-review-complete]')); i++) {
       const q = await page.getAttribute('[data-question-stage]', 'data-question-id');
       const l = page.locator('[data-question-stage] label:has(input[type=radio])');
       if (await l.count()) await l.first().click(); else { await page.locator('[data-review-multi] input[type=checkbox]').first().check(); await page.click('[data-review-multi] button:has-text("Continue")'); }
-      await page.waitForFunction((prev) => document.querySelector('[data-review-complete]') || document.querySelector('[data-question-stage]')?.getAttribute('data-question-id') !== prev, q, { timeout: 30000 });
+      await page.waitForFunction((prev) => document.querySelector('[data-review-complete]') || (document.querySelector('[data-question-stage]')?.getAttribute('data-question-id') !== prev && !document.querySelector('.review-leave')), q, { timeout: 30000 });
     }
     note('an earlier answer changed through "Change an answer"', Boolean(await page.$('[data-review-complete]')), first);
+    }
 
-    // The customer Snapshot and the pre-filled order form. No order is placed.
+    // The customer Snapshot: narrative, report cards, and a card into the existing order journey. No order is placed.
     await page.click('a:has-text("View your Snapshot")');
-    await page.waitForSelector('[data-review-snapshot]', { timeout: 60000 });
+    await page.waitForSelector('[data-review-snapshot]', { timeout: 90000 });
     await shot('05-snapshot');
     const layout = await page.getAttribute('[data-review-snapshot]', 'data-snapshot-layout');
+    const source = await page.getAttribute('[data-review-snapshot]', 'data-narrative-source');
     const text = (await page.textContent('[data-review-snapshot]')).replace(/\s+/g, ' ');
-    const handoffWords = ['accountable function', 'Waiting for an owner', 'package', 'management view', 'RESTRICTED TEST', 'fictional'].filter((w) => text.toLowerCase().includes(w.toLowerCase()));
-    note('customer Snapshot with no hand-off or test wording', layout === 'live' && handoffWords.length === 0, { layout, found: handoffWords, score: (text.match(/\b\d{1,3}%/) || [null])[0] });
-    const prefill = await page.evaluate(() => Object.fromEntries(['contactName', 'contactEmail', 'contactRole', 'organisationLegalName'].map((n) => [n, document.querySelector(`[data-revised-paid-report] input[name=${n}]`)?.value ?? null])));
-    note('report order form pre-filled from the start form', prefill.contactName === 'MK internal review check' && prefill.contactEmail === 'live-check@mkfraud.co.za' && prefill.contactRole === 'Internal release check', prefill);
-    await page.locator('[data-revised-paid-report]').scrollIntoViewIfNeeded().catch(() => {});
-    await shot('06-order-form');
+    const handoffWords = ['accountable function', 'Waiting for an owner', 'management view', 'RESTRICTED TEST', 'fictional', '\u2014'].filter((w) => text.toLowerCase().includes(w.toLowerCase()));
+    note('customer Snapshot with no hand-off or test wording', handoffWords.length === 0, { layout, found: handoffWords, score: (text.match(/\b\d{1,3}%/) || [null])[0] });
+    note('Snapshot narrative written by the AI call', source === 'ai', source);
+    const cards = await page.$$eval('[data-report-card]', (els) => els.map((e) => e.getAttribute('data-report-card')));
+    const recommended = await page.$$eval('[data-report-card]', (els) => els.filter((e) => /Recommended from your answers/.test(e.textContent || '')).map((e) => e.getAttribute('data-report-card')));
+    note('report cards for Essential, Comprehensive and Advisory, one recommended', ['essential', 'comprehensive', 'advisory'].every((t) => cards.includes(t)) && recommended.length === 1, { cards, recommended });
+    await page.locator('[data-review-report-cards]').scrollIntoViewIfNeeded();
+    await shot('06-report-cards');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    note('no horizontal overflow', overflow <= 0, overflow);
+    // Reopening the Snapshot must reuse the stored narrative (no second call).
+    await page.reload({ waitUntil: 'networkidle' });
+    note('reopened Snapshot keeps the same narrative source', (await page.getAttribute('[data-review-snapshot]', 'data-narrative-source')) === source, source);
+    const tier = recommended[0] === 'advisory' ? 'comprehensive' : recommended[0];
+    await Promise.all([page.waitForURL(/\/score\/order\/new\?/, { timeout: 60000 }), page.click(`[data-choose-report="${tier}"]`)]);
+    await page.waitForSelector('[data-order-journey]', { timeout: 60000 });
+    await shot('07-order-confirm');
+    const confirmText = (await page.textContent('[data-order-journey]')).replace(/\s+/g, ' ');
+    note(`card opens the order journey (${tier})`, /incl\.? VAT|VAT/i.test(confirmText) && /Continue to billing/.test(confirmText), (confirmText.match(/R\s?[\d\s]+[\d]{3}[^.]{0,30}VAT/) || [null])[0]);
+    await page.click('button:has-text("Continue to billing")');
+    await page.waitForSelector('text=Confirm order', { timeout: 30000 });
+    const billingText = (await page.textContent('[data-order-journey]')).replace(/\s+/g, ' ');
+    await shot('08-order-billing');
+    note('billing step offers the VAT invoice details, then EFT payment', /VAT/.test(billingText) && /EFT/.test(billingText), null);
     note('no page errors', errors.length === 0, errors.slice(0, 3));
   } catch (error) {
     note('journey aborted', false, String(error).slice(0, 400));
