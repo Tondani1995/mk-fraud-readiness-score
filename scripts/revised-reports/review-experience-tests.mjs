@@ -93,6 +93,16 @@ await T('RX-08', 'Snapshot narrative: the data narrative always passes the check
   const pass = ok.length === 0 && invented.some((p) => /250/.test(p)) && assurance.some((p) => /claim/.test(p)) && ranking.some((p) => /claim/.test(p)) && dash.some((p) => /em dash/.test(p));
   return [pass, JSON.stringify({ ok, invented: invented[0], assurance: assurance[0], ranking: ranking[0], dash: dash[0] })];
 });
+await T('RX-11', 'Snapshot narrative claim check: MK\u2019s own control and area names pass ("Combined assurance over fraud risks", "Monitoring and assurance"); an assurance claim is still refused', async () => {
+  const brief = { ...BRIEF, areas: [...BRIEF.areas, { name: 'Monitoring and assurance', gaps: 9, inPlace: 0, unknown: 0, gapTitles: ['Combined assurance over fraud risks', 'Assurance over providers'] }] };
+  const base = dataNarrative(brief);
+  const named = checkNarrative({ ...base, implication: 'Combined assurance over fraud risks and assurance over providers are reported as gaps, so the committee cannot see where fraud risks have no cover. The report sets out the order for closing them.' }, brief);
+  const area = checkNarrative({ ...base, signals: base.signals.map((x, i) => i === 0 ? { title: 'Monitoring and assurance', text: '9 controls are reported as a gap in this area, with independent assurance among them.' } : x) }, brief);
+  const claimed = checkNarrative({ ...base, implication: 'Closing these gaps gives management assurance that the controls it relies on will hold, and the report sets out the order for closing them.' }, brief);
+  const assured = checkNarrative({ ...base, strength: 'Payments are assured by two authorisers, which is a base the rest of the control environment can build on.' }, brief);
+  const pass = named.length === 0 && area.length === 0 && claimed.some((p) => /claim not allowed \(assurance\) in "/.test(p)) && assured.some((p) => /assured/.test(p));
+  return [pass, JSON.stringify({ named, area, claimed: claimed[0], assured: assured[0] })];
+});
 await T('RX-09', 'Recommendation from the answers: Advisory when coverage falls short, Comprehensive when gaps are widespread, Essential when concentrated', async () => {
   const adv = recommend({ percent: 20, counted: 10, applicable: 90, gapScenarios: 8, coverageMet: false }, 3).tier;
   const comp = recommend({ percent: 41, counted: 87, applicable: 94, gapScenarios: 77, coverageMet: true }, 10).tier;
