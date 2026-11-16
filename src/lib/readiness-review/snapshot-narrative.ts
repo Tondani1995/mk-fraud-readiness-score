@@ -9,11 +9,11 @@ import type { SnapshotBrief } from './snapshot-brief';
 
 /**
  * The Snapshot's AI narrative for the revised review (owner direction, 15 November 2026), with the previous Snapshot's
- * controls: one small model call per finished review, cached against its answers; strict checks (only the brief's own
+ * controls: one small model call per finished review (and one repair when the draft fails a check), cached against its answers; strict checks (only the brief's own
  * figures, no assurance or protection claims, no ranking language, no em dashes, word limits); and a narrative written
  * from the data whenever the call fails or a check does not pass, so the page never waits on it or breaks.
  */
-export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.0';
+export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.1';
 
 export type SnapshotNarrative = {
   headline: string;
@@ -121,11 +121,35 @@ const db = () => {
 
 const digest = (b: SnapshotBrief) => crypto.createHash('sha256').update(JSON.stringify({ v: REVISED_SNAPSHOT_NARRATIVE_VERSION, b })).digest('hex');
 
+/** At most this many model calls per narrative: a draft and one repair. */
+export const MAX_NARRATIVE_CALLS = 2;
+
+/** One model call; injectable so the repair path can be tested without a model. */
+export type NarrativeCall = (prompt: string) => Promise<{ output: Omit<SnapshotNarrative, 'source'>; usage?: { inputTokens?: number; outputTokens?: number } | null }>;
+
+const briefForModel = (brief: SnapshotBrief) => JSON.stringify({ ...brief, areas: brief.areas.slice(0, 8).map((a) => ({ ...a, gapTitles: a.gapTitles.slice(0, 4) })) });
+
+function draftPrompt(brief: SnapshotBrief) {
+  return `Write the Snapshot narrative for this brief. headline: up to ${LIMITS.headline} words. diagnosis: up to ${LIMITS.diagnosis} words. strength: up to ${LIMITS.strength} words, about what is reported in place. signals: exactly 3, each a short title (an area or theme, up to ${LIMITS.signalTitle} words) and up to ${LIMITS.signalText} words on what was reported there. implication: up to ${LIMITS.implication} words on why it matters to management now.\n\nBRIEF\n${briefForModel(brief)}`;
+}
+
+/** The repair: the draft, the checks it failed, and the instruction to change only what failed. */
+export function repairPrompt(brief: SnapshotBrief, draft: Omit<SnapshotNarrative, 'source'>, problems: string[]) {
+  return [
+    'Your draft of the Snapshot narrative failed these checks:',
+    ...problems.slice(0, 10).map((p) => `- ${p}`),
+    'Return the whole narrative again with only those parts rewritten so every check passes. A "claim not allowed" means remove that word and any similar claim; a figure "not in the results" means use only figures from the brief or none; "too long" means shorten to the word limit; never use an em dash. Keep every other part as it was.',
+    `Word limits: headline ${LIMITS.headline}, diagnosis ${LIMITS.diagnosis}, strength ${LIMITS.strength}, implication ${LIMITS.implication}, each signal title ${LIMITS.signalTitle} and text ${LIMITS.signalText}.`,
+    `\nDRAFT\n${JSON.stringify(draft)}`,
+    `\nBRIEF\n${briefForModel(brief)}`
+  ].join('\n');
+}
+
 /**
- * The narrative for a finished review: the cached one for these exact answers, or one model call (checked), or the data
- * narrative. Never throws.
+ * The narrative for a finished review: the cached one for these exact answers, or a model draft that passes the checks
+ * (with one repair call when the draft fails them), or the data narrative. Never throws.
  */
-export async function snapshotNarrative(sessionId: string, brief: SnapshotBrief, options: { requestOidcToken?: string | null; generate?: boolean } = {}): Promise<SnapshotNarrative> {
+export async function snapshotNarrative(sessionId: string, brief: SnapshotBrief, options: { requestOidcToken?: string | null; generate?: boolean; call?: NarrativeCall } = {}): Promise<SnapshotNarrative> {
   const key = digest(brief);
   const client = db();
   try {
@@ -137,34 +161,50 @@ export async function snapshotNarrative(sessionId: string, brief: SnapshotBrief,
   if (options.generate === false) return dataNarrative(brief);
 
   let narrative: SnapshotNarrative = dataNarrative(brief);
-  let usage: unknown = null;
+  const usages: { inputTokens?: number; outputTokens?: number }[] = [];
   let status = 'data';
-  const model = gatewayModel(options.requestOidcToken);
-  if (model) {
-    try {
-      const response = await generateText({
-        model,
-        system: SYSTEM,
-        prompt: `Write the Snapshot narrative for this brief. headline: up to ${LIMITS.headline} words. diagnosis: up to ${LIMITS.diagnosis} words. strength: up to ${LIMITS.strength} words, about what is reported in place. signals: exactly 3, each a short title (an area or theme, up to ${LIMITS.signalTitle} words) and up to ${LIMITS.signalText} words on what was reported there. implication: up to ${LIMITS.implication} words on why it matters to management now.\n\nBRIEF\n${JSON.stringify({ ...brief, areas: brief.areas.slice(0, 8).map((a) => ({ ...a, gapTitles: a.gapTitles.slice(0, 4) })) })}`,
-        output: Output.object({ schema, name: 'mk_revised_snapshot_narrative' }),
-        maxOutputTokens: 2000,
-        maxRetries: 0,
-        providerOptions: { openai: { reasoningEffort: 'minimal' }, gateway: { tags: ['feature:mk-fraud-readiness-snapshot', 'stage:revised-narrative'] } },
-        abortSignal: AbortSignal.timeout(30_000)
-      });
-      usage = response.usage;
-      const candidate = { ...response.output, headline: response.output.headline.replace(/—/g, ':') };
-      const problems = checkNarrative(candidate, brief);
-      if (problems.length === 0) { narrative = { ...candidate, source: 'ai' }; status = 'ai'; }
-      else { status = 'checks_failed'; console.warn('revised_snapshot_narrative_checks_failed', { problems: problems.slice(0, 5) }); }
-    } catch (error) {
-      status = 'call_failed';
-      console.warn('revised_snapshot_narrative_call_failed', { message: error instanceof Error ? error.message.slice(0, 160) : 'unknown' });
+  const model = options.call ? null : gatewayModel(options.requestOidcToken);
+  const call: NarrativeCall | null = options.call ?? (model
+    ? async (prompt) => {
+        const response = await generateText({
+          model,
+          system: SYSTEM,
+          prompt,
+          output: Output.object({ schema, name: 'mk_revised_snapshot_narrative' }),
+          maxOutputTokens: 2000,
+          maxRetries: 0,
+          providerOptions: { openai: { reasoningEffort: 'minimal' }, gateway: { tags: ['feature:mk-fraud-readiness-snapshot', 'stage:revised-narrative'] } },
+          abortSignal: AbortSignal.timeout(30_000)
+        });
+        return { output: response.output, usage: response.usage };
+      }
+    : null);
+  if (call) {
+    // At most two calls: the first draft, and one repair that is told exactly which checks the draft failed.
+    let prompt = draftPrompt(brief);
+    for (let attempt = 1; attempt <= MAX_NARRATIVE_CALLS; attempt++) {
+      try {
+        const response = await call(prompt);
+        if (response.usage) usages.push(response.usage);
+        const candidate = { ...response.output, headline: response.output.headline.replace(/—/g, ':') };
+        const problems = checkNarrative(candidate, brief);
+        if (problems.length === 0) { narrative = { ...candidate, source: 'ai' }; status = 'ai'; break; }
+        status = 'checks_failed';
+        console.warn('revised_snapshot_narrative_checks_failed', { attempt, problems: problems.slice(0, 5) });
+        prompt = repairPrompt(brief, candidate, problems);
+      } catch (error) {
+        if (status !== 'checks_failed') status = 'call_failed';
+        console.warn('revised_snapshot_narrative_call_failed', { attempt, message: error instanceof Error ? error.message.slice(0, 160) : 'unknown' });
+        break;
+      }
     }
   }
+  const usage = usages.length
+    ? { inputTokens: usages.reduce((t, u) => t + Number(u.inputTokens ?? 0), 0), outputTokens: usages.reduce((t, u) => t + Number(u.outputTokens ?? 0), 0), calls: usages.length }
+    : null;
   try {
     if (client && status !== 'call_failed') {
-      const u = usage as { inputTokens?: number; outputTokens?: number } | null;
+      const u = usage;
       const p = MODEL_PRICES[SNAPSHOT_PRIMARY_MODEL];
       const cost = u && p ? (Number(u.inputTokens ?? 0) * p.input + Number(u.outputTokens ?? 0) * p.output) : null;
       await client.rpc('review_record_snapshot_narrative', { p: { sessionId, briefDigest: key, narrative, status, model: SNAPSHOT_PRIMARY_MODEL, version: REVISED_SNAPSHOT_NARRATIVE_VERSION, usage, costUsd: cost } });

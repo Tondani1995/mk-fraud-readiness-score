@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { validateContact } from '../../src/lib/readiness-review/contacts.ts';
 import { reviewConsoleUrl, reviewNoticeMessage } from '../../src/lib/readiness-review/review-notifications.ts';
 import { overallProgress } from '../../src/lib/readiness-review/progress.ts';
-import { checkNarrative, dataNarrative } from '../../src/lib/readiness-review/snapshot-narrative.ts';
+import { checkNarrative, dataNarrative, snapshotNarrative, MAX_NARRATIVE_CALLS } from '../../src/lib/readiness-review/snapshot-narrative.ts';
 import { recommend } from '../../src/lib/readiness-review/snapshot-brief.ts';
 
 const results = [];
@@ -98,6 +98,24 @@ await T('RX-09', 'Recommendation from the answers: Advisory when coverage falls 
   const comp = recommend({ percent: 41, counted: 87, applicable: 94, gapScenarios: 77, coverageMet: true }, 10).tier;
   const ess = recommend({ percent: 82, counted: 80, applicable: 85, gapScenarios: 12, coverageMet: true }, 3).tier;
   return [adv === 'advisory' && comp === 'comprehensive' && ess === 'essential', `${adv} / ${comp} / ${ess}`];
+});
+await T('RX-10', 'Snapshot narrative repair: a draft that fails a check gets one repair call told what failed; a clean draft makes one call; never more than two', async () => {
+  const clean = { ...dataNarrative(BRIEF) }; delete clean.source;
+  const bad = { ...clean, implication: 'Closing these gaps gives management assurance that the controls it relies on will hold under pressure.' };
+  const run = async (drafts) => {
+    const prompts = [];
+    const call = async (prompt) => { prompts.push(prompt); return { output: drafts[Math.min(prompts.length - 1, drafts.length - 1)], usage: { inputTokens: 900, outputTokens: 350 } }; };
+    const n = await snapshotNarrative('rx-10-session', BRIEF, { generate: true, call });
+    return { source: n.source, calls: prompts.length, repairTold: prompts[1] ? /claim not allowed \(assurance\)/.test(prompts[1]) && /DRAFT/.test(prompts[1]) : null };
+  };
+  const repaired = await run([bad, clean]);
+  const first = await run([clean]);
+  const stubborn = await run([bad, bad, bad]);
+  const pass = MAX_NARRATIVE_CALLS === 2
+    && repaired.source === 'ai' && repaired.calls === 2 && repaired.repairTold === true
+    && first.source === 'ai' && first.calls === 1
+    && stubborn.source === 'data' && stubborn.calls === 2;
+  return [pass, JSON.stringify({ repaired, first, stubborn })];
 });
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
