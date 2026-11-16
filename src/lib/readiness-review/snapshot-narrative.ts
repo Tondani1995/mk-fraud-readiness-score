@@ -13,7 +13,7 @@ import type { SnapshotBrief } from './snapshot-brief';
  * figures, no assurance or protection claims, no ranking language, no em dashes, word limits); and a narrative written
  * from the data whenever the call fails or a check does not pass, so the page never waits on it or breaks.
  */
-export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.1';
+export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.2';
 
 export type SnapshotNarrative = {
   headline: string;
@@ -108,7 +108,7 @@ function gatewayModel(requestOidcToken?: string | null) {
 const SYSTEM = [
   'You write the short narrative at the top of an MK Fraud Insights Fraud Readiness Snapshot. MK is an independent South African fraud risk advisory practice.',
   'Write for a CFO or chief risk officer: calm, expert and specific. The aim is that management understands what its own answers show and why acting on them matters, so that ordering the report is the obvious next step.',
-  'Use only the facts and figures in the brief. Do not invent figures, losses, incidents, regulations or consequences for this organisation. Every number you write must appear in the brief.',
+  'Use only the facts and figures in the brief. Do not invent figures, losses, incidents, regulations or consequences for this organisation. Every number you write must appear in the brief exactly as given: never add, subtract, combine or calculate figures (for two areas, state each area\'s own figure). Write all figures as digits.',
   'These are the organisation’s own answers; nothing has been tested. Never say the organisation is assured, compliant, certified, verified, protected or at no risk, and never rank or compare it with others.',
   'British spelling. No em dashes. No exclamation marks. No slogans or clipped fragments. Return only the requested object.'
 ].join(' ');
@@ -133,12 +133,19 @@ function draftPrompt(brief: SnapshotBrief) {
   return `Write the Snapshot narrative for this brief. headline: up to ${LIMITS.headline} words. diagnosis: up to ${LIMITS.diagnosis} words. strength: up to ${LIMITS.strength} words, about what is reported in place. signals: exactly 3, each a short title (an area or theme, up to ${LIMITS.signalTitle} words) and up to ${LIMITS.signalText} words on what was reported there. implication: up to ${LIMITS.implication} words on why it matters to management now.\n\nBRIEF\n${briefForModel(brief)}`;
 }
 
+/** Names each refused figure so the repair removes it rather than restating it. */
+function figuresToRemove(problems: string[]): string[] {
+  const figures = [...new Set(problems.map((p) => p.match(/figure (\S+) is not in the results/)?.[1]).filter(Boolean))];
+  return figures.length ? [`These figures must not appear anywhere in your answer: ${figures.join(', ')}.`] : [];
+}
+
 /** The repair: the draft, the checks it failed, and the instruction to change only what failed. */
 export function repairPrompt(brief: SnapshotBrief, draft: Omit<SnapshotNarrative, 'source'>, problems: string[]) {
   return [
     'Your draft of the Snapshot narrative failed these checks:',
     ...problems.slice(0, 10).map((p) => `- ${p}`),
-    'Return the whole narrative again with only those parts rewritten so every check passes. A "claim not allowed" means remove that word and any similar claim; a figure "not in the results" means use only figures from the brief or none; "too long" means shorten to the word limit; never use an em dash. Keep every other part as it was.',
+    'Return the whole narrative again with only those parts rewritten so every check passes. A "claim not allowed" means remove that word and any similar claim. A figure "not in the results" usually comes from adding or combining figures: remove that figure and state only figures exactly as they appear in the brief, each on its own. "Too long" means shorten to the word limit. Never use an em dash. Keep every other part as it was.',
+    ...figuresToRemove(problems),
     `Word limits: headline ${LIMITS.headline}, diagnosis ${LIMITS.diagnosis}, strength ${LIMITS.strength}, implication ${LIMITS.implication}, each signal title ${LIMITS.signalTitle} and text ${LIMITS.signalText}.`,
     `\nDRAFT\n${JSON.stringify(draft)}`,
     `\nBRIEF\n${briefForModel(brief)}`

@@ -111,11 +111,16 @@ await T('RX-10', 'Snapshot narrative repair: a draft that fails a check gets one
   const repaired = await run([bad, clean]);
   const first = await run([clean]);
   const stubborn = await run([bad, bad, bad]);
+  // A combined figure (two areas added together) is refused, and the repair names it for removal.
+  const summed = { ...clean, signals: clean.signals.map((x, i) => i === 2 ? { ...x, text: 'Governance and detection together report 21 gaps between them in this review.' } : x) };
+  const prompts = [];
+  await snapshotNarrative('rx-10-sum', BRIEF, { generate: true, call: async (prompt) => { prompts.push(prompt); return { output: prompts.length === 1 ? summed : clean }; } });
+  const named = /must not appear anywhere in your answer: 21\./.test(prompts[1] ?? '');
   const pass = MAX_NARRATIVE_CALLS === 2
     && repaired.source === 'ai' && repaired.calls === 2 && repaired.repairTold === true
     && first.source === 'ai' && first.calls === 1
-    && stubborn.source === 'data' && stubborn.calls === 2;
-  return [pass, JSON.stringify({ repaired, first, stubborn })];
+    && stubborn.source === 'data' && stubborn.calls === 2 && named;
+  return [pass, JSON.stringify({ repaired, first, stubborn, named })];
 });
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}\n     ${r.detail}`);
 const failed = results.filter((r) => !r.ok);
