@@ -13,7 +13,7 @@ import type { SnapshotBrief } from './snapshot-brief';
  * figures, no assurance or protection claims, no ranking language, no em dashes, word limits); and a narrative written
  * from the data whenever the call fails or a check does not pass, so the page never waits on it or breaks.
  */
-export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.2';
+export const REVISED_SNAPSHOT_NARRATIVE_VERSION = 'revised-snapshot-narrative-1.3';
 
 export type SnapshotNarrative = {
   headline: string;
@@ -47,6 +47,25 @@ function allowedNumbers(b: SnapshotBrief): Set<number> {
   return n;
 }
 
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Text with the brief's own names taken out, so a claim check never refuses MK's own wording: control and area names
+ * such as "Combined assurance over fraud risks" or "Monitoring and assurance", and the noun "assurance" when it names an
+ * assurance provider ("independent assurance", "internal audit assurance"). A claim such as "gives management
+ * assurance" or "your controls are assured" is still refused.
+ */
+function withoutBriefNames(text: string, brief: SnapshotBrief): string {
+  let out = text;
+  const names = [...brief.areas.map((a) => a.name), ...brief.areas.flatMap((a) => a.gapTitles)].filter((t) => t && t.length > 3).sort((a, b) => b.length - a.length);
+  for (const name of names) out = out.replace(new RegExp(escapeRe(name.replace(/\.$/, '')), 'gi'), ' ');
+  return out.replace(/\b(?:combined|independent|external|internal(?: audit)?|group|third[- ]party)\s+assurance\b/gi, ' ');
+}
+
+/** The words around a match, so a refusal can say exactly what was refused. */
+function around(text: string, index: number) {
+  return text.slice(Math.max(0, index - 30), index + 40).replace(/\s+/g, ' ').trim();
+}
+
 /** The checks every narrative must pass before a customer sees it; returns the problems found. */
 export function checkNarrative(n: Omit<SnapshotNarrative, 'source'>, brief: SnapshotBrief): string[] {
   const problems: string[] = [];
@@ -61,7 +80,11 @@ export function checkNarrative(n: Omit<SnapshotNarrative, 'source'>, brief: Snap
   for (const [field, text, limit] of parts) {
     if (words(text) > limit) problems.push(`${field}: too long`);
     if (/—/.test(text)) problems.push(`${field}: em dash`);
-    if (BANNED.test(text)) problems.push(`${field}: claim not allowed (${text.match(BANNED)![0]})`);
+    const claim = withoutBriefNames(text, brief).match(BANNED);
+    if (claim) {
+      const at = text.toLowerCase().indexOf(claim[0].toLowerCase());
+      problems.push(`${field}: claim not allowed (${claim[0]}) in "${around(text, Math.max(0, at))}"`);
+    }
     for (const m of text.matchAll(/\b\d+(?:[.,]\d+)?\b/g)) {
       const v = Number(m[0].replace(',', '.'));
       if (!allowed.has(v)) problems.push(`${field}: figure ${m[0]} is not in the results`);
@@ -144,7 +167,7 @@ export function repairPrompt(brief: SnapshotBrief, draft: Omit<SnapshotNarrative
   return [
     'Your draft of the Snapshot narrative failed these checks:',
     ...problems.slice(0, 10).map((p) => `- ${p}`),
-    'Return the whole narrative again with only those parts rewritten so every check passes. A "claim not allowed" means remove that word and any similar claim. A figure "not in the results" usually comes from adding or combining figures: remove that figure and state only figures exactly as they appear in the brief, each on its own. "Too long" means shorten to the word limit. Never use an em dash. Keep every other part as it was.',
+    'Return the whole narrative again with only those parts rewritten so every check passes. A "claim not allowed" means remove that word and any similar claim; a control or area name from the brief may be quoted exactly as it is written there. A figure "not in the results" usually comes from adding or combining figures: remove that figure and state only figures exactly as they appear in the brief, each on its own. "Too long" means shorten to the word limit. Never use an em dash. Keep every other part as it was.',
     ...figuresToRemove(problems),
     `Word limits: headline ${LIMITS.headline}, diagnosis ${LIMITS.diagnosis}, strength ${LIMITS.strength}, implication ${LIMITS.implication}, each signal title ${LIMITS.signalTitle} and text ${LIMITS.signalText}.`,
     `\nDRAFT\n${JSON.stringify(draft)}`,
