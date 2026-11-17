@@ -3,7 +3,39 @@
 This runbook covers the bounded MK Fraud Readiness monitoring foundation. It is read-only with
 respect to customer business data except for the signed monitoring journey described below.
 
-## Normal operating contract
+## Revised production handover (17 November 2026)
+
+The revised assessment went live on 15 November 2026. Its public canonical is `/fraud-readiness`,
+`/score/start` redirects to `/review`, and both prior scored-start APIs return 410.
+The current synthetic creation endpoint is signed `POST /review/api/sessions`, returning 201 with
+`ok: true` and `synthetic: true`. It creates only a fictional session and returns no role links.
+
+Checkly's existing Customer Journey and Signed Readiness checks were updated at cutover, but the
+Customer Journey currently fails because it seeks a button named `Start the review`. The production
+button is `Start the assessment`. Fix the existing Playwright locator and run the check; do not create
+a duplicate monitor or change customer copy to satisfy an outdated script.
+
+GA4 property 552214282 (`G-LRTK98KGB8`) remains attached to consented public website activity.
+Private `/review/s/<token>` pages deliberately disable browser analytics. Do not transmit private
+role links, answers, or session identifiers to GA4. The admin monitor presents actual revised
+database activity through `public.review_monitor_funnel` separately from historic scored
+`assessment_events`. The aggregate RPC is service-role-only and excludes fictional sessions.
+Missing RPC/data is *unavailable*, never reported as zero.
+
+The sitemap is `https://www.mkfraud.co.za/sitemap.xml`, and `/review` is noindex/nofollow.
+Do not list private review links, admin, order, or download pages in the sitemap.
+
+While the revised release is active, the scored-start SHA pin is retired. The production
+readiness check instead verifies the revised mode, database bridge, and AI generation campaign.
+A monitor DB HTTP 401 is a credential/environment failure: check the production Supabase
+connection using authorised secret-management controls. Never log or paste credentials.
+
+Legacy alarm/funnel metrics based on `assessment_events` remain available for historical diagnosis
+and must not be mistaken for revised-customer starts or completions. The current aggregate
+records starts, answer activity, paid bindings and orders separately; it does not infer
+unobservable Snapshot views or completion counts.
+
+## Historical monitoring contract and operating procedures
 
 - Checkly remains on the verified Hobby allowance. The currently active external checks are the
   home page, `/score/start`, and `/fraud-readiness`.

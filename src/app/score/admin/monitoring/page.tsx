@@ -37,6 +37,16 @@ export default async function MonitoringAdminPage() {
     ['Orders recorded', snapshot.funnel.orders]
   ];
 
+  const revised = snapshot.revisedFunnel.metrics;
+  const revisedCards: Array<[string, number]> = revised ? [
+    ['Real starts', revised.realSessionsStarted],
+    ['Respondents active', revised.respondentActiveSessions],
+    ['Answers saved', revised.respondentAnswers],
+    ['Owner answers', revised.ownerAnswers],
+    ['Paid bridge bindings', revised.commercialAssessmentsBound],
+    ['Orders recorded', revised.paidOrdersRecorded]
+  ] : [];
+
   return (
     <AdminShell admin={admin}>
       <div className="space-y-8">
@@ -73,7 +83,7 @@ export default async function MonitoringAdminPage() {
               {[
                 ['Running Production SHA', snapshot.readiness.currentDeploymentSha],
                 ['Adaptive activation SHA', snapshot.readiness.adaptiveActivationSha],
-                ['Alignment', snapshot.readiness.adaptiveActivationAligned ? 'PASS' : 'FAIL'],
+                ['Scored start activation', snapshot.readiness.checks.find((check) => check.key === 'adaptive_activation_binding')?.safeCode === 'scored_start_retired' ? 'RETIRED (revised review live)' : snapshot.readiness.adaptiveActivationAligned ? 'PASS' : 'FAIL'],
                 ['Expected Supabase project', snapshot.contract.expectedSupabaseProjectRef],
                 ['Observed Supabase project', snapshot.readiness.configuredSupabaseProjectRef],
                 ['GA4 measurement', snapshot.contract.gaMeasurementId],
@@ -96,7 +106,26 @@ export default async function MonitoringAdminPage() {
         </div>
 
         <Card className="bg-white/95">
-          <CardHeader><CardTitle>Customer journey, last 24 hours</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Revised Fraud Readiness activity, last 24 hours</CardTitle>
+            <p className="mt-2 text-sm text-mk-muted">Real sessions only. Read from the current review store and its commercial bindings, not legacy assessment events or browser analytics.</p>
+          </CardHeader>
+          <CardContent>
+            {snapshot.revisedFunnel.status === 'available' ? (
+              <>
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+                  {revisedCards.map(([label, value]) => <div key={label} className="rounded-2xl border border-mk-line bg-mk-cream p-4"><p className="text-xs uppercase tracking-[0.12em] text-mk-muted">{label}</p><p className="mt-2 text-3xl font-semibold text-mk-ink">{value}</p></div>)}
+                </div>
+                <p className="mt-4 text-xs leading-5 text-mk-muted">
+                  {revised?.respondentCorrections ?? 0} respondent corrections, {revised?.ownerDeclines ?? 0} owner declines, and {revised?.ownerActiveSessions ?? 0} sessions with owner answers in this period. Starts, answer activity, commercial bindings and orders are distinct events, not stages in one same-day cohort. Completion and Snapshot views are not inferred from them.
+                </p>
+              </>
+            ) : <p role="status" className="rounded-xl border border-mk-line bg-mk-cream px-4 py-3 text-sm text-mk-muted">Revised funnel data unavailable. Check that the service-role-only monitoring migration is applied; no customer activity is assumed to be zero.</p>}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/95">
+          <CardHeader><CardTitle>Previous-method assessment signals, last 24 hours</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               {funnelCards.map(([label, value]) => <div key={label} className="rounded-2xl border border-mk-line bg-mk-cream p-4"><p className="text-xs uppercase tracking-[0.12em] text-mk-muted">{label}</p><p className="mt-2 text-3xl font-semibold text-mk-ink">{value}</p></div>)}
@@ -106,7 +135,7 @@ export default async function MonitoringAdminPage() {
               <div><span className="text-mk-muted">Submitted without Snapshot</span><p className="mt-1 font-semibold text-mk-ink">{snapshot.funnel.submittedWithoutSnapshot}</p></div>
               <div><span className="text-mk-muted">Notification failures</span><p className="mt-1 font-semibold text-mk-ink">{snapshot.funnel.notificationFailures}</p></div>
             </div>
-            <p className="mt-5 text-xs leading-5 text-mk-muted">Synthetic monitoring assessments are permanently marked and excluded from these customer funnel counts. Ordinary abandonment is recorded as a funnel signal, not an outage.</p>
+            <p className="mt-5 text-xs leading-5 text-mk-muted">These figures come only from the previous scored assessment&apos;s event tables and are retained for historical diagnosis. The revised journey is shown separately above. Synthetic records are excluded.</p>
           </CardContent>
         </Card>
 

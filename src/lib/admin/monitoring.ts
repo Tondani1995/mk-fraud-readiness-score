@@ -28,6 +28,47 @@ async function rows(query: any): Promise<any[]> {
   }
 }
 
+// Revised interviews do not write public.assessment_events. This separate, service-role-only
+// aggregate comes from a dedicated SQL RPC and never exposes tokens, names or responses.
+// A missing migration is UNAVAILABLE, never a fabricated zero in the customer funnel.
+export type RevisedFunnelMetrics = {
+  realSessionsStarted: number;
+  respondentActiveSessions: number;
+  respondentAnswers: number;
+  respondentCorrections: number;
+  ownerActiveSessions: number;
+  ownerAnswers: number;
+  ownerDeclines: number;
+  commercialAssessmentsBound: number;
+  paidOrdersRecorded: number;
+};
+
+export async function readRevisedFunnelMetrics(db: any, since: string): Promise<{
+  status: 'available' | 'unavailable';
+  metrics: RevisedFunnelMetrics | null;
+}> {
+  try {
+    const { data, error } = await db.rpc('review_monitor_funnel', { p_since: since });
+    if (error || data?.version !== 1) return { status: 'unavailable', metrics: null };
+    const names: (keyof RevisedFunnelMetrics)[] = [
+      'realSessionsStarted', 'respondentActiveSessions', 'respondentAnswers',
+      'respondentCorrections', 'ownerActiveSessions', 'ownerAnswers', 'ownerDeclines',
+      'commercialAssessmentsBound', 'paidOrdersRecorded'
+    ];
+    const metrics = {} as RevisedFunnelMetrics;
+    for (const name of names) {
+      const value = Number(data[name]);
+      if (!Number.isSafeInteger(value) || value < 0 || data[name] == null) {
+        return { status: 'unavailable', metrics: null };
+      }
+      metrics[name] = value;
+    }
+    return { status: 'available', metrics };
+  } catch {
+    return { status: 'unavailable', metrics: null };
+  }
+}
+
 function latestSynthetic(rows: SyntheticRun[], kind: string) {
   return rows
     .filter((row) => row.monitoringRunId?.toLowerCase().startsWith(`${kind}-`))
@@ -39,6 +80,7 @@ export type ProductionMonitoringSnapshot = {
   readiness: Awaited<ReturnType<typeof evaluateProductionReadiness>>;
   overallStatus: ProductionOverallStatus;
   funnel: Awaited<ReturnType<typeof readProductionFunnelMetrics>>;
+  revisedFunnel: Awaited<ReturnType<typeof readRevisedFunnelMetrics>>;
   heartbeat: {
     status: string;
     lastStartedAt: string | null;
@@ -111,9 +153,10 @@ export async function getProductionMonitoringSnapshot(): Promise<ProductionMonit
   const now = new Date();
   const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || null;
-  const [readiness, funnel, heartbeatRows, alertRows, monitorEventRows, driftRows, syntheticRows, narrativeRows] = await Promise.all([
+  const [readiness, funnel, revisedFunnel, heartbeatRows, alertRows, monitorEventRows, driftRows, syntheticRows, narrativeRows] = await Promise.all([
     evaluateProductionReadiness({ origin, db, now }),
     readProductionFunnelMetrics(db, since),
+    readRevisedFunnelMetrics(db, since),
     rows(db.from('production_monitor_heartbeats').select('monitor_name,status,last_started_at,last_completed_at,deployment_sha,duration_ms,run_count,consecutive_failures,safe_summary_json').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle()),
     rows(db.from('phase14_operational_alerts').select('alert_key,status,monitoring_priority,category,route,stage,error_category,first_detected_at,last_seen_at,occurrence_count').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']).order('last_seen_at', { ascending: false }).limit(30)),
     rows(db.from('production_monitor_events').select('stage,outcome,route,error_category,occurred_at').gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(50)),
@@ -164,6 +207,7 @@ export async function getProductionMonitoringSnapshot(): Promise<ProductionMonit
     readiness,
     overallStatus: readiness.status,
     funnel,
+    revisedFunnel,
     heartbeat: heartbeatStatus,
     alerts: (alertRows as any[]).map((row) => ({
       alertKey: row.alert_key,

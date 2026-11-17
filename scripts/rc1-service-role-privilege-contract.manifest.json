@@ -1498,6 +1498,16 @@
         "src/app/score/api/internal/phase14-email-hmac-bootstrap/route.ts:138"
       ],
       "classification": "ONE-TIME PRODUCTION-ONLY EMAIL HMAC BOOTSTRAP; service_role RPC execution only, exact two-key allow-list, fingerprint-only return, and no direct runtime-secret table grant"
+    },
+    {
+      "signature": "public.review_monitor_funnel(timestamptz)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/admin/monitoring.ts:readRevisedFunnelMetrics"
+      ],
+      "classification": "READ-ONLY SERVICE-ROLE-ONLY AGGREGATE: returns period-level counts for non-fictional revised sessions, answer actions, commercial bindings and orders. No raw session ids, tokens, names, answers, free-text or customer data; no INSERT/UPDATE/DELETE.",
+      "justification": "17 November owner-requested production monitoring correction. Separate new review funnel from historical assessment_events without exposing private role links or granting table access to anon/authenticated users."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -1626,10 +1636,10 @@
       "src/lib/reports/private-report-access.ts",
       "src/lib/reports/storage-publication.ts",
       "src/lib/reports/supporting-register-delivery.ts",
-      "src/lib/comprehensive/artifact-service.ts"
-      ,"src/lib/comprehensive/review-record-service.ts"
-      ,"src/lib/comprehensive/package-registration.ts"
-      ,"src/lib/commercial/customer-order-status.ts"
+      "src/lib/comprehensive/artifact-service.ts",
+      "src/lib/comprehensive/review-record-service.ts",
+      "src/lib/comprehensive/package-registration.ts",
+      "src/lib/commercial/customer-order-status.ts"
     ],
     "nonServiceCallSites": [
       "src/lib/rc1/control-plane.ts:96:rpc",
@@ -1661,7 +1671,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "518263f2916c194965415d966271050a24371fd5c5614958a6b1ee0d9d123648"
+    "fullAstInventorySha256": "c9bdff497328e2bdb544e24f9d087d9b55b41e233345ec18ed6522194d7a5918"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -1681,7 +1691,9 @@
         "operationKind": "table",
         "target": "public.methodology_versions",
         "receiver": "supabase",
-        "databaseVerbs": ["SELECT"],
+        "databaseVerbs": [
+          "SELECT"
+        ],
         "oldClassification": "No RC2 call-site entry; methodology_versions was already manifested as SELECT-only direct service-role access",
         "proposedClassification": "DIRECT SERVICE-ROLE ACCESS REQUIRED; locked score-run methodology version-code read; existing SELECT privilege"
       }
@@ -1702,8 +1714,16 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "executeRole": "service_role",
-      "mutationScope": ["adaptive_activation_policies", "audit_logs"],
-      "forbiddenMutationTargets": ["assessments", "assessment_answers", "score_runs", "reports"],
+      "mutationScope": [
+        "adaptive_activation_policies",
+        "audit_logs"
+      ],
+      "forbiddenMutationTargets": [
+        "assessments",
+        "assessment_answers",
+        "score_runs",
+        "reports"
+      ],
       "conclusion": "Operator-only audited activation authority; no application caller is represented or invented in the application RPC inventory."
     },
     "conclusion": "Hash drift is one reviewed SELECT call site to an existing manifested table. RC2 introduces no new table target, table write verb, DELETE capability, RPC caller, dynamic database target, Storage API caller or Auth Admin caller."
@@ -1720,16 +1740,31 @@
     "candidateServiceRoleItems": 476,
     "approvedNewDirectTableCapability": {
       "table": "public.free_snapshot_narratives",
-      "operations": ["SELECT", "INSERT", "UPDATE"],
+      "operations": [
+        "SELECT",
+        "INSERT",
+        "UPDATE"
+      ],
       "implementation": "existing idempotent upsert",
       "source": "src/lib/snapshot/narrative-cache.ts",
-      "databaseGrantsVerified": ["service_role: SELECT, INSERT, UPDATE"],
-      "databaseGrantsForbidden": ["service_role: DELETE", "anon: SELECT", "authenticated: SELECT"],
+      "databaseGrantsVerified": [
+        "service_role: SELECT, INSERT, UPDATE"
+      ],
+      "databaseGrantsForbidden": [
+        "service_role: DELETE",
+        "anon: SELECT",
+        "authenticated: SELECT"
+      ],
       "purpose": "validated Snapshot narrative cache keyed by assessment, score run, methodology and prompt"
     },
     "structuralDelta": {
-      "directServiceRoleTableTargetsAdded": ["public.free_snapshot_narratives"],
-      "newTableWriteVerbs": ["public.free_snapshot_narratives: INSERT", "public.free_snapshot_narratives: UPDATE"],
+      "directServiceRoleTableTargetsAdded": [
+        "public.free_snapshot_narratives"
+      ],
+      "newTableWriteVerbs": [
+        "public.free_snapshot_narratives: INSERT",
+        "public.free_snapshot_narratives: UPDATE"
+      ],
       "deletedCapabilitiesAdded": [],
       "existingTableVerbExpansions": [],
       "dynamicDatabaseTargetsAdded": [],
@@ -1741,7 +1776,9 @@
         "classification": "replacement of accepted order-path callers; no new live RPC authority",
         "productionAuthority": "already-provisioned SECURITY INVOKER function with service_role EXECUTE"
       },
-      "refactoredExistingCapabilities": ["public.data_requests"],
+      "refactoredExistingCapabilities": [
+        "public.data_requests"
+      ],
       "lineOnlyOrComponentMovement": true
     },
     "approvedNegativeCapabilities": {
@@ -1763,7 +1800,10 @@
     "previousInventorySha256": "377e191142969cb283a6449ca39d346f7092aeccfcf4f35b4d3b452b52776b6f",
     "reviewedInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a",
     "normalizedComparison": {
-      "ignoredFields": ["line", "importsServiceFactory"],
+      "ignoredFields": [
+        "line",
+        "importsServiceFactory"
+      ],
       "structuralDifferenceCount": 1,
       "addedCallSites": [
         {
@@ -1771,7 +1811,9 @@
           "function": "resolveExistingStalledLeadEpisode",
           "operationKind": "table",
           "target": "public.email_events",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "purpose": "Resolve an existing assessment_stalled_lead event for the same authoritative last_activity_at before queueing."
         }
       ],
@@ -1799,7 +1841,13 @@
     "previousInventorySha256": "db83446300c7401d49a1b22066aed3e6a94bcc6bef7190d92072c4d2ec96969a",
     "candidateInventorySha256": "518263f2916c194965415d966271050a24371fd5c5614958a6b1ee0d9d123648",
     "normalizedComparison": {
-      "ignoredFields": ["line", "formatting", "receiver", "function", "importsServiceFactory"],
+      "ignoredFields": [
+        "line",
+        "formatting",
+        "receiver",
+        "function",
+        "importsServiceFactory"
+      ],
       "baselineAstCallSites": 525,
       "candidateAstCallSites": 512,
       "structuralDifferenceCount": 21,
@@ -1811,7 +1859,9 @@
           "function": "queuePublicEnquiryNotification",
           "operationKind": "table",
           "target": "public.email_events",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "purpose": "Read the enquiry notification dedupe key before queueing an internal MK notification."
         },
@@ -1820,7 +1870,10 @@
           "function": "queuePublicEnquiryNotification",
           "operationKind": "table",
           "target": "public.email_events",
-          "databaseVerbs": ["INSERT", "SELECT"],
+          "databaseVerbs": [
+            "INSERT",
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "purpose": "Queue one internal-only public-enquiry notification with no customer fulfilment side effect."
         },
@@ -1829,7 +1882,9 @@
           "function": "recordPublicEnquiryAudit",
           "operationKind": "table",
           "target": "public.audit_logs",
-          "databaseVerbs": ["INSERT"],
+          "databaseVerbs": [
+            "INSERT"
+          ],
           "executionContext": "service_role",
           "purpose": "Append audit evidence for a public enquiry without a fabricated assessment identity."
         },
@@ -1838,7 +1893,10 @@
           "function": "insertEnquiry",
           "operationKind": "table",
           "target": "public.data_requests",
-          "databaseVerbs": ["INSERT", "SELECT"],
+          "databaseVerbs": [
+            "INSERT",
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "purpose": "Persist an MK-owned public enquiry and return its generated reference."
         }
@@ -1857,7 +1915,9 @@
           "function": "getCustomerPaidOrderStatus",
           "operationKind": "table",
           "target": "public.report_artifacts",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Retired automatic customer package/access presentation."
         },
@@ -1866,7 +1926,9 @@
           "function": "getCustomerPaidOrderStatus",
           "operationKind": "table",
           "target": "public.reports",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Retired customer-facing automatic-delivery read; manual fulfilment status remains authoritative."
         },
@@ -1883,7 +1945,9 @@
           "function": "processOneDelivery",
           "operationKind": "table",
           "target": "public.reports",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Retired automatic-delivery report lookup."
         },
@@ -1892,7 +1956,9 @@
           "function": "processOneDelivery",
           "operationKind": "table",
           "target": "public.orders",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Retired automatic-delivery order lookup."
         },
@@ -1957,7 +2023,9 @@
           "function": "recordPhase1OrderNotifications",
           "operationKind": "table",
           "target": "public.score_runs",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Removed notification dependency on the retired automatic-fulfilment path."
         },
@@ -1974,7 +2042,9 @@
           "function": "reissueAccessToken",
           "operationKind": "table",
           "target": "public.email_events",
-          "databaseVerbs": ["UPDATE"],
+          "databaseVerbs": [
+            "UPDATE"
+          ],
           "executionContext": "service_role",
           "classification": "Retired automatic customer report-delivery email outcome update."
         },
@@ -1983,7 +2053,9 @@
           "function": "reissueAccessToken",
           "operationKind": "table",
           "target": "public.customer_report_access_tokens",
-          "databaseVerbs": ["SELECT"],
+          "databaseVerbs": [
+            "SELECT"
+          ],
           "executionContext": "service_role",
           "classification": "Retired customer access-token reissue lookup."
         }
@@ -2012,9 +2084,17 @@
       "newServiceRoleGrant": false,
       "existingTableVerbSetsUnchanged": true,
       "approvedExistingTargetsUsedByAddedCallSites": {
-        "public.data_requests": ["INSERT", "SELECT"],
-        "public.email_events": ["INSERT", "SELECT"],
-        "public.audit_logs": ["INSERT"]
+        "public.data_requests": [
+          "INSERT",
+          "SELECT"
+        ],
+        "public.email_events": [
+          "INSERT",
+          "SELECT"
+        ],
+        "public.audit_logs": [
+          "INSERT"
+        ]
       }
     },
     "activeInventory": {
@@ -2051,5 +2131,15 @@
     "anonAuthenticatedPrivilege": "None on any new table. Verified executably, not by inspection, in scripts/joint-launch-migration-replay-tests.mjs against a real Postgres.",
     "securityDefiner": "The artifact metadata/release RPCs and the append-only review-record audit trigger are SECURITY DEFINER with an empty search_path; lifecycle, evidence and price helpers remain SECURITY INVOKER with explicit search paths. The migration replay asserts these boundaries.",
     "transactionalClosureReview": "Paid-order creation moved into public.create_paid_order(), a SECURITY INVOKER transactional RPC. Comprehensive artifact release is a separate service-role-only atomic set finalisation after all verified metadata and human-review records exist. Direct application INSERTs on public.orders and public.comprehensive_engagements are therefore gone; no customer-facing privilege was widened."
+  },
+  "nov2026RevisedFunnelPrivilegeReview": {
+    "reviewedAt": "2026-11-17",
+    "scope": "New public.review_monitor_funnel(timestamptz) service-role-only read-only aggregate RPC",
+    "dbVerification": "Supabase production: has_function_privilege anon=false, authenticated=false, service_role=true; tested the count-only output with fictional sessions excluded",
+    "operations": "SELECT-only SQL function body, no table write, no secret/PII output, no dynamic SQL; fixed empty search_path",
+    "affectedCode": "src/lib/admin/monitoring.ts and authenticated /score/admin/monitoring",
+    "productionCustomerImpact": "No change to assessment, scoring, paid ordering, fulfilment or report generation; visibility-only",
+    "approvedBy": "Owner explicit instruction to update production monitors on 17 November 2026",
+    "analysisHash": "c9bdff497328e2bdb544e24f9d087d9b55b41e233345ec18ed6522194d7a5918"
   }
 }
