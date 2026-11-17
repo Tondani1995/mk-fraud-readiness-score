@@ -135,7 +135,7 @@ export default async function MonitoringAdminPage() {
               <div><span className="text-mk-muted">Submitted without Snapshot</span><p className="mt-1 font-semibold text-mk-ink">{snapshot.funnel.submittedWithoutSnapshot}</p></div>
               <div><span className="text-mk-muted">Notification failures</span><p className="mt-1 font-semibold text-mk-ink">{snapshot.funnel.notificationFailures}</p></div>
             </div>
-            <p className="mt-5 text-xs leading-5 text-mk-muted">These figures come only from the previous scored assessment's event tables and are retained for historical diagnosis. The revised journey is shown separately above. Synthetic records are excluded.</p>
+            <p className="mt-5 text-xs leading-5 text-mk-muted">These figures come only from the previous scored assessment&apos;s event tables and are retained for historical diagnosis. The revised journey is shown separately above. Synthetic records are excluded.</p>
           </CardContent>
         </Card>
 
