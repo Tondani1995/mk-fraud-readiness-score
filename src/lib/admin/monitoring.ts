@@ -8,6 +8,7 @@ import {
 } from '@/lib/monitoring/contracts';
 import { evaluateProductionReadiness } from '@/lib/monitoring/production-readiness';
 import { readProductionFunnelMetrics } from '@/lib/monitoring/production-monitor';
+import { readRevisedFunnel } from '@/lib/monitoring/revised-funnel';
 
 type SyntheticRun = {
   assessmentReference: string;
@@ -81,6 +82,7 @@ export type ProductionMonitoringSnapshot = {
   overallStatus: ProductionOverallStatus;
   funnel: Awaited<ReturnType<typeof readProductionFunnelMetrics>>;
   revisedFunnel: Awaited<ReturnType<typeof readRevisedFunnelMetrics>>;
+  revisedFunnelV2: Awaited<ReturnType<typeof readRevisedFunnel>>;
   heartbeat: {
     status: string;
     lastStartedAt: string | null;
@@ -153,10 +155,11 @@ export async function getProductionMonitoringSnapshot(): Promise<ProductionMonit
   const now = new Date();
   const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || null;
-  const [readiness, funnel, revisedFunnel, heartbeatRows, alertRows, monitorEventRows, driftRows, syntheticRows, narrativeRows] = await Promise.all([
+  const [readiness, funnel, revisedFunnel, revisedFunnelV2, heartbeatRows, alertRows, monitorEventRows, driftRows, syntheticRows, narrativeRows] = await Promise.all([
     evaluateProductionReadiness({ origin, db, now }),
     readProductionFunnelMetrics(db, since),
     readRevisedFunnelMetrics(db, since),
+    readRevisedFunnel(db, since),
     rows(db.from('production_monitor_heartbeats').select('monitor_name,status,last_started_at,last_completed_at,deployment_sha,duration_ms,run_count,consecutive_failures,safe_summary_json').eq('monitor_name', PRODUCTION_MONITOR_NAME).maybeSingle()),
     rows(db.from('phase14_operational_alerts').select('alert_key,status,monitoring_priority,category,route,stage,error_category,first_detected_at,last_seen_at,occurrence_count').eq('source', 'production_monitor').in('status', ['open', 'acknowledged']).order('last_seen_at', { ascending: false }).limit(30)),
     rows(db.from('production_monitor_events').select('stage,outcome,route,error_category,occurred_at').gte('occurred_at', since).order('occurred_at', { ascending: false }).limit(50)),
@@ -208,6 +211,7 @@ export async function getProductionMonitoringSnapshot(): Promise<ProductionMonit
     overallStatus: readiness.status,
     funnel,
     revisedFunnel,
+    revisedFunnelV2,
     heartbeat: heartbeatStatus,
     alerts: (alertRows as any[]).map((row) => ({
       alertKey: row.alert_key,
