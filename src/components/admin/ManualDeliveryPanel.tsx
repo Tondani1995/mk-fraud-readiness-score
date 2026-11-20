@@ -43,18 +43,18 @@ export function ManualDeliveryPanel(props: Props) {
   const isEssential = props.productCode === 'essential_self_assessment';
   const isComprehensive = props.productCode === 'mk_validated_assessment';
   const productTitle = isEssential ? 'Essential Fraud Readiness Review' : 'Comprehensive Fraud Readiness Report';
-  const subject = `Your MK ${productTitle} — ${props.organisationName}`;
+  const subject = `Your MK ${productTitle}, ${props.organisationName}`;
   const supportingRegisterReady = !isComprehensive || props.supportingRegisterReady === true;
   const attachmentLines = [
-    `PDF report: ${props.reportFileName ?? '—'}`,
-    ...(isComprehensive ? [`Supporting workbook: ${props.supportingRegisterFileName ?? '—'}`] : [])
+    `PDF report: ${props.reportFileName ?? ', '}`,
+    ...(isComprehensive ? [`Supporting workbook: ${props.supportingRegisterFileName ?? ', '}`] : [])
   ];
   const body = [
     'Good day,',
     '',
     `Your ${productTitle} for ${props.organisationName} is ready. The following files are attached:`,
     '',
-    `Report reference: ${props.reportReference ?? '—'}`,
+    `Report reference: ${props.reportReference ?? ', '}`,
     ...attachmentLines,
     '',
     'The report sets out your current fraud readiness position, the exposures that matter most, the target control environment and a prioritised implementation programme.',
@@ -125,7 +125,7 @@ export function ManualDeliveryPanel(props: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-mk-brass/30 bg-white p-5 shadow-sm" id="manual-delivery">
+    <section className="rounded-brand border border-mk-brass/30 bg-white p-5 shadow-soft" id="manual-delivery">
       <h2 className="text-lg font-semibold text-mk-ink">Manual delivery</h2>
       <p className="mt-1 text-sm text-mk-muted">
         Send the report to the customer from your own mailbox, then record the delivery here.
@@ -134,11 +134,11 @@ export function ManualDeliveryPanel(props: Props) {
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Recipient</dt>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Recipient</dt>
           <dd className="mt-1 text-sm font-semibold text-mk-ink">{props.recipientEmail ?? 'No recipient on file'}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Attachments</dt>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Attachments</dt>
           <dd className="mt-1 space-y-1 text-sm font-semibold text-mk-ink">
             <p>PDF: {props.reportFileName ?? 'No report yet'}</p>
             {isComprehensive ? <p>Workbook: {props.supportingRegisterFileName ?? 'Not available yet'}</p> : null}
@@ -147,7 +147,7 @@ export function ManualDeliveryPanel(props: Props) {
       </dl>
 
       {isComprehensive ? (
-        <div className="mt-4 rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-sm text-mk-ink">
+        <div className="mt-4 rounded-brand border border-mk-line bg-mk-cream/50 p-3 text-sm text-mk-ink">
           <p className="font-semibold">Supporting workbook</p>
           <p className="mt-1 text-mk-muted">The workbook is private and checksum-verified. Use the secure download below, attach it from the approved MK mailbox, then record the same manual delivery.</p>
           <Button type="button" variant="secondary" className="mt-3" onClick={() => void downloadSupportingWorkbook()} disabled={!supportingRegisterReady || downloadingWorkbook}>
@@ -158,11 +158,11 @@ export function ManualDeliveryPanel(props: Props) {
 
       <div className="mt-4 space-y-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Subject</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Subject</p>
           <p className="mt-1 rounded-lg border border-mk-brass/30 bg-mk-cream p-2 text-sm text-mk-ink">{subject}</p>
         </div>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Body</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Body</p>
           <textarea
             readOnly
             value={body}
@@ -189,18 +189,18 @@ export function ManualDeliveryPanel(props: Props) {
       </div>
 
       {delivered ? (
-        <p className="mt-3 rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+        <p className="mt-3 rounded-brand border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           Recorded as delivered on {new Date(delivered).toLocaleString('en-ZA')}
           {props.deliveredBy ? ` by ${props.deliveredBy}` : ''}.
         </p>
       ) : null}
       {!canMarkDelivered && !delivered ? (
-        <p className="mt-3 rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+        <p className="mt-3 rounded-brand border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           Delivery can be recorded once payment is confirmed, all required verified files exist and a recipient is on file.
         </p>
       ) : null}
       {notice ? (
-        <p className={`mt-3 rounded-xl p-3 text-sm ${notice.tone === 'error' ? 'border border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border border-mk-brass/40 bg-mk-cream text-mk-ink'}`}>
+        <p className={`mt-3 rounded-brand p-3 text-sm ${notice.tone === 'error' ? 'border border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border border-mk-brass/40 bg-mk-cream text-mk-ink'}`}>
           {notice.text}
         </p>
       ) : null}

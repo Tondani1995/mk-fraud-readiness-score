@@ -1,0 +1,135 @@
+{
+  "surfaces": 21,
+  "violations": 0,
+  "negativeControl": "PASS (12/12 caught)",
+  "positiveControl": "PASS (5/5 allowed)",
+  "scanned": [
+    {
+      "surface": "src/components/assessment/SnapshotResult.tsx",
+      "status": "scanned",
+      "lines": 498,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/assessment/ScoreGauge.tsx",
+      "status": "scanned",
+      "lines": 97,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/products/ProductChoice.tsx",
+      "status": "scanned",
+      "lines": 320,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/commercial/OrderJourney.tsx",
+      "status": "scanned",
+      "lines": 687,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/snapshot/result-copy.ts",
+      "status": "scanned",
+      "lines": 207,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/snapshot/gap-inventory.ts",
+      "status": "scanned",
+      "lines": 163,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/snapshot/next-step-recommendation.ts",
+      "status": "scanned",
+      "lines": 166,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/score/order/new/page.tsx",
+      "status": "scanned",
+      "lines": 97,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/products/TierComparison.tsx",
+      "status": "scanned",
+      "lines": 87,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/snapshot/commercial-insights.ts",
+      "status": "scanned",
+      "lines": 560,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/commercial/product-catalogue.ts",
+      "status": "scanned",
+      "lines": 287,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/score/snapshot/[assessmentRef]/page.tsx",
+      "status": "scanned",
+      "lines": 139,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/score/start/page.tsx",
+      "status": "scanned",
+      "lines": 78,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/(website)/fraud-readiness/page.tsx",
+      "status": "scanned",
+      "lines": 11,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/website/FraudReadiness/FraudReadinessOptions.tsx",
+      "status": "scanned",
+      "lines": 88,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/website/FraudReadiness/FraudReadinessComparison.tsx",
+      "status": "scanned",
+      "lines": 100,
+      "hits": 0
+    },
+    {
+      "surface": "src/lib/commercial/storefront-presentation.ts",
+      "status": "scanned",
+      "lines": 149,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/(website)/fraud-readiness/advisory/page.tsx",
+      "status": "scanned",
+      "lines": 93,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/website/FraudReadiness/PublicAdvisoryEnquiryForm.tsx",
+      "status": "scanned",
+      "lines": 240,
+      "hits": 0
+    },
+    {
+      "surface": "src/app/score/order/[assessmentRef]/page.tsx",
+      "status": "scanned",
+      "lines": 38,
+      "hits": 0
+    },
+    {
+      "surface": "src/components/comprehensive/CustomerOrderStatusWorkspace.tsx",
+      "status": "scanned",
+      "lines": 110,
+      "hits": 0
+    }
+  ],
+  "violationDetail": []
+}

@@ -91,7 +91,7 @@ export function ReviewQuestion({
               <label
                 key={c.value}
                 className={`review-option flex min-h-14 cursor-pointer items-start gap-3 rounded-lg border px-4 py-3.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-mk-navy has-[:focus-visible]:ring-offset-2 ${
-                  on ? 'border-mk-navy bg-mk-surface' : 'border-mk-line bg-white hover:border-mk-muted hover:shadow-[0_6px_18px_rgba(0,16,48,0.06)]'
+                  on ? 'border-mk-navy bg-mk-surface' : 'border-mk-line bg-white hover:border-mk-muted hover:shadow-soft'
                 } ${c.uncertain ? 'xl:col-span-2' : ''}`}
               >
                 <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-[#001030]" checked={on} onChange={() => toggle(c.value)} />
@@ -129,7 +129,7 @@ export function ReviewQuestion({
             <label
               key={c.value}
               className={`review-option flex min-h-14 cursor-pointer items-start gap-3 rounded-lg border px-4 py-3.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-mk-navy has-[:focus-visible]:ring-offset-2 ${
-                on ? 'review-chosen border-mk-navy bg-mk-navy text-white' : 'border-mk-line bg-white text-mk-ink hover:border-mk-muted hover:shadow-[0_6px_18px_rgba(0,16,48,0.06)]'
+                on ? 'review-chosen border-mk-navy bg-mk-navy text-white' : 'border-mk-line bg-white text-mk-ink hover:border-mk-muted hover:shadow-soft'
               } ${c.uncertain ? 'mt-1 xl:col-span-2' : ''}`}
             >
               <input

@@ -69,7 +69,9 @@ export function buildDeterministicSnapshotNarrativeContent(input: {
   );
   const focusNames = input.insights.priorityAreas.slice(0, 2).map((area) => area.domainName);
   return {
-    headline: `${safeOrganisationName(input.snapshot.organisationName)} has a ${maturity} fraud-readiness position.`,
+    headline: input.snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY'
+      ? `${safeOrganisationName(input.snapshot.organisationName)} needs more visibility before a readiness position can be issued.`
+      : `${safeOrganisationName(input.snapshot.organisationName)} has a ${maturity} fraud-readiness position.`,
     executiveDiagnosis: input.snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY'
       ? 'The recorded responses do not yet support a reliable readiness interpretation. The result shows where further information is needed.'
       : `The recorded responses place the organisation in a ${maturity} fraud-readiness position. The current picture highlights where management attention is needed.`,

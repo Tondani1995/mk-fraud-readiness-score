@@ -199,14 +199,14 @@ export default function TermsOfUse() {
 
                     <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         <div className="text-center">
-                            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 shadow-lg backdrop-blur">
+                            <div className="mb-6 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-5 py-2.5 shadow-soft ">
                                 <Scale className="h-4 w-4 text-white" />
                                 <span className="text-sm font-semibold uppercase tracking-wide text-white">
                                     Legal Terms
                                 </span>
                             </div>
 
-                            <h1 className="mb-6 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+                            <h1 className="mb-6 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl lg:text-5xl">
                                 Terms of <span className="text-white/95">Use</span>
                             </h1>
 
@@ -216,7 +216,7 @@ export default function TermsOfUse() {
                                 services.
                             </p>
 
-                            <div className="mt-8 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-6 py-3 backdrop-blur">
+                            <div className="mt-8 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-6 py-3 ">
                                 <CheckCircle2 className="h-5 w-5 text-white" />
                                 <span className="text-sm font-semibold text-white">
                                     Effective Date: January 2026
@@ -232,14 +232,14 @@ export default function TermsOfUse() {
 
                     <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
                         {/* Notice */}
-                        <div className="mb-10 overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-xl">
+                        <div className="mb-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                             <div className="p-8 sm:p-10">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#1d3658] shadow-lg">
+                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
                                         <AlertTriangle className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
-                                        <h2 className="mb-2 text-xl font-semibold leading-tight text-[#001030]">
+                                        <h2 className="mb-2 text-xl font-semibold leading-tight text-mk-navy">
                                             Important Notice
                                         </h2>
                                         <p className="leading-relaxed text-slate-700">
@@ -253,7 +253,7 @@ export default function TermsOfUse() {
                                             Comprehensive outputs prepared from it are governed by the{" "}
                                             <Link
                                                 href="/fraud-readiness-assessment-terms"
-                                                className="font-semibold text-[#001030] underline decoration-[#1d3658] underline-offset-4 hover:text-[#1d3658]"
+                                                className="font-semibold text-mk-navy underline decoration-mk-accent underline-offset-4 hover:text-mk-accent"
                                             >
                                                 Fraud Readiness Assessment Terms
                                             </Link>
@@ -265,9 +265,9 @@ export default function TermsOfUse() {
                         </div>
 
                         {/* Accordion */}
-                        <div className="overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-2xl">
+                        <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
                             <div className="border-b border-slate-200 bg-slate-50/60 px-7 py-6">
-                                <p className="text-sm font-semibold uppercase tracking-wide text-[#1d3658]">
+                                <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
                                     Terms sections
                                 </p>
                                 <p className="mt-1 text-sm text-slate-600">Tap a section to expand.</p>
@@ -280,25 +280,25 @@ export default function TermsOfUse() {
                                         <AccordionItem
                                             key={section.id}
                                             value={section.id}
-                                            className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white last:mb-0"
+                                            className="mb-3 overflow-hidden rounded-brand border border-slate-200 bg-white last:mb-0"
                                         >
                                             <AccordionTrigger className="px-5 py-5 text-left no-underline hover:no-underline">
                                                 <div className="flex w-full items-center gap-4">
-                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#1d3658] shadow-md">
+                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
                                                         <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
                                                     </div>
-                                                    <span className="text-base font-semibold text-[#001030] sm:text-lg">
+                                                    <span className="text-base font-semibold text-mk-navy sm:text-lg">
                                                         {section.title}
                                                     </span>
                                                 </div>
                                             </AccordionTrigger>
 
                                             <AccordionContent className="px-5 pb-6">
-                                                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+                                                <div className="rounded-brand border border-slate-200 bg-slate-50/60 p-5">
                                                     <div className="space-y-6">
                                                         {section.content.map((item, idx) => (
                                                             <div key={idx}>
-                                                                <h4 className="mb-2 text-base font-semibold leading-tight text-[#001030]">
+                                                                <h4 className="mb-2 text-base font-semibold leading-tight text-mk-navy">
                                                                     {item.subtitle}
                                                                 </h4>
                                                                 <p className="leading-relaxed text-slate-700">
@@ -316,12 +316,12 @@ export default function TermsOfUse() {
                         </div>
 
                         {/* Contact */}
-                        <div className="mt-10 overflow-hidden rounded-3xl border-2 border-slate-200 bg-white p-8 shadow-xl lg:p-12">
-                            <div className="rounded-3xl border-2 border-[#1d3658]/15 bg-[#1d3658]/5 p-6 sm:p-8">
+                        <div className="mt-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white p-8 shadow-soft lg:p-12">
+                            <div className="rounded-brand border-2 border-mk-accent/15 bg-mk-accent/5 p-6 sm:p-8">
                                 <div className="flex items-start gap-4">
-                                    <Mail className="h-6 w-6 flex-shrink-0 text-[#1d3658]" />
+                                    <Mail className="h-6 w-6 flex-shrink-0 text-mk-accent" />
                                     <div>
-                                        <p className="mb-2 font-semibold text-[#001030]">
+                                        <p className="mb-2 font-semibold text-mk-navy">
                                             Questions About These Terms?
                                         </p>
                                         <p className="mb-4 text-sm leading-relaxed text-slate-700">
@@ -330,7 +330,7 @@ export default function TermsOfUse() {
                                         </p>
                                         <a
                                             href="mailto:hello@mkfraud.co.za"
-                                            className="inline-flex items-center gap-2 rounded-2xl bg-[#001030] px-5 py-3 font-semibold text-white transition-all hover:opacity-95"
+                                            className="inline-flex items-center gap-2 rounded-brand bg-mk-navy px-5 py-3 font-semibold text-white transition-all hover:opacity-95"
                                         >
                                             <Mail className="h-4 w-4" />
                                             hello@mkfraud.co.za

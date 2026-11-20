@@ -1,43 +1,43 @@
 /**
  * Public copy used only when the review track is selected (NEXT_PUBLIC_MK_READINESS_TRACK=review). Every sentence
  * describing the scored MFRS assessment stays where it was and is unchanged; these replacements describe the revised
- * review truthfully under the approved MK Fraud Readiness method (15 November 2026): a staged interview, a private
- * Snapshot with the MK Fraud Readiness score, and paid reports written from the same answers. Kept in one file so MK
+ * review truthfully under the approved MK Fraud Readiness method: one person answers (no hand-offs since the
+ * 15 November rebuild), a private Snapshot with the MK Fraud Readiness score, and paid reports written from the same answers. Kept in one file so MK
  * can review the wording in one place.
  */
 
 export const REVIEW_JOURNEY: readonly (readonly [string, string])[] = [
   [
-    'Triage interview',
-    'One person answers for the organisation in an interview that runs in stages and can be paused and resumed. Questions that person cannot answer go to the function that would know, and nothing is assumed in the meantime.'
+    'Assessment interview',
+    'One person answers for the organisation in about twenty minutes. Each answer is saved as it is chosen and the next question follows straight away. Answering “I don’t know” is accepted: the question stays open and is not counted in the score.'
   ],
   [
     'Private Snapshot',
-    'A confidential record with the MK Fraud Readiness score on the answers given, the gaps the organisation reported, the questions waiting for an owner and the material scenarios still open.'
+    'A confidential result with the MK Fraud Readiness score on the answers given, the gaps the organisation reported, where its exposure sits and which material scenarios are still open.'
   ],
   [
-    'Owner follow-up',
-    'Accountable functions such as Finance or HR and payroll answer their own questions, so that open scenarios can be settled by the people who know.'
+    'Essential or Comprehensive report',
+    'Written from the same answers and ordered from the Snapshot, with no questions asked again. Payment is by EFT against the order reference, and MK releases each report.'
   ],
   [
-    'Evidence review and remediation',
-    'Where professional judgement is needed, an MK reviewer examines evidence and records conclusions in a scoped Advisory engagement, and MK can support the remediation that follows.'
+    'Advisory and remediation',
+    'Where evidence needs examining or controls need building, MK scopes an Advisory engagement and supports the remediation that follows.'
   ]
 ];
 
 export const REVIEW_PREVIEW_CAPTION =
-  'A private Snapshot carries the MK Fraud Readiness score and lists what the organisation reported, what is waiting for the people who would know and which material scenarios are still open. The figures shown come from a fictional example.';
+  'A private Snapshot carries the MK Fraud Readiness score and shows what the organisation reported, where its exposure sits and which material scenarios are still open. The figures shown come from a fictional example.';
 
 export const REVIEW_STOREFRONT = {
   heroBody:
     'Complete the free MK Fraud Readiness review interview and receive a private Snapshot with your MK Fraud Readiness score, what your organisation reported, what is still unknown and which material questions remain open.',
   steps: [
-    ['Triage interview', 'Asks only what applies and can be paused. “I don’t know” sends a question to the function that would know.'],
-    ['Owner follow-up', 'Accountable functions answer their own questions, at no charge.'],
-    ['Evidence and review', 'An MK reviewer examines evidence and records conclusions. This is professional work, scoped with MK as Advisory.']
+    ['Assessment interview', 'One person answers for the organisation in about twenty minutes. Each answer is saved as it is chosen, and “I don’t know” is accepted.'],
+    ['Private Snapshot', 'The Snapshot shows your MK Fraud Readiness score, the gaps you reported and where your exposure sits as soon as the interview ends.'],
+    ['Report or Advisory', 'Essential and Comprehensive are ordered from the Snapshot and written from the same answers. Evidence work and remediation are scoped with MK as Advisory.']
   ] as const,
   productsIntro:
-    'The Snapshot is the starting point and does not recommend a paid engagement. Essential and Comprehensive are written from the answers you have already given, and can be requested from your Snapshot once complete answers cover at least half of the fraud scenarios that apply.'
+    'Your Snapshot suggests the report that fits your answers, and every option remains your choice. Essential and Comprehensive are written from the answers you have already given, and can be ordered from your Snapshot once complete answers cover at least half of the fraud scenarios that apply.'
 } as const;
 
 export const REVIEW_METHODOLOGY = {
@@ -54,11 +54,11 @@ export const REVIEW_METHODOLOGY = {
     },
     {
       title: 'Every entry traceable',
-      description: 'Each answer is kept with who gave it, when, and which earlier answer it replaced. Evidence and reviewer conclusions are tied to the exact answer they examined.'
+      description: 'Each answer is kept with when it was given and which earlier answer it replaced, so the Snapshot and any report can be traced to the answers behind them.'
     },
     {
       title: 'Professional judgement recorded separately',
-      description: 'Your answers remain your own statements. An MK reviewer’s record sits beside your answer and never replaces it, and it says what the evidence showed.'
+      description: 'Your answers remain your own statements, and nothing in the Snapshot has been tested. Where MK examines evidence in an Advisory engagement, its conclusions are recorded beside your answers and never replace them.'
     }
   ],
   aiDisclosure: 'Generative AI is not used to produce, interpret or change the review or its Snapshot. Essential and Comprehensive reports are drafted with generative AI from the same facts: every figure in them is inserted from the facts rather than written by the AI, and each report is checked against MK’s report rules and released by MK.'

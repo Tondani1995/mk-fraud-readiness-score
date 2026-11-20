@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MATURITY_BANDS, MATURITY_BAND_SHORT } from '@/lib/snapshot/result-copy';
 
 type ScoreGaugeProps = {
   score: number | null;
@@ -21,7 +20,7 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
   const target = score === null ? 0 : Math.max(0, Math.min(100, score));
   const [progress, setProgress] = useState(() => target);
   const isDark = theme === 'dark';
-  const displayed = score === null ? null : Math.round(progress);
+  const displayed = score === null ? null : Math.round(score);
   const label = score === null
     ? 'Readiness score not issued. The assessment did not provide enough visibility to place a position.'
     : `Readiness score ${Math.round(score)} out of 100${band ? `. Maturity band: ${band}.` : '.'}`;
@@ -49,10 +48,10 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
   }, [score, target]);
 
   const sizeClass = size === 'mobile' ? 'max-w-[220px]' : 'max-w-[270px]';
-  const track = isDark ? 'rgba(255,255,255,.16)' : '#d8d0c2';
+  const track = isDark ? 'rgba(255,255,255,.16)' : '#e2e8f0';
   const valueStroke = isDark ? '#ffffff' : '#001030';
   const valueText = isDark ? '#ffffff' : '#001030';
-  const mutedText = isDark ? 'rgba(255,255,255,.62)' : '#667085';
+  const mutedText = isDark ? 'rgba(255,255,255,.62)' : '#47515a';
 
   return (
     <div className="text-center" data-score-gauge data-score-gauge-value={score === null ? 'not-issued' : Math.round(score)}>
@@ -75,22 +74,22 @@ export function ScoreGauge({ score, band, size = 'desktop', theme = 'dark' }: Sc
           />
         )}
         {displayed === null ? (
-          <text x="120" y="127" textAnchor="middle" fill={valueText} fontFamily="var(--font-poppins), sans-serif" fontWeight="600" fontSize="24">
+          <text x="120" y="127" textAnchor="middle" fill={valueText} fontFamily="var(--font-sans), sans-serif" fontWeight="600" fontSize="24">
             Not issued
           </text>
         ) : (
           <>
-            <text x="120" y="116" textAnchor="middle" fill={valueText} fontFamily="var(--font-poppins), sans-serif" fontWeight="600" fontSize="58" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <text x="120" y="116" textAnchor="middle" fill={valueText} fontFamily="var(--font-sans), sans-serif" fontWeight="600" fontSize="58" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {displayed}
             </text>
-            <text x="120" y="147" textAnchor="middle" fill={mutedText} fontFamily="var(--font-poppins), sans-serif" fontWeight="500" fontSize="16">
+            <text x="120" y="147" textAnchor="middle" fill={mutedText} fontFamily="var(--font-sans), sans-serif" fontWeight="500" fontSize="16">
               /100
             </text>
           </>
         )}
       </svg>
-      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: mutedText }}>
-        {band ?? 'Result status'}
+      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: mutedText }}>
+        {band ?? 'Not issued'}
       </p>
     </div>
   );

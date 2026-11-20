@@ -143,7 +143,7 @@ export function RevisedSnapshot({ view, token, cards, ordering, brief, narrative
       <div className="relative mx-auto -mt-14 max-w-6xl px-4 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s, i) => (
-            <div key={s.label} className="review-rise rounded-lg border border-mk-line bg-white p-5 shadow-[0_14px_40px_rgba(0,16,48,0.08)]" style={{ animationDelay: `${140 + i * 50}ms` }}>
+            <div key={s.label} className="review-rise rounded-lg border border-mk-line bg-white p-5 shadow-soft" style={{ animationDelay: `${140 + i * 50}ms` }}>
               <div className={`flex h-9 w-9 items-center justify-center rounded-md bg-mk-surface ${s.tone}`}><Icon name={s.icon} /></div>
               <p className="mt-4 text-3xl font-semibold tabular-nums text-mk-ink">{s.value}</p>
               <p className="mt-1 text-sm font-medium text-mk-ink">{s.label}</p>
@@ -169,7 +169,7 @@ export function RevisedSnapshot({ view, token, cards, ordering, brief, narrative
             <h2 id="findings-h" className="mt-2 text-2xl font-semibold text-mk-ink sm:text-3xl">Three things management should know</h2>
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {narrative.signals.map((s, i) => (
-                <div key={i} className="flex flex-col rounded-lg border border-mk-line p-6 transition-shadow hover:shadow-[0_12px_32px_rgba(0,16,48,0.07)]">
+                <div key={i} className="flex flex-col rounded-lg border border-mk-line p-6 transition-shadow hover:shadow-soft">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-mk-danger/10 text-mk-danger"><Icon name="alert" /></div>
                   <h3 className="mt-4 text-lg font-semibold leading-snug text-mk-ink">{s.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-mk-ink">{s.text}</p>
@@ -184,7 +184,7 @@ export function RevisedSnapshot({ view, token, cards, ordering, brief, narrative
                   <p className="mt-1 text-sm leading-6 text-mk-ink">{narrative.strength}</p>
                 </div>
               </div>
-              <blockquote className="rounded-lg border-l-4 border-mk-navy bg-white p-6 shadow-[inset_0_0_0_1px_#E2E8F0]">
+              <blockquote className="rounded-lg border-l-4 border-mk-navy bg-white p-6 ring-1 ring-inset ring-mk-line">
                 <p className="text-xs font-semibold uppercase tracking-[.12em] text-mk-muted">Why it matters now</p>
                 <p className="mt-2 text-lg leading-8 text-mk-ink">{narrative.implication}</p>
               </blockquote>
@@ -254,7 +254,7 @@ export function RevisedSnapshot({ view, token, cards, ordering, brief, narrative
                 const recommended = card.tier === rec.tier;
                 const orderable = card.tier === 'advisory' || (ordering && Boolean(score?.coverageMet));
                 return (
-                  <div key={card.tier} data-report-card={card.tier} className={`relative flex flex-col rounded-lg border bg-white p-7 transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,16,48,0.10)] ${recommended ? 'border-mk-navy shadow-[0_18px_44px_rgba(0,16,48,0.10)] ring-1 ring-mk-navy' : 'border-mk-line'}`}>
+                  <div key={card.tier} data-report-card={card.tier} className={`relative flex flex-col rounded-lg border bg-white p-7 transition-all hover:-translate-y-0.5 hover:shadow-soft ${recommended ? 'border-mk-navy shadow-soft ring-1 ring-mk-navy' : 'border-mk-line'}`}>
                     {recommended && <span className="absolute -top-3 left-6 whitespace-nowrap rounded-sm bg-mk-navy px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[.1em] text-white">Recommended from your answers</span>}
                     <div className="flex h-11 w-11 items-center justify-center rounded-md bg-mk-surface text-mk-navy"><Icon name={TIER_ICON[card.tier]} className="h-6 w-6" /></div>
                     <h3 className="mt-5 text-xl font-semibold text-mk-ink">{card.label}</h3>

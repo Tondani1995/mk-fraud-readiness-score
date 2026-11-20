@@ -1,17 +1,24 @@
-import { Poppins } from 'next/font/google';
-import { ClientErrorCapture } from '@/components/monitoring/ClientErrorCapture';
-import './globals.css';
+import localFont from "next/font/local";
+import { ClientErrorCapture } from "@/components/monitoring/ClientErrorCapture";
+import "./globals.css";
+import "./clarity.css";
 
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-poppins'
+const poppins = localFont({
+  src: [
+    { path: "../../public/fonts/poppins-regular.ttf", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-medium.ttf", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-semibold.ttf", weight: "600", style: "normal" },
+  ],
+  variable: "--font-poppins", display: "swap",
 });
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en-ZA" className={poppins.variable}>
-      <body className={`${poppins.className} antialiased`}>
+      <body className="antialiased">
         {children}
         <ClientErrorCapture />
       </body>

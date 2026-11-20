@@ -180,7 +180,7 @@ export function ReviewInterview({ token, initial, faultOnce = false }: { token: 
               {areas.map((a, i) => {
                 const done = !a.current && a.answered > 0 && i < currentArea;
                 return (
-                  <li key={a.id} aria-current={a.current ? 'step' : undefined} className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${a.current ? 'bg-white font-semibold text-mk-ink shadow-[0_1px_0_#E2E8F0,0_6px_16px_rgba(0,16,48,0.06)]' : done ? 'text-mk-ink' : 'text-mk-muted'}`}>
+                  <li key={a.id} aria-current={a.current ? 'step' : undefined} className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${a.current ? 'bg-white font-semibold text-mk-ink shadow-soft' : done ? 'text-mk-ink' : 'text-mk-muted'}`}>
                     <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${a.current ? 'border-mk-navy bg-mk-navy text-white' : done ? 'border-mk-success bg-mk-success text-white' : 'border-mk-line bg-white'}`}>
                       {done ? '✓' : a.current ? '•' : ''}
                     </span>
