@@ -20,6 +20,23 @@ export const PRODUCTION_READINESS_BUDGET_MS = 20_000;
 export const STALLED_LEAD_MONITOR_BUDGET_MS = 40_000;
 
 const RETRYABLE_STATUSES = new Set([502, 503, 504, 520]);
+
+/**
+ * PostgREST refuses about one request in a hundred made with the project's secret key with 401 PGRST303 (token
+ * validation), at random across tables, while the same key succeeds on the next request (production, 19 and 20
+ * November 2026). The refusal happens before the query runs, so one retry is safe for every method, including counter
+ * writes. Any other 401 is a real authentication failure and is returned at once.
+ */
+async function isTokenValidationRefusal(response: Response) {
+  if (response.status !== 401) return false;
+  if (/PGRST303/.test(response.headers.get('proxy-status') ?? '')) return true;
+  try {
+    const body = await response.clone().json();
+    return body?.code === 'PGRST303';
+  } catch {
+    return false;
+  }
+}
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 const DEPENDENCY_REASONS = new Set(['gateway_timeout', 'gateway_unavailable', 'timeout', 'transport_failure', 'budget_exhausted', 'circuit_open']);
 
@@ -147,6 +164,11 @@ export function monitorFetch(
         const outcome = await attemptOnce(fetchImpl, input, init, callerSignal, Math.min(attemptTimeoutMs, remaining));
         if (outcome.kind === 'caller_aborted') throw outcome.error;
         if (outcome.kind === 'response') {
+          if (attempts < maxAttempts && deadline - clock() > retryDelayMs && await isTokenValidationRefusal(outcome.response)) {
+            console.warn('monitor_database_token_refused_retry', { method, attempts, resource });
+            await sleep(retryDelayMs);
+            continue;
+          }
           if (!RETRYABLE_STATUSES.has(outcome.response.status)) {
             consecutiveFailures = 0;
             if (!outcome.response.ok) console.error('monitor_database_request_failed', { status: outcome.response.status, reason: 'database_response', method, attempts, resource });

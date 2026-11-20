@@ -26,6 +26,23 @@ attempts=0;
 await f('https://db.test/rest/v1/rpc/record_production_monitor_alert',{method:'POST'}); assert.equal(attempts,1);
 await f('https://api.resend.com/emails',{method:'POST'}); assert.equal(attempts,2);
 pass('gateway retry recovers once, is bounded, and excludes counter and provider writes');
+{
+  // 401 PGRST303 (token validation) is refused before the query runs: one retry for any method, then the result.
+  let n = 0;
+  const refusal = () => new Response(JSON.stringify({ code: 'PGRST303', message: 'JWT claims validation failed' }), { status: 401, headers: { 'proxy-status': 'PostgREST; error=PGRST303', 'content-type': 'application/json' } });
+  let g = monitorFetch(async () => { n++; return n === 1 ? refusal() : new Response('[]', { status: 200 }); }, async () => {});
+  assert.equal((await g('https://db.test/rest/v1/products?select=a')).status, 200); assert.equal(n, 2);
+  n = 0;
+  g = monitorFetch(async () => { n++; return n === 1 ? refusal() : new Response('{}', { status: 201 }); }, async () => {});
+  assert.equal((await g('https://db.test/rest/v1/rpc/record_production_monitor_alert', { method: 'POST', body: '{}' })).status, 201); assert.equal(n, 2);
+  n = 0;
+  g = monitorFetch(async () => { n++; return refusal(); }, async () => {});
+  assert.equal((await g('https://db.test/rest/v1/app_settings')).status, 401); assert.equal(n, 2);
+  n = 0;
+  g = monitorFetch(async () => { n++; return new Response(JSON.stringify({ code: 'PGRST301', message: 'invalid' }), { status: 401 }); }, async () => {});
+  assert.equal((await g('https://db.test/rest/v1/app_settings')).status, 401); assert.equal(n, 1);
+}
+pass('a PGRST303 token refusal is retried once for any method; other 401s are returned at once');
 assert.deepEqual(monitorDatabaseError({message:'Gateway Timeout',details:'customer@example.com',code:''}),{code:null,reason:'gateway_timeout'});
 assert.equal(JSON.stringify(monitorDatabaseError({message:'customer@example.com token secret',code:'42501'})).includes('customer'),false);
 pass('plain-object errors have useful PII-safe classification');
