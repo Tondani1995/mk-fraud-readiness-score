@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readRevisedFunnel, type RevisedFunnelRead } from './revised-funnel';
 import { createMonitorDatabase, isMonitorDependencyFailure, monitorDatabaseError, monitorSelfHealth, PRODUCTION_MONITOR_TERMINAL_BUDGET_MS, PRODUCTION_MONITOR_WORK_BUDGET_MS } from './database';
 import { sendEmail as defaultSendEmail, type SendEmailResult } from '@/lib/notifications/email-provider';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -455,6 +456,10 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
       internalFailure = true;
       console.error('production_monitor_funnel_read_failed', monitorDatabaseError(error));
     }
+    // The revised journey's funnel is read separately from the previous method's events and never combined with them.
+    // It is recorded on the heartbeat for the record; an unavailable read is recorded as unavailable, never as zero.
+    const revisedFunnel: RevisedFunnelRead = await readRevisedFunnel(db, since);
+    if (revisedFunnel.status === 'unavailable') console.error('production_monitor_revised_funnel_unavailable', { reason: 'aggregate_unavailable' });
     // Read-only fulfilment/queue signals. A failure to read them must never take down the monitor
     // itself. Unavailable inputs preserve their existing incidents until a successful read.
     let fulfilmentCandidates: MonitorAlertCandidate[] = [];
@@ -511,11 +516,11 @@ export async function runProductionMonitor(input: { origin?: string | null; dail
       duration_ms: durationMs,
       ...(previousHeartbeat ? { run_count: nextRunCount } : {}),
       consecutive_failures: selfHealth.self_failures,
-      safe_summary_json: { ...selfHealth, status, candidate_count: candidates.length, recovery_count: recovered, emails_sent: emailsSent },
+      safe_summary_json: { ...selfHealth, status, candidate_count: candidates.length, recovery_count: recovered, emails_sent: emailsSent, revised_funnel_24h: revisedFunnel.status === 'available' ? { ...revisedFunnel.metrics, fulfilment: revisedFunnel.fulfilment } : 'unavailable' },
       updated_at: completed.toISOString()
     });
     if (!completedWritten) throw new Error('monitor_heartbeat_completion_failed');
-    return { ok: status !== 'INCIDENT', status, readiness, metrics, candidateCount: candidates.length, emailsSent, recovered, durationMs };
+    return { ok: status !== 'INCIDENT', status, readiness, metrics, revisedFunnel, candidateCount: candidates.length, emailsSent, recovered, durationMs };
   } catch (error) {
     // An unreachable monitoring database is an unknown input: degraded self-health, not a runner
     // defect or customer incident. Real Supabase outages still surface through readiness checks.

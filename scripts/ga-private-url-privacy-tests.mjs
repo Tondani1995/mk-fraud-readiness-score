@@ -53,7 +53,15 @@ check('1: token=SECRET is absent from a sanitised Snapshot URL', () => {
   const out = sanitiseAnalyticsUrl(`${SITE}/score/snapshot/MKFRS-2026-ABC?token=${SECRET}`);
   noSecret(out, 'sanitised Snapshot URL');
   assert.ok(!/[?&]token=/i.test(out), 'token parameter removed');
-  assert.equal(out, `${SITE}/score/snapshot/MKFRS-2026-ABC`);
+  assert.equal(out, `${SITE}/score/snapshot/[redacted]`);
+});
+
+check('1b: MK assessment and order references never reach GA4, in the path or as ?ref= (20 November 2026)', () => {
+  assert.equal(sanitiseAnalyticsUrl(`${SITE}/score/order/new?tier=comprehensive&ref=MKFRS-2026-RVF08659E7&token=${SECRET}`), `${SITE}/score/order/new?tier=comprehensive`);
+  assert.equal(sanitiseAnalyticsUrl(`${SITE}/score/order/MKFRS-2026-RVF08659E7?token=${SECRET}`), `${SITE}/score/order/[redacted]`);
+  assert.equal(sanitiseAnalyticsUrl(`${SITE}/score/advisory/mkfrs-2026-ab12/details`), `${SITE}/score/advisory/[redacted]/details`);
+  assert.equal(sanitiseAnalyticsUrl(`${SITE}/score/order/MKORD-2026-DEC6F8A6`), `${SITE}/score/order/[redacted]`);
+  assert.equal(sanitiseAnalyticsUrl(`${SITE}/fraud-readiness?utm_source=linkedin`), `${SITE}/fraud-readiness?utm_source=linkedin`);
 });
 
 check('2: every identified sensitive parameter is removed, in any letter case, from query and fragment', () => {
@@ -95,7 +103,7 @@ check('4: plain public pages, attribution and in-page anchors are unchanged', ()
   assert.equal(sanitiseAnalyticsUrl('not a url'), undefined, 'unparseable input is dropped, never sent raw');
 });
 
-check('5: the Contact conversion events are sent with their existing payload', () => {
+check('5: the Contact conversion event is the stored-enquiry event with no personal data', () => {
   const calls = setBrowser({ href: `${SITE}/contact?utm_source=google&utm_medium=cpc` });
   const leadParams = { form_name: 'contact_form', service_interest: 'fraud-health-check', page_location: '/contact' };
   assert.equal(gtag.trackEvent('generate_lead', leadParams), true);
@@ -105,13 +113,19 @@ check('5: the Contact conversion events are sent with their existing payload', (
     ['event', 'website_contact_submitted', { service_interest: 'fraud-health-check' }]
   ], 'exactly the existing calls, byte-for-byte');
   const contact = read('src/app/(website)/contact/page.tsx');
-  assert.match(contact, /trackEvent\("generate_lead", \{\s*form_name: "contact_form",/);
+  // Since the service-acquisition instrumentation the contact form's conversion is service_enquiry_submitted, sent only
+  // after the enquiry is stored, with no name, email, phone or message (20 November 2026 reconciliation).
+  assert.match(contact, /trackEvent\("service_enquiry_submitted", \{\s*form_name: "contact_form",/);
+  assert.doesNotMatch(contact.slice(contact.indexOf('trackEvent("service_enquiry_submitted"'), contact.indexOf('trackEvent("service_enquiry_submitted"') + 260), /formData\.(name|email|phone|message|company)/);
 });
 
 check('6: Calendly attribution is unaffected — the embed URL carries no sensitive parameter and is not rewritten', () => {
-  const contact = read('src/app/(website)/contact/page.tsx');
-  const embed = contact.match(/const CALENDLY_URL = "([^"]+)"/)[1];
+  // The booking embed moved into CalendlyBooking (origin constant + path); the contact page no longer holds the URL.
+  const booking = read('src/components/website/CalendlyBooking.tsx');
+  const origin = booking.match(/const CALENDLY_ORIGIN = ['"]([^'"]+)['"]/)[1];
+  const embed = origin + booking.match(/const CALENDLY_URL = `\$\{CALENDLY_ORIGIN\}([^`]+)`/)[1];
   assert.equal(sanitiseAnalyticsUrl(embed), new URL(embed).toString());
+  const contact = read('src/app/(website)/contact/page.tsx');
   assert.doesNotMatch(contact, /sanitiseAnalyticsUrl|analytics-url/);
 });
 
@@ -243,6 +257,11 @@ check('14: the bootstrap sanitiser and the TypeScript sanitiser agree on every c
     `${SITE}/contact?enquiry=mk-advisory`,
     `${SITE}/score/payment/return?order_reference=MKORD-2026-X&status=ok`,
     `${SITE}/fraud-readiness?utm_source=google&gclid=abc`,
+    `${SITE}/score/order/new?tier=comprehensive&ref=MKFRS-2026-RVF08659E7&token=${SECRET}`,
+    `${SITE}/score/order/MKFRS-2026-RVF08659E7?token=${SECRET}`,
+    `${SITE}/score/advisory/mkfrs-2026-ab12/details`,
+    `${SITE}/score/order/MKORD-2026-DEC6F8A6`,
+    `${SITE}/score/order/%4DKFRS-2026-AB12`,
     ...SENSITIVE_ANALYTICS_PARAMETERS.map((name) => `${SITE}/score/x?${name}=${SECRET}&keep=1`)
   ];
   for (const url of corpus) assert.equal(sanitise(url), sanitiseAnalyticsUrl(url), 'bootstrap and module disagree');

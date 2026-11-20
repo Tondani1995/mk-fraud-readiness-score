@@ -1508,6 +1508,16 @@
       ],
       "classification": "READ-ONLY SERVICE-ROLE-ONLY AGGREGATE: returns period-level counts for non-fictional revised sessions, answer actions, commercial bindings and orders. No raw session ids, tokens, names, answers, free-text or customer data; no INSERT/UPDATE/DELETE.",
       "justification": "17 November owner-requested production monitoring correction. Separate new review funnel from historical assessment_events without exposing private role links or granting table access to anon/authenticated users."
+    },
+    {
+      "signature": "public.review_monitor_funnel_v2(timestamptz)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/revised-funnel.ts:readRevisedFunnel"
+      ],
+      "classification": "READ-ONLY SERVICE-ROLE-ONLY AGGREGATE: period-level counts for non-fictional revised customer sessions (MK internal check sessions counted separately), answers, completed interviews, Snapshot write-ups, commercial bindings, orders, payments received and generated reports. No raw session ids, tokens, names, emails, answers, free-text or customer data; no INSERT/UPDATE/DELETE.",
+      "justification": "20 November owner-requested production monitoring reconciliation. Version 1 counted unpaid orders as paid and had no completion, payment or report figures; version 2 is additive and leaves version 1 unchanged."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -1671,7 +1681,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "c9bdff497328e2bdb544e24f9d087d9b55b41e233345ec18ed6522194d7a5918"
+    "fullAstInventorySha256": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -2141,5 +2151,15 @@
     "productionCustomerImpact": "No change to assessment, scoring, paid ordering, fulfilment or report generation; visibility-only",
     "approvedBy": "Owner explicit instruction to update production monitors on 17 November 2026",
     "analysisHash": "c9bdff497328e2bdb544e24f9d087d9b55b41e233345ec18ed6522194d7a5918"
+  },
+  "nov2026RevisedFunnelV2PrivilegeReview": {
+    "reviewedAt": "2026-11-20",
+    "scope": "New public.review_monitor_funnel_v2(timestamptz) service-role-only read-only aggregate RPC",
+    "dbVerification": "Query body run read-only against Supabase production before creation; matched direct counts (4 customer sessions, 414 answers, 4 orders, 3 payments, 3 reports since 15 November)",
+    "operations": "SELECT-only SQL function body, no table write, no secret/PII output, no dynamic SQL; fixed empty search_path",
+    "affectedCode": "src/lib/monitoring/revised-funnel.ts, src/lib/monitoring/production-monitor.ts heartbeat summary, src/lib/admin/monitoring.ts and authenticated /score/admin/monitoring",
+    "productionCustomerImpact": "No change to assessment, scoring, paid ordering, fulfilment or report generation; visibility-only",
+    "approvedBy": "Owner explicit instruction to reconcile production monitoring on 20 November 2026",
+    "analysisHash": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
   }
 }

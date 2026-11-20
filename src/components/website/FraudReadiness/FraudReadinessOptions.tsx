@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { storefrontCards } from '@/lib/commercial/storefront-presentation';
+import TrackedLink from '@/components/website/TrackedLink';
 
 /**
  * The three commercial options, presented as equals.
@@ -71,12 +72,14 @@ export function FraudReadinessOptions() {
           free option exists, but it must not compete visually with the three paid options. */}
       <p className="mt-8 text-sm leading-6 text-slate-600">
         Not ready to choose?{' '}
-        <Link
+        <TrackedLink
           href="/score/start"
+          ctaName="start_free_snapshot"
+          placement="fraud_readiness_options"
           className="font-semibold text-[#001030] underline decoration-[#1D3658] underline-offset-4 transition hover:text-[#1D3658] focus:outline-none focus:ring-2 focus:ring-[#1D3658] focus:ring-offset-2"
         >
           Start with the free Snapshot
-        </Link>{' '}
+        </TrackedLink>{' '}
         Complete the assessment, see where your organisation stands, and decide afterwards.
       </p>
     </section>

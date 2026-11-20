@@ -37,6 +37,17 @@ export default async function MonitoringAdminPage() {
     ['Orders recorded', snapshot.funnel.orders]
   ];
 
+  const v2 = snapshot.revisedFunnelV2.metrics;
+  const customerCards: Array<[string, number]> = v2 ? [
+    ['Customer starts', v2.customerSessionsStarted],
+    ['Customers answering', v2.customerRespondentActiveSessions],
+    ['Answers saved', v2.customerRespondentAnswers],
+    ['Interviews completed', v2.customerInterviewsCompleted],
+    ['Assessments bound for a report', v2.customerAssessmentsBound],
+    ['Orders recorded', v2.customerOrdersRecorded],
+    ['Payments received', v2.customerPaymentsReceived],
+    ['Reports generated', v2.customerReportsGenerated]
+  ] : [];
   const revised = snapshot.revisedFunnel.metrics;
   const revisedCards: Array<[string, number]> = revised ? [
     ['Real starts', revised.realSessionsStarted],
@@ -111,7 +122,22 @@ export default async function MonitoringAdminPage() {
             <p className="mt-2 text-sm text-mk-muted">Real sessions only. Read from the current review store and its commercial bindings, not legacy assessment events or browser analytics.</p>
           </CardHeader>
           <CardContent>
-            {snapshot.revisedFunnel.status === 'available' ? (
+            {v2 ? (
+              <>
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                  {customerCards.map(([label, value]) => <div key={label} className="rounded-2xl border border-mk-line bg-mk-cream p-4"><p className="text-xs uppercase tracking-[0.12em] text-mk-muted">{label}</p><p className="mt-2 text-3xl font-semibold text-mk-ink">{value}</p></div>)}
+                </div>
+                <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                  <div><span className="text-mk-muted">Snapshot write-ups (AI / from the data)</span><p className="mt-1 font-semibold text-mk-ink">{v2.customerSnapshotNarrativesAi} / {v2.customerSnapshotNarrativesFallback}</p></div>
+                  <div><span className="text-mk-muted">Orders awaiting payment (all open)</span><p className="mt-1 font-semibold text-mk-ink">{v2.customerOrdersAwaitingPayment}</p></div>
+                  <div><span className="text-mk-muted">Paid orders without a generated report (all open)</span><p className="mt-1 font-semibold text-mk-ink">{v2.customerPaidOrdersWithoutReport}</p></div>
+                  <div><span className="text-mk-muted">Report AI calls not succeeded</span><p className="mt-1 font-semibold text-mk-ink">{v2.reportGenerationCallsNotSucceeded}</p></div>
+                  <div><span className="text-mk-muted">Report delivery</span><p className="mt-1 font-semibold text-mk-ink">Not recorded (delivered manually)</p></div>
+                  <div><span className="text-mk-muted">MK internal check sessions started</span><p className="mt-1 font-semibold text-mk-ink">{v2.internalSessionsStarted}</p></div>
+                </div>
+                <p className="mt-4 text-xs leading-5 text-mk-muted">Customer figures exclude fictional and synthetic sessions and MK&apos;s own check sessions (a contact on mkfraud.co.za). Each figure counts events in the period, not one same-day cohort. Snapshot views are not recorded; a write-up is made when an interview finishes or its Snapshot is first opened.</p>
+              </>
+            ) : snapshot.revisedFunnel.status === 'available' ? (
               <>
                 <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
                   {revisedCards.map(([label, value]) => <div key={label} className="rounded-2xl border border-mk-line bg-mk-cream p-4"><p className="text-xs uppercase tracking-[0.12em] text-mk-muted">{label}</p><p className="mt-2 text-3xl font-semibold text-mk-ink">{value}</p></div>)}
