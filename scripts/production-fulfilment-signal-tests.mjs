@@ -199,6 +199,14 @@ function baseInput(overrides = {}) {
   assert.equal(stale.staleQueuedNotifications, 2, 'case-insensitive stale detection');
   assert.equal(candidatesForFulfilment(stale, null).find((x) => x.alertKey === 'fulfilment:notification_queue_stalled').priority, 'P2');
 
+  // A queued row recorded with sending disabled (Preview shares the database) was never meant to leave: not stalled.
+  // A queued row from live sending is still stalled. (20 November 2026: the only stalled row in Production was such a
+  // disabled-mode record, which held the P2 open for weeks.)
+  const disabled = evaluateFulfilmentSignals(
+    baseInput({ emails: [{ id: 'e1', status: 'queued', created_at: hoursAgo(staleH + 100), provider_mode: 'disabled' }, { id: 'e2', status: 'queued', created_at: hoursAgo(staleH + 1), provider_mode: 'external' }] })
+  );
+  assert.equal(disabled.staleQueuedNotifications, 1, 'only the live-mode queued row is stalled');
+
   // Failure states counted regardless of casing.
   const failed = evaluateFulfilmentSignals(
     baseInput({ emails: [{ id: 'e1', status: 'SEND_FAILED', created_at: hoursAgo(1) }, { id: 'e2', status: 'reconciliation_required', created_at: hoursAgo(1) }] })

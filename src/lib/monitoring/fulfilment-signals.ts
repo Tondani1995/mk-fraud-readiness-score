@@ -81,7 +81,8 @@ export type AttemptRow = {
   completed_at?: string | null;
 };
 
-export type EmailRow = { id?: string | null; status?: string | null; created_at?: string | null };
+/** provider_mode 'disabled' rows were recorded where sending is switched off (Preview shares this database). */
+export type EmailRow = { id?: string | null; status?: string | null; created_at?: string | null; provider_mode?: string | null };
 
 export type ClientErrorRow = { occurred_at?: string | null; route?: string | null };
 
@@ -190,6 +191,8 @@ export function evaluateFulfilmentSignals(
       continue;
     }
     if (status === 'queued') {
+      // A row recorded with sending disabled was never meant to leave; it is not a stalled send (20 November 2026).
+      if (normalise(email.provider_mode) === 'disabled') continue;
       if (ageMinutes(email.created_at, now) > thresholds.staleQueuedEmailHours * 60) staleQueuedNotifications += 1;
       else freshQueuedNotifications += 1;
     }
@@ -332,7 +335,7 @@ export async function readFulfilmentSignalInput(db: any, now: Date): Promise<Ful
       .select('order_id,status,retry_count,max_attempts,requested_at,started_at,completed_at')
       .gte('requested_at', since)
       .limit(10000),
-    db.from('email_events').select('id,status,created_at').gte('created_at', since).not('notification_type', 'is', null).limit(10000),
+    db.from('email_events').select('id,status,created_at,provider_mode').gte('created_at', since).not('notification_type', 'is', null).limit(10000),
     db
       .from('production_monitor_events')
       .select('occurred_at,route')
