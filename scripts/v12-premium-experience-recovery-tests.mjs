@@ -48,14 +48,14 @@ check('both public Fraud Readiness routes use one shared premium storefront', ()
   assert.match(snapshotPreview, /data-snapshot-preview/);
 });
 
-check('the storefront presents a three-step journey and distinct product variants', () => {
-  for (const phrase of ['Diagnose', 'Design', 'Implement', 'Clarify the position', 'Build the response', 'Move with a partner']) {
+check('the storefront presents the three owner-approved outcomes (AGENTS.md) as three equal product cards', () => {
+  for (const phrase of ['Diagnose', 'Design', 'Implement', 'Know where you stand\\.', 'Design what needs to change\\.', 'Work with MK to implement it\\.']) {
     assert.match(storefront, new RegExp(phrase));
   }
-  for (const tier of ['essential', 'comprehensive', 'advisory']) {
-    assert.match(tierCard, new RegExp(`tier === ['"]${tier}['"]|${tier}:`));
-    assert.match(tierCard, new RegExp(`data-product-tier={tier}`));
-  }
+  // Brand pass (AGENTS.md section 4): three equal white cards; the tier is identified, never styled as a highlight.
+  assert.match(tierCard, /data-product-tier=\{tier\}/);
+  assert.doesNotMatch(tierCard, /tier === ['"](essential|comprehensive|advisory)['"]/);
+  for (const tier of ['essential', 'comprehensive', 'advisory']) assert.match(storefront, new RegExp(`tier="${tier}"`));
 });
 
 check('public assessment CTAs stay on the canonical adaptive start route', () => {
@@ -121,8 +121,8 @@ check('Snapshot conversion preserves catalogue pricing, immediate navigation and
 });
 
 check('the narrow layout has width containment and no horizontal overflow escape', () => {
-  assert.match(wrapper, /w-full overflow-x-hidden/);
-  assert.match(globalCss, /overflow-x:\s*hidden/);
+  assert.match(wrapper, /w-full overflow-x-(?:hidden|clip)/);
+  assert.match(globalCss, /overflow-x:\s*(?:hidden|clip)/);
   assert.match(storefront, /grid gap-5 lg:grid-cols-3/);
   assert.match(storefront, /w-full max-w-7xl/);
   assert.match(tierCard, /min-w-0|flex h-full/);
@@ -172,7 +172,8 @@ check('bounded owner corrections preserve accessibility and responsive commercia
   assert.match(adaptiveExperience, /<Button/, 'interactive assessment actions remain real controls');
   assert.match(adaptiveExperience, /<input type="radio"/, 'interactive assessment answers remain real controls');
   assert.match(button, /focus:ring-2/, 'shared interactive controls retain visible keyboard focus styling');
-  assert.match(productChoice, /recommendation\.recommendedTier === 'comprehensive'/, 'mobile order follows the deterministic recommendation');
+  // Brand pass (neutral product guidance): the previous-method product choice keeps one fixed order and never ranks.
+  assert.match(productChoice, /const paidTiers: SelfServicePaidTier\[\] = \['essential', 'comprehensive'\];/, 'one fixed, neutral product order');
   assert.match(productChoice, /const paidTiers/, 'paid tiers retain both options while changing mobile order');
   assert.match(productChoice, /md:order-1/);
   assert.match(productChoice, /md:order-2/);

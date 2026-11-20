@@ -76,7 +76,9 @@ check('report prose cannot introduce a figure that is not in the deterministic f
 });
 
 check('the public methodology statement keeps its two load-bearing sentences', () => {
-  assert.match(methodology, /Expert-designed\. Deterministic at the core\./);
+  // AGENTS.md section 4: the slogan headline became 'How your result is produced'; the load-bearing AI sentences stay.
+  assert.match(methodology, /How your result is produced/);
+  assert.doesNotMatch(methodology, /Expert-designed\. Deterministic at the core\./);
   assert.match(methodology, /not decided by generative AI/);
   assert.match(methodologyComponent, /AI does not determine your assessment result/);
   assert.match(methodologyComponent, /operates downstream of the validated assessment logic/);
