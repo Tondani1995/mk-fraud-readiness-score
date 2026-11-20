@@ -409,16 +409,22 @@
     {
       "schema": "public",
       "table": "manual_report_generation_attempts",
-      "required": "S",
+      "required": "SU",
       "stagingCurrent": "1000",
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:245 S",
+        "src/lib/admin/assessment-review.ts:146 S",
+        "src/lib/monitoring/fulfilment-signals.ts:333 S",
+        "src/lib/reports/comprehensive/manual-generation.ts:18 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:344 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:780 U",
         "src/lib/reports/phase1-operations.ts:134 S",
-        "src/lib/reports/phase1-operations.ts:92 S"
+        "src/lib/reports/phase1-operations.ts:92 S",
+        "src/lib/reports/revised/live/checkpoints.ts:110 S",
+        "src/lib/reports/revised/live/manual-generation.ts:58 S"
       ],
-      "justification": "Admin operational history only."
+      "justification": "Admin operational history, revised-review audit reconciliation and fulfilment signals read attempts. The single direct UPDATE (src/lib/reports/phase1-manual-fulfilment.ts, generateManualPhase1Report) stamps failure_diagnostics_json on a failed Comprehensive attempt and is best-effort (errors are logged, not raised). Repository migrations grant service_role SELECT only, so that UPDATE succeeds in production only through the legacy SIUD grant; a clean replay would drop the diagnostics silently. DELETE remains unused (productionOverPrivilegeBacklog)."
     },
     {
       "schema": "public",
@@ -990,6 +996,88 @@
         "src/lib/comprehensive/review-record-service.ts IU"
       ],
       "justification": "The authenticated reviewer service materializes and validates the current assessment/score-run analytical universe. DELETE is withheld; catalog subjects are replaced or superseded by the current score-run binding."
+    },
+    {
+      "schema": "public",
+      "table": "production_monitor_heartbeats",
+      "required": "SIU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "PRODUCTION MONITOR STATE; SERVICE-ROLE ONLY",
+      "sources": [
+        "src/lib/admin/monitoring.ts:163 S",
+        "src/lib/monitoring/production-monitor.ts:148 IU",
+        "src/lib/monitoring/production-monitor.ts:434 S",
+        "src/lib/monitoring/production-readiness.ts:293 S"
+      ],
+      "justification": "One heartbeat row per monitor: the monitor upserts its run state and reads its previous run; the authenticated admin monitoring page and the readiness check read it through the server-side monitor client. No DELETE. Migration 20260901183000 grants exactly SIU and revokes anon/authenticated."
+    },
+    {
+      "schema": "public",
+      "table": "production_monitor_events",
+      "required": "SI",
+      "stagingCurrent": "1100",
+      "productionCurrent": "1100",
+      "classification": "PRODUCTION MONITOR EVENT LOG; APPEND-ONLY BY GRANT",
+      "sources": [
+        "src/lib/admin/monitoring.ts:165 S",
+        "src/lib/monitoring/fulfilment-signals.ts:339 S",
+        "src/lib/monitoring/production-monitor.ts:119 I",
+        "src/lib/monitoring/production-monitor.ts:191 S"
+      ],
+      "justification": "Safe, count-level monitor events are appended by the monitor and read back for funnel and fulfilment signals and the admin monitoring page. No UPDATE or DELETE. Migration 20260901183000 grants exactly SI."
+    },
+    {
+      "schema": "public",
+      "table": "production_monitor_drift_checks",
+      "required": "SI",
+      "stagingCurrent": "1100",
+      "productionCurrent": "1100",
+      "classification": "PRODUCTION MONITOR DRIFT LOG; APPEND-ONLY BY GRANT",
+      "sources": [
+        "src/lib/admin/monitoring.ts:166 S",
+        "src/lib/monitoring/production-monitor.ts:166 I"
+      ],
+      "justification": "Configuration drift results are appended once per monitor run and read by the admin monitoring page. No UPDATE or DELETE. Migration 20260901183000 grants exactly SI."
+    },
+    {
+      "schema": "public",
+      "table": "production_monitor_notifications",
+      "required": "SIU",
+      "stagingCurrent": "1100",
+      "productionCurrent": "1100",
+      "classification": "PRODUCTION MONITOR EMAIL IDEMPOTENCY RECEIPTS; COLUMN-SCOPED UPDATE",
+      "sources": [
+        "src/lib/monitoring/production-monitor.ts:329 IU",
+        "src/lib/monitoring/production-monitor.ts:331 S",
+        "src/lib/monitoring/production-monitor.ts:341 U"
+      ],
+      "justification": "Internal alert emails are made idempotent by an insert-if-absent receipt (upsert with ignoreDuplicates, i.e. ON CONFLICT DO NOTHING, which needs INSERT only), a read-back, and a sent_at/provider_message_id stamp after the provider accepts. UPDATE is granted only on (sent_at, provider_message_id) by migration 20260912082816, so has_table_privilege reports table-level UPDATE as 0 while the call site works; productionCurrent records the table-level bits. No DELETE."
+    },
+    {
+      "schema": "public",
+      "table": "synthetic_report_generation_records",
+      "required": "S",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "SYNTHETIC COMPREHENSIVE PROOF GENERATION STATE; READ DIRECT, WRITE VIA DEFINER RPC",
+      "sources": [
+        "src/lib/comprehensive/synthetic-fixture-generation.ts:100 S"
+      ],
+      "justification": "The owner-only synthetic proof path reads the record directly; claim, completion and failure are written by the SECURITY DEFINER RPCs claim/complete/fail_synthetic_comprehensive_generation. The direct INSERT and UPDATE granted by migration 20260904150000 are not used by any call site (reported for owner review, not changed)."
+    },
+    {
+      "schema": "public",
+      "table": "synthetic_score_explainability",
+      "required": "S",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "SYNTHETIC CERTIFICATION EXPLAINABILITY FIXTURE; READ-ONLY IN APPLICATION",
+      "sources": [
+        "src/lib/reports/assemble-report-data.ts:207 S",
+        "src/lib/snapshot/free-snapshot.ts:101 S"
+      ],
+      "justification": "Report assembly and the free Snapshot read the cap-effect/limitation explanation for synthetic certification assessments only. Rows are seeded by migration 20260904150000; no application call site writes. The INSERT and UPDATE granted by that migration are unused (reported for owner review, not changed)."
     }
   ],
   "serviceRoleRpcs": [
@@ -1518,6 +1606,318 @@
       ],
       "classification": "READ-ONLY SERVICE-ROLE-ONLY AGGREGATE: period-level counts for non-fictional revised customer sessions (MK internal check sessions counted separately), answers, completed interviews, Snapshot write-ups, commercial bindings, orders, payments received and generated reports. No raw session ids, tokens, names, emails, answers, free-text or customer data; no INSERT/UPDATE/DELETE.",
       "justification": "20 November owner-requested production monitoring reconciliation. Version 1 counted unpaid orders as paid and had no completion, payment or report figures; version 2 is additive and leaves version 1 unchanged."
+    },
+    {
+      "signature": "public.claim_synthetic_comprehensive_generation(text,uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/comprehensive/synthetic-fixture-generation.ts:160"
+      ],
+      "classification": "SYNTHETIC PROOF GENERATION CLAIM; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Owner-only synthetic Comprehensive proof: claims one bounded generation per synthetic assessment and request key."
+    },
+    {
+      "signature": "public.complete_synthetic_comprehensive_generation(uuid,uuid,text,text,text,text,bigint,text,integer,text,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/comprehensive/synthetic-fixture-generation.ts:271"
+      ],
+      "classification": "SYNTHETIC PROOF GENERATION COMPLETION; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Records the verified private PDF metadata for a claimed synthetic generation; synthetic reports are refused for customer delivery."
+    },
+    {
+      "signature": "public.fail_synthetic_comprehensive_generation(uuid,text,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/comprehensive/synthetic-fixture-generation.ts:354"
+      ],
+      "classification": "SYNTHETIC PROOF GENERATION FAILURE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Records a safe failure category and diagnostics for a claimed synthetic generation after compensating the uploaded object."
+    },
+    {
+      "signature": "public.record_assessment_manual_report_generation_diagnostics(uuid,text,text,text,text,text,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:257"
+      ],
+      "classification": "MANUAL GENERATION DIAGNOSTICS; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Stamps provider/model resolution, AI usage and safe failure diagnostics on one manual generation attempt."
+    },
+    {
+      "signature": "public.record_production_monitor_alert(text,text,text,text,text,text,text,text,jsonb,timestamptz)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/production-monitor.ts:349"
+      ],
+      "classification": "PRODUCTION MONITOR ALERT LIFECYCLE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Opens or re-opens one keyed monitor alert with safe, non-PII detail."
+    },
+    {
+      "signature": "public.mark_production_monitor_alert_notified(text,timestamptz,boolean)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/production-monitor.ts:379",
+        "src/lib/monitoring/production-monitor.ts:414"
+      ],
+      "classification": "PRODUCTION MONITOR ALERT LIFECYCLE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Stamps that an alert (or its recovery) notification was sent."
+    },
+    {
+      "signature": "public.resolve_production_monitor_alert(text,timestamptz)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/production-monitor.ts:393"
+      ],
+      "classification": "PRODUCTION MONITOR ALERT LIFECYCLE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Resolves a recovered alert."
+    },
+    {
+      "signature": "public.review_commercial_bridge_enabled()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/production-readiness.ts:209"
+      ],
+      "classification": "REVISED REVIEW READ-ONLY STATUS; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Readiness check: whether the revised review commercial bridge is switched on. Boolean only."
+    },
+    {
+      "signature": "public.review_generation_accounting(text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/monitoring/production-readiness.ts:216"
+      ],
+      "classification": "REVISED REVIEW READ-ONLY GENERATION LEDGER; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Readiness check and generation ceiling: per-order/campaign provider-call accounting counts."
+    },
+    {
+      "signature": "public.review_reserve_generation_call(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/accounting.ts:93"
+      ],
+      "classification": "REVISED REVIEW GENERATION LEDGER WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Reserves one provider call against the 15-call per-report ceiling before the call is made."
+    },
+    {
+      "signature": "public.review_settle_generation_call(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/accounting.ts:112"
+      ],
+      "classification": "REVISED REVIEW GENERATION LEDGER WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Settles a reserved provider call with its measured usage."
+    },
+    {
+      "signature": "public.review_record_generation_checkpoint(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/checkpoints.ts:38"
+      ],
+      "classification": "REVISED REVIEW GENERATION CHECKPOINT WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Durable drafted/validated/linked checkpoints so a retried generation resumes rather than repays."
+    },
+    {
+      "signature": "public.review_generation_checkpoints(text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/checkpoints.ts:56"
+      ],
+      "classification": "REVISED REVIEW GENERATION CHECKPOINT READ; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Loads checkpoints for one order and input digest."
+    },
+    {
+      "signature": "public.review_unlinked_generation_audits(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/checkpoints.ts:105"
+      ],
+      "classification": "REVISED REVIEW GENERATION CHECKPOINT READ; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Finds generated-but-unlinked audits for reconciliation."
+    },
+    {
+      "signature": "public.review_record_report_run(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/manual-generation.ts:285",
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW REPORT RUN WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Records one generated/failed revised report run (manual generation and review store)."
+    },
+    {
+      "signature": "public.review_commercial_binding(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/revised/live/order.ts:81"
+      ],
+      "classification": "REVISED REVIEW COMMERCIAL BINDING READ; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Loads the commercial binding of a revised assessment for a paid order."
+    },
+    {
+      "signature": "public.review_bind_commercial_assessment(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/commercial-bridge.ts:100"
+      ],
+      "classification": "REVISED REVIEW COMMERCIAL BINDING WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Binds a completed revised session to a paid-report assessment."
+    },
+    {
+      "signature": "public.review_snapshot_narrative(text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/snapshot-narrative.ts:187"
+      ],
+      "classification": "REVISED REVIEW SNAPSHOT NARRATIVE READ; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Reads a cached Snapshot narrative for a session and brief digest."
+    },
+    {
+      "signature": "public.review_record_snapshot_narrative(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/snapshot-narrative.ts:240"
+      ],
+      "classification": "REVISED REVIEW SNAPSHOT NARRATIVE WRITE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Caches one generated Snapshot narrative."
+    },
+    {
+      "signature": "public.review_record_session_contact(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:51 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW SESSION CONTACT (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Stores the name, work email and role captured at the start of a review session."
+    },
+    {
+      "signature": "public.review_session_contact(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:51 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW SESSION CONTACT (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Reads the session contact for notifications."
+    },
+    {
+      "signature": "public.review_claim_contact_notification(text,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:51 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW CONTACT NOTIFICATION LEASE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Claims a once-only contact notification."
+    },
+    {
+      "signature": "public.review_release_contact_notification(text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:51 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW CONTACT NOTIFICATION LEASE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Releases a claimed notification after a failed send."
+    },
+    {
+      "signature": "public.review_stalled_contacts(timestamptz)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:51 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STALLED-CONTACT READ (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Lists stalled sessions with contacts for follow-up."
+    },
+    {
+      "signature": "public.review_create_session(jsonb,jsonb,text,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Creates a review session with hashed role links."
+    },
+    {
+      "signature": "public.review_load_session(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Loads one session record."
+    },
+    {
+      "signature": "public.review_find_link(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Resolves a role link by SHA-256 of its token."
+    },
+    {
+      "signature": "public.review_append_actions(text,integer,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Appends answers/actions with optimistic length check."
+    },
+    {
+      "signature": "public.review_action_count(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Reads the action count for one session."
+    },
+    {
+      "signature": "public.review_report_runs(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Lists report runs for one session."
+    },
+    {
+      "signature": "public.review_purge_session(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/database-store.ts:73 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
+      "justification": "Purges one session on request."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -1605,21 +2005,28 @@
     "src/lib/comprehensive/package-registration.ts:54",
     "src/lib/comprehensive/package-registration.ts:91",
     "src/lib/comprehensive/package-registration.ts:95",
+    "src/lib/comprehensive/synthetic-fixture-generation.ts:226",
+    "src/lib/comprehensive/synthetic-fixture-generation.ts:350",
+    "src/lib/comprehensive/synthetic-fixture-generation.ts:90",
     "src/lib/rc1/control-plane.ts:503",
     "src/lib/rc1/control-plane.ts:509",
-    "src/lib/reports/customer-report-access.ts:236",
-    "src/lib/reports/customer-report-access.ts:290",
-    "src/lib/reports/customer-report-access.ts:338",
+    "src/lib/reports/customer-report-access.ts:241",
+    "src/lib/reports/customer-report-access.ts:295",
+    "src/lib/reports/customer-report-access.ts:343",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
+    "src/lib/reports/phase1-artifact-access.ts:154",
+    "src/lib/reports/phase1-artifact-access.ts:169",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:343",
-    "src/lib/reports/phase1-manual-fulfilment.ts:766",
-    "src/lib/reports/phase1-manual-fulfilment.ts:944",
+    "src/lib/reports/phase1-manual-fulfilment.ts:1037",
+    "src/lib/reports/phase1-manual-fulfilment.ts:1215",
+    "src/lib/reports/phase1-manual-fulfilment.ts:402",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/premium-report-service-core.ts:731",
-    "src/lib/reports/private-report-access.ts:56",
-    "src/lib/reports/private-report-access.ts:90",
+    "src/lib/reports/private-report-access.ts:57",
+    "src/lib/reports/private-report-access.ts:91",
+    "src/lib/reports/revised/live/manual-generation.ts:159",
+    "src/lib/reports/revised/live/manual-generation.ts:173",
     "src/lib/reports/storage-publication.ts:29",
     "src/lib/reports/storage-publication.ts:47",
     "src/lib/reports/storage-publication.ts:59",
@@ -1634,7 +2041,24 @@
       "execute_phase14_worker_step",
       "terminal_phase14_generation_publication"
     ],
-    "storageBucketExpressions": "STORAGE API ONLY; no public-table grant inferred"
+    "storageBucketExpressions": "STORAGE API ONLY; no public-table grant inferred",
+    "src/lib/readiness-review/contacts.ts:51 fn": [
+      "review_record_session_contact",
+      "review_session_contact",
+      "review_claim_contact_notification",
+      "review_release_contact_notification",
+      "review_stalled_contacts"
+    ],
+    "src/lib/readiness-review/database-store.ts:73 fn": [
+      "review_create_session",
+      "review_load_session",
+      "review_find_link",
+      "review_append_actions",
+      "review_action_count",
+      "review_record_report_run",
+      "review_report_runs",
+      "review_purge_session"
+    ]
   },
   "analysis": {
     "serviceRoleAdapterFiles": [
@@ -1649,7 +2073,19 @@
       "src/lib/comprehensive/artifact-service.ts",
       "src/lib/comprehensive/review-record-service.ts",
       "src/lib/comprehensive/package-registration.ts",
-      "src/lib/commercial/customer-order-status.ts"
+      "src/lib/commercial/customer-order-status.ts",
+      "src/lib/monitoring/production-readiness.ts",
+      "src/lib/monitoring/revised-funnel.ts",
+      "src/lib/monitoring/fulfilment-signals.ts",
+      "src/lib/readiness-review/contacts.ts",
+      "src/lib/readiness-review/database-store.ts",
+      "src/lib/readiness-review/snapshot-narrative.ts",
+      "src/lib/reports/revised/live/accounting.ts",
+      "src/lib/reports/revised/live/checkpoints.ts",
+      "src/lib/reports/revised/live/manual-generation.ts",
+      "src/lib/reports/revised/live/order.ts",
+      "src/lib/scoring/methodology-dispatch.ts",
+      "src/lib/website/readiness-release.ts"
     ],
     "nonServiceCallSites": [
       "src/lib/rc1/control-plane.ts:96:rpc",
@@ -1663,10 +2099,10 @@
       "src/lib/reports/email/delivery-dispatch.ts:157:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:206:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:73:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:211:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:280:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:349:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:403:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:214:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:283:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:352:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:406:rpc",
       "src/lib/reports/phase14-security.ts:102:rpc",
       "src/lib/reports/phase14-security.ts:122:from",
       "src/lib/reports/phase14-security.ts:76:rpc",
@@ -2160,6 +2596,50 @@
     "affectedCode": "src/lib/monitoring/revised-funnel.ts, src/lib/monitoring/production-monitor.ts heartbeat summary, src/lib/admin/monitoring.ts and authenticated /score/admin/monitoring",
     "productionCustomerImpact": "No change to assessment, scoring, paid ordering, fulfilment or report generation; visibility-only",
     "approvedBy": "Owner explicit instruction to reconcile production monitoring on 20 November 2026",
+    "analysisHash": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
+  },
+  "nov2026ServiceRoleRegisterReview": {
+    "reviewedAt": "2026-11-20",
+    "parentCommit": "dbf83ddb21fb2c131d77158ca145499d2b8e4f46",
+    "scope": "Registers service-role access added since September 2026 without a privilege review: production monitoring (1 Sep, 7 Sep, 12 Sep), the synthetic Comprehensive proof path (4 Sep), the Comprehensive failure-diagnostics stamp (5 Sep), and the revised Fraud Readiness review store, contacts, Snapshot narratives, commercial bridge and generation ledger (11 to 20 Nov). The inventory hash was already current; the gaps were masked because the analysis only classifies a file as service-role when it names createSupabaseServiceClient or SUPABASE_SERVICE_ROLE_KEY.",
+    "adapterFilesAdded": [
+      "src/lib/monitoring/production-readiness.ts (createMonitorDatabase: SUPABASE_SERVICE_ROLE_KEY)",
+      "src/lib/monitoring/revised-funnel.ts (monitor database passed in)",
+      "src/lib/monitoring/fulfilment-signals.ts (monitor database passed in)",
+      "src/lib/readiness-review/contacts.ts, database-store.ts, snapshot-narrative.ts (MK_READINESS_REVIEW_DB_SERVICE_KEY, bound to iszihmmbgsfefawqmnwo in production)",
+      "src/lib/reports/revised/live/accounting.ts, checkpoints.ts, manual-generation.ts, order.ts (service client passed in from phase1-manual-fulfilment.ts)",
+      "src/lib/scoring/methodology-dispatch.ts (documented service-role db parameter)",
+      "src/lib/website/readiness-release.ts (createSupabaseServiceClient() passed in by pages)"
+    ],
+    "tablesAdded": [
+      "production_monitor_heartbeats SIU",
+      "production_monitor_events SI",
+      "production_monitor_drift_checks SI",
+      "production_monitor_notifications SIU (UPDATE column-scoped)",
+      "synthetic_report_generation_records S",
+      "synthetic_score_explainability S"
+    ],
+    "tablesChanged": [
+      "manual_report_generation_attempts S -> SU"
+    ],
+    "rpcsAdded": 31,
+    "dynamicResolutionsAdded": [
+      "src/lib/readiness-review/contacts.ts:51 fn (5 RPCs)",
+      "src/lib/readiness-review/database-store.ts:73 fn (8 RPCs)"
+    ],
+    "nonServiceCallSitesCorrected": "report-delivery-service-core.ts 211/280/349/403 -> 214/283/352/406 (line shift only; production grants these four RPCs to authenticated, not service_role)",
+    "storageApiReview": "8 references were line shifts; 7 are new: synthetic proof upload/download/remove (owner-only private bucket), phase1-artifact-access supporting-register download and signed URL, revised manual generation uploads. No public URLs.",
+    "dbVerification": "Supabase production iszihmmbgsfefawqmnwo read with has_table_privilege, information_schema.column_privileges and has_function_privilege for service_role, anon and authenticated on 2026-11-20. Every new table: anon 0000, authenticated 0000, RLS on. Every new RPC: SECURITY DEFINER, EXECUTE service_role only. No grant, migration or data was changed.",
+    "stagingCurrentBasis": "For the six new tables stagingCurrent is the ACL the repository migrations grant (the replay baseline), not a reading of a separate Staging project.",
+    "ownerReview": [
+      "OVER-GRANT: synthetic_report_generation_records has service_role INSERT/UPDATE but every write goes through SECURITY DEFINER RPCs.",
+      "OVER-GRANT: synthetic_score_explainability has service_role INSERT/UPDATE but rows are seeded by migration and only read by the application.",
+      "OVER-GRANT (existing backlog): manual_report_generation_attempts has service_role DELETE and TRUNCATE in production; neither is used.",
+      "UNDER-GRANT IN MIGRATIONS: manual_report_generation_attempts UPDATE (failure_diagnostics_json) is granted only by the legacy production ACL; the replay contract test will report this table until a column-scoped grant or the diagnostics RPC is chosen.",
+      "TEST SEMANTICS: production_monitor_notifications UPDATE is column-scoped, which has_table_privilege reports as 0; the replay contract test compares table-level bits and will report this table although the grant is correct and narrowest.",
+      "search_path: the three synthetic RPCs and record_assessment_manual_report_generation_diagnostics use public, pg_temp rather than an empty search_path."
+    ],
+    "productionCustomerImpact": "None. Manifest and analysis only; no runtime code, grant or migration changed.",
     "analysisHash": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
   }
 }
