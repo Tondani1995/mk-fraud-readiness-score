@@ -7,6 +7,7 @@ import { Button } from '@/components/website/ui/button';
 import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { readinessTrack } from '@/lib/website/readiness-track';
 import { REVIEW_STOREFRONT } from '@/lib/website/review-track-copy';
+import TrackedLink from '@/components/website/TrackedLink';
 
 function formatPrice(priceCents: number | null) {
   if (priceCents === null) return 'Scoped with MK';
@@ -45,7 +46,7 @@ export function FraudReadinessStorefront() {
             </p>
             <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
               <Button asChild size="lg" className="h-auto min-h-12 rounded-xl bg-white px-7 text-[#001030] shadow-xl hover:bg-white/90" data-storefront-cta="start-assessment">
-                <Link href="/score/start">Start the free assessment <ArrowRight className="h-4 w-4" /></Link>
+                <TrackedLink href="/score/start" ctaName="start_free_assessment" placement="fraud_readiness_hero">Start the free assessment <ArrowRight className="h-4 w-4" /></TrackedLink>
               </Button>
               <Button asChild variant="outline" size="lg" className="h-auto min-h-12 rounded-xl border-white/30 bg-transparent px-7 text-white hover:bg-white/8 hover:text-white">
                 <Link href="#products">Compare support options</Link>
@@ -93,7 +94,7 @@ export function FraudReadinessStorefront() {
               priceLabel={formatPrice(essential.priceCents)}
               description={essential.summary}
               features={[...essential.includes].slice(0, 4)}
-              action={<Button asChild size="lg" className="w-full rounded-xl bg-[#001030] text-white hover:bg-[#12333c]"><Link href="/score/start">Start with Essential <ArrowRight className="h-4 w-4" /></Link></Button>}
+              action={<Button asChild size="lg" className="w-full rounded-xl bg-[#001030] text-white hover:bg-[#12333c]"><TrackedLink href="/score/start" ctaName="start_with_essential" placement="fraud_readiness_products">Start with Essential <ArrowRight className="h-4 w-4" /></TrackedLink></Button>}
             />
             <ProductTierCard
               tier="comprehensive"
@@ -104,7 +105,7 @@ export function FraudReadinessStorefront() {
               description={comprehensive.summary}
               features={[...comprehensive.includes].slice(0, 5)}
               featuredLabel="Deeper analysis"
-              action={<Button asChild size="lg" className="w-full rounded-xl bg-white text-[#001030] hover:bg-[#f4efe7]"><Link href="/score/start">Start with Comprehensive <ArrowRight className="h-4 w-4" /></Link></Button>}
+              action={<Button asChild size="lg" className="w-full rounded-xl bg-white text-[#001030] hover:bg-[#f4efe7]"><TrackedLink href="/score/start" ctaName="start_with_comprehensive" placement="fraud_readiness_products">Start with Comprehensive <ArrowRight className="h-4 w-4" /></TrackedLink></Button>}
             />
             <ProductTierCard
               tier="advisory"
@@ -129,7 +130,7 @@ export function FraudReadinessStorefront() {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5537]">Start with the result</p>
             <h2 className="mt-3 max-w-md text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-3xl">A tailored assessment before any report decision.</h2>
             <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
-              <Button asChild size="lg" className="h-auto min-h-12 rounded-xl bg-[#001030] px-7 text-white hover:bg-[#12333c]"><Link href="/score/start">Start the assessment <ArrowRight className="h-4 w-4" /></Link></Button>
+              <Button asChild size="lg" className="h-auto min-h-12 rounded-xl bg-[#001030] px-7 text-white hover:bg-[#12333c]"><TrackedLink href="/score/start" ctaName="start_assessment" placement="fraud_readiness_closing">Start the assessment <ArrowRight className="h-4 w-4" /></TrackedLink></Button>
               <Button asChild variant="outline" size="lg" className="h-auto min-h-12 rounded-xl border-[#001030]/20 px-7 text-[#001030]"><Link href="/contact">Speak to MK</Link></Button>
             </div>
           </div>

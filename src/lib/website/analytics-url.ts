@@ -37,8 +37,26 @@ export const SENSITIVE_ANALYTICS_PARAMETERS = [
   '__mk_capture',
   // Private order identifiers on order and payment-return links.
   'orderreference',
-  'order_reference'
+  'order_reference',
+  // The assessment reference on revised order and Advisory links (?ref=MKFRS-...): an identifier for one customer's
+  // assessment. Not a credential, but never sent (20 November 2026).
+  'ref'
 ] as const;
+
+/**
+ * MK assessment and order references (MKFRS-2026-..., MKORD-2026-...) identify one customer's assessment or order.
+ * Wherever they appear as a path segment (/score/order/<ref>, /score/advisory/<ref>), the segment is redacted.
+ */
+export const MK_REFERENCE_SEGMENT_SOURCE = '^MK(?:FRS|ORD)-\\d{4}-[A-Z0-9]+$';
+const MK_REFERENCE_SEGMENT = new RegExp(MK_REFERENCE_SEGMENT_SOURCE, 'i');
+
+function redactReferenceSegments(pathname: string, replacement: string) {
+  return pathname.split('/').map((segment) => {
+    let decoded = segment;
+    try { decoded = decodeURIComponent(segment); } catch { /* keep the raw segment */ }
+    return MK_REFERENCE_SEGMENT.test(decoded) ? replacement : segment;
+  }).join('/');
+}
 
 const SENSITIVE = new Set<string>(SENSITIVE_ANALYTICS_PARAMETERS);
 
@@ -82,6 +100,7 @@ export function sanitiseAnalyticsUrl(url: string | null | undefined, base?: stri
   }
   // Review role links (/review/s/<token>, /review/api/s/<token>) keep their suffix but lose the credential segment.
   parsed.pathname = redactCredentialPaths(parsed.pathname, REDACTED_PATH_SEGMENT);
+  parsed.pathname = redactReferenceSegments(parsed.pathname, REDACTED_PATH_SEGMENT);
 
   if (parsed.search) {
     const kept = stripParams(parsed.search);
@@ -130,6 +149,12 @@ export function analyticsPrivacyBootstrapScript() {
                       }
                     });
                     parsed.pathname = mkRedactCredentialPaths(parsed.pathname, ${JSON.stringify(REDACTED_PATH_SEGMENT)});
+                    var mkReferenceSegment = new RegExp(${JSON.stringify(MK_REFERENCE_SEGMENT_SOURCE)}, 'i');
+                    parsed.pathname = parsed.pathname.split('/').map(function (segment) {
+                      var decoded = segment;
+                      try { decoded = decodeURIComponent(segment); } catch (_) {}
+                      return mkReferenceSegment.test(decoded) ? ${JSON.stringify(REDACTED_PATH_SEGMENT)} : segment;
+                    }).join('/');
                     if (parsed.search) {
                       var keptSearch = mkStripAnalyticsParams(parsed.search);
                       parsed.search = keptSearch ? '?' + keptSearch : '';
