@@ -94,10 +94,8 @@ export function SnapshotPreview({ compact = false, story = false }: { compact?: 
  * service produces none.
  */
 const REVIEW_ROWS: { key: keyof typeof example.counts; label: string; note: string }[] = [
-  { key: "reported-gaps", label: "Reported gaps", note: "self-reported, not verified" },
-  { key: "waiting", label: "Waiting for an owner", note: "with the function that would know" },
-  { key: "open-scenarios", label: "Material scenarios still open", note: "not established either way" },
-  { key: "outstanding", label: "Information outstanding", note: "declined, unanswered or not known" },
+  { key: "reported-gaps", label: "Controls reported as a gap", note: "of 51 with a known answer; self-reported, not tested" },
+  { key: "open-scenarios", label: "Material scenarios still open", note: "of 90 that apply; not established either way" },
 ];
 
 function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: boolean }) {
@@ -110,7 +108,7 @@ function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: bo
     >
       <p className="text-xs font-semibold uppercase tracking-[.1em] text-mk-muted">Fictional example</p>
       <h3 className="mt-2 text-[22px] font-semibold leading-snug">Your Fraud Readiness Snapshot</h3>
-      <p className="mt-1 text-xs text-mk-muted">{example.organisation} · interview stopped at its 95-screen limit</p>
+      <p className="mt-1 text-xs text-mk-muted">{example.organisation}</p>
       <dl className="mt-3 divide-y divide-mk-line border-y border-mk-line">
         {REVIEW_ROWS.map((row) => (
           <div key={row.key} className="flex items-baseline justify-between gap-3 py-2 text-sm">
@@ -122,11 +120,11 @@ function ReviewSnapshotPreview({ story, compact }: { story: boolean; compact: bo
           </div>
         ))}
       </dl>
-      {example.exampleWaiting && (
+      {example.exampleGap && (
         <div className="mt-3">
-          <p className="text-xs text-mk-muted">Example question waiting for an owner</p>
-          <p className="mt-1 text-sm font-semibold">{example.exampleWaiting.title}</p>
-          <p className="text-xs text-mk-muted">With {example.exampleWaiting.fn}</p>
+          <p className="text-xs text-mk-muted">Example gap</p>
+          <p className="mt-1 text-sm font-semibold">{example.exampleGap.title}</p>
+          <p className="text-xs text-mk-muted">{example.exampleGap.state}</p>
         </div>
       )}
       <p className="mt-3 text-xs leading-relaxed text-mk-muted">
