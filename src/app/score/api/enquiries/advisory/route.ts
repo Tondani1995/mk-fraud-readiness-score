@@ -85,7 +85,8 @@ export async function POST(request: Request) {
       requestType: ADVISORY_REQUEST_TYPE,
       enquirySource: 'public_advisory',
       ipHash: getClientIpHashKey(request, 'public_advisory_enquiry'),
-      notificationStatus: notification.status
+      notificationStatus: notification.status,
+      attribution: parsed.data.attribution
     });
 
     return NextResponse.json({
