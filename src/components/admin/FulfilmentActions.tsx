@@ -44,7 +44,7 @@ export function FulfilmentActions(props: Props) {
     setNotice({ tone: 'info', text: 'Generating report…' });
     let statusUncertain = false;
     const slowNoticeTimer = window.setTimeout(() => {
-      setNotice({ tone: 'info', text: 'Still generating — do not retry. The page will update when the server confirms the final status.' });
+      setNotice({ tone: 'info', text: 'Still generating, do not retry. The page will update when the server confirms the final status.' });
     }, 45_000);
     try {
       const response = await fetch(`/score/api/admin/orders/${encodeURIComponent(props.orderReference)}/generate-report`, {
@@ -57,7 +57,7 @@ export function FulfilmentActions(props: Props) {
         result = await response.json() as Record<string, unknown>;
       } catch {
         statusUncertain = true;
-        setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed in this browser response. Do not retry — this page will refresh to reconcile the server status.' });
+        setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed in this browser response. Do not retry, this page will refresh to reconcile the server status.' });
         window.setTimeout(() => window.location.reload(), 5_000);
         return;
       }
@@ -69,7 +69,7 @@ export function FulfilmentActions(props: Props) {
       window.setTimeout(() => window.location.reload(), 700);
     } catch {
       statusUncertain = true;
-      setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed. Do not retry — this page will refresh to reconcile the server status.' });
+      setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed. Do not retry, this page will refresh to reconcile the server status.' });
       window.setTimeout(() => window.location.reload(), 5_000);
     } finally {
       window.clearTimeout(slowNoticeTimer);
@@ -128,32 +128,32 @@ export function FulfilmentActions(props: Props) {
         ) : null}
       </div>
       {generationActive ? (
-        <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+        <p className="rounded-brand border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           Report generation is already in progress for this order.
         </p>
       ) : null}
       {generationPending ? (
-        <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
-          Payment is confirmed and this report is queued for generation. Nothing is running yet — select Generate Report to produce it.
+        <p className="rounded-brand border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+          Payment is confirmed and this report is queued for generation. Nothing is running yet, select Generate Report to produce it.
         </p>
       ) : null}
       {props.generationStuck ? (
-        <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-3 text-sm text-mk-danger">
+        <p className="rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-3 text-sm text-mk-danger">
           The active generation attempt is older than 15 minutes and may be stuck. An authorised retry will close it as failed before starting one new attempt.
         </p>
       ) : null}
       {props.storageCandidate && !props.storageReady ? (
-        <p className="rounded-xl border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
+        <p className="rounded-brand border border-mk-brass/40 bg-mk-cream p-3 text-sm text-mk-ink">
           This legacy report has storage metadata but is not ready for delivery until Preview or Download verifies the private file.
         </p>
       ) : null}
       {props.capabilityAvailable && props.canDeliver && props.storageReady ? (
-        <p className="rounded-xl border border-mk-line bg-mk-cream p-3 text-sm text-mk-ink">
+        <p className="rounded-brand border border-mk-line bg-mk-cream p-3 text-sm text-mk-ink">
           Customer delivery is handled directly by MK after manual preparation. No automated customer delivery action is available here.
         </p>
       ) : null}
       {notice ? (
-        <p role="status" className={`rounded-xl border p-3 text-sm ${
+        <p role="status" className={`rounded-brand border p-3 text-sm ${
           notice.tone === 'error'
             ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger'
             : notice.tone === 'success'

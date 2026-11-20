@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -75,26 +76,26 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
   }, [sheetOpen]);
 
   return (
-    <div className="min-h-[100dvh] overflow-x-hidden bg-mk-paper">
-      <a href="#main-content" className="sr-only z-50 rounded-xl bg-white px-4 py-3 font-semibold text-mk-navy focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">Skip to content</a>
+    <div className="mk-product mk-result min-h-[100dvh] overflow-x-hidden bg-mk-paper">
+      <a href="#main-content" className="sr-only z-50 rounded-brand bg-white px-4 py-3 font-semibold text-mk-navy focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-mk-accent focus:ring-offset-2">Skip to content</a>
 
       <header className="sticky top-0 z-40 border-b border-mk-line bg-mk-paper pt-[env(safe-area-inset-top)] md:static">
         <div className="mx-auto flex h-[50px] max-w-[1120px] items-center justify-between gap-3 px-[18px] md:h-[54px] md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="whitespace-nowrap font-semibold tracking-tight text-mk-navy" aria-label="MK Fraud Insights home">
-              MK FRAUD INSIGHTS
+            <Link href="/" className="whitespace-nowrap font-semibold tracking-normal text-mk-navy" aria-label="MK Fraud Insights home">
+              <Image src="/logo.png" alt="MK Fraud Insights" width={140} height={45} className="h-8 w-auto max-w-[140px] object-contain" />
             </Link>
             <span aria-hidden="true" className="hidden h-4 w-px bg-mk-line md:block" />
-            <p className="hidden truncate text-[10.5px] uppercase tracking-[0.14em] text-mk-muted md:block">
+            <p className="hidden truncate text-[12px] uppercase tracking-[0.12em] text-mk-muted md:block">
               Fraud Readiness Snapshot · {assessmentReference}
             </p>
-            <p className="truncate text-[10.5px] tracking-[0.08em] text-mk-muted md:hidden">
+            <p className="truncate text-[12px] tracking-[0.08em] text-mk-muted md:hidden">
               {shortReference(assessmentReference)}
             </p>
           </div>
 
           {orderStep ? (
-            <p className="whitespace-nowrap text-[11.5px] font-semibold text-mk-muted">
+            <p className="whitespace-nowrap text-[12px] font-semibold text-mk-muted">
               Step {orderStep.current} of {orderStep.total}
             </p>
           ) : (
@@ -104,14 +105,14 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
                   <button
                     type="button"
                     onClick={() => void copyResultLink()}
-                    className="min-h-11 whitespace-nowrap rounded-xl border-2 border-mk-accent/25 px-3.5 py-2 text-[11.5px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
+                    className="min-h-11 whitespace-nowrap rounded-brand border-2 border-mk-accent/25 px-3.5 py-2 text-[12px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
                   >
                     {copied ? 'Copied' : 'Save result link'}
                   </button>
                 ) : null}
                 <Link
                   href="/contact"
-                  className="inline-flex min-h-11 items-center whitespace-nowrap rounded-xl border-2 border-mk-accent/25 px-3.5 py-2 text-[11.5px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
+                  className="inline-flex min-h-11 items-center whitespace-nowrap rounded-brand border-2 border-mk-accent/25 px-3.5 py-2 text-[12px] font-semibold text-mk-navy transition hover:border-mk-accent/50 focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2"
                 >
                   Contact MK
                 </Link>
@@ -122,7 +123,7 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
                 onClick={() => setSheetOpen((open) => !open)}
                 aria-expanded={sheetOpen}
                 aria-haspopup="menu"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-mk-accent/25 text-mk-navy focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:hidden"
+                className="flex h-11 w-11 items-center justify-center rounded-brand border-2 border-mk-accent/25 text-mk-navy focus:outline-none focus:ring-2 focus:ring-mk-accent focus:ring-offset-2 md:hidden"
               >
                 <span className="sr-only">Result options</span>
                 <span aria-hidden="true" className="text-lg leading-none">⋯</span>
@@ -133,7 +134,7 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
 
         {sheetOpen && !orderStep ? (
           <div ref={sheetRef} role="menu" aria-label="Result options" className="border-t border-mk-line bg-mk-surface px-[18px] py-3 md:hidden">
-            <p className="pb-2 text-[10px] uppercase tracking-[0.16em] text-mk-muted">{assessmentReference}</p>
+            <p className="pb-2 text-[12px] uppercase tracking-[0.12em] text-mk-muted">{assessmentReference}</p>
             <div className="flex flex-col gap-1">
               {resultUrl ? (
                 <button type="button" role="menuitem" onClick={() => void copyResultLink()} className="min-h-11 rounded-lg px-2 text-left text-sm font-semibold text-mk-navy focus:outline-none focus:ring-2 focus:ring-mk-accent">
@@ -159,7 +160,7 @@ export function ResultChrome({ assessmentReference, resultUrl, orderStep, childr
 export function ResultFooter({ assessmentReference, methodologyLabel }: { assessmentReference: string; methodologyLabel?: string | null }) {
   return (
     <footer className="border-t border-mk-line bg-mk-surface">
-      <div className="mx-auto flex max-w-[1120px] flex-col gap-2 px-[18px] py-7 text-[11px] leading-6 text-mk-muted md:flex-row md:items-center md:justify-between md:px-6">
+      <div className="mx-auto flex max-w-[1120px] flex-col gap-2 px-[18px] py-7 text-[12px] leading-6 text-mk-muted md:flex-row md:items-center md:justify-between md:px-6">
         <p>
           MK Fraud Insights{methodologyLabel ? ` · ${methodologyLabel}` : ''} · {assessmentReference}
         </p>

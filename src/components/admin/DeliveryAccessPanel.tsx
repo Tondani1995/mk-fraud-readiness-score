@@ -98,7 +98,7 @@ export function DeliveryAccessPanel(props: Props) {
   return (
     <div className="space-y-5">
       {props.recipientException ? (
-        <div className="space-y-3 rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4">
+        <div className="space-y-3 rounded-brand border border-mk-danger/30 bg-mk-danger/10 p-4">
           <p className="text-sm font-semibold text-mk-danger">Customer delivery requires manual handling</p>
           <p className="text-sm text-mk-ink">
             Report {props.recipientException.pendingReportReference} is ready for an operator to review. Customer
@@ -108,10 +108,10 @@ export function DeliveryAccessPanel(props: Props) {
       ) : null}
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Historical delivery records</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Historical delivery records</p>
         <div className="mt-2 space-y-3">
           {props.authorizations.map((auth) => (
-            <div key={auth.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+            <div key={auth.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{cleanStatus(auth.status)}</Badge>
                 <span className="text-mk-muted">{dateTime(auth.authorisedAt)}</span>
@@ -126,12 +126,12 @@ export function DeliveryAccessPanel(props: Props) {
       </div>
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Historical customer access records</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mk-muted">Historical customer access records</p>
         <div className="mt-2 space-y-3">
           {props.accessTokens.map((token) => {
             const active = !token.revokedAt && new Date(token.expiresAt).getTime() > Date.now();
             return (
-              <div key={token.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">
+              <div key={token.id} className="rounded-brand border border-mk-line bg-white p-4 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge>{active ? 'active' : token.revokedAt ? 'revoked' : 'expired'}</Badge>
                   <span className="text-mk-muted">{token.recipientEmail}</span>
@@ -151,13 +151,13 @@ export function DeliveryAccessPanel(props: Props) {
       </div>
 
       {props.manualOnly || props.canManageAccessTokens ? (
-        <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
+        <div className="rounded-brand border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
           This panel retains delivery and access records for audit. Use the Manual delivery panel above for customer delivery; recording delivery does not send an email or issue a new access link.
         </div>
       ) : null}
 
       {notice ? (
-        <p role="status" className={`rounded-xl border p-3 text-sm ${
+        <p role="status" className={`rounded-brand border p-3 text-sm ${
           notice.tone === 'error'
             ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger'
             : notice.tone === 'success'

@@ -19,7 +19,7 @@ export type MethodologyPoint = {
   description: string;
 };
 
-export const METHODOLOGY_HEADLINE = 'Expert-designed. Deterministic at the core.';
+export const METHODOLOGY_HEADLINE = 'How your result is produced';
 
 export const METHODOLOGY_SUMMARY =
   'Your readiness result is not decided by generative AI. Fraud Readiness uses an expert-designed deterministic assessment engine: your responses are evaluated against defined fraud-risk logic, scoring rules, maturity thresholds and control criteria. Under the same methodology version, the same responses produce the same underlying result.';

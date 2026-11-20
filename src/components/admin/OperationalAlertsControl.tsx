@@ -65,7 +65,7 @@ export function OperationalAlertActions({ alertId, status }: { alertId: string; 
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         placeholder="Reason (required, audited)"
-        className="mb-2 w-full rounded-xl border border-mk-line px-3 py-2 text-xs"
+        className="mb-2 w-full rounded-brand border border-mk-line px-3 py-2 text-xs"
       />
       <div className="flex flex-wrap gap-2">
         {actions.map((action) => (

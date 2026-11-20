@@ -56,7 +56,7 @@ export function EssentialRetryGeneration({ orderReference, requestKey }: { order
       <input type="hidden" name="requestKey" value={requestKey} />
       <Button type="submit" disabled={state !== 'idle'}>{state === 'submitting' ? 'Submitting Retry Generation…' : 'Retry Generation'}</Button>
       <noscript><p>Retry submits directly to the server. Wait for the order page to return before retrying.</p></noscript>
-      {message ? <p role={state === 'error' || state === 'uncertain' ? 'alert' : 'status'} className="rounded-xl border border-mk-line p-3 text-sm">{message}</p> : null}
+      {message ? <p role={state === 'error' || state === 'uncertain' ? 'alert' : 'status'} className="rounded-brand border border-mk-line p-3 text-sm">{message}</p> : null}
       {state !== 'idle' && state !== 'submitting' ? <a className="underline" href={`/score/admin/orders/${encodeURIComponent(orderReference)}`}>Reload order and check Generation history</a> : null}
     </form>
   );

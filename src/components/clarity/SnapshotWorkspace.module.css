@@ -1,0 +1,151 @@
+.workspace {
+  max-width: 1600px;
+  margin: auto;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.positionColumn {
+  min-width: 0;
+}
+.workspace .positionColumn :global(.snapshot-executive) {
+  border-radius: 22px;
+  overflow: hidden;
+}
+.workspace .positionColumn :global(.snapshot-executive-inner) {
+  padding: 22px;
+}
+.workspace .positionColumn :global(.executive-composition) {
+  grid-template-columns: 1fr;
+  gap: 18px;
+  padding: 20px 0;
+}
+.workspace .positionColumn :global(.snapshot-executive#position h1) {
+  font-size: 23px;
+  line-height: 1.3;
+}
+.workspace .positionColumn :global(.executive-topline) {
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+}
+.workspace .positionColumn :global(.executive-number strong) {
+  font-size: 68px;
+}
+.workspace .positionColumn :global(.executive-band) {
+  font-size: 24px;
+}
+.workspace .positionColumn :global(.executive-gap-signals) {
+  margin-top: 16px;
+}
+.workspace .positionColumn :global(.executive-boundary) {
+  display: block;
+  font-size: 12px;
+}
+.workspace .positionColumn :global(.executive-boundary > span) {
+  display: block;
+  max-width: none;
+  text-align: left;
+  margin-top: 10px;
+}
+.workspace .positionColumn :global(.executive-focus) {
+  margin-top: 14px;
+}
+.workspace :global(.intelligence-inner) {
+  padding: 0;
+}
+.workspace :global(.snapshot-intelligence) {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+}
+.workspace :global(.intelligence-heading) {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.workspace :global(.intelligence-heading h2) {
+  margin-top: 6px;
+}
+.workspace :global(.intelligence-heading > p) {
+  max-width: none;
+}
+.workspace :global(.domain-explorer-header) {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.workspace :global(.domain-explorer-header > p) {
+  max-width: none;
+}
+.workspace :global(.domain-explorer-header h2) {
+  font-size: 24px;
+}
+.workspace :global(.domain-explorer) {
+  margin-top: 16px;
+}
+@media (max-width: 1279px) {
+  .workspace {
+    display: block;
+  }
+  .workspace .positionColumn :global(.executive-composition) {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr);
+    gap: 32px;
+  }
+  .workspace :global(.snapshot-intelligence) {
+    margin-top: 24px;
+  }
+}
+@media (max-width: 767px) {
+  .workspace {
+    padding: 0 14px 18px;
+  }
+  .workspace .positionColumn :global(.snapshot-executive) {
+    border-radius: 0 0 22px 22px;
+  }
+  .workspace .positionColumn :global(.snapshot-executive-inner) {
+    padding: 20px 18px;
+  }
+  .workspace .positionColumn :global(.executive-composition) {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px 0;
+  }
+  .workspace .positionColumn :global(.executive-number) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .workspace .positionColumn :global(.executive-band) {
+    grid-column: 2;
+    grid-row: 2;
+    margin: 10px 0 0;
+    font-size: 20px;
+  }
+  .workspace .positionColumn :global(.executive-number strong) {
+    font-size: 54px;
+  }
+  .workspace :global(.priority-map) {
+    gap: 8px;
+  }
+  .workspace :global(.priority-map button) {
+    padding: 10px 12px;
+  }
+  .workspace :global(.priority-map button p) {
+    margin-top: 3px;
+  }
+  .workspace :global(.domain-explorer) {
+    padding: 16px 10px;
+  }
+  .workspace
+    :global(
+      .domain-explorer-body[data-explored="true"]
+        .domain-score-list
+        > li:not([data-active="true"])
+    ) {
+    display: none;
+  }
+  .workspace
+    :global(.domain-explorer-body[data-explored="true"] > div:first-child) {
+    display: none;
+  }
+}

@@ -1,8 +1,5 @@
+import { HomeStory } from '@/components/website/Home/HomeStory';
 import Wrapper from '@/components/website/Wrapper';
-import CapabilitiesSection from '@/components/website/Home/CapabilitiesSection';
-import FraudReadinessSection from '@/components/website/Home/FraudReadinessSection';
-import HeroSection from '@/components/website/Home/HeroSection';
-import ProblemSection from '@/components/website/Home/ProblemSection';
 import ProofSection from '@/components/website/Home/ProofSection';
 import TriggersSection from '@/components/website/Home/TriggersSection';
 import { loadPublishedInsights } from '@/lib/website/insights/repository';
@@ -19,10 +16,7 @@ export default async function HomePg() {
   return (
     <Wrapper>
       <main className="bg-white">
-        <HeroSection />
-        <ProblemSection />
-        <CapabilitiesSection />
-        <FraudReadinessSection />
+        <HomeStory />
         <ProofSection insights={insights} />
         <TriggersSection />
       </main>

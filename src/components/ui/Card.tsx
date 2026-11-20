@@ -1,8 +1,18 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ComponentPropsWithoutRef } from 'react';
 import { cn } from '@/lib/utils/cn';
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <section className={cn('overflow-hidden rounded-[1.35rem] border border-mk-line/90 bg-mk-paper/92 shadow-[0_18px_50px_rgba(18,16,13,0.07)]', className)}>{children}</section>;
+export function Card({ children, className, ...props }: ComponentPropsWithoutRef<'section'>) {
+  return (
+    <section
+      {...props}
+      className={cn(
+        'clarity-card overflow-hidden rounded-[var(--mk-radius-panel)] border border-mk-line/90 bg-white shadow-soft',
+        className
+      )}
+    >
+      {children}
+    </section>
+  );
 }
 
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
@@ -10,7 +20,7 @@ export function CardHeader({ children, className }: { children: ReactNode; class
 }
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <h2 className={cn('text-lg font-semibold tracking-tight text-mk-ink', className)}>{children}</h2>;
+  return <h2 className={cn('text-lg font-semibold tracking-normal text-mk-ink', className)}>{children}</h2>;
 }
 
 export function CardContent({ children, className }: { children: ReactNode; className?: string }) {

@@ -43,9 +43,9 @@ type Insight = {
 type ApiListResponse = { success: boolean; data: Insight[] };
 
 function fmtDate(value?: string) {
-    if (!value) return "—";
+    if (!value) return ", ";
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "—";
+    if (Number.isNaN(d.getTime())) return ", ";
     return d.toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
@@ -127,10 +127,10 @@ export default function AdminInsightsPage() {
                     <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8">
                         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                             <div>
-                                <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
+                                <p className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/90">
                                     Admin
                                 </p>
-                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                                <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl">
                                     Insights Dashboard
                                 </h1>
                                 <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/80">
@@ -164,7 +164,7 @@ export default function AdminInsightsPage() {
 
                                 <Button
                                     onClick={() => router.push("/admin/insights/new")}
-                                    className="h-12 rounded-lg bg-white px-6 font-semibold text-[#1d3658] hover:bg-slate-100"
+                                    className="h-12 rounded-lg bg-white px-6 font-semibold text-mk-accent hover:bg-slate-100"
                                 >
                                     <span className="flex items-center gap-2">
                                         <Plus className="h-5 w-5" />
@@ -184,7 +184,7 @@ export default function AdminInsightsPage() {
 
                     <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8 lg:py-14">
                         {error && (
-                            <div className="mb-6 overflow-hidden rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-sm">
+                            <div className="mb-6 overflow-hidden rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-soft">
                                 <div className="flex items-start justify-between gap-3">
                                     <p className="font-semibold">{error}</p>
                                     <button
@@ -210,13 +210,13 @@ export default function AdminInsightsPage() {
                                 />
                             </div>
 
-                            <div className="inline-flex items-center shrink-0 gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-                                <span className="h-2 w-2 rounded-full bg-[#1d3658]" />
+                            <div className="inline-flex items-center shrink-0 gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-soft">
+                                <span className="h-2 w-2 rounded-brand bg-mk-accent" />
                                 {loading ? "Loading..." : `${filtered.length} insights`}
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg p-4 border-2 border-slate-200 bg-white shadow-2xl">
+                        <div className="overflow-hidden rounded-lg p-4 border-2 border-slate-200 bg-white shadow-soft">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -232,7 +232,7 @@ export default function AdminInsightsPage() {
                                     {filtered.map((it) => (
                                         <TableRow key={it._id}>
                                             <TableCell className="align-top">
-                                                <div className="font-semibold text-[#001030]">{it.title}</div>
+                                                <div className="font-semibold text-mk-navy">{it.title}</div>
                                                 <div className="mt-1 line-clamp-1 text-sm text-slate-600">
                                                     {it.excerpt}
                                                 </div>
@@ -246,7 +246,7 @@ export default function AdminInsightsPage() {
 
                                             <TableCell className="align-top">
                                                 <span
-                                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${(it.status || "draft") === "published"
+                                                    className={`inline-flex items-center rounded-brand px-3 py-1 text-xs font-semibold ${(it.status || "draft") === "published"
                                                         ? "bg-emerald-50 text-emerald-700"
                                                         : "bg-slate-100 text-slate-700"
                                                         }`}
@@ -264,7 +264,7 @@ export default function AdminInsightsPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="icon"
-                                                        className="rounded-xl"
+                                                        className="rounded-brand"
                                                         onClick={() => router.push(`/admin/insights/${it._id}/edit`)}
                                                         aria-label="Edit"
                                                     >
@@ -276,7 +276,7 @@ export default function AdminInsightsPage() {
                                                             <Button
                                                                 variant="outline"
                                                                 size="icon"
-                                                                className="rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                                                                className="rounded-brand border-red-200 text-red-600 hover:bg-red-50"
                                                                 aria-label="Delete"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -311,7 +311,7 @@ export default function AdminInsightsPage() {
                                     {!loading && filtered.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={5} className="py-12 text-center">
-                                                <div className="text-lg font-semibold text-[#001030]">No insights found</div>
+                                                <div className="text-lg font-semibold text-mk-navy">No insights found</div>
                                                 <div className="mt-2 text-sm text-slate-600">
                                                     Try a different search or click “Add New”.
                                                 </div>
