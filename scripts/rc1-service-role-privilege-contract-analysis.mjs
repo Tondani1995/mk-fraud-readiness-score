@@ -229,6 +229,19 @@ for (const item of inventory) {
         ]) {
           serviceRpcNames.add(name);
         }
+      } else if (
+        item.target.startsWith('<dynamic:')
+        && Array.isArray(
+          manifest.dynamicResolutions[`${item.file}:${item.line} ${item.target.slice('<dynamic:'.length, -1)}`],
+        )
+      ) {
+        // A thin wrapper (fn) => client.rpc(fn, args) whose literal names are enumerated, reviewed
+        // and pinned to the exact call site in the manifest. Any line shift fails closed.
+        for (const name of manifest.dynamicResolutions[
+          `${item.file}:${item.line} ${item.target.slice('<dynamic:'.length, -1)}`
+        ]) {
+          serviceRpcNames.add(name);
+        }
       } else {
         assert(
           !item.target.startsWith('<dynamic:'),
