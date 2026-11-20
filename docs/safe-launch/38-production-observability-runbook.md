@@ -35,6 +35,86 @@ and must not be mistaken for revised-customer starts or completions. The current
 records starts, answer activity, paid bindings and orders separately; it does not infer
 unobservable Snapshot views or completion counts.
 
+## Reconciliation (20 November 2026)
+
+This section supersedes the open items above.
+
+**Checkly.** The Customer Journey check's locator now reads `Start the assessment`. The rest of the
+script was already current: `/score/start` redirects to `/review`, and the signed
+`POST /review/api/sessions` expects 201 with `ok: true` and `synthetic: true`. A test run and a
+scheduled run both passed. The check had failed on every run from 15 to 20 November. Its cadence
+(every 3 hours), location (Frankfurt), alerting and budget are unchanged, and no monitor was added.
+
+**Monitor 401s are not a credential failure.** About 1 in 100 requests made with the project's secret
+key (`sb_secret_…`) is refused by PostgREST with 401 `PGRST303` (token validation), at random across
+tables. The same key succeeds on the next request. In the 7 days to 20 November this failed 133
+monitor reads and writes and 5 hourly stalled-lead runs. The refusal happens before the query
+runs, so the monitor transport (`src/lib/monitoring/database.ts`) retries once on exactly this error,
+for any method. Any other 401 is still returned at once. Supabase's edge logs show the code in
+`response.headers.proxy_status`.
+
+**Revised funnel, version 2.** `public.review_monitor_funnel_v2` is additive, service-role-only and
+aggregate-only, and version 1 is unchanged. It counts revised customer figures:
+- sessions started, answers and corrections, interviews completed and Snapshot write-ups (AI or data);
+- assessments bound for a report, orders recorded, orders awaiting payment and payments received;
+- reports generated, paid orders without a report, and report AI calls that did not succeed.
+
+Fictional and synthetic sessions are excluded. MK's own check sessions (a contact on mkfraud.co.za)
+are counted separately. Version 1's `paidOrdersRecorded` counted unpaid orders. Report delivery for
+revised reports is manual (DR-13) and leaves no record, so it is shown as *not recorded*, never zero.
+The production monitor records the figures on its heartbeat (`revised_funnel_24h`) every cycle, and
+`/score/admin/monitoring` shows them. The legacy event funnel is unchanged and shown separately.
+Figures from 15 to 20 November, checked directly against the tables:
+- **Customers:** 4 sessions, 414 answers, 2 completed interviews, 3 assessments bound, 4 orders
+  (3 paid, 1 awaiting payment), 3 reports generated, none paid without a report.
+- **MK internal checks:** 6 sessions.
+
+**Fulfilment alerts.**
+- `fulfilment:notification_queue_stalled` (P2) was held open by one internal notice recorded on
+  22 October with `provider_mode = 'disabled'`. Preview shares this database, so disabled-mode rows
+  are no longer counted as stalled sends.
+- `fulfilment:paid_order_without_report` (P1) is genuine by the data. Legacy order
+  `MKORD-2026-991EE981` (Essential, paid 31 August) has no report and is not marked synthetic. The
+  owner decides whether it is owed a report or was a test; the monitor must not be changed to hide it.
+
+**GA4.**
+- Measurement ID `G-LRTK98KGB8` is unchanged. Collection was verified on 20 November.
+- `order_recorded` (tier, value, currency) and `advisory_enquiry_submitted` (source) are now key
+  events, alongside `service_enquiry_submitted`. `fraud_readiness_start` and
+  `fraud_readiness_completed` belong to the previous scored assessment and have had no data since
+  15 November; they stay marked for history.
+- The `/fraud-readiness` start buttons send consent-gated `cta_click` (`cta_name`, `placement` only).
+- The URL sanitiser drops `ref` and replaces MK reference path segments (`MKFRS-…`, `MKORD-…`) with
+  `[redacted]`.
+- Revised starts and completions are counted only in the first-party database; `/review` keeps
+  analytics disabled.
+- On 19 November one client sent 99,752 `/terms-of-use` page views in about 2½ minutes, with no key
+  events. Nothing on the site rewrites that page's address; treat it as automated traffic and
+  exclude that day when reading page-view trends.
+
+**Search.**
+- `sitemap.xml` returns 200 with 24 public URLs and none under `/review`, role links, report access
+  or admin. Search Console last read it on 17 November (Success, 24 discovered), so it was not
+  resubmitted.
+- `robots.txt` disallows `/admin`, `/login`, `/score` and `/api`.
+- `/fraud-readiness` is indexable with a self-canonical. `/review` is `noindex, nofollow`.
+  `/fraud-readiness-score` is `noindex` with its canonical on `/fraud-readiness`.
+- Coverage: 12 pages indexed; 18 not indexed (redirects, robots, and discovered or crawled but not
+  yet indexed). No errors.
+
+**Sentry and Vercel.**
+- The production browser bundle reports to Sentry's EU ingest with environment `production`.
+  Checking server-side capture and alert routing needs a Sentry sign-in.
+- Production functions run in `dub1` beside the database (eu-west-1).
+- The monitor heartbeat records the running commit, and was healthy at 05:30 UTC on 20 November.
+
+**Known contract drift.** `scripts/rc1-service-role-privilege-contract-analysis.mjs` already failed
+on `main`. Five tables read or written with the service key are not in the manifest
+(`production_monitor_heartbeats`, `production_monitor_events`, `production_monitor_drift_checks`,
+`production_monitor_notifications`, `synthetic_report_generation_records`), and neither is at least
+one revised RPC (`review_commercial_bridge_enabled`). Registering them needs a privilege review with
+the production grants. It is a separate task, not part of this reconciliation.
+
 ## Historical monitoring contract and operating procedures
 
 - Checkly remains on the verified Hobby allowance. The currently active external checks are the
