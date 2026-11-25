@@ -1444,12 +1444,17 @@ jobs:
         if: always()
         run: |
           set -Eeuo pipefail
+          mkdir -p tmp/migration-replay
           {
             echo '## Supabase CLI'
-            supabase --version
-            echo
-            echo '## Migration list'
-            supabase migration list --local || true
+            if command -v supabase >/dev/null 2>&1; then
+              supabase --version
+              echo
+              echo '## Migration list'
+              supabase migration list --local || true
+            else
+              echo 'CLI not installed: an earlier required gate failed before setup.'
+            fi
             echo
             echo '## Tables'
             psql "$LOCAL_DB_URL" --tuples-only --command="select table_schema || '.' || table_name from information_schema.tables where table_schema in ('public','storage') order by 1;" || true

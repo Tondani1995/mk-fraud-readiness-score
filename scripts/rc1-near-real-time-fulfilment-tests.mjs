@@ -317,9 +317,16 @@ await test('duplicate payment creates no second attempt', async () => {
   includes(migration, "'fulfilment_attempt_id', null", 'duplicates are not dispatchable');
   includes(replay, 'duplicate payment confirmation creates no second attempt', 'DB proof is present');
 });
-await test('successful payment schedules waitUntil dispatch', async () => {
-  includes(paymentRoute, "import { waitUntil } from '@vercel/functions'", 'Vercel waitUntil is used');
-  includes(paymentRoute, 'waitUntil(dispatchImmediateFulfilment({', 'dispatch is registered with waitUntil');
+await test('current payment confirmation retains the MK-controlled manual fulfilment boundary', async () => {
+  // The historical RC1 worker and recovery tests below remain active. Do not
+  // reintroduce automatic dispatch from payment: the current commercial contract
+  // requires MK to prepare and deliver both paid reports through the admin console.
+  includes(paymentRoute, 'await confirmManualPayment({', 'admin confirmation uses the atomic payment service');
+  includes(payment, "db.rpc('record_payment_transition'", 'payment transition is durable');
+  includes(payment, "fulfilment_trigger_result: 'NOT_REQUESTED'", 'payment does not start fulfilment');
+  includes(payment, 'await notifyPaymentReceived({', 'only the internal payment notification is triggered');
+  assert.doesNotMatch(paymentRoute, /waitUntil\s*\(|dispatchImmediateFulfilment\s*\(/);
+  assert.doesNotMatch(payment, /dispatchImmediateFulfilment\s*\(|startPremiumReportWorkflow\s*\(|deliverPremiumReportEmail\s*\(/);
 });
 await test('payment response does not await PDF generation', async () => {
   assert.doesNotMatch(paymentRoute, /await\s+dispatchImmediateFulfilment/);
