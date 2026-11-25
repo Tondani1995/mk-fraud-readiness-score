@@ -12,26 +12,60 @@ const SCHEDULER_MIGRATION = '20260831181553_v12_stalled_lead_supabase_scheduler.
 const V12_ACTIVATION_MIGRATION = '20260821090000_adaptive_v1_2_staging_activation.sql';
 
 export async function startReplayedDatabase({ root = process.cwd(), label = 'replay' } = {}) {
-  let EmbeddedPostgres;
-  let pg;
-  try {
-    ({ default: EmbeddedPostgres } = await import('embedded-postgres'));
-    pg = await import('pg');
-  } catch {
-    return null;
+  const pg = await import('pg');
+  let connect;
+  let closeBackend;
+  // The GitHub-hosted runner already starts a disposable Postgres service in
+  // production-monitor-reliability.yml. Use it instead of the embedded Linux
+  // binary (which can require an older ICU ABI). No external DB URL is accepted.
+  if (process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted') {
+    const config = { host: '127.0.0.1', port: 5432, user: 'postgres', password: 'disposable-monitor-test', ssl: false };
+    const name = 'mk_review_replay_' + process.pid + '_' + Date.now();
+    const admin = new pg.default.Client({ ...config, database: 'postgres' });
+    await admin.connect();
+    try {
+      await admin.query('CREATE DATABASE "' + name + '"');
+    } catch (error) {
+      await admin.end();
+      throw error;
+    }
+    connect = async () => {
+      const client = new pg.default.Client({ ...config, database: name });
+      await client.connect();
+      return client;
+    };
+    closeBackend = async () => {
+      try { await admin.query('DROP DATABASE "' + name + '" WITH (FORCE)'); }
+      finally { await admin.end(); }
+    };
+  } else {
+    let EmbeddedPostgres;
+    try { ({ default: EmbeddedPostgres } = await import('embedded-postgres')); }
+    catch { return null; }
+    const port = 57400 + ((process.pid + 97) % 300);
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), `${label}-pg-`));
+    const postgres = new EmbeddedPostgres({ databaseDir: dataDir, user: 'postgres', password: 'testpass', port, persistent: false });
+    closeBackend = async () => {
+      await postgres.stop().catch(() => {});
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    };
+    try {
+      await postgres.initialise();
+      await postgres.start();
+      await postgres.createDatabase('testdb');
+    } catch (error) {
+      await closeBackend();
+      throw error;
+    }
+    connect = async () => {
+      const client = new pg.default.Client({ host: '127.0.0.1', port, user: 'postgres', password: 'testpass', database: 'testdb', ssl: false });
+      await client.connect();
+      return client;
+    };
   }
-  const port = 57400 + ((process.pid + 97) % 300);
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), `${label}-pg-`));
-  const postgres = new EmbeddedPostgres({ databaseDir: dataDir, user: 'postgres', password: 'testpass', port, persistent: false });
-  await postgres.initialise();
-  await postgres.start();
-  await postgres.createDatabase('testdb');
-  const connect = async () => {
-    const client = new pg.default.Client({ host: '127.0.0.1', port, user: 'postgres', password: 'testpass', database: 'testdb' });
-    await client.connect();
-    return client;
-  };
-  const db = await connect();
+  let db;
+  try {
+    db = await connect();
   await db.query(`
     create schema if not exists extensions;
     create extension if not exists pgcrypto with schema extensions;
@@ -90,10 +124,14 @@ export async function startReplayedDatabase({ root = process.cwd(), label = 'rep
     migrationCount: files.length,
     async stop() {
       await db.end().catch(() => {});
-      await postgres.stop().catch(() => {});
-      fs.rmSync(dataDir, { recursive: true, force: true });
+      await closeBackend();
     }
   };
+  } catch (error) {
+    await db?.end().catch(() => {});
+    await closeBackend();
+    throw error;
+  }
 }
 
 /**
