@@ -27,10 +27,15 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 assert.equal(pkg.engines.node, '24.x');
-assert.equal(pkg.dependencies.workflow, '4.8.0');
-assert.equal(pkg.dependencies.ai, '6.0.83');
-assert.equal(pkg.dependencies.zod, '4.1.8');
-assert.equal(lock.packages['node_modules/workflow']?.version, '4.8.0');
+// Pin the actual release versions and require lockfile parity. Security patch changes
+// must not invalidate the behavioural tests; the isolated v5 trial supplies its own exact versions.
+const approvedVersions = process.env.MK_WORKFLOW_V5_PROBE === '1'
+  ? { workflow: '5.8.0', ai: '6.0.336', zod: '4.6.7' }
+  : { workflow: '4.8.18', ai: '6.0.83', zod: '4.6.7' };
+for (const [name, version] of Object.entries(approvedVersions)) {
+  assert.equal(pkg.dependencies[name], version, name + ' exact dependency pin');
+  assert.equal(lock.packages['node_modules/' + name]?.version, version, name + ' lock parity');
+}
 
 const migration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [
@@ -573,4 +578,4 @@ paraphrasedMetric.leadershipAttention.body = 'Risk intensity score is 41.';
 paraphrasedMetric.leadershipAttention.evidenceRefs = ['score:exposure'];
 assert(validatePremiumReportNarrative(paraphrasedMetric, evidence, new Date(), { prohibitMetricRestatement: true }).issues.some((issue) => issue.code === 'authoritative_metric_restatement'));
 
-console.log('Phase 14 autonomous report, entitlement guard, route isolation, durable workflow 4.8.0, deterministic validation and conditional email tests passed on Node 24.');
+console.log('Phase 14 autonomous report, entitlement guard, route isolation, durable workflow, deterministic validation and conditional email tests passed on Node 24.');

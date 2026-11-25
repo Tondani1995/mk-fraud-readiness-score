@@ -1807,7 +1807,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW SESSION CONTACT (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Stores the name, work email and role captured at the start of a review session."
@@ -1817,7 +1817,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW SESSION CONTACT (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Reads the session contact for notifications."
@@ -1827,7 +1827,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW CONTACT NOTIFICATION LEASE; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Claims a once-only contact notification."
@@ -1837,7 +1837,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW CONTACT NOTIFICATION LEASE; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Releases a claimed notification after a failed send."
@@ -1847,7 +1847,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW STALLED-CONTACT READ (PII); production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Lists stalled sessions with contacts for follow-up."
@@ -1857,7 +1857,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW COMPLETION MARKER; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Records once that the respondent finished, independently of the completion notification."
@@ -1867,7 +1867,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW CONTACT NOTIFICATION MARKER; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Records a review notification after public.email_events processed it; stalled markers are per inactivity episode."
@@ -1877,7 +1877,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW COMPLETION RECONCILIATION READ; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Lists completed real reviews whose completion notice is still unrecorded, for retry by the stalled-lead job."
@@ -1887,7 +1887,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW MONITORING BOUNDARY READ; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Reads the go-live boundary so episodes stalled before the correction are left to the owner-approved recovery operation."
@@ -1967,7 +1967,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+        "src/lib/readiness-review/contacts.ts:56 (dynamic wrapper)"
       ],
       "classification": "REVISED REVIEW FIRST-PARTY CAMPAIGN ATTRIBUTION; service-role only",
       "justification": "Records the exact commissioned non-PII content ID once on a real session contact, only from the consent-gated public start. No private links, answers or ad click identifiers."
@@ -2105,7 +2105,7 @@
       "review_report_runs",
       "review_purge_session"
     ],
-    "src/lib/readiness-review/contacts.ts:55 fn": [
+    "src/lib/readiness-review/contacts.ts:56 fn": [
       "review_record_session_contact",
       "review_session_contact",
       "review_claim_contact_notification",
@@ -2683,7 +2683,7 @@
     ],
     "rpcsAdded": 31,
     "dynamicResolutionsAdded": [
-      "src/lib/readiness-review/contacts.ts:55 fn (9 RPCs)",
+      "src/lib/readiness-review/contacts.ts:56 fn (10 RPCs)",
       "src/lib/readiness-review/database-store.ts:73 fn (8 RPCs)"
     ],
     "nonServiceCallSitesCorrected": "report-delivery-service-core.ts 211/280/349/403 -> 214/283/352/406 (line shift only; production grants these four RPCs to authenticated, not service_role)",

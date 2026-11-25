@@ -20,7 +20,7 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Resolve exact v5 candidate in isolated checkout
-        run: npm install --save-exact --package-lock-only --ignore-scripts workflow@5.2.0
+        run: npm install --save-exact --package-lock-only --ignore-scripts workflow@5.8.0 ai@6.0.336
       - name: Retain candidate manifests (not automatically committed)
         uses: actions/upload-artifact@v4
         with:
@@ -36,4 +36,6 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Report-engine regression
         if: always()
+        env:
+          MK_WORKFLOW_V5_PROBE: '1'
         run: npm run phase14:test-report-engine
