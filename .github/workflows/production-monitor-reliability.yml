@@ -4,6 +4,11 @@ on:
     paths:
       - 'src/lib/monitoring/**'
       - 'src/lib/notifications/internal-assessment-notifications.ts'
+      - 'src/lib/readiness-review/**'
+      - 'src/app/review/api/**'
+      - 'scripts/review-stalled-monitoring-tests.mjs'
+      - 'scripts/lib/disposable-migration-replay.mjs'
+      - 'supabase/migrations/20261125120000_review_stalled_monitoring_correction.sql'
       - 'src/app/score/api/internal/**'
       - 'scripts/production-monitor*'
       - 'supabase/migrations/20260912082816_production_monitor_reliability.sql'
@@ -12,7 +17,16 @@ on:
     branches: [main]
     paths:
       - 'src/lib/monitoring/**'
+      - 'src/lib/notifications/internal-assessment-notifications.ts'
+      - 'src/lib/readiness-review/**'
+      - 'src/app/review/api/**'
+      - 'scripts/review-stalled-monitoring-tests.mjs'
+      - 'scripts/lib/disposable-migration-replay.mjs'
+      - 'supabase/migrations/20261125120000_review_stalled_monitoring_correction.sql'
+      - 'src/app/score/api/internal/**'
       - 'scripts/production-monitor*'
+      - 'supabase/migrations/20260912082816_production_monitor_reliability.sql'
+      - '.github/workflows/production-monitor-reliability.yml'
 jobs:
   contracts:
     runs-on: ubuntu-latest
@@ -38,3 +52,25 @@ jobs:
       - run: node scripts/production-monitor-database-tests.mjs
         env:
           MONITOR_TEST_DATABASE_URL: postgresql://postgres:disposable-monitor-test@127.0.0.1:5432/postgres
+  stalled-review-acceptance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-monitor-test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Verify stalled-review monitoring against full disposable migration replay
+        run: |
+          set -o pipefail
+          npm run monitoring:test-review-stalled | tee /tmp/mk-review-stalled-test.log
+          grep -Fx 'Review stalled-monitoring tests: PASS' /tmp/mk-review-stalled-test.log

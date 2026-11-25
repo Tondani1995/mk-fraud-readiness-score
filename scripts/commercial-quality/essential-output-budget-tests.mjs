@@ -41,7 +41,11 @@ assert.deepEqual(comprehensive.expectedWordRange, { minimum: 4200, maximum: 7600
 // Acceptance generation remains one provider request per click. The existing tail mechanism stays
 // available in the writer, but production must not silently spend it when the first call truncates.
 const fulfilmentSource = fs.readFileSync('src/lib/reports/phase1-manual-fulfilment.ts', 'utf8');
-assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ providerCallBudget: 1 \}\)/);
+// Since a37f4fae (7 Sep 2026) the ceiling is one generation plus at most one bounded technical operation
+// (missing-tail completion or one technical-format regeneration), failing closed beyond it. Pin both the
+// value and its use so any further increase fails here.
+assert.match(fulfilmentSource, /const ESSENTIAL_PROVIDER_CALL_CEILING = 2;/);
+assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ providerCallBudget: ESSENTIAL_PROVIDER_CALL_CEILING \}\)/);
 const writerSource = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
 assert.match(writerSource, /this\.chargeProviderCall\('tail'\)/);
 assert.match(writerSource, /provider_call_budget_exhausted/);

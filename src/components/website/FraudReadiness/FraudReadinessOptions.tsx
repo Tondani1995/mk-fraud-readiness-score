@@ -17,7 +17,7 @@ export function FraudReadinessOptions() {
   const cards = storefrontCards();
 
   return (
-    <section aria-labelledby="fraud-readiness-options-heading" className="mx-auto max-w-7xl px-6 lg:px-8">
+    <section aria-labelledby="fraud-readiness-options-heading" className="mk-frame">
       <h2 id="fraud-readiness-options-heading" className="sr-only">
         Fraud Readiness options
       </h2>

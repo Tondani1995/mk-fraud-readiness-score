@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  Mail,
-  CheckCircle2,
-  Linkedin,
-  Send,
-  Clock,
-  Shield,
-  MapPin,
-  Phone,
-} from "lucide-react";
+import { MkMark } from "@/components/website/marks/MkMark";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/website/ui/button";
@@ -143,10 +134,10 @@ function ContactUsForm() {
     <Wrapper>
       <section className="relative overflow-hidden bg-white">
 
-        <div className="mx-auto max-w-7xl px-5 pb-14 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
+        <div className="mk-frame pb-14 pt-10 sm:pt-14 lg:pb-24 lg:pt-20">
           <div className="max-w-3xl">
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">Speak to MK</p>
-            <h1 className="mt-4 text-[2.1rem] font-semibold leading-[1.08] tracking-normal text-mk-navy sm:text-5xl">
+            <h1 className="mt-4 mk-display max-w-[18ch] font-medium text-mk-navy">
               Tell us what you need to understand or fix.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
@@ -155,23 +146,20 @@ function ContactUsForm() {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-8 lg:mt-14 lg:grid-cols-12 lg:gap-10">
+          <div className="mt-10 grid grid-cols-1 gap-12 lg:mt-16 lg:grid-cols-12 lg:gap-x-[var(--mk-split-gap)]">
             <div className="lg:col-span-7">
-              <div className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft">
-                <div className="border-b border-slate-200 bg-white px-8 py-7 lg:px-10">
-                  <h2 className="text-3xl font-semibold leading-tight text-mk-navy">Send us a message</h2>
+              <div className="border-t-2 border-mk-navy">
+                <div className="py-6">
+                  <h2 className="mk-heading font-medium text-mk-navy">Send us a message</h2>
                   <p className="mt-2 text-slate-600">
                     Fill out the form and we&apos;ll get back to you within 24 hours.
                   </p>
                 </div>
 
-                <div className="p-8 lg:p-10">
+                <div className="pt-2">
                   {isSubmitted ? (
-                    <div className="rounded-brand border border-slate-200 bg-white p-8 text-center shadow-soft">
-                      <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-brand bg-mk-navy">
-                        <CheckCircle2 className="h-7 w-7 text-white" strokeWidth={3} />
-                      </div>
-                      <h3 className="text-2xl font-semibold leading-tight text-mk-navy">Message received</h3>
+                    <div className="border-l-2 border-mk-sage py-2 pl-6">
+                      <h3 className="text-2xl font-medium leading-snug text-mk-navy">Message received</h3>
                       <p className="mt-2 text-slate-600">
                         Thanks. We&apos;ll review your message and reply within 24 hours during business
                         days.
@@ -329,16 +317,15 @@ function ContactUsForm() {
                       <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className="group w-full rounded-brand bg-mk-navy py-6 text-lg font-semibold text-white shadow-soft transition-all duration-300 hover:scale-[1.02] hover:bg-mk-navy disabled:opacity-60 disabled:"
+                        className="group w-full rounded-brand bg-mk-navy py-6 text-base font-semibold text-white transition-colors duration-200 hover:bg-mk-accent disabled:opacity-60 disabled:"
                       >
                         <span className="flex items-center justify-center gap-2">
                           {isSubmitting ? "Sending..." : "Send message"}
-                          <Send className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+                          <MkMark name="arrow" className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                         </span>
                       </Button>
 
-                      <p className="flex items-center gap-2 text-sm text-slate-500">
-                        <CheckCircle2 className="h-4 w-4 text-mk-accent" />
+                      <p className="text-sm text-slate-500">
                         No commitment required • Free consultation
                       </p>
                     </form>
@@ -346,11 +333,8 @@ function ContactUsForm() {
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
-                    <Mail className="h-6 w-6 text-white" />
-                  </div>
+              <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+                <div className="border-t border-mk-line pt-5">
                   <p className="text-sm font-semibold text-slate-500">Email</p>
                   <a
                     href="mailto:hello@mkfraud.co.za"
@@ -366,10 +350,7 @@ function ContactUsForm() {
                   </a>
                 </div>
 
-                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
-                    <Linkedin className="h-6 w-6 text-white" />
-                  </div>
+                <div className="border-t border-mk-line pt-5">
                   <p className="text-sm font-semibold text-slate-500">LinkedIn</p>
                   <a
                     href={LINKEDIN_URL}
@@ -387,11 +368,8 @@ function ContactUsForm() {
                   </a>
                 </div>
 
-                <div className="overflow-hidden rounded-brand border border-slate-200 bg-white p-6 shadow-soft sm:col-span-2">
+                <div className="border-t border-mk-line pt-5 sm:col-span-2">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                      <MapPin className="h-6 w-6 text-white" />
-                    </div>
                     <div>
                       <p className="font-semibold text-mk-navy">South Africa</p>
                       <p className="mt-1 text-sm text-slate-600">
@@ -404,46 +382,37 @@ function ContactUsForm() {
             </div>
 
             <div className="lg:col-span-5">
-              <div className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft">
-                <div className="border-b border-slate-200 bg-white px-8 py-7">
+              <div className="border-t-2 border-mk-navy">
+                <div className="py-6">
                   <div className="flex items-start justify-between gap-6">
                     <div>
-                      <h3 className="text-2xl font-semibold leading-tight text-mk-navy">Book a consultation</h3>
+                      <h3 className="text-2xl font-medium leading-snug text-mk-navy">Book a consultation</h3>
                       <p className="mt-2 text-slate-600">Schedule a time that works for you.</p>
-                    </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-brand bg-mk-navy">
-                      <Shield className="h-6 w-6 text-white" />
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6">
-                  <div className="h-[520px] overflow-hidden rounded-brand border border-dashed border-slate-300 bg-white">
+                <div>
+                  <div className="h-[520px] overflow-hidden rounded-brand border border-mk-line bg-white">
                     <CalendlyBooking />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 overflow-hidden rounded-brand border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="mt-12 border-t border-mk-line pt-6">
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
-                    <h3 className="text-2xl font-semibold leading-tight text-mk-navy">What to expect</h3>
-                    <div className="mt-5 grid grid-cols-1 gap-3">
+                    <h3 className="text-2xl font-medium leading-snug text-mk-navy">What to expect</h3>
+                    <div className="mt-4 grid grid-cols-1">
                       {benefits.map((b) => (
-                        <div key={b} className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-brand bg-mk-accent/10">
-                            <CheckCircle2 className="h-5 w-5 text-mk-accent" strokeWidth={2.5} />
-                          </div>
+                        <div key={b} className="flex items-center gap-3 border-b border-mk-line py-3">
                           <span className="text-sm font-semibold text-mk-navy">{b}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-5 rounded-brand border border-slate-200 bg-white p-5">
+                    <div className="mt-6">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                          <Clock className="h-5 w-5 text-white" />
-                        </div>
                         <div>
                           <p className="text-sm font-semibold text-mk-navy">Response time</p>
                           <p className="mt-1 text-sm leading-relaxed text-slate-600">
@@ -462,11 +431,8 @@ function ContactUsForm() {
                             placement: "contact_card",
                           })
                         }
-                        className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4 transition-all duration-300  hover:shadow-soft"
+                        className="flex min-h-11 items-center gap-3 border-t border-mk-line py-4 transition-colors hover:text-mk-accent"
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-brand bg-mk-navy">
-                          <Phone className="h-5 w-5 text-white" />
-                        </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-500">Phone</p>
                           <p className="text-sm font-semibold text-mk-navy">+27 82 301 4351</p>
@@ -475,11 +441,8 @@ function ContactUsForm() {
 
                       <Link
                         href="/services"
-                        className="flex items-center gap-3 rounded-brand border border-slate-200 bg-white p-4 transition-all duration-300  hover:shadow-soft"
+                        className="flex min-h-11 items-center gap-3 border-t border-mk-line py-4 transition-colors hover:text-mk-accent"
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-brand bg-mk-navy">
-                          <Shield className="h-5 w-5 text-white" />
-                        </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-500">Explore</p>
                           <p className="text-sm font-semibold text-mk-navy">View services</p>

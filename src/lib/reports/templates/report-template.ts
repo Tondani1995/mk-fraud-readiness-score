@@ -8,6 +8,7 @@ import { MK_CSS_VARIABLES } from '../design/tokens';
 import { renderCoverLogo } from '../design/brand-assets';
 import { SeverityBudget } from '../design/severity-budget';
 import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
+import { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -395,6 +396,12 @@ export function renderReportHtml(
 
   // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
   // report appended after methodology. Bind each chapter to the section it was written to explain.
+  // Restore the bounded V7 scenario-state safeguard: only the known conflated phrases
+  // are grounded in the actual self-assessed finding labels, never in invented evidence.
+  const narrativeBlockText = (chapterId: string, value: string): string =>
+    chapterId === 'EXPOSURE-COULD-MATERIALISE'
+      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
+      : value;
   const narrativeChapterBody = (
     chapterId: string,
     sectionFilter: (title: string) => boolean = () => true
@@ -402,11 +409,11 @@ export function renderReportHtml(
     const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
     if (!chapter) return '';
     return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('');
+      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(narrativeBlockText(chapterId, block.text))}</p>`).join('');
       const childBlocks = chapterSection.subsections.map((item) => `
         <div class="manuscript-subsection">
           <div class="field-label">${esc(item.title)}</div>
-          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('')}
+          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(narrativeBlockText(chapterId, block.text))}</p>`).join('')}
         </div>`).join('');
       return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
     }).join('');

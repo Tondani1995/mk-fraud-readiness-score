@@ -104,11 +104,97 @@ assert.equal(
   0,
 );
 
+// Payment-received notification contract, asserted on behaviour rather than source text. Since
+// 7 Sep 2026 payment-service.ts calls notifyInternalPaymentReceived through an injectable seam
+// (dependencies.notifyPaymentReceived, which defaults to it), so the old literal regex no longer
+// matched. The contract itself is unchanged and is pinned here by running the real service:
+//   - production wires the seam to the real internal notifier;
+//   - the notification fires only for a PAID transition that is not a duplicate;
+//   - a notification failure never fails payment recording.
+// Database-free and provider-free: the Supabase client and the notifier are doubles, and the
+// analytics client points at the local discard port, so nothing is contacted or written.
 const paymentService = read('src/lib/payments/payment-service.ts');
 assert.match(
   paymentService,
-  /if \(target\.state === 'PAID' && !data\.duplicate\)[\s\S]*?notifyInternalPaymentReceived/,
+  /input\.dependencies\?\.notifyPaymentReceived \?\? notifyInternalPaymentReceived\b/,
+  'production defaults the payment-received seam to the real internal notifier',
 );
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:9';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'offline-contract-not-a-credential';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'offline-contract-not-a-credential';
+const { processVerifiedPayment } = await import('../src/lib/payments/payment-service.ts');
+{
+  const order = {
+    id: 'order-rc1', order_reference: 'MKORD-RC1-CONTRACT', assessment_id: 'assessment-rc1',
+    amount_cents: 750000, currency: 'ZAR', status: 'awaiting_payment',
+    customer_name: 'Contract Test', customer_email: 'contract@example.invalid',
+  };
+  const transitions = new Map();
+  const db = {
+    from(table) {
+      if (table === 'app_settings') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value_json: { schema_version: '0024' } }, error: null }) }) }) };
+      if (table === 'orders') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: order, error: null }) }) }) };
+      if (table === 'payment_automation_records') return { update: () => ({ eq: async () => ({ error: null }) }) };
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }), insert: async () => ({ error: null }) };
+    },
+    async rpc(name, args) {
+      if (name === 'payment_automation_capability') return { data: { status: 'ok', available: true, schema_version: '0024', missing_objects: [], missing_permissions: [] }, error: null };
+      if (name !== 'record_payment_transition') return { data: {}, error: null };
+      // Idempotent by key, like the real RPC: a repeat returns the original state, applies nothing.
+      const existing = transitions.get(args.p_idempotency_key);
+      if (existing) return { data: { applied: false, duplicate: true, state: existing.state, event_id: existing.id }, error: null };
+      const record = { id: `evt-${transitions.size + 1}`, state: args.p_new_state };
+      transitions.set(args.p_idempotency_key, record);
+      return { data: { applied: true, duplicate: false, state: record.state, event_id: record.id }, error: null };
+    },
+  };
+  const notified = [];
+  const recordingNotifier = async (input) => { notified.push(input.order.order_reference); };
+  const pay = (idempotencyKey, { amountCents = order.amount_cents, outcome = 'completed', notifier = recordingNotifier } = {}) => processVerifiedPayment({
+    source: 'manual_admin', actorReference: 'admin-rc1', idempotencyKey,
+    event: {
+      eventId: `manual:${idempotencyKey}`, orderReference: order.order_reference, transactionReference: null,
+      amountCents, currency: 'ZAR', outcome, occurredAt: new Date(0).toISOString(),
+      verificationResult: 'authorised_manual_confirmation', safeNote: 'Contract test confirmation', payloadSha256: null,
+    },
+    dependencies: { db, notifyPaymentReceived: notifier },
+  });
+  const quiet = async (run) => {
+    const original = { info: console.info, error: console.error };
+    const errors = [];
+    console.info = () => {};
+    console.error = (label) => { errors.push(label); };
+    try { return { result: await run(), errors }; } finally { Object.assign(console, original); }
+  };
+
+  const { result: paid } = await quiet(() => pay('rc1-paid'));
+  assert.equal(paid.ok, true);
+  assert.equal(paid.state, 'PAID');
+  assert.equal(paid.duplicate, false);
+  assert.deepEqual(notified, [order.order_reference], 'a non-duplicate PAID transition notifies MK exactly once');
+
+  const { result: repeat } = await quiet(() => pay('rc1-paid'));
+  assert.equal(repeat.duplicate, true);
+  assert.equal(notified.length, 1, 'a duplicate PAID confirmation does not notify again');
+
+  for (const [key, options, expectedState] of [
+    ['rc1-short', { amountCents: order.amount_cents - 1 }, 'PAYMENT_REVIEW_REQUIRED'],
+    ['rc1-over', { amountCents: order.amount_cents + 1 }, 'PAYMENT_REVIEW_REQUIRED'],
+    ['rc1-failed', { outcome: 'failed' }, 'PAYMENT_FAILED'],
+    ['rc1-processing', { outcome: 'processing' }, 'PAYMENT_PROCESSING'],
+  ]) {
+    const { result } = await quiet(() => pay(key, options));
+    assert.equal(result.state, expectedState);
+    assert.equal(notified.length, 1, `a ${expectedState} transition does not notify`);
+  }
+
+  const failingNotifier = async () => { throw new Error('synthetic notifier outage'); };
+  const { result: paidDespiteOutage, errors } = await quiet(() => pay('rc1-notifier-down', { notifier: failingNotifier }));
+  assert.equal(paidDespiteOutage.ok, true, 'a notification failure never fails payment recording');
+  assert.equal(paidDespiteOutage.state, 'PAID');
+  assert.equal(paidDespiteOutage.duplicate, false);
+  assert(errors.includes('payment_received_internal_notification_failed'), 'a notification failure is logged, not thrown');
+}
 const currentOrderService = read('src/lib/commercial/order-service.ts');
 const currentEssentialOrderService = read('src/lib/orders/manual-eft-orders.ts');
 assert.match(currentOrderService, /notifyInternalOrderCreated/);

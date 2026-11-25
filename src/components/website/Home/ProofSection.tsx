@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Image from 'next/image';
 import Link from 'next/link';
 import { Eyebrow } from '@/components/website/primitives/Eyebrow';
@@ -33,7 +33,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
 
   return (
     <section className="clarity-proof bg-white" aria-labelledby="home-proof-heading">
-      <div className="mx-auto w-full max-w-7xl px-5 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-10">
+      <div className="mk-frame py-9 sm:py-12 lg:py-10">
         <div className="max-w-2xl">
           <Eyebrow>Why MK</Eyebrow>
           <h2
@@ -64,7 +64,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
               <p className="mt-2 text-[15px] leading-7 text-slate-600 sm:mt-3">{item.body}</p>
               {item.link ? (
                 <Link href={item.link.href} className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-accent hover:text-mk-navy">
-                  {item.link.label} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                  {item.link.label} <MkMark name="arrow" className="h-4 w-4" />
                 </Link>
               ) : null}
               {item.title === 'Published thinking' && recent.length > 0 ? (
@@ -76,7 +76,7 @@ export default function ProofSection({ insights }: { insights: WebsiteInsight[] 
                         className="group flex min-h-12 items-start justify-between gap-3 py-3 text-sm font-medium leading-6 text-mk-navy hover:text-mk-accent"
                       >
                         <span>{insight.title.replace(/:\s*$/, '')}</span>
-                        <ArrowUpRight aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-mk-accent" />
+                        <MkMark name="arrowOut" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-mk-accent" />
                       </Link>
                     </li>
                   ))}

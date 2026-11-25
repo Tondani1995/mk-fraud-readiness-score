@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from 'next/link';
 import Wrapper from '@/components/website/Wrapper';
 import CapabilityDetail from '@/components/website/Services/CapabilityDetail';
@@ -18,7 +18,7 @@ export default function ServicesPage() {
         ))}</CapabilityDirectory>
 
         <section id="investigation-support" className="border-t border-slate-200 bg-mk-paper" aria-labelledby="investigation-support-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-20">
+          <div className="mk-frame grid gap-8 py-12 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:py-20">
             <div>
               <Eyebrow>Investigation support</Eyebrow>
               <h2 id="investigation-support-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
@@ -37,7 +37,7 @@ export default function ServicesPage() {
         </section>
 
         <section className="border-t border-slate-200 bg-white" aria-labelledby="services-next-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
+          <div className="mk-frame pb-12 pt-10 sm:pb-20 sm:pt-12">
             <div className="rounded-panel bg-mk-navy px-4 py-8 text-white min-[360px]:px-5 sm:px-10 sm:py-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-12">
               <div className="max-w-xl">
                 <h2 id="services-next-heading" className="text-2xl font-semibold leading-tight tracking-normal sm:text-3xl">
@@ -61,7 +61,7 @@ export default function ServicesPage() {
               <Link href="/industries" className="font-semibold text-mk-accent underline underline-offset-4 hover:text-mk-navy">
                 See how fraud exposure differs by industry
               </Link>
-              <ArrowRight aria-hidden="true" className="ml-1 inline h-4 w-4 align-[-2px] text-mk-accent" />
+              <MkMark name="arrow" className="ml-1 inline h-4 w-4 align-[-2px] text-mk-accent" />
             </p>
           </div>
         </section>

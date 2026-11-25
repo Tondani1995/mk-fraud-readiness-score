@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from 'next/link';
 import { SnapshotPreview } from '@/components/website/SnapshotPreview';
 import { CtaLink } from '@/components/website/primitives/CtaLink';
@@ -17,7 +17,7 @@ const journey = readinessTrack() === 'review' ? REVIEW_JOURNEY.map(([title, body
 export default function FraudReadinessSection() {
   return (
     <section id="fraud-readiness" className="clarity-readiness scroll-mt-20 bg-mk-navy text-white" aria-labelledby="home-fraud-readiness-heading">
-      <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-16 lg:px-8 lg:py-28">
+      <div className="mk-frame grid gap-8 py-12 sm:gap-10 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-16 lg:py-28">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">Flagship assessment</p>
           <h2
@@ -54,7 +54,7 @@ export default function FraudReadinessSection() {
               Start the Fraud Readiness Assessment
             </CtaLink>
             <Link href="/fraud-readiness" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-line underline-offset-4 hover:text-white hover:underline">
-              Reports and options <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              Reports and options <MkMark name="arrow" className="h-4 w-4" />
             </Link>
           </div>
         </div>

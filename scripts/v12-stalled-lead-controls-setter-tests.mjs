@@ -158,6 +158,9 @@ function loadMonitorModule() {
       getEmailProviderMode: () => 'disabled',
       sendEmail: async () => ({ ok: false }),
     },
+    '@/lib/monitoring/database': {
+      monitorDatabaseError: () => ({}),
+    },
     '@/lib/notifications/message-templates': {
       buildAssessmentCompletedInternalMessage: () => ({ subject: 'unused', text: 'unused', html: 'unused' }),
       buildAssessmentStalledLeadMessage: () => ({ subject: 'unused', text: 'unused', html: 'unused' }),
@@ -195,10 +198,23 @@ function loadStalledRoute() {
       },
     },
     '@/lib/notifications/internal-assessment-notifications': {
+      loadStalledLeadControl: async () => ({ enabled: true, inactivityMinutes: 120, inactivityHours: 2 }),
       monitorAdaptiveStalledLeads: async (options) => {
         monitorCalls.push(options);
         return { ok: true, notified: 0 };
       },
+    },
+    // The route's other dependencies (25 Nov 2026): the monitor database, the review pass and the heartbeat.
+    '@/lib/monitoring/database': {
+      createMonitorDatabase: () => ({}),
+      monitorDatabaseError: () => ({}),
+      STALLED_LEAD_MONITOR_BUDGET_MS: 1000,
+    },
+    '@/lib/readiness-review/review-notifications': {
+      monitorReviewStalledLeads: async () => ({ inspected: 0, notified: 0 }),
+    },
+    '@/lib/monitoring/stalled-lead-heartbeat': {
+      recordStalledLeadMonitorHeartbeat: async () => ({ recorded: true }),
     },
   };
   const resolveImport = (specifier) => {
@@ -481,6 +497,7 @@ try {
       const builder = {
         select() { return builder; },
         eq() { return builder; },
+        not() { return builder; },
         limit() { return builder; },
         maybeSingle() {
           assert.equal(table, 'app_settings');

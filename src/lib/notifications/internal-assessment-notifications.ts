@@ -26,9 +26,15 @@ import {
 } from '@/lib/notifications/phase1-order-notifications';
 
 const STALLED_LEAD_SETTING_KEY = 'v12_adaptive_stalled_lead_controls';
-const DEFAULT_STALLED_LEAD_INACTIVITY_HOURS = 24;
+// One inactivity policy for every Fraud Readiness flow (owner direction, 25 November 2026): a lead is
+// stalled after 120 minutes without genuine respondent activity. The stored control may override it
+// in whole hours (inactivity_hours, the existing field) or minutes (inactivity_minutes).
+const DEFAULT_STALLED_LEAD_INACTIVITY_MINUTES = 120;
+const DEFAULT_STALLED_LEAD_INACTIVITY_HOURS = DEFAULT_STALLED_LEAD_INACTIVITY_MINUTES / 60;
 const MIN_STALLED_LEAD_INACTIVITY_HOURS = 1;
 const MAX_STALLED_LEAD_INACTIVITY_HOURS = 168;
+const MIN_STALLED_LEAD_INACTIVITY_MINUTES = 30;
+const MAX_STALLED_LEAD_INACTIVITY_MINUTES = MAX_STALLED_LEAD_INACTIVITY_HOURS * 60;
 const INTERNAL_NOTIFICATION_CLAIM_LEASE_MS = 10 * 60 * 1000;
 const INTERNAL_NOTIFICATION_MAX_ATTEMPTS = 5;
 const RECOVERABLE_INTERNAL_NOTIFICATION_STATUSES = ['queued', 'recorded_disabled', 'send_failed'];
@@ -88,7 +94,7 @@ function internalProviderModeIsPermitted(providerMode: EmailProviderMode, recipi
 }
 
 async function recordDispatchEvent(input: {
-  assessmentId: string;
+  assessmentId: string | null;
   organisationId?: string | null;
   respondentId?: string | null;
   notificationType: QueueInternalNotificationInput['notificationType'];
@@ -96,6 +102,8 @@ async function recordDispatchEvent(input: {
   status: 'sent' | 'recorded_disabled' | 'failed';
   providerMode: EmailProviderMode | 'external';
 }, dependencies: InternalAssessmentNotificationDependencies = {}) {
+  // Review notifications have no assessment; their email_events row is the record.
+  if (!input.assessmentId) return;
   const eventType = input.status === 'failed' ? 'internal_notification_failed' : 'internal_notification_sent';
   const trackEvent = dependencies.trackAssessmentEventImpl ?? trackAssessmentEvent;
   await trackEvent({
@@ -119,7 +127,7 @@ async function recordDispatchEvent(input: {
  */
 export async function dispatchInternalAssessmentNotification(input: {
   emailEventId: string;
-  assessmentId: string;
+  assessmentId: string | null;
   organisationId?: string | null;
   respondentId?: string | null;
   notificationType: QueueInternalNotificationInput['notificationType'];
@@ -387,21 +395,46 @@ export async function notifyScoredAssessmentCompletion(input: {
   }, dependencies);
 }
 
-type StalledLeadControl = {
+export type StalledLeadControl = {
   enabled: boolean;
+  /** The authoritative threshold. */
+  inactivityMinutes: number;
+  /** The same threshold in hours, kept for existing alert metadata and messages. */
   inactivityHours: number;
 };
 
-function parseStalledLeadControl(value: unknown): StalledLeadControl {
-  if (!value || typeof value !== 'object') return { enabled: true, inactivityHours: DEFAULT_STALLED_LEAD_INACTIVITY_HOURS };
+export function parseStalledLeadControl(value: unknown): StalledLeadControl {
+  const fromMinutes = (minutes: number, enabled = true): StalledLeadControl => ({ enabled, inactivityMinutes: minutes, inactivityHours: minutes / 60 });
+  if (!value || typeof value !== 'object') return fromMinutes(DEFAULT_STALLED_LEAD_INACTIVITY_MINUTES);
   const raw = value as Record<string, unknown>;
+  const enabled = raw.enabled !== false;
+  const configuredMinutes = Number(raw.inactivity_minutes);
+  if (Number.isInteger(configuredMinutes)
+    && configuredMinutes >= MIN_STALLED_LEAD_INACTIVITY_MINUTES
+    && configuredMinutes <= MAX_STALLED_LEAD_INACTIVITY_MINUTES) {
+    return fromMinutes(configuredMinutes, enabled);
+  }
   const configuredHours = Number(raw.inactivity_hours);
-  const inactivityHours = Number.isInteger(configuredHours)
+  const hours = Number.isInteger(configuredHours)
     && configuredHours >= MIN_STALLED_LEAD_INACTIVITY_HOURS
     && configuredHours <= MAX_STALLED_LEAD_INACTIVITY_HOURS
     ? configuredHours
     : DEFAULT_STALLED_LEAD_INACTIVITY_HOURS;
-  return { enabled: raw.enabled !== false, inactivityHours };
+  return fromMinutes(hours * 60, enabled);
+}
+
+/** Reads the single stalled-lead control both Fraud Readiness flows use. */
+export async function loadStalledLeadControl(db: any): Promise<StalledLeadControl> {
+  const { data: setting, error } = await db
+    .from('app_settings')
+    .select('value_json')
+    .eq('setting_key', STALLED_LEAD_SETTING_KEY)
+    .maybeSingle();
+  if (error) {
+    console.warn('stalled_lead_control_setting_unavailable', monitorDatabaseError(error));
+    throw error;
+  }
+  return parseStalledLeadControl(setting?.value_json);
 }
 
 function isoTime(value: unknown) {
@@ -521,22 +554,19 @@ export function defaultStalledLeadInactivityHours() {
   return DEFAULT_STALLED_LEAD_INACTIVITY_HOURS;
 }
 
+export function defaultStalledLeadInactivityMinutes() {
+  return DEFAULT_STALLED_LEAD_INACTIVITY_MINUTES;
+}
+
 export async function monitorAdaptiveStalledLeads(input: {
   adminUrlFor: (assessmentReference: string) => string;
+  /** The control already read by the caller, so both flows apply the same policy in one run. */
+  control?: StalledLeadControl;
 }, dependencies: InternalAssessmentNotificationDependencies = {}) {
   const db = dependencies.db ?? (dependencies.createClient ?? createSupabaseServiceClient)() as any;
   const now = dependencies.now ?? (() => new Date());
-  const { data: setting, error: settingError } = await db
-    .from('app_settings')
-    .select('value_json')
-    .eq('setting_key', STALLED_LEAD_SETTING_KEY)
-    .maybeSingle();
-  if (settingError) {
-    console.warn('stalled_lead_control_setting_unavailable', monitorDatabaseError(settingError));
-    throw settingError;
-  }
-  const control = parseStalledLeadControl(setting?.value_json);
-  if (!control.enabled) return { ok: true as const, disabled: true, inspected: 0, stalled: 0, notified: 0 };
+  const control = input.control ?? await loadStalledLeadControl(db);
+  if (!control.enabled) return { ok: true as const, disabled: true, inspected: 0, stalled: 0, notified: 0, alreadyNotified: 0, failed: 0 };
 
   const { data: assessments, error: assessmentsError } = await db
     .from('assessments')
@@ -560,9 +590,12 @@ export async function monitorAdaptiveStalledLeads(input: {
   const navigationByAssessment = new Map<string, { last_saved_at?: string | null; updated_at?: string | null }>(
     (navigationStates ?? []).map((state: any) => [state.assessment_id, state] as const)
   );
-  const cutoff = now().getTime() - control.inactivityHours * 60 * 60 * 1000;
+  const cutoff = now().getTime() - control.inactivityMinutes * 60 * 1000;
   let stalled = 0;
+  // Counts are reported honestly: a lead notified in an earlier run is not counted as notified again.
   let notified = 0;
+  let alreadyNotified = 0;
+  let failed = 0;
 
   for (const assessment of assessments ?? []) {
     const navigation = navigationByAssessment.get(assessment.id);
@@ -623,7 +656,10 @@ export async function monitorAdaptiveStalledLeads(input: {
           respondentId: assessment.primary_respondent_id,
           message
         }, dependencies);
-    if (result.ok) notified += 1;
+    const status = 'status' in result ? String(result.status) : '';
+    if (!result.ok) failed += 1;
+    else if (status === 'sent' || status === 'recorded_disabled') notified += 1;
+    else alreadyNotified += 1;
 
     const emailEventId = result.ok && 'emailEventId' in result ? result.emailEventId : null;
     const { error: alertError } = await db.rpc('record_assessment_stalled_lead_alert', {
@@ -651,6 +687,9 @@ export async function monitorAdaptiveStalledLeads(input: {
     inspected: (assessments ?? []).length,
     stalled,
     notified,
-    inactivityHours: control.inactivityHours
+    alreadyNotified,
+    failed,
+    inactivityHours: control.inactivityHours,
+    inactivityMinutes: control.inactivityMinutes
   };
 }

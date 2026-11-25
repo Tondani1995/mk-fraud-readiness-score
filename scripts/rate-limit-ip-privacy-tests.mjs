@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { getClientIpHashKey } from '../src/lib/security/rate-limit.ts';
+process.env.ASSESSMENT_TOKEN_PEPPER = 'test-only-ip-hmac-pepper-0123456789';
+const request = (value) => ({ get: (name) => name === 'x-forwarded-for' ? value : null });
+const first = getClientIpHashKey(request('192.0.2.45, 192.0.2.46'), 'contact');
+assert.match(first, /^contact:ip:v1:[a-f0-9]{64}$/);
+assert.equal(first, getClientIpHashKey(request('192.0.2.45'), 'contact'));
+assert.notEqual(first, getClientIpHashKey(request('192.0.2.46'), 'contact'));
+assert.notEqual(first, getClientIpHashKey(request('192.0.2.45'), 'advisory'));
+assert.equal(first.includes('192.0.2.45'), false);
+assert.equal(getClientIpHashKey(request('not-an-ip'), 'contact'), getClientIpHashKey(request(null), 'contact'));
+console.log('PASS: rate-limit IP pseudonymisation and bucket separation');

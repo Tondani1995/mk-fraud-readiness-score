@@ -53,7 +53,7 @@ export default function LoginClient() {
             <div className="pointer-events-none fixed inset-0 -z-10">
             </div>
 
-            <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-16 lg:px-8">
+            <div className="mk-frame flex items-center justify-center py-16">
                 <div className="w-full max-w-md">
                     <div className="mb-6 flex justify-center">
                         <div className="inline-flex items-center gap-2 rounded-brand border border-mk-accent/20 bg-mk-accent/5 px-5 py-2.5 shadow-soft ">

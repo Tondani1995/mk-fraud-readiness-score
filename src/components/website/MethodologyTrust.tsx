@@ -1,4 +1,3 @@
-import { ShieldCheck } from 'lucide-react';
 import { METHODOLOGY_AI_DISCLOSURE, METHODOLOGY_HEADLINE, METHODOLOGY_POINTS as LEGACY_POINTS, METHODOLOGY_SUMMARY as LEGACY_SUMMARY } from '@/lib/website/methodology';
 import { readinessTrack } from '@/lib/website/readiness-track';
 import { REVIEW_METHODOLOGY } from '@/lib/website/review-track-copy';
@@ -23,7 +22,7 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
       aria-labelledby="methodology-heading"
       className={`scroll-mt-16 md:scroll-mt-20 ${dark ? 'bg-mk-navy text-white' : 'border-t border-mk-line bg-white text-mk-navy'}`}
     >
-      <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+      <div className="mk-frame py-12 sm:py-16 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
           <div>
             <p className={`text-[12px] font-semibold uppercase tracking-[0.12em] ${dark ? 'text-mk-paper' : 'text-mk-accent'}`}>
@@ -36,7 +35,6 @@ export default function MethodologyTrust({ tone = 'light' }: { tone?: 'light' | 
             <p
               className={`mt-6 inline-flex items-start gap-3 rounded-brand border px-4 py-3 text-sm leading-6 ${dark ? 'border-white/15 bg-white/[0.04] text-white/75' : 'border-mk-line bg-mk-paper text-mk-accent'}`}
             >
-              <ShieldCheck aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${dark ? 'text-mk-paper' : 'text-mk-accent'}`} />
               <span>AI does not determine your assessment result. Where it is used, it operates downstream of the validated assessment logic.</span>
             </p>
           </div>

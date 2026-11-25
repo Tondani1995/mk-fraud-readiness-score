@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from "next/link";
 import Wrapper from "@/components/website/Wrapper";
 import TrackedLink from "@/components/website/TrackedLink";
@@ -11,7 +11,7 @@ export default function Insights() {
         <Wrapper>
             <main className="bg-white">
                 <section className="bg-mk-navy text-white" aria-labelledby="insights-heading">
-                    <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-20">
+                    <div className="mk-frame pb-12 pt-10 sm:pb-16 sm:pt-14 lg:py-20">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">Insights</p>
                         <h1 id="insights-heading" className="mt-4 max-w-[18ch] text-[2.1rem] font-semibold leading-[1.08] tracking-normal sm:text-5xl lg:text-[3.25rem]">
                             Analysis of the fraud risks facing South African organisations.
@@ -32,7 +32,7 @@ export default function Insights() {
                 <LatestInsightsSection title="Latest insights" subtitle="Filter by topic, or browse everything MK has published." />
 
                 <section className="border-t border-slate-200 bg-mk-paper" aria-labelledby="insights-follow-heading">
-                    <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:items-center lg:px-8">
+                    <div className="mk-frame grid gap-8 py-12 sm:py-16 lg:grid-cols-2 lg:items-center">
                         <div>
                             <h2 id="insights-follow-heading" className="text-2xl font-semibold leading-tight tracking-normal text-mk-navy sm:text-3xl">
                                 Follow MK on LinkedIn for new analysis.
@@ -51,7 +51,7 @@ export default function Insights() {
                                 eventParams={{ platform: "linkedin", placement: "insights_follow" }}
                                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-brand bg-mk-navy px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-mk-accent"
                             >
-                                Follow on LinkedIn <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                                Follow on LinkedIn <MkMark name="arrowOut" className="h-4 w-4" />
                             </TrackedLink>
                             <CtaLink href="/contact" variant="secondary" ctaName="speak_to_mk" placement="insights_follow">
                                 Speak to MK

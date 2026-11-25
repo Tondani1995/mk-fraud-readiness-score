@@ -4,6 +4,7 @@ import { buildSnapshotBrief } from '@/lib/readiness-review/snapshot-brief';
 import { snapshotNarrative } from '@/lib/readiness-review/snapshot-narrative';
 import { reviewHarnessStatus } from '@/lib/readiness-review/harness';
 import { notifyReviewCompleted } from '@/lib/readiness-review/review-notifications';
+import { contactsAvailable, markCompleted } from '@/lib/readiness-review/contacts';
 import { readJson, reviewError, reviewJson } from '@/lib/readiness-review/http';
 import { reviewHarnessFaultsEnabled } from '@/lib/readiness-review/harness';
 
@@ -39,6 +40,11 @@ export async function POST(request: Request, { params }: Context) {
     // database, so a repeated finish never sends twice).
     if (current.role === 'respondent' && !current.view.step && !current.view.canResume && reviewHarnessStatus().reason === 'production') {
       const { sessionId } = await linkSession(token);
+      // Completion is recorded first and independently of the email, so a failed notice can never leave a finished
+      // review looking stalled; the stalled-lead monitor retries a completion notice that did not go out.
+      if (contactsAvailable()) await markCompleted(sessionId).catch((error) => {
+        console.warn('review_completion_mark_failed', { message: error instanceof Error ? error.message.slice(0, 160) : 'unknown' });
+      });
       await notifyReviewCompleted(sessionId);
       // Write the Snapshot narrative now, after the response, so it is usually ready before the Snapshot is opened.
       const oidc = request.headers.get('x-vercel-oidc-token');

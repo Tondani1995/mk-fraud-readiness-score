@@ -151,7 +151,7 @@
     "rc1:test-service-role-contract": "node scripts/rc1-service-role-privilege-contract-tests.mjs",
     "rc1:test-service-role-assessment-start": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-service-role-assessment-start-boundary.mjs",
     "rc1:test-near-real-time-fulfilment": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-near-real-time-fulfilment-tests.mjs",
-    "rc1:test-synthetic-notification-contract": "node scripts/rc1-synthetic-notification-contract-tests.mjs",
+    "rc1:test-synthetic-notification-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-synthetic-notification-contract-tests.mjs",
     "rc1:dry-evaluate-live-boundary": "node scripts/rc1-live-boundary-dry-evaluation.mjs",
     "rc1:test-synthetic-marking": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-synthetic-marking-tests.mjs",
     "rc1:test-synthetic-marking-route": "node scripts/rc1-synthetic-marking-route-test.mjs",
@@ -243,7 +243,8 @@
     "essential:test-retry-browser": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/recovery/retry-browser-tests.mjs",
     "essential:test-retry-postgres": "bash scripts/recovery/test-postgres-browser.sh",
     "monitoring:test-fulfilment-signals": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-fulfilment-signal-tests.mjs",
-    "monitoring:test-reliability": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-reliability-tests.mjs && node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-timeout-budget-tests.mjs"
+    "monitoring:test-reliability": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-reliability-tests.mjs && node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitor-timeout-budget-tests.mjs",
+    "monitoring:test-review-stalled": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/review-stalled-monitoring-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
@@ -255,27 +256,27 @@
     "@radix-ui/react-separator": "1.1.8",
     "@radix-ui/react-slot": "1.2.4",
     "@radix-ui/react-switch": "1.2.6",
-    "@sentry/nextjs": "10.73.0",
+    "@sentry/nextjs": "10.78.0",
     "@sparticuz/chromium": "143.0.4",
     "@supabase/supabase-js": "2.109.0",
     "ai": "6.0.83",
-    "axios": "1.18.1",
+    "axios": "1.21.1",
     "bcryptjs": "3.0.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "jose": "6.1.3",
     "lucide-react": "0.562.0",
-    "mongoose": "9.7.4",
-    "next": "15.5.22",
+    "mongoose": "9.13.1",
+    "next": "15.5.29",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "6.2.108",
-    "puppeteer-core": "25.5.0",
+    "puppeteer-core": "25.18.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "3.4.0",
-    "workflow": "4.8.0",
+    "workflow": "4.8.18",
     "write-excel-file": "^4.1.1",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
@@ -286,14 +287,14 @@
     "embedded-postgres": "^18.4.0-beta.17",
     "esbuild": "0.28.1",
     "eslint": "^8.57.0",
-    "eslint-config-next": "15.5.22",
+    "eslint-config-next": "15.5.29",
     "ip-address": "10.3.1",
     "pg": "^8.22.0",
     "postcss": "^8.5.23",
     "read-excel-file": "^9.3.7",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.2",
-    "undici": "7.29.0"
+    "undici": "7.30.2"
   },
   "overrides": {
     "postcss": {

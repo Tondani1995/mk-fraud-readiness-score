@@ -56,7 +56,7 @@ function parseStoredContext(raw: string | null, now: number): AcquisitionContext
     if (!Number.isFinite(expiresAt) || expiresAt <= now) return null;
 
     const context: AcquisitionContext = {
-      ...sanitiseCampaignAttribution(parsed),
+      ...sanitiseCampaignAttribution(Object.fromEntries(UTM_KEYS.map(key => [key, parsed[key]]))),
       captured_at: typeof parsed.captured_at === 'string' ? parsed.captured_at : new Date(now).toISOString(),
       expires_at: new Date(expiresAt).toISOString(),
     };
@@ -77,6 +77,7 @@ export function readAcquisitionContext(now = Date.now()): AcquisitionContext | n
   try {
     const context = parseStoredContext(window.localStorage.getItem(ACQUISITION_CONTEXT_STORAGE_KEY), now);
     if (!context) window.localStorage.removeItem(ACQUISITION_CONTEXT_STORAGE_KEY);
+    else window.localStorage.setItem(ACQUISITION_CONTEXT_STORAGE_KEY, JSON.stringify(context));
     return context;
   } catch {
     return null;

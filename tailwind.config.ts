@@ -43,6 +43,8 @@ const config: Config = {
           muted: '#475569',
           danger: '#9B2C2C',
           success: '#2F6B4F',
+          // Graphical accent only, never text (owner directive 20 Nov 2026).
+          sage: '#A9D4CE',
           // Deprecated aliases. Do not use in new code.
           charcoal: '#001030',
           brass: '#1D3658',
