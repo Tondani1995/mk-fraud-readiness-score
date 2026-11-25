@@ -465,6 +465,34 @@
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
+.figure[data-long] {
+  font-size: clamp(20px, 2vw, 28px);
+}
+.readoutRows {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.readoutRows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 220px;
+  padding: 4px 0;
+  border-top: 1px solid var(--mk-line);
+}
+.readoutRows dt {
+  color: var(--mk-accent);
+}
+.readoutRows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.readoutRows dd span {
+  font-weight: 400;
+  color: var(--slate);
+}
 .readoutItem dd {
   margin: 3px 0 0;
   font-size: 12.5px;

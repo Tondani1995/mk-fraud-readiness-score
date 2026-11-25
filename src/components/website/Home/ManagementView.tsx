@@ -48,7 +48,13 @@ const CAPTIONS = [
 ];
 
 type ReadoutItem = { figure: string; text: string };
-const READOUT: { label: string; items: ReadoutItem[]; note?: { title: string; body: string } } = REVIEW
+type Readout = {
+  label: string;
+  items: ReadoutItem[];
+  rows?: { name: string; value: number }[];
+  note?: { title: string; body: string };
+};
+const READOUT: Readout = REVIEW
   ? {
       label: "Fictional example",
       items: [
@@ -58,10 +64,13 @@ const READOUT: { label: string; items: ReadoutItem[]; note?: { title: string; bo
       note: example.exampleGap ? { title: example.exampleGap.title, body: example.exampleGap.state } : undefined,
     }
   : {
+      // The scored track keeps the long-standing illustrative example used by SnapshotPreview.
       label: "Illustrative example",
-      items: [
-        { figure: "Structured", text: "example position" },
-        { figure: "74 · 58 · 42", text: "governance, detection and response" },
+      items: [{ figure: "Structured", text: "example position" }],
+      rows: [
+        { name: "Governance", value: 74 },
+        { name: "Detection", value: 58 },
+        { name: "Response", value: 42 },
       ],
       note: { title: "Clarify response ownership", body: "Example priority action" },
     };
@@ -222,11 +231,24 @@ export function ManagementView({
             <dl>
               {READOUT.items.map((item, i) => (
                 <div key={item.text} className={styles.readoutItem} style={{ "--j": i } as CSSProperties}>
-                  <dt className={styles.figure}>{item.figure}</dt>
+                  <dt className={styles.figure} data-long={item.figure.length > 4 || undefined}>{item.figure}</dt>
                   <dd>{item.text}</dd>
                 </div>
               ))}
             </dl>
+            {READOUT.rows && (
+              <dl className={`${styles.readoutItem} ${styles.readoutRows}`} style={{ "--j": 1 } as CSSProperties}>
+                {READOUT.rows.map((row) => (
+                  <div key={row.name}>
+                    <dt>{row.name}</dt>
+                    <dd>
+                      {row.value}
+                      <span>/100</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {READOUT.note && (
               <p className={styles.readoutNote}>
                 <span>{READOUT.note.body}</span>
