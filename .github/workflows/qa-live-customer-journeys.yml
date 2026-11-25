@@ -16,7 +16,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.56.1
-      - run: npx playwright install --with-deps chromium
+      - name: Install isolated exact Playwright package and matching Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/mk-browser"
+          npm install --prefix "$RUNNER_TEMP/mk-browser" --no-audit --no-fund --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/mk-browser/node_modules/playwright/cli.js" --version
+          node "$RUNNER_TEMP/mk-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MK_QA_PLAYWRIGHT=$RUNNER_TEMP/mk-browser/node_modules/playwright" >> "$GITHUB_ENV"
       - name: Run exactly two live customer assessments, invoices, service enquiry and booking
         run: node scripts/qa-live-customer-journeys-20261125.cjs

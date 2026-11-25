@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const { chromium } = require(process.env.MK_QA_PLAYWRIGHT || 'playwright');
 const assert = require('node:assert/strict');
 const BASE='https://www.mkfraud.co.za';
 const people={
@@ -63,4 +63,4 @@ async function booking(browser){const ctx=await browser.newContext({viewport:{wi
  const textarea=frame.locator('textarea').first();if(await textarea.isVisible())await textarea.fill('Discussion of fraud risk governance and control design for industrial operations.');
  await frame.getByRole('button',{name:/Schedule Event|Confirm booking/i}).click();await frame.getByText(/You are scheduled|You're scheduled|Your event has been scheduled|Confirmed/i).first().waitFor({timeout:60000});log('meeting','booked',{date,slot});
  }catch(e){log('meeting','blocked',{error:String(e.message).split('\n')[0]});process.exitCode=1}finally{await ctx.close()}}
-(async()=>{const b=await chromium.launch();try{await Promise.all([assessment(b,'essential'),assessment(b,'comprehensive'),enquiry(b),booking(b)])}finally{await b.close()}})().catch(e=>{console.error('Runner failed',e.name);process.exitCode=1});
+(async()=>{const b=await chromium.launch({headless:true,args:['--no-sandbox']});try{await Promise.all([assessment(b,'essential'),assessment(b,'comprehensive'),enquiry(b),booking(b)])}finally{await b.close()}})().catch(e=>{console.error('Runner failed',e.name,String(e.message).split('\n').slice(0,5).join(' | '));process.exitCode=1});
