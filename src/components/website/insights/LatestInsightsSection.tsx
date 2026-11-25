@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { MkMark } from "@/components/website/marks/MkMark";
 
 
 type Insight = {
@@ -107,7 +107,7 @@ export default function LatestInsightsSection({
 
     return (
         <section id="latest" className="scroll-mt-16 bg-white md:scroll-mt-20" aria-labelledby="latest-insights-heading">
-            <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+            <div className="mk-frame py-12 sm:py-16 lg:py-20">
                 <div className="max-w-2xl">
                     <h2 id="latest-insights-heading" className="text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
                         {title}
@@ -160,7 +160,7 @@ export default function LatestInsightsSection({
                                         <span className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
                                             <span>{date}</span>
                                             <span className="inline-flex items-center gap-1 font-semibold text-mk-navy">
-                                                Read <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+                                                Read <MkMark name="arrow" className="h-3.5 w-3.5" />
                                             </span>
                                         </span>
                                     </Link>
@@ -247,7 +247,7 @@ function TopicFilter({
                     aria-hidden="true"
                     className={`pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-white via-white/90 to-transparent pr-3 transition-opacity sm:hidden ${edges.end ? "opacity-100" : "opacity-0"}`}
                 >
-                    <ChevronRight className="h-5 w-5 text-mk-accent" />
+                    <MkMark name="arrow" className="h-5 w-5 text-mk-accent" />
                 </div>
             </div>
             <p className={`mt-2 text-xs text-slate-500 sm:hidden ${edges.end || edges.start ? "" : "invisible"}`}>

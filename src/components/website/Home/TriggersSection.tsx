@@ -6,7 +6,7 @@ import { ENGAGEMENT_TRIGGERS } from '@/lib/website/capabilities';
 export default function TriggersSection() {
   return (
     <section className="clarity-triggers border-t border-slate-200 bg-mk-paper" aria-labelledby="home-triggers-heading">
-      <div className="mx-auto w-full max-w-7xl px-5 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-10">
+      <div className="mk-frame py-9 sm:py-12 lg:py-10">
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
           <div>
             <Eyebrow>When to bring MK in</Eyebrow>

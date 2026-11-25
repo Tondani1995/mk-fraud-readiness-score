@@ -3,12 +3,11 @@
 }
 .story {
   display: grid;
+  row-gap: clamp(2.5rem, 1.5rem + 3vw, 4.5rem);
+  padding-block: clamp(2rem, 1rem + 3vw, 4.5rem) clamp(3rem, 2rem + 3vw, 5.5rem);
 }
 .companion {
   min-width: 0;
-}
-.companionHint {
-  display: none;
 }
 .inlineProof {
   margin-top: 24px;
@@ -16,9 +15,15 @@
   border-radius: 18px;
   max-width: 600px;
 }
-@media (min-width: 1100px) and (min-height: 800px) {
+
+/*
+ * Desktop and larger: the narrative and the management view share the frame side by side, and the
+ * view stays in reach while the narrative scrolls past it.
+ */
+@media (min-width: 1024px) {
   .story {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr);
+    column-gap: var(--mk-split-gap);
   }
   .story > :not(.companion) {
     grid-column: 1;
@@ -27,19 +32,18 @@
     grid-column: 2;
     grid-row: 1 / span 4;
   }
-  .stickyCompanion {
-    position: sticky;
-    top: 104px;
-  }
-  .companionHint {
-    display: block;
-  }
   .inlineProof {
     display: none;
   }
 }
-@media (min-width: 1100px) and (max-height: 799px) {
-  .story {
-    max-width: 1000px;
+@media (min-width: 1024px) and (min-height: 640px) {
+  .stickyCompanion {
+    position: sticky;
+    top: calc(80px + clamp(16px, 3vh, 40px));
+  }
+}
+@media (min-width: 1024px) and (max-height: 760px) {
+  .companion :global([data-management-view]) {
+    --row: 50px;
   }
 }

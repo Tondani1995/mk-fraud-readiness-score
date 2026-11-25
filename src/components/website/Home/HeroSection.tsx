@@ -7,7 +7,7 @@ export default function HeroSection() {
       className="border-b border-mk-line bg-white"
       aria-labelledby="home-hero-heading"
     >
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:items-center lg:gap-14 lg:py-20">
+      <div className="mk-frame grid gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:items-center lg:gap-14 lg:py-20">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
             Independent fraud risk advisory

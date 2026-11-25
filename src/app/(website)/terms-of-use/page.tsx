@@ -3,16 +3,6 @@
 import Link from "next/link";
 import Wrapper from "@/components/website/Wrapper";
 import {
-    FileText,
-    Shield,
-    AlertTriangle,
-    Scale,
-    Globe,
-    UserCheck,
-    Mail,
-    CheckCircle2,
-} from "lucide-react";
-import {
     Accordion,
     AccordionContent,
     AccordionItem,
@@ -29,7 +19,6 @@ export default function TermsOfUse() {
     const sections = [
         {
             id: "acceptance",
-            icon: FileText,
             title: "Acceptance of Terms",
             content: [
                 {
@@ -44,7 +33,6 @@ export default function TermsOfUse() {
         },
         {
             id: "use-of-website",
-            icon: Globe,
             title: "Use of Website",
             content: [
                 {
@@ -59,7 +47,6 @@ export default function TermsOfUse() {
         },
         {
             id: "intellectual-property",
-            icon: Shield,
             title: "Intellectual Property Rights",
             content: [
                 {
@@ -74,7 +61,6 @@ export default function TermsOfUse() {
         },
         {
             id: "services-information",
-            icon: UserCheck,
             title: "Services and Information",
             content: [
                 {
@@ -93,7 +79,6 @@ export default function TermsOfUse() {
         },
         {
             id: "disclaimers",
-            icon: AlertTriangle,
             title: "Disclaimers and Limitations",
             content: [
                 {
@@ -112,7 +97,6 @@ export default function TermsOfUse() {
         },
         {
             id: "third-party-links",
-            icon: Globe,
             title: "Third-Party Links and Resources",
             content: [
                 {
@@ -123,7 +107,6 @@ export default function TermsOfUse() {
         },
         {
             id: "user-submissions",
-            icon: FileText,
             title: "User Submissions and Communications",
             content: [
                 {
@@ -138,7 +121,6 @@ export default function TermsOfUse() {
         },
         {
             id: "indemnification",
-            icon: Shield,
             title: "Indemnification",
             content: [
                 {
@@ -149,7 +131,6 @@ export default function TermsOfUse() {
         },
         {
             id: "governing-law",
-            icon: Scale,
             title: "Governing Law and Jurisdiction",
             content: [
                 {
@@ -160,7 +141,6 @@ export default function TermsOfUse() {
         },
         {
             id: "changes-to-terms",
-            icon: AlertTriangle,
             title: "Changes to Terms",
             content: [
                 {
@@ -171,7 +151,6 @@ export default function TermsOfUse() {
         },
         {
             id: "general-provisions",
-            icon: FileText,
             title: "General Provisions",
             content: [
                 {
@@ -194,31 +173,29 @@ export default function TermsOfUse() {
         <Wrapper>
             <div className="bg-white">
                 {/* HERO (brand dark, softer typography) */}
-                <section className="relative overflow-hidden bg-gradient-to-br from-[#001030] via-[#1d3658] to-[#0b1b33]">
+                <section className="bg-mk-navy text-white">
 
 
-                    <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-                        <div className="text-center">
-                            <div className="mb-6 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-5 py-2.5 shadow-soft ">
-                                <Scale className="h-4 w-4 text-white" />
-                                <span className="text-sm font-semibold uppercase tracking-wide text-white">
+                    <div className="mk-frame relative py-20 lg:py-28">
+                        <div>
+                            <div className="mb-5">
+                                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
                                     Legal Terms
                                 </span>
                             </div>
 
-                            <h1 className="mb-6 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl lg:text-5xl">
+                            <h1 className="mk-display mb-6 max-w-[16ch] font-medium text-white">
                                 Terms of <span className="text-white/95">Use</span>
                             </h1>
 
-                            <p className="mx-auto max-w-3xl leading-relaxed text-white/80">
+                            <p className="mk-measure text-base leading-relaxed text-white/80 sm:text-lg">
                                 Please read these Terms of Use carefully before using Mk Fraud
                                 Website. These terms govern your access to and use of our website and
                                 services.
                             </p>
 
-                            <div className="mt-8 inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-6 py-3 ">
-                                <CheckCircle2 className="h-5 w-5 text-white" />
-                                <span className="text-sm font-semibold text-white">
+                            <div className="mt-8">
+                                <span className="text-sm text-white/70">
                                     Effective Date: January 2026
                                 </span>
                             </div>
@@ -228,27 +205,24 @@ export default function TermsOfUse() {
                 </section>
 
                 {/* CONTENT (light, brand accents) */}
-                <section className="relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-white">
+                <section className="bg-white">
 
-                    <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
+                    <div className="mk-frame grid gap-12 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-[var(--mk-split-gap)] lg:py-24">
                         {/* Notice */}
-                        <div className="mb-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
-                            <div className="p-8 sm:p-10">
+                        <div className="border-t-2 border-mk-navy pt-6 lg:sticky lg:top-28 lg:row-span-2 lg:self-start">
+                            <div>
                                 <div className="flex items-start gap-4">
-                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
-                                        <AlertTriangle className="h-6 w-6 text-white" />
-                                    </div>
                                     <div>
-                                        <h2 className="mb-2 text-xl font-semibold leading-tight text-mk-navy">
+                                        <h2 className="mb-3 text-2xl font-medium leading-snug text-mk-navy">
                                             Important Notice
                                         </h2>
-                                        <p className="leading-relaxed text-slate-700">
+                                        <p className="leading-relaxed text-mk-muted">
                                             By accessing or using this website, you acknowledge that you have
                                             read, understood, and agree to be bound by these Terms of Use and
                                             our Privacy Policy. If you do not agree to these terms, please
                                             discontinue use of this website immediately.
                                         </p>
-                                        <p className="mt-4 leading-relaxed text-slate-700">
+                                        <p className="mt-4 leading-relaxed text-mk-muted">
                                             The Fraud Readiness Assessment and the Snapshot, Essential and
                                             Comprehensive outputs prepared from it are governed by the{" "}
                                             <Link
@@ -265,43 +239,39 @@ export default function TermsOfUse() {
                         </div>
 
                         {/* Accordion */}
-                        <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
-                            <div className="border-b border-slate-200 bg-slate-50/60 px-7 py-6">
-                                <p className="text-sm font-semibold uppercase tracking-wide text-mk-accent">
+                        <div className="lg:col-start-2">
+                            <div className="border-b border-mk-line pb-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">
                                     Terms sections
                                 </p>
                                 <p className="mt-1 text-sm text-slate-600">Tap a section to expand.</p>
                             </div>
 
-                            <Accordion type="single" collapsible className="p-3 sm:p-4">
+                            <Accordion type="single" collapsible>
                                 {sections.map((section) => {
-                                    const Icon = section.icon;
                                     return (
                                         <AccordionItem
                                             key={section.id}
                                             value={section.id}
-                                            className="mb-3 overflow-hidden rounded-brand border border-slate-200 bg-white last:mb-0"
+                                            className="border-b border-mk-line"
                                         >
-                                            <AccordionTrigger className="px-5 py-5 text-left no-underline hover:no-underline">
+                                            <AccordionTrigger className="py-5 text-left no-underline hover:no-underline">
                                                 <div className="flex w-full items-center gap-4">
-                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-accent shadow-soft">
-                                                        <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
-                                                    </div>
                                                     <span className="text-base font-semibold text-mk-navy sm:text-lg">
                                                         {section.title}
                                                     </span>
                                                 </div>
                                             </AccordionTrigger>
 
-                                            <AccordionContent className="px-5 pb-6">
-                                                <div className="rounded-brand border border-slate-200 bg-slate-50/60 p-5">
+                                            <AccordionContent className="pb-8">
+                                                <div className="mk-measure">
                                                     <div className="space-y-6">
                                                         {section.content.map((item, idx) => (
                                                             <div key={idx}>
                                                                 <h4 className="mb-2 text-base font-semibold leading-tight text-mk-navy">
                                                                     {item.subtitle}
                                                                 </h4>
-                                                                <p className="leading-relaxed text-slate-700">
+                                                                <p className="leading-relaxed text-mk-muted">
                                                                     {item.text}
                                                                 </p>
                                                             </div>
@@ -316,15 +286,14 @@ export default function TermsOfUse() {
                         </div>
 
                         {/* Contact */}
-                        <div className="mt-10 overflow-hidden rounded-brand border-2 border-slate-200 bg-white p-8 shadow-soft lg:p-12">
-                            <div className="rounded-brand border-2 border-mk-accent/15 bg-mk-accent/5 p-6 sm:p-8">
+                        <div className="border-t border-mk-line pt-8 lg:col-start-2">
+                            <div className="mt-2 border-l-2 border-mk-sage pl-6">
                                 <div className="flex items-start gap-4">
-                                    <Mail className="h-6 w-6 flex-shrink-0 text-mk-accent" />
                                     <div>
                                         <p className="mb-2 font-semibold text-mk-navy">
                                             Questions About These Terms?
                                         </p>
-                                        <p className="mb-4 text-sm leading-relaxed text-slate-700">
+                                        <p className="mb-4 text-sm leading-relaxed text-mk-muted">
                                             If you have any questions or concerns about these Terms of Use,
                                             please contact us:
                                         </p>
@@ -332,7 +301,6 @@ export default function TermsOfUse() {
                                             href="mailto:hello@mkfraud.co.za"
                                             className="inline-flex items-center gap-2 rounded-brand bg-mk-navy px-5 py-3 font-semibold text-white transition-all hover:opacity-95"
                                         >
-                                            <Mail className="h-4 w-4" />
                                             hello@mkfraud.co.za
                                         </a>
                                         <p className="mt-3 text-xs text-slate-600">

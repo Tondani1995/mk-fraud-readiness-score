@@ -28,7 +28,7 @@ export default function About() {
     <Wrapper>
       <main className="bg-white">
         <section className="bg-mk-navy text-white" aria-labelledby="about-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-24">
+          <div className="mk-frame pb-12 pt-10 sm:pb-16 sm:pt-14 lg:py-24">
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">About MK Fraud Insights</p>
             <h1 id="about-heading" className="mt-4 max-w-[18ch] text-[2.1rem] font-semibold leading-[1.08] tracking-normal sm:text-5xl lg:text-[3.5rem]">
               Specialist fraud risk advice for organisations beyond the banks.
@@ -40,7 +40,7 @@ export default function About() {
         </section>
 
         <section className="bg-white" aria-labelledby="about-origin-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="mk-frame grid gap-8 py-14 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:py-24">
             <div>
               <Eyebrow>Why MK exists</Eyebrow>
               <h2 id="about-origin-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
@@ -66,7 +66,7 @@ export default function About() {
         </section>
 
         <section className="border-t border-slate-200 bg-mk-paper" aria-labelledby="about-how-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+          <div className="mk-frame py-14 sm:py-20 lg:py-24">
             <Eyebrow>How we work</Eyebrow>
             <h2 id="about-how-heading" className="mt-4 max-w-2xl text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
               Three commitments that shape every engagement.
@@ -83,7 +83,7 @@ export default function About() {
         </section>
 
         <section className="border-t border-slate-200 bg-white" aria-labelledby="about-scope-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="mk-frame grid gap-8 py-14 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:py-24">
             <div>
               <Eyebrow>Scope and independence</Eyebrow>
               <h2 id="about-scope-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
@@ -100,7 +100,7 @@ export default function About() {
             </ul>
           </div>
 
-          <div className="mx-auto w-full max-w-7xl px-5 pb-14 sm:px-6 sm:pb-20 lg:px-8">
+          <div className="mk-frame pb-14 sm:pb-20">
             <div className="rounded-panel bg-mk-navy px-4 py-8 text-white min-[360px]:px-5 sm:px-10 sm:py-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-12">
               <div className="max-w-xl">
                 <h2 className="text-2xl font-semibold leading-tight tracking-normal sm:text-3xl">Talk to MK about your organisation.</h2>

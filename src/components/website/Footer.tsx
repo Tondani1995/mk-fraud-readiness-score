@@ -35,7 +35,7 @@ export default function Footer() {
 
   return (
     <footer className="clarity-footer bg-mk-navy text-white">
-      <div className="mx-auto max-w-7xl px-5 pb-8 pt-14 sm:px-6 lg:px-8 lg:pt-20">
+      <div className="mk-frame pb-8 pt-14 lg:pt-20">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] lg:gap-12">
           <div className="max-w-sm">
             <Link href="/" aria-label="MK Fraud Insights home" className="inline-flex rounded-brand bg-white p-2.5">
