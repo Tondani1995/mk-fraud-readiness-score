@@ -110,3 +110,8 @@ export async function stalledNotificationsFrom(): Promise<Date | null> {
   const value = await rpc<string | null>('review_stalled_notifications_from', {});
   return value ? new Date(value) : null;
 }
+
+/** First accepted public campaign identity, kept only in the server-side review store. */
+export async function recordReviewCampaign(sessionId: string, content: string): Promise<boolean> {
+  return rpc<boolean>('review_record_campaign_attribution', { p_session_id: sessionId, p_content: content });
+}

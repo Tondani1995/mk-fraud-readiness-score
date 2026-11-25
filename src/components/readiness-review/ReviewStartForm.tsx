@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { consentedReviewCampaignContent } from '@/lib/website/assessment-entry-campaign';
 
 /** Fictional confirmation in every test environment; organisation name and terms acceptance for a real organisation. */
 export function ReviewStartForm({ production = false }: { production?: boolean } = {}) {
@@ -22,10 +23,14 @@ export function ReviewStartForm({ production = false }: { production?: boolean }
         }
         setBusy(true);
         try {
+          let campaignContent: string | null = null;
+          if (production) {
+            try { campaignContent = consentedReviewCampaignContent(window.location.search, window.localStorage); } catch { /* consent/storage unavailable */ }
+          }
           const res = await fetch('/review/api/sessions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(production ? { organisationLabel: label, termsAccepted: true, contact } : { organisationLabel: label, fictionalConfirmed: true })
+            body: JSON.stringify(production ? { organisationLabel: label, termsAccepted: true, contact, ...(campaignContent ? { campaignContent } : {}) } : { organisationLabel: label, fictionalConfirmed: true })
           });
           const json = await res.json();
           if (!res.ok) throw new Error(json.message ?? 'The session could not be created.');

@@ -5,8 +5,9 @@ import { reviewCustomerExperience, reviewHarnessStatus } from '@/lib/readiness-r
 import { isAuthorisedSyntheticMonitorRequest } from '@/lib/monitoring/signatures';
 import { recordProductionMonitorEvent } from '@/lib/monitoring/production-monitor';
 import { safeErrorCategory } from '@/lib/monitoring/privacy';
-import { contactsAvailable, recordContact, validateContact } from '@/lib/readiness-review/contacts';
+import { contactsAvailable, recordContact, validateContact, recordReviewCampaign } from '@/lib/readiness-review/contacts';
 import { sendReviewNotice } from '@/lib/readiness-review/review-notifications';
+import { reviewCampaignContent } from '@/lib/website/assessment-entry-campaign';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,11 @@ export async function POST(request: Request) {
     if (contact && contactsAvailable()) {
       try {
         await recordContact(created.sessionId, contact);
+        const campaign = reviewCampaignContent(body?.campaignContent);
+        if (campaign && reviewHarnessStatus().reason === 'production') {
+          try { await recordReviewCampaign(created.sessionId, campaign); }
+          catch { console.warn('review_campaign_attribution_write_failed'); }
+        }
         await sendReviewNotice(created.sessionId, { kind: 'started', organisationLabel: String(body?.organisationLabel ?? '').replace(/\s+/g, ' ').trim().slice(0, 80), contact, answersRecorded: 0 });
       } catch (error) {
         // The review itself is stored; a contact or notification failure must not stop the respondent from starting.

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { reviewCampaignEntry } from '../src/lib/website/assessment-entry-campaign.ts';
+import { reviewCampaignEntry, consentedReviewCampaignContent } from '../src/lib/website/assessment-entry-campaign.ts';
 
 const tags={utm_source:'x',utm_medium:'organic_social',utm_campaign:'fraud_readiness_100d',utm_content:'fr0001'};
 let checked=0;
@@ -18,3 +18,18 @@ assert.deepEqual(Object.fromEntries(new URL(reviewCampaignEntry(hostile),'https:
 assert.equal(reviewCampaignEntry({...tags,utm_source:'https://elsewhere.invalid'}),'/review');checked++;
 console.log(`PASS: ${checked} campaign redirect cases; all 2,400 identities preserved; private and unknown fields excluded.`);
 console.log('Scope: URL transport only. Consent, private review analytics exclusion, scoring and customer records are unchanged. Completion attribution is not established by this fix.');
+
+const now=Date.now();
+const memory=new Map([['mk_fraud_cookie_consent','accepted']]);
+const storage={getItem:key=>memory.get(key)??null};
+const query='?'+new URLSearchParams(tags).toString();
+assert.equal(consentedReviewCampaignContent(query,storage,now),'fr0001');
+memory.set('mk_fraud_cookie_consent','declined');
+assert.equal(consentedReviewCampaignContent(query,storage,now),null);
+memory.set('mk_fraud_cookie_consent','accepted');
+assert.equal(consentedReviewCampaignContent(query+'&utm_content=fr0002',storage,now),null);
+memory.set('mk_fraud_acquisition_context',JSON.stringify({...tags,expires_at:new Date(now+1000).toISOString()}));
+assert.equal(consentedReviewCampaignContent('',storage,now),'fr0001');
+assert.equal(consentedReviewCampaignContent('',storage,now+1001),null);
+assert.equal(consentedReviewCampaignContent('?utm_source=unrecognised',storage,now),null);
+console.log('PASS: consent and expiry gate first-party campaign measurement; duplicate and unrecognised tags rejected.');

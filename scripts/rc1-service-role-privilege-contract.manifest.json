@@ -1961,6 +1961,16 @@
       ],
       "classification": "REVISED REVIEW STORE; production EXECUTE service_role only (anon=false, authenticated=false)",
       "justification": "Purges one session on request."
+    },
+    {
+      "signature": "public.review_record_campaign_attribution(text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/readiness-review/contacts.ts:55 (dynamic wrapper)"
+      ],
+      "classification": "REVISED REVIEW FIRST-PARTY CAMPAIGN ATTRIBUTION; service-role only",
+      "justification": "Records the exact commissioned non-PII content ID once on a real session contact, only from the consent-gated public start. No private links, answers or ad click identifiers."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -2104,7 +2114,8 @@
       "review_mark_session_completed",
       "review_record_contact_notified",
       "review_completions_pending_notification",
-      "review_stalled_notifications_from"
+      "review_stalled_notifications_from",
+      "review_record_campaign_attribution"
     ]
   },
   "analysis": {

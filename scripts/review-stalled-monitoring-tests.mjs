@@ -288,6 +288,15 @@ try {
   const allMetadata = (await db.query(`select metadata_json from public.email_events where notification_type like 'review_%'`)).rows.map((x) => JSON.stringify(x.metadata_json)).join(' ');
   check('C2', !/respondent@example\.com|Test Respondent|Q1|Q2/.test(allMetadata), 'email_events metadata holds no respondent contact details or answers');
 
+  // ---- first-party conversion attribution (only exact commissioned campaign IDs) --------------------------------
+  const recordCampaign = async (session, content) => (await db.query('select public.review_record_campaign_attribution($1,$2) as ok', [session,content])).rows[0].ok;
+  check('A1', await recordCampaign(G, 'fr0001'), 'real completed session accepts the exact campaign ID');
+  check('A2', !(await recordCampaign(G, 'fr0002')) && (await contactRow(G)).acquisition_campaign_content === 'fr0001', 'first attribution is immutable');
+  check('A3', !(await recordCampaign(S, 'fr2400')) && !(await recordCampaign(B2, 'fr2401')) && !(await recordCampaign(B2, 'private@example.com')), 'fictional, invalid and private values are rejected');
+  check('A4', await recordCampaign(B, 'fr2400') && Boolean((await contactRow(B)).completed_at), 'campaign identity can be measured against durable respondent completion');
+  const grants = (await db.query("select has_function_privilege('anon','public.review_record_campaign_attribution(text,text)','EXECUTE') as anon, has_function_privilege('authenticated','public.review_record_campaign_attribution(text,text)','EXECUTE') as auth, has_function_privilege('service_role','public.review_record_campaign_attribution(text,text)','EXECUTE') as service")).rows[0];
+  check('A5', !grants.anon && !grants.auth && grants.service, 'campaign writes are service-role only');
+
   console.log(JSON.stringify({ status: 'PASS', checks: results.length, migrationsReplayed: env.migrationCount, providerSends: sent.length }, null, 2));
 } catch (error) {
   failure = error;
