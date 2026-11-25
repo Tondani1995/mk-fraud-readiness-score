@@ -112,8 +112,11 @@ assert(exists(statusRoute), 'Admin order status route must exist.');
 assertIncludes(adminList, 'Order queue', 'Admin order list shows queue');
 assertIncludes(adminList, "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
 assertIncludes(adminDetail, "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
-assertIncludes(adminDetail, 'Phase 14 automation remains disabled', 'Admin detail preserves the disabled automation boundary');
-assertIncludes(adminDetail, 'deterministic Phase 1 fulfilment', 'Admin copy explains the controlled fulfilment boundary');
+// The "Phase 14 automation remains disabled" and "deterministic Phase 1 fulfilment" wording was removed
+// from this page on 4 Sep 2026 (131fe8d3, unified fulfilment). The test follows the page: it now pins
+// the copy that states the same boundary to operators, MK-controlled preparation and manual delivery.
+assertIncludes(adminDetail, 'MK-controlled report preparation, secure file access and manual customer delivery.', 'Admin detail states the MK-controlled manual fulfilment boundary');
+assertIncludes(adminDetail, 'customer delivery is then completed and recorded by an MK operator', 'Admin copy explains the controlled fulfilment boundary');
 assertIncludes(statusRoute, 'canManageFinance', 'Status update is finance/admin guarded');
 assertIncludes(statusRoute, 'updateAdminOrderStatus', 'Status route uses order service');
 assertNotIncludes(statusRoute, 'getPremiumReportAutomationFlags', 'Payment status changes do not inspect autonomous fulfilment flags');
