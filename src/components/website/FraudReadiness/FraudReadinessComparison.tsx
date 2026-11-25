@@ -16,7 +16,7 @@ const COLUMNS = [
  */
 export function FraudReadinessComparison() {
   return (
-    <section aria-labelledby="fraud-readiness-comparison-heading" className="mx-auto max-w-7xl px-6 lg:px-8">
+    <section aria-labelledby="fraud-readiness-comparison-heading" className="mk-frame">
       <div className="max-w-2xl">
         <h2
           id="fraud-readiness-comparison-heading"

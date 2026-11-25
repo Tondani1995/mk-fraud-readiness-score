@@ -1,0 +1,615 @@
+/*
+ * The management view. Geometry is expressed as fractions of the lane width (--x, --t, --r,
+ * --bracket) and resolved with container query units, so the drawing is fluid at every width while
+ * text never scales. State changes move elements with transform and opacity only.
+ */
+.view {
+  --row: 50px;
+  --top: 30px;
+  --line: 22px;
+  --len: 1;
+  --len-snap: 0.4;
+  --bracket: 0.48;
+  --ease: cubic-bezier(0.22, 0.61, 0.24, 1);
+  --sage: var(--mk-sage);
+  --slate: #475569;
+  --faint: #94a3b8;
+  margin: 0;
+  min-width: 0;
+  color: var(--mk-navy);
+}
+@media (min-width: 640px) {
+  .view {
+    --row: 62px;
+    --len-snap: 0.5;
+    --bracket: 0.58;
+  }
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+/* Navigation: typography first, one sage indicator that travels between perspectives. */
+.tabs {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  border-bottom: 1px solid var(--mk-line);
+}
+@media (min-width: 480px) {
+  .tabs {
+    justify-content: flex-start;
+    gap: clamp(24px, 3.2vw, 40px);
+  }
+}
+.tab {
+  position: relative;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--slate);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+@media (min-width: 380px) {
+  .tab {
+    font-size: 14px;
+  }
+}
+@media (min-width: 1280px) {
+  .tab {
+    font-size: 15px;
+  }
+}
+.tab[aria-selected="true"] {
+  color: var(--mk-navy);
+  font-weight: 600;
+}
+.tab:hover {
+  color: var(--mk-navy);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--mk-navy);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Reserve the semibold width so the active tab never nudges its neighbours. */
+.tab [data-label]::after {
+  content: attr(data-text);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 600;
+}
+.indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 1px;
+  height: 2px;
+  background: var(--sage);
+  transform-origin: left center;
+  transform: translateX(var(--ix, 0)) scaleX(var(--iw, 0));
+  transition: transform 460ms var(--ease), opacity 200ms ease;
+}
+
+.panel {
+  margin-top: 22px;
+}
+
+/* Stage */
+.stage {
+  position: relative;
+  height: calc(var(--top) + 5 * var(--row));
+}
+.lanes {
+  position: absolute;
+  inset: var(--top) 0 auto 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lane {
+  position: relative;
+  height: var(--row);
+  container-type: inline-size;
+  transition: opacity 260ms ease;
+}
+.view[data-state="3"] .lane {
+  --len: var(--len-snap);
+}
+.view[data-drawn="false"] .lane {
+  --len: 0;
+}
+.process {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding-right: 8px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .process {
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+  }
+}
+.track {
+  position: absolute;
+  top: var(--line);
+  left: 0;
+  right: 0;
+  height: 0;
+  transition: opacity 420ms ease;
+}
+.view[data-drawn="false"] .track {
+  opacity: 0;
+}
+.rule {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--mk-navy);
+  transform-origin: left center;
+  transform: scaleX(var(--len));
+  transition: transform 760ms var(--ease) calc(var(--i) * 55ms);
+}
+.tick {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  width: 1px;
+  height: 9px;
+  background: var(--mk-navy);
+  opacity: 0.28;
+  transform: translateX(calc(var(--t) * var(--len) * 100cqw));
+  transition:
+    transform 760ms var(--ease) calc(var(--i) * 55ms),
+    opacity 360ms ease calc(var(--k) * 40ms),
+    height 360ms var(--ease);
+}
+.view[data-state="1"] .tick {
+  opacity: 1;
+  top: -5px;
+  height: 11px;
+}
+.view[data-state="3"] .tick {
+  opacity: 0.55;
+}
+.node,
+.ring {
+  position: absolute;
+  left: 0;
+  border-radius: 50%;
+  transition:
+    transform 760ms var(--ease) calc(var(--i) * 55ms),
+    opacity 320ms ease;
+}
+.node {
+  top: -4.5px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  background: var(--mk-navy);
+  transform: translateX(calc(var(--x) * var(--len) * 100cqw));
+}
+.ring {
+  top: -10.5px;
+  width: 21px;
+  height: 21px;
+  margin-left: -10.5px;
+  border: 1.5px solid var(--mk-navy);
+  background: #fff;
+  opacity: 0;
+  transform: translateX(calc(var(--x) * var(--len) * 100cqw)) scale(0.4);
+}
+.view[data-state="1"] .ring {
+  opacity: 1;
+  transform: translateX(calc(var(--x) * var(--len) * 100cqw)) scale(1);
+  transition-delay: calc(120ms + var(--i) * 70ms);
+}
+.view[data-state="1"] .node {
+  transform: translateX(calc(var(--x) * var(--len) * 100cqw)) scale(0.78);
+}
+.view[data-state="2"] .node {
+  opacity: 0;
+}
+.dash {
+  position: absolute;
+  top: 0;
+  left: calc(var(--len-snap) * 100%);
+  width: calc((var(--bracket) - var(--len-snap)) * 100%);
+  border-top: 1px dashed var(--faint);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 520ms var(--ease);
+}
+.view[data-state="3"] .dash {
+  clip-path: inset(0 0 0 0);
+  transition-delay: calc(380ms + var(--i) * 60ms);
+}
+
+/* Point labels: the decision in Exposure, the control context in Controls. */
+.point {
+  position: absolute;
+  top: calc(var(--line) + 9px);
+  left: 0;
+  display: grid;
+  font-size: 12.5px;
+  line-height: 16px;
+  color: var(--mk-accent);
+  white-space: nowrap;
+  transform: translateX(calc(var(--x) * 100cqw + var(--nudge))) translateX(var(--anchor));
+}
+@media (min-width: 640px) {
+  .point {
+    font-size: 13px;
+  }
+}
+.decision,
+.control {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(3px);
+  transition:
+    opacity 300ms ease,
+    transform 420ms var(--ease),
+    visibility 0s linear 300ms;
+}
+.view[data-state="0"] .decision,
+.view[data-state="1"] .control {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: calc(140ms + var(--i) * 50ms), calc(140ms + var(--i) * 50ms), 0s;
+}
+.view[data-state="1"] .control {
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .view[data-state="0"] .lanes:has(.lane:hover) .lane:not(:hover),
+  .view[data-state="1"] .lanes:has(.lane:hover) .lane:not(:hover) {
+    opacity: 0.3;
+  }
+}
+
+/* MK support: four capability rules cross every lane. Equal weight, no order marks, no arrows. */
+.rules {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.capability {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--r) * 100%);
+  width: 0;
+}
+.capabilityLink {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  padding: 2px 4px;
+  transform: translate(-50%, 4px);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  border-radius: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 320ms ease,
+    transform 420ms var(--ease),
+    visibility 0s linear 320ms;
+}
+@media (min-width: 640px) {
+  .capabilityLink {
+    font-size: 13.5px;
+  }
+}
+.view[data-state="2"] .capabilityLink {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: calc(var(--j) * 70ms), calc(var(--j) * 70ms), 0s;
+}
+.capabilityLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--sage);
+  text-decoration-thickness: 2px;
+}
+.capabilityLink:focus-visible {
+  outline: 2px solid var(--mk-navy);
+  outline-offset: 2px;
+}
+.capabilityRule {
+  position: absolute;
+  top: calc(var(--top) - 6px);
+  bottom: calc(var(--row) - var(--line) - 6px);
+  left: -0.75px;
+  width: 1.5px;
+  background: var(--sage);
+  transform-origin: top center;
+  transform: scaleY(0);
+  transition: transform 640ms var(--ease);
+}
+.view[data-state="2"] .capabilityRule {
+  transform: scaleY(1);
+  transition-delay: calc(80ms + var(--j) * 70ms);
+}
+.crossing {
+  position: absolute;
+  top: calc(var(--top) + var(--li) * var(--row) + var(--line) - 3.5px);
+  left: -3.5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sage);
+  transform: scale(0);
+  transition: transform 360ms var(--ease);
+}
+.view[data-state="2"] .crossing {
+  transform: scale(1);
+  transition-delay: calc(260ms + var(--j) * 70ms + var(--li) * 45ms);
+}
+
+/* Snapshot: the lanes contract and are gathered by one sage bracket into a single view. */
+.bracket {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--top) + var(--line) - 14px);
+  left: calc(var(--bracket) * 100%);
+  width: 2px;
+  height: calc(4 * var(--row) + 14px);
+  background: var(--sage);
+  transform-origin: top center;
+  transform: scaleY(0);
+  transition: transform 560ms var(--ease);
+}
+.bracket::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 2px;
+  background: var(--sage);
+}
+.view[data-state="3"] .bracket {
+  transform: scaleY(1);
+  transition-delay: 520ms;
+}
+.readout {
+  position: absolute;
+  z-index: 2;
+  top: var(--top);
+  left: calc(var(--bracket) * 100% + clamp(22px, 2.6vw, 36px));
+  right: 0;
+  visibility: hidden;
+  transition: visibility 0s linear 300ms;
+}
+.view[data-state="3"] .readout {
+  visibility: visible;
+  transition-delay: 0s;
+}
+.readoutLabel,
+.readoutItem,
+.readoutNote {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 300ms ease,
+    transform 480ms var(--ease);
+}
+.view[data-state="3"] .readoutLabel,
+.view[data-state="3"] .readoutItem,
+.view[data-state="3"] .readoutNote {
+  opacity: 1;
+  transform: none;
+}
+.view[data-state="3"] .readoutLabel {
+  transition-delay: 640ms;
+}
+.view[data-state="3"] .readoutItem {
+  transition-delay: calc(720ms + var(--j) * 90ms);
+}
+.view[data-state="3"] .readoutNote {
+  transition-delay: 900ms;
+}
+.readoutLabel {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+.readout dl {
+  margin: 10px 0 0;
+}
+.readoutItem + .readoutItem {
+  margin-top: 14px;
+}
+.figure {
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 500;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.readoutItem dd {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--mk-accent);
+}
+.readoutNote {
+  display: none;
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--mk-line);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.readoutNote span {
+  display: block;
+  color: var(--slate);
+}
+.readoutNote strong {
+  display: block;
+  margin-top: 2px;
+  font-weight: 600;
+}
+@media (min-width: 480px) {
+  .readoutNote {
+    display: block;
+  }
+}
+
+/* Captions share one grid cell, so the panel height never changes between perspectives. */
+.captions {
+  display: grid;
+  margin-top: 16px;
+}
+@media (min-width: 640px) {
+  .captions {
+    margin-top: 20px;
+  }
+}
+.caption {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 280ms ease,
+    visibility 0s linear 280ms;
+}
+.view[data-state="0"] .caption[data-for="0"],
+.view[data-state="1"] .caption[data-for="1"],
+.view[data-state="2"] .caption[data-for="2"],
+.view[data-state="3"] .caption[data-for="3"] {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 120ms, 0s;
+}
+/* Beside the narrative the view has nothing below it, so the caption can take its natural height. */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .captions {
+    display: block;
+  }
+  .caption {
+    display: none;
+  }
+  .view[data-state="0"] .caption[data-for="0"],
+  .view[data-state="1"] .caption[data-for="1"],
+  .view[data-state="2"] .caption[data-for="2"],
+  .view[data-state="3"] .caption[data-for="3"] {
+    display: block;
+    animation: caption-in 320ms ease both;
+  }
+}
+@keyframes caption-in {
+  from {
+    opacity: 0;
+  }
+}
+.caption p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--slate);
+}
+@media (min-width: 640px) {
+  .caption p {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+}
+.questions {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .questions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 32px;
+    margin: 14px 0 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .questions dt {
+    font-weight: 600;
+  }
+  .questions dd {
+    margin: 0;
+    color: var(--slate);
+  }
+}
+.captionLink {
+  display: inline-block;
+  margin-top: 8px;
+  padding-block: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  text-decoration-color: var(--sage);
+  text-decoration-thickness: 2px;
+}
+.captionLink:focus-visible {
+  outline: 2px solid var(--mk-navy);
+  outline-offset: 2px;
+}
+.figcaption {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mk-line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--slate);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view *,
+  .view *::before {
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+  }
+}

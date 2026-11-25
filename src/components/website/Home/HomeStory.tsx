@@ -1,38 +1,21 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CAPABILITIES } from "@/lib/website/capabilities";
 import { CtaLink } from "@/components/website/primitives/CtaLink";
 import { SnapshotPreview } from "@/components/website/SnapshotPreview";
 import { readinessTrack } from "@/lib/website/readiness-track";
-import { REVIEW_JOURNEY, REVIEW_PREVIEW_CAPTION } from "@/lib/website/review-track-copy";
+import { REVIEW_JOURNEY } from "@/lib/website/review-track-copy";
+import { MkMark } from "@/components/website/marks/MkMark";
+import { ManagementView } from "./ManagementView";
 import styles from "./HomeStory.module.css";
-import motion from "@/components/ui/motion.module.css";
 
-const views = ["Exposure", "Controls", "MK support", "Snapshot"];
-const anchors = [
-  "home-hero-heading",
-  "home-problem-heading",
-  "home-capabilities-heading",
-  "home-fraud-readiness-heading",
-];
-const lanes = [
-  ["Finance", "Payment approvals"],
-  ["People", "Access & authority"],
-  ["Procurement", "Supplier checks"],
-  ["Digital channels", "Identity & onboarding"],
-  ["Governance", "Ownership & oversight"],
-];
-const captions = [
-  "Fraud-relevant decisions sit across the organisation. Familiar processes are a starting point for examining their control context.",
-  "Each process is paired with an example control context. Management can examine what is covered, what is evidenced and what falls between teams.",
-  "Assess, Build, Enable and Monitor are independent points of entry. The management question determines the support required.",
-  "A private Snapshot presents the recorded readiness position, findings and management priorities. The values shown here are illustrative.",
-];
 const reviewTrack = readinessTrack() === "review";
-if (reviewTrack) captions[3] = REVIEW_PREVIEW_CAPTION;
 
-/** Server-readable narrative, enhanced by a single optional sticky conceptual companion. */
+/**
+ * Server-readable narrative with one sticky management view beside it on desktop. On smaller
+ * screens the view follows the opening so the visitor meets it before the detail.
+ */
 export function HomeStory({
   composition = "story",
 }: {
@@ -40,15 +23,15 @@ export function HomeStory({
 }) {
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
-  const panelId = useId();
   useEffect(() => {
     if (composition !== "story") return;
-    const desktop = window.matchMedia("(min-width:1100px) and (min-height:800px)");
+    // Scroll follows the narrative only where the view is sticky beside it.
+    const sticky = window.matchMedia("(min-width:1024px) and (min-height:640px)");
     const headings = [...(root.current?.querySelectorAll<HTMLElement>("[data-story-heading]") ?? [])];
     let frame = 0;
     const update = () => {
       frame = 0;
-      if (!desktop.matches) return;
+      if (!sticky.matches) return;
       let next = 0;
       headings.forEach((heading, index) => {
         if (heading.getBoundingClientRect().top <= window.innerHeight * 0.4) next = index;
@@ -65,104 +48,7 @@ export function HomeStory({
       window.removeEventListener("resize", schedule);
     };
   }, [composition]);
-  const panel = (
-    <figure
-      className="m-0 min-w-0 rounded-panel border border-mk-navy bg-mk-navy p-5 text-white sm:p-6"
-      aria-label="Illustration of MK's approach to fraud risk"
-      data-story-active={active}
-    >
-      <div className="flex flex-wrap justify-between gap-2 border-b border-white/25 pb-4 text-xs">
-        <span className="font-semibold uppercase tracking-[.12em]">
-          The management view
-        </span>
-        <span className="text-white/80">MK / Fraud Readiness</span>
-      </div>
-      <div
-        className="my-4 grid grid-cols-4 gap-2"
-        role="group"
-        aria-label="Explore the MK method"
-      >
-        {views.map((view, index) => (
-          <button
-            key={view}
-            type="button"
-            aria-pressed={active === index}
-            aria-controls={panelId}
-            onClick={() => setActive(index)}
-            className={`min-h-11 rounded-brand border px-2 py-2 text-xs font-medium transition-colors duration-150 focus-visible:!outline-white ${active === index ? "border-white bg-white text-mk-navy" : "border-white/35 text-white hover:bg-white/10"}`}
-          >
-            {view}
-          </button>
-        ))}
-      </div>
-      <div id={panelId} key={active} className={motion.arrive}>
-        {active < 2 ? (
-          <>
-            <div className="mb-2 grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1.1fr)] text-xs text-white/80">
-              <span>Process</span>
-              <span />
-              <span>Control context</span>
-            </div>
-            <ul
-              className="space-y-2"
-              aria-label="Illustrative processes and control contexts"
-            >
-              {lanes.map(([process, control]) => (
-                <li
-                  key={process}
-                  className="grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1.1fr)] items-stretch text-[13px] leading-relaxed"
-                >
-                  <span
-                    className={`flex items-center rounded-[14px] border px-3 py-2.5 ${active === 0 ? "border-white/65 bg-white/10" : "border-white/25"}`}
-                  >
-                    {process}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="relative flex items-center"
-                  >
-                    <i className="h-px w-full bg-white/50" />
-                    <i className="absolute left-1/2 h-2 w-2 -translate-x-1/2 rounded-sm bg-white" />
-                  </span>
-                  <span
-                    className={`flex items-center rounded-[14px] border px-3 py-2.5 ${active === 1 ? "border-white/65 bg-white/10" : "border-white/25"}`}
-                  >
-                    {control}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : active === 2 ? (
-          <ul className="grid gap-2" aria-label="MK capabilities">
-            {CAPABILITIES.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/services#${c.id}`}
-                  className="grid grid-cols-[80px_1fr_auto] items-start gap-3 rounded-brand border border-white/30 px-3 py-3 text-sm transition-colors hover:bg-white/10 focus-visible:!outline-white"
-                >
-                  <b className="font-semibold">{c.name}</b>
-                  <span className="text-xs leading-relaxed text-white/90">
-                    {c.question}
-                  </span>
-                  <span aria-hidden="true">↗</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <SnapshotPreview story />
-        )}
-        {active !== 3 && <p className="mt-4 text-sm leading-relaxed text-white/90">
-          {captions[active]}
-        </p>}
-      </div>
-      <figcaption className="mt-4 border-t border-white/25 pt-3 text-xs leading-relaxed text-white/80">
-        Method illustration using example processes and controls. This is not an
-        assessment result.
-      </figcaption>
-    </figure>
-  );
+  const panel = <ManagementView active={active} onSelect={setActive} />;
   const opening = (
     <section
       className={styles.storySection}
@@ -174,11 +60,11 @@ export function HomeStory({
       <h1
         id="home-hero-heading"
         data-story-heading
-        className="mt-5 max-w-[24ch] text-[34px] font-medium leading-[1.2] tracking-normal text-mk-navy sm:text-[46px] 2xl:text-[52px]"
+        className="mk-display mt-5 max-w-[17ch] font-medium text-mk-navy"
       >
         Turn fraud readiness into a management decision.
       </h1>
-      <p className="mt-5 max-w-[65ch] text-base leading-relaxed text-mk-muted sm:text-lg">
+      <p className="mk-measure mt-6 text-base leading-relaxed text-mk-muted sm:text-lg">
         We help South African organisations understand where their fraud
         exposure sits, whether existing controls genuinely cover it, and what
         management should address first.
@@ -217,7 +103,7 @@ export function HomeStory({
       <h2
         id="home-problem-heading"
         data-story-heading
-        className="mt-3 max-w-[27ch] text-[28px] font-medium leading-snug text-mk-navy sm:text-[34px]"
+        className="mk-heading mt-3 max-w-[22ch] font-medium text-mk-navy"
       >
         Controls are not the same as readiness.
       </h2>
@@ -246,26 +132,23 @@ export function HomeStory({
       <h2
         id="home-capabilities-heading"
         data-story-heading
-        className="mt-3 text-[28px] font-medium leading-snug text-mk-navy sm:text-[34px]"
+        className="mk-heading mt-3 max-w-[24ch] font-medium text-mk-navy"
       >
         Four points of entry, each starting from a management question.
       </h2>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+      <ul className="mt-6 grid gap-x-10 sm:grid-cols-2">
         {CAPABILITIES.map((c) => (
-          <li key={c.id}>
+          <li key={c.id} className="border-t border-mk-line">
             <Link
               href={`/services#${c.id}`}
-              className="group block h-full rounded-brand border border-mk-line p-4 transition-colors hover:border-mk-accent hover:bg-mk-surface"
+              className="group block h-full py-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mk-navy"
             >
-              <div className="flex justify-between gap-2 text-lg font-semibold text-mk-navy">
-                <h3>{c.name}</h3>
-                <span
-                  aria-hidden="true"
-                  className="transition-transform group-hover:translate-x-1"
-                >
-                  ↗
+              <span className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-mk-navy">{c.name}</h3>
+                <span className="text-mk-accent transition-transform duration-300 group-hover:translate-x-1">
+                  <MkMark name="arrow" />
                 </span>
-              </div>
+              </span>
               <p className="mt-2 text-base leading-relaxed text-mk-muted">
                 {c.question}
               </p>
@@ -294,7 +177,7 @@ export function HomeStory({
       <h2
         id="home-fraud-readiness-heading"
         data-story-heading
-        className="mt-3 text-[28px] font-medium text-mk-navy sm:text-[34px]"
+        className="mk-heading mt-3 font-medium text-mk-navy"
       >
         Fraud Readiness
       </h2>
@@ -352,12 +235,12 @@ export function HomeStory({
   );
   if (composition === "board")
     return (
-      <div ref={root} className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+      <div ref={root} className="mk-frame py-8">
+        <div className="mk-split">
           {opening}
           {panel}
         </div>
-        <div className="mt-10 grid gap-8 lg:grid-cols-[.8fr_1.2fr]">
+        <div className="mt-10 mk-split">
           {problem}
           {capabilities}
         </div>
@@ -365,24 +248,10 @@ export function HomeStory({
       </div>
     );
   return (
-    <div
-      ref={root}
-      className={`${styles.story} mx-auto max-w-[1600px] gap-8 px-5 py-8 sm:px-8 lg:gap-10 min-[1600px]:gap-16`}
-    >
-      <div className="min-w-0">
-        {opening}
-      </div>
-      <aside
-        className={styles.companion}
-        aria-label="Conceptual management view"
-      >
-        <div className={styles.stickyCompanion}>
-          {panel}
-          <p className={`${styles.companionHint} mt-3 text-xs leading-relaxed text-mk-muted`}>
-            The companion follows the narrative. You can also explore each view
-            directly.
-          </p>
-        </div>
+    <div ref={root} className={`${styles.story} mk-frame`}>
+      <div className="min-w-0">{opening}</div>
+      <aside className={styles.companion} aria-label="Conceptual management view">
+        <div className={styles.stickyCompanion}>{panel}</div>
       </aside>
       <div className="min-w-0">{problem}</div>
       <div className="min-w-0">{capabilities}</div>

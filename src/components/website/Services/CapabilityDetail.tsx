@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from 'next/link';
 import { CtaLink } from '@/components/website/primitives/CtaLink';
 import type { Capability } from '@/lib/website/capabilities';
@@ -10,7 +10,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
       aria-labelledby={`${capability.id}-heading`}
       className={`scroll-mt-16 border-t border-slate-200 md:scroll-mt-20 ${tone === 'grey' ? 'bg-mk-paper' : 'bg-white'}`}
     >
-      <div className="mx-auto grid w-full max-w-[1600px] gap-6 px-5 py-8 sm:gap-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)] lg:gap-10 lg:px-8 lg:py-12">
+      <div className="mk-frame grid gap-6 py-8 sm:gap-8 sm:py-10 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)] lg:gap-10 lg:py-12">
         <div className="min-w-0">
           <h2 id={`${capability.id}-heading`} className="text-3xl font-semibold tracking-normal text-mk-navy sm:text-4xl">
             {capability.name}
@@ -56,7 +56,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
                 <p className="mt-1.5 text-[15px] leading-6 text-slate-600 sm:mt-2 sm:leading-7">{service.summary}</p>
                 {service.href ? (
                   <Link href={service.href} className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-accent hover:text-mk-navy">
-                    View {service.name} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                    View {service.name} <MkMark name="arrow" className="h-4 w-4" />
                   </Link>
                 ) : null}
               </article>
@@ -82,7 +82,7 @@ export default function CapabilityDetail({ capability, tone }: { capability: Cap
               {capability.relatedLinks.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-mk-accent hover:text-mk-navy">
-                    {link.label} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                    {link.label} <MkMark name="arrow" className="h-4 w-4" />
                   </Link>
                 </li>
               ))}

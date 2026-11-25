@@ -11,6 +11,8 @@
   --mk-paper: #ffffff;
   --mk-danger: #9b2c2c;
   --mk-success: #2f6b4f;
+  /* Sage: graphical accent only (rules, indicators, nodes). Never text: 1.6:1 on white. */
+  --mk-sage: #a9d4ce;
 
   color-scheme: light;
   background: #ffffff;
@@ -93,4 +95,52 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {
   .mk-site details::details-content, .mk-product details::details-content { transition: none; }
+}
+
+/*
+ * MK spatial system (25 Nov 2026).
+ *
+ * One frame aligns the navigation, every public section and the footer. It is fluid: the gutter
+ * grows with the viewport, and the frame itself widens progressively on large displays instead of
+ * stopping at a fixed 1280px. Content then chooses its own measure inside the frame:
+ *   mk-frame    wide editorial frame for heroes, compositions, grids and section rules
+ *   mk-split    asymmetric editorial grid (heading column + content column) from 1024px
+ *   mk-measure  comfortable reading width for paragraphs and long-form text
+ * Assessment, order and review interfaces keep their own focused containers.
+ */
+:root {
+  --mk-gutter: clamp(1.25rem, 0.55rem + 3.2vw, 5rem);
+  --mk-frame: clamp(72rem, 40rem + 50vw, 120rem);
+  --mk-split-gap: clamp(2.5rem, 1rem + 5vw, 8rem);
+}
+@layer components {
+  .mk-frame {
+    width: 100%;
+    max-width: calc(var(--mk-frame) + 2 * var(--mk-gutter));
+    margin-inline: auto;
+    padding-inline: var(--mk-gutter);
+  }
+  .mk-split {
+    display: grid;
+    gap: 2rem;
+  }
+  @media (min-width: 1024px) {
+    .mk-split {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      column-gap: var(--mk-split-gap);
+      align-items: start;
+    }
+  }
+  .mk-measure {
+    max-width: 68ch;
+  }
+  .mk-display {
+    font-size: clamp(2.125rem, 1.35rem + 2.5vw, 4rem);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+  }
+  .mk-heading {
+    font-size: clamp(1.75rem, 1.3rem + 1.2vw, 2.625rem);
+    line-height: 1.22;
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { MkMark } from "@/components/website/marks/MkMark";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -88,7 +89,7 @@ export default function Navbar() {
     >
       <nav
         aria-label="Primary"
-        className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6 md:h-20 lg:px-8"
+        className="mk-frame flex h-16 items-center justify-between md:h-20"
       >
         <Link
           href="/"
@@ -172,10 +173,7 @@ export default function Navbar() {
                     className="flex min-h-14 items-center justify-between py-3 text-xl font-semibold text-mk-navy"
                   >
                     {link.name}
-                    <ArrowRight
-                      aria-hidden="true"
-                      className={`h-5 w-5 ${active ? "text-mk-accent" : "text-slate-300"}`}
-                    />
+                    <MkMark name="arrow" className={`h-5 w-5 ${active ? "text-mk-accent" : "text-slate-300"}`} />
                   </Link>
                 </li>
               );
@@ -194,7 +192,7 @@ export default function Navbar() {
               className="flex min-h-12 items-center justify-center gap-2 rounded-brand bg-mk-navy px-6 text-base font-semibold text-white"
             >
               Assess your organisation{" "}
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              <MkMark name="arrow" className="h-4 w-4" />
             </Link>
             <Link
               href="/contact"

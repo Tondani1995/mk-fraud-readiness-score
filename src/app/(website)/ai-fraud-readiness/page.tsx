@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from 'next/link';
 import Wrapper from '@/components/website/Wrapper';
 import MethodologyTrust from '@/components/website/MethodologyTrust';
@@ -45,7 +45,7 @@ export default function AiFraudReadinessPage() {
             aria-hidden="true"
             className="absolute inset-0 "
           />
-          <div className="relative mx-auto w-full max-w-7xl px-5 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:px-8 lg:py-24">
+          <div className="mk-frame relative pb-12 pt-10 sm:pb-16 sm:pt-14 lg:py-24">
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">AI-enabled fraud</p>
             <h1
               id="ai-fraud-heading"
@@ -70,7 +70,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="border-b border-slate-200 bg-mk-paper" aria-label="Published evidence on AI-enabled fraud">
-          <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 sm:py-12 lg:px-8">
+          <div className="mk-frame py-10 sm:py-12">
             <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
               {AI_FRAUD_EVIDENCE.map((point) => {
                 const source = sourceById(point.sourceId);
@@ -89,7 +89,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="bg-white" aria-labelledby="ai-changes-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="mk-frame grid gap-8 py-12 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:py-24">
             <div>
               <Eyebrow>What AI changes</Eyebrow>
               <h2
@@ -129,7 +129,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="border-t border-slate-200 bg-mk-paper" aria-labelledby="ai-vectors-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+          <div className="mk-frame py-12 sm:py-16 lg:py-24">
             <div className="max-w-2xl">
               <Eyebrow>Where it shows up</Eyebrow>
               <h2
@@ -161,7 +161,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="bg-white" aria-labelledby="ai-governance-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="mk-frame grid gap-8 py-12 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:py-24">
             <div>
               <Eyebrow>Where it belongs</Eyebrow>
               <h2
@@ -195,7 +195,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="border-t border-slate-200 bg-mk-paper" aria-labelledby="ai-readiness-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+          <div className="mk-frame py-12 sm:py-16 lg:py-24">
             <div className="max-w-2xl">
               <Eyebrow>What readiness looks like</Eyebrow>
               <h2
@@ -217,7 +217,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="bg-white" aria-labelledby="ai-mk-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+          <div className="mk-frame py-12 sm:py-16 lg:py-24">
             <div className="max-w-2xl">
               <Eyebrow>How MK helps</Eyebrow>
               <h2 id="ai-mk-heading" className="mt-4 text-[1.75rem] font-semibold leading-tight tracking-normal text-mk-navy sm:text-4xl">
@@ -239,7 +239,7 @@ export default function AiFraudReadinessPage() {
                     <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{item.body}</p>
                     <span className="mt-4 inline-flex min-h-6 items-center gap-1.5 text-sm font-semibold text-mk-navy">
                       About {item.name.toLowerCase()}
-                      <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      <MkMark name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </Link>
                 </li>
@@ -249,7 +249,7 @@ export default function AiFraudReadinessPage() {
         </section>
 
         <section className="border-t border-slate-200 bg-mk-paper" aria-labelledby="ai-instrument-heading">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="mk-frame grid gap-8 py-12 sm:py-16 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:py-24">
             <div>
               <Eyebrow>Where Fraud Readiness fits</Eyebrow>
               <h2
@@ -298,7 +298,7 @@ export default function AiFraudReadinessPage() {
         <MethodologyTrust tone="dark" />
 
         <section className="border-t border-slate-200 bg-white" aria-labelledby="ai-sources-heading">
-          <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="mk-frame py-12 sm:py-16 lg:py-20">
             <h2 id="ai-sources-heading" className="text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Sources
             </h2>
@@ -314,7 +314,7 @@ export default function AiFraudReadinessPage() {
                     <span>
                       <span className="font-semibold">{source.publisher}</span>, {source.title}, {source.published}
                     </span>
-                    <ArrowUpRight aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-mk-accent" />
+                    <MkMark name="arrowOut" className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-mk-accent" />
                   </a>
                 </li>
               ))}

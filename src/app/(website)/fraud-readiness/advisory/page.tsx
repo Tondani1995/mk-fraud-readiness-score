@@ -18,7 +18,7 @@ export default function PublicAdvisoryEnquiryPage() {
     <Wrapper>
       <main className="bg-white">
         <section className="bg-mk-navy">
-          <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+          <div className="mk-frame py-16 lg:py-20">
             <div className="max-w-3xl">
               <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/60">
                 MK Advisory
@@ -36,7 +36,7 @@ export default function PublicAdvisoryEnquiryPage() {
           </div>
         </section>
 
-        <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+        <div className="mk-frame py-16 lg:py-20">
           <div className="grid gap-12 lg:grid-cols-[1.4fr_0.6fr] lg:gap-16">
             <PublicAdvisoryEnquiryForm />
 
