@@ -287,7 +287,9 @@ assert.match(workflow, /flags\.autoEmailEnabled/);
 
 const config = read('next.config.mjs');
 assert.match(config, /from 'workflow\/next'/);
-assert.match(config, /export default withWorkflow\(nextConfig\)/);
+// Since 1 Sep 2026 (bbdc9481) the Workflow-wrapped config is also wrapped by withSentryConfig.
+// What matters here is that withWorkflow still wraps nextConfig inside the default export.
+assert.match(config, /export default (?:withSentryConfig\()?withWorkflow\(nextConfig\)/);
 assert.match(config, /@sparticuz\/chromium\/bin/);
 assert.match(config, /'puppeteer-core': 'commonjs puppeteer-core'/);
 assert.doesNotMatch(config, /turbopack/);

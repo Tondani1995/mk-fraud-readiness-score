@@ -13,6 +13,8 @@ import { sendEmail } from '../src/lib/notifications/email-provider.ts';
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 const assertIncludes = (relativePath, needle, label) => assert(read(relativePath).includes(needle), `${label}: expected ${relativePath} to include ${needle}`);
+// JSX text is whitespace-insensitive when rendered, so a formatter may wrap a sentence across lines.
+const assertIncludesRenderedText = (relativePath, needle, label) => assert(read(relativePath).replace(/\s+/g, ' ').includes(needle), `${label}: expected ${relativePath} to include the rendered text ${needle}`);
 const assertNotIncludes = (relativePath, needle, label) => assert(!read(relativePath).includes(needle), `${label}: expected ${relativePath} not to include ${needle}`);
 
 const essential = getPostPurchaseCopy('essential');
@@ -146,8 +148,8 @@ assertNotIncludes(internalOrderNotification, 'buildPaymentConfirmedMessage', 'In
 assertIncludes(orderJourney, 'Review billing requirements', 'Order summary names the billing review as the confirm-step next action');
 assertIncludes(orderJourney, 'Confirm order, then make EFT payment', 'Order summary names EFT payment as the billing-step next action');
 assertIncludes(orderJourney, 'getPostPurchaseCopy(tier).paymentSummary', 'Payment-step order summary uses product-specific preparation copy');
-assertIncludes(orderJourney, 'MK will prepare the VAT invoice using the details below and send it to the billing email you provide.', 'Invoice helper explains VAT invoice delivery');
-assertIncludes(orderJourney, 'No tax invoice is required. Confirm your order to view the EFT payment details and payment reference.', 'No-invoice state uses customer-facing payment guidance');
+assertIncludesRenderedText(orderJourney, 'MK will prepare the VAT invoice using the details below and send it to the billing email you provide.', 'Invoice helper explains VAT invoice delivery');
+assertIncludesRenderedText(orderJourney, 'No tax invoice is required. Confirm your order to view the EFT payment details and payment reference.', 'No-invoice state uses customer-facing payment guidance');
 assertNotIncludes(orderJourney, 'Customer transactional emails are not sent automatically.', 'Order journey does not expose internal email implementation language');
 assertNotIncludes(orderJourney, 'supporting management, register and implementation material from the Comprehensive product catalogue', 'Order journey does not expose the retired Comprehensive catalogue phrase');
 
