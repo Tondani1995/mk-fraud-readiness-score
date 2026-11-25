@@ -82,7 +82,8 @@ const tocSupporting = template.indexOf("{ key: 'Complete supporting detail'");
 assert.ok(tocAppendix >= 0 && tocSupporting > tocAppendix, 'TOC should place supporting detail under the appendix');
 
 const actions = readFileSync(new URL('../../src/components/admin/FulfilmentActions.tsx', import.meta.url), 'utf8');
-assert.match(actions, /Still generating — do not retry/);
+// Em dash removed from customer and admin copy under the brand rules; the meaning is unchanged.
+assert.match(actions, /Still generating, do not retry/);
 assert.match(actions, /completion could not be confirmed/);
 assert.match(actions, /if \(!statusUncertain\) setRunning\(null\)/);
 
