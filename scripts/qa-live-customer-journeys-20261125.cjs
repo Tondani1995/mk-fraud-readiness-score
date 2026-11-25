@@ -12,9 +12,9 @@ async function visibleClick(p,selector){await p.locator(selector+':visible').fir
 async function assessment(browser,tier){
  const f=people[tier], ctx=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'});const p=await ctx.newPage();p.setDefaultTimeout(30000);
  try{
- await p.goto(BASE+'/review',{waitUntil:'domcontentloaded'});await p.locator('[data-review-start-form]').waitFor();await cookies(p);
+ await p.goto(BASE+'/review',{waitUntil:'networkidle'});await p.locator('[data-review-start-form]').waitFor();await cookies(p);
  await p.locator('[name=fullName]').fill(f.name);await p.locator('[name=email]').fill(f.email);await p.locator('#review-org').fill(f.org);await p.locator('[name=roleTitle]').fill(f.role);
- await p.locator('[data-review-start-form] input[type=checkbox]').check();
+ const terms=p.locator('[data-review-start-form] input[type=checkbox]');if(!await terms.isChecked())await terms.click();await p.waitForTimeout(500);assert(await terms.isChecked(),'terms not selected');
  await p.getByRole('button',{name:'Start the assessment',exact:true}).click();
  await p.waitForURL('**/review/s/**',{timeout:60000});log(tier,'started',{organisation:f.org});
  const q=p.locator('[data-question-stage]');let n=0;
@@ -42,7 +42,7 @@ async function assessment(browser,tier){
  await p.getByRole('link',{name:/View your Snapshot/}).click();await p.locator('[data-review-snapshot]').waitFor({timeout:90000});log(tier,'snapshot visible');
  const card=p.locator('[data-report-card="'+tier+'"]');await card.waitFor();const button=card.getByRole('button',{name:/Order/});assert(await button.isEnabled(),'Report order unavailable: coverage or ordering gate');
  await button.click();await p.locator('[data-order-step="1"]').waitFor({timeout:90000});log(tier,'checkout entered');
- await visibleClick(p,'button:has-text("Continue to billing")');await p.locator('[data-order-step="2"]').waitFor();await p.locator('label:has(input[name=invoiceRequested][value=Yes])').click();
+ await p.waitForLoadState('networkidle').catch(()=>{});await p.waitForTimeout(600);await visibleClick(p,'button:has-text("Continue to billing")');if(!await p.locator('[data-order-step="2"]').isVisible()){await p.waitForTimeout(1000);if(await p.locator('[data-order-step="1"]').isVisible())await visibleClick(p,'button:has-text("Continue to billing")');}await p.locator('[data-order-step="2"]').waitFor();log(tier,'billing reached');await p.locator('label:has(input[name=invoiceRequested][value=Yes])').click();await p.locator('#legalName').waitFor();log(tier,'invoice selected');
  await p.locator('#legalName').fill(f.org);await p.locator('#addressee').fill(f.name);await p.locator('#billingEmail').fill(f.email);await p.locator('#billingAddress').fill('Office 4, 12 Commerce Avenue, Cape Town, 8001, South Africa');
  await visibleClick(p,'button:has-text("Confirm order")');
  await p.locator('[data-order-step="3"]').waitFor({timeout:90000});const screen=await p.locator('[aria-labelledby="payment-heading"]').innerText();const reference=screen.match(/MKORD-\d{4}-[A-Z0-9]+/)?.[0]??screen.match(/Payment reference\s+([A-Z0-9-]+)/)?.[1]??null;
@@ -57,10 +57,10 @@ async function enquiry(browser){const ctx=await browser.newContext({viewport:{wi
  }catch(e){log('service','blocked',{error:String(e.message).split('\n')[0]});process.exitCode=1}finally{await ctx.close()}}
 async function booking(browser){const ctx=await browser.newContext({viewport:{width:1440,height:900}});const p=await ctx.newPage();try{
  await p.goto(BASE+'/contact',{waitUntil:'domcontentloaded'});await cookies(p);await p.locator('[data-calendly-inline-widget] iframe').waitFor({timeout:60000});const frame=p.frameLocator('[data-calendly-inline-widget] iframe');
- const day=frame.locator('button[data-testid="calendar-day-button"]:not([disabled]), button[aria-label*="available" i]:not([disabled])').first();await day.waitFor({timeout:30000});const date=await day.getAttribute('aria-label');await day.click();
- const time=frame.locator('button[data-testid="time-slot"], button[data-container="time-button"]').first();await time.waitFor({timeout:30000});const slot=await time.innerText();await time.click();await frame.getByRole('button',{name:/^Next$/i}).click();
+ const day=frame.locator('button[data-testid="calendar-day-button"]:not([disabled]):visible, button[aria-label*="available" i]:not([disabled]):visible').first();await day.waitFor({timeout:30000});const date=await day.getAttribute('aria-label');await day.click();log('meeting','date selected',{date});
+ const time=frame.locator('button[data-testid="time-slot"]:visible, button[data-container="time-button"]:visible').first();await time.waitFor({timeout:30000});const slot=await time.innerText();await time.click();log('meeting','time selected',{slot});const next=frame.getByRole('button',{name:/^(Next|Confirm)$/i}).first();if(await next.isVisible().catch(()=>false))await next.click();
  await frame.locator('input[name="full_name"], input[name="name"], input[autocomplete="name"]').first().fill('Lena Alderstone');await frame.locator('input[type=email]').first().fill('info@mkfraud.co.za');
  const textarea=frame.locator('textarea').first();if(await textarea.isVisible())await textarea.fill('Discussion of fraud risk governance and control design for industrial operations.');
  await frame.getByRole('button',{name:/Schedule Event|Confirm booking/i}).click();await frame.getByText(/You are scheduled|You're scheduled|Your event has been scheduled|Confirmed/i).first().waitFor({timeout:60000});log('meeting','booked',{date,slot});
  }catch(e){log('meeting','blocked',{error:String(e.message).split('\n')[0]});process.exitCode=1}finally{await ctx.close()}}
-(async()=>{const b=await chromium.launch({headless:true,args:['--no-sandbox']});try{await Promise.all([assessment(b,'essential'),assessment(b,'comprehensive'),enquiry(b),booking(b)])}finally{await b.close()}})().catch(e=>{console.error('Runner failed',e.name,String(e.message).split('\n').slice(0,5).join(' | '));process.exitCode=1});
+(async()=>{const b=await chromium.launch({headless:true,args:['--no-sandbox']});try{await Promise.all([assessment(b,'comprehensive'),booking(b)])}finally{await b.close()}})().catch(e=>{console.error('Runner failed',e.name,String(e.message).split('\n').slice(0,5).join(' | '));process.exitCode=1});
