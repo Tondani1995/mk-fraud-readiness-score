@@ -5,6 +5,7 @@ import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { isValidGaMeasurementId, isValidDeploymentSha, EXPECTED_PRODUCTION, EXPECTED_PUBLIC_PRODUCTS, EXPECTED_ADVISORY_PRICE_FROM_CENTS, READINESS_REQUIRED_ENVIRONMENT, READINESS_OPTIONAL_MONITOR_ENVIRONMENT, overallStatusFromChecks, type ReadinessCheck, type ReadinessEvaluation, type MonitoringStatus } from './contracts';
 
 import { reviewProductionStatus } from '@/lib/readiness-review/commercial-environment';
+import { STALLED_LEAD_MONITOR_NAME, stalledLeadMonitorReadiness } from './stalled-lead-heartbeat';
 
 type QueryResult = { data: any; error: unknown };
 
@@ -284,13 +285,14 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     return { status: overallStatusFromChecks(checks), checks, checkedAt: now.toISOString(), currentDeploymentSha: deploymentSha, adaptiveActivationSha: null, adaptiveActivationAligned: false, configuredSupabaseProjectRef: supabaseProjectRef };
   }
 
-  const [activation, graphs, methodologies, products, settings, heartbeat] = await Promise.all([
+  const [activation, graphs, methodologies, products, settings, heartbeat, stalledHeartbeat] = await Promise.all([
     querySafely(() => db.from('adaptive_activation_policies').select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha').eq('policy_key', 'customer_start').eq('environment', contract.environment).maybeSingle()),
     querySafely(() => db.from('adaptive_graph_versions').select('graph_version,graph_fingerprint,methodology_version,status').eq('graph_version', contract.adaptiveGraphVersion).maybeSingle()),
     querySafely(() => db.from('methodology_versions').select('version_code,status').eq('status', 'active')),
     querySafely(() => db.from('products').select('product_code,price_cents,currency,active,requires_payment_verification,delivery_mode').in('product_code', EXPECTED_PUBLIC_PRODUCTS.map((product) => product.productCode))),
     querySafely(() => db.from('app_settings').select('setting_key,value_json').in('setting_key', ['phase14_autonomous_report_engine', 'respondent_token_policy', 'phase13_commercial_event_foundation'])),
-    querySafely(() => db.from('production_monitor_heartbeats').select('monitor_name,last_started_at,last_completed_at,status,deployment_sha').eq('monitor_name', 'production-incident-monitor').maybeSingle())
+    querySafely(() => db.from('production_monitor_heartbeats').select('monitor_name,last_started_at,last_completed_at,status,deployment_sha').eq('monitor_name', 'production-incident-monitor').maybeSingle()),
+    querySafely(() => db.from('production_monitor_heartbeats').select('monitor_name,last_completed_at,status,consecutive_failures').eq('monitor_name', STALLED_LEAD_MONITOR_NAME).maybeSingle())
   ]);
 
   const unavailableKeys = new Set<string>();
@@ -298,7 +300,7 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     [activation, ['adaptive_activation_exists', 'adaptive_activation_binding']],
     [graphs, ['adaptive_graph_identity']], [methodologies, ['methodology_single_active']],
     [products, ['products_public_contract']], [settings, ['critical_runtime_settings']],
-    [heartbeat, ['internal_monitor_heartbeat']]
+    [heartbeat, ['internal_monitor_heartbeat']], [stalledHeartbeat, ['stalled_lead_monitor_heartbeat']]
   ] as const) {
     if (result.error) keys.forEach(key => unavailableKeys.add(key));
   }
@@ -372,6 +374,11 @@ export async function evaluateProductionReadiness(context: ReadinessContext = {}
     production
   });
   addCheck(checks, 'internal_monitor_heartbeat', 'dependency', heartbeatReadiness.status, heartbeatReadiness.safeCode);
+
+  // The stalled-lead job (both Fraud Readiness flows, every 15 minutes) reports a stop, a failure or repeated
+  // degradation here, so it reaches MK's technical monitoring mailbox like any other incident.
+  const stalledReadiness = stalledLeadMonitorReadiness({ heartbeat: stalledHeartbeat.data, now, production });
+  addCheck(checks, 'stalled_lead_monitor_heartbeat', 'dependency', stalledReadiness.status, stalledReadiness.safeCode);
 
   await revisedReviewChecks(checks, db, env, production);
   await publicChecks(checks, context, production);

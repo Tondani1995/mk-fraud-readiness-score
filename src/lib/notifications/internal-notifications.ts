@@ -13,11 +13,17 @@ export type InternalNotificationType =
   | 'advisory_enquiry_submitted'
   | 'comprehensive_order_created'
   | 'payment_received'
-  | 'assessment_stalled_lead';
+  | 'assessment_stalled_lead'
+  // The revised Fraud Readiness review (readiness_review schema). These rows carry no assessment
+  // id; the review session id travels in metadata_json and in the dedupe key.
+  | 'review_started'
+  | 'review_completed'
+  | 'review_stalled';
 
 export type QueueInternalNotificationInput = {
   notificationType: InternalNotificationType;
-  assessmentId: string;
+  /** Null for review notifications, which belong to a readiness_review session rather than an assessment. */
+  assessmentId: string | null;
   organisationId?: string | null;
   respondentId?: string | null;
   orderId?: string | null;
@@ -73,6 +79,8 @@ async function trackNotificationEvent(
   status: string,
   trackEvent: typeof trackAssessmentEvent
 ) {
+  // Assessment analytics events need an assessment; review notifications are traced by their email_events row.
+  if (!input.assessmentId) return;
   await trackEvent({
     eventType,
     assessmentId: input.assessmentId,

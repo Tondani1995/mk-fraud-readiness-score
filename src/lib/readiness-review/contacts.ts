@@ -14,6 +14,10 @@ export type StoredReviewContact = ReviewContact & {
   lastActionAt: string | null;
   createdAt: string;
   bound: boolean;
+  completedAt?: string | null;
+  /** Distinct questions the respondent has answered: meaningful progress, unlike the raw action count. */
+  answersRecorded?: number;
+  lastRespondentActivityAt?: string | null;
 };
 export type NotificationKind = 'started' | 'completed' | 'stalled';
 
@@ -74,8 +78,35 @@ export async function releaseNotification(sessionId: string, kind: NotificationK
   await rpc<void>('review_release_contact_notification', { p_session_id: sessionId, p_kind: kind });
 }
 
-export type StalledReview = { sessionId: string; organisationLabel: string; fullName: string; email: string; roleTitle: string | null; actionCount: number; lastActivityAt: string };
+/** lastActivityAt is the respondent's own last activity (answers and corrections); system serve events do not count. */
+export type StalledReview = { sessionId: string; organisationLabel: string; fullName: string; email: string; roleTitle: string | null; actionCount: number; answersRecorded: number; startedAt: string; lastActivityAt: string };
 export async function stalledReviews(inactiveBefore: Date): Promise<StalledReview[]> {
   if (!contactsAvailable()) return [];
   return (await rpc<StalledReview[]>('review_stalled_contacts', { p_inactive_before: inactiveBefore.toISOString() })) ?? [];
+}
+
+/** Records that the respondent finished, once, independently of whether the completion notice is sent. */
+export async function markCompleted(sessionId: string): Promise<boolean> {
+  return rpc<boolean>('review_mark_session_completed', { p_session_id: sessionId });
+}
+
+/**
+ * Records a notification after it was processed successfully. For "stalled", activityAt identifies the episode (the
+ * respondent's last activity), so the same episode is recorded once and a resumed review starts a new one.
+ */
+export async function recordNotified(sessionId: string, kind: NotificationKind, activityAt: string | null = null): Promise<boolean> {
+  return rpc<boolean>('review_record_contact_notified', { p_session_id: sessionId, p_kind: kind, p_activity_at: activityAt });
+}
+
+/** Completed real reviews whose completion notice has not been recorded yet. */
+export async function completionsPendingNotification(): Promise<{ sessionId: string; completedAt: string }[]> {
+  if (!contactsAvailable()) return [];
+  return (await rpc<{ sessionId: string; completedAt: string }[]>('review_completions_pending_notification', {})) ?? [];
+}
+
+/** Automatic stalled notices cover episodes that became stalled after this time; earlier ones go through recovery. */
+export async function stalledNotificationsFrom(): Promise<Date | null> {
+  if (!contactsAvailable()) return null;
+  const value = await rpc<string | null>('review_stalled_notifications_from', {});
+  return value ? new Date(value) : null;
 }
