@@ -60,6 +60,11 @@ assert.deepEqual(getCampaignAttribution(), {
 
 const stored = JSON.parse(localStorage.getItem(ACQUISITION_CONTEXT_STORAGE_KEY));
 assert.equal(stored.gclid, 'abc123', 'consented click ID remains in the bounded browser context');
+localStorage.setItem('mk_fraud_marketing_consent', 'declined');
+assert.deepEqual(getCampaignAttribution(), { utm_source: 'google', utm_campaign: 'second_touch' }, 'withdrawal removes previously stored click IDs');
+assert.equal(JSON.parse(localStorage.getItem(ACQUISITION_CONTEXT_STORAGE_KEY)).gclid, undefined);
+localStorage.setItem('mk_fraud_marketing_consent', 'accepted');
+assert.equal(getCampaignAttribution().gclid, undefined, 'reconsent does not resurrect revoked identifiers');
 assert.deepEqual(
   sanitiseCampaignAttribution({ utm_source: ' google ', gclid: 'google-click', fbclid: 'meta-click', email: 'pii@example.com' }),
   { utm_source: 'google', gclid: 'google-click', fbclid: 'meta-click' },

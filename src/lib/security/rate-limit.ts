@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { getNumberEnv } from '@/lib/env/server';
+import { getNumberEnv, requireServerEnv } from '@/lib/env/server';
+import { hmacSha256Hex } from '@/lib/security/hash';
+import { isIP } from 'node:net';
 
 export type RateLimitCheck = {
   key: string;
@@ -33,7 +35,7 @@ export async function checkRateLimits(checks: RateLimitCheck[]): Promise<RateLim
         // Fail closed on unexpected errors would risk taking the whole app down if the
         // rate-limit table/function has an issue. Fail open (allow) but this is exactly
         // the kind of failure that should be visible - surface it to server logs.
-        console.error('check_rate_limit RPC failed', { key: check.key, error });
+        console.error('check_rate_limit RPC failed', { code: error.code ?? 'unknown' });
         return { allowed: true, key: check.key };
       }
 
@@ -64,8 +66,12 @@ function resolveHeadersSource(headersSource: Request | HeadersLike | RequestLike
 export function getClientIpHashKey(headersSource: Request | HeadersLike | RequestLike, prefix: string): string {
   const headers = resolveHeadersSource(headersSource);
   const forwardedFor = headers?.get('x-forwarded-for');
-  const ip = forwardedFor?.split(',')[0]?.trim() || 'unknown';
-  return `${prefix}:ip:${ip}`;
+  const candidate = forwardedFor?.split(',')[0]?.trim() || '';
+  const ip = isIP(candidate) ? candidate.toLowerCase() : 'unknown';
+  // Domain-separated HMAC with the existing server-only token pepper. No raw address is
+  // persisted in audit records or rate-limit buckets; token hashes remain unchanged.
+  const digest = hmacSha256Hex('mk-rate-limit-ip-v1\0' + prefix + '\0' + ip, requireServerEnv('ASSESSMENT_TOKEN_PEPPER'));
+  return `${prefix}:ip:v1:${digest}`;
 }
 
 export const RATE_LIMITS = {
