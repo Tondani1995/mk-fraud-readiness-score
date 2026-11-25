@@ -42,7 +42,8 @@ for (const fixture of [
 }
 
 // Roadmap must render chronologically and keep each stage's narrative bound to its own rows.
-const first30 = template.indexOf('First 30 days — decisions and foundations');
+// Heading punctuation follows the brand rules (no em dash); the chronological order is what is asserted.
+const first30 = template.indexOf('First 30 days: decisions and foundations');
 const day60 = template.indexOf('60-day implementation actions');
 const day90 = template.indexOf('90-day implementation actions');
 const conclusion = template.indexOf('roadmapConclusionNarrative ?');
