@@ -6,6 +6,7 @@ import { COMMERCIAL_CATALOGUE } from '@/lib/commercial/product-catalogue';
 import { parseProductIntent } from '@/lib/commercial/product-intent';
 import { redirect } from 'next/navigation';
 import { revisedReleaseEffective } from '@/lib/website/readiness-release';
+import { reviewCampaignEntry, type EntrySearch } from '@/lib/website/assessment-entry-campaign';
 
 function selectedProductContext(tier: 'essential' | 'comprehensive') {
   const product = COMMERCIAL_CATALOGUE[tier];
@@ -16,11 +17,11 @@ function selectedProductContext(tier: 'essential' | 'comprehensive') {
     price: `${new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(priceCents / 100)} incl. VAT`
   };
 }
-export default async function StartAssessmentPage(props: { searchParams?: Promise<{ embed?: string; product?: string }> }) {
+export default async function StartAssessmentPage(props: { searchParams?: Promise<EntrySearch> }) {
   const searchParams = await props.searchParams;
   // DR-01: new visitors enter the revised review only where the release switch is on and the review can run here;
   // otherwise they keep the scored assessment. Issued scored records are untouched.
-  if (revisedReleaseEffective()) redirect('/review');
+  if (revisedReleaseEffective()) redirect(reviewCampaignEntry(searchParams));
   if (searchParams?.embed === '1') redirect('/score/start');
 
   const productIntent = parseProductIntent(searchParams?.product);
