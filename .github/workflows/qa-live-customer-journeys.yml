@@ -23,5 +23,5 @@ jobs:
           node "$RUNNER_TEMP/mk-browser/node_modules/playwright/cli.js" --version
           node "$RUNNER_TEMP/mk-browser/node_modules/playwright/cli.js" install --with-deps chromium
           echo "MK_QA_PLAYWRIGHT=$RUNNER_TEMP/mk-browser/node_modules/playwright" >> "$GITHUB_ENV"
-      - name: Retry only uncreated Comprehensive assessment and unconfirmed booking
+      - name: Complete only the unconfirmed Calendly booking
         run: node scripts/qa-live-customer-journeys-20261125.cjs
