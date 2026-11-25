@@ -15,6 +15,7 @@ export type StoredReviewContact = ReviewContact & {
   createdAt: string;
   bound: boolean;
   completedAt?: string | null;
+  completedNotifiedAt?: string | null;
   /** Distinct questions the respondent has answered: meaningful progress, unlike the raw action count. */
   answersRecorded?: number;
   lastRespondentActivityAt?: string | null;

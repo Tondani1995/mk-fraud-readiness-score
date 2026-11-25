@@ -282,6 +282,13 @@ try {
   check('12', gStart.sent && gDone.sent && (await emailRows('review_started')).length === startedCount + 1 && gContact.started_notified_at && gContact.completed_notified_at && gContact.completed_at,
     'start and completion notifications continue to send once each and are recorded');
 
+  // Historical direct-send completion marker predates email_events. Reopening the final screen must not resend.
+  const H = 'sessionHHHH0010';
+  await createReview(H, 'Historical completion', at(T0, -5000));
+  await db.query('update readiness_review.session_contacts set completed_at=$2, completed_notified_at=$2 where session_id=$1', [H, at(T0,-4900)]);
+  const legacyOutcome = await notifyReviewCompleted(H, deps);
+  check('12b', !legacyOutcome.sent && legacyOutcome.reason === 'already_notified' && !(await emailRows('review_completed')).some(x => x.metadata_json.review_session_id === H), 'historical direct-send completion marker prevents a duplicate durable notification');
+
   // ---- content safety ----------------------------------------------------------------------------------------------
   const preview = reviewNoticeMessage({ kind: 'stalled', organisationLabel: 'X', contact: { fullName: 'N', email: 'e@x.co', roleTitle: null }, answersRecorded: 3, lastActivityAt: T0.toISOString(), inactiveMinutes: 120, consoleUrl: 'https://mkfraud.co.za/score/admin/reviews/abc' });
   check('C1', /score\/admin\/reviews/.test(preview.html) && !/\/review\/s\//.test(preview.html), 'notices link to the admin console only, never to the respondent\'s private review link');

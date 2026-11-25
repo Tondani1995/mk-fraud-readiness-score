@@ -91,6 +91,7 @@ language sql stable security definer set search_path = '' as $$
     'lastActionAt', s.last_action_at, 'createdAt', s.created_at,
     'bound', exists (select 1 from readiness_review.commercial_bindings b where b.session_id = s.session_id),
     'completedAt', c.completed_at,
+    'completedNotifiedAt', c.completed_notified_at,
     'answersRecorded', (select count(distinct a.question_id) from readiness_review.actions a
       where a.session_id = s.session_id and a.actor = 'respondent' and a.type = 'respondent.answer'),
     'lastRespondentActivityAt', (select max(a.at) from readiness_review.actions a

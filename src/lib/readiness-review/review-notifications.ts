@@ -162,6 +162,8 @@ export async function sendReviewNotice(sessionId: string, notice: ReviewNotice, 
 export async function notifyReviewCompleted(sessionId: string, dependencies: ReviewNotificationDependencies & { contactForImpl?: typeof contactFor } = {}) {
   const c = await (dependencies.contactForImpl ?? contactFor)(sessionId).catch(() => null);
   if (!c || c.fictional) return { sent: false, reason: 'no_contact' };
+  // Includes historical direct-send markers, which predate the durable email_events dedupe keys.
+  if (c.completedNotifiedAt) return { sent: false, reason: 'already_notified' };
   return sendReviewNotice(sessionId, {
     kind: 'completed',
     organisationLabel: c.organisationLabel,
