@@ -1,10 +1,10 @@
-import { ArrowDown } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import { CAPABILITIES } from '@/lib/website/capabilities';
 
 export default function ServicesHero() {
   return (
     <section className="clarity-services-hero bg-mk-navy text-white" aria-labelledby="services-heading">
-      <div className="mx-auto w-full max-w-7xl px-5 pb-8 pt-10 sm:px-6 sm:pb-14 sm:pt-14 lg:px-8 lg:pb-20 lg:pt-20">
+      <div className="mk-frame pb-8 pt-10 sm:pb-14 sm:pt-14 lg:pb-20 lg:pt-20">
         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">Services</p>
         <h1 id="services-heading" className="mt-4 max-w-[20ch] text-[2.1rem] font-semibold leading-[1.08] tracking-normal sm:text-5xl lg:text-[3.5rem]">
           Start from the question your organisation needs answered.
@@ -28,7 +28,7 @@ export default function ServicesHero() {
                     <span className="block text-base font-semibold sm:text-lg">{capability.name}</span>
                     <span className="mt-1 hidden text-sm leading-6 text-white/70 sm:block">{capability.question}</span>
                   </span>
-                  <ArrowDown aria-hidden="true" className="h-4 w-4 shrink-0 text-mk-paper transition-transform  sm:mt-1" />
+                  <MkMark name="arrowDown" className="h-4 w-4 shrink-0 text-mk-paper transition-transform  sm:mt-1" />
                 </a>
               </li>
             ))}

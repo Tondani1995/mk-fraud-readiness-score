@@ -124,7 +124,9 @@ check('the narrow layout has width containment and no horizontal overflow escape
   assert.match(wrapper, /w-full overflow-x-(?:hidden|clip)/);
   assert.match(globalCss, /overflow-x:\s*(?:hidden|clip)/);
   assert.match(storefront, /grid gap-5 lg:grid-cols-3/);
-  assert.match(storefront, /w-full max-w-7xl/);
+  // mk-frame (globals.css) is the shared width-contained frame: width 100% with a fluid max-width.
+  assert.match(storefront, /w-full max-w-7xl|\bmk-frame\b/);
+  assert.match(globalCss, /\.mk-frame\s*\{[^}]*width:\s*100%[^}]*max-width:/);
   assert.match(tierCard, /min-w-0|flex h-full/);
 });
 

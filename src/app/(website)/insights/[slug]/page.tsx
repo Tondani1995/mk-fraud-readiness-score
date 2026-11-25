@@ -2,14 +2,7 @@ import type { Metadata } from "next";
 import Wrapper from "@/components/website/Wrapper";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-    ArrowLeft,
-    ArrowRight,
-    Calendar,
-    Clock,
-    Tag,
-    User,
-} from "lucide-react";
+import { MkMark } from "@/components/website/marks/MkMark";
 
 import { Button } from "@/components/website/ui/button";
 import JsonLd from "@/components/website/JsonLd";
@@ -147,13 +140,13 @@ export default async function InsightDetailPage(
             <main className="bg-white">
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#001030] via-[#1d3658] to-[#0b1b33]">
 
-                    <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-18">
+                    <div className="mk-frame relative py-14 lg:py-18">
                         <div className="mb-6 flex items-center justify-between gap-4">
                             <Link
                                 href="/insights"
                                 className="inline-flex items-center gap-2 rounded-brand border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white  transition hover:bg-white/15"
                             >
-                                <ArrowLeft className="h-4 w-4" />
+                                <MkMark name="arrowBack" className="h-4 w-4" />
                                 Back to Insights
                             </Link>
                         </div>
@@ -173,19 +166,16 @@ export default async function InsightDetailPage(
 
                             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-white/80">
                                 <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
-                                    <User className="h-4 w-4" />
                                     {author}
                                 </span>
 
                                 {date ? (
                                     <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
-                                        <Calendar className="h-4 w-4" />
                                         {date}
                                     </span>
                                 ) : null}
 
                                 <span className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1.5">
-                                    <Clock className="h-4 w-4" />
                                     {readTime}
                                 </span>
                             </div>
@@ -197,7 +187,6 @@ export default async function InsightDetailPage(
                                             key={tag}
                                             className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90"
                                         >
-                                            <Tag className="h-3.5 w-3.5" />
                                             {tag}
                                         </span>
                                     ))}
@@ -212,7 +201,7 @@ export default async function InsightDetailPage(
                     <div className="pointer-events-none absolute inset-0 -z-10">
                     </div>
 
-                    <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+                    <div className="mk-frame py-16 lg:py-20">
                         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
                             <article className="lg:col-span-8">
                                 <div className="overflow-hidden rounded-brand border-2 border-slate-200 bg-white shadow-soft">
@@ -225,7 +214,7 @@ export default async function InsightDetailPage(
                                     <Link href="/insights">
                                         <Button className="h-12 rounded-brand bg-mk-navy px-6 text-base font-semibold text-white shadow-soft transition hover:opacity-95">
                                             <span className="flex items-center gap-2">
-                                                <ArrowLeft className="h-5 w-5" />
+                                                <MkMark name="arrowBack" className="h-5 w-5" />
                                                 Back to Insights
                                             </span>
                                         </Button>
@@ -272,7 +261,7 @@ export default async function InsightDetailPage(
                                                                 <p className="font-semibold leading-snug text-mk-navy">
                                                                     {item.title}
                                                                 </p>
-                                                                <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
+                                                                <MkMark name="arrow" className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
                                                             </div>
 
                                                             {item.excerpt ? (
@@ -284,14 +273,12 @@ export default async function InsightDetailPage(
                                                             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                                                                 {shortDate ? (
                                                                     <span className="inline-flex items-center gap-1">
-                                                                        <Calendar className="h-3 w-3" />
                                                                         {shortDate}
                                                                     </span>
                                                                 ) : null}
 
                                                                 {firstTag ? (
                                                                     <span className="inline-flex items-center gap-1 rounded-brand bg-mk-accent/10 px-2 py-1 font-semibold text-mk-accent">
-                                                                        <Tag className="h-3 w-3" />
                                                                         {firstTag}
                                                                     </span>
                                                                 ) : null}
@@ -306,7 +293,7 @@ export default async function InsightDetailPage(
                                             <Link href="/insights">
                                                 <Button className="w-full rounded-brand bg-mk-navy py-6 text-sm font-semibold text-white shadow-soft transition hover:opacity-95">
                                                     Browse all insights
-                                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                                    <MkMark name="arrow" className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </Link>
                                         </div>

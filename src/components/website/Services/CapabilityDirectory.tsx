@@ -34,7 +34,7 @@ export function CapabilityDirectory({ children }: { children: ReactNode }) {
           open={index === 0}
           className="group/capability border-b border-mk-line"
         >
-          <summary className="mx-auto grid min-h-20 max-w-[1600px] cursor-pointer grid-cols-[1fr_auto] items-center gap-3 px-5 py-5 text-mk-navy sm:px-8 md:grid-cols-[180px_1fr_auto]">
+          <summary className="mk-frame grid min-h-20 cursor-pointer grid-cols-[1fr_auto] items-center gap-3 py-5 text-mk-navy md:grid-cols-[180px_1fr_auto]">
             <strong className="text-xl font-semibold">{capability.name}</strong>
             <span className="col-start-1 text-base leading-relaxed text-mk-muted md:col-auto">
               {capability.question}

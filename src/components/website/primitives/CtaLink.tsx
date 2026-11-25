@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import TrackedLink from '@/components/website/TrackedLink';
 
 type Variant = 'primary' | 'secondary' | 'primaryOnDark' | 'secondaryOnDark';
@@ -33,7 +33,7 @@ export function CtaLink({ href, children, variant = 'primary', ctaName, placemen
       className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-brand px-4 py-3 text-center min-[360px]:px-6 text-[15px] font-semibold leading-snug transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mk-line focus-visible:ring-offset-2 ${variants[variant]} ${className}`}
     >
       <span>{children}</span>
-      {arrow ? <ArrowRight aria-hidden="true" className="hidden h-4 w-4 shrink-0 min-[360px]:block" /> : null}
+      {arrow ? <MkMark name="arrow" className="hidden h-4 w-4 shrink-0 min-[360px]:block" /> : null}
     </TrackedLink>
   );
 }

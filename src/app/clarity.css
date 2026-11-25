@@ -60,9 +60,7 @@ body {
   background: var(--mk-paper) !important;
 }
 .clarity-nav nav {
-  max-width: 1600px;
   height: 88px;
-  padding-inline: 48px;
 }
 .clarity-nav img {
   height: 34px !important;
@@ -523,8 +521,7 @@ body {
   position: relative;
 }
 .clarity-readiness > div {
-  max-width: 1600px;
-  padding: 100px 48px;
+  padding-block: 100px;
   gap: 90px;
   align-items: center;
 }
@@ -686,11 +683,6 @@ body {
   border-top: 1px solid var(--mk-line);
   margin-top: 16px;
 }
-.clarity-proof > div,
-.clarity-triggers > div {
-  max-width: 1600px;
-  padding-inline: 48px;
-}
 .clarity-proof h2,
 .clarity-triggers > div > div > div > h2 {
   font-size: 40px;
@@ -709,10 +701,6 @@ body {
 .clarity-footer {
   border-top: 1px solid #ffffff20;
 }
-.clarity-footer > div {
-  max-width: 1600px;
-  padding-inline: 48px;
-}
 .clarity-footer li a {
   font-size: 12px;
 }
@@ -726,8 +714,7 @@ body {
   color: var(--mk-navy) !important;
 }
 .clarity-services-hero > div {
-  max-width: 1600px;
-  padding: 40px 32px 32px;
+  padding-block: 40px 32px;
 }
 .clarity-services-hero h1 {
   font-size: clamp(34px, 4.4vw, 62px);
@@ -765,8 +752,7 @@ body {
   display: none;
 }
 .clarity-storefront > section:first-child > div:last-child {
-  max-width: 1600px;
-  padding: 40px 32px;
+  padding-block: 40px;
   gap: 40px;
   grid-template-columns: 1fr 1fr;
 }
@@ -1110,7 +1096,6 @@ body {
     width: calc(100% - 48px);
   }
   .clarity-nav nav {
-    padding-inline: 24px;
     height: 80px;
   }
   .hero-composition {
@@ -1181,21 +1166,13 @@ body {
     padding: 70px 0;
   }
   .clarity-readiness > div,
-  .clarity-proof > div,
-  .clarity-triggers > div,
-  .clarity-footer > div {
-    padding-inline: 24px;
-  }
   .clarity-storefront > section:first-child > div:last-child {
     gap: 35px;
-    padding: 55px 24px;
+    padding-block: 55px;
   }
   .capability-rows a {
     grid-template-columns: 35px 1fr 1.4fr 30px;
     gap: 15px;
-  }
-  .clarity-services-hero > div {
-    padding-inline: 24px;
   }
   .clarity-readiness h2 {
     font-size: 39px;
@@ -1210,7 +1187,6 @@ body {
   }
   .clarity-nav nav {
     height: 64px;
-    padding-inline: 20px;
   }
   .clarity-nav img {
     height: 29px !important;
@@ -1402,7 +1378,7 @@ body {
     white-space: normal;
   }
   .clarity-readiness > div {
-    padding: 56px 20px;
+    padding-block: 56px;
     gap: 37px;
   }
   .clarity-readiness h2 {
@@ -1441,11 +1417,6 @@ body {
   .specimen-priority {
     gap: 8px;
   }
-  .clarity-proof > div,
-  .clarity-triggers > div,
-  .clarity-footer > div {
-    padding-inline: 20px;
-  }
   .clarity-proof h2,
   .clarity-triggers > div > div > div > h2 {
     font-size: 31px;
@@ -1455,7 +1426,7 @@ body {
   }
   .clarity-storefront > section:first-child > div:last-child {
     grid-template-columns: 1fr;
-    padding: 40px 20px;
+    padding-block: 40px;
     gap: 36px;
   }
   .clarity-storefront > section:first-child h1 {
@@ -1468,7 +1439,7 @@ body {
     font-size: 32px;
   }
   .clarity-services-hero > div {
-    padding: 40px 20px 30px;
+    padding-block: 40px 30px;
   }
   .clarity-services-hero nav a {
     min-height: 75px;

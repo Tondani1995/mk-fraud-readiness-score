@@ -19,7 +19,7 @@ export default function FraudReadinessAssessmentTermsPage() {
     <Wrapper>
       <main className="bg-white">
         <section className="bg-mk-navy">
-          <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+          <div className="mk-frame py-16 lg:py-20">
             <div className="max-w-3xl">
               <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/60">
                 Legal
@@ -49,7 +49,7 @@ export default function FraudReadinessAssessmentTermsPage() {
 
         {/* Same left edge as the hero: a document that steps inward from its own title reads as
             two unrelated pages. The measure is constrained inside, not by re-centring. */}
-        <div className="mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-20">
+        <div className="mk-frame py-14 lg:py-20">
           <div className="max-w-3xl">
             {/* No document-status panel. LEGAL_REVIEW_STATUS is an internal marker for MK's own
                 review workflow: a customer being asked to accept these terms must not be told the

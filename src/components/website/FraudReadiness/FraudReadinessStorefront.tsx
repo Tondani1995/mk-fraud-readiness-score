@@ -1,4 +1,4 @@
-import { ArrowRight, LockKeyhole } from 'lucide-react';
+import { MkMark } from "@/components/website/marks/MkMark";
 import Link from 'next/link';
 import { ProductTierCard } from '@/components/products/ProductTierCard';
 import MethodologyTrust from '@/components/website/MethodologyTrust';
@@ -29,7 +29,7 @@ export function FraudReadinessStorefront() {
     <main className="clarity-storefront w-full overflow-hidden bg-mk-surface text-mk-navy" data-storefront>
       <section className="relative overflow-hidden bg-mk-navy text-white">
         <div className="absolute inset-0 " />
-        <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-5 pb-12 pt-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,0.88fr)_minmax(440px,1.12fr)] lg:items-center lg:gap-16 lg:px-8 lg:py-20">
+        <div className="mk-frame relative grid gap-10 pb-12 pt-10 sm:py-14 lg:grid-cols-[minmax(0,0.88fr)_minmax(440px,1.12fr)] lg:items-center lg:gap-16 lg:py-20">
           <div className="min-w-0 max-w-2xl">
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-paper">
               MK&apos;s flagship assessment
@@ -53,7 +53,7 @@ export function FraudReadinessStorefront() {
                 data-storefront-cta="start-assessment"
               >
                 <TrackedLink href="/score/start" ctaName="start_free_assessment" placement="fraud_readiness_hero">
-                  Start the free assessment <ArrowRight className="h-4 w-4" />
+                  Start the free assessment <MkMark name="arrow" className="h-4 w-4" />
                 </TrackedLink>
               </Button>
               <Button
@@ -82,7 +82,7 @@ export function FraudReadinessStorefront() {
 
       <section className="border-b border-mk-line bg-mk-paper">
         <div
-          className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-6 sm:py-12 md:grid-cols-3 lg:px-8 lg:py-16"
+          className="mk-frame grid gap-6 py-10 sm:py-12 md:grid-cols-3 lg:py-16"
           data-assessment-journey
         >
           {(review ? REVIEW_STOREFRONT.steps : [
@@ -108,7 +108,7 @@ export function FraudReadinessStorefront() {
       </section>
 
       <section id="products" className="scroll-mt-24 bg-mk-surface">
-        <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-20">
+        <div className="mk-frame py-12 sm:py-14 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">After your Snapshot</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
@@ -140,7 +140,7 @@ export function FraudReadinessStorefront() {
                   className="w-full rounded-brand bg-mk-navy text-white hover:bg-mk-navy"
                 >
                   <TrackedLink href="/score/start" ctaName="start_with_essential" placement="fraud_readiness_products">
-                    Start with Essential <ArrowRight className="h-4 w-4" />
+                    Start with Essential <MkMark name="arrow" className="h-4 w-4" />
                   </TrackedLink>
                 </Button>)
               }
@@ -161,7 +161,7 @@ export function FraudReadinessStorefront() {
                   className="w-full rounded-brand bg-white text-mk-navy hover:bg-mk-surface"
                 >
                   <TrackedLink href="/score/start" ctaName="start_with_comprehensive" placement="fraud_readiness_products">
-                    Start with Comprehensive <ArrowRight className="h-4 w-4" />
+                    Start with Comprehensive <MkMark name="arrow" className="h-4 w-4" />
                   </TrackedLink>
                 </Button>)
               }
@@ -181,7 +181,7 @@ export function FraudReadinessStorefront() {
                   className="w-full rounded-brand bg-mk-navy text-white hover:bg-mk-navy"
                 >
                   <Link href="/fraud-readiness/advisory">
-                    Discuss Advisory <ArrowRight className="h-4 w-4" />
+                    Discuss Advisory <MkMark name="arrow" className="h-4 w-4" />
                   </Link>
                 </Button>
               }
@@ -201,7 +201,7 @@ export function FraudReadinessStorefront() {
         className="border-t border-mk-line bg-white"
         data-adaptive-assessment-entry="true"
       >
-        <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-12 sm:px-6 sm:py-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8 lg:py-20">
+        <div className="mk-frame grid gap-8 py-12 sm:py-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:py-20">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-mk-accent">
               Start with the result
@@ -216,7 +216,7 @@ export function FraudReadinessStorefront() {
                 className="h-auto min-h-12 rounded-brand bg-mk-navy px-7 text-white hover:bg-mk-navy"
               >
                 <TrackedLink href="/score/start" ctaName="start_assessment" placement="fraud_readiness_closing">
-                  Start the assessment <ArrowRight className="h-4 w-4" />
+                  Start the assessment <MkMark name="arrow" className="h-4 w-4" />
                 </TrackedLink>
               </Button>
               <Button
@@ -231,7 +231,6 @@ export function FraudReadinessStorefront() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-brand border border-mk-line bg-mk-surface p-5">
-              <LockKeyhole className="h-5 w-5 text-mk-accent" />
               <h3 className="mt-5 font-semibold">Private and practical</h3>
               <p className="mt-2 text-sm leading-6 text-mk-accent">
                 No account is required. Your result is available through a private link after submission.

@@ -1,5 +1,6 @@
 import example from "@/lib/readiness-review/fixtures/preview-example.json";
 import { readinessTrack } from "@/lib/website/readiness-track";
+import { MkMark } from "@/components/website/marks/MkMark";
 
 const previewDomains = [
   { name: "Governance", value: 74 },
@@ -49,7 +50,7 @@ export function SnapshotPreview({ compact = false, story = false }: { compact?: 
       <h2>Your Fraud Readiness Snapshot</h2>
       <div className="specimen-position">
         <span className="position-mark" aria-hidden="true">
-          ↗
+          <MkMark name="arrowOut" />
         </span>
         <div>
           <span className="clarity-eyebrow">EXAMPLE POSITION</span>
@@ -77,7 +78,7 @@ export function SnapshotPreview({ compact = false, story = false }: { compact?: 
       </div>
       <div className="specimen-priority">
         <span>PRIORITY ACTION</span>
-        <strong>Clarify response ownership ↗</strong>
+        <strong>Clarify response ownership</strong>
       </div>
       <p className="specimen-note">
         Illustration only. Your private Snapshot is based on your submitted

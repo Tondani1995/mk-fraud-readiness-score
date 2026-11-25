@@ -1,18 +1,7 @@
 "use client";
 
-import {
-    ShoppingCart,
-    Truck,
-    Building2,
-    Zap,
-    GraduationCap,
-    Globe,
-    AlertTriangle,
-    CheckCircle2,
-    ArrowRight,
-} from "lucide-react";
 import Wrapper from "@/components/website/Wrapper";
-import { Button } from "@/components/website/ui/button";
+import { MkMark } from "@/components/website/marks/MkMark";
 import {
     Accordion,
     AccordionContent,
@@ -25,7 +14,6 @@ export default function Industries() {
     const industries = [
         {
             key: "retail",
-            icon: ShoppingCart,
             title: "Retail & Consumer Businesses",
             summary:
                 "High-volume transactions create perfect cover for refund abuse, loyalty exploitation, and employee-enabled loss.",
@@ -43,7 +31,6 @@ export default function Industries() {
         },
         {
             key: "logistics",
-            icon: Truck,
             title: "Logistics, Distribution & Supply Chains",
             summary:
                 "Fraud hides where physical movement and system records don’t reconcile, often across third parties.",
@@ -61,7 +48,6 @@ export default function Industries() {
         },
         {
             key: "public",
-            icon: Building2,
             title: "Public Sector & State-Linked Entities",
             summary:
                 "Complex rules, fragmented accountability, and weak consequences create repeatable control failures.",
@@ -79,7 +65,6 @@ export default function Industries() {
         },
         {
             key: "utilities",
-            icon: Zap,
             title: "Utilities & Infrastructure Providers",
             summary:
                 "Legacy environments + large physical networks make monitoring hard and manipulation easy.",
@@ -97,7 +82,6 @@ export default function Industries() {
         },
         {
             key: "social",
-            icon: GraduationCap,
             title: "Education, Healthcare & Social Services",
             summary:
                 "Trust-based models and admin complexity create blind spots for eligibility, claims, and supplier fraud.",
@@ -115,7 +99,6 @@ export default function Industries() {
         },
         {
             key: "digital",
-            icon: Globe,
             title: "Digital Platforms & Service Providers",
             summary:
                 "Fast growth without matching controls leads to account takeovers, policy abuse, and insider-enabled loss.",
@@ -133,317 +116,142 @@ export default function Industries() {
         },
     ];
 
+    const primary =
+        "inline-flex min-h-12 items-center justify-center gap-2 rounded-brand px-6 text-[15px] font-semibold transition-colors";
+    const lists = (industry: (typeof industries)[number]) => (
+        <dl className="grid gap-6 sm:grid-cols-3 sm:gap-8">
+            {[
+                ["What it looks like", industry.what],
+                ["Why it persists", industry.why],
+                ["What it affects", industry.affects],
+            ].map(([label, items]) => (
+                <div key={label as string} className="border-t border-mk-line pt-4">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">{label as string}</dt>
+                    <dd className="mt-3">
+                        <ul className="space-y-2.5">
+                            {(items as string[]).map((t) => (
+                                <li key={t} className="text-[15px] leading-relaxed text-mk-navy">
+                                    {t}
+                                </li>
+                            ))}
+                        </ul>
+                    </dd>
+                </div>
+            ))}
+        </dl>
+    );
+
     return (
         <Wrapper>
             <div className="bg-white">
-                {/* HERO (dark) */}
-                <section className="relative overflow-hidden bg-mk-navy">
-
-                    <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-                        <div className="mx-auto max-w-3xl text-center">
-                            <div className="inline-flex items-center gap-2 rounded-brand border border-white/15 bg-white/5 px-5 py-2.5 ">
-                                <AlertTriangle className="h-4 w-4 text-white" />
-                                <span className="text-sm font-semibold uppercase tracking-wide text-white">
-                                    Industry focus
-                                </span>
-                            </div>
-
-                            <h1 className="mt-6 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-4xl lg:text-5xl">
-                                Fraud risk does not follow{" "}
-                                <span className="relative inline-block">
-                                    <span className="relative z-10 text-mk-line">industry labels</span>
-                                </span>
+                <section className="bg-mk-navy text-white" aria-labelledby="industries-heading">
+                    <div className="mk-frame mk-split py-16 lg:items-end lg:py-24">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Industry focus</p>
+                            <h1 id="industries-heading" className="mk-display mt-5 max-w-[16ch] font-medium">
+                                Fraud risk does not follow industry labels
                             </h1>
-
-                            <p className="mt-5 leading-relaxed text-slate-200">
+                        </div>
+                        <div>
+                            <p className="mk-measure text-base leading-relaxed text-white/80 sm:text-lg">
                                 It follows operational patterns, incentives, and control weaknesses. We focus on how
                                 fraud manifests in real operating environments.
                             </p>
-
-                            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                                <Link href="/contact" className="w-full sm:w-auto">
-                                    <Button className="w-full rounded-brand bg-white px-8 py-6 text-base font-semibold text-mk-navy shadow-soft transition-all duration-300 hover:scale-[1.02] hover:bg-slate-100">
-                                        Book a strategy call
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Button>
+                            <div className="mt-8 flex flex-wrap gap-3">
+                                <Link href="/contact" className={`${primary} bg-white text-mk-navy hover:bg-mk-surface`}>
+                                    Book a strategy call
+                                    <MkMark name="arrow" />
                                 </Link>
-                                <Link href="/services" className="w-full sm:w-auto">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full rounded-brand border-2 border-white/25 bg-transparent px-8 py-6 text-base font-semibold text-white transition-all duration-300 hover:border-white/40 hover:bg-white/5"
-                                    >
-                                        View services
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Button>
+                                <Link href="/services" className={`${primary} border border-white/30 text-white hover:border-white/60`}>
+                                    View services
                                 </Link>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* CONTENT (light) */}
-                <section className="relative overflow-hidden bg-white">
-
-                    <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24">
-                        <div className="mx-auto mb-10 max-w-3xl text-center">
-                            <h2 className="text-2xl font-semibold leading-tight tracking-normal text-mk-navy sm:text-3xl">
+                <section aria-labelledby="environments-heading">
+                    <div className="mk-frame py-16 lg:py-24">
+                        <div className="mk-split">
+                            <h2 id="environments-heading" className="mk-heading max-w-[18ch] font-medium text-mk-navy">
                                 Choose your operating environment
                             </h2>
-                            <p className="mt-3 leading-relaxed text-slate-600">
-                                On mobile, tap an industry to expand details in-place (no jumping to the bottom).
+                            <p className="mk-measure text-base leading-relaxed text-mk-muted lg:pt-2">
+                                Across industries, fraud thrives where controls are misaligned with how work
+                                actually gets done. We help you identify those gaps and close them practically.
                             </p>
                         </div>
 
-                        {/* MOBILE: accordion */}
-                        <div className="lg:hidden">
-                            <Accordion type="single" collapsible className="space-y-4">
-                                {industries.map((industry) => {
-                                    const Icon = industry.icon;
-                                    return (
-                                        <AccordionItem
-                                            key={industry.key}
-                                            value={industry.key}
-                                            className="overflow-hidden rounded-brand border border-slate-200 bg-white shadow-soft"
-                                        >
-                                            <AccordionTrigger className="px-5 py-5 text-left hover:no-underline">
-                                                <div className="flex w-full items-start gap-4">
-                                                    <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                                                        <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-base font-semibold text-mk-navy">{industry.title}</p>
-                                                        <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                                                            {industry.summary}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </AccordionTrigger>
-
-                                            <AccordionContent className="px-5 pb-6">
-                                                <div className="mt-2 rounded-brand border border-slate-200 bg-slate-50 p-5">
-                                                    <div className="space-y-5">
-                                                        <div>
-                                                            <div className="mb-2 flex items-center gap-2">
-                                                                <AlertTriangle className="h-4 w-4 text-mk-navy shrink-0" />
-                                                                <p className="text-sm font-semibold text-mk-navy">What it looks like</p>
-                                                            </div>
-                                                            <ul className="space-y-2">
-                                                                {industry.what.map((t) => (
-                                                                    <li key={t} className="flex items-start gap-2">
-                                                                        <span className="mt-2 h-1.5 w-1.5 rounded-brand bg-mk-navy" />
-                                                                        <span className="text-sm font-medium text-slate-700">{t}</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-
-                                                        <div>
-                                                            <div className="mb-2 flex items-center gap-2">
-                                                                <AlertTriangle className="h-4 w-4 text-mk-navy shrink-0" />
-                                                                <p className="text-sm font-semibold text-mk-navy">Why it persists</p>
-                                                            </div>
-                                                            <ul className="space-y-2">
-                                                                {industry.why.map((t) => (
-                                                                    <li key={t} className="flex items-start gap-2">
-                                                                        <span className="mt-2 h-1.5 w-1.5 rounded-brand bg-mk-navy" />
-                                                                        <span className="text-sm font-medium text-slate-700">{t}</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-
-                                                        <div>
-                                                            <div className="mb-2 flex items-center gap-2">
-                                                                <CheckCircle2 className="h-4 w-4 text-mk-navy shrink-0" />
-                                                                <p className="text-sm font-semibold text-mk-navy">Affects</p>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {industry.affects.map((t) => (
-                                                                    <span
-                                                                        key={t}
-                                                                        className="rounded-brand border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
-                                                                    >
-                                                                        {t}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex gap-3 pt-2">
-                                                            <Link href="/contact" className="w-full">
-                                                                <Button className="w-full rounded-brand bg-mk-navy py-6 text-base font-semibold text-white hover:bg-mk-navy">
-                                                                    Discuss this risk
-                                                                    <ArrowRight className="ml-2 h-5 w-5" />
-                                                                </Button>
-                                                            </Link>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    );
-                                })}
+                        {/* Small screens: one environment open at a time. */}
+                        <div className="mt-10 lg:hidden">
+                            <Accordion type="single" collapsible className="border-b border-mk-line">
+                                {industries.map((industry) => (
+                                    <AccordionItem key={industry.key} value={industry.key} className="border-t border-mk-line">
+                                        <AccordionTrigger className="py-5 text-left hover:no-underline">
+                                            <span>
+                                                <span className="block text-lg font-semibold text-mk-navy">{industry.title}</span>
+                                                <span className="mt-1 block text-sm font-normal leading-relaxed text-mk-muted">
+                                                    {industry.summary}
+                                                </span>
+                                            </span>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pb-8">
+                                            {lists(industry)}
+                                            <Link href="/contact" className="mt-6 inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-mk-navy underline decoration-mk-line underline-offset-4">
+                                                Discuss this risk
+                                                <MkMark name="arrow" />
+                                            </Link>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
                             </Accordion>
                         </div>
 
-                        {/* DESKTOP: list + sticky detail (no mobile jump problem) */}
-                        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-8">
-                            <div className="lg:col-span-5">
-                                <div className="space-y-4">
-                                    {industries.map((industry) => {
-                                        const Icon = industry.icon;
-                                        return (
-                                            <a
-                                                key={industry.key}
-                                                href={`#${industry.key}`}
-                                                className="group flex items-start gap-4 rounded-brand border border-slate-200 bg-white p-5 shadow-soft transition-all duration-300  hover:border-mk-accent/25 hover:shadow-soft"
-                                            >
-                                                <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                                                    <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-base font-semibold text-mk-navy">{industry.title}</p>
-                                                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                                                        {industry.summary}
-                                                    </p>
-                                                </div>
-                                            </a>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className="mt-6 rounded-brand border border-mk-accent/12 bg-white p-6 shadow-soft">
-                                    <div className="flex items-start gap-4">
-                                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                                            <CheckCircle2 className="h-6 w-6 text-white" strokeWidth={2.5} />
-                                        </div>
-                                        <div>
-                                            <p className="text-lg font-semibold text-mk-navy">Our focus</p>
-                                            <p className="mt-1 leading-relaxed text-slate-700">
-                                                Across industries, fraud thrives where controls are misaligned with how work
-                                                actually gets done. We help you identify those gaps and close them
-                                                practically.
-                                            </p>
-                                        </div>
+                        {/* Larger screens: an editorial index, every environment visible at once. */}
+                        <div className="mt-16 hidden lg:block">
+                            {industries.map((industry) => (
+                                <article
+                                    key={industry.key}
+                                    id={industry.key}
+                                    className="mk-split scroll-mt-28 border-t border-mk-line py-10"
+                                    aria-labelledby={`${industry.key}-title`}
+                                >
+                                    <div>
+                                        <h3 id={`${industry.key}-title`} className="text-2xl font-medium leading-snug text-mk-navy">
+                                            {industry.title}
+                                        </h3>
+                                        <p className="mt-3 max-w-[46ch] text-base leading-relaxed text-mk-muted">{industry.summary}</p>
+                                        <Link href="/contact" className="mt-5 inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-mk-navy underline decoration-mk-line underline-offset-4 hover:decoration-mk-navy">
+                                            Speak to MK
+                                            <MkMark name="arrow" />
+                                        </Link>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="lg:col-span-7">
-                                <div className="sticky top-24 space-y-5">
-                                    {industries.map((industry) => {
-                                        const Icon = industry.icon;
-                                        return (
-                                            <div
-                                                key={industry.key}
-                                                id={industry.key}
-                                                className="scroll-mt-24 rounded-brand border border-slate-200 bg-white p-8 shadow-soft"
-                                            >
-                                                <div className="flex items-start justify-between gap-6">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="mt-0.5 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-brand bg-mk-navy">
-                                                            <Icon className="h-7 w-7 text-white" strokeWidth={2.5} />
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="text-2xl font-semibold leading-tight text-mk-navy">{industry.title}</h3>
-                                                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                                                                {industry.summary}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-                                                    <div className="rounded-brand border border-slate-200 bg-slate-50 p-5">
-                                                        <p className="mb-3 text-sm font-semibold text-mk-navy">What it looks like</p>
-                                                        <ul className="space-y-2">
-                                                            {industry.what.map((t) => (
-                                                                <li key={t} className="flex items-start gap-2">
-                                                                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-brand bg-mk-navy" />
-                                                                    <span className="text-sm font-medium text-slate-700">{t}</span>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-
-                                                    <div className="rounded-brand border border-slate-200 bg-slate-50 p-5">
-                                                        <p className="mb-3 text-sm font-semibold text-mk-navy">Why it persists</p>
-                                                        <ul className="space-y-2">
-                                                            {industry.why.map((t) => (
-                                                                <li key={t} className="flex items-start gap-2">
-                                                                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-brand bg-mk-navy" />
-                                                                    <span className="text-sm font-medium text-slate-700">{t}</span>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-
-                                                    <div className="rounded-brand border border-slate-200 bg-slate-50 p-5">
-                                                        <p className="mb-3 text-sm font-semibold text-mk-navy">Affects</p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {industry.affects.map((t) => (
-                                                                <span
-                                                                    key={t}
-                                                                    className="rounded-brand border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
-                                                                >
-                                                                    {t}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-
-                                                        <div className="mt-5">
-                                                            <Link href="/contact">
-                                                                <Button className="w-full rounded-brand bg-mk-navy py-6 text-base font-semibold text-white hover:bg-mk-navy">
-                                                                    Speak to MK
-                                                                    <ArrowRight className="ml-2 h-5 w-5" />
-                                                                </Button>
-                                                            </Link>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                    {lists(industry)}
+                                </article>
+                            ))}
                         </div>
                     </div>
                 </section>
 
-                {/* CTA (dark) */}
-                <section className="relative overflow-hidden bg-mk-navy">
-
-                    <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
-                        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
-                            <div className="lg:col-span-7">
-                                <h2 className="text-2xl font-semibold leading-tight text-white sm:text-3xl">
-                                    Ready to address fraud risk in your industry?
-                                </h2>
-                                <p className="mt-3 leading-relaxed text-slate-200">
-                                    Speak to MK about how fraud manifests in your operating environment and how
-                                    we can help you build effective defences.
-                                </p>
-                            </div>
-
-                            <div className="lg:col-span-5">
-                                <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-                                    <Link href="/contact" className="w-full sm:w-auto">
-                                        <Button className="w-full rounded-brand bg-white px-8 py-6 text-base font-semibold text-mk-navy shadow-soft transition-all duration-300 hover:scale-[1.02] hover:bg-slate-100">
-                                            Book a strategy call
-                                            <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Button>
-                                    </Link>
-                                    <Link href="/services" className="w-full sm:w-auto">
-                                        <Button
-                                            variant="outline"
-                                            className="w-full rounded-brand border-2 border-white/25 bg-transparent px-8 py-6 text-base font-semibold text-white transition-all duration-300 hover:border-white/40 hover:bg-white/5"
-                                        >
-                                            Explore services
-                                            <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </div>
+                <section className="bg-mk-navy text-white" aria-labelledby="industries-cta">
+                    <div className="mk-frame mk-split py-16 lg:items-center lg:py-20">
+                        <div>
+                            <h2 id="industries-cta" className="mk-heading max-w-[22ch] font-medium">
+                                Ready to address fraud risk in your industry?
+                            </h2>
+                            <p className="mk-measure mt-3 leading-relaxed text-white/80">
+                                Speak to MK about how fraud manifests in your operating environment and how
+                                we can help you build effective defences.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-3 lg:justify-end">
+                            <Link href="/contact" className={`${primary} bg-white text-mk-navy hover:bg-mk-surface`}>
+                                Book a strategy call
+                                <MkMark name="arrow" />
+                            </Link>
+                            <Link href="/services" className={`${primary} border border-white/30 text-white hover:border-white/60`}>
+                                Explore services
+                            </Link>
                         </div>
                     </div>
                 </section>
