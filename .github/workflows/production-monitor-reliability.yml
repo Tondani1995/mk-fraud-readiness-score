@@ -4,6 +4,11 @@ on:
     paths:
       - 'src/lib/monitoring/**'
       - 'src/lib/notifications/internal-assessment-notifications.ts'
+      - 'src/lib/readiness-review/**'
+      - 'src/app/review/api/**'
+      - 'scripts/review-stalled-monitoring-tests.mjs'
+      - 'scripts/lib/disposable-migration-replay.mjs'
+      - 'supabase/migrations/20261125120000_review_stalled_monitoring_correction.sql'
       - 'src/app/score/api/internal/**'
       - 'scripts/production-monitor*'
       - 'supabase/migrations/20260912082816_production_monitor_reliability.sql'
@@ -35,6 +40,11 @@ jobs:
       - run: npm run monitoring:test-contracts
       - run: npm run monitoring:test-fulfilment-signals
       - run: npm run monitoring:test-reliability
+      - name: Verify stalled-review monitoring against full disposable migration replay
+        run: |
+          set -o pipefail
+          npm run monitoring:test-review-stalled | tee /tmp/mk-review-stalled-test.log
+          grep -Fx 'Review stalled-monitoring tests: PASS' /tmp/mk-review-stalled-test.log
       - run: node scripts/production-monitor-database-tests.mjs
         env:
           MONITOR_TEST_DATABASE_URL: postgresql://postgres:disposable-monitor-test@127.0.0.1:5432/postgres

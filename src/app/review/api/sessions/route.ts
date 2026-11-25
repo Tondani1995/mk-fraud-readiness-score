@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (contact && contactsAvailable()) {
       try {
         await recordContact(created.sessionId, contact);
-        await sendReviewNotice(created.sessionId, { kind: 'started', organisationLabel: String(body?.organisationLabel ?? '').replace(/\s+/g, ' ').trim().slice(0, 80), contact, actionCount: 0 });
+        await sendReviewNotice(created.sessionId, { kind: 'started', organisationLabel: String(body?.organisationLabel ?? '').replace(/\s+/g, ' ').trim().slice(0, 80), contact, answersRecorded: 0 });
       } catch (error) {
         // The review itself is stored; a contact or notification failure must not stop the respondent from starting.
         console.warn('review_contact_record_failed', { message: error instanceof Error ? error.message.slice(0, 160) : 'unknown' });
