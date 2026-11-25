@@ -88,3 +88,27 @@ c46430b490f0cdb18c8d0a7353563fae7149e200:.gitleaksignore:generic-api-key:75
 # run-time derived value in a later commit; this entry covers the historical commit, which
 # the full-history scan still reaches.
 f01dd0510abf51386bc49e726803f08a03a7d28b:.github/workflows/supabase-migration-replay.yml:generic-api-key:828
+
+# 25 Nov 2026 triage (owner-approved): eleven findings, each reviewed against the file content at
+# the reported commit and line, with values read only in masked form. None is a credential:
+#
+# - Ten `generic-api-key` matches on `REQUEST_KEY:` in August acceptance workflows
+#   (customer-1-acceptance-runner.yml, customer-1-acceptance-observer.yml,
+#   essential-v9-rendered-certification.yml, v10-final-acceptance-generation.yml). The value is a
+#   readable request label (words, a short version tag and an order or date suffix) sent as the
+#   `requestKey` field of an admin_generate request so a repeated run is recognised. It grants no
+#   access: those workflows authenticate with values from `${{ secrets.* }}`.
+# - One `sentry-access-token` match in scripts/spatial-integrity-tests.mjs:15. The line maps file
+#   paths to SHA-256 content hashes for an integrity check; it matched only because one path
+#   contains "sentry".
+592ac766640e73ff6c3a32055a65e7b03ca7c32e:scripts/spatial-integrity-tests.mjs:sentry-access-token:15
+c97b919f7e169e2d5579b1ab3726869570ae46d3:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
+655db1c576147750499ff68838c6bc0008e0d517:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
+846a4bde8fa3fb3afb28279a0ff9579d0c38ec50:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
+4e1bc2bde84aef2c0fb4016f387b09ad820c635a:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
+a4e41e38ab14028b2cca99a32b8fafe557627a8c:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:23
+c1c7c1c0add919a6e66c14bf634847de1f873ecc:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
+f257126a9f02feb4b895d67c4ba0bd5f53646ef0:.github/workflows/customer-1-acceptance-observer.yml:generic-api-key:21
+0472502a058909ef1ac2684f1bffe9660405a3e2:.github/workflows/customer-1-acceptance-runner.yml:generic-api-key:19
+8cd9ec6adc0ecb6088891fcba9bea5ac6acf5e7e:.github/workflows/essential-v9-rendered-certification.yml:generic-api-key:129
+cb84b72a27b621eaa4280740f4ecec5dfa690a39:.github/workflows/v10-final-acceptance-generation.yml:generic-api-key:23
