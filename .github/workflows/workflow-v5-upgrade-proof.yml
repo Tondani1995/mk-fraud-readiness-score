@@ -1,0 +1,39 @@
+name: Workflow v5 isolated upgrade proof
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/workflow-v5-upgrade-proof.yml'
+      - 'package*.json'
+      - 'src/workflows/**'
+      - 'src/lib/reports/automation/**'
+permissions:
+  contents: read
+jobs:
+  provider-free-upgrade:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/monitoring-security-recovery-20261125'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Resolve exact v5 candidate in isolated checkout
+        run: npm install --save-exact --package-lock-only --ignore-scripts workflow@5.2.0
+      - name: Retain candidate manifests (not automatically committed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-v5-candidate-manifests
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Verify v5 dependency audit without exceptions
+        run: npm audit --omit=dev --audit-level=high
+      - name: Report-engine regression
+        if: always()
+        run: npm run phase14:test-report-engine

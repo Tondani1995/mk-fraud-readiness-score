@@ -1,0 +1,42 @@
+name: Commercial measurement and privacy acceptance
+on:
+  pull_request:
+    paths:
+      - 'src/lib/website/**'
+      - 'src/lib/security/**'
+      - 'src/lib/enquiries/**'
+      - 'src/app/score/**'
+      - 'src/components/website/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - '.github/workflows/commercial-measurement-privacy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/website/**'
+      - 'src/lib/security/**'
+      - 'src/lib/enquiries/**'
+      - 'src/app/score/**'
+      - 'src/components/website/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - '.github/workflows/commercial-measurement-privacy.yml'
+permissions:
+  contents: read
+jobs:
+  commercial-measurement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rate-limit-ip-privacy-tests.mjs
+      - run: node --experimental-strip-types scripts/campaign-entry-attribution-tests.mjs
+      - run: node scripts/campaign-entry-route-tests.mjs
+      - run: npm run consent:test
+      - run: npm run cx:test-enquiry-workflows
+      - run: npm run website:test-service-acquisition-measurement
+      - run: node scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
