@@ -1008,9 +1008,12 @@
         "src/lib/admin/monitoring.ts:163 S",
         "src/lib/monitoring/production-monitor.ts:148 IU",
         "src/lib/monitoring/production-monitor.ts:434 S",
-        "src/lib/monitoring/production-readiness.ts:293 S"
+        "src/lib/monitoring/production-readiness.ts:294 S",
+        "src/lib/monitoring/production-readiness.ts:295 S",
+        "src/lib/monitoring/stalled-lead-heartbeat.ts:33 S",
+        "src/lib/monitoring/stalled-lead-heartbeat.ts:39 IU"
       ],
-      "justification": "One heartbeat row per monitor: the monitor upserts its run state and reads its previous run; the authenticated admin monitoring page and the readiness check read it through the server-side monitor client. No DELETE. Migration 20260901183000 grants exactly SIU and revokes anon/authenticated."
+      "justification": "One heartbeat row per monitor: the monitor upserts its run state and reads its previous run; the authenticated admin monitoring page and the readiness check read it through the server-side monitor client. No DELETE. Migration 20260901183000 grants exactly SIU and revokes anon/authenticated. The stalled-lead monitor adds a counts-only heartbeat and a second readiness read on the same table; the existing SIU grant is sufficient and no additional grants are requested."
     },
     {
       "schema": "public",
@@ -2129,7 +2132,8 @@
       "src/lib/reports/revised/live/manual-generation.ts",
       "src/lib/reports/revised/live/order.ts",
       "src/lib/scoring/methodology-dispatch.ts",
-      "src/lib/website/readiness-release.ts"
+      "src/lib/website/readiness-release.ts",
+      "src/lib/monitoring/stalled-lead-heartbeat.ts"
     ],
     "nonServiceCallSites": [
       "src/lib/rc1/control-plane.ts:96:rpc",
@@ -2161,7 +2165,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
+    "fullAstInventorySha256": "13430be19b916e67619df1e758fdc4483f5d836a851e57c890d49aa931bbb40c"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
