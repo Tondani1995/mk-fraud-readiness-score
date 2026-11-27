@@ -4,12 +4,18 @@ import NewsletterSignup from "@/components/website/newsletter/NewsletterSignup";
 import { NEWSLETTER_ENABLED } from "@/lib/marketing/newsletter-flag";
 import { buildPageMetadata } from "@/lib/website/site";
 
-export const metadata = buildPageMetadata({
-  title: "MK Fraud Signals",
-  description:
-    "MK Fraud Signals is a weekly email from MK Fraud Insights: practitioner-led fraud risk analysis and one practical management consideration for South African organisations.",
-  path: "/mk-fraud-signals",
-});
+// The website layout streams a loading screen, so notFound() here arrives after a 200 status. While
+// the newsletter is disabled the page must therefore also say noindex, or search engines would
+// index a soft 404.
+export const metadata = {
+  ...buildPageMetadata({
+    title: "MK Fraud Signals",
+    description:
+      "MK Fraud Signals is a weekly email from MK Fraud Insights: practitioner-led fraud risk analysis and one practical management consideration for South African organisations.",
+    path: "/mk-fraud-signals",
+  }),
+  ...(NEWSLETTER_ENABLED ? {} : { robots: { index: false, follow: false } }),
+};
 
 const issueParts = [
   {
