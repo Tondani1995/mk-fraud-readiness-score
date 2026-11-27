@@ -13,6 +13,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "consent:test": "node scripts/consent-mode-regression-tests.mjs",
+    "marketing:test": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/marketing-newsletter-tests.mjs",
     "monitoring:test-contracts": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/production-monitoring-contract-tests.mjs",
     "test": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/test-stage1-foundations.mjs",
     "quality:gates": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/quality-gates.mjs",

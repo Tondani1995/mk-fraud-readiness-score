@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<!--
+  MK Fraud Signals issue shell: TECHNICAL scaffold for Resend Broadcasts (HTML editor / API `html`).
+  Editorial content is ChatGPT's. Constraints this shell satisfies:
+  - Table layout, inline styles, 600px max, no external CSS, no web fonts required (Poppins with
+    Segoe UI / Helvetica / Arial fallback, because Outlook desktop ignores web fonts).
+  - No tracking pixel; Resend open/click tracking stays OFF on send.mkfraud.co.za.
+  - {{{RESEND_UNSUBSCRIBE_URL}}} is mandatory; Resend replaces it per recipient and handles the
+    preference page. Personalisation: {{{contact.first_name|there}}} only (no first names are
+    collected at subscribe time, so the fallback is what most people will see).
+  - Links carry utm_source=mk_fraud_signals&utm_medium=email&utm_campaign=mk_fraud_signals_2026&utm_content=issue_NNN.
+    The site's existing first-party attribution captures these (30-day window, consent-aware).
+  - Sender identity line and Privacy Policy link in the footer (POPIA s69(4)).
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>MK Fraud Signals</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;">
+<div style="display:none;max-height:0;overflow:hidden;">[[PREHEADER: one sentence, 90 characters max]]</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;">
+  <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-top:4px solid #001030;">
+      <tr><td style="padding:28px 32px 0;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600;color:#1D3658;">MK Fraud Signals</td>
+          <td align="right" style="font-size:12px;color:#4a5b70;">Edition [[NNN]] &middot; [[DD Month YYYY]]</td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:16px 32px 0;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;line-height:1.25;font-weight:600;color:#001030;">[[EDITORIAL HEADING]]</td></tr>
+      <tr><td style="padding:16px 32px 0;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.65;color:#1D3658;">
+        <p style="margin:0 0 14px;">Hello {{{contact.first_name|there}}},</p>
+        <p style="margin:0 0 14px;">[[PRACTITIONER-LED NARRATIVE: 250 to 450 words, short paragraphs]]</p>
+      </td></tr>
+      <tr><td style="padding:8px 32px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid #A9D4CE;background:#f8fafc;">
+          <tr><td style="padding:16px 18px;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;">
+            <div style="font-size:12px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600;color:#1D3658;">A management consideration</div>
+            <div style="padding-top:6px;font-size:15px;line-height:1.6;color:#001030;">[[ONE PRACTICAL QUESTION LEADERSHIP CAN ASK THIS WEEK]]</div>
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:24px 32px 8px;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1D3658;">[[ONE COMMERCIAL INVITATION, ONE SENTENCE]]</td></tr>
+      <tr><td style="padding:8px 32px 28px;">
+        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="https://www.mkfraud.co.za/fraud-readiness?utm_source=mk_fraud_signals&amp;utm_medium=email&amp;utm_campaign=mk_fraud_signals_2026&amp;utm_content=issue_NNN" style="height:44px;v-text-anchor:middle;width:240px;" arcsize="10%" fillcolor="#001030" stroke="f"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">[[CTA LABEL]]</center></v:roundrect><![endif]-->
+        <!--[if !mso]><!--><a href="https://www.mkfraud.co.za/fraud-readiness?utm_source=mk_fraud_signals&amp;utm_medium=email&amp;utm_campaign=mk_fraud_signals_2026&amp;utm_content=issue_NNN" style="display:inline-block;background:#001030;color:#ffffff;text-decoration:none;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;padding:12px 22px;border-radius:4px;">[[CTA LABEL]]</a><!--<![endif]-->
+      </td></tr>
+      <tr><td style="padding:18px 32px 26px;border-top:1px solid #A9D4CE;font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#4a5b70;">
+        You are receiving MK Fraud Signals because you subscribed and confirmed at mkfraud.co.za. Reply to this email to reach Rendani Singo directly.<br>
+        MK Fraud Insights is a trading name of Stonda (Pty) Ltd, South Africa. <a href="https://www.mkfraud.co.za/privacy-policy" style="color:#1D3658;">Privacy Policy</a><br>
+        <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#1D3658;">Unsubscribe or manage preferences</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
