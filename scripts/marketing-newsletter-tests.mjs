@@ -293,6 +293,40 @@ await test('T06', 'duplicate submission creates one contact; a concurrent create
   await assert.rejects(applyResendSyncPlan(resendConfig(conflict), 'qa@mkfraud.co.za', plan, null), /replan_required/);
 });
 
+// ---------------------------------------------------------------- shared endpoint routing and lift detection
+const { classifyResendEvent } = await import('../src/lib/marketing/resend-event-routing.ts');
+const { planLiftsProviderWithdrawal } = await import('../src/lib/marketing/subscription-state.ts');
+
+await test('W1', 'one shared endpoint: every event routes to exactly one isolated handler', () => {
+  assert.equal(classifyResendEvent({ type: 'email.delivered', data: { email_id: 'e', to: ['x@y.z'] } }), 'transactional', 'Fraud Readiness mail stays transactional');
+  assert.equal(classifyResendEvent({ type: 'email.bounced', data: { broadcast_id: 'b', to: ['x@y.z'] } }), 'marketing');
+  assert.equal(classifyResendEvent({ type: 'email.delivered', data: { tags: { mk_stream: 'newsletter_confirmation' } } }), 'marketing', 'confirmation mail never reaches report delivery');
+  assert.equal(classifyResendEvent({ type: 'email.delivered', data: { tags: [{ name: 'mk_stream', value: 'newsletter_confirmation' }] } }), 'marketing');
+  for (const type of ['contact.updated', 'contact.deleted', 'contact.topics.updated', 'suppression.added', 'topic.updated']) {
+    assert.equal(classifyResendEvent({ type, data: {} }), 'marketing', type);
+  }
+  for (const type of ['domain.updated', 'inbox.created', '', 'mystery']) assert.equal(classifyResendEvent({ type, data: {} }), 'ignore');
+  const route = fs.readFileSync('src/app/api/webhooks/resend-events/route.ts', 'utf8');
+  assert.match(route, /MK_RESEND_SHARED_WEBHOOK_TRANSACTIONAL\?\.trim\(\) !== 'enabled' \|\| !sharedSecretMatches/, 'transactional forwarding is opt-in and secret-matched');
+  assert.ok(!fs.existsSync('src/app/api/webhooks/resend-marketing/route.ts'), 'no second marketing endpoint');
+});
+
+await test('W2', 'a plan that re-subscribes a withdrawn contact is always detected', () => {
+  const base = { action: 'apply', createContact: false, setUnsubscribed: null, topic: null, addToSignalsSegment: false, removeFromSignalsSegment: false };
+  assert.equal(planLiftsProviderWithdrawal({ ...base, setUnsubscribed: false }, { ...remoteOk, unsubscribed: true }), true);
+  assert.equal(planLiftsProviderWithdrawal({ ...base, topic: 'opt_in' }, { ...remoteOk, topicSubscription: 'opt_out' }), true);
+  assert.equal(planLiftsProviderWithdrawal({ ...base, topic: 'opt_in' }, { ...remoteOk, topicSubscription: null }), false, 'first enrolment is not a lift');
+  assert.equal(planLiftsProviderWithdrawal({ ...base, setUnsubscribed: true }, remoteOk), false);
+});
+
+await test('S1', 'stale CRM data cannot drive sending: the integration never reads Attio newsletter mirror fields', () => {
+  for (const file of fs.readdirSync('src/lib/marketing')) {
+    const src = fs.readFileSync(path.join('src/lib/marketing', file), 'utf8');
+    assert.doesNotMatch(src, /mk_newsletter_(subscription|consent|eligibility)|mk_resend_contact_id|mk_marketing_(sync|suppression|engagement)|mk_last_marketing/i, file);
+    assert.doesNotMatch(src, /method:\s*'(PATCH|PUT|DELETE)'[\s\S]{0,80}api\.attio\.com/, `${file} never writes Attio`);
+  }
+});
+
 // ---------------------------------------------------------------- database rules against the real migration
 const pgliteDir = process.env.MK_PGLITE_DIR;
 if (!pgliteDir) {
@@ -307,6 +341,7 @@ if (!pgliteDir) {
     marketing_peek_confirmation_token: { p_token_hash: 'text' },
     marketing_confirm_subscription: { p_token_hash: 'text', p_ip_hash: 'text', p_user_agent_hash: 'text', p_restriction_decision: 'text', p_restriction_evidence: 'jsonb' },
     marketing_apply_provider_effect: { p_provider_event_id: 'text', p_event_type: 'text', p_payload_sha256: 'text', p_email_hash: 'text', p_effect: 'text', p_occurred_at: 'timestamptz', p_detail: 'jsonb' },
+    marketing_claim_provider_lift: { p_subscriber_id: 'uuid', p_expected_version: 'bigint' },
     marketing_record_sync_outcome: { p_subscriber_id: 'uuid', p_expected_version: 'bigint', p_outcome: 'text', p_resend_contact_id: 'text', p_error: 'text', p_hold_reason: 'text', p_restriction_decision: 'text', p_restriction_evidence: 'jsonb' },
     marketing_reconciliation_batch: { p_limit: 'integer' },
     marketing_audience_snapshot: {}
@@ -504,6 +539,71 @@ if (!pgliteDir) {
     assert.equal(row.status, 'held');
     assert.equal(row.hold_reason, 'restricted_organisation');
     assert.ok(!healthy.state.segments.includes('seg-qa'));
+  });
+
+  await test('C1', 'concurrency: parallel subscribe requests send one confirmation; parallel confirms consent once', async () => {
+    const before = sentEmails.length;
+    const [a, b] = await Promise.all([
+      requestNewsletterSubscription(baseDeps(), input('race@mkfraud.co.za')),
+      requestNewsletterSubscription(baseDeps(), input('race@mkfraud.co.za'))
+    ]);
+    assert.deepEqual([a.action, b.action].sort(), ['cooldown_no_email', 'send_confirmation']);
+    assert.equal(sentEmails.length, before + 1);
+    const token = tokenFromLastEmail();
+    const outcomes = await Promise.all([
+      confirmNewsletterSubscription(baseDeps(), { rawToken: token, ip: null, userAgent: null }),
+      confirmNewsletterSubscription(baseDeps(), { rawToken: token, ip: null, userAgent: null })
+    ]);
+    const confirmedEvents = (await db.query("select count(*)::int n from marketing.newsletter_consent_events e join marketing.newsletter_subscribers s on s.id = e.subscriber_id where s.email = 'race@mkfraud.co.za' and e.event_type = 'confirmed'")).rows[0].n;
+    assert.equal(confirmedEvents, 1);
+    assert.ok(outcomes.some((o) => o.outcome === 'confirmed'));
+  });
+
+  await test('C2', 'out-of-order events: an older withdrawal after a newer suppression keeps suppression; a late provider re-opt-in never re-subscribes', async () => {
+    const hash = newsletterEmailHash('race@mkfraud.co.za', pepper);
+    const now = Date.now();
+    await store.applyProviderEffect({ p_provider_event_id: 'ooo_sup', p_event_type: 'suppression.added', p_payload_sha256: 'a', p_email_hash: hash, p_effect: 'provider_suppression', p_occurred_at: new Date(now).toISOString(), p_detail: {} });
+    const late = await store.applyProviderEffect({ p_provider_event_id: 'ooo_unsub', p_event_type: 'contact.updated', p_payload_sha256: 'b', p_email_hash: hash, p_effect: 'global_unsubscribe', p_occurred_at: new Date(now - 60_000).toISOString(), p_detail: {} });
+    assert.equal(late.outcome, 'ignored_terminal_state');
+    const reopt = await store.applyProviderEffect({ p_provider_event_id: 'ooo_reopt', p_event_type: 'contact.topics.updated', p_payload_sha256: 'c', p_email_hash: hash, p_effect: 'topic_opt_in_from_provider', p_occurred_at: new Date(now + 1000).toISOString(), p_detail: {} });
+    assert.equal(reopt.outcome, 'no_change');
+    assert.equal((await subRow('race@mkfraud.co.za')).status, 'suppressed');
+  });
+
+  await test('C3', 'missed webhook after a lift: the one permitted lift per consent cannot be claimed twice', async () => {
+    // Fresh subscriber whose Resend contact pre-exists as unsubscribed (an old withdrawal).
+    await requestNewsletterSubscription(baseDeps(), input('lift@mkfraud.co.za'));
+    const provider = resendMock({ contact: { id: 'cl', unsubscribed: true }, topics: [{ id: 'topic-1', subscription: 'opt_out' }] });
+    const deps = baseDeps({ resend: { ...resendConfig(provider.fetchImpl), testAllowlist: new Set(['lift@mkfraud.co.za']) } });
+    // First sync after confirmation lifts it, but the outcome write fails (simulated outage).
+    const failingStore = { ...store, recordSyncOutcome: async () => { throw new Error('supabase_down'); } };
+    await assert.rejects(confirmNewsletterSubscription({ ...deps, store: failingStore }, { rawToken: tokenFromLastEmail(), ip: null, userAgent: null }));
+    assert.equal(provider.state.contact.unsubscribed, false, 'the lift reached Resend');
+    // The person unsubscribes again in Resend; the webhook is missed.
+    provider.state.contact.unsubscribed = true;
+    provider.state.topics = [{ id: 'topic-1', subscription: 'opt_out' }];
+    await reconcileNewsletterBatch(deps, 100);
+    assert.equal(provider.state.contact.unsubscribed, true, 'never re-subscribed by a retry');
+    const row = await subRow('lift@mkfraud.co.za');
+    assert.equal(row.status, 'held');
+    assert.equal(row.hold_reason, 'provider_state_conflict');
+  });
+
+  await test('C4', 'delayed withdrawal event after a fresh confirmation applies when it happened later, is ignored when it happened earlier', async () => {
+    await requestNewsletterSubscription(baseDeps(), input('delay@mkfraud.co.za'));
+    await confirmNewsletterSubscription(baseDeps(), { rawToken: tokenFromLastEmail(), ip: null, userAgent: null });
+    const hash = newsletterEmailHash('delay@mkfraud.co.za', pepper);
+    const early = await store.applyProviderEffect({ p_provider_event_id: 'delay_early', p_event_type: 'contact.updated', p_payload_sha256: 'd', p_email_hash: hash, p_effect: 'global_unsubscribe', p_occurred_at: new Date(Date.now() - 86_400_000).toISOString(), p_detail: {} });
+    assert.equal(early.outcome, 'ignored_superseded_by_newer_consent');
+    const later = await store.applyProviderEffect({ p_provider_event_id: 'delay_later', p_event_type: 'contact.updated', p_payload_sha256: 'e', p_email_hash: hash, p_effect: 'global_unsubscribe', p_occurred_at: new Date(Date.now() + 1000).toISOString(), p_detail: {} });
+    assert.equal(later.outcome, 'withdrawn');
+  });
+
+  await test('W3', 'shared endpoint marketing handler: duplicate deliveries apply once', async () => {
+    const { applyMarketingWebhookEvent } = await import('../src/lib/marketing/marketing-webhook.ts');
+    const args = { store, pepper, signalsTopicId: 'topic-1', providerEventId: 'msg_shared_1', payload: '{}', event: { type: 'email.complained', data: { broadcast_id: 'b', to: ['delay@mkfraud.co.za'] } }, occurredAt: new Date().toISOString() };
+    assert.equal((await applyMarketingWebhookEvent(args)).outcome, 'suppressed');
+    assert.equal((await applyMarketingWebhookEvent(args)).outcome, 'duplicate');
   });
 
   await test('T18-DB', 'audience snapshot reports counts only, no addresses', async () => {

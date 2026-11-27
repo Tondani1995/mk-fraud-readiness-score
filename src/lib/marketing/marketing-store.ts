@@ -1,4 +1,3 @@
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 /**
  * The only file that calls the MK Fraud Signals database functions. Every call is a literal RPC
@@ -60,13 +59,23 @@ export type ReconciliationRow = {
   last_synced_at?: string | null;
 };
 
-export function marketingStore(client: StoreClient = createSupabaseServiceClient() as unknown as StoreClient) {
+export function marketingStore(injected?: StoreClient) {
+  // The service-role client (createSupabaseServiceClient) is loaded on first use, so pure handlers
+  // and tests can import this module without the Supabase runtime.
+  let cached: StoreClient | null = injected ?? null;
+  const db = async (): Promise<StoreClient> => {
+    if (!cached) {
+      const { createSupabaseServiceClient } = await import('@/lib/supabase/server');
+      cached = createSupabaseServiceClient() as unknown as StoreClient;
+    }
+    return cached;
+  };
   return {
     async requestSubscription(args: RequestSubscriptionArgs): Promise<RequestSubscriptionResult> {
-      return unwrap('marketing_request_subscription', await client.rpc('marketing_request_subscription', args));
+      return unwrap('marketing_request_subscription', await (await db()).rpc('marketing_request_subscription', args));
     },
     async peekConfirmationToken(tokenHash: string): Promise<{ state: 'valid' | 'invalid' | 'already_used' | 'expired' | 'superseded'; email?: string }> {
-      return unwrap('marketing_peek_confirmation_token', await client.rpc('marketing_peek_confirmation_token', { p_token_hash: tokenHash }));
+      return unwrap('marketing_peek_confirmation_token', await (await db()).rpc('marketing_peek_confirmation_token', { p_token_hash: tokenHash }));
     },
     async confirmSubscription(args: {
       p_token_hash: string;
@@ -75,7 +84,7 @@ export function marketingStore(client: StoreClient = createSupabaseServiceClient
       p_restriction_decision: string;
       p_restriction_evidence: Record<string, unknown>;
     }): Promise<ConfirmSubscriptionResult> {
-      return unwrap('marketing_confirm_subscription', await client.rpc('marketing_confirm_subscription', args));
+      return unwrap('marketing_confirm_subscription', await (await db()).rpc('marketing_confirm_subscription', args));
     },
     async applyProviderEffect(args: {
       p_provider_event_id: string;
@@ -86,7 +95,7 @@ export function marketingStore(client: StoreClient = createSupabaseServiceClient
       p_occurred_at: string;
       p_detail: Record<string, unknown>;
     }): Promise<{ outcome: string; subscriber_id?: string }> {
-      return unwrap('marketing_apply_provider_effect', await client.rpc('marketing_apply_provider_effect', args));
+      return unwrap('marketing_apply_provider_effect', await (await db()).rpc('marketing_apply_provider_effect', args));
     },
     async recordSyncOutcome(args: {
       p_subscriber_id: string;
@@ -98,13 +107,16 @@ export function marketingStore(client: StoreClient = createSupabaseServiceClient
       p_restriction_decision: string | null;
       p_restriction_evidence: Record<string, unknown> | null;
     }): Promise<{ outcome: string }> {
-      return unwrap('marketing_record_sync_outcome', await client.rpc('marketing_record_sync_outcome', args));
+      return unwrap('marketing_record_sync_outcome', await (await db()).rpc('marketing_record_sync_outcome', args));
+    },
+    async claimProviderLift(subscriberId: string, expectedVersion: number): Promise<{ claimed: boolean; reason?: string; state_version?: number }> {
+      return unwrap('marketing_claim_provider_lift', await (await db()).rpc('marketing_claim_provider_lift', { p_subscriber_id: subscriberId, p_expected_version: expectedVersion }));
     },
     async reconciliationBatch(limit: number): Promise<ReconciliationRow[]> {
-      return unwrap('marketing_reconciliation_batch', await client.rpc('marketing_reconciliation_batch', { p_limit: limit }));
+      return unwrap('marketing_reconciliation_batch', await (await db()).rpc('marketing_reconciliation_batch', { p_limit: limit }));
     },
     async audienceSnapshot(): Promise<Record<string, unknown>> {
-      return unwrap('marketing_audience_snapshot', await client.rpc('marketing_audience_snapshot', {}));
+      return unwrap('marketing_audience_snapshot', await (await db()).rpc('marketing_audience_snapshot', {}));
     }
   };
 }

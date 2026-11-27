@@ -17,7 +17,7 @@ Prepared 27 November 2026 on branch `feature/mk-fraud-signals-newsletter-2026112
 1. **Subscribe** (`POST /api/newsletter/subscribe`): unticked consent box must be ticked; honeypot; per-IP, per-address and global daily caps. Records `subscription_requested` with the exact wording, version, SHA-256, source, path, hashed IP and user agent. Issues a single-use token (SHA-256 stored, 72 h TTL). Sends the confirmation email from `signals@send.mkfraud.co.za`, Reply-To `rendani@mkfraud.co.za`. Response is identical for every outcome.
 2. **Confirm** (`/mk-fraud-signals/confirm` page, then `POST /api/newsletter/confirm`): token removed from the address bar on load; confirmation only on button press (link scanners cannot confirm). Server peeks the token, screens the address in Attio, then records `confirmed` and the screening decision atomically. `subscribed` only if the decision is `clear` (database CHECK constraint); otherwise `held`.
 3. **Provider sync**: create contact with topic opt-in and no segment, then add the segment last. Withdrawals are written first. A Resend unsubscribe or topic opt-out can only be lifted by the first sync after a fresh confirmation that is newer than every recorded withdrawal.
-4. **Webhook** (`POST /api/webhooks/resend-marketing`, own secret): Svix signature, 5-minute replay window, body cap, svix-id ledger (at most once). Non-broadcast email events are ignored, so Fraud Readiness delivery state is untouched.
+4. **Webhook** (`POST /api/webhooks/resend-events`, the ONE Resend endpoint on the Free plan): Svix signature, 5-minute replay window and body cap checked once; each event is classified and handed to one isolated handler. Marketing events (contacts, topics, suppressions, broadcast and confirmation emails) apply at most once via the svix-id ledger. Transactional email events are forwarded unchanged to the existing Fraud Readiness route only when `MK_RESEND_SHARED_WEBHOOK_TRANSACTIONAL=enabled` and `RESEND_WEBHOOK_SECRET` equals this endpoint's secret; otherwise they are acknowledged and dropped (today's production behaviour).
 5. **Reconcile** (`POST /api/internal/marketing-reconcile`, `Authorization: Bearer $CRON_SECRET`): re-screens Attio for everyone reachable, re-reads Resend, pushes withdrawals outward, holds disagreements, returns the audience snapshot. Run every 6 hours and immediately before every broadcast.
 
 ## 3. Precedence (fail closed)
@@ -33,7 +33,8 @@ Automated release exists for one case only: a hold caused by Attio being unreach
 | `MK_MARKETING_MODE` | Vercel (server) | `disabled` (default) / `test` / `live` |
 | `NEXT_PUBLIC_MK_NEWSLETTER_ENABLED` | Vercel (build) | `true` shows footer form and pages |
 | `MK_MARKETING_RESEND_API_KEY` | Vercel (server, sensitive) | New dedicated key "MK Marketing integration" (full access is the only Resend scope that can manage contacts) |
-| `RESEND_MARKETING_WEBHOOK_SECRET` | Vercel (server, sensitive) | `whsec_...` of the new marketing webhook only |
+| `RESEND_EVENTS_WEBHOOK_SECRET` | Vercel (server, sensitive) | `whsec_...` of the single shared Resend endpoint |
+| `MK_RESEND_SHARED_WEBHOOK_TRANSACTIONAL` | Vercel (server) | unset (default) / `enabled` once customer transactional email returns; also set `RESEND_WEBHOOK_SECRET` to the same secret |
 | `MK_SIGNALS_RESEND_TOPIC_ID` | Vercel | ID of topic "MK Fraud Signals" (default subscription **opt_out**, see 5) |
 | `MK_SIGNALS_RESEND_SEGMENT_ID` | Vercel | ID of segment "MK Fraud Signals" |
 | `MK_QA_RESEND_SEGMENT_ID` | Vercel | ID of segment "MK Internal QA" |

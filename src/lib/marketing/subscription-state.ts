@@ -198,6 +198,13 @@ export function planResendContactSync(local: LocalSubscriber, remote: RemoteCont
   return plan;
 }
 
+/** Does this plan re-subscribe a contact that Resend currently reports as withdrawn? */
+export function planLiftsProviderWithdrawal(plan: ResendSyncPlan, remote: RemoteContact): boolean {
+  if (plan.action !== 'apply' || !remote.exists) return false;
+  return (plan.setUnsubscribed === false && remote.unsubscribed === true)
+    || (plan.topic === 'opt_in' && remote.topicSubscription === 'opt_out');
+}
+
 export type ProviderEffect =
   | { kind: 'global_unsubscribe'; email: string }
   | { kind: 'topic_opt_out'; email: string }

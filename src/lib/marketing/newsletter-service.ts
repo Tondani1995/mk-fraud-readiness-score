@@ -16,7 +16,7 @@ import {
   sendConfirmationEmail,
   type MarketingResendConfig
 } from '@/lib/marketing/resend-marketing';
-import { planResendContactSync, type LocalSubscriber } from '@/lib/marketing/subscription-state';
+import { planLiftsProviderWithdrawal, planResendContactSync, type LocalSubscriber } from '@/lib/marketing/subscription-state';
 import type { MarketingStore, ReconciliationRow } from '@/lib/marketing/marketing-store';
 
 export type NewsletterDeps = {
@@ -195,11 +195,27 @@ export async function syncOneSubscriber(deps: NewsletterDeps, row: Reconciliatio
       return { outcome: 'held', detail: plan.reason };
     }
     let contactId = remote.contactId;
+    let version = row.state_version;
     if (plan.action === 'apply') {
+      if (planLiftsProviderWithdrawal(plan, remote)) {
+        // Write-ahead, single use per consent: claimed before the Resend write, never re-claimable.
+        const claim = await deps.store.claimProviderLift(row.id, version);
+        if (!claim.claimed || claim.state_version === undefined) {
+          await removeFromDistributionIfPresent(deps, row);
+          await deps.store.recordSyncOutcome({
+            p_subscriber_id: row.id, p_expected_version: version, p_outcome: 'held', p_resend_contact_id: remote.contactId,
+            p_error: `provider_lift_refused:${claim.reason ?? 'unknown'}`, p_hold_reason: 'provider_state_conflict',
+            p_restriction_decision: restriction?.decision ?? null,
+            p_restriction_evidence: (restriction?.evidence as unknown as Record<string, unknown>) ?? null
+          });
+          return { outcome: 'held', detail: `provider_lift_refused:${claim.reason ?? 'unknown'}` };
+        }
+        version = claim.state_version;
+      }
       contactId = (await (deps.applyPlan ?? applyResendSyncPlan)(deps.resend, row.email, plan, remote.contactId)).contactId;
     }
     const recorded = await deps.store.recordSyncOutcome({
-      p_subscriber_id: row.id, p_expected_version: row.state_version, p_outcome: 'synced', p_resend_contact_id: contactId,
+      p_subscriber_id: row.id, p_expected_version: version, p_outcome: 'synced', p_resend_contact_id: contactId,
       p_error: null, p_hold_reason: null, p_restriction_decision: restriction?.decision ?? null,
       p_restriction_evidence: (restriction?.evidence as unknown as Record<string, unknown>) ?? null
     });

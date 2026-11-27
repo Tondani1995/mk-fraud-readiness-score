@@ -46,6 +46,8 @@ create table marketing.newsletter_subscribers (
   last_sync_error text,
   last_synced_at timestamptz,
   last_engagement_at timestamptz,
+  -- The consent event whose one permitted provider-withdrawal lift has been used (write-ahead).
+  provider_lift_consent_event_id uuid,
   state_version bigint not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -496,6 +498,41 @@ begin
 end;
 $$;
 
+-- 4b. Write-ahead claim of the single provider-withdrawal lift a fresh consent allows. Called BEFORE
+--     any Resend write that would re-subscribe a contact Resend reports as withdrawn. Once claimed for
+--     a consent, a second lift for that consent is refused even if the first sync failed half-way, so a
+--     missed unsubscribe webhook can never be undone by a retry.
+create function public.marketing_claim_provider_lift(p_subscriber_id uuid, p_expected_version bigint) returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_sub marketing.newsletter_subscribers%rowtype;
+begin
+  select * into v_sub from marketing.newsletter_subscribers where id = p_subscriber_id for update;
+  if not found then return jsonb_build_object('claimed', false, 'reason', 'not_found'); end if;
+  if v_sub.state_version <> p_expected_version then
+    return jsonb_build_object('claimed', false, 'reason', 'stale_version');
+  end if;
+  if v_sub.status <> 'subscribed' or v_sub.current_consent_event_id is null then
+    return jsonb_build_object('claimed', false, 'reason', 'not_subscribed');
+  end if;
+  if v_sub.unsubscribed_at is not null and v_sub.consent_confirmed_at <= v_sub.unsubscribed_at then
+    return jsonb_build_object('claimed', false, 'reason', 'consent_not_newer_than_withdrawal');
+  end if;
+  if v_sub.provider_lift_consent_event_id is not distinct from v_sub.current_consent_event_id then
+    return jsonb_build_object('claimed', false, 'reason', 'already_consumed');
+  end if;
+  update marketing.newsletter_subscribers
+     set provider_lift_consent_event_id = current_consent_event_id,
+         state_version = state_version + 1, updated_at = now()
+   where id = v_sub.id
+   returning * into v_sub;
+  return jsonb_build_object('claimed', true, 'state_version', v_sub.state_version);
+end;
+$$;
+
 -- 5. The next people the reconciler should look at.
 create function public.marketing_reconciliation_batch(p_limit integer) returns jsonb
 language sql
@@ -542,6 +579,7 @@ revoke all on function public.marketing_peek_confirmation_token(text) from publi
 revoke all on function public.marketing_confirm_subscription(text, text, text, text, jsonb) from public, anon, authenticated;
 revoke all on function public.marketing_apply_provider_effect(text, text, text, text, text, timestamptz, jsonb) from public, anon, authenticated;
 revoke all on function public.marketing_record_sync_outcome(uuid, bigint, text, text, text, text, text, jsonb) from public, anon, authenticated;
+revoke all on function public.marketing_claim_provider_lift(uuid, bigint) from public, anon, authenticated;
 revoke all on function public.marketing_reconciliation_batch(integer) from public, anon, authenticated;
 revoke all on function public.marketing_audience_snapshot() from public, anon, authenticated;
 revoke all on function marketing.forbid_consent_event_mutation() from public, anon, authenticated;
@@ -551,5 +589,6 @@ grant execute on function public.marketing_peek_confirmation_token(text) to serv
 grant execute on function public.marketing_confirm_subscription(text, text, text, text, jsonb) to service_role;
 grant execute on function public.marketing_apply_provider_effect(text, text, text, text, text, timestamptz, jsonb) to service_role;
 grant execute on function public.marketing_record_sync_outcome(uuid, bigint, text, text, text, text, text, jsonb) to service_role;
+grant execute on function public.marketing_claim_provider_lift(uuid, bigint) to service_role;
 grant execute on function public.marketing_reconciliation_batch(integer) to service_role;
 grant execute on function public.marketing_audience_snapshot() to service_role;

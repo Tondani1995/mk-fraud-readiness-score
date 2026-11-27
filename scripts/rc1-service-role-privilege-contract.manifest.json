@@ -2041,6 +2041,16 @@
       ],
       "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
       "justification": "Read-only aggregate counts for broadcast audience verification and weekly reporting; no addresses."
+    },
+    {
+      "signature": "public.marketing_claim_provider_lift(uuid,bigint)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Write-ahead, single-use claim of the one provider-withdrawal lift a fresh confirmed consent allows; refuses a second lift so a missed unsubscribe webhook can never be undone by a retry."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -2246,7 +2256,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "23e3cd1d0b488d08858c811ce84201c83e4bef75a2fb4d6df8ebe98d45aeedc3"
+    "fullAstInventorySha256": "dc76254d2b3789384e56ef73c6b18e2f507dbb4cdd4bd4f44ed3ea9440d2ef6d"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -2773,12 +2783,12 @@
   },
   "nov2026MarketingConsentPrivilegeReview": {
     "reviewedAt": "2026-11-27",
-    "scope": "New private schema marketing (4 RLS-enabled tables, no anon/authenticated grants) and 7 SECURITY DEFINER RPCs executable by service_role only, for MK Fraud Signals consent evidence, suppression and reconciliation",
+    "scope": "New private schema marketing (4 RLS-enabled tables, no anon/authenticated grants) and 8 SECURITY DEFINER RPCs executable by service_role only, for MK Fraud Signals consent evidence, suppression, single-use provider-lift claims and reconciliation",
     "dbVerification": "Migration executed in embedded Postgres 17 (PGlite) by scripts/marketing-newsletter-tests.mjs; anon and authenticated denied on every function and table; NOT yet applied to Staging or Production",
     "operations": "Fixed empty search_path; no dynamic SQL; consent events append-only by trigger; subscribed status gated by CHECK constraint on confirmed consent and clear restriction decision",
-    "affectedCode": "src/lib/marketing/*, src/app/api/newsletter/*, src/app/api/webhooks/resend-marketing, src/app/api/internal/marketing-reconcile",
+    "affectedCode": "src/lib/marketing/*, src/app/api/newsletter/*, src/app/api/webhooks/resend-events (shared Resend endpoint), src/app/api/internal/marketing-reconcile",
     "productionCustomerImpact": "None until the owner applies the migration and sets MK_MARKETING_MODE and NEXT_PUBLIC_MK_NEWSLETTER_ENABLED; no change to assessment, scoring, ordering, fulfilment, report delivery or the transactional Resend webhook",
     "approvedBy": "PENDING OWNER PRIVILEGE REVIEW (prepared on branch feature/mk-fraud-signals-newsletter-20261127)",
-    "analysisHash": "23e3cd1d0b488d08858c811ce84201c83e4bef75a2fb4d6df8ebe98d45aeedc3"
+    "analysisHash": "dc76254d2b3789384e56ef73c6b18e2f507dbb4cdd4bd4f44ed3ea9440d2ef6d"
   }
 }

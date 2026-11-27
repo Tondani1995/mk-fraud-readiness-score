@@ -23,7 +23,7 @@ export function newsletterDepsFromEnv(): NewsletterDeps | null {
 }
 
 export function marketingWebhookSecret(): string | null {
-  const secret = process.env.RESEND_MARKETING_WEBHOOK_SECRET?.trim();
+  const secret = process.env.RESEND_EVENTS_WEBHOOK_SECRET?.trim();
   // Never fall back to the transactional RESEND_WEBHOOK_SECRET.
   return secret && secret.startsWith('whsec_') ? secret : null;
 }
