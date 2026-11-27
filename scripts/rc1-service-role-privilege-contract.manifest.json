@@ -1971,6 +1971,86 @@
       ],
       "classification": "REVISED REVIEW FIRST-PARTY CAMPAIGN ATTRIBUTION; service-role only",
       "justification": "Records the exact commissioned non-PII content ID once on a real session contact, only from the consent-gated public start. No private links, answers or ad click identifiers."
+    },
+    {
+      "signature": "public.marketing_request_subscription(text,text,text,text,text,text,text,text,text,text,text,integer,integer,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Records a newsletter subscription request with versioned consent wording and issues a hashed single-use confirmation token. Never sets subscribed."
+    },
+    {
+      "signature": "public.marketing_peek_confirmation_token(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Read-only token look-up returning the address for a valid, unused, newest token so the Attio restriction screen runs before confirmation. Consumes nothing."
+    },
+    {
+      "signature": "public.marketing_confirm_subscription(text,text,text,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Double opt-in confirmation; the only path to subscribed, and only with a clear organisation-restriction decision (schema constraint)."
+    },
+    {
+      "signature": "public.marketing_apply_provider_effect(text,text,text,text,text,timestamptz,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "At-most-once application of a signature-verified Resend marketing event keyed by svix-id; can only reduce reachability."
+    },
+    {
+      "signature": "public.marketing_record_sync_outcome(uuid,bigint,text,text,text,text,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Records a provider sync / restriction re-screen outcome under an optimistic version guard so a stale sync never overwrites a withdrawal."
+    },
+    {
+      "signature": "public.marketing_reconciliation_batch(integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Read-only batch of non-pending subscribers needing provider reconciliation (max 100)."
+    },
+    {
+      "signature": "public.marketing_audience_snapshot()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Read-only aggregate counts for broadcast audience verification and weekly reporting; no addresses."
+    },
+    {
+      "signature": "public.marketing_claim_provider_lift(uuid,bigint)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/marketing/marketing-store.ts"
+      ],
+      "classification": "MK FRAUD SIGNALS MARKETING CONSENT; service-role only; private marketing schema",
+      "justification": "Write-ahead, single-use claim of the one provider-withdrawal lift a fresh confirmed consent allows; refuses a second lift so a missed unsubscribe webhook can never be undone by a retry."
     }
   ],
   "operatorOnlyServiceRoleRpcs": [
@@ -2176,7 +2256,7 @@
       "src/lib/reports/premium-report-service-core.ts:708:rpc",
       "src/lib/reports/premium-report-service-core.ts:74:rpc"
     ],
-    "fullAstInventorySha256": "13430be19b916e67619df1e758fdc4483f5d836a851e57c890d49aa931bbb40c"
+    "fullAstInventorySha256": "dc76254d2b3789384e56ef73c6b18e2f507dbb4cdd4bd4f44ed3ea9440d2ef6d"
   },
   "rc2PrivilegeReview": {
     "reviewedAt": "2026-08-27",
@@ -2700,5 +2780,15 @@
     ],
     "productionCustomerImpact": "None. Manifest and analysis only; no runtime code, grant or migration changed.",
     "analysisHash": "3272445f137e4bcc4004e8fb7825826583b5c3c096f1dc79157d02a4396bba20"
+  },
+  "nov2026MarketingConsentPrivilegeReview": {
+    "reviewedAt": "2026-11-27",
+    "scope": "New private schema marketing (4 RLS-enabled tables, no anon/authenticated grants) and 8 SECURITY DEFINER RPCs executable by service_role only, for MK Fraud Signals consent evidence, suppression, single-use provider-lift claims and reconciliation",
+    "dbVerification": "Migration executed in embedded Postgres 17 (PGlite) by scripts/marketing-newsletter-tests.mjs; anon and authenticated denied on every function and table; NOT yet applied to Staging or Production",
+    "operations": "Fixed empty search_path; no dynamic SQL; consent events append-only by trigger; subscribed status gated by CHECK constraint on confirmed consent and clear restriction decision",
+    "affectedCode": "src/lib/marketing/*, src/app/api/newsletter/*, src/app/api/webhooks/resend-events (shared Resend endpoint), src/app/api/internal/marketing-reconcile",
+    "productionCustomerImpact": "None until the owner applies the migration and sets MK_MARKETING_MODE and NEXT_PUBLIC_MK_NEWSLETTER_ENABLED; no change to assessment, scoring, ordering, fulfilment, report delivery or the transactional Resend webhook",
+    "approvedBy": "PENDING OWNER PRIVILEGE REVIEW (prepared on branch feature/mk-fraud-signals-newsletter-20261127)",
+    "analysisHash": "dc76254d2b3789384e56ef73c6b18e2f507dbb4cdd4bd4f44ed3ea9440d2ef6d"
   }
 }

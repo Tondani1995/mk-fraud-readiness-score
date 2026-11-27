@@ -2,7 +2,9 @@ import { Linkedin, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import TrackedLink from "@/components/website/TrackedLink";
+import NewsletterSignup from "@/components/website/newsletter/NewsletterSignup";
 import { CAPABILITIES } from "@/lib/website/capabilities";
+import { NEWSLETTER_ENABLED } from "@/lib/marketing/newsletter-flag";
 
 const linkedInUrl = "https://www.linkedin.com/company/mkstratinsights/";
 
@@ -101,6 +103,17 @@ export default function Footer() {
             </FooterColumn>
           </div>
         </div>
+
+        {NEWSLETTER_ENABLED ? (
+          <div className="mt-12 grid gap-6 border-t border-white/10 pt-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)] lg:gap-12">
+            <NewsletterSignup
+              source="footer"
+              tone="dark"
+              heading="MK Fraud Signals"
+              description="A short weekly email on where fraud exposure is moving in South Africa and what leadership should ask about it."
+            />
+          </div>
+        ) : null}
 
         <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-white/55 lg:flex-row lg:items-center lg:justify-between">
           <p>&copy; {year} Stonda (Pty) Ltd. MK Fraud Insights is a trading name of Stonda (Pty) Ltd.</p>
